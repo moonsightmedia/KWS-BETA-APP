@@ -19,7 +19,7 @@ export const CategoryChart = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
+        <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8">
           <div className="flex-shrink-0">
             <ResponsiveContainer width={200} height={200}>
               <PieChart>
