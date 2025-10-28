@@ -43,10 +43,10 @@ export const Sidebar = ({ className }: SidebarProps) => {
                     <NavLink
                       to={item.path}
                       className={({ isActive }) => cn(
-                        "flex flex-row items-center gap-3 py-3 mx-4 rounded-xl transition-all duration-300 relative",
+                        "flex flex-row items-center gap-3 px-6 py-3 mx-4 rounded-xl transition-all duration-300",
                         isActive
-                          ? "bg-primary text-primary-foreground shadow-lg pl-5 pr-6 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-success before:rounded-l-xl" 
-                          : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 px-6"
+                          ? "bg-success text-white shadow-lg" 
+                          : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
                       )}
                     >
                       <div className="grid place-items-center w-8 h-8 flex-shrink-0">
@@ -58,9 +58,9 @@ export const Sidebar = ({ className }: SidebarProps) => {
                     <NavLink
                       to={item.path}
                       className={({ isActive }) => cn(
-                        "grid place-items-center w-12 h-12 mx-auto rounded-xl transition-all duration-300 relative",
+                        "grid place-items-center w-12 h-12 mx-auto rounded-xl transition-all duration-300",
                         isActive
-                          ? "bg-primary text-primary-foreground shadow-lg before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-success before:rounded-l-xl" 
+                          ? "bg-success text-white shadow-lg" 
                           : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
                       )}
                     >
@@ -107,10 +107,10 @@ export const Sidebar = ({ className }: SidebarProps) => {
               key={item.label}
               to={item.path}
               className={({ isActive }) => cn(
-                "flex flex-col items-center justify-center gap-1 px-4 rounded-xl transition-all duration-300 relative",
+                "flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition-all duration-300",
                 isActive
-                  ? "bg-primary text-primary-foreground pt-3 pb-2 before:absolute before:top-0 before:left-0 before:right-0 before:h-1 before:bg-success before:rounded-t-xl" 
-                  : "text-sidebar-icon py-2"
+                  ? "bg-success text-white" 
+                  : "text-sidebar-icon"
               )}
             >
               <item.icon className="w-5 h-5" />
