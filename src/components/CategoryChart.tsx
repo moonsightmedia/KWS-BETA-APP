@@ -11,7 +11,7 @@ const data = [
 
 export const CategoryChart = () => {
   return (
-    <Card className="shadow-soft">
+    <Card className="shadow-soft w-full">
       <CardHeader>
         <div>
           <CardTitle className="text-xl font-semibold mb-1">Boulder nach Sektor</CardTitle>
@@ -19,31 +19,33 @@ export const CategoryChart = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center gap-8">
-          <ResponsiveContainer width={200} height={200}>
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={90}
-                paddingAngle={2}
-                dataKey="value"
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
+        <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
+          <div className="flex-shrink-0">
+            <ResponsiveContainer width={200} height={200}>
+              <PieChart>
+                <Pie
+                  data={data}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={90}
+                  paddingAngle={2}
+                  dataKey="value"
+                >
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
 
-          <div className="flex-1 space-y-3">
+          <div className="flex-1 w-full space-y-3">
             {data.map((item, index) => (
               <div key={index} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <div 
-                    className="w-3 h-3 rounded-full" 
+                    className="w-3 h-3 rounded-full flex-shrink-0" 
                     style={{ backgroundColor: item.color }}
                   />
                   <span className="text-muted-foreground">{item.name}</span>

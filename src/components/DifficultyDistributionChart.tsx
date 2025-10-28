@@ -35,13 +35,13 @@ export const DifficultyDistributionChart = ({ stats, avgDifficulty }: Difficulty
   }));
 
   return (
-    <Card className="shadow-soft col-span-2">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
+    <Card className="shadow-soft lg:col-span-2 w-full">
+      <CardHeader className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex-1 min-w-0">
             <CardTitle className="text-xl font-semibold mb-1">
               Schwierigkeitsverteilung
-              <span className="ml-3 text-sm font-normal text-muted-foreground">
+              <span className="ml-2 md:ml-3 text-sm font-normal text-muted-foreground">
                 Ø {selectedSector === 'all' ? avgDifficulty : filteredAvg}
               </span>
             </CardTitle>
@@ -51,10 +51,10 @@ export const DifficultyDistributionChart = ({ stats, avgDifficulty }: Difficulty
           </div>
           
           <Select value={selectedSector} onValueChange={setSelectedSector}>
-            <SelectTrigger className="w-56">
+            <SelectTrigger className="w-full sm:w-56">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-card z-50">
               <SelectItem value="all">Alle Sektoren</SelectItem>
               {mockSectors.map((sector) => (
                 <SelectItem key={sector.id} value={sector.name}>
@@ -65,9 +65,9 @@ export const DifficultyDistributionChart = ({ stats, avgDifficulty }: Difficulty
           </Select>
         </div>
       </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={data} barSize={48}>
+      <CardContent className="overflow-x-auto">
+        <ResponsiveContainer width="100%" height={280} minWidth={300}>
+          <BarChart data={data} barSize={48} margin={{ left: -20, right: 10 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
             <XAxis 
               dataKey="name" 

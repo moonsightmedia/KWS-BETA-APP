@@ -78,10 +78,10 @@ const Boulders = () => {
     <div className="min-h-screen bg-background flex">
       <Sidebar />
       
-      <div className="flex-1 flex flex-col md:ml-20">
+      <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
         <DashboardHeader />
         
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-4 md:p-8">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -97,7 +97,7 @@ const Boulders = () => {
           </div>
 
           {/* Filters */}
-          <div className="grid gap-4 md:grid-cols-4 mb-6">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-6">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -112,7 +112,7 @@ const Boulders = () => {
               <SelectTrigger>
                 <SelectValue placeholder="Alle Sektoren" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-card z-50">
                 <SelectItem value="all">Alle Sektoren</SelectItem>
                 {mockSectors.map((sector) => (
                   <SelectItem key={sector.id} value={sector.name}>
@@ -126,7 +126,7 @@ const Boulders = () => {
               <SelectTrigger>
                 <SelectValue placeholder="Alle Schwierigkeiten" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-card z-50">
                 <SelectItem value="all">Alle Schwierigkeiten</SelectItem>
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((diff) => (
                   <SelectItem key={diff} value={diff.toString()}>
@@ -140,7 +140,7 @@ const Boulders = () => {
               <SelectTrigger>
                 <SelectValue placeholder="Sortieren nach" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-card z-50">
                 <SelectItem value="date">Neueste zuerst</SelectItem>
                 <SelectItem value="difficulty">Schwierigkeit</SelectItem>
                 <SelectItem value="name">Name (A-Z)</SelectItem>
