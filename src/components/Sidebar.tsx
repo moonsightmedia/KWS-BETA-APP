@@ -1,4 +1,4 @@
-import { LayoutDashboard, FileText, Grid3x3, Users, Presentation, MessageCircle, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, List, Map, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
@@ -8,11 +8,8 @@ interface SidebarProps {
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard' },
-  { icon: FileText, label: 'Dokumente' },
-  { icon: Grid3x3, label: 'Boulder' },
-  { icon: Users, label: 'Benutzer' },
-  { icon: Presentation, label: 'Statistiken' },
-  { icon: MessageCircle, label: 'Feedback' },
+  { icon: List, label: 'Boulder' },
+  { icon: Map, label: 'Sektoren' },
 ];
 
 export const Sidebar = ({ className }: SidebarProps) => {
