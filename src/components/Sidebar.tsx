@@ -1,9 +1,17 @@
-import { LayoutDashboard, List, Map, ChevronRight, ChevronLeft } from 'lucide-react';
+import { LayoutDashboard, List, Map, ChevronRight, ChevronLeft, User, LogOut, Settings, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface SidebarProps {
   className?: string;
@@ -18,6 +26,8 @@ const navItems = [
 export const Sidebar = ({ className }: SidebarProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
 
   return (
     <>
@@ -27,11 +37,47 @@ export const Sidebar = ({ className }: SidebarProps) => {
         isExpanded ? "w-48 items-start" : "w-20 items-center",
         className
       )}>
-        {/* Profile Picture */}
+        {/* Profile Picture with Dropdown */}
         <div className={cn("mb-6", isExpanded ? "px-4" : "")}>
-          <Avatar className="w-12 h-12">
-            <AvatarFallback className="bg-primary text-primary-foreground">KS</AvatarFallback>
-          </Avatar>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="cursor-pointer focus:outline-none">
+                <Avatar className="w-12 h-12 hover:opacity-80 transition-opacity">
+                  <AvatarFallback className="bg-primary text-primary-foreground">
+                    {user ? (
+                      user.email?.substring(0, 2).toUpperCase() || 'KS'
+                    ) : (
+                      <HelpCircle className="w-6 h-6" />
+                    )}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56 bg-card">
+              {user ? (
+                <>
+                  <div className="px-2 py-1.5">
+                    <p className="text-sm font-medium">{user.email}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                    <Settings className="w-4 h-4 mr-2" />
+                    Profil Einstellungen
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={signOut} className="text-destructive">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Abmelden
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <DropdownMenuItem onClick={() => navigate('/auth')}>
+                  <User className="w-4 h-4 mr-2" />
+                  Anmelden
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Navigation */}
