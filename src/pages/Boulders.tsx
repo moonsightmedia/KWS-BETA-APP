@@ -91,7 +91,7 @@ const Boulders = () => {
           </div>
 
           {/* Filters */}
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+          <div className="space-y-3 mb-6">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -102,44 +102,46 @@ const Boulders = () => {
               />
             </div>
 
-            <Select value={sectorFilter} onValueChange={setSectorFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Alle Sektoren" />
-              </SelectTrigger>
-              <SelectContent className="bg-card z-50">
-                <SelectItem value="all">Alle Sektoren</SelectItem>
-                {mockSectors.map((sector) => (
-                  <SelectItem key={sector.id} value={sector.name}>
-                    {sector.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+              <Select value={sectorFilter} onValueChange={setSectorFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Alle Sektoren" />
+                </SelectTrigger>
+                <SelectContent className="bg-card z-50">
+                  <SelectItem value="all">Alle Sektoren</SelectItem>
+                  {mockSectors.map((sector) => (
+                    <SelectItem key={sector.id} value={sector.name}>
+                      {sector.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Alle Schwierigkeiten" />
-              </SelectTrigger>
-              <SelectContent className="bg-card z-50">
-                <SelectItem value="all">Alle Schwierigkeiten</SelectItem>
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((diff) => (
-                  <SelectItem key={diff} value={diff.toString()}>
-                    Schwierigkeit {diff}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Alle Schwierigkeiten" />
+                </SelectTrigger>
+                <SelectContent className="bg-card z-50">
+                  <SelectItem value="all">Alle Schwierigkeiten</SelectItem>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((diff) => (
+                    <SelectItem key={diff} value={diff.toString()}>
+                      Schwierigkeit {diff}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sortieren nach" />
-              </SelectTrigger>
-              <SelectContent className="bg-card z-50">
-                <SelectItem value="date">Neueste zuerst</SelectItem>
-                <SelectItem value="difficulty">Schwierigkeit</SelectItem>
-                <SelectItem value="name">Name (A-Z)</SelectItem>
-              </SelectContent>
-            </Select>
+              <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sortieren nach" />
+                </SelectTrigger>
+                <SelectContent className="bg-card z-50">
+                  <SelectItem value="date">Neueste zuerst</SelectItem>
+                  <SelectItem value="difficulty">Schwierigkeit</SelectItem>
+                  <SelectItem value="name">Name (A-Z)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Boulder Cards */}
