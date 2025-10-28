@@ -35,7 +35,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
 
         {/* Navigation */}
         <TooltipProvider delayDuration={300}>
-          <nav className={cn("flex-1 flex flex-col gap-4 w-full", isExpanded ? "justify-start" : "items-center justify-center")}>
+          <nav className="flex-1 flex flex-col gap-4 w-full">
             {navItems.map((item) => (
               <Tooltip key={item.label}>
                 <TooltipTrigger asChild>
