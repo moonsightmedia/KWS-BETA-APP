@@ -22,7 +22,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
     <>
       {/* Desktop Sidebar */}
       <aside className={cn(
-        "hidden md:flex bg-sidebar-bg flex-col py-6 transition-all duration-300 h-screen fixed left-0 top-0",
+        "hidden md:flex bg-sidebar-bg flex-col py-6 transition-all duration-300 h-screen fixed left-0 top-0 z-50",
         isExpanded ? "w-48 items-start" : "w-20 items-center",
         className
       )}>
@@ -43,7 +43,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                     to={item.path}
                     className={({ isActive }) => cn(
                       "flex items-center rounded-xl transition-all duration-300",
-                      isExpanded ? "px-4 py-3 gap-3 w-full" : "w-12 h-12 justify-center",
+                      isExpanded ? "px-4 py-3 gap-3 w-full justify-start" : "w-12 h-12 justify-center",
                       isActive
                         ? "bg-primary text-primary-foreground shadow-lg" 
                         : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
@@ -69,7 +69,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
             onClick={() => setIsExpanded(!isExpanded)}
             className={cn(
               "rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 flex items-center transition-all duration-300",
-              isExpanded ? "px-4 py-3 gap-3 w-full" : "w-12 h-12 justify-center"
+              isExpanded ? "px-4 py-3 gap-3 w-full justify-start" : "w-12 h-12 justify-center"
             )}
           >
             {isExpanded ? (
@@ -99,7 +99,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
               )}
             >
               <item.icon className="w-5 h-5" />
-              <span className="text-xs">{item.label}</span>
+              <span className="text-xs font-medium">{item.label}</span>
             </NavLink>
           ))}
         </div>
