@@ -1,4 +1,4 @@
-import { LayoutDashboard, List, Map, RefreshCw, ChevronRight, ChevronLeft } from 'lucide-react';
+import { LayoutDashboard, List, Map, ChevronRight, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -22,28 +22,28 @@ export const Sidebar = ({ className }: SidebarProps) => {
     <>
       {/* Desktop Sidebar */}
       <aside className={cn(
-        "hidden md:flex bg-sidebar-bg flex-col items-center py-6 gap-6 transition-all duration-300 h-screen fixed left-0 top-0",
-        isExpanded ? "w-48" : "w-20",
+        "hidden md:flex bg-sidebar-bg flex-col py-6 transition-all duration-300 h-screen fixed left-0 top-0",
+        isExpanded ? "w-48 items-start" : "w-20 items-center",
         className
       )}>
         {/* Profile Picture */}
-        <div className="relative">
-          <Avatar className="w-12 h-12 mb-2">
+        <div className={cn("mb-6", isExpanded ? "px-4" : "")}>
+          <Avatar className="w-12 h-12">
             <AvatarFallback className="bg-primary text-primary-foreground">KS</AvatarFallback>
           </Avatar>
         </div>
 
         {/* Navigation */}
         <TooltipProvider delayDuration={300}>
-          <nav className="flex-1 flex flex-col gap-4 w-full px-4">
+          <nav className={cn("flex-1 flex flex-col gap-4", isExpanded ? "w-full px-4" : "w-full items-center")}>
             {navItems.map((item) => (
               <Tooltip key={item.label}>
                 <TooltipTrigger asChild>
                   <NavLink
                     to={item.path}
                     className={({ isActive }) => cn(
-                      "flex items-center gap-3 rounded-xl transition-all duration-300",
-                      isExpanded ? "px-4 py-3" : "w-12 h-12 justify-center",
+                      "flex items-center rounded-xl transition-all duration-300",
+                      isExpanded ? "px-4 py-3 gap-3 w-full" : "w-12 h-12 justify-center",
                       isActive
                         ? "bg-primary text-primary-foreground shadow-lg" 
                         : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
@@ -63,43 +63,25 @@ export const Sidebar = ({ className }: SidebarProps) => {
           </nav>
         </TooltipProvider>
 
-        {/* Refresh Button */}
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className={cn(
-                "rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 flex items-center gap-3 transition-all duration-300",
-                isExpanded ? "px-4 py-3 w-full mx-4" : "w-12 h-12 justify-center"
-              )}>
-                <RefreshCw className="w-5 h-5 flex-shrink-0" />
-                {isExpanded && <span className="text-sm font-medium">Aktualisieren</span>}
-              </button>
-            </TooltipTrigger>
-            {!isExpanded && (
-              <TooltipContent side="right">
-                <p>Aktualisieren</p>
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
-
         {/* Toggle Button */}
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className={cn(
-            "rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 flex items-center gap-3 transition-all duration-300",
-            isExpanded ? "px-4 py-3 w-full mx-4" : "w-12 h-12 justify-center"
-          )}
-        >
-          {isExpanded ? (
-            <>
-              <ChevronLeft className="w-5 h-5 flex-shrink-0" />
-              {isExpanded && <span className="text-sm font-medium">Einklappen</span>}
-            </>
-          ) : (
-            <ChevronRight className="w-5 h-5" />
-          )}
-        </button>
+        <div className={cn(isExpanded ? "px-4 w-full" : "")}>
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className={cn(
+              "rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 flex items-center transition-all duration-300",
+              isExpanded ? "px-4 py-3 gap-3 w-full" : "w-12 h-12 justify-center"
+            )}
+          >
+            {isExpanded ? (
+              <>
+                <ChevronLeft className="w-5 h-5 flex-shrink-0" />
+                <span className="text-sm font-medium">Einklappen</span>
+              </>
+            ) : (
+              <ChevronRight className="w-5 h-5" />
+            )}
+          </button>
+        </div>
       </aside>
 
       {/* Mobile Bottom Navigation */}
