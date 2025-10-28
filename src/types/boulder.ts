@@ -18,6 +18,7 @@ export interface Sector {
   boulderCount: number;
   description?: string;
   nextSchraubtermin?: Date;
+  lastSchraubtermin?: Date;
 }
 
 export interface Statistics {

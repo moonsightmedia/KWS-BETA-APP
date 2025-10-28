@@ -38,12 +38,21 @@ const Sectors = () => {
                 </CardHeader>
                 
                 <CardContent>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="w-4 h-4" />
-                    <span>Nächster Schraubtermin:</span>
-                    <span className="font-medium text-primary">
-                      {formatDate(sector.nextSchraubtermin, 'dd. MMM yyyy', { locale: de })}
-                    </span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="w-4 h-4" />
+                      <span>Letzter Schraubtermin:</span>
+                      <span className="font-medium text-foreground">
+                        {sector.lastSchraubtermin && formatDate(sector.lastSchraubtermin, 'dd. MMM yyyy', { locale: de })}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="w-4 h-4" />
+                      <span>Nächster Schraubtermin:</span>
+                      <span className="font-medium text-primary">
+                        {sector.nextSchraubtermin && formatDate(sector.nextSchraubtermin, 'dd. MMM yyyy', { locale: de })}
+                      </span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

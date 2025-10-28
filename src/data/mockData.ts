@@ -1,11 +1,11 @@
 import { Boulder, Sector, Statistics } from '@/types/boulder';
 
 export const mockSectors: Sector[] = [
-  { id: '1', name: 'Sektor A - Eingangsbereich', boulderCount: 12, description: 'Ideal für Anfänger und Aufwärmrunden', nextSchraubtermin: new Date('2025-02-15') },
-  { id: '2', name: 'Sektor B - Überhang', boulderCount: 15, description: 'Kraftvolle Routen mit Überhängen', nextSchraubtermin: new Date('2025-02-08') },
-  { id: '3', name: 'Sektor C - Slab', boulderCount: 10, description: 'Technische Routen an der Platte', nextSchraubtermin: new Date('2025-02-22') },
-  { id: '4', name: 'Sektor D - Wettkampfwand', boulderCount: 8, description: 'Anspruchsvolle Wettkampfrouten', nextSchraubtermin: new Date('2025-03-01') },
-  { id: '5', name: 'Sektor E - Dach', boulderCount: 6, description: 'Extreme Überhänge und Dächer', nextSchraubtermin: new Date('2025-02-28') },
+  { id: '1', name: 'Sektor A - Eingangsbereich', boulderCount: 12, description: 'Ideal für Anfänger und Aufwärmrunden', nextSchraubtermin: new Date('2025-02-15'), lastSchraubtermin: new Date('2025-01-15') },
+  { id: '2', name: 'Sektor B - Überhang', boulderCount: 15, description: 'Kraftvolle Routen mit Überhängen', nextSchraubtermin: new Date('2025-02-08'), lastSchraubtermin: new Date('2025-01-08') },
+  { id: '3', name: 'Sektor C - Slab', boulderCount: 10, description: 'Technische Routen an der Platte', nextSchraubtermin: new Date('2025-02-22'), lastSchraubtermin: new Date('2025-01-22') },
+  { id: '4', name: 'Sektor D - Wettkampfwand', boulderCount: 8, description: 'Anspruchsvolle Wettkampfrouten', nextSchraubtermin: new Date('2025-03-01'), lastSchraubtermin: new Date('2025-02-01') },
+  { id: '5', name: 'Sektor E - Dach', boulderCount: 6, description: 'Extreme Überhänge und Dächer', nextSchraubtermin: new Date('2025-02-28'), lastSchraubtermin: new Date('2025-01-28') },
 ];
 
 export const mockBoulders: Boulder[] = [
