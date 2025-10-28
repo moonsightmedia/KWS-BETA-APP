@@ -35,7 +35,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
 
         {/* Navigation */}
         <TooltipProvider delayDuration={300}>
-          <nav className={cn("flex-1 flex flex-col gap-4", isExpanded ? "w-full px-4" : "w-full items-center")}>
+          <nav className={cn("flex-1 flex flex-col gap-4 w-full", isExpanded ? "px-4" : "items-center")}>
             {navItems.map((item) => (
               <Tooltip key={item.label}>
                 <TooltipTrigger asChild>
@@ -43,7 +43,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                     to={item.path}
                     className={({ isActive }) => cn(
                       "flex items-center rounded-xl transition-all duration-300",
-                      isExpanded ? "px-4 py-3 gap-3 w-full justify-start" : "w-12 h-12 justify-center",
+                      isExpanded ? "flex-row px-4 py-3 gap-3 w-full" : "w-12 h-12 justify-center",
                       isActive
                         ? "bg-primary text-primary-foreground shadow-lg" 
                         : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
@@ -64,12 +64,12 @@ export const Sidebar = ({ className }: SidebarProps) => {
         </TooltipProvider>
 
         {/* Toggle Button */}
-        <div className={cn(isExpanded ? "px-4 w-full" : "")}>
+        <div className={cn("w-full", isExpanded ? "px-4" : "flex justify-center")}>
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className={cn(
               "rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 flex items-center transition-all duration-300",
-              isExpanded ? "px-4 py-3 gap-3 w-full justify-start" : "w-12 h-12 justify-center"
+              isExpanded ? "flex-row px-4 py-3 gap-3 w-full" : "w-12 h-12 justify-center"
             )}
           >
             {isExpanded ? (
