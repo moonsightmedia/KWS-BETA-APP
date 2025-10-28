@@ -3,9 +3,6 @@ import { DashboardHeader } from '@/components/DashboardHeader';
 import { StatCard } from '@/components/StatCard';
 import { DifficultyDistributionChart } from '@/components/DifficultyDistributionChart';
 import { CategoryChart } from '@/components/CategoryChart';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { mockStatistics, mockSectors, mockBoulders } from '@/data/mockData';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -38,28 +35,9 @@ const Index = () => {
         <main className="flex-1 p-8">
           {/* Welcome Section */}
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <h1 className="text-3xl font-bold mb-1">Hallo, Kletterwelt! 👋</h1>
-                <p className="text-muted-foreground">Das passiert gerade in deiner Halle.</p>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <Select defaultValue="month">
-                  <SelectTrigger className="w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="month">Dieser Monat</SelectItem>
-                    <SelectItem value="week">Diese Woche</SelectItem>
-                    <SelectItem value="year">Dieses Jahr</SelectItem>
-                  </SelectContent>
-                </Select>
-                
-                <Button variant="outline" size="icon">
-                  <Calendar className="w-4 h-4" />
-                </Button>
-              </div>
+            <div className="mb-2">
+              <h1 className="text-3xl font-bold mb-1">Hallo, Kletterwelt! 👋</h1>
+              <p className="text-muted-foreground">Das passiert gerade in deiner Halle.</p>
             </div>
           </div>
 

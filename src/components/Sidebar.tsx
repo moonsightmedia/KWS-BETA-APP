@@ -18,9 +18,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
   return (
     <aside className={cn("w-20 bg-sidebar-bg flex flex-col items-center py-6 gap-6", className)}>
       {/* Logo */}
-      <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mb-2">
-        <div className="w-8 h-8 bg-primary-foreground/20 rounded-lg" />
-      </div>
+      <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mb-2" />
 
       {/* Navigation */}
       <nav className="flex-1 flex flex-col gap-4">
