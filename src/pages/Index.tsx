@@ -36,7 +36,7 @@ const Index = () => {
           {/* Welcome Section */}
           <div className="mb-8">
             <div className="mb-2">
-              <h1 className="text-3xl font-bold mb-1">Hallo, Kletterwelt! 👋</h1>
+              <h1 className="text-3xl font-bold mb-1 font-teko tracking-wide">Hallo, Kletterwelt! 👋</h1>
               <p className="text-muted-foreground">Das passiert gerade in deiner Halle.</p>
             </div>
           </div>

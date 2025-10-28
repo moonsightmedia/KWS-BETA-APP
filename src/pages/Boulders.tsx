@@ -85,7 +85,7 @@ const Boulders = () => {
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">Boulder</h1>
+              <h1 className="text-3xl font-bold text-foreground mb-2 font-teko tracking-wide">Boulder</h1>
               <p className="text-muted-foreground">
                 {filteredAndSortedBoulders.length} von {mockBoulders.length} Bouldern
               </p>
