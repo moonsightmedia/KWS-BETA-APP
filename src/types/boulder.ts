@@ -1,4 +1,4 @@
-export type Difficulty = 'beginner' | 'easy' | 'medium' | 'hard' | 'expert' | 'elite';
+export type Difficulty = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 export type BoulderColor = 'Grün' | 'Gelb' | 'Blau' | 'Orange' | 'Rot' | 'Schwarz' | 'Weiß' | 'Lila';
 
 export interface Boulder {
@@ -17,6 +17,7 @@ export interface Sector {
   name: string;
   boulderCount: number;
   description?: string;
+  nextSchraubtermin?: Date;
 }
 
 export interface Statistics {

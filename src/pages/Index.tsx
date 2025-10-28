@@ -1,14 +1,33 @@
 import { Sidebar } from '@/components/Sidebar';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { StatCard } from '@/components/StatCard';
-import { RevenueChart } from '@/components/RevenueChart';
-import { CountCard } from '@/components/CountCard';
+import { DifficultyDistributionChart } from '@/components/DifficultyDistributionChart';
 import { CategoryChart } from '@/components/CategoryChart';
+import { NextSchraubterminCard } from '@/components/NextSchraubterminCard';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { mockStatistics, mockSectors, mockBoulders } from '@/data/mockData';
 
 const Index = () => {
+  // Nächste zwei Sektoren sortiert nach Schraubtermin
+  const nextSectors = [...mockSectors]
+    .filter(s => s.nextSchraubtermin)
+    .sort((a, b) => {
+      if (!a.nextSchraubtermin || !b.nextSchraubtermin) return 0;
+      return a.nextSchraubtermin.getTime() - b.nextSchraubtermin.getTime();
+    })
+    .slice(0, 2);
+
+  // Berechne Boulder mit Beta-Videos
+  const videosCount = mockBoulders.filter(b => b.betaVideoUrl).length;
+  
+  // Berechne durchschnittliche Schwierigkeit
+  const avgDifficulty = (
+    Object.entries(mockStatistics.difficultyDistribution)
+      .reduce((sum, [diff, count]) => sum + (Number(diff) * count), 0) / 
+    mockStatistics.totalBoulders
+  ).toFixed(1);
   return (
     <div className="min-h-screen flex bg-background">
       <Sidebar />
@@ -48,7 +67,7 @@ const Index = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <StatCard
               title="Aktive Boulder"
-              value="51"
+              value={mockStatistics.totalBoulders}
               change={2.6}
               variant="primary"
               subtitle="Aktueller Stand"
@@ -56,49 +75,35 @@ const Index = () => {
             
             <StatCard
               title="Neue Boulder"
-              value="8"
+              value={mockStatistics.newBouldersCount}
               change={-2.2}
               subtitle="Seit letzter Woche"
             />
             
             <StatCard
-              title="Check-ins heute"
-              value="324"
-              change={2.2}
-              subtitle="Aktueller Tag"
+              title="Mit Beta-Video"
+              value={videosCount}
+              subtitle={`${Math.round((videosCount / mockStatistics.totalBoulders) * 100)}% aller Boulder`}
             />
             
             <StatCard
-              title="Auslastung"
-              value="87%"
-              change={5.6}
-              subtitle="Durchschnitt heute"
+              title="Ø Schwierigkeit"
+              value={avgDifficulty}
+              subtitle="Durchschnitt aller Boulder"
             />
           </div>
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <RevenueChart />
+            <DifficultyDistributionChart stats={mockStatistics} />
             <CategoryChart />
           </div>
 
-          {/* Bottom Row */}
+          {/* Bottom Row - Next Schraubtermine */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <CountCard
-              type="orders"
-              count={98}
-              subtitle="12 neue Boulder warten auf Freigabe."
-            />
-            
-            <CountCard
-              type="customers"
-              count={17}
-              subtitle="17 Kletterer warten auf Antwort."
-            />
-            
-            <div className="lg:col-span-1">
-              {/* Placeholder for future content */}
-            </div>
+            {nextSectors.map((sector) => (
+              <NextSchraubterminCard key={sector.id} sector={sector} />
+            ))}
           </div>
         </main>
       </div>
