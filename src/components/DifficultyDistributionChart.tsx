@@ -1,7 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts';
-import { ArrowUpRight } from 'lucide-react';
 import { Statistics } from '@/types/boulder';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { mockBoulders, mockSectors } from '@/data/mockData';
+import { useState } from 'react';
 
 interface DifficultyDistributionChartProps {
   stats: Statistics;
@@ -9,7 +11,25 @@ interface DifficultyDistributionChartProps {
 }
 
 export const DifficultyDistributionChart = ({ stats, avgDifficulty }: DifficultyDistributionChartProps) => {
-  const data = Object.entries(stats.difficultyDistribution).map(([difficulty, count]) => ({
+  const [selectedSector, setSelectedSector] = useState<string>('all');
+  
+  // Filtere Boulder nach Sektor
+  const filteredBoulders = selectedSector === 'all' 
+    ? mockBoulders 
+    : mockBoulders.filter(b => b.sector === selectedSector);
+  
+  // Berechne Verteilung für gefilterte Boulder
+  const filteredDistribution: Record<number, number> = {};
+  for (let i = 1; i <= 8; i++) {
+    filteredDistribution[i] = filteredBoulders.filter(b => b.difficulty === i).length;
+  }
+  
+  // Berechne durchschnittliche Schwierigkeit für gefilterte Boulder
+  const filteredAvg = filteredBoulders.length > 0
+    ? (filteredBoulders.reduce((sum, b) => sum + b.difficulty, 0) / filteredBoulders.length).toFixed(1)
+    : '0.0';
+  
+  const data = Object.entries(filteredDistribution).map(([difficulty, count]) => ({
     name: `Grad ${difficulty}`,
     value: count,
   }));
@@ -18,18 +38,31 @@ export const DifficultyDistributionChart = ({ stats, avgDifficulty }: Difficulty
     <Card className="shadow-soft col-span-2">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex-1">
             <CardTitle className="text-xl font-semibold mb-1">
               Schwierigkeitsverteilung
               <span className="ml-3 text-sm font-normal text-muted-foreground">
-                Ø {avgDifficulty}
+                Ø {selectedSector === 'all' ? avgDifficulty : filteredAvg}
               </span>
             </CardTitle>
-            <p className="text-xs text-muted-foreground">Aktuelle Boulder nach Schwierigkeit</p>
+            <p className="text-xs text-muted-foreground">
+              {filteredBoulders.length} Boulder nach Schwierigkeit
+            </p>
           </div>
-          <button className="w-10 h-10 rounded-full bg-sidebar-bg flex items-center justify-center hover:bg-sidebar-bg/90 transition-colors">
-            <ArrowUpRight className="w-5 h-5 text-white" />
-          </button>
+          
+          <Select value={selectedSector} onValueChange={setSelectedSector}>
+            <SelectTrigger className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle Sektoren</SelectItem>
+              {mockSectors.map((sector) => (
+                <SelectItem key={sector.id} value={sector.name}>
+                  {sector.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </CardHeader>
       <CardContent>

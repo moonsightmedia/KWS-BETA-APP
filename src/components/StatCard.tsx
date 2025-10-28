@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface StatCardProps {
@@ -21,25 +21,13 @@ export const StatCard = ({ title, value, change, variant = 'default', subtitle }
       variant === 'primary' && "bg-gradient-primary border-0"
     )}>
       <CardContent className="pt-6 pb-6">
-        <div className="flex items-start justify-between mb-4">
+        <div className="mb-4">
           <h3 className={cn(
             "text-sm font-medium",
             variant === 'primary' ? "text-primary-foreground/80" : "text-muted-foreground"
           )}>
             {title}
           </h3>
-          
-          {variant === 'default' && (
-            <button className="w-8 h-8 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors">
-              <ArrowUpRight className="w-4 h-4 text-foreground" />
-            </button>
-          )}
-          
-          {variant === 'primary' && (
-            <button className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors">
-              <ArrowUpRight className="w-5 h-5 text-primary-foreground" />
-            </button>
-          )}
         </div>
 
         <div className="flex items-end justify-between">

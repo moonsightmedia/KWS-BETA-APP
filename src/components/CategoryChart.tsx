@@ -1,6 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { ArrowUpRight } from 'lucide-react';
 
 const data = [
   { name: 'Sektor A', value: 25, color: 'hsl(var(--chart-orange))' },
@@ -14,14 +13,9 @@ export const CategoryChart = () => {
   return (
     <Card className="shadow-soft">
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-xl font-semibold mb-1">Boulder nach Sektor</CardTitle>
-            <p className="text-xs text-muted-foreground">Verteilung dieser Monat</p>
-          </div>
-          <button className="w-10 h-10 rounded-full bg-sidebar-bg flex items-center justify-center hover:bg-sidebar-bg/90 transition-colors">
-            <ArrowUpRight className="w-5 h-5 text-white" />
-          </button>
+        <div>
+          <CardTitle className="text-xl font-semibold mb-1">Boulder nach Sektor</CardTitle>
+          <p className="text-xs text-muted-foreground">Verteilung dieser Monat</p>
         </div>
       </CardHeader>
       <CardContent>
