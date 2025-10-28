@@ -1,4 +1,4 @@
-import { Clock, FileText, Grid3x3, Users, Presentation, MessageCircle, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, FileText, Grid3x3, Users, Presentation, MessageCircle, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
@@ -6,7 +6,7 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { icon: Clock, label: 'Dashboard' },
+  { icon: LayoutDashboard, label: 'Dashboard' },
   { icon: FileText, label: 'Dokumente' },
   { icon: Grid3x3, label: 'Boulder' },
   { icon: Users, label: 'Benutzer' },
