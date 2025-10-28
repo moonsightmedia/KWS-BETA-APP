@@ -31,6 +31,10 @@ export default {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
@@ -47,6 +51,18 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        sidebar: {
+          bg: "hsl(var(--sidebar-bg))",
+          icon: "hsl(var(--sidebar-icon))",
+          "icon-active": "hsl(var(--sidebar-icon-active))",
+        },
+        chart: {
+          primary: "hsl(var(--chart-primary))",
+          orange: "hsl(var(--chart-orange))",
+          yellow: "hsl(var(--chart-yellow))",
+          red: "hsl(var(--chart-red))",
+          green: "hsl(var(--chart-green))",
+        },
         difficulty: {
           beginner: "hsl(var(--difficulty-beginner))",
           easy: "hsl(var(--difficulty-easy))",
@@ -57,9 +73,8 @@ export default {
         },
       },
       backgroundImage: {
-        'gradient-hero': 'var(--gradient-hero)',
+        'gradient-primary': 'var(--gradient-primary)',
         'gradient-card': 'var(--gradient-card)',
-        'gradient-stat': 'var(--gradient-stat)',
       },
       boxShadow: {
         'soft': 'var(--shadow-soft)',
