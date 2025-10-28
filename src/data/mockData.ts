@@ -1,11 +1,11 @@
 import { Boulder, Sector, Statistics } from '@/types/boulder';
 
 export const mockSectors: Sector[] = [
-  { id: '1', name: 'Sektor A - Eingangsbereich', boulderCount: 12, description: 'Ideal für Anfänger und Aufwärmrunden', nextSchraubtermin: new Date('2025-02-15'), lastSchraubtermin: new Date('2025-01-15') },
-  { id: '2', name: 'Sektor B - Überhang', boulderCount: 15, description: 'Kraftvolle Routen mit Überhängen', nextSchraubtermin: new Date('2025-02-08'), lastSchraubtermin: new Date('2025-01-08') },
-  { id: '3', name: 'Sektor C - Slab', boulderCount: 10, description: 'Technische Routen an der Platte', nextSchraubtermin: new Date('2025-02-22'), lastSchraubtermin: new Date('2025-01-22') },
-  { id: '4', name: 'Sektor D - Wettkampfwand', boulderCount: 8, description: 'Anspruchsvolle Wettkampfrouten', nextSchraubtermin: new Date('2025-03-01'), lastSchraubtermin: new Date('2025-02-01') },
-  { id: '5', name: 'Sektor E - Dach', boulderCount: 6, description: 'Extreme Überhänge und Dächer', nextSchraubtermin: new Date('2025-02-28'), lastSchraubtermin: new Date('2025-01-28') },
+  { id: '1', name: 'Sektor A - Eingangsbereich', boulderCount: 12, description: 'Ideal für Anfänger und Aufwärmrunden', nextSchraubtermin: new Date('2025-02-15'), lastSchraubtermin: new Date('2025-01-15'), imageUrl: 'https://images.unsplash.com/photo-1522163182402-834f871fd851?w=800&auto=format&fit=crop' },
+  { id: '2', name: 'Sektor B - Überhang', boulderCount: 15, description: 'Kraftvolle Routen mit Überhängen', nextSchraubtermin: new Date('2025-02-08'), lastSchraubtermin: new Date('2025-01-08'), imageUrl: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?w=800&auto=format&fit=crop' },
+  { id: '3', name: 'Sektor C - Slab', boulderCount: 10, description: 'Technische Routen an der Platte', nextSchraubtermin: new Date('2025-02-22'), lastSchraubtermin: new Date('2025-01-22'), imageUrl: 'https://images.unsplash.com/photo-1601513445506-2ab0d4fb4229?w=800&auto=format&fit=crop' },
+  { id: '4', name: 'Sektor D - Wettkampfwand', boulderCount: 8, description: 'Anspruchsvolle Wettkampfrouten', nextSchraubtermin: new Date('2025-03-01'), lastSchraubtermin: new Date('2025-02-01'), imageUrl: 'https://images.unsplash.com/photo-1602524206684-76b7af775a8e?w=800&auto=format&fit=crop' },
+  { id: '5', name: 'Sektor E - Dach', boulderCount: 6, description: 'Extreme Überhänge und Dächer', nextSchraubtermin: new Date('2025-02-28'), lastSchraubtermin: new Date('2025-01-28'), imageUrl: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop' },
 ];
 
 export const mockBoulders: Boulder[] = [

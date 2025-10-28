@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { Sidebar } from '@/components/Sidebar';
 import { BoulderDetailDialog } from '@/components/BoulderDetailDialog';
@@ -12,6 +12,7 @@ import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Search, Plus, Video, FileText, Calendar } from 'lucide-react';
 import { Boulder } from '@/types/boulder';
+import { useSearchParams } from 'react-router-dom';
 
 const difficultyColors: Record<number, string> = {
   1: 'bg-green-500',
@@ -25,12 +26,21 @@ const difficultyColors: Record<number, string> = {
 };
 
 const Boulders = () => {
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [sectorFilter, setSectorFilter] = useState<string>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'name' | 'difficulty' | 'date'>('date');
   const [selectedBoulder, setSelectedBoulder] = useState<Boulder | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Read sector from URL params on mount
+  useEffect(() => {
+    const sectorParam = searchParams.get('sector');
+    if (sectorParam) {
+      setSectorFilter(sectorParam);
+    }
+  }, [searchParams]);
 
   const filteredAndSortedBoulders = useMemo(() => {
     let filtered = mockBoulders.filter((boulder) => {

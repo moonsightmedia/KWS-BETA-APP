@@ -19,6 +19,7 @@ export interface Sector {
   description?: string;
   nextSchraubtermin?: Date;
   lastSchraubtermin?: Date;
+  imageUrl?: string;
 }
 
 export interface Statistics {

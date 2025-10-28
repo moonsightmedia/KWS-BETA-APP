@@ -2,12 +2,20 @@ import { DashboardHeader } from '@/components/DashboardHeader';
 import { Sidebar } from '@/components/Sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { mockSectors } from '@/data/mockData';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Calendar, Box } from 'lucide-react';
+import { Calendar, Box, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const Sectors = () => {
+  const navigate = useNavigate();
+
+  const handleViewBoulders = (sectorName: string) => {
+    navigate(`/boulders?sector=${encodeURIComponent(sectorName)}`);
+  };
+
   return (
     <div className="min-h-screen bg-background flex">
       <Sidebar />
@@ -23,7 +31,17 @@ const Sectors = () => {
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {mockSectors.map((sector) => (
-              <Card key={sector.id} className="hover:shadow-lg transition-shadow">
+              <Card key={sector.id} className="hover:shadow-lg transition-shadow overflow-hidden">
+                {sector.imageUrl && (
+                  <div className="aspect-video w-full overflow-hidden">
+                    <img 
+                      src={sector.imageUrl} 
+                      alt={sector.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -37,7 +55,7 @@ const Sectors = () => {
                   </div>
                 </CardHeader>
                 
-                <CardContent>
+                <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Calendar className="w-4 h-4" />
@@ -54,6 +72,14 @@ const Sectors = () => {
                       </span>
                     </div>
                   </div>
+
+                  <Button 
+                    className="w-full" 
+                    onClick={() => handleViewBoulders(sector.name)}
+                  >
+                    Boulder anzeigen
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
                 </CardContent>
               </Card>
             ))}
