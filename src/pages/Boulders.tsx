@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { mockBoulders, mockSectors } from '@/data/mockData';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Search, Plus, Video, FileText, Calendar } from 'lucide-react';
+import { Search, Video, FileText, Calendar } from 'lucide-react';
 import { Boulder } from '@/types/boulder';
 import { useSearchParams } from 'react-router-dom';
 
@@ -83,17 +83,11 @@ const Boulders = () => {
         
         <main className="flex-1 p-4 md:p-8">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2 font-teko tracking-wide">Boulder</h1>
-              <p className="text-muted-foreground">
-                {filteredAndSortedBoulders.length} von {mockBoulders.length} Bouldern
-              </p>
-            </div>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Neuer Boulder
-            </Button>
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-foreground mb-2 font-teko tracking-wide">Boulder</h1>
+            <p className="text-muted-foreground">
+              {filteredAndSortedBoulders.length} von {mockBoulders.length} Bouldern
+            </p>
           </div>
 
           {/* Filters */}
