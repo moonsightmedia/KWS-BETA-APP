@@ -44,9 +44,9 @@ export const Sidebar = ({ className }: SidebarProps) => {
                       to={item.path}
                       end
                       className={({ isActive }) => cn(
-                        "flex flex-row items-center gap-3 px-6 py-3 mx-4 rounded-xl transition-all duration-300",
+                        "flex flex-row items-center gap-3 px-6 py-3 mx-4 rounded-xl transition-all duration-300 relative",
                         isActive
-                          ? "bg-success text-white shadow-lg" 
+                          ? "bg-sidebar-bg text-sidebar-icon after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-8 after:h-1 after:bg-success after:rounded-t-full" 
                           : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
                       )}
                     >
@@ -60,9 +60,9 @@ export const Sidebar = ({ className }: SidebarProps) => {
                       to={item.path}
                       end
                       className={({ isActive }) => cn(
-                        "grid place-items-center w-12 h-12 mx-auto rounded-xl transition-all duration-300",
+                        "grid place-items-center w-12 h-12 mx-auto rounded-xl transition-all duration-300 relative",
                         isActive
-                          ? "bg-success text-white shadow-lg" 
+                          ? "bg-sidebar-bg text-sidebar-icon after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-8 after:h-1 after:bg-success after:rounded-t-full" 
                           : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
                       )}
                     >
@@ -110,9 +110,9 @@ export const Sidebar = ({ className }: SidebarProps) => {
               to={item.path}
               end
               className={({ isActive }) => cn(
-                "flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition-all duration-300",
+                "flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition-all duration-300 relative",
                 isActive
-                  ? "bg-success text-white" 
+                  ? "text-sidebar-icon after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-8 after:h-1 after:bg-success after:rounded-t-full" 
                   : "text-sidebar-icon"
               )}
             >
