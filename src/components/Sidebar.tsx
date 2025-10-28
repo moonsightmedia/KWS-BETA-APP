@@ -42,6 +42,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                   {isExpanded ? (
                     <NavLink
                       to={item.path}
+                      end
                       className={({ isActive }) => cn(
                         "flex flex-row items-center gap-3 px-6 py-3 mx-4 rounded-xl transition-all duration-300",
                         isActive
@@ -57,6 +58,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                   ) : (
                     <NavLink
                       to={item.path}
+                      end
                       className={({ isActive }) => cn(
                         "grid place-items-center w-12 h-12 mx-auto rounded-xl transition-all duration-300",
                         isActive
@@ -106,6 +108,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
             <NavLink
               key={item.label}
               to={item.path}
+              end
               className={({ isActive }) => cn(
                 "flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition-all duration-300",
                 isActive
