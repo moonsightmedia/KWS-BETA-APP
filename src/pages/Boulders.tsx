@@ -212,9 +212,14 @@ const Boulders = () => {
                 className="hover:shadow-lg transition-shadow cursor-pointer"
                 onClick={() => handleBoulderClick(boulder)}
               >
-                <CardHeader>
-                  <div className="flex items-start justify-between mb-2">
-                    <CardTitle className="text-lg">{boulder.name}</CardTitle>
+              <CardHeader>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="space-y-2">
+                      <CardTitle className="text-lg">{boulder.name}</CardTitle>
+                      <Badge variant="outline" className="font-medium">
+                        {boulder.sector}
+                      </Badge>
+                    </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className={`${difficultyColors[boulder.difficulty]} text-white border-0`}>
                         {boulder.difficulty}
@@ -222,7 +227,6 @@ const Boulders = () => {
                       <Badge variant="secondary">{boulder.color}</Badge>
                     </div>
                   </div>
-                  <CardDescription>{boulder.sector}</CardDescription>
                 </CardHeader>
                 
                 <CardContent className="space-y-3">
