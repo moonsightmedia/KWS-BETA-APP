@@ -1,7 +1,9 @@
-import { LayoutDashboard, List, Map, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, List, Map, RefreshCw, ChevronRight, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { NavLink } from 'react-router-dom';
+import { useState } from 'react';
 
 interface SidebarProps {
   className?: string;
@@ -14,37 +16,80 @@ const navItems = [
 ];
 
 export const Sidebar = ({ className }: SidebarProps) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className={cn("hidden md:flex w-20 bg-sidebar-bg flex-col items-center py-6 gap-6", className)}>
+      <aside className={cn(
+        "hidden md:flex bg-sidebar-bg flex-col items-center py-6 gap-6 transition-all duration-300",
+        isExpanded ? "w-48" : "w-20",
+        className
+      )}>
         {/* Profile Picture */}
-        <Avatar className="w-12 h-12 mb-2">
-          <AvatarFallback className="bg-primary text-primary-foreground">KS</AvatarFallback>
-        </Avatar>
+        <div className="relative">
+          <Avatar className="w-12 h-12 mb-2">
+            <AvatarFallback className="bg-primary text-primary-foreground">KS</AvatarFallback>
+          </Avatar>
+        </div>
+
+        {/* Toggle Button */}
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-12 h-12 rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 flex items-center justify-center transition-all duration-300"
+        >
+          {isExpanded ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+        </button>
 
         {/* Navigation */}
-        <nav className="flex-1 flex flex-col gap-4">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.label}
-              to={item.path}
-              className={({ isActive }) => cn(
-                "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300",
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-lg" 
-                  : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
-              )}
-            >
-              <item.icon className="w-5 h-5" />
-            </NavLink>
-          ))}
-        </nav>
+        <TooltipProvider delayDuration={300}>
+          <nav className="flex-1 flex flex-col gap-4 w-full px-4">
+            {navItems.map((item) => (
+              <Tooltip key={item.label}>
+                <TooltipTrigger asChild>
+                  <NavLink
+                    to={item.path}
+                    className={({ isActive }) => cn(
+                      "flex items-center gap-3 rounded-xl transition-all duration-300",
+                      isExpanded ? "px-4 py-3" : "w-12 h-12 justify-center",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-lg" 
+                        : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
+                    )}
+                  >
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                    {isExpanded && <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>}
+                  </NavLink>
+                </TooltipTrigger>
+                {!isExpanded && (
+                  <TooltipContent side="right">
+                    <p>{item.label}</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            ))}
+          </nav>
+        </TooltipProvider>
 
         {/* Refresh Button */}
-        <button className="w-12 h-12 rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 flex items-center justify-center transition-all duration-300">
-          <RefreshCw className="w-5 h-5" />
-        </button>
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className={cn(
+                "rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 flex items-center gap-3 transition-all duration-300",
+                isExpanded ? "px-4 py-3 w-full" : "w-12 h-12 justify-center"
+              )}>
+                <RefreshCw className="w-5 h-5 flex-shrink-0" />
+                {isExpanded && <span className="text-sm font-medium">Aktualisieren</span>}
+              </button>
+            </TooltipTrigger>
+            {!isExpanded && (
+              <TooltipContent side="right">
+                <p>Aktualisieren</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </aside>
 
       {/* Mobile Bottom Navigation */}
