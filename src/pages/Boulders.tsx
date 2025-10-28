@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { Sidebar } from '@/components/Sidebar';
+import { BoulderDetailDialog } from '@/components/BoulderDetailDialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,8 @@ const Boulders = () => {
   const [sectorFilter, setSectorFilter] = useState<string>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'name' | 'difficulty' | 'date'>('date');
+  const [selectedBoulder, setSelectedBoulder] = useState<Boulder | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const filteredAndSortedBoulders = useMemo(() => {
     let filtered = mockBoulders.filter((boulder) => {
@@ -55,6 +58,11 @@ const Boulders = () => {
 
     return filtered;
   }, [searchQuery, sectorFilter, difficultyFilter, sortBy]);
+
+  const handleBoulderClick = (boulder: Boulder) => {
+    setSelectedBoulder(boulder);
+    setDialogOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -133,7 +141,11 @@ const Boulders = () => {
           {/* Boulder Cards */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredAndSortedBoulders.map((boulder) => (
-              <Card key={boulder.id} className="hover:shadow-lg transition-shadow">
+              <Card 
+                key={boulder.id} 
+                className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => handleBoulderClick(boulder)}
+              >
                 <CardHeader>
                   <div className="flex items-start justify-between mb-2">
                     <CardTitle className="text-lg">{boulder.name}</CardTitle>
@@ -177,6 +189,12 @@ const Boulders = () => {
             </div>
           )}
         </main>
+
+        <BoulderDetailDialog 
+          boulder={selectedBoulder}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+        />
       </div>
     </div>
   );
