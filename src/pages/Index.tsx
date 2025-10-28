@@ -3,21 +3,21 @@ import { DashboardHeader } from '@/components/DashboardHeader';
 import { StatCard } from '@/components/StatCard';
 import { DifficultyDistributionChart } from '@/components/DifficultyDistributionChart';
 import { CategoryChart } from '@/components/CategoryChart';
-import { NextSchraubterminCard } from '@/components/NextSchraubterminCard';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { mockStatistics, mockSectors, mockBoulders } from '@/data/mockData';
+import { formatDate } from 'date-fns';
+import { de } from 'date-fns/locale';
 
 const Index = () => {
-  // Nächste zwei Sektoren sortiert nach Schraubtermin
-  const nextSectors = [...mockSectors]
+  // Nächster Schraubtermin
+  const nextSector = [...mockSectors]
     .filter(s => s.nextSchraubtermin)
     .sort((a, b) => {
       if (!a.nextSchraubtermin || !b.nextSchraubtermin) return 0;
       return a.nextSchraubtermin.getTime() - b.nextSchraubtermin.getTime();
-    })
-    .slice(0, 2);
+    })[0];
 
   // Berechne Boulder mit Beta-Videos
   const videosCount = mockBoulders.filter(b => b.betaVideoUrl).length;
@@ -87,23 +87,18 @@ const Index = () => {
             />
             
             <StatCard
-              title="Ø Schwierigkeit"
-              value={avgDifficulty}
-              subtitle="Durchschnitt aller Boulder"
+              title="Nächster Schraubtermin"
+              value={nextSector?.name.split(' - ')[0] || '-'}
+              subtitle={nextSector?.nextSchraubtermin 
+                ? formatDate(nextSector.nextSchraubtermin, 'dd. MMM yyyy', { locale: de })
+                : 'Kein Termin'}
             />
           </div>
 
           {/* Charts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <DifficultyDistributionChart stats={mockStatistics} />
-            <CategoryChart />
-          </div>
-
-          {/* Bottom Row - Next Schraubtermine */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {nextSectors.map((sector) => (
-              <NextSchraubterminCard key={sector.id} sector={sector} />
-            ))}
+            <DifficultyDistributionChart stats={mockStatistics} avgDifficulty={avgDifficulty} />
+            <CategoryChart />
           </div>
         </main>
       </div>

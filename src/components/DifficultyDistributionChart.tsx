@@ -5,9 +5,10 @@ import { Statistics } from '@/types/boulder';
 
 interface DifficultyDistributionChartProps {
   stats: Statistics;
+  avgDifficulty: string;
 }
 
-export const DifficultyDistributionChart = ({ stats }: DifficultyDistributionChartProps) => {
+export const DifficultyDistributionChart = ({ stats, avgDifficulty }: DifficultyDistributionChartProps) => {
   const data = Object.entries(stats.difficultyDistribution).map(([difficulty, count]) => ({
     name: `Grad ${difficulty}`,
     value: count,
@@ -18,7 +19,12 @@ export const DifficultyDistributionChart = ({ stats }: DifficultyDistributionCha
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-xl font-semibold mb-1">Schwierigkeitsverteilung</CardTitle>
+            <CardTitle className="text-xl font-semibold mb-1">
+              Schwierigkeitsverteilung
+              <span className="ml-3 text-sm font-normal text-muted-foreground">
+                Ø {avgDifficulty}
+              </span>
+            </CardTitle>
             <p className="text-xs text-muted-foreground">Aktuelle Boulder nach Schwierigkeit</p>
           </div>
           <button className="w-10 h-10 rounded-full bg-sidebar-bg flex items-center justify-center hover:bg-sidebar-bg/90 transition-colors">
