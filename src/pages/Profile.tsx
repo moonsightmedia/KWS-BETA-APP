@@ -1,11 +1,32 @@
 import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sidebar } from '@/components/Sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const Profile = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen bg-background items-center justify-center">
+        <p className="text-muted-foreground">Laden...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -23,12 +44,12 @@ const Profile = () => {
               <div className="flex items-center gap-4">
                 <Avatar className="w-20 h-20">
                   <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-                    {user?.email?.substring(0, 2).toUpperCase() || 'KS'}
+                    {user.email?.substring(0, 2).toUpperCase() || 'KS'}
                   </AvatarFallback>
                 </Avatar>
                 <div>
                   <p className="text-sm text-muted-foreground">E-Mail</p>
-                  <p className="font-medium">{user?.email || 'Nicht angemeldet'}</p>
+                  <p className="font-medium">{user.email}</p>
                 </div>
               </div>
               
