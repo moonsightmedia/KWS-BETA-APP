@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
@@ -11,7 +11,9 @@ import { useEffect } from 'react';
 const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { signIn, signUp, user } = useAuth();
+  const [resetEmail, setResetEmail] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const { signIn, signUp, resetPassword, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -40,9 +42,33 @@ const Auth = () => {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await resetPassword(resetEmail);
+      setResetEmail('');
+      setShowResetPassword(false);
+    } catch (error) {
+      console.error('Reset password error:', error);
+    }
+  };
+
+  const handleContinueAsGuest = () => {
+    navigate('/');
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold font-teko tracking-wide text-foreground mb-2">
+            Willkommen bei Kletter Statistik
+          </h1>
+          <p className="text-muted-foreground">
+            Verfolge deine Boulder-Erfolge und teile deine Fortschritte
+          </p>
+        </div>
+        
         <Card className="shadow-lg">
           <CardHeader className="space-y-1">
             <CardDescription>Melde dich an oder erstelle ein neues Konto</CardDescription>
@@ -55,33 +81,72 @@ const Auth = () => {
               </TabsList>
               
               <TabsContent value="login" className="mt-0">
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="login-email">E-Mail</Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="deine@email.de"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="login-password">Passwort</Label>
-                    <Input
-                      id="login-password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full mt-6">
-                    Anmelden
-                  </Button>
-                </form>
+                {!showResetPassword ? (
+                  <form onSubmit={handleSignIn} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="login-email">E-Mail</Label>
+                      <Input
+                        id="login-email"
+                        type="email"
+                        placeholder="deine@email.de"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="login-password">Passwort</Label>
+                      <Input
+                        id="login-password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowResetPassword(true)}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Passwort vergessen?
+                      </button>
+                    </div>
+                    <Button type="submit" className="w-full mt-6">
+                      Anmelden
+                    </Button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleResetPassword} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="reset-email">E-Mail</Label>
+                      <Input
+                        id="reset-email"
+                        type="email"
+                        placeholder="deine@email.de"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Wir senden dir einen Link zum Zurücksetzen deines Passworts
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowResetPassword(false)}
+                        className="flex-1"
+                      >
+                        Zurück
+                      </Button>
+                      <Button type="submit" className="flex-1">
+                        Link senden
+                      </Button>
+                    </div>
+                  </form>
+                )}
               </TabsContent>
               
               <TabsContent value="signup" className="mt-0">
@@ -118,6 +183,16 @@ const Auth = () => {
                 </form>
               </TabsContent>
             </Tabs>
+            
+            <div className="mt-4 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={handleContinueAsGuest}
+                className="w-full"
+              >
+                Als Gast fortfahren
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
