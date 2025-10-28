@@ -36,10 +36,10 @@ export const DashboardHeader = () => {
             <Bell className="w-5 h-5" />
           </Button>
 
-          {/* Profile Dropdown - Mobile visible */}
+          {/* Profile Dropdown - Mobile only */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="cursor-pointer focus:outline-none">
+              <button className="cursor-pointer focus:outline-none md:hidden">
                 <Avatar className="w-9 h-9 hover:opacity-80 transition-opacity">
                   <AvatarFallback className="bg-primary text-primary-foreground text-sm">
                     {user ? (
