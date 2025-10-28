@@ -18,17 +18,17 @@ export const CategoryChart = () => {
           <p className="text-xs text-muted-foreground">Verteilung dieser Monat</p>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8">
+      <CardContent className="overflow-hidden">
+        <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8 max-w-full">
           <div className="flex-shrink-0">
-            <ResponsiveContainer width={200} height={200}>
+            <ResponsiveContainer width={180} height={180}>
               <PieChart>
                 <Pie
                   data={data}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={90}
+                  innerRadius={55}
+                  outerRadius={85}
                   paddingAngle={2}
                   dataKey="value"
                 >
@@ -40,17 +40,17 @@ export const CategoryChart = () => {
             </ResponsiveContainer>
           </div>
 
-          <div className="flex-1 w-full space-y-3">
+          <div className="flex-1 w-full max-w-[200px] space-y-3">
             {data.map((item, index) => (
-              <div key={index} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
+              <div key={index} className="flex items-center justify-between text-sm gap-2">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <div 
                     className="w-3 h-3 rounded-full flex-shrink-0" 
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="text-muted-foreground">{item.name}</span>
+                  <span className="text-muted-foreground truncate">{item.name}</span>
                 </div>
-                <span className="font-medium">{item.value}%</span>
+                <span className="font-medium flex-shrink-0">{item.value}%</span>
               </div>
             ))}
           </div>
