@@ -45,7 +45,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                       className={({ isActive }) => cn(
                         "flex flex-row items-center gap-3 px-6 py-3 mx-4 rounded-xl transition-all duration-300",
                         isActive
-                          ? "bg-primary text-primary-foreground shadow-[0_4px_20px_rgba(0,0,0,0.3)] scale-105 ring-2 ring-primary/50" 
+                          ? "bg-primary text-primary-foreground shadow-lg" 
                           : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
                       )}
                     >
@@ -60,7 +60,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                       className={({ isActive }) => cn(
                         "grid place-items-center w-12 h-12 mx-auto rounded-xl transition-all duration-300",
                         isActive
-                          ? "bg-primary text-primary-foreground shadow-[0_4px_20px_rgba(0,0,0,0.3)] scale-110 ring-2 ring-primary/50" 
+                          ? "bg-primary text-primary-foreground shadow-lg" 
                           : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
                       )}
                     >
@@ -109,7 +109,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
               className={({ isActive }) => cn(
                 "flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition-all duration-300",
                 isActive
-                  ? "bg-primary text-primary-foreground shadow-[0_4px_20px_rgba(0,0,0,0.3)] scale-105 ring-2 ring-primary/50" 
+                  ? "bg-primary text-primary-foreground" 
                   : "text-sidebar-icon"
               )}
             >
