@@ -1,15 +1,16 @@
 import { LayoutDashboard, List, Map, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { NavLink } from 'react-router-dom';
 
 interface SidebarProps {
   className?: string;
 }
 
 const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard' },
-  { icon: List, label: 'Boulder' },
-  { icon: Map, label: 'Sektoren' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+  { icon: List, label: 'Boulder', path: '/boulders' },
+  { icon: Map, label: 'Sektoren', path: '/sectors' },
 ];
 
 export const Sidebar = ({ className }: SidebarProps) => {
@@ -22,18 +23,19 @@ export const Sidebar = ({ className }: SidebarProps) => {
 
       {/* Navigation */}
       <nav className="flex-1 flex flex-col gap-4">
-        {navItems.map((item, index) => (
-          <button
+        {navItems.map((item) => (
+          <NavLink
             key={item.label}
-            className={cn(
+            to={item.path}
+            className={({ isActive }) => cn(
               "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300",
-              index === 0 
+              isActive
                 ? "bg-primary text-primary-foreground shadow-lg" 
                 : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
             )}
           >
             <item.icon className="w-5 h-5" />
-          </button>
+          </NavLink>
         ))}
       </nav>
 
