@@ -35,23 +35,36 @@ export const Sidebar = ({ className }: SidebarProps) => {
 
         {/* Navigation */}
         <TooltipProvider delayDuration={300}>
-          <nav className={cn("flex-1 flex flex-col gap-4 w-full", isExpanded ? "px-4" : "items-center")}>
+          <nav className="flex-1 flex flex-col gap-4 w-full">
             {navItems.map((item) => (
               <Tooltip key={item.label}>
                 <TooltipTrigger asChild>
-                  <NavLink
-                    to={item.path}
-                    className={({ isActive }) => cn(
-                      "flex items-center rounded-xl transition-all duration-300",
-                      isExpanded ? "flex-row px-4 py-3 gap-3 w-full" : "w-12 h-12 justify-center",
-                      isActive
-                        ? "bg-primary text-primary-foreground shadow-lg" 
-                        : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
-                    )}
-                  >
-                    <item.icon className="w-5 h-5 flex-shrink-0" />
-                    {isExpanded && <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>}
-                  </NavLink>
+                  {isExpanded ? (
+                    <NavLink
+                      to={item.path}
+                      className={({ isActive }) => cn(
+                        "flex flex-row items-center gap-3 px-6 py-3 mx-4 rounded-xl transition-all duration-300",
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-lg" 
+                          : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
+                      )}
+                    >
+                      <item.icon className="w-5 h-5 flex-shrink-0" />
+                      <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
+                    </NavLink>
+                  ) : (
+                    <NavLink
+                      to={item.path}
+                      className={({ isActive }) => cn(
+                        "flex items-center justify-center w-12 h-12 mx-auto rounded-xl transition-all duration-300",
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-lg" 
+                          : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
+                      )}
+                    >
+                      <item.icon className="w-5 h-5" />
+                    </NavLink>
+                  )}
                 </TooltipTrigger>
                 {!isExpanded && (
                   <TooltipContent side="right">
@@ -64,23 +77,23 @@ export const Sidebar = ({ className }: SidebarProps) => {
         </TooltipProvider>
 
         {/* Toggle Button */}
-        <div className={cn("w-full", isExpanded ? "px-4" : "flex justify-center")}>
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className={cn(
-              "rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 flex items-center transition-all duration-300",
-              isExpanded ? "flex-row px-4 py-3 gap-3 w-full" : "w-12 h-12 justify-center"
-            )}
-          >
-            {isExpanded ? (
-              <>
-                <ChevronLeft className="w-5 h-5 flex-shrink-0" />
-                <span className="text-sm font-medium">Einklappen</span>
-              </>
-            ) : (
+        <div className="w-full">
+          {isExpanded ? (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="flex flex-row items-center gap-3 px-6 py-3 mx-4 rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 transition-all duration-300"
+            >
+              <ChevronLeft className="w-5 h-5 flex-shrink-0" />
+              <span className="text-sm font-medium">Einklappen</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="flex items-center justify-center w-12 h-12 mx-auto rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 transition-all duration-300"
+            >
               <ChevronRight className="w-5 h-5" />
-            )}
-          </button>
+            </button>
+          )}
         </div>
       </aside>
 
