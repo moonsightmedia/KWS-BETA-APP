@@ -19,7 +19,7 @@ export const DashboardHeader = () => {
   const navigate = useNavigate();
   
   return (
-    <header className="bg-card border-b border-border px-4 md:px-8 py-4">
+    <header className="bg-muted/30 border-b border-border px-4 md:px-8 py-4">
       <div className="flex items-center justify-between">
         {/* Center: Date */}
         <div className="text-sm font-medium text-primary">
