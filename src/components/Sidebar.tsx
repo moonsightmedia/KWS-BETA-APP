@@ -15,34 +15,58 @@ const navItems = [
 
 export const Sidebar = ({ className }: SidebarProps) => {
   return (
-    <aside className={cn("w-20 bg-sidebar-bg flex flex-col items-center py-6 gap-6", className)}>
-      {/* Profile Picture */}
-      <Avatar className="w-12 h-12 mb-2">
-        <AvatarFallback className="bg-primary text-primary-foreground">KS</AvatarFallback>
-      </Avatar>
+    <>
+      {/* Desktop Sidebar */}
+      <aside className={cn("hidden md:flex w-20 bg-sidebar-bg flex-col items-center py-6 gap-6", className)}>
+        {/* Profile Picture */}
+        <Avatar className="w-12 h-12 mb-2">
+          <AvatarFallback className="bg-primary text-primary-foreground">KS</AvatarFallback>
+        </Avatar>
 
-      {/* Navigation */}
-      <nav className="flex-1 flex flex-col gap-4">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.label}
-            to={item.path}
-            className={({ isActive }) => cn(
-              "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300",
-              isActive
-                ? "bg-primary text-primary-foreground shadow-lg" 
-                : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
-            )}
-          >
-            <item.icon className="w-5 h-5" />
-          </NavLink>
-        ))}
+        {/* Navigation */}
+        <nav className="flex-1 flex flex-col gap-4">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.label}
+              to={item.path}
+              className={({ isActive }) => cn(
+                "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300",
+                isActive
+                  ? "bg-primary text-primary-foreground shadow-lg" 
+                  : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
+              )}
+            >
+              <item.icon className="w-5 h-5" />
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* Refresh Button */}
+        <button className="w-12 h-12 rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 flex items-center justify-center transition-all duration-300">
+          <RefreshCw className="w-5 h-5" />
+        </button>
+      </aside>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-4 left-4 right-4 z-50 bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
+        <div className="flex items-center justify-around px-4 py-3">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.label}
+              to={item.path}
+              className={({ isActive }) => cn(
+                "flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition-all duration-300",
+                isActive
+                  ? "bg-primary text-primary-foreground" 
+                  : "text-sidebar-icon"
+              )}
+            >
+              <item.icon className="w-5 h-5" />
+              <span className="text-xs">{item.label}</span>
+            </NavLink>
+          ))}
+        </div>
       </nav>
-
-      {/* Refresh Button */}
-      <button className="w-12 h-12 rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 flex items-center justify-center transition-all duration-300">
-        <RefreshCw className="w-5 h-5" />
-      </button>
-    </aside>
+    </>
   );
 };
