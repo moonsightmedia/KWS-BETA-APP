@@ -2,7 +2,7 @@ import { LayoutDashboard, List, Map, ChevronRight, ChevronLeft } from 'lucide-re
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 
 interface SidebarProps {
@@ -17,6 +17,7 @@ const navItems = [
 
 export const Sidebar = ({ className }: SidebarProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const location = useLocation();
 
   return (
     <>
@@ -36,47 +37,48 @@ export const Sidebar = ({ className }: SidebarProps) => {
         {/* Navigation */}
         <TooltipProvider delayDuration={300}>
           <nav className="flex-1 flex flex-col gap-4 w-full">
-            {navItems.map((item) => (
-              <Tooltip key={item.label}>
-                <TooltipTrigger asChild>
-                  {isExpanded ? (
-                    <NavLink
-                      to={item.path}
-                      end
-                      className={({ isActive }) => cn(
-                        "flex flex-row items-center gap-3 px-6 py-3 mx-4 rounded-xl transition-all duration-300",
-                        isActive
-                          ? "bg-sidebar-bg text-success" 
-                          : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
-                      )}
-                    >
-                      <div className="grid place-items-center w-8 h-8 flex-shrink-0">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <Tooltip key={item.label}>
+                  <TooltipTrigger asChild>
+                    {isExpanded ? (
+                      <NavLink
+                        to={item.path}
+                        className={cn(
+                          "flex flex-row items-center gap-3 px-6 py-3 mx-4 rounded-xl transition-all duration-300",
+                          isActive
+                            ? "bg-sidebar-bg text-success"
+                            : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
+                        )}
+                      >
+                        <div className="grid place-items-center w-8 h-8 flex-shrink-0">
+                          <item.icon className="w-5 h-5" />
+                        </div>
+                        <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
+                      </NavLink>
+                    ) : (
+                      <NavLink
+                        to={item.path}
+                        className={cn(
+                          "grid place-items-center w-12 h-12 mx-auto rounded-xl transition-all duration-300",
+                          isActive
+                            ? "bg-sidebar-bg text-success"
+                            : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
+                        )}
+                      >
                         <item.icon className="w-5 h-5" />
-                      </div>
-                      <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
-                    </NavLink>
-                  ) : (
-                    <NavLink
-                      to={item.path}
-                      end
-                      className={({ isActive }) => cn(
-                        "grid place-items-center w-12 h-12 mx-auto rounded-xl transition-all duration-300",
-                        isActive
-                          ? "bg-sidebar-bg text-success" 
-                          : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
-                      )}
-                    >
-                      <item.icon className="w-5 h-5" />
-                    </NavLink>
+                      </NavLink>
+                    )}
+                  </TooltipTrigger>
+                  {!isExpanded && (
+                    <TooltipContent side="right">
+                      <p>{item.label}</p>
+                    </TooltipContent>
                   )}
-                </TooltipTrigger>
-                {!isExpanded && (
-                  <TooltipContent side="right">
-                    <p>{item.label}</p>
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            ))}
+                </Tooltip>
+              );
+            })}
           </nav>
         </TooltipProvider>
 
@@ -104,22 +106,22 @@ export const Sidebar = ({ className }: SidebarProps) => {
       {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-4 left-4 right-4 z-50 bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
         <div className="flex items-center justify-around px-4 py-3">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.label}
-              to={item.path}
-              end
-              className={({ isActive }) => cn(
-                "flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition-all duration-300",
-                isActive
-                  ? "text-success" 
-                  : "text-sidebar-icon"
-              )}
-            >
-              <item.icon className="w-5 h-5" />
-              <span className="text-xs font-medium">{item.label}</span>
-            </NavLink>
-          ))}
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <NavLink
+                key={item.label}
+                to={item.path}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition-all duration-300",
+                  isActive ? "text-success" : "text-sidebar-icon"
+                )}
+              >
+                <item.icon className="w-5 h-5" />
+                <span className="text-xs font-medium">{item.label}</span>
+              </NavLink>
+            );
+          })}
         </div>
       </nav>
     </>
