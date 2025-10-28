@@ -1,4 +1,4 @@
-import { Settings, Bell, User, LogOut, HelpCircle } from 'lucide-react';
+import { Settings, User, LogOut, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -28,12 +28,13 @@ export const DashboardHeader = () => {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2 md:gap-4">
-          <Button variant="ghost" size="icon" className="rounded-full hidden md:flex">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="rounded-full hidden md:flex"
+            onClick={() => navigate('/profile')}
+          >
             <Settings className="w-5 h-5" />
-          </Button>
-          
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <Bell className="w-5 h-5" />
           </Button>
 
           {/* Profile Dropdown - Mobile only */}
