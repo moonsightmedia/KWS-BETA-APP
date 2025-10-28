@@ -18,7 +18,7 @@ import {
 import { mockBoulders, mockSectors } from '@/data/mockData';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Search, Video, FileText, Calendar, Filter } from 'lucide-react';
+import { Search, Video, FileText, Calendar, Filter, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Boulder } from '@/types/boulder';
 import { useSearchParams } from 'react-router-dom';
 
@@ -39,6 +39,7 @@ const Boulders = () => {
   const [sectorFilter, setSectorFilter] = useState<string>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'name' | 'difficulty' | 'date'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedBoulder, setSelectedBoulder] = useState<Boulder | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -62,20 +63,25 @@ const Boulders = () => {
 
     // Sort
     filtered.sort((a, b) => {
+      let result = 0;
       switch (sortBy) {
         case 'name':
-          return a.name.localeCompare(b.name);
+          result = a.name.localeCompare(b.name);
+          break;
         case 'difficulty':
-          return b.difficulty - a.difficulty;
+          result = a.difficulty - b.difficulty;
+          break;
         case 'date':
-          return b.createdAt.getTime() - a.createdAt.getTime();
+          result = b.createdAt.getTime() - a.createdAt.getTime();
+          break;
         default:
           return 0;
       }
+      return sortOrder === 'asc' ? result : -result;
     });
 
     return filtered;
-  }, [searchQuery, sectorFilter, difficultyFilter, sortBy]);
+  }, [searchQuery, sectorFilter, difficultyFilter, sortBy, sortOrder]);
 
   const handleBoulderClick = (boulder: Boulder) => {
     setSelectedBoulder(boulder);
@@ -161,16 +167,31 @@ const Boulders = () => {
 
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Sortierung</label>
-                    <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sortieren nach" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-card z-50">
-                        <SelectItem value="date">Neueste zuerst</SelectItem>
-                        <SelectItem value="difficulty">Schwierigkeit</SelectItem>
-                        <SelectItem value="name">Name (A-Z)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sortieren nach" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-card z-50">
+                            <SelectItem value="date">Datum</SelectItem>
+                            <SelectItem value="difficulty">Schwierigkeit</SelectItem>
+                            <SelectItem value="name">Name</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                      >
+                        {sortOrder === 'asc' ? (
+                          <ArrowUp className="w-4 h-4" />
+                        ) : (
+                          <ArrowDown className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="pt-4 border-t">
