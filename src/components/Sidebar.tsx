@@ -1,5 +1,6 @@
 import { LayoutDashboard, FileText, Grid3x3, Users, Presentation, MessageCircle, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface SidebarProps {
   className?: string;
@@ -17,8 +18,10 @@ const navItems = [
 export const Sidebar = ({ className }: SidebarProps) => {
   return (
     <aside className={cn("w-20 bg-sidebar-bg flex flex-col items-center py-6 gap-6", className)}>
-      {/* Logo */}
-      <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mb-2" />
+      {/* Profile Picture */}
+      <Avatar className="w-12 h-12 mb-2">
+        <AvatarFallback className="bg-primary text-primary-foreground">KS</AvatarFallback>
+      </Avatar>
 
       {/* Navigation */}
       <nav className="flex-1 flex flex-col gap-4">
