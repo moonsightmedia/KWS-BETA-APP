@@ -78,7 +78,7 @@ const Boulders = () => {
     <div className="min-h-screen bg-background flex">
       <Sidebar />
       
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col md:ml-20">
         <DashboardHeader />
         
         <main className="flex-1 p-8">

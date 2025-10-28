@@ -22,7 +22,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
     <>
       {/* Desktop Sidebar */}
       <aside className={cn(
-        "hidden md:flex bg-sidebar-bg flex-col items-center py-6 gap-6 transition-all duration-300",
+        "hidden md:flex bg-sidebar-bg flex-col items-center py-6 gap-6 transition-all duration-300 h-screen fixed left-0 top-0",
         isExpanded ? "w-48" : "w-20",
         className
       )}>
@@ -32,14 +32,6 @@ export const Sidebar = ({ className }: SidebarProps) => {
             <AvatarFallback className="bg-primary text-primary-foreground">KS</AvatarFallback>
           </Avatar>
         </div>
-
-        {/* Toggle Button */}
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-12 h-12 rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 flex items-center justify-center transition-all duration-300"
-        >
-          {isExpanded ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-        </button>
 
         {/* Navigation */}
         <TooltipProvider delayDuration={300}>
@@ -77,7 +69,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
             <TooltipTrigger asChild>
               <button className={cn(
                 "rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 flex items-center gap-3 transition-all duration-300",
-                isExpanded ? "px-4 py-3 w-full" : "w-12 h-12 justify-center"
+                isExpanded ? "px-4 py-3 w-full mx-4" : "w-12 h-12 justify-center"
               )}>
                 <RefreshCw className="w-5 h-5 flex-shrink-0" />
                 {isExpanded && <span className="text-sm font-medium">Aktualisieren</span>}
@@ -90,6 +82,24 @@ export const Sidebar = ({ className }: SidebarProps) => {
             )}
           </Tooltip>
         </TooltipProvider>
+
+        {/* Toggle Button */}
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={cn(
+            "rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 flex items-center gap-3 transition-all duration-300",
+            isExpanded ? "px-4 py-3 w-full mx-4" : "w-12 h-12 justify-center"
+          )}
+        >
+          {isExpanded ? (
+            <>
+              <ChevronLeft className="w-5 h-5 flex-shrink-0" />
+              {isExpanded && <span className="text-sm font-medium">Einklappen</span>}
+            </>
+          ) : (
+            <ChevronRight className="w-5 h-5" />
+          )}
+        </button>
       </aside>
 
       {/* Mobile Bottom Navigation */}
