@@ -18,9 +18,9 @@ export const CategoryChart = () => {
           <p className="text-xs text-muted-foreground">Verteilung dieser Monat</p>
         </div>
       </CardHeader>
-      <CardContent className="overflow-hidden">
-        <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8 max-w-full">
-          <div className="flex-shrink-0">
+      <CardContent>
+        <div className="flex flex-col xl:flex-row items-center xl:items-center justify-between gap-6 xl:gap-8 max-w-full">
+          <div className="flex-shrink-0 mx-auto">
             <ResponsiveContainer width={180} height={180}>
               <PieChart>
                 <Pie
@@ -40,7 +40,7 @@ export const CategoryChart = () => {
             </ResponsiveContainer>
           </div>
 
-          <div className="flex-1 w-full max-w-[200px] space-y-3">
+          <div className="flex-1 w-full xl:max-w-[220px] space-y-3">
             {data.map((item, index) => (
               <div key={index} className="flex items-center justify-between text-sm gap-2">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
