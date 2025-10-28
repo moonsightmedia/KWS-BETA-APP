@@ -55,12 +55,12 @@ export const Sidebar = ({ className }: SidebarProps) => {
                   ) : (
                     <NavLink
                       to={item.path}
-                        className={({ isActive }) => cn(
-                          "flex items-center justify-center self-center w-12 h-12 mx-auto rounded-xl transition-all duration-300",
-                          isActive
-                            ? "bg-primary text-primary-foreground shadow-lg" 
-                            : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
-                        )}
+                      className={({ isActive }) => cn(
+                        "flex items-center justify-center w-12 h-12 mx-auto rounded-xl transition-all duration-300",
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-lg" 
+                          : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
+                      )}
                     >
                       <item.icon className="w-5 h-5" />
                     </NavLink>
