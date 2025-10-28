@@ -43,9 +43,9 @@ export const Sidebar = ({ className }: SidebarProps) => {
                     <NavLink
                       to={item.path}
                       className={({ isActive }) => cn(
-                        "flex flex-row items-center gap-3 px-6 py-3 mx-4 rounded-xl transition-all duration-300",
+                        "flex flex-row items-center gap-3 px-6 py-3 mx-4 rounded-xl transition-all duration-300 relative",
                         isActive
-                          ? "bg-primary text-primary-foreground shadow-lg" 
+                          ? "bg-primary text-primary-foreground shadow-lg before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-8 before:w-1 before:bg-success before:rounded-r-full" 
                           : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
                       )}
                     >
@@ -58,9 +58,9 @@ export const Sidebar = ({ className }: SidebarProps) => {
                     <NavLink
                       to={item.path}
                       className={({ isActive }) => cn(
-                        "grid place-items-center w-12 h-12 mx-auto rounded-xl transition-all duration-300",
+                        "grid place-items-center w-12 h-12 mx-auto rounded-xl transition-all duration-300 relative",
                         isActive
-                          ? "bg-primary text-primary-foreground shadow-lg" 
+                          ? "bg-primary text-primary-foreground shadow-lg before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-8 before:w-1 before:bg-success before:rounded-r-full" 
                           : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
                       )}
                     >
@@ -107,9 +107,9 @@ export const Sidebar = ({ className }: SidebarProps) => {
               key={item.label}
               to={item.path}
               className={({ isActive }) => cn(
-                "flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition-all duration-300",
+                "flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition-all duration-300 relative",
                 isActive
-                  ? "bg-primary text-primary-foreground" 
+                  ? "bg-primary text-primary-foreground before:absolute before:top-0 before:left-1/2 before:-translate-x-1/2 before:w-8 before:h-1 before:bg-success before:rounded-b-full" 
                   : "text-sidebar-icon"
               )}
             >
