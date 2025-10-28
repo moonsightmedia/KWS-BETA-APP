@@ -7,10 +7,18 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { mockBoulders, mockSectors } from '@/data/mockData';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Search, Video, FileText, Calendar } from 'lucide-react';
+import { Search, Video, FileText, Calendar, Filter } from 'lucide-react';
 import { Boulder } from '@/types/boulder';
 import { useSearchParams } from 'react-router-dom';
 
@@ -90,9 +98,9 @@ const Boulders = () => {
             </p>
           </div>
 
-          {/* Filters */}
-          <div className="space-y-3 mb-6">
-            <div className="relative">
+          {/* Search and Filter */}
+          <div className="flex gap-3 mb-6">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Suchen..."
@@ -102,46 +110,77 @@ const Boulders = () => {
               />
             </div>
 
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
-              <Select value={sectorFilter} onValueChange={setSectorFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Alle Sektoren" />
-                </SelectTrigger>
-                <SelectContent className="bg-card z-50">
-                  <SelectItem value="all">Alle Sektoren</SelectItem>
-                  {mockSectors.map((sector) => (
-                    <SelectItem key={sector.id} value={sector.name}>
-                      {sector.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon" className="flex-shrink-0">
+                  <Filter className="w-5 h-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="h-[85vh]">
+                <SheetHeader>
+                  <SheetTitle className="font-teko text-2xl tracking-wide">Filter</SheetTitle>
+                  <SheetDescription>
+                    Filtere nach Sektor, Schwierigkeit und sortiere die Boulder
+                  </SheetDescription>
+                </SheetHeader>
+                
+                <div className="mt-6 space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Sektor</label>
+                    <Select value={sectorFilter} onValueChange={setSectorFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Alle Sektoren" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card z-50">
+                        <SelectItem value="all">Alle Sektoren</SelectItem>
+                        {mockSectors.map((sector) => (
+                          <SelectItem key={sector.id} value={sector.name}>
+                            {sector.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Alle Schwierigkeiten" />
-                </SelectTrigger>
-                <SelectContent className="bg-card z-50">
-                  <SelectItem value="all">Alle Schwierigkeiten</SelectItem>
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((diff) => (
-                    <SelectItem key={diff} value={diff.toString()}>
-                      Schwierigkeit {diff}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Schwierigkeit</label>
+                    <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Alle Schwierigkeiten" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card z-50">
+                        <SelectItem value="all">Alle Schwierigkeiten</SelectItem>
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map((diff) => (
+                          <SelectItem key={diff} value={diff.toString()}>
+                            Schwierigkeit {diff}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sortieren nach" />
-                </SelectTrigger>
-                <SelectContent className="bg-card z-50">
-                  <SelectItem value="date">Neueste zuerst</SelectItem>
-                  <SelectItem value="difficulty">Schwierigkeit</SelectItem>
-                  <SelectItem value="name">Name (A-Z)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Sortierung</label>
+                    <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sortieren nach" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card z-50">
+                        <SelectItem value="date">Neueste zuerst</SelectItem>
+                        <SelectItem value="difficulty">Schwierigkeit</SelectItem>
+                        <SelectItem value="name">Name (A-Z)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <p className="text-sm text-muted-foreground">
+                      {filteredAndSortedBoulders.length} von {mockBoulders.length} Bouldern gefunden
+                    </p>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
 
           {/* Boulder Cards */}
