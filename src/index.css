@@ -8,62 +8,62 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 240 20% 99%;
-    --foreground: 240 10% 10%;
+    --background: 120 11% 98%;
+    --foreground: 118 15% 20%;
 
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 10%;
+    --card-foreground: 118 15% 20%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 10%;
+    --popover-foreground: 118 15% 20%;
 
-    --primary: 242 71% 65%;
+    --primary: 118 57% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 10% 10%;
+    --secondary: 120 8% 94%;
+    --secondary-foreground: 118 15% 20%;
 
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
+    --muted: 120 8% 94%;
+    --muted-foreground: 118 10% 46%;
 
-    --accent: 242 71% 65%;
+    --accent: 118 57% 45%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     
-    --success: 142 76% 36%;
+    --success: 118 57% 45%;
     --success-foreground: 0 0% 100%;
 
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 242 71% 65%;
+    --border: 120 8% 88%;
+    --input: 120 8% 88%;
+    --ring: 118 57% 45%;
 
     --radius: 1rem;
 
     /* Dashboard specific colors */
-    --sidebar-bg: 240 10% 20%;
-    --sidebar-icon: 240 5% 50%;
+    --sidebar-bg: 118 20% 22%;
+    --sidebar-icon: 118 5% 50%;
     --sidebar-icon-active: 0 0% 100%;
     
     /* Chart colors */
-    --chart-primary: 242 71% 65%;
+    --chart-primary: 118 57% 45%;
     --chart-orange: 25 95% 65%;
     --chart-yellow: 45 93% 60%;
     --chart-red: 0 72% 65%;
-    --chart-green: 142 76% 50%;
+    --chart-green: 118 57% 55%;
 
     /* Boulder difficulty colors */
-    --difficulty-beginner: 142 76% 36%;
-    --difficulty-easy: 84 81% 44%;
+    --difficulty-beginner: 118 57% 55%;
+    --difficulty-easy: 118 57% 45%;
     --difficulty-medium: 45 93% 47%;
     --difficulty-hard: 25 95% 53%;
     --difficulty-expert: 0 84% 60%;
-    --difficulty-elite: 280 3% 25%;
+    --difficulty-elite: 118 20% 22%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(242 71% 65%) 0%, hsl(250 75% 70%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(240 20% 99%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(118 57% 45%) 0%, hsl(118 57% 55%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(120 11% 98%) 100%);
     
     /* Shadows */
     --shadow-soft: 0 2px 12px hsl(240 10% 10% / 0.04);
@@ -75,33 +75,33 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 240 10% 10%;
-    --foreground: 240 5% 96%;
+    --background: 118 15% 10%;
+    --foreground: 120 11% 96%;
 
-    --card: 240 10% 14%;
-    --card-foreground: 240 5% 96%;
+    --card: 118 15% 14%;
+    --card-foreground: 120 11% 96%;
 
-    --popover: 240 10% 14%;
-    --popover-foreground: 240 5% 96%;
+    --popover: 118 15% 14%;
+    --popover-foreground: 120 11% 96%;
 
-    --primary: 242 71% 65%;
+    --primary: 118 57% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 5% 18%;
-    --secondary-foreground: 240 5% 96%;
+    --secondary: 118 10% 18%;
+    --secondary-foreground: 120 11% 96%;
 
-    --muted: 240 5% 18%;
-    --muted-foreground: 240 4% 60%;
+    --muted: 118 10% 18%;
+    --muted-foreground: 118 8% 60%;
 
-    --accent: 242 71% 65%;
+    --accent: 118 57% 45%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 5% 20%;
-    --input: 240 5% 20%;
-    --ring: 242 71% 65%;
+    --border: 118 10% 20%;
+    --input: 118 10% 20%;
+    --ring: 118 57% 45%;
 
     --shadow-soft: 0 2px 12px hsl(0 0% 0% / 0.3);
     --shadow-medium: 0 4px 20px hsl(0 0% 0% / 0.4);
