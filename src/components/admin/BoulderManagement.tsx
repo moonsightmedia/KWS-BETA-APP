@@ -219,10 +219,10 @@ export const BoulderManagement = () => {
           <SheetTrigger asChild>
             <Button 
               onClick={resetForm} 
-              size="lg" 
-              className="fixed bottom-24 right-6 z-40 h-14 w-14 rounded-full shadow-lg p-0"
+              size="icon" 
+              className="fixed bottom-[88px] right-6 z-[60] h-12 w-12 rounded-full shadow-lg"
             >
-              <Plus className="w-6 h-6" />
+              <Plus className="w-5 h-5" />
             </Button>
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
