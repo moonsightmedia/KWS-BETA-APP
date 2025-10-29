@@ -69,62 +69,65 @@ export const UserManagement = () => {
 
   return (
     <div className="space-y-4">
-      <div className="border rounded-lg shadow-soft bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>E-Mail</TableHead>
-              <TableHead>Rolle</TableHead>
-              <TableHead>Registriert am</TableHead>
-              <TableHead className="text-right">Aktionen</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users?.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.email}</TableCell>
-                <TableCell>
-                  {user.isAdmin ? (
-                    <Badge variant="default" className="gap-1">
-                      <Shield className="w-3 h-3" />
-                      Admin
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary">Benutzer</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {format(new Date(user.created_at), "dd.MM.yyyy HH:mm")}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    variant={user.isAdmin ? "destructive" : "default"}
-                    size="sm"
-                    onClick={() =>
-                      toggleAdminMutation.mutate({
-                        userId: user.id,
-                        isAdmin: user.isAdmin,
-                      })
-                    }
-                    disabled={toggleAdminMutation.isPending}
-                  >
-                    {user.isAdmin ? (
-                      <>
-                        <ShieldOff className="w-4 h-4 mr-2" />
-                        Admin entfernen
-                      </>
-                    ) : (
-                      <>
-                        <Shield className="w-4 h-4 mr-2" />
-                        Zum Admin machen
-                      </>
-                    )}
-                  </Button>
-                </TableCell>
+      <div className="border rounded-lg shadow-soft bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="min-w-[200px]">E-Mail</TableHead>
+                <TableHead className="min-w-[120px]">Rolle</TableHead>
+                <TableHead className="min-w-[150px]">Registriert am</TableHead>
+                <TableHead className="text-right min-w-[200px]">Aktionen</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {users?.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.email}</TableCell>
+                  <TableCell>
+                    {user.isAdmin ? (
+                      <Badge variant="default" className="gap-1 whitespace-nowrap">
+                        <Shield className="w-3 h-3" />
+                        Admin
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="whitespace-nowrap">Benutzer</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {format(new Date(user.created_at), "dd.MM.yyyy HH:mm")}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant={user.isAdmin ? "destructive" : "default"}
+                      size="sm"
+                      className="whitespace-nowrap"
+                      onClick={() =>
+                        toggleAdminMutation.mutate({
+                          userId: user.id,
+                          isAdmin: user.isAdmin,
+                        })
+                      }
+                      disabled={toggleAdminMutation.isPending}
+                    >
+                      {user.isAdmin ? (
+                        <>
+                          <ShieldOff className="w-4 h-4 md:mr-2" />
+                          <span className="hidden md:inline">Admin entfernen</span>
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="w-4 h-4 md:mr-2" />
+                          <span className="hidden md:inline">Zum Admin machen</span>
+                        </>
+                      )}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );

@@ -91,10 +91,11 @@ export const SectorManagement = () => {
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
               <Plus className="w-4 h-4 mr-2" />
-              Neuer Sektor
+              <span className="hidden sm:inline">Neuer Sektor</span>
+              <span className="sm:hidden">Neu</span>
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingSector ? "Sektor bearbeiten" : "Neuer Sektor"}
@@ -178,48 +179,52 @@ export const SectorManagement = () => {
         </Dialog>
       </div>
 
-      <div className="border rounded-lg shadow-soft bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Beschreibung</TableHead>
-              <TableHead>Boulder</TableHead>
-              <TableHead>Nächster Termin</TableHead>
-              <TableHead className="text-right">Aktionen</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sectors?.map((sector) => (
-              <TableRow key={sector.id}>
-                <TableCell className="font-medium">{sector.name}</TableCell>
-                <TableCell className="max-w-xs truncate">{sector.description || "-"}</TableCell>
-                <TableCell>{sector.boulder_count}</TableCell>
-                <TableCell>
-                  {sector.next_schraubtermin 
-                    ? format(new Date(sector.next_schraubtermin), "dd.MM.yyyy HH:mm")
-                    : "-"}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEdit(sector)}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setDeleteId(sector.id)}
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </TableCell>
+      <div className="border rounded-lg shadow-soft bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="min-w-[150px]">Name</TableHead>
+                <TableHead className="min-w-[200px]">Beschreibung</TableHead>
+                <TableHead className="min-w-[100px]">Boulder</TableHead>
+                <TableHead className="min-w-[150px]">Nächster Termin</TableHead>
+                <TableHead className="text-right min-w-[120px]">Aktionen</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {sectors?.map((sector) => (
+                <TableRow key={sector.id}>
+                  <TableCell className="font-medium">{sector.name}</TableCell>
+                  <TableCell className="max-w-xs truncate">{sector.description || "-"}</TableCell>
+                  <TableCell>{sector.boulder_count}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {sector.next_schraubtermin 
+                      ? format(new Date(sector.next_schraubtermin), "dd.MM.yyyy HH:mm")
+                      : "-"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(sector)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeleteId(sector.id)}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>

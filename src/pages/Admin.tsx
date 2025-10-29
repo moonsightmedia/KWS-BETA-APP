@@ -64,10 +64,10 @@ const Admin = () => {
           </div>
 
           <Tabs defaultValue="users" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="users">Benutzer</TabsTrigger>
-              <TabsTrigger value="boulders">Boulder</TabsTrigger>
-              <TabsTrigger value="sectors">Sektoren</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 mb-6 h-auto">
+              <TabsTrigger value="users" className="text-xs sm:text-sm">Benutzer</TabsTrigger>
+              <TabsTrigger value="boulders" className="text-xs sm:text-sm">Boulder</TabsTrigger>
+              <TabsTrigger value="sectors" className="text-xs sm:text-sm">Sektoren</TabsTrigger>
             </TabsList>
 
             <TabsContent value="users" className="mt-0">

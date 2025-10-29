@@ -90,10 +90,11 @@ export const BoulderManagement = () => {
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
               <Plus className="w-4 h-4 mr-2" />
-              Neuer Boulder
+              <span className="hidden sm:inline">Neuer Boulder</span>
+              <span className="sm:hidden">Neu</span>
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingBoulder ? "Boulder bearbeiten" : "Neuer Boulder"}
@@ -204,47 +205,51 @@ export const BoulderManagement = () => {
         </Dialog>
       </div>
 
-      <div className="border rounded-lg shadow-soft bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Sektor</TableHead>
-              <TableHead>Schwierigkeit</TableHead>
-              <TableHead>Farbe</TableHead>
-              <TableHead className="text-right">Aktionen</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {boulders?.map((boulder) => {
-              const sector = sectors?.find(s => s.id === boulder.sector_id);
-              return (
-                <TableRow key={boulder.id}>
-                  <TableCell className="font-medium">{boulder.name}</TableCell>
-                  <TableCell>{sector?.name || "Unbekannt"}</TableCell>
-                  <TableCell>{boulder.difficulty}</TableCell>
-                  <TableCell>{boulder.color}</TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEdit(boulder)}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDeleteId(boulder.id)}
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+      <div className="border rounded-lg shadow-soft bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="min-w-[150px]">Name</TableHead>
+                <TableHead className="min-w-[120px]">Sektor</TableHead>
+                <TableHead className="min-w-[120px]">Schwierigkeit</TableHead>
+                <TableHead className="min-w-[100px]">Farbe</TableHead>
+                <TableHead className="text-right min-w-[120px]">Aktionen</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {boulders?.map((boulder) => {
+                const sector = sectors?.find(s => s.id === boulder.sector_id);
+                return (
+                  <TableRow key={boulder.id}>
+                    <TableCell className="font-medium">{boulder.name}</TableCell>
+                    <TableCell>{sector?.name || "Unbekannt"}</TableCell>
+                    <TableCell>{boulder.difficulty}</TableCell>
+                    <TableCell>{boulder.color}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(boulder)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteId(boulder.id)}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
