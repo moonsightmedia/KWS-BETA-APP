@@ -18,6 +18,17 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 const COLORS = ['Grün', 'Gelb', 'Blau', 'Orange', 'Rot', 'Schwarz', 'Weiß', 'Lila'];
 const DIFFICULTIES = [1, 2, 3, 4, 5, 6, 7, 8];
 
+const COLOR_MAP: Record<string, { bg: string; border: string; label: string }> = {
+  'Grün': { bg: 'bg-green-500', border: 'border-green-600', label: 'Grün' },
+  'Gelb': { bg: 'bg-yellow-400', border: 'border-yellow-500', label: 'Gelb' },
+  'Blau': { bg: 'bg-blue-500', border: 'border-blue-600', label: 'Blau' },
+  'Orange': { bg: 'bg-orange-500', border: 'border-orange-600', label: 'Orange' },
+  'Rot': { bg: 'bg-red-500', border: 'border-red-600', label: 'Rot' },
+  'Schwarz': { bg: 'bg-gray-900', border: 'border-gray-950', label: 'Schwarz' },
+  'Weiß': { bg: 'bg-white', border: 'border-gray-300', label: 'Weiß' },
+  'Lila': { bg: 'bg-purple-500', border: 'border-purple-600', label: 'Lila' },
+};
+
 export const BoulderManagement = () => {
   const { data: boulders, isLoading } = useBoulders();
   const { data: sectors } = useSectors();
@@ -259,7 +270,12 @@ export const BoulderManagement = () => {
                     <TableCell className="font-medium">{boulder.name}</TableCell>
                     <TableCell>{sector?.name || "Unbekannt"}</TableCell>
                     <TableCell>{boulder.difficulty}</TableCell>
-                    <TableCell>{boulder.color}</TableCell>
+                    <TableCell>
+                      <div 
+                        className={`w-8 h-8 rounded-full border-2 ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${COLOR_MAP[boulder.color]?.border || 'border-gray-500'}`}
+                        title={boulder.color}
+                      />
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"
@@ -321,9 +337,10 @@ export const BoulderManagement = () => {
                   <Badge variant="secondary">
                     Schwierigkeit {boulder.difficulty}
                   </Badge>
-                  <Badge variant="outline">
-                    {boulder.color}
-                  </Badge>
+                  <div 
+                    className={`w-8 h-8 rounded-full border-2 ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${COLOR_MAP[boulder.color]?.border || 'border-gray-500'}`}
+                    title={boulder.color}
+                  />
                 </div>
               </CardContent>
             </Card>
