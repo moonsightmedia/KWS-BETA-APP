@@ -14,16 +14,143 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      boulders: {
+        Row: {
+          beta_video_url: string | null
+          color: string
+          created_at: string
+          difficulty: number
+          id: string
+          name: string
+          note: string | null
+          sector_id: string
+          updated_at: string
+        }
+        Insert: {
+          beta_video_url?: string | null
+          color: string
+          created_at?: string
+          difficulty: number
+          id?: string
+          name: string
+          note?: string | null
+          sector_id: string
+          updated_at?: string
+        }
+        Update: {
+          beta_video_url?: string | null
+          color?: string
+          created_at?: string
+          difficulty?: number
+          id?: string
+          name?: string
+          note?: string | null
+          sector_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boulders_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sectors: {
+        Row: {
+          boulder_count: number | null
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          last_schraubtermin: string | null
+          name: string
+          next_schraubtermin: string | null
+          updated_at: string
+        }
+        Insert: {
+          boulder_count?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          last_schraubtermin?: string | null
+          name: string
+          next_schraubtermin?: string | null
+          updated_at?: string
+        }
+        Update: {
+          boulder_count?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          last_schraubtermin?: string | null
+          name?: string
+          next_schraubtermin?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +277,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const

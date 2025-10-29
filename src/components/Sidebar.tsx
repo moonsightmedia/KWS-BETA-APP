@@ -1,10 +1,12 @@
-import { LayoutDashboard, List, Map, ChevronRight, ChevronLeft, User, LogOut, Settings, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, List, Map, ChevronRight, ChevronLeft, User, LogOut, Settings, HelpCircle, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,17 +19,19 @@ interface SidebarProps {
   className?: string;
 }
 
-const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-  { icon: List, label: 'Boulder', path: '/boulders' },
-  { icon: Map, label: 'Sektoren', path: '/sectors' },
-];
-
 export const Sidebar = ({ className }: SidebarProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { isAdmin } = useIsAdmin();
+
+  const navItems = [
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: List, label: 'Boulder', path: '/boulders' },
+    { icon: Map, label: 'Sektoren', path: '/sectors' },
+    ...(isAdmin ? [{ icon: Shield, label: 'Admin', path: '/admin' }] : []),
+  ];
 
   return (
     <>
@@ -41,7 +45,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
         <div className={cn("mb-6", isExpanded ? "px-4" : "")}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="cursor-pointer focus:outline-none">
+              <button className="cursor-pointer focus:outline-none relative">
                 <Avatar className="w-12 h-12 hover:opacity-80 transition-opacity">
                   <AvatarFallback className="bg-primary text-primary-foreground">
                     {user ? (
@@ -51,6 +55,11 @@ export const Sidebar = ({ className }: SidebarProps) => {
                     )}
                   </AvatarFallback>
                 </Avatar>
+                {isAdmin && (
+                  <Badge variant="default" className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center">
+                    <Shield className="h-3 w-3" />
+                  </Badge>
+                )}
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56 bg-card">
