@@ -15,18 +15,18 @@ import { Pencil, Trash2, Plus, MoreVertical } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-const COLORS = ['Grün', 'Gelb', 'Blau', 'Orange', 'Rot', 'Schwarz', 'Weiß', 'Lila'];
+const DEFAULT_COLORS = ['Grün', 'Gelb', 'Blau', 'Orange', 'Rot', 'Schwarz', 'Weiß', 'Lila'];
 const DIFFICULTIES = [1, 2, 3, 4, 5, 6, 7, 8];
 
-const COLOR_MAP: Record<string, { bg: string; border: string; label: string }> = {
-  'Grün': { bg: 'bg-green-500', border: 'border-green-600', label: 'Grün' },
-  'Gelb': { bg: 'bg-yellow-400', border: 'border-yellow-500', label: 'Gelb' },
-  'Blau': { bg: 'bg-blue-500', border: 'border-blue-600', label: 'Blau' },
-  'Orange': { bg: 'bg-orange-500', border: 'border-orange-600', label: 'Orange' },
-  'Rot': { bg: 'bg-red-500', border: 'border-red-600', label: 'Rot' },
-  'Schwarz': { bg: 'bg-gray-900', border: 'border-gray-950', label: 'Schwarz' },
-  'Weiß': { bg: 'bg-white', border: 'border-gray-300', label: 'Weiß' },
-  'Lila': { bg: 'bg-purple-500', border: 'border-purple-600', label: 'Lila' },
+const COLOR_MAP: Record<string, { bg: string; border: string; hex: string }> = {
+  'Grün': { bg: 'bg-green-500', border: 'border-green-600', hex: '#22c55e' },
+  'Gelb': { bg: 'bg-yellow-400', border: 'border-yellow-500', hex: '#facc15' },
+  'Blau': { bg: 'bg-blue-500', border: 'border-blue-600', hex: '#3b82f6' },
+  'Orange': { bg: 'bg-orange-500', border: 'border-orange-600', hex: '#f97316' },
+  'Rot': { bg: 'bg-red-500', border: 'border-red-600', hex: '#ef4444' },
+  'Schwarz': { bg: 'bg-gray-900', border: 'border-gray-950', hex: '#111827' },
+  'Weiß': { bg: 'bg-white', border: 'border-gray-300', hex: '#ffffff' },
+  'Lila': { bg: 'bg-purple-500', border: 'border-purple-600', hex: '#a855f7' },
 };
 
 export const BoulderManagement = () => {
@@ -39,6 +39,11 @@ export const BoulderManagement = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBoulder, setEditingBoulder] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const [availableColors, setAvailableColors] = useState<string[]>(DEFAULT_COLORS);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [customColorName, setCustomColorName] = useState("");
+  const [customColorHex, setCustomColorHex] = useState("#000000");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -59,6 +64,28 @@ export const BoulderManagement = () => {
       note: "",
     });
     setEditingBoulder(null);
+    setShowColorPicker(false);
+    setCustomColorName("");
+    setCustomColorHex("#000000");
+  };
+
+  const handleAddCustomColor = () => {
+    if (customColorName.trim() && customColorHex) {
+      const newColorName = customColorName.trim();
+      if (!availableColors.includes(newColorName)) {
+        setAvailableColors([...availableColors, newColorName]);
+        // Dynamically add to COLOR_MAP
+        COLOR_MAP[newColorName] = {
+          bg: '',
+          border: '',
+          hex: customColorHex
+        };
+        setFormData({ ...formData, color: newColorName });
+      }
+      setShowColorPicker(false);
+      setCustomColorName("");
+      setCustomColorHex("#000000");
+    }
   };
 
   const handleEdit = (boulder: any) => {
@@ -152,21 +179,95 @@ export const BoulderManagement = () => {
 
                 <div>
                   <Label htmlFor="color">Farbe *</Label>
-                  <Select
-                    value={formData.color}
-                    onValueChange={(value) => setFormData({ ...formData, color: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COLORS.map((color) => (
-                        <SelectItem key={color} value={color}>
-                          {color}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-4 gap-2">
+                      {availableColors.map((color) => {
+                        const colorInfo = COLOR_MAP[color];
+                        const isSelected = formData.color === color;
+                        return (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, color })}
+                            className={`relative flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-all ${
+                              isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div 
+                              className={`w-8 h-8 rounded-full border-2 ${colorInfo?.bg || ''} ${colorInfo?.border || ''}`}
+                              style={!colorInfo?.bg ? { backgroundColor: colorInfo?.hex } : {}}
+                            />
+                            <span className="text-xs font-medium truncate w-full text-center">{color}</span>
+                            {isSelected && (
+                              <div className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    
+                    {!showColorPicker ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowColorPicker(true)}
+                        className="w-full"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Neue Farbe hinzufügen
+                      </Button>
+                    ) : (
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="colorName" className="text-xs">Farbname</Label>
+                            <Input
+                              id="colorName"
+                              value={customColorName}
+                              onChange={(e) => setCustomColorName(e.target.value)}
+                              placeholder="z.B. Pink"
+                              className="h-9"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="colorPicker" className="text-xs">Farbe wählen</Label>
+                            <Input
+                              id="colorPicker"
+                              type="color"
+                              value={customColorHex}
+                              onChange={(e) => setCustomColorHex(e.target.value)}
+                              className="h-9 cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setShowColorPicker(false);
+                              setCustomColorName("");
+                              setCustomColorHex("#000000");
+                            }}
+                            className="flex-1"
+                          >
+                            Abbrechen
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleAddCustomColor}
+                            disabled={!customColorName.trim()}
+                            className="flex-1"
+                          >
+                            Hinzufügen
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
