@@ -33,6 +33,17 @@ const difficultyColors: Record<number, string> = {
   8: 'bg-red-700',
 };
 
+const COLOR_MAP: Record<string, { bg: string; border: string }> = {
+  'Grün': { bg: 'bg-green-500', border: 'border-green-600' },
+  'Gelb': { bg: 'bg-yellow-400', border: 'border-yellow-500' },
+  'Blau': { bg: 'bg-blue-500', border: 'border-blue-600' },
+  'Orange': { bg: 'bg-orange-500', border: 'border-orange-600' },
+  'Rot': { bg: 'bg-red-500', border: 'border-red-600' },
+  'Schwarz': { bg: 'bg-gray-900', border: 'border-gray-950' },
+  'Weiß': { bg: 'bg-white', border: 'border-gray-300' },
+  'Lila': { bg: 'bg-purple-500', border: 'border-purple-600' },
+};
+
 const Boulders = () => {
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
@@ -224,7 +235,10 @@ const Boulders = () => {
                       <Badge variant="outline" className={`${difficultyColors[boulder.difficulty]} text-white border-0`}>
                         {boulder.difficulty}
                       </Badge>
-                      <Badge variant="secondary">{boulder.color}</Badge>
+                      <div 
+                        className={`w-6 h-6 rounded-full border-2 ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${COLOR_MAP[boulder.color]?.border || 'border-gray-500'}`}
+                        title={boulder.color}
+                      />
                     </div>
                   </div>
                 </CardHeader>

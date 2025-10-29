@@ -272,7 +272,7 @@ export const BoulderManagement = () => {
                     <TableCell>{boulder.difficulty}</TableCell>
                     <TableCell>
                       <div 
-                        className={`w-8 h-8 rounded-full border-2 ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${COLOR_MAP[boulder.color]?.border || 'border-gray-500'}`}
+                        className={`w-6 h-6 rounded-full border-2 ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${COLOR_MAP[boulder.color]?.border || 'border-gray-500'}`}
                         title={boulder.color}
                       />
                     </TableCell>
@@ -333,12 +333,12 @@ export const BoulderManagement = () => {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <Badge variant="secondary">
                     Schwierigkeit {boulder.difficulty}
                   </Badge>
                   <div 
-                    className={`w-8 h-8 rounded-full border-2 ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${COLOR_MAP[boulder.color]?.border || 'border-gray-500'}`}
+                    className={`w-6 h-6 rounded-full border-2 ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${COLOR_MAP[boulder.color]?.border || 'border-gray-500'}`}
                     title={boulder.color}
                   />
                 </div>
