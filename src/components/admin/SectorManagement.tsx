@@ -5,9 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Pencil, Trash2, Plus, MoreVertical, Calendar } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 
 export const SectorManagement = () => {
@@ -84,24 +88,8 @@ export const SectorManagement = () => {
     return <div>Lädt...</div>;
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Neuer Sektor</span>
-              <span className="sm:hidden">Neu</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingSector ? "Sektor bearbeiten" : "Neuer Sektor"}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+  const FormContent = () => (
+    <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label htmlFor="name">Name *</Label>
                 <Input
@@ -166,29 +154,72 @@ export const SectorManagement = () => {
                 />
               </div>
 
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Abbrechen
-                </Button>
-                <Button type="submit">
-                  {editingSector ? "Speichern" : "Erstellen"}
-                </Button>
-              </div>
-            </form>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+            Abbrechen
+          </Button>
+          <Button type="submit">
+            {editingSector ? "Speichern" : "Erstellen"}
+          </Button>
+        </div>
+      </form>
+    );
+
+  return (
+    <div className="space-y-4">
+      {/* Desktop Dialog */}
+      <div className="hidden md:flex justify-end">
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={resetForm}>
+              <Plus className="w-4 h-4 mr-2" />
+              Neuer Sektor
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {editingSector ? "Sektor bearbeiten" : "Neuer Sektor"}
+              </DialogTitle>
+            </DialogHeader>
+            <FormContent />
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="border rounded-lg shadow-soft bg-card overflow-hidden">
+      {/* Mobile Sheet */}
+      <div className="md:hidden flex justify-end">
+        <Sheet open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <SheetTrigger asChild>
+            <Button onClick={resetForm} size="lg" className="rounded-full shadow-lg">
+              <Plus className="w-5 h-5 mr-2" />
+              Neu
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>
+                {editingSector ? "Sektor bearbeiten" : "Neuer Sektor"}
+              </SheetTitle>
+            </SheetHeader>
+            <div className="mt-4">
+              <FormContent />
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block border rounded-lg shadow-soft bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[150px]">Name</TableHead>
-                <TableHead className="min-w-[200px]">Beschreibung</TableHead>
-                <TableHead className="min-w-[100px]">Boulder</TableHead>
-                <TableHead className="min-w-[150px]">Nächster Termin</TableHead>
-                <TableHead className="text-right min-w-[120px]">Aktionen</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Beschreibung</TableHead>
+                <TableHead>Boulder</TableHead>
+                <TableHead>Nächster Termin</TableHead>
+                <TableHead className="text-right">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -197,34 +228,83 @@ export const SectorManagement = () => {
                   <TableCell className="font-medium">{sector.name}</TableCell>
                   <TableCell className="max-w-xs truncate">{sector.description || "-"}</TableCell>
                   <TableCell>{sector.boulder_count}</TableCell>
-                  <TableCell className="whitespace-nowrap">
+                  <TableCell>
                     {sector.next_schraubtermin 
                       ? format(new Date(sector.next_schraubtermin), "dd.MM.yyyy HH:mm")
                       : "-"}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(sector)}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDeleteId(sector.id)}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEdit(sector)}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteId(sector.id)}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {sectors?.map((sector) => (
+          <Card key={sector.id} className="shadow-soft">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-base mb-1">{sector.name}</h3>
+                  {sector.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                      {sector.description}
+                    </p>
+                  )}
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleEdit(sector)}>
+                      <Pencil className="w-4 h-4 mr-2" />
+                      Bearbeiten
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => setDeleteId(sector.id)}
+                      className="text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Löschen
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Badge variant="secondary">
+                  {sector.boulder_count} Boulder
+                </Badge>
+                {sector.next_schraubtermin && (
+                  <Badge variant="outline" className="gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {format(new Date(sector.next_schraubtermin), "dd.MM.yy")}
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>

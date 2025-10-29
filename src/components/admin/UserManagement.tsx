@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Shield, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -69,15 +70,16 @@ export const UserManagement = () => {
 
   return (
     <div className="space-y-4">
-      <div className="border rounded-lg shadow-soft bg-card overflow-hidden">
+      {/* Desktop Table View */}
+      <div className="hidden md:block border rounded-lg shadow-soft bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[200px]">E-Mail</TableHead>
-                <TableHead className="min-w-[120px]">Rolle</TableHead>
-                <TableHead className="min-w-[150px]">Registriert am</TableHead>
-                <TableHead className="text-right min-w-[200px]">Aktionen</TableHead>
+                <TableHead>E-Mail</TableHead>
+                <TableHead>Rolle</TableHead>
+                <TableHead>Registriert am</TableHead>
+                <TableHead className="text-right">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -86,22 +88,21 @@ export const UserManagement = () => {
                   <TableCell className="font-medium">{user.email}</TableCell>
                   <TableCell>
                     {user.isAdmin ? (
-                      <Badge variant="default" className="gap-1 whitespace-nowrap">
+                      <Badge variant="default" className="gap-1">
                         <Shield className="w-3 h-3" />
                         Admin
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="whitespace-nowrap">Benutzer</Badge>
+                      <Badge variant="secondary">Benutzer</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap">
+                  <TableCell>
                     {format(new Date(user.created_at), "dd.MM.yyyy HH:mm")}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant={user.isAdmin ? "destructive" : "default"}
                       size="sm"
-                      className="whitespace-nowrap"
                       onClick={() =>
                         toggleAdminMutation.mutate({
                           userId: user.id,
@@ -112,13 +113,13 @@ export const UserManagement = () => {
                     >
                       {user.isAdmin ? (
                         <>
-                          <ShieldOff className="w-4 h-4 md:mr-2" />
-                          <span className="hidden md:inline">Admin entfernen</span>
+                          <ShieldOff className="w-4 h-4 mr-2" />
+                          Admin entfernen
                         </>
                       ) : (
                         <>
-                          <Shield className="w-4 h-4 md:mr-2" />
-                          <span className="hidden md:inline">Zum Admin machen</span>
+                          <Shield className="w-4 h-4 mr-2" />
+                          Zum Admin machen
                         </>
                       )}
                     </Button>
@@ -128,6 +129,56 @@ export const UserManagement = () => {
             </TableBody>
           </Table>
         </div>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {users?.map((user) => (
+          <Card key={user.id} className="shadow-soft">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{user.email}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {format(new Date(user.created_at), "dd.MM.yyyy HH:mm")}
+                  </p>
+                </div>
+                {user.isAdmin ? (
+                  <Badge variant="default" className="gap-1 flex-shrink-0">
+                    <Shield className="w-3 h-3" />
+                    Admin
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="flex-shrink-0">Benutzer</Badge>
+                )}
+              </div>
+              <Button
+                variant={user.isAdmin ? "destructive" : "default"}
+                size="sm"
+                className="w-full"
+                onClick={() =>
+                  toggleAdminMutation.mutate({
+                    userId: user.id,
+                    isAdmin: user.isAdmin,
+                  })
+                }
+                disabled={toggleAdminMutation.isPending}
+              >
+                {user.isAdmin ? (
+                  <>
+                    <ShieldOff className="w-4 h-4 mr-2" />
+                    Admin entfernen
+                  </>
+                ) : (
+                  <>
+                    <Shield className="w-4 h-4 mr-2" />
+                    Zum Admin machen
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   );
