@@ -85,8 +85,7 @@ export const BoulderManagement = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Boulder Verwaltung</h2>
+      <div className="flex justify-end">
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
@@ -205,7 +204,7 @@ export const BoulderManagement = () => {
         </Dialog>
       </div>
 
-      <div className="border rounded-lg">
+      <div className="border rounded-lg shadow-soft bg-card">
         <Table>
           <TableHeader>
             <TableRow>

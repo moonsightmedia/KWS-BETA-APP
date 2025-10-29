@@ -86,8 +86,7 @@ export const SectorManagement = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Sektoren Verwaltung</h2>
+      <div className="flex justify-end">
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
@@ -179,7 +178,7 @@ export const SectorManagement = () => {
         </Dialog>
       </div>
 
-      <div className="border rounded-lg">
+      <div className="border rounded-lg shadow-soft bg-card">
         <Table>
           <TableHeader>
             <TableRow>

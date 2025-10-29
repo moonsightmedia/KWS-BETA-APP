@@ -46,12 +46,12 @@ All colors MUST be HSL.
     --sidebar-icon: 118 5% 50%;
     --sidebar-icon-active: 0 0% 100%;
     
-    /* Chart colors */
-    --chart-primary: 118 57% 45%;
-    --chart-orange: 25 95% 65%;
-    --chart-yellow: 45 93% 60%;
-    --chart-red: 0 72% 65%;
-    --chart-green: 118 57% 55%;
+    /* Chart colors - Moderne Farbpalette */
+    --chart-primary: 210 100% 60%;    /* Modernes Blau */
+    --chart-orange: 30 100% 65%;      /* Warmes Orange */
+    --chart-yellow: 45 100% 58%;      /* Leuchtendes Gelb */
+    --chart-red: 350 85% 62%;         /* Modernes Rot */
+    --chart-green: 150 65% 52%;       /* Frisches Türkis-Grün */
 
     /* Boulder difficulty colors */
     --difficulty-beginner: 118 57% 55%;

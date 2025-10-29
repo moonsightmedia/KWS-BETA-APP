@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
+import { DashboardHeader } from "@/components/DashboardHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,12 +30,15 @@ const Admin = () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen bg-background">
+      <div className="min-h-screen flex bg-background">
         <Sidebar />
-        <main className="flex-1 p-8 ml-16 lg:ml-64">
-          <Skeleton className="h-12 w-64 mb-8" />
-          <Skeleton className="h-96 w-full" />
-        </main>
+        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+          <DashboardHeader />
+          <main className="flex-1 p-4 md:p-8">
+            <Skeleton className="h-12 w-64 mb-8" />
+            <Skeleton className="h-96 w-full" />
+          </main>
+        </div>
       </div>
     );
   }
@@ -44,36 +48,42 @@ const Admin = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="min-h-screen flex bg-background">
       <Sidebar />
-      <main className="flex-1 p-8 ml-16 lg:ml-64">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center gap-3 mb-8">
-            <Shield className="h-8 w-8 text-primary" />
-            <h1 className="text-4xl font-bold">Admin Panel</h1>
+      
+      <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+        <DashboardHeader />
+        
+        <main className="flex-1 p-4 md:p-8">
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-2">
+              <Shield className="h-8 w-8 text-primary" />
+              <h1 className="text-3xl font-bold font-teko tracking-wide">Admin Panel</h1>
+            </div>
+            <p className="text-muted-foreground">Verwalte Benutzer, Boulder und Sektoren</p>
           </div>
 
           <Tabs defaultValue="users" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger value="users">Benutzer</TabsTrigger>
               <TabsTrigger value="boulders">Boulder</TabsTrigger>
               <TabsTrigger value="sectors">Sektoren</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="users" className="mt-6">
+            <TabsContent value="users" className="mt-0">
               <UserManagement />
             </TabsContent>
 
-            <TabsContent value="boulders" className="mt-6">
+            <TabsContent value="boulders" className="mt-0">
               <BoulderManagement />
             </TabsContent>
 
-            <TabsContent value="sectors" className="mt-6">
+            <TabsContent value="sectors" className="mt-0">
               <SectorManagement />
             </TabsContent>
           </Tabs>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 };
