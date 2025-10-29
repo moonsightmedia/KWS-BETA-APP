@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
+import { Suspense, lazy } from "react";
 import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import Sectors from "./pages/Sectors";
@@ -20,6 +21,8 @@ const Root = () => (
   </AuthProvider>
 );
 
+const SetterPage = lazy(() => import('./pages/Setter'));
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -31,6 +34,11 @@ const router = createBrowserRouter([
       { path: "auth", element: <Auth /> },
       { path: "profile", element: <Profile /> },
       { path: "admin", element: <Admin /> },
+      { path: "setter", element: (
+        <Suspense fallback={<div />}> 
+          <SetterPage />
+        </Suspense>
+      ) },
       { path: "*", element: <NotFound /> },
     ],
   },
