@@ -220,7 +220,7 @@ export const BoulderManagement = () => {
             <Button 
               onClick={resetForm} 
               size="icon" 
-              className="fixed bottom-[88px] right-6 z-[60] h-12 w-12 rounded-full shadow-lg"
+              className="fixed bottom-[calc(104px+env(safe-area-inset-bottom))] right-6 z-[60] h-12 w-12 rounded-full shadow-lg"
             >
               <Plus className="w-5 h-5" />
             </Button>
