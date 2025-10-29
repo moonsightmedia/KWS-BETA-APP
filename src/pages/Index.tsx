@@ -12,7 +12,8 @@ import { useSectorsTransformed } from '@/hooks/useSectors';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { AlertCircle } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 const Index = () => {
@@ -99,6 +100,19 @@ const Index = () => {
   if (!statistics) {
     return null;
   }
+  const [greetingName, setGreetingName] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!user) return;
+      const { data } = await supabase.from('profiles').select('first_name, full_name').eq('id', user.id).maybeSingle();
+      if (!active) return;
+      const first = data?.first_name || (data?.full_name ? String(data.full_name).split(' ')[0] : undefined);
+      if (first) setGreetingName(first);
+    })();
+    return () => { active = false; };
+  }, [user]);
+
   return (
     <div className="min-h-screen flex bg-background">
       <Sidebar />
@@ -110,10 +124,10 @@ const Index = () => {
           {/* Welcome Section */}
           <div className="mb-8">
             <div className="mb-2">
-              <h1 className="text-3xl font-bold mb-1 font-teko tracking-wide">Hallo, {(() => {
+              <h1 className="text-3xl font-bold mb-1 font-teko tracking-wide">Hallo, {greetingName || (() => {
                 const meta = user?.user_metadata as any;
-                const full = meta?.full_name || meta?.name;
-                if (full) return full.split(' ')[0];
+                const full = meta?.first_name || meta?.full_name || meta?.name;
+                if (full) return String(full).split(' ')[0];
                 const email = user?.email || '';
                 return email ? email.split('@')[0] : 'Kletterwelt';
               })()}! 👋</h1>
@@ -121,21 +135,40 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          {/* Stats Grid - kompakt nur mobil */}
+          <div className="grid grid-cols-3 gap-3 mb-3 md:hidden">
+            <StatCard
+              title="Aktive Boulder"
+              value={statistics.totalBoulders}
+              variant="primary"
+              subtitle="Aktuell"
+            />
+            <StatCard
+              title="Neue Boulder"
+              value={statistics.newBouldersCount}
+              subtitle="7 Tage"
+            />
+            <StatCard
+              title="Mit Beta-Video"
+              value={videosCount}
+              subtitle={statistics.totalBoulders > 0 
+                ? `${Math.round((videosCount / statistics.totalBoulders) * 100)}%`
+                : '0%'}
+            />
+          </div>
+          {/* Standard-Grid ab md+: wieder alle 4 Karten */}
+          <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <StatCard
               title="Aktive Boulder"
               value={statistics.totalBoulders}
               variant="primary"
               subtitle="Aktueller Stand"
             />
-            
             <StatCard
               title="Neue Boulder"
               value={statistics.newBouldersCount}
               subtitle="Seit letzter Woche"
             />
-            
             <StatCard
               title="Mit Beta-Video"
               value={videosCount}
@@ -143,7 +176,6 @@ const Index = () => {
                 ? `${Math.round((videosCount / statistics.totalBoulders) * 100)}% aller Boulder`
                 : 'Keine Boulder vorhanden'}
             />
-            
             <StatCard
               title="Nächster Schraubtermin"
               value={nextSector?.name.split(' - ')[0] || '-'}

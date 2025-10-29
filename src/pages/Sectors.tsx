@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSectorsTransformed } from '@/hooks/useSectors';
+import { useBoulders } from '@/hooks/useBoulders';
+import { useSectorSchedule } from '@/hooks/useSectorSchedule';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Calendar, Box, ArrowRight, AlertCircle } from 'lucide-react';
@@ -14,6 +16,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 const Sectors = () => {
   const navigate = useNavigate();
   const { data: sectors, isLoading, error } = useSectorsTransformed();
+  const { data: boulders } = useBoulders();
+  const { data: schedule } = useSectorSchedule();
 
   const handleViewBoulders = (sectorName: string) => {
     navigate(`/boulders?sector=${encodeURIComponent(sectorName)}`);
@@ -109,7 +113,10 @@ const Sectors = () => {
                     </div>
                     <Badge variant="secondary" className="ml-2">
                       <Box className="w-3 h-3 mr-1" />
-                      {sector.boulderCount}
+                      {(() => {
+                        const count = (boulders || []).filter(b => b.sector_id === sector.id).length;
+                        return count;
+                      })()}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -127,7 +134,12 @@ const Sectors = () => {
                       <Calendar className="w-4 h-4" />
                       <span>Nächster Schraubtermin:</span>
                       <span className="font-medium text-primary">
-                        {sector.nextSchraubtermin && formatDate(sector.nextSchraubtermin, 'dd. MMM yyyy', { locale: de })}
+                        {(() => {
+                          const next = (schedule || [])
+                            .filter(s => s.sector_id === sector.id && new Date(s.scheduled_at) > new Date())
+                            .sort((a,b)=> new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0];
+                          return next ? formatDate(new Date(next.scheduled_at), 'dd. MMM yyyy', { locale: de }) : '';
+                        })()}
                       </span>
                     </div>
                   </div>

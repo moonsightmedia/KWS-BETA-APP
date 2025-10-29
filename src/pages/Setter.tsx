@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Sidebar } from '@/components/Sidebar';
+import { DashboardHeader } from '@/components/DashboardHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { useHasRole } from '@/hooks/useHasRole';
 import { useNavigate } from 'react-router-dom';
@@ -26,6 +28,16 @@ const COLOR_HEX: Record<string, string> = {
   'Schwarz': '#111827',
   'Weiß': '#ffffff',
   'Lila': '#a855f7',
+};
+const TEXT_ON_COLOR: Record<string, string> = {
+  'Grün': 'text-white',
+  'Gelb': 'text-black',
+  'Blau': 'text-white',
+  'Orange': 'text-black',
+  'Rot': 'text-white',
+  'Schwarz': 'text-white',
+  'Weiß': 'text-black',
+  'Lila': 'text-white',
 };
 
 const Setter = () => {
@@ -209,15 +221,26 @@ const Setter = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="p-4 pb-2 sticky top-0 z-20 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-2xl font-teko tracking-wide leading-none">Setter</h1>
-          <p className="text-xs text-muted-foreground mt-1">Boulder anlegen und bearbeiten. Nächsten Sektor planen.</p>
-        </div>
-      </header>
-
-      <main className="flex-1 p-4 max-w-3xl mx-auto w-full">
+    <div className="min-h-screen bg-background flex">
+      <Sidebar />
+      <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+        <DashboardHeader />
+        <main className="flex-1 p-4 md:p-8">
+          <div className="mb-4">
+            <h1 className="text-2xl font-teko tracking-wide leading-none">Setter</h1>
+            <p className="text-xs text-muted-foreground mt-1">Boulder anlegen und bearbeiten. Nächsten Sektor planen.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-[200px,1fr] md:gap-6 max-w-5xl mx-auto">
+            {/* Left vertical nav on md+ */}
+            <aside className="hidden md:block">
+              <div className="sticky top-[88px] space-y-2">
+                <button className={`w-full text-left px-3 py-2 rounded-lg ${view==='create'?'bg-muted font-medium':'hover:bg-muted/50'}`} onClick={()=>setView('create')}>Hinzufügen</button>
+                <button className={`w-full text-left px-3 py-2 rounded-lg ${view==='edit'?'bg-muted font-medium':'hover:bg-muted/50'}`} onClick={()=>setView('edit')}>Bearbeiten</button>
+                <button className={`w-full text-left px-3 py-2 rounded-lg ${view==='status'?'bg-muted font-medium':'hover:bg-muted/50'}`} onClick={()=>setView('status')}>Status</button>
+                <button className={`w-full text-left px-3 py-2 rounded-lg ${view==='schedule'?'bg-muted font-medium':'hover:bg-muted/50'}`} onClick={()=>setView('schedule')}>Schraubtermin</button>
+              </div>
+            </aside>
+            <section className="w-full max-w-3xl mx-auto">
         {view === 'create' && (
             <Card>
               <CardHeader>
@@ -345,10 +368,12 @@ const Setter = () => {
                       <Card className="hover:bg-muted/50">
                         <CardContent className="p-4 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-3 h-3 rounded-full border" title={b.color} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }} />
+                            <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold ${TEXT_ON_COLOR[b.color] || 'text-white'}`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
+                              {b.difficulty}
+                            </span>
                             <div>
                               <div className="font-medium text-base">{b.name}</div>
-                              <div className="text-xs text-muted-foreground">{b.sector} · Schwierigkeit {b.difficulty}</div>
+                              <div className="text-xs text-muted-foreground">{b.sector}</div>
                             </div>
                           </div>
                           <span className="text-primary text-sm">Bearbeiten</span>
@@ -497,10 +522,12 @@ const Setter = () => {
                     <CardContent className="p-4 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
                         <input type="checkbox" className="w-5 h-5" checked={!!selected[b.id]} onChange={()=>toggleSelect(b.id)} />
-                        <div className="w-3 h-3 rounded-full border" title={b.color} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }} />
+                        <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold ${TEXT_ON_COLOR[b.color] || 'text-white'}`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
+                          {b.difficulty}
+                        </span>
                         <div>
                           <div className="font-medium text-base">{b.name}</div>
-                          <div className="text-xs text-muted-foreground">{b.sector} · Schwierigkeit {b.difficulty}</div>
+                          <div className="text-xs text-muted-foreground">{b.sector}</div>
                         </div>
                       </div>
                       <span className="text-xs px-2 py-1 rounded-full border">
@@ -578,9 +605,11 @@ const Setter = () => {
             </Card>
           </div>
         )}
-      </main>
+            </section>
+          </div>
+        </main>
 
-      {/* Mobile Bottom Navbar */}
+        {/* Mobile Bottom Navbar */}
       <nav className="md:hidden fixed bottom-4 left-4 right-4 z-40 bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
         <div className="max-w-3xl mx-auto flex items-center justify-around px-2 py-2">
           <button
@@ -614,13 +643,12 @@ const Setter = () => {
         </div>
       </nav>
       <div className="h-24 md:h-0" />
-
+      
       {/* Bottom Action Bar for Status view */}
       {view==='status' && (
-        <div className="fixed inset-x-0 bottom-0 z-50 p-3 pb-[max(env(safe-area-inset-bottom),12px)] bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
+        <div className="fixed inset-x-0 bottom-20 md:bottom-0 z-50 p-3 pb-[max(env(safe-area-inset-bottom),12px)] bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
           <div className="max-w-3xl mx-auto flex gap-2">
-            <Button type="button" variant="outline" className="flex-1 h-12" onClick={()=>selectAll(filteredBoulders.map(b=>b.id), false)}>Auswahl löschen</Button>
-            <Button type="button" className="flex-1 h-12" disabled={filteredBoulders.filter(b=>selected[b.id]).length===0}
+            <Button type="button" className="w-full h-12" disabled={filteredBoulders.filter(b=>selected[b.id]).length===0}
               onClick={()=>{
                 const ids = filteredBoulders.filter(b=>selected[b.id]).map(b=>b.id);
                 bulkStatus.mutate({ ids, status: 'abgeschraubt' });
@@ -630,6 +658,7 @@ const Setter = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { Sidebar } from '@/components/Sidebar';
 import { BoulderDetailDialog } from '@/components/BoulderDetailDialog';
@@ -21,7 +21,8 @@ import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Search, Video, FileText, Calendar, Filter, ArrowUpDown, ArrowUp, ArrowDown, AlertCircle } from 'lucide-react';
+import { Search, Video, FileText, Calendar, Filter, ArrowUpDown, ArrowUp, ArrowDown, AlertCircle, Palette, Map, Dumbbell, X } from 'lucide-react';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Boulder } from '@/types/boulder';
 import { useSearchParams } from 'react-router-dom';
 
@@ -47,6 +48,28 @@ const COLOR_MAP: Record<string, { bg: string; border: string }> = {
   'Lila': { bg: 'bg-purple-500', border: 'border-purple-600' },
 };
 
+const COLOR_HEX: Record<string, string> = {
+  'Grün': '#22c55e',
+  'Gelb': '#facc15',
+  'Blau': '#3b82f6',
+  'Orange': '#f97316',
+  'Rot': '#ef4444',
+  'Schwarz': '#111827',
+  'Weiß': '#ffffff',
+  'Lila': '#a855f7',
+};
+
+const TEXT_ON_COLOR: Record<string, string> = {
+  'Grün': 'text-white',
+  'Gelb': 'text-black',
+  'Blau': 'text-white',
+  'Orange': 'text-black',
+  'Rot': 'text-white',
+  'Schwarz': 'text-white',
+  'Weiß': 'text-black',
+  'Lila': 'text-white',
+};
+
 const Boulders = () => {
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,6 +80,12 @@ const Boulders = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedBoulder, setSelectedBoulder] = useState<Boulder | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [quickFilter, setQuickFilter] = useState<null | 'sector' | 'difficulty' | 'color'>(null);
+  const [scrollTo, setScrollTo] = useState<null | 'sector' | 'difficulty' | 'color'>(null);
+  const sectorRef = useRef<HTMLDivElement | null>(null);
+  const difficultyRef = useRef<HTMLDivElement | null>(null);
+  const colorRef = useRef<HTMLDivElement | null>(null);
 
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors();
   const { data: sectors, isLoading: isLoadingSectors } = useSectorsTransformed();
@@ -331,13 +360,13 @@ const Boulders = () => {
                       </Badge>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className={`${difficultyColors[boulder.difficulty]} text-white border-0`}>
-                        {boulder.difficulty}
-                      </Badge>
-                      <div 
-                        className={`w-6 h-6 rounded-full border-2 ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${COLOR_MAP[boulder.color]?.border || 'border-gray-500'}`}
+                      <span
+                        className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold ${TEXT_ON_COLOR[boulder.color] || 'text-white'}`}
                         title={boulder.color}
-                      />
+                        style={{ backgroundColor: COLOR_HEX[boulder.color] || '#9ca3af' }}
+                      >
+                        {boulder.difficulty}
+                      </span>
                       {boulder.status && (
                         <Badge variant={boulder.status === 'haengt' ? 'default' : 'secondary'}>
                           {boulder.status === 'haengt' ? 'Hängt' : 'Abgeschraubt'}
@@ -383,6 +412,131 @@ const Boulders = () => {
           open={dialogOpen}
           onOpenChange={setDialogOpen}
         />
+
+        {/* Quick Filter Bar (mobile) */}
+        {quickFilter && (
+          <div className="sm:hidden fixed left-4 right-4 bottom-24 z-[60] bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
+            <div className="flex items-center justify-between px-3 py-2">
+              <span className="text-xs px-2 py-1 rounded-full border bg-card">
+                {quickFilter === 'color' ? 'Farbe' : quickFilter === 'sector' ? 'Sektor' : 'Schwierigkeit'}
+              </span>
+              <Button variant="ghost" size="icon" onClick={()=> setQuickFilter(null)}>
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            <ScrollArea className="w-full">
+              <div className="flex items-center gap-2 px-3 pb-3 min-w-max">
+                {quickFilter === 'sector' && (
+                  <>
+                    <Button variant={sectorFilter==='all'?'default':'outline'} size="sm" onClick={()=> setSectorFilter('all')}>Alle</Button>
+                    {sectors?.map(s => (
+                      <Button key={s.id} variant={sectorFilter===s.name?'default':'outline'} size="sm" onClick={()=> setSectorFilter(s.name)}>
+                        {s.name}
+                      </Button>
+                    ))}
+                  </>
+                )}
+                {quickFilter === 'difficulty' && (
+                  <>
+                    <Button variant={difficultyFilter==='all'?'default':'outline'} size="sm" onClick={()=> setDifficultyFilter('all')}>Alle</Button>
+                    {[1,2,3,4,5,6,7,8].map(d => (
+                      <Button key={d} variant={difficultyFilter===String(d)?'default':'outline'} size="sm" onClick={()=> setDifficultyFilter(String(d))}>
+                        {d}
+                      </Button>
+                    ))}
+                  </>
+                )}
+                {quickFilter === 'color' && (
+                  <>
+                    <Button variant={colorFilter==='all'?'default':'outline'} size="sm" onClick={()=> setColorFilter('all')}>Alle</Button>
+                    {Object.keys(COLOR_MAP).map(c => (
+                      <Button key={c} variant={colorFilter===c?'default':'outline'} size="sm" onClick={()=> setColorFilter(c)}>
+                        <span className="inline-flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full border" />
+                          {c}
+                        </span>
+                      </Button>
+                    ))}
+                  </>
+                )}
+              </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          </div>
+        )}
+
+        {/* Floating Filter Bar (mobile) */}
+        <nav className="sm:hidden fixed bottom-28 left-4 right-4 z-[60] bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
+          <div className="flex items-center justify-between px-3 py-2 gap-2">
+            <span className="text-xs px-3 py-1 rounded-full border bg-card">{filteredAndSortedBoulders.length} Treffer</span>
+            <div className="flex items-center gap-2">
+              <Sheet open={filterOpen} onOpenChange={(open)=>{ setFilterOpen(open); if(!open) setScrollTo(null); }}>
+                <Button aria-label="Farben filtern" variant="outline" size="icon" onClick={()=> setQuickFilter(prev => prev === 'color' ? null : 'color')}>
+                  {colorFilter !== 'all' ? (
+                    <span className="w-5 h-5 rounded-full border" />
+                  ) : (
+                    <Palette className="w-5 h-5" />
+                  )}
+                </Button>
+                <Button aria-label="Sektor filtern" variant="outline" size="icon" onClick={()=> setQuickFilter(prev => prev === 'sector' ? null : 'sector')}>
+                  <span className="relative inline-flex">
+                    <Map className="w-5 h-5" />
+                    {sectorFilter !== 'all' && <span className="absolute -right-0.5 -bottom-0.5 w-2 h-2 rounded-full bg-primary border border-background" />}
+                  </span>
+                </Button>
+                <Button aria-label="Schwierigkeit filtern" variant="outline" size="icon" onClick={()=> setQuickFilter(prev => prev === 'difficulty' ? null : 'difficulty')}>
+                  {difficultyFilter !== 'all' ? (
+                    <span className="w-5 h-5 grid place-items-center text-[11px] font-semibold leading-none">{difficultyFilter}</span>
+                  ) : (
+                    <Dumbbell className="w-5 h-5" />
+                  )}
+                </Button>
+                <Button variant="outline" size="icon" onClick={()=>{ setScrollTo(null); setFilterOpen(true); }}><Filter className="w-5 h-5" /></Button>
+                <SheetContent side="bottom" className="h-[85vh]">
+                  <SheetHeader>
+                    <SheetTitle>{scrollTo === null ? 'Filter' : scrollTo === 'sector' ? 'Sektor wählen' : scrollTo === 'difficulty' ? 'Schwierigkeit wählen' : 'Farbe wählen'}</SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-4 space-y-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input className="pl-9" placeholder="Suchen" value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)} />
+                    </div>
+                    <div ref={sectorRef}>
+                      <label className="text-sm font-medium">Sektor</label>
+                      <Select value={sectorFilter} onValueChange={setSectorFilter}>
+                        <SelectTrigger><SelectValue placeholder="Sektor" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Alle</SelectItem>
+                          {sectors?.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div ref={difficultyRef}>
+                      <label className="text-sm font-medium">Schwierigkeit</label>
+                      <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+                        <SelectTrigger><SelectValue placeholder="Grad" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Alle</SelectItem>
+                          {[1,2,3,4,5,6,7,8].map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div ref={colorRef}>
+                      <label className="text-sm font-medium">Farbe</label>
+                      <Select value={colorFilter} onValueChange={setColorFilter}>
+                        <SelectTrigger><SelectValue placeholder="Farbe" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Alle</SelectItem>
+                          {Object.keys(COLOR_MAP).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
+          </div>
+        </nav>
       </div>
     </div>
   );

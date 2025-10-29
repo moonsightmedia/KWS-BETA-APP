@@ -24,6 +24,16 @@ const COLOR_HEX: Record<string, string> = {
   'Weiß': '#ffffff',
   'Lila': '#a855f7',
 };
+const TEXT_ON_COLOR: Record<string, string> = {
+  'Grün': 'text-white',
+  'Gelb': 'text-black',
+  'Blau': 'text-white',
+  'Orange': 'text-black',
+  'Rot': 'text-white',
+  'Schwarz': 'text-white',
+  'Weiß': 'text-black',
+  'Lila': 'text-white',
+};
 
 const Guest = () => {
   const [searchParams] = useSearchParams();
@@ -171,10 +181,10 @@ const Guest = () => {
                   <div className="text-xs text-muted-foreground flex items-center gap-2">
                     <span>{b.sector}</span>
                     <span>·</span>
-                    <span>Schwierigkeit {b.difficulty}</span>
-                    <span>·</span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-full border" style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }} />
+                    <span className="inline-flex items-center gap-1">
+                      <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold ${TEXT_ON_COLOR[b.color] || 'text-white'}`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
+                        {b.difficulty}
+                      </span>
                       {b.color}
                     </span>
                   </div>
