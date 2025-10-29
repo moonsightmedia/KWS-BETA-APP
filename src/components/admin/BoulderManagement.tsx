@@ -213,13 +213,16 @@ export const BoulderManagement = () => {
         </Dialog>
       </div>
 
-      {/* Mobile Sheet */}
-      <div className="md:hidden flex justify-end">
+      {/* Mobile Sheet with Floating Action Button */}
+      <div className="md:hidden">
         <Sheet open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <SheetTrigger asChild>
-            <Button onClick={resetForm} size="lg" className="rounded-full shadow-lg">
-              <Plus className="w-5 h-5 mr-2" />
-              Neu
+            <Button 
+              onClick={resetForm} 
+              size="lg" 
+              className="fixed bottom-24 right-6 z-40 h-14 w-14 rounded-full shadow-lg p-0"
+            >
+              <Plus className="w-6 h-6" />
             </Button>
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
