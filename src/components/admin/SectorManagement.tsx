@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSectors, useCreateSector, useUpdateSector, useDeleteSector } from "@/hooks/useSectors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,9 +27,7 @@ export const SectorManagement = () => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    boulder_count: 0,
     next_schraubtermin: "",
-    last_schraubtermin: "",
     image_url: "",
   });
 
@@ -37,9 +35,7 @@ export const SectorManagement = () => {
     setFormData({
       name: "",
       description: "",
-      boulder_count: 0,
       next_schraubtermin: "",
-      last_schraubtermin: "",
       image_url: "",
     });
     setEditingSector(null);
@@ -50,9 +46,7 @@ export const SectorManagement = () => {
     setFormData({
       name: sector.name,
       description: sector.description || "",
-      boulder_count: sector.boulder_count,
       next_schraubtermin: sector.next_schraubtermin ? format(new Date(sector.next_schraubtermin), "yyyy-MM-dd'T'HH:mm") : "",
-      last_schraubtermin: sector.last_schraubtermin ? format(new Date(sector.last_schraubtermin), "yyyy-MM-dd'T'HH:mm") : "",
       image_url: sector.image_url || "",
     });
     setIsDialogOpen(true);
@@ -64,7 +58,6 @@ export const SectorManagement = () => {
     const data = {
       ...formData,
       next_schraubtermin: formData.next_schraubtermin || null,
-      last_schraubtermin: formData.last_schraubtermin || null,
     };
 
     if (editingSector) {
@@ -88,7 +81,8 @@ export const SectorManagement = () => {
     return <div>Lädt...</div>;
   }
 
-  const FormContent = () => (
+  // Form content direkt inline rendern, um Focus-Probleme zu vermeiden
+  const formContent = (
     <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label htmlFor="name">Name *</Label>
@@ -111,36 +105,13 @@ export const SectorManagement = () => {
               </div>
 
               <div>
-                <Label htmlFor="boulder_count">Anzahl Boulder</Label>
+                <Label htmlFor="next_schraubtermin">Nächster Schraubtermin</Label>
                 <Input
-                  id="boulder_count"
-                  type="number"
-                  min="0"
-                  value={formData.boulder_count}
-                  onChange={(e) => setFormData({ ...formData, boulder_count: parseInt(e.target.value) || 0 })}
+                  id="next_schraubtermin"
+                  type="datetime-local"
+                  value={formData.next_schraubtermin}
+                  onChange={(e) => setFormData({ ...formData, next_schraubtermin: e.target.value })}
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="last_schraubtermin">Letzter Schraubtermin</Label>
-                  <Input
-                    id="last_schraubtermin"
-                    type="datetime-local"
-                    value={formData.last_schraubtermin}
-                    onChange={(e) => setFormData({ ...formData, last_schraubtermin: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="next_schraubtermin">Nächster Schraubtermin</Label>
-                  <Input
-                    id="next_schraubtermin"
-                    type="datetime-local"
-                    value={formData.next_schraubtermin}
-                    onChange={(e) => setFormData({ ...formData, next_schraubtermin: e.target.value })}
-                  />
-                </div>
               </div>
 
               <div>
@@ -182,7 +153,7 @@ export const SectorManagement = () => {
                 {editingSector ? "Sektor bearbeiten" : "Neuer Sektor"}
               </DialogTitle>
             </DialogHeader>
-            <FormContent />
+            {formContent}
           </DialogContent>
         </Dialog>
       </div>
@@ -206,7 +177,7 @@ export const SectorManagement = () => {
               </SheetTitle>
             </SheetHeader>
             <div className="mt-4">
-              <FormContent />
+              {formContent}
             </div>
           </SheetContent>
         </Sheet>

@@ -3,18 +3,72 @@ import { Sidebar } from '@/components/Sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { mockSectors } from '@/data/mockData';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useSectorsTransformed } from '@/hooks/useSectors';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Calendar, Box, ArrowRight } from 'lucide-react';
+import { Calendar, Box, ArrowRight, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const Sectors = () => {
   const navigate = useNavigate();
+  const { data: sectors, isLoading, error } = useSectorsTransformed();
 
   const handleViewBoulders = (sectorName: string) => {
     navigate(`/boulders?sector=${encodeURIComponent(sectorName)}`);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex">
+        <Sidebar />
+        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+          <DashboardHeader />
+          <main className="flex-1 p-4 md:p-8">
+            <div className="mb-8">
+              <Skeleton className="h-9 w-48 mb-2" />
+              <Skeleton className="h-5 w-64" />
+            </div>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i}>
+                  <Skeleton className="aspect-video w-full" />
+                  <CardHeader>
+                    <Skeleton className="h-6 w-32 mb-2" />
+                    <Skeleton className="h-4 w-full" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-10 w-full" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex">
+        <Sidebar />
+        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+          <DashboardHeader />
+          <main className="flex-1 p-4 md:p-8">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
+              <AlertDescription>
+                {error instanceof Error ? error.message : 'Ein unbekannter Fehler ist aufgetreten.'}
+              </AlertDescription>
+            </Alert>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -29,8 +83,13 @@ const Sectors = () => {
             <p className="text-muted-foreground">Übersicht aller Kletterbereiche</p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {mockSectors.map((sector) => (
+          {!sectors || sectors.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">Keine Sektoren gefunden.</p>
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {sectors.map((sector) => (
               <Card key={sector.id} className="hover:shadow-lg transition-shadow overflow-hidden">
                 {sector.imageUrl && (
                   <div className="aspect-video w-full overflow-hidden">
@@ -82,8 +141,9 @@ const Sectors = () => {
                   </Button>
                 </CardContent>
               </Card>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </main>
       </div>
     </div>

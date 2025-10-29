@@ -3,28 +3,100 @@ import { DashboardHeader } from '@/components/DashboardHeader';
 import { StatCard } from '@/components/StatCard';
 import { DifficultyDistributionChart } from '@/components/DifficultyDistributionChart';
 import { CategoryChart } from '@/components/CategoryChart';
-import { mockStatistics, mockSectors, mockBoulders } from '@/data/mockData';
+import { DatabaseTest } from '@/components/DatabaseTest';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useStatistics } from '@/hooks/useStatistics';
+import { useBouldersWithSectors } from '@/hooks/useBoulders';
+import { useSectorsTransformed } from '@/hooks/useSectors';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { AlertCircle } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 const Index = () => {
+  const [showDbTest, setShowDbTest] = useState(false);
+  const statistics = useStatistics();
+  const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors();
+  const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed();
+  const isLoading = isLoadingBoulders || isLoadingSectors;
+  const error = bouldersError || sectorsError;
+
   // Nächster Schraubtermin
-  const nextSector = [...mockSectors]
-    .filter(s => s.nextSchraubtermin)
-    .sort((a, b) => {
-      if (!a.nextSchraubtermin || !b.nextSchraubtermin) return 0;
-      return a.nextSchraubtermin.getTime() - b.nextSchraubtermin.getTime();
-    })[0];
+  const nextSector = useMemo(() => {
+    if (!sectors) return null;
+    return [...sectors]
+      .filter(s => s.nextSchraubtermin)
+      .sort((a, b) => {
+        if (!a.nextSchraubtermin || !b.nextSchraubtermin) return 0;
+        return a.nextSchraubtermin.getTime() - b.nextSchraubtermin.getTime();
+      })[0] || null;
+  }, [sectors]);
 
   // Berechne Boulder mit Beta-Videos
-  const videosCount = mockBoulders.filter(b => b.betaVideoUrl).length;
+  const videosCount = useMemo(() => {
+    return boulders?.filter(b => b.betaVideoUrl).length || 0;
+  }, [boulders]);
   
   // Berechne durchschnittliche Schwierigkeit
-  const avgDifficulty = (
-    Object.entries(mockStatistics.difficultyDistribution)
-      .reduce((sum, [diff, count]) => sum + (Number(diff) * count), 0) / 
-    mockStatistics.totalBoulders
-  ).toFixed(1);
+  const avgDifficulty = useMemo(() => {
+    if (!statistics || statistics.totalBoulders === 0) return '0.0';
+    return (
+      Object.entries(statistics.difficultyDistribution)
+        .reduce((sum, [diff, count]) => sum + (Number(diff) * count), 0) / 
+      statistics.totalBoulders
+    ).toFixed(1);
+  }, [statistics]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex bg-background">
+        <Sidebar />
+        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+          <DashboardHeader />
+          <main className="flex-1 p-4 md:p-8">
+            <div className="mb-8">
+              <Skeleton className="h-9 w-64 mb-2" />
+              <Skeleton className="h-5 w-96" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-32" />
+              ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <Skeleton className="h-96 lg:col-span-2" />
+              <Skeleton className="h-96" />
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex bg-background">
+        <Sidebar />
+        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+          <DashboardHeader />
+          <main className="flex-1 p-4 md:p-8">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
+              <AlertDescription>
+                {error instanceof Error ? error.message : 'Ein unbekannter Fehler ist aufgetreten.'}
+              </AlertDescription>
+            </Alert>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  if (!statistics) {
+    return null;
+  }
   return (
     <div className="min-h-screen flex bg-background">
       <Sidebar />
@@ -45,23 +117,23 @@ const Index = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <StatCard
               title="Aktive Boulder"
-              value={mockStatistics.totalBoulders}
-              change={2.6}
+              value={statistics.totalBoulders}
               variant="primary"
               subtitle="Aktueller Stand"
             />
             
             <StatCard
               title="Neue Boulder"
-              value={mockStatistics.newBouldersCount}
-              change={-2.2}
+              value={statistics.newBouldersCount}
               subtitle="Seit letzter Woche"
             />
             
             <StatCard
               title="Mit Beta-Video"
               value={videosCount}
-              subtitle={`${Math.round((videosCount / mockStatistics.totalBoulders) * 100)}% aller Boulder`}
+              subtitle={statistics.totalBoulders > 0 
+                ? `${Math.round((videosCount / statistics.totalBoulders) * 100)}% aller Boulder`
+                : 'Keine Boulder vorhanden'}
             />
             
             <StatCard
@@ -75,9 +147,22 @@ const Index = () => {
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <DifficultyDistributionChart stats={mockStatistics} avgDifficulty={avgDifficulty} />
+            <DifficultyDistributionChart stats={statistics} avgDifficulty={avgDifficulty} />
             <CategoryChart />
           </div>
+
+          {/* Database Test (optional, für Debugging) */}
+          {import.meta.env.DEV && (
+            <div className="mt-8">
+              <button
+                onClick={() => setShowDbTest(!showDbTest)}
+                className="mb-4 text-sm text-muted-foreground hover:text-foreground underline"
+              >
+                {showDbTest ? '🔼 Datenbanktest ausblenden' : '🔽 Datenbanktest anzeigen'}
+              </button>
+              {showDbTest && <DatabaseTest />}
+            </div>
+          )}
         </main>
       </div>
     </div>

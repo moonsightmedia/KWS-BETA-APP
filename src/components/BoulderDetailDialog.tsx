@@ -1,9 +1,10 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Boulder } from '@/types/boulder';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Calendar, MapPin, Palette, FileText } from 'lucide-react';
+import { Calendar, MapPin, Palette, FileText, ExternalLink, Video } from 'lucide-react';
 
 interface BoulderDetailDialogProps {
   boulder: Boulder | null;
@@ -33,8 +34,36 @@ const COLOR_MAP: Record<string, { bg: string; border: string }> = {
   'Lila': { bg: 'bg-purple-500', border: 'border-purple-600' },
 };
 
+// Helper function um zu erkennen, ob es eine YouTube/Vimeo URL ist
+const isYouTubeUrl = (url: string): boolean => {
+  return /youtube\.com|youtu\.be/.test(url);
+};
+
+const isVimeoUrl = (url: string): boolean => {
+  return /vimeo\.com/.test(url);
+};
+
+const getYouTubeEmbedUrl = (url: string): string => {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  const videoId = (match && match[2].length === 11) ? match[2] : null;
+  return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
+};
+
+const getVimeoEmbedUrl = (url: string): string => {
+  const regExp = /vimeo\.com\/(\d+)/;
+  const match = url.match(regExp);
+  const videoId = match ? match[1] : null;
+  return videoId ? `https://player.vimeo.com/video/${videoId}` : url;
+};
+
 export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDetailDialogProps) => {
   if (!boulder) return null;
+
+  const videoUrl = boulder.betaVideoUrl;
+  const isYouTube = videoUrl ? isYouTubeUrl(videoUrl) : false;
+  const isVimeo = videoUrl ? isVimeoUrl(videoUrl) : false;
+  const isDirectVideo = videoUrl && !isYouTube && !isVimeo;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -56,16 +85,66 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
 
         <div className="space-y-6">
           {/* Video Section */}
-          {boulder.betaVideoUrl && (
+          {videoUrl && (
             <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden">
-              <video 
-                controls 
-                className="w-full h-full"
-                poster="/placeholder.svg"
-              >
-                <source src={boulder.betaVideoUrl} type="video/mp4" />
-                Dein Browser unterstützt keine Videos.
-              </video>
+              {isYouTube && (
+                <iframe
+                  src={getYouTubeEmbedUrl(videoUrl)}
+                  className="w-full h-full"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  title="YouTube video player"
+                />
+              )}
+              {isVimeo && (
+                <iframe
+                  src={getVimeoEmbedUrl(videoUrl)}
+                  className="w-full h-full"
+                  frameBorder="0"
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowFullScreen
+                  title="Vimeo video player"
+                />
+              )}
+              {isDirectVideo && (
+                <video 
+                  controls 
+                  className="w-full h-full"
+                  poster="/placeholder.svg"
+                >
+                  <source src={videoUrl} type="video/mp4" />
+                  Dein Browser unterstützt keine Videos.
+                  <p className="p-4">
+                    Dein Browser unterstützt dieses Video-Format nicht.{' '}
+                    <a 
+                      href={videoUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      Video direkt öffnen
+                    </a>
+                  </p>
+                </video>
+              )}
+              {!isYouTube && !isVimeo && !isDirectVideo && (
+                <div className="w-full h-full flex items-center justify-center flex-col gap-4 p-4">
+                  <Video className="w-12 h-12 text-muted-foreground" />
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Video kann nicht direkt angezeigt werden
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => window.open(videoUrl, '_blank')}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Video öffnen
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

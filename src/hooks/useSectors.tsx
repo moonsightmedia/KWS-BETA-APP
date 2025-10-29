@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { transformSector } from '@/lib/dataTransformers';
+import { Sector as FrontendSector } from '@/types/boulder';
 
 export interface Sector {
   id: string;
@@ -27,6 +29,24 @@ export const useSectors = () => {
       return data as Sector[];
     },
   });
+};
+
+/**
+ * Hook der Sektoren transformiert zu Frontend Types zurückgibt
+ */
+export const useSectorsTransformed = () => {
+  const { data: sectors, isLoading, error } = useSectors();
+
+  const transformedSectors: FrontendSector[] | undefined = sectors
+    ? sectors.map(s => transformSector(s))
+    : undefined;
+
+  return {
+    data: transformedSectors,
+    isLoading,
+    error,
+    rawSectors: sectors,
+  };
 };
 
 export const useUpdateSector = () => {

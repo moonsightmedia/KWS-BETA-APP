@@ -2,8 +2,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts';
 import { Statistics } from '@/types/boulder';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockBoulders, mockSectors } from '@/data/mockData';
-import { useState } from 'react';
+import { useBouldersWithSectors } from '@/hooks/useBoulders';
+import { useSectorsTransformed } from '@/hooks/useSectors';
+import { useState, useMemo } from 'react';
 
 interface DifficultyDistributionChartProps {
   stats: Statistics;
@@ -12,22 +13,31 @@ interface DifficultyDistributionChartProps {
 
 export const DifficultyDistributionChart = ({ stats, avgDifficulty }: DifficultyDistributionChartProps) => {
   const [selectedSector, setSelectedSector] = useState<string>('all');
+  const { data: boulders } = useBouldersWithSectors();
+  const { data: sectors } = useSectorsTransformed();
   
   // Filtere Boulder nach Sektor
-  const filteredBoulders = selectedSector === 'all' 
-    ? mockBoulders 
-    : mockBoulders.filter(b => b.sector === selectedSector);
+  const filteredBoulders = useMemo(() => {
+    if (!boulders) return [];
+    return selectedSector === 'all' 
+      ? boulders 
+      : boulders.filter(b => b.sector === selectedSector);
+  }, [boulders, selectedSector]);
   
   // Berechne Verteilung für gefilterte Boulder
-  const filteredDistribution: Record<number, number> = {};
-  for (let i = 1; i <= 8; i++) {
-    filteredDistribution[i] = filteredBoulders.filter(b => b.difficulty === i).length;
-  }
+  const filteredDistribution = useMemo(() => {
+    const distribution: Record<number, number> = {};
+    for (let i = 1; i <= 8; i++) {
+      distribution[i] = filteredBoulders.filter(b => b.difficulty === i).length;
+    }
+    return distribution;
+  }, [filteredBoulders]);
   
   // Berechne durchschnittliche Schwierigkeit für gefilterte Boulder
-  const filteredAvg = filteredBoulders.length > 0
-    ? (filteredBoulders.reduce((sum, b) => sum + b.difficulty, 0) / filteredBoulders.length).toFixed(1)
-    : '0.0';
+  const filteredAvg = useMemo(() => {
+    if (filteredBoulders.length === 0) return '0.0';
+    return (filteredBoulders.reduce((sum, b) => sum + b.difficulty, 0) / filteredBoulders.length).toFixed(1);
+  }, [filteredBoulders]);
   
   const data = Object.entries(filteredDistribution).map(([difficulty, count]) => ({
     name: `Grad ${difficulty}`,
@@ -56,7 +66,7 @@ export const DifficultyDistributionChart = ({ stats, avgDifficulty }: Difficulty
             </SelectTrigger>
             <SelectContent className="bg-card z-50">
               <SelectItem value="all">Alle Sektoren</SelectItem>
-              {mockSectors.map((sector) => (
+              {sectors?.map((sector) => (
                 <SelectItem key={sector.id} value={sector.name}>
                   {sector.name}
                 </SelectItem>
