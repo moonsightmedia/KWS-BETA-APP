@@ -10,6 +10,7 @@ export interface Boulder {
   betaVideoUrl?: string;
   note?: string;
   createdAt: Date;
+  status?: 'haengt' | 'abgeschraubt';
 }
 
 export interface Sector {

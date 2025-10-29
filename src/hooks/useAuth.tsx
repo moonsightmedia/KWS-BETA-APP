@@ -8,7 +8,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, meta?: { firstName?: string; lastName?: string; birthDate?: string }) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   loading: boolean;
@@ -28,6 +28,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        // Sync user_metadata to profiles table when session becomes available
+        if (session?.user) {
+          const meta = session.user.user_metadata as any;
+          const payload: any = {};
+          if (meta?.first_name) payload.first_name = meta.first_name;
+          if (meta?.last_name) payload.last_name = meta.last_name;
+          if (meta?.full_name) payload.full_name = meta.full_name;
+          if (meta?.birth_date) payload.birth_date = meta.birth_date;
+          if (Object.keys(payload).length > 0) {
+            supabase.from('profiles').update(payload).eq('id', session.user.id);
+          }
+        }
       }
     );
 
@@ -55,14 +67,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     navigate('/');
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, meta?: { firstName?: string; lastName?: string; birthDate?: string }) => {
     const redirectUrl = `${window.location.origin}/`;
-    
+    const fullName = [meta?.firstName, meta?.lastName].filter(Boolean).join(' ').trim() || undefined;
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: redirectUrl
+        emailRedirectTo: redirectUrl,
+        data: {
+          first_name: meta?.firstName || null,
+          last_name: meta?.lastName || null,
+          full_name: fullName || null,
+          birth_date: meta?.birthDate || null,
+        }
       }
     });
     

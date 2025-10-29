@@ -13,10 +13,12 @@ import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { AlertCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 
 const Index = () => {
   const [showDbTest, setShowDbTest] = useState(false);
   const statistics = useStatistics();
+  const { user } = useAuth();
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors();
   const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed();
   const isLoading = isLoadingBoulders || isLoadingSectors;
@@ -108,7 +110,13 @@ const Index = () => {
           {/* Welcome Section */}
           <div className="mb-8">
             <div className="mb-2">
-              <h1 className="text-3xl font-bold mb-1 font-teko tracking-wide">Hallo, Kletterwelt! 👋</h1>
+              <h1 className="text-3xl font-bold mb-1 font-teko tracking-wide">Hallo, {(() => {
+                const meta = user?.user_metadata as any;
+                const full = meta?.full_name || meta?.name;
+                if (full) return full.split(' ')[0];
+                const email = user?.email || '';
+                return email ? email.split('@')[0] : 'Kletterwelt';
+              })()}! 👋</h1>
               <p className="text-muted-foreground">Das passiert gerade in deiner Halle.</p>
             </div>
           </div>

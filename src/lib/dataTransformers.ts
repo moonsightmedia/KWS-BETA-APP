@@ -20,6 +20,7 @@ export const transformBoulder = (
     betaVideoUrl: boulder.beta_video_url || undefined,
     note: boulder.note || undefined,
     createdAt: new Date(boulder.created_at),
+    status: (boulder as any).status || 'haengt',
   };
 };
 

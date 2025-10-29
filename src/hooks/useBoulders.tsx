@@ -13,6 +13,7 @@ export interface Boulder {
   color: string;
   beta_video_url: string | null;
   note: string | null;
+  status?: 'haengt' | 'abgeschraubt';
   created_at: string;
   updated_at: string;
 }
@@ -135,5 +136,23 @@ export const useDeleteBoulder = () => {
     onError: (error) => {
       toast.error('Fehler beim Löschen: ' + error.message);
     },
+  });
+};
+
+export const useBulkUpdateBoulderStatus = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { ids: string[]; status: 'haengt' | 'abgeschraubt' }) => {
+      const { error } = await supabase
+        .from('boulders')
+        .update({ status: payload.status })
+        .in('id', payload.ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['boulders'] });
+      toast.success('Status aktualisiert');
+    },
+    onError: (error) => toast.error('Status-Update fehlgeschlagen: ' + error.message)
   });
 };

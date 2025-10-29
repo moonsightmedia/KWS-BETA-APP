@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
 import { Suspense, lazy } from "react";
+import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import Sectors from "./pages/Sectors";
@@ -28,7 +29,11 @@ const router = createBrowserRouter([
     path: "/",
     element: <Root />,
     children: [
-      { index: true, element: <Index /> },
+      { index: true, element: (
+        <RequireAuth>
+          <Index />
+        </RequireAuth>
+      ) },
       { path: "sectors", element: <Sectors /> },
       { path: "boulders", element: <Boulders /> },
       { path: "auth", element: <Auth /> },
@@ -37,6 +42,15 @@ const router = createBrowserRouter([
       { path: "setter", element: (
         <Suspense fallback={<div />}> 
           <SetterPage />
+        </Suspense>
+      ) },
+      { path: "guest", element: (
+        <Suspense fallback={<div />}> 
+          {/** dynamic import to reduce bundle */}
+          {(() => {
+            const Page = lazy(() => import('./pages/Guest'));
+            return <Page />;
+          })()}
         </Suspense>
       ) },
       { path: "*", element: <NotFound /> },

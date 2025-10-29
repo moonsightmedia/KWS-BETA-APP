@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useHasRole } from '@/hooks/useHasRole';
 import { useNavigate } from 'react-router-dom';
 import { useSectorsTransformed, useUpdateSector } from '@/hooks/useSectors';
-import { useBouldersWithSectors, useCreateBoulder, useUpdateBoulder } from '@/hooks/useBoulders';
+import { useBouldersWithSectors, useCreateBoulder, useUpdateBoulder, useBulkUpdateBoulderStatus } from '@/hooks/useBoulders';
 import { uploadBetaVideo } from '@/integrations/supabase/storage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Search, PlusCircle, Edit3, Calendar } from 'lucide-react';
+import { Search, PlusCircle, Edit3, Calendar, Wrench } from 'lucide-react';
 import { useMemo as useMemoReact, useRef } from 'react';
 import { useSectorSchedule, useCreateSectorSchedule, useDeleteSectorSchedule } from '@/hooks/useSectorSchedule';
 
@@ -38,6 +38,7 @@ const Setter = () => {
   const createBoulder = useCreateBoulder();
   const updateBoulder = useUpdateBoulder();
   const updateSector = useUpdateSector();
+  const bulkStatus = useBulkUpdateBoulderStatus();
 
   useEffect(() => {
     if (!session) navigate('/auth');
@@ -54,7 +55,7 @@ const Setter = () => {
     file: null as File | null,
   });
   const [isUploading, setIsUploading] = useState(false);
-  const [view, setView] = useState<'create' | 'edit' | 'schedule'>('create');
+  const [view, setView] = useState<'create' | 'edit' | 'schedule' | 'status'>('create');
   const [editSearch, setEditSearch] = useState('');
   const [editSector, setEditSector] = useState<string>('all');
   const [editDifficulty, setEditDifficulty] = useState<string>('all');
@@ -68,6 +69,8 @@ const Setter = () => {
   const { data: schedule } = useSectorSchedule();
   const createSchedule = useCreateSectorSchedule();
   const deleteSchedule = useDeleteSectorSchedule();
+  const [statusFilter, setStatusFilter] = useState<'all' | 'haengt' | 'abgeschraubt'>('all');
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
 
   const canSubmit = useMemo(() => {
     return !!form.name && !!form.sector_id && form.difficulty >= 1 && form.difficulty <= 8;
@@ -101,6 +104,9 @@ const Setter = () => {
     let list = boulders || [];
     if (editSector !== 'all') {
       list = list.filter(b => sectors?.find(s => s.id === editSector)?.name === b.sector);
+    }
+    if (statusFilter !== 'all') {
+      list = list.filter((b:any) => (b as any).status === statusFilter);
     }
     if (editDifficulty !== 'all') {
       list = list.filter(b => String(b.difficulty) === editDifficulty);
@@ -177,6 +183,15 @@ const Setter = () => {
       return { weekStart, days };
     });
   }, []);
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+  const selectAll = (ids: string[], value: boolean) => {
+    const next: Record<string, boolean> = { ...selected };
+    ids.forEach(id => { next[id] = value; });
+    setSelected(next);
+  };
 
   if (!canAccess) {
     return (
@@ -405,6 +420,99 @@ const Setter = () => {
             </div>
         )}
 
+        {view === 'status' && (
+          <div className="space-y-4">
+            <div className="flex gap-2 sticky top-[56px] z-10 bg-background py-2 overflow-x-auto">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input placeholder="Boulder suchen" className="pl-9 h-11" value={editSearch} onChange={(e)=>setEditSearch(e.target.value)} />
+              </div>
+              <div className="w-40">
+                <Select value={editSector} onValueChange={setEditSector}>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Sektor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle</SelectItem>
+                    {sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-36">
+                <Select value={editDifficulty} onValueChange={setEditDifficulty}>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Grad" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle</SelectItem>
+                    {DIFFICULTIES.map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-40">
+                <Select value={editColor} onValueChange={setEditColor}>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Farbe" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle</SelectItem>
+                    {COLORS.map(c => (
+                      <SelectItem key={c} value={c}>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full border" style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }} />
+                          <span>{c}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-44">
+                <Select value={statusFilter} onValueChange={(v:any)=>setStatusFilter(v)}>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle</SelectItem>
+                    <SelectItem value="haengt">Hängt</SelectItem>
+                    <SelectItem value="abgeschraubt">Abgeschraubt</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">{filteredBoulders.length} Einträge</span>
+              <div className="text-sm">
+                <button className="underline" onClick={()=>selectAll(filteredBoulders.map(b=>b.id), true)}>Alle auswählen</button>
+                <span className="mx-2">·</span>
+                <button className="underline" onClick={()=>selectAll(filteredBoulders.map(b=>b.id), false)}>Auswahl aufheben</button>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              {filteredBoulders.map(b => (
+                <label key={b.id} className="block">
+                  <Card className={`hover:bg-muted/50 ${selected[b.id] ? 'ring-2 ring-primary' : ''}`}>
+                    <CardContent className="p-4 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <input type="checkbox" className="w-5 h-5" checked={!!selected[b.id]} onChange={()=>toggleSelect(b.id)} />
+                        <div className="w-3 h-3 rounded-full border" title={b.color} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }} />
+                        <div>
+                          <div className="font-medium text-base">{b.name}</div>
+                          <div className="text-xs text-muted-foreground">{b.sector} · Schwierigkeit {b.difficulty}</div>
+                        </div>
+                      </div>
+                      <span className="text-xs px-2 py-1 rounded-full border">
+                        {b.status === 'abgeschraubt' ? 'Abgeschraubt' : 'Hängt'}
+                      </span>
+                    </CardContent>
+                  </Card>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
         {view === 'schedule' && (
           <div className="space-y-3" ref={scheduleRef}>
             <Card>
@@ -490,6 +598,13 @@ const Setter = () => {
             <span className="text-xs">Bearbeiten</span>
           </button>
           <button
+            className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all ${view==='status' ? 'text-success' : 'text-sidebar-icon'}`}
+            onClick={()=> setView('status')}
+          >
+            <Wrench className="w-5 h-5" />
+            <span className="text-xs">Status</span>
+          </button>
+          <button
             className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all ${view==='schedule' ? 'text-success' : 'text-sidebar-icon'}`}
             onClick={()=> setView('schedule')}
           >
@@ -499,6 +614,22 @@ const Setter = () => {
         </div>
       </nav>
       <div className="h-24 md:h-0" />
+
+      {/* Bottom Action Bar for Status view */}
+      {view==='status' && (
+        <div className="fixed inset-x-0 bottom-0 z-50 p-3 pb-[max(env(safe-area-inset-bottom),12px)] bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
+          <div className="max-w-3xl mx-auto flex gap-2">
+            <Button type="button" variant="outline" className="flex-1 h-12" onClick={()=>selectAll(filteredBoulders.map(b=>b.id), false)}>Auswahl löschen</Button>
+            <Button type="button" className="flex-1 h-12" disabled={filteredBoulders.filter(b=>selected[b.id]).length===0}
+              onClick={()=>{
+                const ids = filteredBoulders.filter(b=>selected[b.id]).map(b=>b.id);
+                bulkStatus.mutate({ ids, status: 'abgeschraubt' });
+                setSelected({});
+              }}
+            >Ausgewählte rausschrauben</Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

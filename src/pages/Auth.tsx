@@ -10,6 +10,9 @@ import { useEffect } from 'react';
 const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [birthDate, setBirthDate] = useState('');
   const [resetEmail, setResetEmail] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
   const {
@@ -35,9 +38,12 @@ const Auth = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await signUp(email, password);
+      await signUp(email, password, { firstName, lastName, birthDate } as any);
       setEmail('');
       setPassword('');
+      setFirstName('');
+      setLastName('');
+      setBirthDate('');
     } catch (error) {
       console.error('Sign up error:', error);
     }
@@ -110,6 +116,20 @@ const Auth = () => {
               
               <TabsContent value="signup" className="mt-0">
                 <form onSubmit={handleSignUp} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-firstname">Vorname</Label>
+                      <Input id="signup-firstname" type="text" placeholder="Max" value={firstName} onChange={e => setFirstName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-lastname">Nachname</Label>
+                      <Input id="signup-lastname" type="text" placeholder="Mustermann" value={lastName} onChange={e => setLastName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-birthdate">Geburtsdatum</Label>
+                      <Input id="signup-birthdate" type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} />
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">E-Mail</Label>
                     <Input id="signup-email" type="email" placeholder="deine@email.de" value={email} onChange={e => setEmail(e.target.value)} required />

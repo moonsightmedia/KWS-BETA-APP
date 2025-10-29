@@ -338,6 +338,11 @@ const Boulders = () => {
                         className={`w-6 h-6 rounded-full border-2 ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${COLOR_MAP[boulder.color]?.border || 'border-gray-500'}`}
                         title={boulder.color}
                       />
+                      {boulder.status && (
+                        <Badge variant={boulder.status === 'haengt' ? 'default' : 'secondary'}>
+                          {boulder.status === 'haengt' ? 'Hängt' : 'Abgeschraubt'}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
