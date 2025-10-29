@@ -4,9 +4,11 @@ import { Sidebar } from "@/components/Sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Shield } from "lucide-react";
+import { UserManagement } from "@/components/admin/UserManagement";
+import { BoulderManagement } from "@/components/admin/BoulderManagement";
+import { SectorManagement } from "@/components/admin/SectorManagement";
 
 const Admin = () => {
   const { user } = useAuth();
@@ -59,51 +61,15 @@ const Admin = () => {
             </TabsList>
 
             <TabsContent value="users" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Benutzerverwaltung</CardTitle>
-                  <CardDescription>
-                    Verwalte Benutzer und deren Rollen
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    Benutzerverwaltung kommt bald...
-                  </p>
-                </CardContent>
-              </Card>
+              <UserManagement />
             </TabsContent>
 
             <TabsContent value="boulders" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Boulder Verwaltung</CardTitle>
-                  <CardDescription>
-                    Boulder hinzufügen, bearbeiten oder löschen
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    Boulder-Verwaltung kommt bald...
-                  </p>
-                </CardContent>
-              </Card>
+              <BoulderManagement />
             </TabsContent>
 
             <TabsContent value="sectors" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Sektoren Verwaltung</CardTitle>
-                  <CardDescription>
-                    Sektoren und Schraubtermine verwalten
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    Sektoren-Verwaltung kommt bald...
-                  </p>
-                </CardContent>
-              </Card>
+              <SectorManagement />
             </TabsContent>
           </Tabs>
         </div>
