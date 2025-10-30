@@ -15,6 +15,7 @@ import { AlertCircle } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useSectorSchedule } from '@/hooks/useSectorSchedule';
 
 const Index = () => {
   const [showDbTest, setShowDbTest] = useState(false);
@@ -25,16 +26,42 @@ const Index = () => {
   const isLoading = isLoadingBoulders || isLoadingSectors;
   const error = bouldersError || sectorsError;
 
-  // Nächster Schraubtermin
-  const nextSector = useMemo(() => {
-    if (!sectors) return null;
-    return [...sectors]
-      .filter(s => s.nextSchraubtermin)
-      .sort((a, b) => {
-        if (!a.nextSchraubtermin || !b.nextSchraubtermin) return 0;
-        return a.nextSchraubtermin.getTime() - b.nextSchraubtermin.getTime();
-      })[0] || null;
-  }, [sectors]);
+  // Greeting state must be declared before any conditional returns to keep hook order stable
+  const initialFirstFromMeta = (() => {
+    const meta = (user?.user_metadata || {}) as any;
+    const full = meta?.first_name || meta?.full_name || meta?.name;
+    return full ? String(full).split(' ')[0] : null;
+  })();
+  const [greetingName, setGreetingName] = useState<string | null>(initialFirstFromMeta);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('first_name, full_name')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (!active) return;
+      const profile = data as any;
+      const first = profile?.first_name || (profile?.full_name ? String(profile.full_name).split(' ')[0] : undefined);
+      if (first) setGreetingName(first);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  // Nächster Schraubtermin aus sector_schedule
+  const { data: schedule } = useSectorSchedule();
+  const nextSchedule = useMemo(() => {
+    const now = new Date();
+    const upcoming = (schedule || []).filter(s => new Date(s.scheduled_at) > now)
+      .sort((a,b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0];
+    if (!upcoming) return null;
+    const sectorName = sectors?.find(s => s.id === upcoming.sector_id)?.name || '-';
+    return { when: new Date(upcoming.scheduled_at), sectorName };
+  }, [schedule, sectors]);
 
   // Berechne Boulder mit Beta-Videos
   const videosCount = useMemo(() => {
@@ -100,18 +127,6 @@ const Index = () => {
   if (!statistics) {
     return null;
   }
-  const [greetingName, setGreetingName] = useState<string | null>(null);
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      if (!user) return;
-      const { data } = await supabase.from('profiles').select('first_name, full_name').eq('id', user.id).maybeSingle();
-      if (!active) return;
-      const first = data?.first_name || (data?.full_name ? String(data.full_name).split(' ')[0] : undefined);
-      if (first) setGreetingName(first);
-    })();
-    return () => { active = false; };
-  }, [user]);
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -124,13 +139,7 @@ const Index = () => {
           {/* Welcome Section */}
           <div className="mb-8">
             <div className="mb-2">
-              <h1 className="text-3xl font-bold mb-1 font-teko tracking-wide">Hallo, {greetingName || (() => {
-                const meta = user?.user_metadata as any;
-                const full = meta?.first_name || meta?.full_name || meta?.name;
-                if (full) return String(full).split(' ')[0];
-                const email = user?.email || '';
-                return email ? email.split('@')[0] : 'Kletterwelt';
-              })()}! 👋</h1>
+              <h1 className="text-3xl font-bold mb-1 font-teko tracking-wide">Hallo, {greetingName || 'Fremder'}! 👋</h1>
               <p className="text-muted-foreground">Das passiert gerade in deiner Halle.</p>
             </div>
           </div>
@@ -156,6 +165,15 @@ const Index = () => {
                 : '0%'}
             />
           </div>
+
+          {/* Nächster Schraubtermin - mobil unter den 3 Karten */}
+          <div className="grid grid-cols-1 gap-3 mb-6 md:hidden">
+            <StatCard
+              title="Nächster Schraubtermin"
+              value={nextSchedule?.sectorName || '-'}
+              subtitle={nextSchedule?.when ? formatDate(nextSchedule.when, 'dd. MMM yyyy', { locale: de }) : 'Kein Termin'}
+            />
+          </div>
           {/* Standard-Grid ab md+: wieder alle 4 Karten */}
           <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <StatCard
@@ -178,10 +196,8 @@ const Index = () => {
             />
             <StatCard
               title="Nächster Schraubtermin"
-              value={nextSector?.name.split(' - ')[0] || '-'}
-              subtitle={nextSector?.nextSchraubtermin 
-                ? formatDate(nextSector.nextSchraubtermin, 'dd. MMM yyyy', { locale: de })
-                : 'Kein Termin'}
+              value={nextSchedule?.sectorName || '-'}
+              subtitle={nextSchedule?.when ? formatDate(nextSchedule.when, 'dd. MMM yyyy', { locale: de }) : 'Kein Termin'}
             />
           </div>
 

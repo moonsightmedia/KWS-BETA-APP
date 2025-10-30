@@ -34,6 +34,17 @@ const COLOR_MAP: Record<string, { bg: string; border: string }> = {
   'Lila': { bg: 'bg-purple-500', border: 'border-purple-600' },
 };
 
+const TEXT_ON_COLOR: Record<string, string> = {
+  'Grün': 'text-white',
+  'Gelb': 'text-black',
+  'Blau': 'text-white',
+  'Orange': 'text-black',
+  'Rot': 'text-white',
+  'Schwarz': 'text-white',
+  'Weiß': 'text-black',
+  'Lila': 'text-white',
+};
+
 // Helper function um zu erkennen, ob es eine YouTube/Vimeo URL ist
 const isYouTubeUrl = (url: string): boolean => {
   return /youtube\.com|youtu\.be/.test(url);
@@ -67,26 +78,40 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-5">
         <DialogHeader>
-          <div className="flex items-start justify-between mb-2">
-            <DialogTitle className="text-2xl">{boulder.name}</DialogTitle>
+          <div className="flex items-start justify-between mb-1 pr-12">
+            <DialogTitle className="text-2xl sm:text-3xl font-teko tracking-wide leading-none">
+              {boulder.name}
+            </DialogTitle>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className={`${difficultyColors[boulder.difficulty]} text-white border-0`}>
-                Schwierigkeit {boulder.difficulty}
-              </Badge>
-              <div 
-                className={`w-6 h-6 rounded-full border-2 ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${COLOR_MAP[boulder.color]?.border || 'border-gray-500'}`}
-                title={boulder.color}
-              />
+              <span
+                className={`inline-flex items-center justify-center gap-2 h-8 px-3 rounded-full border ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${TEXT_ON_COLOR[boulder.color] || 'text-white'}`}
+                title={`${boulder.color} · Grad ${boulder.difficulty}`}
+              >
+                <span className="text-xs font-semibold">{boulder.difficulty}</span>
+                <span className="text-xs opacity-90">{boulder.color}</span>
+              </span>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="space-y-6">
+        {/* Compact meta chips */}
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-xs">
+            <MapPin className="w-3.5 h-3.5 text-primary" />
+            <span className="truncate max-w-[10rem]">{boulder.sector}</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-xs">
+            <Calendar className="w-3.5 h-3.5 text-primary" />
+            <span>{formatDate(boulder.createdAt, 'dd. MMM yyyy', { locale: de })}</span>
+          </span>
+        </div>
+
+        <div className="space-y-4">
           {/* Video Section */}
           {videoUrl && (
-            <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden">
+            <div className="aspect-video w-full overflow-hidden rounded-xl border bg-card/80 backdrop-blur shadow-sm">
               {isYouTube && (
                 <iframe
                   src={getYouTubeEmbedUrl(videoUrl)}
@@ -148,53 +173,18 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
             </div>
           )}
 
-          {/* Info Grid */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-              <MapPin className="w-5 h-5 text-primary" />
-              <div>
-                <p className="text-sm text-muted-foreground">Sektor</p>
-                <p className="font-medium">{boulder.sector}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-              <div 
-                className={`w-6 h-6 rounded-full border-2 flex-shrink-0 ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${COLOR_MAP[boulder.color]?.border || 'border-gray-500'}`}
-              />
-              <div>
-                <p className="text-sm text-muted-foreground">Farbe</p>
-                <p className="font-medium">{boulder.color}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-              <Calendar className="w-5 h-5 text-primary" />
-              <div>
-                <p className="text-sm text-muted-foreground">Erstellt am</p>
-                <p className="font-medium">
-                  {formatDate(boulder.createdAt, 'dd. MMMM yyyy', { locale: de })}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-              <div className={`w-5 h-5 rounded ${difficultyColors[boulder.difficulty]}`} />
-              <div>
-                <p className="text-sm text-muted-foreground">Schwierigkeit</p>
-                <p className="font-medium">{boulder.difficulty} / 8</p>
-              </div>
-            </div>
-          </div>
+          {/* Info tiles removed for compactness */}
 
           {/* Notes Section */}
           {boulder.note && (
-            <div className="p-4 bg-muted rounded-lg">
+            <div className="rounded-xl border bg-card/80 backdrop-blur p-3 shadow-sm">
               <div className="flex items-start gap-3">
-                <FileText className="w-5 h-5 text-primary mt-0.5" />
+                <span className="w-7 h-7 rounded-lg grid place-items-center bg-gradient-to-br from-primary/12 to-primary/5 text-primary">
+                  <FileText className="w-3.5 h-3.5" />
+                </span>
                 <div className="flex-1">
                   <p className="text-sm font-medium mb-1">Notizen</p>
-                  <p className="text-muted-foreground">{boulder.note}</p>
+                  <p className="text-sm text-muted-foreground">{boulder.note}</p>
                 </div>
               </div>
             </div>

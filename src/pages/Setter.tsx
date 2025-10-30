@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useHasRole } from '@/hooks/useHasRole';
 import { useNavigate } from 'react-router-dom';
 import { useSectorsTransformed, useUpdateSector } from '@/hooks/useSectors';
-import { useBouldersWithSectors, useCreateBoulder, useUpdateBoulder, useBulkUpdateBoulderStatus } from '@/hooks/useBoulders';
+import { useBouldersWithSectors, useCreateBoulder, useUpdateBoulder, useBulkUpdateBoulderStatus, useDeleteBoulder } from '@/hooks/useBoulders';
 import { uploadBetaVideo } from '@/integrations/supabase/storage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -13,13 +13,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Search, PlusCircle, Edit3, Calendar, Wrench } from 'lucide-react';
+import { Search, PlusCircle, Edit3, Calendar, Wrench, Hammer, X, Sparkles } from 'lucide-react';
 import { useMemo as useMemoReact, useRef } from 'react';
 import { useSectorSchedule, useCreateSectorSchedule, useDeleteSectorSchedule } from '@/hooks/useSectorSchedule';
+import { useColors } from '@/hooks/useColors';
 
 const DIFFICULTIES = [1,2,3,4,5,6,7,8];
-const COLORS = ['Grün','Gelb','Blau','Orange','Rot','Schwarz','Weiß','Lila'];
-const COLOR_HEX: Record<string, string> = {
+const DEFAULT_COLORS = ['Grün','Gelb','Blau','Orange','Rot','Schwarz','Weiß','Lila'];
+const DEFAULT_COLOR_HEX: Record<string, string> = {
   'Grün': '#22c55e',
   'Gelb': '#facc15',
   'Blau': '#3b82f6',
@@ -29,16 +30,58 @@ const COLOR_HEX: Record<string, string> = {
   'Weiß': '#ffffff',
   'Lila': '#a855f7',
 };
-const TEXT_ON_COLOR: Record<string, string> = {
-  'Grün': 'text-white',
-  'Gelb': 'text-black',
-  'Blau': 'text-white',
-  'Orange': 'text-black',
-  'Rot': 'text-white',
-  'Schwarz': 'text-white',
-  'Weiß': 'text-black',
-  'Lila': 'text-white',
+function getTextClassForHex(hex?: string): string {
+  if (!hex) return 'text-white';
+  const c = hex.replace('#','');
+  const r = parseInt(c.substring(0,2),16);
+  const g = parseInt(c.substring(2,4),16);
+  const b = parseInt(c.substring(4,6),16);
+  const luminance = (0.2126*r + 0.7152*g + 0.0722*b) / 255;
+  return luminance > 0.6 ? 'text-black' : 'text-white';
+}
+
+// Simple Boulder name generator
+const COLOR_ADJECTIVES: Record<string, string> = {
+  'Grün': 'Grüner',
+  'Gelb': 'Gelber',
+  'Blau': 'Blauer',
+  'Orange': 'Oranger',
+  'Rot': 'Roter',
+  'Schwarz': 'Schwarzer',
+  'Weiß': 'Weißer',
+  'Lila': 'Lilaner',
 };
+const NAME_ADJECTIVES: string[] = [
+  'Wilder', 'Stiller', 'Flinker', 'Mutiger', 'Frecher', 'Geheimer', 'Schneller', 'Kleiner', 'Großer', 'Felsiger',
+  'Sanfter', 'Kniffliger', 'Starker', 'Leichter', 'Zäher', 'Kühner', 'Wackerer', 'Frischer', 'Neuer', 'Alter'
+];
+const NAME_NOUNS: string[] = [
+  'Gecko', 'Phantom', 'Panther', 'Meteor', 'Kolibri', 'Specht', 'Saturn', 'Drache', 'Komet', 'Puma',
+  'Goblin', 'Adler', 'Wal', 'Berserker', 'Nebel', 'Fuchs', 'Wolf', 'Rätsel', 'Rücken', 'Block'
+];
+function toColorAdjective(color: string): string {
+  return COLOR_ADJECTIVES[color] || '';
+}
+function getRandom<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+function generateBoulderName(color: string, difficulty: number): string {
+  const parts: string[] = [];
+  const colorAdj = toColorAdjective(color);
+  if (colorAdj) parts.push(colorAdj);
+  parts.push(getRandom(NAME_ADJECTIVES));
+  parts.push(getRandom(NAME_NOUNS));
+  return `${parts.join(' ')} ${difficulty}`;
+}
+
+// If the current name starts with a color adjective, replace it when color changes
+function adjustNameForColor(name: string, newColor: string): string {
+  if (!name) return name;
+  const adjs = Object.values(COLOR_ADJECTIVES);
+  const pattern = new RegExp(`^(${adjs.join('|')})\\b`);
+  if (!pattern.test(name)) return name;
+  const newAdj = toColorAdjective(newColor);
+  if (!newAdj) return name;
+  return name.replace(pattern, newAdj);
+}
 
 const Setter = () => {
   const { session } = useAuth();
@@ -49,6 +92,7 @@ const Setter = () => {
   const { data: boulders } = useBouldersWithSectors();
   const createBoulder = useCreateBoulder();
   const updateBoulder = useUpdateBoulder();
+  const deleteBoulder = useDeleteBoulder();
   const updateSector = useUpdateSector();
   const bulkStatus = useBulkUpdateBoulderStatus();
 
@@ -83,6 +127,21 @@ const Setter = () => {
   const deleteSchedule = useDeleteSectorSchedule();
   const [statusFilter, setStatusFilter] = useState<'all' | 'haengt' | 'abgeschraubt'>('all');
   const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const { data: colorsDb } = useColors();
+  const COLORS = useMemo(() => (colorsDb && colorsDb.length>0 ? colorsDb.map(c=>c.name) : DEFAULT_COLORS), [colorsDb]);
+  const COLOR_HEX: Record<string, string> = useMemo(() => {
+    if (colorsDb && colorsDb.length>0) {
+      const map: Record<string, string> = {};
+      colorsDb.forEach(c => { map[c.name] = c.hex; });
+      return map;
+    }
+    return DEFAULT_COLOR_HEX;
+  }, [colorsDb]);
+  const TEXT_ON_COLOR: Record<string, string> = useMemo(() => {
+    const map: Record<string,string> = {};
+    (COLORS || []).forEach(name => { map[name] = getTextClassForHex(COLOR_HEX[name]); });
+    return map;
+  }, [COLORS, COLOR_HEX]);
 
   const canSubmit = useMemo(() => {
     return !!form.name && !!form.sector_id && form.difficulty >= 1 && form.difficulty <= 8;
@@ -205,6 +264,10 @@ const Setter = () => {
     setSelected(next);
   };
 
+  const selectedCount = useMemo(() => {
+    return (boulders || []).filter(b => selected[(b as any).id]).length;
+  }, [boulders, selected]);
+
   if (!canAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
@@ -222,25 +285,53 @@ const Setter = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      <Sidebar />
+      <Sidebar hideMobileNav={view==='status' && selectedCount>0} />
       <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
         <DashboardHeader />
         <main className="flex-1 p-4 md:p-8">
-          <div className="mb-4">
-            <h1 className="text-2xl font-teko tracking-wide leading-none">Setter</h1>
-            <p className="text-xs text-muted-foreground mt-1">Boulder anlegen und bearbeiten. Nächsten Sektor planen.</p>
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-foreground mb-2 font-teko tracking-wide">Setter</h1>
+            <p className="text-muted-foreground">Boulder anlegen und bearbeiten. Nächsten Sektor planen.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-[200px,1fr] md:gap-6 max-w-5xl mx-auto">
-            {/* Left vertical nav on md+ */}
-            <aside className="hidden md:block">
-              <div className="sticky top-[88px] space-y-2">
-                <button className={`w-full text-left px-3 py-2 rounded-lg ${view==='create'?'bg-muted font-medium':'hover:bg-muted/50'}`} onClick={()=>setView('create')}>Hinzufügen</button>
-                <button className={`w-full text-left px-3 py-2 rounded-lg ${view==='edit'?'bg-muted font-medium':'hover:bg-muted/50'}`} onClick={()=>setView('edit')}>Bearbeiten</button>
-                <button className={`w-full text-left px-3 py-2 rounded-lg ${view==='status'?'bg-muted font-medium':'hover:bg-muted/50'}`} onClick={()=>setView('status')}>Status</button>
-                <button className={`w-full text-left px-3 py-2 rounded-lg ${view==='schedule'?'bg-muted font-medium':'hover:bg-muted/50'}`} onClick={()=>setView('schedule')}>Schraubtermin</button>
-              </div>
-            </aside>
-            <section className="w-full max-w-3xl mx-auto">
+          {/* Segmented top control for Setter views */}
+          {!(view==='status' && selectedCount>0) && (
+            <div className="sticky top-[56px] md:top-[88px] z-30 px-3 md:px-4 mb-3">
+              <nav className="bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
+                <div className="max-w-7xl mx-auto flex items-center justify-around px-2 py-2">
+                  <button
+                    className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all ${view==='create' ? 'text-success' : 'text-sidebar-icon'}`}
+                    onClick={()=> setView('create')}
+                  >
+                    <PlusCircle className="w-5 h-5" />
+                    <span className="text-xs">Hinzufügen</span>
+                  </button>
+                  <button
+                    className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all ${view==='edit' ? 'text-success' : 'text-sidebar-icon'}`}
+                    onClick={()=> setView('edit')}
+                  >
+                    <Edit3 className="w-5 h-5" />
+                    <span className="text-xs">Bearbeiten</span>
+                  </button>
+                  <button
+                    className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all ${view==='status' ? 'text-success' : 'text-sidebar-icon'}`}
+                    onClick={()=> setView('status')}
+                  >
+                    <Wrench className="w-5 h-5" />
+                    <span className="text-xs">Status</span>
+                  </button>
+                  <button
+                    className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all ${view==='schedule' ? 'text-success' : 'text-sidebar-icon'}`}
+                    onClick={()=> setView('schedule')}
+                  >
+                    <Calendar className="w-5 h-5" />
+                    <span className="text-xs">Schraubtermin</span>
+                  </button>
+                </div>
+              </nav>
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:gap-8 max-w-7xl mx-auto">
+            <section className="w-full">
         {view === 'create' && (
             <Card>
               <CardHeader>
@@ -250,7 +341,13 @@ const Setter = () => {
                 <form id="create-form" onSubmit={onSubmit} className="space-y-4">
             <div>
               <Label htmlFor="name">Name *</Label>
-                    <Input id="name" value={form.name} onChange={(e)=>setForm({...form, name: e.target.value})} required className="h-12 text-base" />
+              <div className="flex items-center gap-2">
+                <Input id="name" value={form.name} onChange={(e)=>setForm({...form, name: e.target.value})} required className="h-12 text-base flex-1" />
+                <Button type="button" variant="outline" className="h-12" onClick={() => setForm({ ...form, name: generateBoulderName(form.color, form.difficulty) })}>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Vorschlagen
+                </Button>
+              </div>
             </div>
             <div>
               <Label>Sektor *</Label>
@@ -279,12 +376,19 @@ const Setter = () => {
               </div>
               <div>
                 <Label>Farbe *</Label>
-                      <Select value={form.color} onValueChange={(v)=>setForm({...form, color: v})}>
+                      <Select value={form.color} onValueChange={(v)=>setForm(prev => ({...prev, color: v, name: adjustNameForColor(prev.name, v)}))}>
                         <SelectTrigger className="h-12 text-base">
                     <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                    {COLORS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {COLORS.map(c => (
+                      <SelectItem key={c} value={c}>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full border" style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }} />
+                          <span>{c}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                         </SelectContent>
                       </Select>
               </div>
@@ -309,6 +413,11 @@ const Setter = () => {
             </div>
                 </form>
               </CardContent>
+              <div className="p-4 pt-0">
+                <Button form="create-form" type="submit" className="w-full h-12" disabled={!canSubmit || isUploading}>
+                  {isUploading ? 'Speichere…' : 'Speichern'}
+                </Button>
+              </div>
             </Card>
         )}
 
@@ -361,8 +470,26 @@ const Setter = () => {
                 </div>
               </div>
 
+              {/* Quick-Filter wie im Boulderbereich (Farben + Grade) */}
+              <div className="flex items-center gap-3 overflow-x-auto py-2">
+                <div className="flex items-center gap-2">
+                  {COLORS.map(c => (
+                    <button key={c} className={`w-7 h-7 rounded-full border ${editColor===c?'ring-2 ring-primary':''}`} style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }}
+                      onClick={()=>setEditColor(prev=> prev===c ? 'all' : c)}
+                      aria-label={`Filter ${c}`}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  {DIFFICULTIES.map(d => (
+                    <button key={d} onClick={()=>setEditDifficulty(prev=> prev===String(d)?'all':String(d))}
+                      className={`w-7 h-7 rounded-full border grid place-items-center text-[11px] font-semibold ${editDifficulty===String(d)?'bg-primary text-primary-foreground':'bg-muted text-foreground'}`}>{d}</button>
+                  ))}
+                </div>
+              </div>
+
               {!editing ? (
-                <div className="grid gap-2">
+                <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
                   {filteredBoulders.map(b => (
                     <button key={b.id} className="text-left" onClick={()=>startEdit(b)}>
                       <Card className="hover:bg-muted/50">
@@ -391,7 +518,13 @@ const Setter = () => {
                 <form id="edit-form" onSubmit={submitEdit} className="space-y-4">
                     <div>
                       <Label>Name *</Label>
-                      <Input value={form.name} onChange={(e)=>setForm({...form, name: e.target.value})} className="h-12 text-base" />
+                      <div className="flex items-center gap-2">
+                        <Input value={form.name} onChange={(e)=>setForm({...form, name: e.target.value})} className="h-12 text-base flex-1" />
+                        <Button type="button" variant="outline" className="h-12" onClick={() => setForm({ ...form, name: generateBoulderName(form.color, form.difficulty) })}>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Vorschlagen
+                        </Button>
+                      </div>
                     </div>
                     <div>
                       <Label>Sektor *</Label>
@@ -418,12 +551,19 @@ const Setter = () => {
                       </div>
                       <div>
                         <Label>Farbe *</Label>
-                        <Select value={form.color} onValueChange={(v)=>setForm({...form, color: v})}>
+                        <Select value={form.color} onValueChange={(v)=>setForm(prev => ({...prev, color: v, name: adjustNameForColor(prev.name, v)}))}>
                           <SelectTrigger className="h-12 text-base">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {COLORS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                            {COLORS.map(c => (
+                              <SelectItem key={c} value={c}>
+                                <div className="flex items-center gap-2">
+                                  <span className="w-3 h-3 rounded-full border" style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }} />
+                                  <span>{c}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -440,6 +580,21 @@ const Setter = () => {
                     <div className="h-24" />
                   </form>
                 </CardContent>
+                <div className="p-4 pt-0 flex gap-2">
+                  <Button form="edit-form" type="submit" className="h-12" disabled={!canSubmit || isUploading}>
+                    {isUploading ? 'Speichere…' : 'Änderungen speichern'}
+                  </Button>
+                  <Button type="button" variant="outline" className="h-12 text-destructive"
+                    onClick={() => {
+                      if (!editing) return;
+                      if (!confirm('Diesen Boulder wirklich löschen?')) return;
+                      deleteBoulder.mutate(editing.id);
+                      setEditing(null);
+                    }}
+                  >
+                    Löschen
+                  </Button>
+                </div>
               </Card>
               )}
             </div>
@@ -515,7 +670,7 @@ const Setter = () => {
               </div>
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
               {filteredBoulders.map(b => (
                 <label key={b.id} className="block">
                   <Card className={`hover:bg-muted/50 ${selected[b.id] ? 'ring-2 ring-primary' : ''}`}>
@@ -609,53 +764,81 @@ const Setter = () => {
           </div>
         </main>
 
-        {/* Mobile Bottom Navbar */}
-      <nav className="md:hidden fixed bottom-4 left-4 right-4 z-40 bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
-        <div className="max-w-3xl mx-auto flex items-center justify-around px-2 py-2">
-          <button
-            className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all ${view==='create' ? 'text-success' : 'text-sidebar-icon'}`}
-            onClick={()=> setView('create')}
-          >
-            <PlusCircle className="w-5 h-5" />
-            <span className="text-xs">Hinzufügen</span>
-          </button>
-          <button
-            className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all ${view==='edit' ? 'text-success' : 'text-sidebar-icon'}`}
-            onClick={()=> setView('edit')}
-          >
-            <Edit3 className="w-5 h-5" />
-            <span className="text-xs">Bearbeiten</span>
-          </button>
-          <button
-            className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all ${view==='status' ? 'text-success' : 'text-sidebar-icon'}`}
-            onClick={()=> setView('status')}
-          >
-            <Wrench className="w-5 h-5" />
-            <span className="text-xs">Status</span>
-          </button>
-          <button
-            className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all ${view==='schedule' ? 'text-success' : 'text-sidebar-icon'}`}
-            onClick={()=> setView('schedule')}
-          >
-            <Calendar className="w-5 h-5" />
-            <span className="text-xs">Schraubtermin</span>
-          </button>
-        </div>
-      </nav>
+      {/* Spacer for mobile only global nav */}
       <div className="h-24 md:h-0" />
       
-      {/* Bottom Action Bar for Status view */}
-      {view==='status' && (
-        <div className="fixed inset-x-0 bottom-20 md:bottom-0 z-50 p-3 pb-[max(env(safe-area-inset-bottom),12px)] bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
-          <div className="max-w-3xl mx-auto flex gap-2">
-            <Button type="button" className="w-full h-12" disabled={filteredBoulders.filter(b=>selected[b.id]).length===0}
-              onClick={()=>{
-                const ids = filteredBoulders.filter(b=>selected[b.id]).map(b=>b.id);
-                bulkStatus.mutate({ ids, status: 'abgeschraubt' });
-                setSelected({});
-              }}
-            >Ausgewählte rausschrauben</Button>
-          </div>
+      {/* Selection mode floating buttons without background bar */}
+      {/* Desktop selection toolbar */}
+      {view==='status' && selectedCount > 0 && (
+        <div className="hidden md:flex sticky top-[88px] z-40 justify-end gap-3 px-4 py-2 bg-background/80 backdrop-blur border-b">
+          <button
+            aria-label="Auswahl abbrechen"
+            className="h-9 px-3 rounded-md bg-destructive text-destructive-foreground text-sm shadow"
+            onClick={() => setSelected({})}
+          >
+            Abbrechen
+          </button>
+          <button
+            aria-label="Ausgewählte reinschrauben"
+            className="h-9 px-3 rounded-md bg-success text-success-foreground text-sm shadow"
+            onClick={() => {
+              const ids = filteredBoulders.filter(b => selected[b.id]).map(b => b.id);
+              if (ids.length === 0) return;
+              bulkStatus.mutate({ ids, status: 'haengt' });
+              setSelected({});
+            }}
+          >
+            Reinschrauben
+          </button>
+          <button
+            aria-label="Ausgewählte rausschrauben"
+            className="h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm shadow"
+            onClick={() => {
+              const ids = filteredBoulders.filter(b => selected[b.id]).map(b => b.id);
+              if (ids.length === 0) return;
+              bulkStatus.mutate({ ids, status: 'abgeschraubt' });
+              setSelected({});
+            }}
+          >
+            Rausschrauben
+          </button>
+        </div>
+      )}
+
+      {/* Mobile floating buttons for selection */}
+      {view==='status' && selectedCount > 0 && (
+        <div className="md:hidden fixed z-[80] right-4 bottom-6 flex items-center gap-3">
+          <button
+            aria-label="Auswahl abbrechen"
+            className="w-12 h-12 rounded-full bg-destructive text-destructive-foreground grid place-items-center shadow-xl"
+            onClick={() => setSelected({})}
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <button
+            aria-label="Ausgewählte reinschrauben"
+            className="w-12 h-12 rounded-full bg-success text-success-foreground grid place-items-center shadow-xl"
+            onClick={() => {
+              const ids = filteredBoulders.filter(b => selected[b.id]).map(b => b.id);
+              if (ids.length === 0) return;
+              bulkStatus.mutate({ ids, status: 'haengt' });
+              setSelected({});
+            }}
+          >
+            <Hammer className="w-5 h-5" />
+          </button>
+          <button
+            aria-label="Ausgewählte rausschrauben"
+            className="w-12 h-12 rounded-full bg-primary text-primary-foreground grid place-items-center shadow-xl"
+            onClick={() => {
+              const ids = filteredBoulders.filter(b => selected[b.id]).map(b => b.id);
+              if (ids.length === 0) return;
+              bulkStatus.mutate({ ids, status: 'abgeschraubt' });
+              setSelected({});
+            }}
+          >
+            <Wrench className="w-5 h-5" />
+          </button>
         </div>
       )}
       </div>

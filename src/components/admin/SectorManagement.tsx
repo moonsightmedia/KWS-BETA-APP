@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useSectors, useCreateSector, useUpdateSector, useDeleteSector } from "@/hooks/useSectors";
+import { useBoulders } from "@/hooks/useBoulders";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +17,7 @@ import { format } from "date-fns";
 
 export const SectorManagement = () => {
   const { data: sectors, isLoading } = useSectors();
+  const { data: allBoulders } = useBoulders();
   const createSector = useCreateSector();
   const updateSector = useUpdateSector();
   const deleteSector = useDeleteSector();
@@ -201,7 +203,7 @@ export const SectorManagement = () => {
                 <TableRow key={sector.id}>
                   <TableCell className="font-medium">{sector.name}</TableCell>
                   <TableCell className="max-w-xs truncate">{sector.description || "-"}</TableCell>
-                  <TableCell>{sector.boulder_count}</TableCell>
+                  <TableCell>{(allBoulders || []).filter((b:any) => b.sector_id === sector.id && ((b as any).status === 'haengt' || (b as any).status == null)).length}</TableCell>
                   <TableCell>
                     {sector.next_schraubtermin 
                       ? format(new Date(sector.next_schraubtermin), "dd.MM.yyyy HH:mm")
@@ -267,7 +269,7 @@ export const SectorManagement = () => {
               </div>
               <div className="flex gap-2 flex-wrap">
                 <Badge variant="secondary">
-                  {sector.boulder_count} Boulder
+                  {(allBoulders || []).filter((b:any) => b.sector_id === sector.id && ((b as any).status === 'haengt' || (b as any).status == null)).length} Boulder
                 </Badge>
                 {sector.next_schraubtermin && (
                   <Badge variant="outline" className="gap-1">

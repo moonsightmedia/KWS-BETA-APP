@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Shield } from "lucide-react";
 import { UserManagement } from "@/components/admin/UserManagement";
-import { BoulderManagement } from "@/components/admin/BoulderManagement";
+import { ColorManagement } from "@/components/admin/ColorManagement";
 import { SectorManagement } from "@/components/admin/SectorManagement";
 
 const Admin = () => {
@@ -60,13 +60,13 @@ const Admin = () => {
               <Shield className="h-8 w-8 text-primary" />
               <h1 className="text-3xl font-bold font-teko tracking-wide">Admin Panel</h1>
             </div>
-            <p className="text-muted-foreground">Verwalte Benutzer, Boulder und Sektoren</p>
+            <p className="text-muted-foreground">Verwalte Benutzer, Farben und Sektoren</p>
           </div>
 
           <Tabs defaultValue="users" className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-6 h-auto">
               <TabsTrigger value="users" className="text-xs sm:text-sm">Benutzer</TabsTrigger>
-              <TabsTrigger value="boulders" className="text-xs sm:text-sm">Boulder</TabsTrigger>
+              <TabsTrigger value="colors" className="text-xs sm:text-sm">Farben</TabsTrigger>
               <TabsTrigger value="sectors" className="text-xs sm:text-sm">Sektoren</TabsTrigger>
             </TabsList>
 
@@ -74,8 +74,8 @@ const Admin = () => {
               <UserManagement />
             </TabsContent>
 
-            <TabsContent value="boulders" className="mt-0">
-              <BoulderManagement />
+            <TabsContent value="colors" className="mt-0">
+              <ColorManagement />
             </TabsContent>
 
             <TabsContent value="sectors" className="mt-0">

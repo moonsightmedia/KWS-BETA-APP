@@ -114,7 +114,10 @@ const Sectors = () => {
                     <Badge variant="secondary" className="ml-2">
                       <Box className="w-3 h-3 mr-1" />
                       {(() => {
-                        const count = (boulders || []).filter(b => b.sector_id === sector.id).length;
+                        const count = (boulders || [])
+                          .filter(b => b.sector_id === sector.id)
+                          .filter((b: any) => (b as any).status === 'haengt')
+                          .length;
                         return count;
                       })()}
                     </Badge>

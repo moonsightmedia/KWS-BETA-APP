@@ -4,10 +4,37 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sidebar } from '@/components/Sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 const Profile = () => {
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      if (!user) return;
+      const { data } = await supabase.from('profiles').select('first_name,last_name,birth_date').eq('id', user.id).maybeSingle();
+      if (data) {
+        setFirstName((data as any).first_name || '');
+        setLastName((data as any).last_name || '');
+        setBirthDate((data as any).birth_date || '');
+      }
+    })();
+  }, [user]);
+
+  const saveProfile = async () => {
+    if (!user) return;
+    setSaving(true);
+    await supabase.from('profiles').update({ first_name: firstName, last_name: lastName, birth_date: birthDate || null }).eq('id', user.id);
+    setSaving(false);
+  };
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -41,7 +68,22 @@ const Profile = () => {
                   </div>
                 </div>
                 
-                <div className="pt-4 border-t">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                  <div>
+                    <Label>Vorname</Label>
+                    <Input value={firstName} onChange={(e)=>setFirstName(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Nachname</Label>
+                    <Input value={lastName} onChange={(e)=>setLastName(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Geburtsdatum</Label>
+                    <Input type="date" value={birthDate || ''} onChange={(e)=>setBirthDate(e.target.value)} />
+                  </div>
+                </div>
+                <div className="pt-4 border-t flex items-center justify-between">
+                  <Button onClick={saveProfile} disabled={saving}>{saving ? 'Speichere…' : 'Speichern'}</Button>
                   <Button variant="destructive" onClick={signOut}>
                     Abmelden
                   </Button>
