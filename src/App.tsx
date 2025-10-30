@@ -23,6 +23,7 @@ const Root = () => (
 );
 
 const SetterPage = lazy(() => import('./pages/Setter'));
+const GuestPage = lazy(() => import('./pages/Guest'));
 
 const router = createBrowserRouter([
   {
@@ -46,11 +47,7 @@ const router = createBrowserRouter([
       ) },
       { path: "guest", element: (
         <Suspense fallback={<div />}> 
-          {/** dynamic import to reduce bundle */}
-          {(() => {
-            const Page = lazy(() => import('./pages/Guest'));
-            return <Page />;
-          })()}
+          <GuestPage />
         </Suspense>
       ) },
       { path: "*", element: <NotFound /> },
