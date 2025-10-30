@@ -23,6 +23,7 @@ const Auth = () => {
   } = useAuth();
   const navigate = useNavigate();
   useEffect(() => {
+    console.log('[Auth] mounted');
     if (user) {
       navigate('/');
     }

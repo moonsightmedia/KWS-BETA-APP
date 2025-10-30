@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,6 +51,11 @@ const Guest = () => {
   const sectorRef = useRef<HTMLDivElement | null>(null);
   const difficultyRef = useRef<HTMLDivElement | null>(null);
   const colorRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    console.log('[Guest] mounted');
+    return () => console.log('[Guest] unmounted');
+  }, []);
 
   useEffect(() => {
     const sectorParam = searchParams.get('sector');
@@ -132,8 +137,11 @@ const Guest = () => {
               <span className="inline-block w-2 h-2 rounded-full bg-primary" />
               {filtered.length} Treffer
             </span>
-            <Button size="sm" asChild>
-              <Link to="/auth">Mehr erfahren – Anmelden</Link>
+            <Button size="sm" onClick={() => { 
+              console.log('[Guest] CTA clicked → hard redirect to /auth');
+              window.location.href = '/auth';
+            }}>
+              Mehr erfahren – Anmelden
             </Button>
           </div>
         </div>

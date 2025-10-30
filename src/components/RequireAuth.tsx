@@ -9,6 +9,7 @@ export const RequireAuth = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!loading && !session) {
+      console.log('[RequireAuth] no session → redirect to /guest', location.pathname + location.search);
       const params = new URLSearchParams();
       // preserve sector filter if present in current url
       const sector = new URLSearchParams(location.search).get('sector');

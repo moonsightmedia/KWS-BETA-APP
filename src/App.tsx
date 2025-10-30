@@ -2,8 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
-import { Suspense, lazy } from "react";
+import { createBrowserRouter, RouterProvider, Outlet, useLocation } from "react-router-dom";
+import { Suspense, lazy, useEffect } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
@@ -16,8 +16,18 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const RouteLogger = () => {
+  const location = useLocation();
+  useEffect(() => {
+    // Debug: Log every route change (visible in default console levels)
+    console.log("[Route] navigated", location.pathname + location.search);
+  }, [location]);
+  return null;
+};
+
 const Root = () => (
   <AuthProvider>
+    <RouteLogger />
     <Outlet />
   </AuthProvider>
 );
