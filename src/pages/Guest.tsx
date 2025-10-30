@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -132,7 +132,9 @@ const Guest = () => {
               <span className="inline-block w-2 h-2 rounded-full bg-primary" />
               {filtered.length} Treffer
             </span>
-            <Button size="sm" onClick={()=>navigate('/auth')}>Mehr erfahren – Anmelden</Button>
+            <Button size="sm" asChild>
+              <Link to="/auth">Mehr erfahren – Anmelden</Link>
+            </Button>
           </div>
         </div>
       </header>
