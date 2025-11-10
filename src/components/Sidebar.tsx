@@ -7,6 +7,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useHasRole } from '@/hooks/useHasRole';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,12 +27,13 @@ export const Sidebar = ({ className, hideMobileNav = false }: SidebarProps) => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { isAdmin } = useIsAdmin();
+  const { hasRole: isSetter } = useHasRole('setter');
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: List, label: 'Boulder', path: '/boulders' },
     { icon: Map, label: 'Sektoren', path: '/sectors' },
-    ...(isAdmin ? [{ icon: Wrench, label: 'Setter', path: '/setter' }] : []),
+    ...((isAdmin || isSetter) ? [{ icon: Wrench, label: 'Setter', path: '/setter' }] : []),
     ...(isAdmin ? [{ icon: Shield, label: 'Admin', path: '/admin' }] : []),
   ];
 

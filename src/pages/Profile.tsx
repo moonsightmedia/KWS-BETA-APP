@@ -20,11 +20,16 @@ const Profile = () => {
   useEffect(() => {
     (async () => {
       if (!user) return;
-      const { data } = await supabase.from('profiles').select('first_name,last_name,birth_date').eq('id', user.id).maybeSingle();
-      if (data) {
+      const { data, error } = await supabase.from('profiles').select('first_name,last_name,birth_date').eq('id', user.id).maybeSingle();
+      if (data && !error) {
         setFirstName((data as any).first_name || '');
         setLastName((data as any).last_name || '');
         setBirthDate((data as any).birth_date || '');
+      } else {
+        const meta = (user.user_metadata || {}) as any;
+        setFirstName(meta.first_name || meta.firstName || '');
+        setLastName(meta.last_name || meta.lastName || '');
+        setBirthDate(meta.birth_date || meta.birthDate || '');
       }
     })();
   }, [user]);

@@ -15,13 +15,9 @@ export const useHasRole = (role: 'admin' | 'user' | 'setter') => {
         return;
       }
       try {
-        const { data, error } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .eq('role', role)
-          .maybeSingle();
+        const { data, error } = await supabase.rpc('has_role', { user_id: user.id, role });
         if (error) {
+          console.error('has_role rpc error', error);
           setHasRole(false);
         } else {
           setHasRole(!!data);
