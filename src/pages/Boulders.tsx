@@ -21,7 +21,9 @@ import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Search, Video, FileText, Calendar, Filter, ArrowUpDown, ArrowUp, ArrowDown, AlertCircle, Palette, Map, Dumbbell, X } from 'lucide-react';
+import { Search, Video, FileText, Calendar, Filter, ArrowUpDown, ArrowUp, ArrowDown, AlertCircle, Palette, Map, Dumbbell, X, CheckCircle2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Boulder } from '@/types/boulder';
 import { useSearchParams } from 'react-router-dom';
@@ -78,6 +80,7 @@ const Boulders = () => {
   const [colorFilter, setColorFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'name' | 'difficulty' | 'date'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [showOnlyHanging, setShowOnlyHanging] = useState(false);
   const [selectedBoulder, setSelectedBoulder] = useState<Boulder | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -108,8 +111,9 @@ const Boulders = () => {
       const matchesSector = sectorFilter === 'all' || boulder.sector === sectorFilter || boulder.sector2 === sectorFilter;
       const matchesDifficulty = difficultyFilter === 'all' || boulder.difficulty.toString() === difficultyFilter;
       const matchesColor = colorFilter === 'all' || boulder.color === colorFilter;
+      const matchesStatus = !showOnlyHanging || boulder.status === 'haengt';
       
-      return matchesSearch && matchesSector && matchesDifficulty && matchesColor;
+      return matchesSearch && matchesSector && matchesDifficulty && matchesColor && matchesStatus;
     });
 
     // Sort
@@ -132,7 +136,7 @@ const Boulders = () => {
     });
 
       return filtered;
-  }, [boulders, searchQuery, sectorFilter, difficultyFilter, colorFilter, sortBy, sortOrder]);
+  }, [boulders, searchQuery, sectorFilter, difficultyFilter, colorFilter, sortBy, sortOrder, showOnlyHanging]);
 
   const handleBoulderClick = (boulder: Boulder) => {
     setSelectedBoulder(boulder);
@@ -222,6 +226,18 @@ const Boulders = () => {
               />
             </div>
 
+            {/* Toggle for only hanging boulders */}
+            <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-card">
+              <Switch
+                id="show-only-hanging"
+                checked={showOnlyHanging}
+                onCheckedChange={setShowOnlyHanging}
+              />
+              <Label htmlFor="show-only-hanging" className="text-sm font-medium cursor-pointer whitespace-nowrap">
+                Nur hängende
+              </Label>
+            </div>
+
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="flex-shrink-0">
@@ -237,6 +253,18 @@ const Boulders = () => {
                 </SheetHeader>
                 
                 <div className="mt-6 space-y-4">
+                  {/* Toggle for only hanging boulders */}
+                  <div className="flex items-center justify-between p-3 border rounded-md bg-card">
+                    <Label htmlFor="show-only-hanging-filter" className="text-sm font-medium cursor-pointer">
+                      Nur hängende Boulder anzeigen
+                    </Label>
+                    <Switch
+                      id="show-only-hanging-filter"
+                      checked={showOnlyHanging}
+                      onCheckedChange={setShowOnlyHanging}
+                    />
+                  </div>
+
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Sektor</label>
                     <Select value={sectorFilter} onValueChange={setSectorFilter}>

@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom';
 import { useSectorsTransformed, useUpdateSector } from '@/hooks/useSectors';
 import { useBouldersWithSectors, useCreateBoulder, useUpdateBoulder, useBulkUpdateBoulderStatus, useDeleteBoulder } from '@/hooks/useBoulders';
 import { uploadBetaVideo } from '@/integrations/supabase/storage';
+import { toast } from 'sonner';
+import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -155,21 +157,89 @@ const Setter = () => {
     if (!canSubmit || !canAccess) return;
     try {
       setIsUploading(true);
-      let betaUrl: string | null = null;
-      if (form.file) {
-        betaUrl = await uploadBetaVideo(form.file);
-      }
-      await createBoulder.mutateAsync({
+      
+      // Create boulder immediately (without video URL if file exists)
+      const boulderData = {
         name: form.name,
         sector_id: form.sector_id,
         sector_id_2: form.spansMultipleSectors && form.sector_id_2 ? form.sector_id_2 : null,
         difficulty: form.difficulty,
         color: form.color,
-        beta_video_url: betaUrl,
+        beta_video_url: form.file ? null : null, // Will be updated after upload
         note: form.note,
-      } as any);
+      };
+      
+      const createdBoulder = await createBoulder.mutateAsync(boulderData as any);
+      
+      // If there's a file, upload it in the background and update the boulder
+      if (form.file && createdBoulder?.id) {
+        // Show upload progress toast with custom progress bar
+        let currentProgress = 0;
+        const toastId = toast.custom((t) => (
+          <div className="w-full max-w-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Video wird hochgeladen...</span>
+              <span className="text-xs text-muted-foreground">{Math.round(currentProgress)}%</span>
+            </div>
+            <Progress value={currentProgress} className="h-2" />
+          </div>
+        ), {
+          duration: Infinity, // Keep toast open until we dismiss it
+        });
+        
+        // Upload video in background (don't await - let it run async)
+        uploadBetaVideo(form.file, (progress) => {
+          currentProgress = progress;
+          // Update toast with new progress
+          toast.custom((t) => (
+            <div className="w-full max-w-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Video wird hochgeladen...</span>
+                <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </div>
+          ), {
+            id: toastId,
+            duration: Infinity,
+          });
+        }).then((betaUrl) => {
+          // Update boulder with video URL after upload completes
+          updateBoulder.mutateAsync({
+            id: createdBoulder.id,
+            beta_video_url: betaUrl,
+          } as any).catch((error) => {
+            console.error('[Setter] Failed to update boulder with video URL:', error);
+            toast.error('Video hochgeladen, aber Boulder konnte nicht aktualisiert werden', {
+              description: error.message,
+              duration: 5000,
+            });
+          });
+          
+          // Update toast to success and auto-dismiss after 3 seconds
+          toast.success('Video erfolgreich hochgeladen!', {
+            id: toastId,
+            duration: 3000, // Auto-dismiss after 3 seconds
+          });
+        }).catch((error) => {
+          console.error('[Setter] Video upload failed:', error);
+          toast.error('Fehler beim Hochladen des Videos', {
+            id: toastId,
+            description: error.message || 'Unbekannter Fehler',
+            duration: 5000, // Auto-dismiss after 5 seconds
+          });
+        });
+      }
+      
       setForm({ name: '', sector_id: '', spansMultipleSectors: false, sector_id_2: '', difficulty: 1, color: 'Grün', note: '', file: null });
       navigate('/boulders');
+    } catch (error: any) {
+      // Dismiss any existing upload toast on error
+      toast.dismiss();
+      toast.error('Fehler beim Erstellen', {
+        description: error.message || 'Unbekannter Fehler',
+        duration: 5000, // Auto-dismiss after 5 seconds
+      });
     } finally {
       setIsUploading(false);
     }
@@ -228,21 +298,88 @@ const Setter = () => {
     if (!editing) return;
     setIsUploading(true);
     try {
-      let betaUrl = editing.betaVideoUrl || null;
-      if (form.file) {
-        betaUrl = await uploadBetaVideo(form.file);
-      }
-      await updateBoulder.mutateAsync({
+      // Update boulder immediately (without video URL if new file exists)
+      const updateData = {
         id: editing.id,
         name: form.name,
         sector_id: form.sector_id,
         sector_id_2: form.spansMultipleSectors && form.sector_id_2 ? form.sector_id_2 : null,
         difficulty: form.difficulty,
         color: form.color,
-        beta_video_url: betaUrl,
+        beta_video_url: form.file ? editing.betaVideoUrl || null : editing.betaVideoUrl || null, // Keep existing or null if new file
         note: form.note,
-      } as any);
+      };
+      
+      await updateBoulder.mutateAsync(updateData as any);
+      
+      // If there's a new file, upload it in the background and update the boulder
+      if (form.file) {
+        // Show upload progress toast with custom progress bar
+        let currentProgress = 0;
+        const toastId = toast.custom((t) => (
+          <div className="w-full max-w-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Video wird hochgeladen...</span>
+              <span className="text-xs text-muted-foreground">{Math.round(currentProgress)}%</span>
+            </div>
+            <Progress value={currentProgress} className="h-2" />
+          </div>
+        ), {
+          duration: Infinity, // Keep toast open until we dismiss it
+        });
+        
+        // Upload video in background (don't await - let it run async)
+        uploadBetaVideo(form.file, (progress) => {
+          currentProgress = progress;
+          // Update toast with new progress
+          toast.custom((t) => (
+            <div className="w-full max-w-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Video wird hochgeladen...</span>
+                <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </div>
+          ), {
+            id: toastId,
+            duration: Infinity,
+          });
+        }).then((betaUrl) => {
+          // Update boulder with video URL after upload completes
+          updateBoulder.mutateAsync({
+            id: editing.id,
+            beta_video_url: betaUrl,
+          } as any).catch((error) => {
+            console.error('[Setter] Failed to update boulder with video URL:', error);
+            toast.error('Video hochgeladen, aber Boulder konnte nicht aktualisiert werden', {
+              description: error.message,
+              duration: 5000,
+            });
+          });
+          
+          // Update toast to success and auto-dismiss after 3 seconds
+          toast.success('Video erfolgreich hochgeladen!', {
+            id: toastId,
+            duration: 3000, // Auto-dismiss after 3 seconds
+          });
+        }).catch((error) => {
+          console.error('[Setter] Video upload failed:', error);
+          toast.error('Fehler beim Hochladen des Videos', {
+            id: toastId,
+            description: error.message || 'Unbekannter Fehler',
+            duration: 5000, // Auto-dismiss after 5 seconds
+          });
+        });
+      }
+      
       setEditing(null);
+    } catch (error: any) {
+      // Dismiss any existing upload toast on error
+      toast.dismiss();
+      toast.error('Fehler beim Aktualisieren', {
+        description: error.message || 'Unbekannter Fehler',
+        duration: 5000, // Auto-dismiss after 5 seconds
+      });
     } finally {
       setIsUploading(false);
     }
