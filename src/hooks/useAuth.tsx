@@ -22,34 +22,134 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Sync function to transfer user_metadata to profiles table
+  const syncMetadataToProfiles = async (userId: string, metadata: any) => {
+    if (!userId || !metadata) return;
+    
+    const payload: any = {};
+    if (metadata.first_name) payload.first_name = metadata.first_name;
+    if (metadata.last_name) payload.last_name = metadata.last_name;
+    if (metadata.full_name) payload.full_name = metadata.full_name;
+    if (metadata.birth_date) payload.birth_date = metadata.birth_date;
+    
+    if (Object.keys(payload).length === 0) {
+      console.debug('[Profile Sync] Keine Metadaten zum Synchronisieren gefunden');
+      return;
+    }
+    
+    console.log('[Profile Sync] Starte Synchronisation:', payload);
+    
+    // First check if profile exists
+    const { data: existingProfile, error: checkError } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (checkError) {
+      console.error('[Profile Sync] Fehler beim Prüfen des Profils:', checkError);
+      return;
+    }
+    
+    if (existingProfile) {
+      // Profile exists, update it
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update(payload)
+        .eq('id', userId);
+      
+      if (updateError) {
+        console.error('[Profile Sync] Fehler beim Update:', updateError);
+      } else {
+        console.log('[Profile Sync] Profildaten erfolgreich aktualisiert');
+      }
+    } else {
+      // Profile doesn't exist yet, create it (trigger should have done this, but just in case)
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          email: metadata.email || null,
+          ...payload
+        });
+      
+      if (insertError) {
+        console.error('[Profile Sync] Fehler beim Erstellen:', insertError);
+      } else {
+        console.log('[Profile Sync] Profil erfolgreich erstellt');
+      }
+    }
+  };
+
   useEffect(() => {
+    let mounted = true;
+    
+    // Set a timeout to ensure loading doesn't hang forever
+    const timeoutId = setTimeout(() => {
+      if (mounted) {
+        console.warn('[Auth] Session loading timeout - setting loading to false');
+        setLoading(false);
+      }
+    }, 5000); // 5 second timeout
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
+        if (!mounted) return;
+        console.log('[Auth] Auth state changed:', event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        clearTimeout(timeoutId);
+        
         // Sync user_metadata to profiles table when session becomes available
         if (session?.user) {
           const meta = session.user.user_metadata as any;
-          const payload: any = {};
-          if (meta?.first_name) payload.first_name = meta.first_name;
-          if (meta?.last_name) payload.last_name = meta.last_name;
-          if (meta?.full_name) payload.full_name = meta.full_name;
-          if (meta?.birth_date) payload.birth_date = meta.birth_date;
-          if (Object.keys(payload).length > 0) {
-            supabase.from('profiles').update(payload).eq('id', session.user.id);
+          if (meta && (meta.first_name || meta.last_name || meta.birth_date)) {
+            await syncMetadataToProfiles(session.user.id, meta);
           }
         }
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      if (!mounted) return;
+      
+      if (error) {
+        console.error('[Auth] Error loading initial session:', error);
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        clearTimeout(timeoutId);
+        return;
+      }
+      
+      console.log('[Auth] Initial session loaded:', session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      clearTimeout(timeoutId);
+      
+      // Also sync on initial session load
+      if (session?.user) {
+        const meta = session.user.user_metadata as any;
+        if (meta && (meta.first_name || meta.last_name || meta.birth_date)) {
+          await syncMetadataToProfiles(session.user.id, meta);
+        }
+      }
+    }).catch((error) => {
+      if (!mounted) return;
+      console.error('[Auth] Exception loading initial session:', error);
+      setSession(null);
+      setUser(null);
+      setLoading(false);
+      clearTimeout(timeoutId);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      clearTimeout(timeoutId);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -70,7 +170,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = async (email: string, password: string, meta?: { firstName?: string; lastName?: string; birthDate?: string }) => {
     const redirectUrl = `${window.location.origin}/auth`;
     const fullName = [meta?.firstName, meta?.lastName].filter(Boolean).join(' ').trim() || undefined;
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -85,11 +185,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
     
     if (error) {
-      toast.error('Registrierung fehlgeschlagen: ' + error.message);
+      // User-friendly error messages
+      let errorMessage = 'Registrierung fehlgeschlagen';
+      if (error.message.includes('already registered') || error.message.includes('already exists') || error.message.includes('User already registered')) {
+        errorMessage = 'Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an oder verwende eine andere E-Mail.';
+      } else if (error.message.includes('Password')) {
+        errorMessage = 'Das Passwort ist zu schwach. Bitte verwende mindestens 6 Zeichen.';
+      } else if (error.message.includes('email')) {
+        errorMessage = 'Ungültige E-Mail-Adresse. Bitte überprüfe deine Eingabe.';
+      } else {
+        errorMessage = 'Registrierung fehlgeschlagen: ' + error.message;
+      }
+      toast.error(errorMessage);
       throw error;
     }
     
-    toast.success('Erfolgreich registriert! Du kannst dich jetzt anmelden.');
+    // Note: We cannot update profiles table here because there's no session yet
+    // The data is stored in user_metadata and will be synced when user logs in after email confirmation
+    // The sync happens in onAuthStateChange when session becomes available
+    
+    // Check if email confirmation is required
+    // If user exists but no session, email confirmation is required
+    if (data?.user && !data.session) {
+      toast.success('Registrierung erfolgreich! Bitte bestätige deine E-Mail-Adresse. Wir haben dir eine E-Mail gesendet.');
+    } else if (data?.session) {
+      // User is already logged in (email confirmation disabled)
+      toast.success('Erfolgreich registriert! Du kannst dich jetzt anmelden.');
+    } else {
+      // Fallback message
+      toast.success('Registrierung erfolgreich! Bitte überprüfe deine E-Mail zur Bestätigung.');
+    }
   };
 
   const signOut = async () => {

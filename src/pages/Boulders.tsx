@@ -104,8 +104,8 @@ const Boulders = () => {
 
     let filtered = boulders.filter((boulder) => {
       const matchesSearch = boulder.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           boulder.sector.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesSector = sectorFilter === 'all' || boulder.sector === sectorFilter;
+                           (boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector).toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSector = sectorFilter === 'all' || boulder.sector === sectorFilter || boulder.sector2 === sectorFilter;
       const matchesDifficulty = difficultyFilter === 'all' || boulder.difficulty.toString() === difficultyFilter;
       const matchesColor = colorFilter === 'all' || boulder.color === colorFilter;
       
@@ -356,7 +356,7 @@ const Boulders = () => {
                     <div className="space-y-2">
                       <CardTitle className="text-lg">{boulder.name}</CardTitle>
                       <Badge variant="outline" className="font-medium">
-                        {boulder.sector}
+                        {boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-2">

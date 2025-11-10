@@ -64,6 +64,14 @@ export const Sidebar = ({ className, hideMobileNav = false }: SidebarProps) => {
                     <Shield className="h-3 w-3" />
                   </Badge>
                 )}
+                {isSetter && (
+                  <Badge variant="default" className={cn(
+                    "absolute h-5 w-5 p-0 flex items-center justify-center",
+                    isAdmin ? "-bottom-1 -left-1" : "-bottom-1 -right-1"
+                  )}>
+                    <Wrench className="h-3 w-3" />
+                  </Badge>
+                )}
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56 bg-card">

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Shield, ShieldOff, Pencil } from "lucide-react";
+import { Shield, ShieldOff, Pencil, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -15,27 +15,77 @@ import { Input } from "@/components/ui/input";
 export const UserManagement = () => {
   const queryClient = useQueryClient();
 
-  const { data: users, isLoading } = useQuery({
+  const { data: users, isLoading, error } = useQuery({
     queryKey: ["admin-users"],
     queryFn: async () => {
-      const { data: profiles, error: profileError } = await supabase
+      console.log('[UserManagement] Loading profiles...');
+      // First check if we're admin
+      const { data: currentUser } = await supabase.auth.getUser();
+      console.log('[UserManagement] Current user:', currentUser?.user?.id);
+      
+      // Test has_role function
+      if (currentUser?.user?.id) {
+        const { data: isAdminTest, error: roleTestError } = await supabase.rpc('has_role', {
+          _user_id: currentUser.user.id,
+          _role: 'admin'
+        });
+        console.log('[UserManagement] Admin check:', {
+          isAdmin: isAdminTest,
+          error: roleTestError
+        });
+      }
+      
+      // Try to get all profiles - first without any filter
+      const { data: profiles, error: profileError, count } = await supabase
         .from("profiles")
-        .select("*")
+        .select("*", { count: 'exact' })
         .order("created_at", { ascending: false });
+      
+      console.log('[UserManagement] Query result with count:', {
+        profiles,
+        count,
+        error: profileError
+      });
 
-      if (profileError) throw profileError;
+      console.log('[UserManagement] Profiles result:', {
+        count: profiles?.length || 0,
+        profiles: profiles?.map(p => ({ id: p.id, email: p.email, first_name: p.first_name, last_name: p.last_name })),
+        error: profileError
+      });
 
+      if (profileError) {
+        console.error('[UserManagement] Profile error:', profileError);
+        throw profileError;
+      }
+
+      console.log('[UserManagement] Loading user roles...');
       const { data: roles, error: rolesError } = await supabase
         .from("user_roles")
         .select("*");
 
-      if (rolesError) throw rolesError;
+      console.log('[UserManagement] Roles result:', {
+        count: roles?.length || 0,
+        roles,
+        error: rolesError
+      });
 
-      return profiles?.map(profile => ({
+      if (rolesError) {
+        console.error('[UserManagement] Roles error:', rolesError);
+        throw rolesError;
+      }
+
+      const mapped = profiles?.map(profile => ({
         ...profile,
         isAdmin: roles?.some(r => r.user_id === profile.id && r.role === 'admin') || false,
         isSetter: roles?.some(r => r.user_id === profile.id && r.role === 'setter') || false
       }));
+
+      console.log('[UserManagement] Mapped users:', {
+        count: mapped?.length || 0,
+        users: mapped
+      });
+
+      return mapped;
     },
   });
 
@@ -181,7 +231,10 @@ export const UserManagement = () => {
                         <Badge variant="secondary">Benutzer</Badge>
                       )}
                       {user.isSetter && (
-                        <Badge variant="outline">Setter</Badge>
+                        <Badge variant="outline" className="gap-1">
+                          <Wrench className="w-3 h-3" />
+                          Setter
+                        </Badge>
                       )}
                     </div>
                   </TableCell>
@@ -264,7 +317,10 @@ export const UserManagement = () => {
                     <Badge variant="secondary">Benutzer</Badge>
                   )}
                   {user.isSetter && (
-                    <Badge variant="outline">Setter</Badge>
+                    <Badge variant="outline" className="gap-1">
+                      <Wrench className="w-3 h-3" />
+                      Setter
+                    </Badge>
                   )}
                 </div>
               </div>

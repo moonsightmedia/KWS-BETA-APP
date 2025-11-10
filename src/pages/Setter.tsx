@@ -69,7 +69,7 @@ function generateBoulderName(color: string, difficulty: number): string {
   if (colorAdj) parts.push(colorAdj);
   parts.push(getRandom(NAME_ADJECTIVES));
   parts.push(getRandom(NAME_NOUNS));
-  return `${parts.join(' ')} ${difficulty}`;
+  return parts.join(' ');
 }
 
 // If the current name starts with a color adjective, replace it when color changes
@@ -85,8 +85,8 @@ function adjustNameForColor(name: string, newColor: string): string {
 
 const Setter = () => {
   const { session } = useAuth();
-  const { hasRole: isSetter } = useHasRole('setter');
-  const { hasRole: isAdmin } = useHasRole('admin');
+  const { hasRole: isSetter, loading: loadingSetter } = useHasRole('setter');
+  const { hasRole: isAdmin, loading: loadingAdmin } = useHasRole('admin');
   const navigate = useNavigate();
   const { data: sectors } = useSectorsTransformed();
   const { data: boulders } = useBouldersWithSectors();
@@ -100,11 +100,14 @@ const Setter = () => {
     if (!session) navigate('/auth');
   }, [session, navigate]);
 
+  const isLoadingRoles = loadingSetter || loadingAdmin;
   const canAccess = isSetter || isAdmin;
 
   const [form, setForm] = useState({
     name: '',
     sector_id: '',
+    spansMultipleSectors: false,
+    sector_id_2: '',
     difficulty: 1,
     color: 'Grün',
     note: '',
@@ -159,12 +162,13 @@ const Setter = () => {
       await createBoulder.mutateAsync({
         name: form.name,
         sector_id: form.sector_id,
+        sector_id_2: form.spansMultipleSectors && form.sector_id_2 ? form.sector_id_2 : null,
         difficulty: form.difficulty,
         color: form.color,
         beta_video_url: betaUrl,
         note: form.note,
       } as any);
-      setForm({ name: '', sector_id: '', difficulty: 1, color: 'Grün', note: '', file: null });
+      setForm({ name: '', sector_id: '', spansMultipleSectors: false, sector_id_2: '', difficulty: 1, color: 'Grün', note: '', file: null });
       navigate('/boulders');
     } finally {
       setIsUploading(false);
@@ -174,7 +178,13 @@ const Setter = () => {
   const filteredBoulders = useMemo(() => {
     let list = boulders || [];
     if (editSector !== 'all') {
-      list = list.filter(b => sectors?.find(s => s.id === editSector)?.name === b.sector);
+      const selectedSectorName = sectors?.find(s => s.id === editSector)?.name;
+      // Filter: Boulder erscheint, wenn er in einem der beiden Sektoren ist
+      list = list.filter(b => {
+        const inSector1 = b.sector === selectedSectorName;
+        const inSector2 = b.sector2 === selectedSectorName;
+        return inSector1 || inSector2;
+      });
     }
     if (statusFilter !== 'all') {
       list = list.filter((b:any) => (b as any).status === statusFilter);
@@ -187,7 +197,10 @@ const Setter = () => {
     }
     if (editSearch.trim()) {
       const q = editSearch.toLowerCase();
-      list = list.filter(b => b.name.toLowerCase().includes(q) || b.sector.toLowerCase().includes(q));
+      list = list.filter(b => {
+        const sectorText = b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector;
+        return b.name.toLowerCase().includes(q) || sectorText.toLowerCase().includes(q);
+      });
     }
     return list.slice(0, 100);
   }, [boulders, editSector, editDifficulty, editColor, editSearch, sectors]);
@@ -196,9 +209,13 @@ const Setter = () => {
     setEditing(b);
     setView('edit');
     // map into form-like state
+    const sector1Id = sectors?.find(s => s.name === b.sector)?.id || '';
+    const sector2Id = b.sector2 ? sectors?.find(s => s.name === b.sector2)?.id || '' : '';
     setForm({
       name: b.name,
-      sector_id: sectors?.find(s => s.name === b.sector)?.id || '',
+      sector_id: sector1Id,
+      spansMultipleSectors: !!b.sector2,
+      sector_id_2: sector2Id,
       difficulty: b.difficulty,
       color: b.color,
       note: b.note || '',
@@ -219,6 +236,7 @@ const Setter = () => {
         id: editing.id,
         name: form.name,
         sector_id: form.sector_id,
+        sector_id_2: form.spansMultipleSectors && form.sector_id_2 ? form.sector_id_2 : null,
         difficulty: form.difficulty,
         color: form.color,
         beta_video_url: betaUrl,
@@ -267,6 +285,18 @@ const Setter = () => {
   const selectedCount = useMemo(() => {
     return (boulders || []).filter(b => selected[(b as any).id]).length;
   }, [boulders, selected]);
+
+  // Warte, bis die Rollen geladen sind, bevor wir "Zugriff verweigert" anzeigen
+  if (isLoadingRoles) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Lädt...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!canAccess) {
     return (
@@ -362,6 +392,37 @@ const Setter = () => {
                       </SelectContent>
                     </Select>
             </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="spans-multiple-sectors"
+                checked={form.spansMultipleSectors}
+                onChange={(e) => setForm({...form, spansMultipleSectors: e.target.checked, sector_id_2: e.target.checked ? form.sector_id_2 : ''})}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <Label htmlFor="spans-multiple-sectors" className="cursor-pointer">
+                Verläuft über mehrere Sektoren
+              </Label>
+            </div>
+            {form.spansMultipleSectors && (
+              <div>
+                <Label>Endet in Sektor</Label>
+                <Select 
+                  value={form.sector_id_2} 
+                  onValueChange={(v)=>setForm({...form, sector_id_2: v})}
+                  disabled={!form.sector_id}
+                >
+                  <SelectTrigger className="h-12 text-base">
+                    <SelectValue placeholder="Sektor wählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sectors?.filter(s => s.id !== form.sector_id).map(s => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Schwierigkeit *</Label>
@@ -500,7 +561,9 @@ const Setter = () => {
                             </span>
                             <div>
                               <div className="font-medium text-base">{b.name}</div>
-                              <div className="text-xs text-muted-foreground">{b.sector}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
+                              </div>
                             </div>
                           </div>
                           <span className="text-primary text-sm">Bearbeiten</span>
@@ -537,6 +600,37 @@ const Setter = () => {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="spans-multiple-sectors-edit"
+                        checked={form.spansMultipleSectors}
+                        onChange={(e) => setForm({...form, spansMultipleSectors: e.target.checked, sector_id_2: e.target.checked ? form.sector_id_2 : ''})}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <Label htmlFor="spans-multiple-sectors-edit" className="cursor-pointer">
+                        Verläuft über mehrere Sektoren
+                      </Label>
+                    </div>
+                    {form.spansMultipleSectors && (
+                      <div>
+                        <Label>Endet in Sektor</Label>
+                        <Select 
+                          value={form.sector_id_2} 
+                          onValueChange={(v)=>setForm({...form, sector_id_2: v})}
+                          disabled={!form.sector_id}
+                        >
+                          <SelectTrigger className="h-12 text-base">
+                            <SelectValue placeholder="Sektor wählen" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {sectors?.filter(s => s.id !== form.sector_id).map(s => (
+                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label>Schwierigkeit *</Label>
@@ -682,7 +776,9 @@ const Setter = () => {
                         </span>
                         <div>
                           <div className="font-medium text-base">{b.name}</div>
-                          <div className="text-xs text-muted-foreground">{b.sector}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
+                          </div>
                         </div>
                       </div>
                       <span className="text-xs px-2 py-1 rounded-full border">

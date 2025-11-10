@@ -63,12 +63,17 @@ const Index = () => {
     return { when: new Date(upcoming.scheduled_at), sectorName };
   }, [schedule, sectors]);
 
-  // Berechne Boulder mit Beta-Videos
+  // Berechne Boulder mit Beta-Videos (nur hängende)
   const videosCount = useMemo(() => {
-    return boulders?.filter(b => b.betaVideoUrl).length || 0;
+    return boulders?.filter(b => b.betaVideoUrl && b.status === 'haengt').length || 0;
+  }, [boulders]);
+
+  // Berechne Anzahl der hängenden Boulder
+  const hangingBouldersCount = useMemo(() => {
+    return boulders?.filter(b => b.status === 'haengt').length || 0;
   }, [boulders]);
   
-  // Berechne durchschnittliche Schwierigkeit
+  // Berechne durchschnittliche Schwierigkeit (nur hängende)
   const avgDifficulty = useMemo(() => {
     if (!statistics || statistics.totalBoulders === 0) return '0.0';
     return (
@@ -148,7 +153,7 @@ const Index = () => {
           <div className="grid grid-cols-3 gap-3 mb-3 md:hidden">
             <StatCard
               title="Aktive Boulder"
-              value={statistics.totalBoulders}
+              value={hangingBouldersCount}
               variant="primary"
               subtitle="Aktuell"
             />
@@ -160,8 +165,8 @@ const Index = () => {
             <StatCard
               title="Mit Beta-Video"
               value={videosCount}
-              subtitle={statistics.totalBoulders > 0 
-                ? `${Math.round((videosCount / statistics.totalBoulders) * 100)}%`
+              subtitle={hangingBouldersCount > 0 
+                ? `${Math.round((videosCount / hangingBouldersCount) * 100)}%`
                 : '0%'}
             />
           </div>
@@ -178,7 +183,7 @@ const Index = () => {
           <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <StatCard
               title="Aktive Boulder"
-              value={statistics.totalBoulders}
+              value={hangingBouldersCount}
               variant="primary"
               subtitle="Aktueller Stand"
             />
@@ -190,8 +195,8 @@ const Index = () => {
             <StatCard
               title="Mit Beta-Video"
               value={videosCount}
-              subtitle={statistics.totalBoulders > 0 
-                ? `${Math.round((videosCount / statistics.totalBoulders) * 100)}% aller Boulder`
+              subtitle={hangingBouldersCount > 0 
+                ? `${Math.round((videosCount / hangingBouldersCount) * 100)}% aller Boulder`
                 : 'Keine Boulder vorhanden'}
             />
             <StatCard

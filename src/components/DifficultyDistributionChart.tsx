@@ -16,12 +16,20 @@ export const DifficultyDistributionChart = ({ stats, avgDifficulty }: Difficulty
   const { data: boulders } = useBouldersWithSectors();
   const { data: sectors } = useSectorsTransformed();
   
-  // Filtere Boulder nach Sektor
+  // Filtere Boulder nach Sektor und Status (nur hängende)
   const filteredBoulders = useMemo(() => {
     if (!boulders) return [];
-    return selectedSector === 'all' 
-      ? boulders 
-      : boulders.filter(b => b.sector === selectedSector);
+    // Zuerst nur hängende Boulder filtern
+    const hangingBoulders = boulders.filter(b => b.status === 'haengt');
+    // Dann nach Sektor filtern (Boulder erscheint, wenn er in einem der beiden Sektoren ist)
+    if (selectedSector === 'all') {
+      return hangingBoulders;
+    }
+    return hangingBoulders.filter(b => {
+      const inSector1 = b.sector === selectedSector;
+      const inSector2 = b.sector2 === selectedSector;
+      return inSector1 || inSector2;
+    });
   }, [boulders, selectedSector]);
   
   // Berechne Verteilung für gefilterte Boulder

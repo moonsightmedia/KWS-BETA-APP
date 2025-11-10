@@ -11,7 +11,10 @@ export const useStatistics = () => {
   const { data: sectors } = useSectorsTransformed();
 
   const statistics: Statistics | undefined = useMemo(() => {
-    if (!boulders || boulders.length === 0) {
+    // Filtere nur hängende Boulder
+    const hangingBoulders = boulders?.filter(b => b.status === 'haengt') || [];
+    
+    if (!hangingBoulders || hangingBoulders.length === 0) {
       return {
         totalBoulders: 0,
         lastUpdate: new Date(),
@@ -26,41 +29,41 @@ export const useStatistics = () => {
       };
     }
 
-    // Berechne Schwierigkeitsverteilung
+    // Berechne Schwierigkeitsverteilung (nur hängende)
     const difficultyDistribution: Record<number, number> = {
       1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0,
     };
     
-    boulders.forEach(boulder => {
+    hangingBoulders.forEach(boulder => {
       if (boulder.difficulty >= 1 && boulder.difficulty <= 8) {
         difficultyDistribution[boulder.difficulty] = (difficultyDistribution[boulder.difficulty] || 0) + 1;
       }
     });
 
-    // Berechne Farbverteilung
+    // Berechne Farbverteilung (nur hängende)
     const colorDistribution: Record<string, number> = {
       'Grün': 0, 'Gelb': 0, 'Blau': 0, 'Orange': 0,
       'Rot': 0, 'Schwarz': 0, 'Weiß': 0, 'Lila': 0,
     };
     
-    boulders.forEach(boulder => {
+    hangingBoulders.forEach(boulder => {
       if (colorDistribution.hasOwnProperty(boulder.color)) {
         colorDistribution[boulder.color] = (colorDistribution[boulder.color] || 0) + 1;
       }
     });
 
-    // Finde das neueste Datum
-    const lastUpdate = boulders.reduce((latest, boulder) => {
+    // Finde das neueste Datum (nur hängende)
+    const lastUpdate = hangingBoulders.reduce((latest, boulder) => {
       return boulder.createdAt > latest ? boulder.createdAt : latest;
-    }, boulders[0].createdAt);
+    }, hangingBoulders[0].createdAt);
 
-    // Zähle neue Boulder (letzte 7 Tage)
+    // Zähle neue Boulder (letzte 7 Tage, nur hängende)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const newBouldersCount = boulders.filter(b => b.createdAt >= sevenDaysAgo).length;
+    const newBouldersCount = hangingBoulders.filter(b => b.createdAt >= sevenDaysAgo).length;
 
     return {
-      totalBoulders: boulders.length,
+      totalBoulders: hangingBoulders.length,
       lastUpdate,
       newBouldersCount,
       difficultyDistribution: difficultyDistribution as Statistics['difficultyDistribution'],

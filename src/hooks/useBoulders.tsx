@@ -9,6 +9,7 @@ export interface Boulder {
   id: string;
   name: string;
   sector_id: string;
+  sector_id_2?: string | null;
   difficulty: number;
   color: string;
   beta_video_url: string | null;
@@ -62,9 +63,12 @@ export const useUpdateBoulder = () => {
         .update(updates)
         .eq('id', id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) {
+        throw new Error('Boulder konnte nicht aktualisiert werden. Möglicherweise fehlen die Berechtigungen.');
+      }
       return data;
     },
     onSuccess: () => {

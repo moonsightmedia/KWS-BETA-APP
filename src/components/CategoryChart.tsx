@@ -22,15 +22,22 @@ export const CategoryChart = () => {
   const { data: sectors, isLoading: isLoadingSectors } = useSectorsTransformed();
   const isLoading = isLoadingBoulders || isLoadingSectors;
 
-  // Berechne Verteilung der Boulder nach Sektoren
+  // Berechne Verteilung der Boulder nach Sektoren (nur hängende)
   const chartData = useMemo(() => {
     if (!boulders || !sectors || boulders.length === 0) {
       return [];
     }
 
-    // Gruppiere Boulder nach Sektoren
+    // Filtere nur hängende Boulder
+    const hangingBoulders = boulders.filter(b => b.status === 'haengt');
+    
+    if (hangingBoulders.length === 0) {
+      return [];
+    }
+
+    // Gruppiere hängende Boulder nach Sektoren
     const sectorCounts: Record<string, number> = {};
-    boulders.forEach(boulder => {
+    hangingBoulders.forEach(boulder => {
       sectorCounts[boulder.sector] = (sectorCounts[boulder.sector] || 0) + 1;
     });
 
@@ -43,7 +50,7 @@ export const CategoryChart = () => {
       }))
       .sort((a, b) => b.count - a.count);
 
-    const total = boulders.length;
+    const total = hangingBoulders.length;
 
     // Erstelle Chart-Daten mit Prozentwerten
     return sortedSectors.map((sector, index) => {

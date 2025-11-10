@@ -10,11 +10,13 @@ export const transformBoulder = (
   sectors: SupabaseSectorHook[] | undefined
 ): Boulder => {
   const sector = sectors?.find(s => s.id === boulder.sector_id);
+  const sector2 = boulder.sector_id_2 ? sectors?.find(s => s.id === boulder.sector_id_2) : null;
   
   return {
     id: boulder.id,
     name: boulder.name,
     sector: sector?.name || 'Unbekannter Sektor',
+    sector2: sector2?.name || undefined,
     difficulty: boulder.difficulty as Boulder['difficulty'],
     color: boulder.color as Boulder['color'],
     betaVideoUrl: boulder.beta_video_url || undefined,

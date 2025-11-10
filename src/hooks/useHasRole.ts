@@ -15,13 +15,22 @@ export const useHasRole = (role: 'admin' | 'user' | 'setter') => {
         return;
       }
       try {
-        const { data, error } = await supabase.rpc('has_role', { user_id: user.id, role });
+        const { data, error } = await supabase.rpc('has_role', { _user_id: user.id, _role: role });
         if (error) {
-          console.error('has_role rpc error', error);
+          console.error('has_role rpc error', {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            fullError: error
+          });
           setHasRole(false);
         } else {
           setHasRole(!!data);
         }
+      } catch (error) {
+        console.error('has_role rpc exception:', error);
+        setHasRole(false);
       } finally {
         setLoading(false);
       }

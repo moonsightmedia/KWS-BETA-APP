@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export const RequireAuth = ({ children }: { children: ReactNode }) => {
   const { session, loading } = useAuth();
@@ -18,7 +19,24 @@ export const RequireAuth = ({ children }: { children: ReactNode }) => {
     }
   }, [session, loading, navigate, location]);
 
-  if (!session) return null;
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-full max-w-md p-6 space-y-4">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+      </div>
+    );
+  }
+
+  // If no session, return null (redirect will happen in useEffect)
+  if (!session) {
+    return null;
+  }
+
   return <>{children}</>;
 };
 

@@ -42,8 +42,8 @@ const Guest = () => {
   const [sectorFilter, setSectorFilter] = useState<string>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [colorFilter, setColorFilter] = useState<string>('all');
-  const { data: boulders } = useBouldersWithSectors();
-  const { data: sectors } = useSectorsTransformed();
+  const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors();
+  const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed();
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [filterOpen, setFilterOpen] = useState(false);
   const [scrollTo, setScrollTo] = useState<null | 'sector' | 'difficulty' | 'color'>(null);
@@ -58,21 +58,84 @@ const Guest = () => {
   }, []);
 
   useEffect(() => {
+    console.log('[Guest] Boulders data:', {
+      boulders,
+      count: boulders?.length || 0,
+      isLoading: isLoadingBoulders,
+      error: bouldersError
+    });
+    if (bouldersError) {
+      console.error('[Guest] Boulder loading error:', bouldersError);
+    }
+  }, [boulders, isLoadingBoulders, bouldersError]);
+
+  useEffect(() => {
+    console.log('[Guest] Sectors data:', {
+      sectors,
+      count: sectors?.length || 0,
+      isLoading: isLoadingSectors,
+      error: sectorsError
+    });
+    if (sectorsError) {
+      console.error('[Guest] Sectors loading error:', sectorsError);
+    }
+  }, [sectors, isLoadingSectors, sectorsError]);
+
+  useEffect(() => {
     const sectorParam = searchParams.get('sector');
     if (sectorParam) setSectorFilter(sectorParam);
   }, [searchParams]);
 
   const filtered = useMemo(() => {
     let list = boulders || [];
+    console.log('[Guest] Filtering boulders:', {
+      total: list.length,
+      beforeStatusFilter: list.length
+    });
+    
     // show only hanging boulders in guest view
-    list = list.filter((b:any) => (b as any).status !== 'abgeschraubt');
-    if (sectorFilter !== 'all') list = list.filter(b => b.sector === sectorFilter);
-    if (difficultyFilter !== 'all') list = list.filter(b => String(b.difficulty) === difficultyFilter);
-    if (colorFilter !== 'all') list = list.filter(b => b.color === colorFilter);
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(b => b.name.toLowerCase().includes(q) || b.sector.toLowerCase().includes(q));
+    list = list.filter((b:any) => {
+      const status = (b as any).status;
+      const isHanging = status !== 'abgeschraubt';
+      if (!isHanging) {
+        console.log('[Guest] Filtered out boulder (abgeschraubt):', b.name, 'status:', status);
+      }
+      return isHanging;
+    });
+    
+    console.log('[Guest] After status filter:', list.length);
+    
+    if (sectorFilter !== 'all') {
+      const before = list.length;
+      // Filter: Boulder erscheint, wenn er in einem der beiden Sektoren ist
+      list = list.filter(b => {
+        const inSector1 = b.sector === sectorFilter;
+        const inSector2 = b.sector2 === sectorFilter;
+        return inSector1 || inSector2;
+      });
+      console.log('[Guest] After sector filter:', list.length, 'removed:', before - list.length);
     }
+    if (difficultyFilter !== 'all') {
+      const before = list.length;
+      list = list.filter(b => String(b.difficulty) === difficultyFilter);
+      console.log('[Guest] After difficulty filter:', list.length, 'removed:', before - list.length);
+    }
+    if (colorFilter !== 'all') {
+      const before = list.length;
+      list = list.filter(b => b.color === colorFilter);
+      console.log('[Guest] After color filter:', list.length, 'removed:', before - list.length);
+    }
+    if (searchQuery.trim()) {
+      const before = list.length;
+      const q = searchQuery.toLowerCase();
+      list = list.filter(b => {
+        const sectorText = b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector;
+        return b.name.toLowerCase().includes(q) || sectorText.toLowerCase().includes(q);
+      });
+      console.log('[Guest] After search filter:', list.length, 'removed:', before - list.length);
+    }
+    
+    console.log('[Guest] Final filtered count:', list.length);
     return list;
   }, [boulders, sectorFilter, difficultyFilter, colorFilter, searchQuery]);
 
@@ -189,7 +252,7 @@ const Guest = () => {
                 <div>
                   <div className="font-medium">{b.name}</div>
                   <div className="text-xs text-muted-foreground flex items-center gap-2">
-                    <span>{b.sector}</span>
+                    <span>{b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}</span>
                     <span>·</span>
                     <span className="inline-flex items-center gap-1">
                       <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold ${TEXT_ON_COLOR[b.color] || 'text-white'}`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>

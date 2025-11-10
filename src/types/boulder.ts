@@ -5,6 +5,7 @@ export interface Boulder {
   id: string;
   name: string;
   sector: string;
+  sector2?: string; // Optional second sector if boulder spans multiple sectors
   difficulty: Difficulty;
   color: BoulderColor;
   betaVideoUrl?: string;

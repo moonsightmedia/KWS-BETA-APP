@@ -5,14 +5,28 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+// Validate environment variables
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  console.error('Missing Supabase environment variables:', {
+    hasUrl: !!SUPABASE_URL,
+    hasKey: !!SUPABASE_PUBLISHABLE_KEY
+  });
+}
+
 // Gracefully handle browsers/contexts where storage is not available
 const isStorageAvailable = (() => {
   try {
+    // Check if we're in a context that allows storage (not in service worker, iframe without storage, etc.)
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return false;
+    }
     const testKey = '__sb_test__';
     localStorage.setItem(testKey, '1');
     localStorage.removeItem(testKey);
     return true;
-  } catch {
+  } catch (error) {
+    // Silently fail - storage not available in this context
+    // This is expected in some contexts (service workers, iframes, etc.)
     return false;
   }
 })();
@@ -20,10 +34,14 @@ const isStorageAvailable = (() => {
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: isStorageAvailable ? localStorage : undefined,
-    persistSession: isStorageAvailable,
-    autoRefreshToken: isStorageAvailable,
+export const supabase = createClient<Database>(
+  SUPABASE_URL || 'https://placeholder.supabase.co',
+  SUPABASE_PUBLISHABLE_KEY || 'placeholder-key',
+  {
+    auth: {
+      storage: isStorageAvailable ? localStorage : undefined,
+      persistSession: isStorageAvailable,
+      autoRefreshToken: isStorageAvailable,
+    }
   }
-});
+);

@@ -19,8 +19,10 @@ const queryClient = new QueryClient();
 const RouteLogger = () => {
   const location = useLocation();
   useEffect(() => {
-    // Debug: Log every route change (visible in default console levels)
-    console.log("[Route] navigated", location.pathname + location.search);
+    // Debug: Log every route change (only in development)
+    if (import.meta.env.DEV) {
+      console.log("[Route] navigated", location.pathname + location.search);
+    }
   }, [location]);
   return null;
 };
