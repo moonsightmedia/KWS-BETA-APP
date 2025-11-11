@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 
 const Profile = () => {
   const { user, signOut, loading } = useAuth();
@@ -20,145 +19,12 @@ const Profile = () => {
 
   useEffect(() => {
     (async () => {
-      if (!user) {
-        console.log('[Profile] Kein Benutzer gefunden');
-        return;
-      }
-      
-      console.log('[Profile] Lade Profildaten für Benutzer:', user.id);
-      
-      // First try to load from profiles table
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('first_name,last_name,birth_date,full_name')
-        .eq('id', user.id)
-        .maybeSingle();
-      
-      console.log('[Profile] Profildaten aus DB:', profileData, 'Fehler:', profileError);
-      
-      // Also get user_metadata as fallback
-      const meta = (user.user_metadata || {}) as any;
-      console.log('[Profile] User Metadata:', meta);
-      
-      if (profileData && !profileError) {
-        // Data exists in profiles table - use it
-        console.log('[Profile] Verwende Daten aus profiles-Tabelle');
-        setFirstName(profileData.first_name || '');
-        setLastName(profileData.last_name || '');
-        // Format birth_date for date input (YYYY-MM-DD)
-        if (profileData.birth_date) {
-          const date = typeof profileData.birth_date === 'string' 
-            ? new Date(profileData.birth_date) 
-            : profileData.birth_date;
-          if (!isNaN(date.getTime())) {
-            setBirthDate(date.toISOString().split('T')[0]);
-          } else {
-            setBirthDate('');
-          }
-        } else {
-          setBirthDate('');
-        }
-      } else {
-        // Fallback to user_metadata if not in profiles table yet
-        console.log('[Profile] Verwende Fallback auf user_metadata');
-        setFirstName(meta.first_name || meta.firstName || '');
-        setLastName(meta.last_name || meta.lastName || '');
-        if (meta.birth_date || meta.birthDate) {
-          const dateStr = meta.birth_date || meta.birthDate;
-          const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
-          if (!isNaN(date.getTime())) {
-            setBirthDate(date.toISOString().split('T')[0]);
-          } else {
-            setBirthDate('');
-          }
-        } else {
-          setBirthDate('');
-        }
-        
-        // Try to sync metadata to profiles table in background (only if we have data)
-        if (meta.first_name || meta.last_name || meta.birth_date) {
-          console.log('[Profile] Starte Sync von Metadata zu Profiles-Tabelle');
-          const payload: any = {};
-          if (meta.first_name) payload.first_name = meta.first_name;
-          if (meta.last_name) payload.last_name = meta.last_name;
-          if (meta.full_name) payload.full_name = meta.full_name;
-          if (meta.birth_date) payload.birth_date = meta.birth_date;
-          
-          // Check if profile exists first
-          const { data: existingProfile } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('id', user.id)
-            .maybeSingle();
-          
-          if (existingProfile) {
-            const { error: syncError } = await supabase
-              .from('profiles')
-              .update(payload)
-              .eq('id', user.id);
-            
-            if (syncError) {
-              console.error('[Profile] Fehler beim Sync der Profildaten:', syncError);
-              toast.error('Fehler beim Synchronisieren der Profildaten: ' + syncError.message);
-            } else {
-              console.log('[Profile] Profildaten erfolgreich synchronisiert');
-              // Reload profile data after sync
-              const { data: updatedProfile } = await supabase
-                .from('profiles')
-                .select('first_name,last_name,birth_date')
-                .eq('id', user.id)
-                .maybeSingle();
-              
-              if (updatedProfile) {
-                setFirstName(updatedProfile.first_name || '');
-                setLastName(updatedProfile.last_name || '');
-                if (updatedProfile.birth_date) {
-                  const date = typeof updatedProfile.birth_date === 'string' 
-                    ? new Date(updatedProfile.birth_date) 
-                    : updatedProfile.birth_date;
-                  if (!isNaN(date.getTime())) {
-                    setBirthDate(date.toISOString().split('T')[0]);
-                  }
-                }
-              }
-            }
-          } else {
-            // Profile doesn't exist, create it
-            const { error: insertError } = await supabase
-              .from('profiles')
-              .insert({
-                id: user.id,
-                email: user.email || null,
-                ...payload
-              });
-            
-            if (insertError) {
-              console.error('[Profile] Fehler beim Erstellen des Profils:', insertError);
-              toast.error('Fehler beim Erstellen des Profils: ' + insertError.message);
-            } else {
-              console.log('[Profile] Profil erfolgreich erstellt');
-              // Reload profile data after creation
-              const { data: newProfile } = await supabase
-                .from('profiles')
-                .select('first_name,last_name,birth_date')
-                .eq('id', user.id)
-                .maybeSingle();
-              
-              if (newProfile) {
-                setFirstName(newProfile.first_name || '');
-                setLastName(newProfile.last_name || '');
-                if (newProfile.birth_date) {
-                  const date = typeof newProfile.birth_date === 'string' 
-                    ? new Date(newProfile.birth_date) 
-                    : newProfile.birth_date;
-                  if (!isNaN(date.getTime())) {
-                    setBirthDate(date.toISOString().split('T')[0]);
-                  }
-                }
-              }
-            }
-          }
-        }
+      if (!user) return;
+      const { data } = await supabase.from('profiles').select('first_name,last_name,birth_date').eq('id', user.id).maybeSingle();
+      if (data) {
+        setFirstName((data as any).first_name || '');
+        setLastName((data as any).last_name || '');
+        setBirthDate((data as any).birth_date || '');
       }
     })();
   }, [user]);
@@ -166,20 +32,7 @@ const Profile = () => {
   const saveProfile = async () => {
     if (!user) return;
     setSaving(true);
-    const fullName = [firstName, lastName].filter(Boolean).join(' ').trim() || null;
-    const { error } = await supabase.from('profiles').update({ 
-      first_name: firstName || null, 
-      last_name: lastName || null, 
-      full_name: fullName,
-      birth_date: birthDate || null 
-    }).eq('id', user.id);
-    
-    if (error) {
-      console.error('Fehler beim Speichern:', error);
-      toast.error('Fehler beim Speichern: ' + error.message);
-    } else {
-      toast.success('Profil erfolgreich gespeichert!');
-    }
+    await supabase.from('profiles').update({ first_name: firstName, last_name: lastName, birth_date: birthDate || null }).eq('id', user.id);
     setSaving(false);
   };
 

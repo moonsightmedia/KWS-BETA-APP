@@ -1,19 +1,22 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useSectors, useCreateSector, useUpdateSector, useDeleteSector } from "@/hooks/useSectors";
 import { useBoulders } from "@/hooks/useBoulders";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, Plus, MoreVertical, Calendar } from "lucide-react";
+import { Pencil, Trash2, Plus, MoreVertical, Calendar, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
+import { uploadSectorImage, deleteSectorImage } from "@/integrations/supabase/storage";
+import { toast } from "sonner";
+import { Progress } from "@/components/ui/progress";
 
 export const SectorManagement = () => {
   const { data: sectors, isLoading } = useSectors();
@@ -25,6 +28,22 @@ export const SectorManagement = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSector, setEditingSector] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Detect mobile/desktop
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768); // md breakpoint
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -41,6 +60,12 @@ export const SectorManagement = () => {
       image_url: "",
     });
     setEditingSector(null);
+    setImageFile(null);
+    setImagePreview(null);
+    setUploadProgress(0);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleEdit = (sector: any) => {
@@ -51,29 +76,127 @@ export const SectorManagement = () => {
       next_schraubtermin: sector.next_schraubtermin ? format(new Date(sector.next_schraubtermin), "yyyy-MM-dd'T'HH:mm") : "",
       image_url: sector.image_url || "",
     });
+    setImagePreview(sector.image_url || null);
+    setImageFile(null);
+    setUploadProgress(0);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     setIsDialogOpen(true);
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error(`Ungültiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
+      return;
+    }
+
+    // Validate file size (10MB max)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error(`Datei zu groß. Maximum: ${Math.round(maxSize / 1024 / 1024)}MB`);
+      return;
+    }
+
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    // If editing and had an existing image, we'll delete it on save
+    if (editingSector && formData.image_url) {
+      setFormData({ ...formData, image_url: '' });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const data = {
-      ...formData,
-      next_schraubtermin: formData.next_schraubtermin || null,
-    };
+    try {
+      setIsUploading(true);
+      setUploadProgress(0);
 
-    if (editingSector) {
-      await updateSector.mutateAsync({ id: editingSector.id, ...data });
-    } else {
-      await createSector.mutateAsync(data);
+      let imageUrl = formData.image_url;
+
+      // Upload new image if selected
+      if (imageFile) {
+        // Delete old image if editing
+        if (editingSector && formData.image_url) {
+          try {
+            await deleteSectorImage(formData.image_url);
+          } catch (error) {
+            // Ignore deletion errors
+            console.error('Error deleting old image:', error);
+          }
+        }
+
+        // Upload new image
+        const sectorId = editingSector?.id || 'temp';
+        imageUrl = await uploadSectorImage(
+          imageFile,
+          sectorId,
+          (progress) => setUploadProgress(progress)
+        );
+      }
+
+      // Prepare data, ensuring empty strings are converted to null
+      const data: any = {
+        name: formData.name.trim(),
+        description: formData.description?.trim() || null,
+        next_schraubtermin: formData.next_schraubtermin ? new Date(formData.next_schraubtermin).toISOString() : null,
+        image_url: imageUrl || null,
+      };
+
+      // Remove undefined values
+      Object.keys(data).forEach(key => {
+        if (data[key] === undefined || data[key] === '') {
+          data[key] = null;
+        }
+      });
+
+      if (editingSector) {
+        await updateSector.mutateAsync({ id: editingSector.id, ...data });
+      } else {
+        await createSector.mutateAsync(data);
+      }
+      
+      setIsDialogOpen(false);
+      resetForm();
+      toast.success(editingSector ? 'Sektor erfolgreich aktualisiert!' : 'Sektor erfolgreich erstellt!');
+    } catch (error: any) {
+      toast.error('Fehler: ' + (error.message || 'Unbekannter Fehler'));
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
     }
-    
-    setIsDialogOpen(false);
-    resetForm();
   };
 
   const handleDelete = async () => {
     if (deleteId) {
+      // Find the sector to delete its image
+      const sectorToDelete = sectors?.find(s => s.id === deleteId);
+      if (sectorToDelete?.image_url) {
+        try {
+          await deleteSectorImage(sectorToDelete.image_url);
+        } catch (error) {
+          // Log error but continue with sector deletion
+          console.error('Error deleting sector image:', error);
+        }
+      }
       await deleteSector.mutateAsync(deleteId);
       setDeleteId(null);
     }
@@ -117,22 +240,60 @@ export const SectorManagement = () => {
               </div>
 
               <div>
-                <Label htmlFor="image_url">Bild URL</Label>
-                <Input
-                  id="image_url"
-                  type="url"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  placeholder="https://..."
-                />
+                <Label htmlFor="image">Sektor-Bild</Label>
+                <div className="space-y-2">
+                  {imagePreview && (
+                    <div className="relative w-full aspect-video rounded-lg overflow-hidden border">
+                      <img 
+                        src={imagePreview} 
+                        alt="Vorschau" 
+                        className="w-full h-full object-cover"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2"
+                        onClick={handleRemoveImage}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
+                  <Input
+                    ref={fileInputRef}
+                    id="image"
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                    onChange={handleImageSelect}
+                    disabled={isUploading}
+                    className="cursor-pointer"
+                  />
+                  {isUploading && (
+                    <div className="space-y-1">
+                      <Progress value={uploadProgress} />
+                      <p className="text-xs text-muted-foreground">
+                        Upload: {Math.round(uploadProgress)}%
+                      </p>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Erlaubte Formate: JPEG, PNG, WebP, GIF (max. 10MB)
+                  </p>
+                </div>
               </div>
 
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => setIsDialogOpen(false)}
+            disabled={isUploading}
+          >
             Abbrechen
           </Button>
-          <Button type="submit">
-            {editingSector ? "Speichern" : "Erstellen"}
+          <Button type="submit" disabled={isUploading}>
+            {isUploading ? "Wird hochgeladen..." : editingSector ? "Speichern" : "Erstellen"}
           </Button>
         </div>
       </form>
@@ -141,27 +302,34 @@ export const SectorManagement = () => {
   return (
     <div className="space-y-4">
       {/* Desktop Dialog */}
-      <div className="hidden md:flex justify-end">
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="w-4 h-4 mr-2" />
-              Neuer Sektor
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingSector ? "Sektor bearbeiten" : "Neuer Sektor"}
-              </DialogTitle>
-            </DialogHeader>
-            {formContent}
-          </DialogContent>
-        </Dialog>
-      </div>
+      {!isMobile && (
+        <div className="flex justify-end">
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="w-4 h-4 mr-2" />
+                Neuer Sektor
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingSector ? "Sektor bearbeiten" : "Neuer Sektor"}
+                </DialogTitle>
+                <DialogDescription>
+                  {editingSector 
+                    ? "Bearbeite die Details des Sektors" 
+                    : "Erstelle einen neuen Sektor mit Name, Beschreibung und optionalem Bild"}
+                </DialogDescription>
+              </DialogHeader>
+              {formContent}
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
 
       {/* Mobile Sheet with Floating Action Button */}
-      <div className="md:hidden">
+      {isMobile && (
         <Sheet open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <SheetTrigger asChild>
             <Button 
@@ -183,7 +351,7 @@ export const SectorManagement = () => {
             </div>
           </SheetContent>
         </Sheet>
-      </div>
+      )}
 
       {/* Desktop Table View */}
       <div className="hidden md:block border rounded-lg shadow-soft bg-card overflow-hidden">
