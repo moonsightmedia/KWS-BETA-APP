@@ -11,6 +11,8 @@ import { Filter, Search, Palette, Map, Dumbbell, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import placeholder from '/placeholder.svg';
+import { BoulderDetailDialog } from '@/components/BoulderDetailDialog';
+import { Boulder } from '@/types/boulder';
 
 const DIFFICULTIES = [1,2,3,4,5,6,7,8];
 const COLORS = ['Grün','Gelb','Blau','Orange','Rot','Schwarz','Weiß','Lila'];
@@ -48,6 +50,8 @@ const Guest = () => {
   const [filterOpen, setFilterOpen] = useState(false);
   const [scrollTo, setScrollTo] = useState<null | 'sector' | 'difficulty' | 'color'>(null);
   const [quickFilter, setQuickFilter] = useState<null | 'sector' | 'difficulty' | 'color'>(null);
+  const [selectedBoulder, setSelectedBoulder] = useState<Boulder | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const sectorRef = useRef<HTMLDivElement | null>(null);
   const difficultyRef = useRef<HTMLDivElement | null>(null);
   const colorRef = useRef<HTMLDivElement | null>(null);
@@ -245,7 +249,14 @@ const Guest = () => {
 
       <div className="grid gap-3">
         {filtered.map(b => (
-          <Card key={b.id} className="hover:bg-muted/50">
+          <Card 
+            key={b.id} 
+            className="hover:bg-muted/50 cursor-pointer transition-colors"
+            onClick={() => {
+              setSelectedBoulder(b);
+              setDialogOpen(true);
+            }}
+          >
             <CardContent className="p-0">
               <img className="w-full aspect-video object-cover rounded-t-lg" src={thumbs[b.id] || placeholder} alt={b.name} />
               <div className="p-4 flex items-center justify-between">
@@ -267,6 +278,12 @@ const Guest = () => {
           </Card>
         ))}
       </div>
+
+      <BoulderDetailDialog
+        boulder={selectedBoulder}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
 
       
 
