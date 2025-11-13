@@ -90,6 +90,18 @@ const Guest = () => {
     if (sectorParam) setSectorFilter(sectorParam);
   }, [searchParams]);
 
+  // Auto-scroll to section when filter sheet opens
+  useEffect(() => {
+    if (filterOpen && scrollTo) {
+      const timeout = setTimeout(() => {
+        const el = scrollTo === 'sector' ? sectorRef.current : scrollTo === 'difficulty' ? difficultyRef.current : colorRef.current;
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setScrollTo(null);
+      }, 50);
+      return () => clearTimeout(timeout);
+    }
+  }, [filterOpen, scrollTo]);
+
   const filtered = useMemo(() => {
     let list = boulders || [];
     console.log('[Guest] Filtering boulders:', {
@@ -631,16 +643,6 @@ const Guest = () => {
                   </div>
                 )}
               </div>
-              {/* Auto-scroll to section when opened via quick button */}
-              {filterOpen && scrollTo && (
-                <span className="sr-only">
-                  {setTimeout(() => {
-                    const el = scrollTo === 'sector' ? sectorRef.current : scrollTo === 'difficulty' ? difficultyRef.current : colorRef.current;
-                    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    setScrollTo(null);
-                  }, 50)}
-                </span>
-              )}
               </SheetContent>
             </Sheet>
           </div>

@@ -54,14 +54,45 @@ export const useUpdateSector = () => {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Sector> & { id: string }) => {
+      // Only allow updating specific fields (exclude computed/read-only fields)
+      const allowedFields = ['name', 'description', 'next_schraubtermin', 'image_url'];
+      const cleanUpdates: any = {};
+      
+      Object.keys(updates).forEach(key => {
+        if (allowedFields.includes(key)) {
+          const value = (updates as any)[key];
+          // Convert empty strings to null
+          cleanUpdates[key] = value === '' ? null : value;
+        }
+      });
+
+      // First, check if the sector exists
+      const { data: existing, error: checkError } = await supabase
+        .from('sectors')
+        .select('id')
+        .eq('id', id)
+        .single();
+
+      if (checkError || !existing) {
+        throw new Error(`Sektor mit ID ${id} nicht gefunden`);
+      }
+
       const { data, error } = await supabase
         .from('sectors')
-        .update(updates)
+        .update(cleanUpdates)
         .eq('id', id)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Update sector error:', error, { id, updates: cleanUpdates });
+        throw error;
+      }
+
+      if (!data) {
+        throw new Error('Update erfolgreich, aber keine Daten zurückgegeben');
+      }
+
       return data;
     },
     onSuccess: () => {
@@ -78,14 +109,37 @@ export const useCreateSector = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (newSector: Omit<Sector, 'id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (newSector: Omit<Sector, 'id' | 'created_at' | 'updated_at' | 'boulder_count' | 'last_schraubtermin'>) => {
+      // Only allow specific fields for creation
+      const cleanSector: any = {
+        name: newSector.name?.trim(),
+        description: newSector.description?.trim() || null,
+        next_schraubtermin: newSector.next_schraubtermin || null,
+        image_url: newSector.image_url || null,
+      };
+
+      // Convert empty strings to null
+      Object.keys(cleanSector).forEach(key => {
+        if (cleanSector[key] === '') {
+          cleanSector[key] = null;
+        }
+      });
+
       const { data, error } = await supabase
         .from('sectors')
-        .insert(newSector)
+        .insert(cleanSector)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Create sector error:', error, { cleanSector });
+        throw error;
+      }
+
+      if (!data) {
+        throw new Error('Sektor erstellt, aber keine Daten zurückgegeben');
+      }
+
       return data;
     },
     onSuccess: () => {
