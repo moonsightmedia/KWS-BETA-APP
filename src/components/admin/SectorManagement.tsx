@@ -133,12 +133,8 @@ export const SectorManagement = () => {
       const data: any = {
         name: formData.name.trim(),
         description: formData.description?.trim() || null,
-<<<<<<< HEAD
         next_schraubtermin: formData.next_schraubtermin ? new Date(formData.next_schraubtermin).toISOString() : null,
         image_url: formData.image_url || null,
-=======
-        image_url: imageUrl || null,
->>>>>>> 240937ccae7728db48c062fdf0436bfc6d7321c0
       };
 
       // Remove undefined values
