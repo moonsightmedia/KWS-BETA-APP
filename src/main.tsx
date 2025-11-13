@@ -2,6 +2,9 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
+// Note: Global error handlers are registered in index.html to catch errors early
+// This ensures storage errors are caught before they become uncaught exceptions
+
 // Clear all caches on page load to ensure fresh data
 if ('caches' in window) {
   caches.keys().then((cacheNames) => {

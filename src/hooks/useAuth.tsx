@@ -92,63 +92,119 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     }, 5000); // 5 second timeout
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+    let subscription: { unsubscribe: () => void } | null = null;
+    
+    try {
+      const { data: { subscription: sub } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (!mounted) return;
+          
+          // Ignore storage-related errors in the callback
+          try {
+            console.log('[Auth] Auth state changed:', event, session?.user?.id);
+            setSession(session);
+            setUser(session?.user ?? null);
+            setLoading(false);
+            clearTimeout(timeoutId);
+            
+            // Sync user_metadata to profiles table when session becomes available
+            if (session?.user) {
+              const meta = session.user.user_metadata as any;
+              if (meta && (meta.first_name || meta.last_name || meta.birth_date)) {
+                await syncMetadataToProfiles(session.user.id, meta);
+              }
+            }
+          } catch (error: any) {
+            // Ignore storage access errors
+            if (error?.message?.includes('storage') || error?.message?.includes('Storage')) {
+              console.warn('[Auth] Storage error in auth state change (ignored):', error.message);
+              return;
+            }
+            console.error('[Auth] Error in auth state change:', error);
+          }
+        }
+      );
+      subscription = sub;
+    } catch (error: any) {
+      // Ignore storage access errors when setting up auth state listener
+      if (error?.message?.includes('storage') || error?.message?.includes('Storage')) {
+        console.warn('[Auth] Storage error setting up auth listener (ignored):', error.message);
+      } else {
+        console.error('[Auth] Error setting up auth listener:', error);
+      }
+    }
+
+    // Wrap getSession in try-catch to handle storage errors
+    (async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
         if (!mounted) return;
-        console.log('[Auth] Auth state changed:', event, session?.user?.id);
+        
+        if (error) {
+          // Ignore storage-related errors
+          if (error.message?.includes('storage') || error.message?.includes('Storage')) {
+            console.warn('[Auth] Storage error loading session (ignored):', error.message);
+            setSession(null);
+            setUser(null);
+            setLoading(false);
+            clearTimeout(timeoutId);
+            return;
+          }
+          
+          console.error('[Auth] Error loading initial session:', error);
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+          clearTimeout(timeoutId);
+          return;
+        }
+        
+        console.log('[Auth] Initial session loaded:', session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
         clearTimeout(timeoutId);
         
-        // Sync user_metadata to profiles table when session becomes available
+        // Also sync on initial session load
         if (session?.user) {
           const meta = session.user.user_metadata as any;
           if (meta && (meta.first_name || meta.last_name || meta.birth_date)) {
             await syncMetadataToProfiles(session.user.id, meta);
           }
         }
-      }
-    );
-
-    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
-      if (!mounted) return;
-      
-      if (error) {
-        console.error('[Auth] Error loading initial session:', error);
+      } catch (error: any) {
+        if (!mounted) return;
+        
+        // Ignore storage-related errors
+        if (error?.message?.includes('storage') || error?.message?.includes('Storage')) {
+          console.warn('[Auth] Storage error in getSession (ignored):', error.message);
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+          clearTimeout(timeoutId);
+          return;
+        }
+        
+        console.error('[Auth] Exception loading initial session:', error);
         setSession(null);
         setUser(null);
         setLoading(false);
         clearTimeout(timeoutId);
-        return;
       }
-      
-      console.log('[Auth] Initial session loaded:', session?.user?.id);
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-      clearTimeout(timeoutId);
-      
-      // Also sync on initial session load
-      if (session?.user) {
-        const meta = session.user.user_metadata as any;
-        if (meta && (meta.first_name || meta.last_name || meta.birth_date)) {
-          await syncMetadataToProfiles(session.user.id, meta);
-        }
-      }
-    }).catch((error) => {
-      if (!mounted) return;
-      console.error('[Auth] Exception loading initial session:', error);
-      setSession(null);
-      setUser(null);
-      setLoading(false);
-      clearTimeout(timeoutId);
-    });
+    })();
 
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
-      subscription.unsubscribe();
+      if (subscription) {
+        try {
+          subscription.unsubscribe();
+        } catch (error) {
+          // Ignore errors when unsubscribing
+          console.warn('[Auth] Error unsubscribing:', error);
+        }
+      }
     };
   }, []);
 

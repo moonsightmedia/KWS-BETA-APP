@@ -10,9 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Filter, Search, Palette, Map, Dumbbell, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import placeholder from '/placeholder.svg';
 import { BoulderDetailDialog } from '@/components/BoulderDetailDialog';
 import { Boulder } from '@/types/boulder';
+import placeholder from '/placeholder.svg';
 
 const DIFFICULTIES = [1,2,3,4,5,6,7,8];
 const COLORS = ['Grün','Gelb','Blau','Orange','Rot','Schwarz','Weiß','Lila'];
@@ -47,11 +47,11 @@ const Guest = () => {
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors();
   const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed();
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  const [selectedBoulder, setSelectedBoulder] = useState<Boulder | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [scrollTo, setScrollTo] = useState<null | 'sector' | 'difficulty' | 'color'>(null);
   const [quickFilter, setQuickFilter] = useState<null | 'sector' | 'difficulty' | 'color'>(null);
-  const [selectedBoulder, setSelectedBoulder] = useState<Boulder | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const sectorRef = useRef<HTMLDivElement | null>(null);
   const difficultyRef = useRef<HTMLDivElement | null>(null);
   const colorRef = useRef<HTMLDivElement | null>(null);
@@ -62,84 +62,65 @@ const Guest = () => {
   }, []);
 
   useEffect(() => {
-    console.log('[Guest] Boulders data:', {
-      boulders,
-      count: boulders?.length || 0,
-      isLoading: isLoadingBoulders,
-      error: bouldersError
-    });
     if (bouldersError) {
       console.error('[Guest] Boulder loading error:', bouldersError);
     }
-  }, [boulders, isLoadingBoulders, bouldersError]);
+  }, [bouldersError]);
 
   useEffect(() => {
-    console.log('[Guest] Sectors data:', {
-      sectors,
-      count: sectors?.length || 0,
-      isLoading: isLoadingSectors,
-      error: sectorsError
-    });
     if (sectorsError) {
       console.error('[Guest] Sectors loading error:', sectorsError);
     }
-  }, [sectors, isLoadingSectors, sectorsError]);
+  }, [sectorsError]);
 
   useEffect(() => {
     const sectorParam = searchParams.get('sector');
     if (sectorParam) setSectorFilter(sectorParam);
   }, [searchParams]);
 
+  // Auto-scroll to section when filter sheet opens
+  useEffect(() => {
+    if (filterOpen && scrollTo) {
+      const timeout = setTimeout(() => {
+        const el = scrollTo === 'sector' ? sectorRef.current : scrollTo === 'difficulty' ? difficultyRef.current : colorRef.current;
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setScrollTo(null);
+      }, 50);
+      return () => clearTimeout(timeout);
+    }
+  }, [filterOpen, scrollTo]);
+
   const filtered = useMemo(() => {
     let list = boulders || [];
-    console.log('[Guest] Filtering boulders:', {
-      total: list.length,
-      beforeStatusFilter: list.length
-    });
     
     // show only hanging boulders in guest view
     list = list.filter((b:any) => {
       const status = (b as any).status;
-      const isHanging = status !== 'abgeschraubt';
-      if (!isHanging) {
-        console.log('[Guest] Filtered out boulder (abgeschraubt):', b.name, 'status:', status);
-      }
-      return isHanging;
+      return status !== 'abgeschraubt';
     });
     
-    console.log('[Guest] After status filter:', list.length);
-    
     if (sectorFilter !== 'all') {
-      const before = list.length;
       // Filter: Boulder erscheint, wenn er in einem der beiden Sektoren ist
       list = list.filter(b => {
         const inSector1 = b.sector === sectorFilter;
         const inSector2 = b.sector2 === sectorFilter;
         return inSector1 || inSector2;
       });
-      console.log('[Guest] After sector filter:', list.length, 'removed:', before - list.length);
     }
     if (difficultyFilter !== 'all') {
-      const before = list.length;
       list = list.filter(b => String(b.difficulty) === difficultyFilter);
-      console.log('[Guest] After difficulty filter:', list.length, 'removed:', before - list.length);
     }
     if (colorFilter !== 'all') {
-      const before = list.length;
       list = list.filter(b => b.color === colorFilter);
-      console.log('[Guest] After color filter:', list.length, 'removed:', before - list.length);
     }
     if (searchQuery.trim()) {
-      const before = list.length;
       const q = searchQuery.toLowerCase();
       list = list.filter(b => {
         const sectorText = b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector;
         return b.name.toLowerCase().includes(q) || sectorText.toLowerCase().includes(q);
       });
-      console.log('[Guest] After search filter:', list.length, 'removed:', before - list.length);
     }
     
-    console.log('[Guest] Final filtered count:', list.length);
     return list;
   }, [boulders, sectorFilter, difficultyFilter, colorFilter, searchQuery]);
 
@@ -153,43 +134,258 @@ const Guest = () => {
     return m ? m[1] : null;
   };
 
+  // Create a stable reference for boulder IDs to avoid infinite loops
+  const filteredBoulderIds = useMemo(() => {
+    return filtered.map(b => b.id).join(',');
+  }, [filtered]);
+
   useEffect(() => {
+    let cancelled = false;
+    
     const run = async () => {
-      const next: Record<string, string> = { ...thumbs };
-      for (const b of filtered) {
-        if (!b.betaVideoUrl || next[b.id]) continue;
-        const url = b.betaVideoUrl;
+      // Get current thumbs state using a ref-like approach
+      let currentThumbs: Record<string, string> = {};
+      setThumbs(prev => {
+        currentThumbs = prev;
+        return prev;
+      });
+      
+      // Only process boulders that don't have thumbnails yet
+      const bouldersToProcess = filtered
+        .filter(b => b.betaVideoUrl && !currentThumbs[b.id])
+        .slice(0, 5); // Only process first 5 immediately
+      
+      if (bouldersToProcess.length === 0) return;
+      
+      // Process thumbnails in parallel for better performance
+      const thumbnailPromises = bouldersToProcess.map(async (b) => {
+        const url = b.betaVideoUrl!;
         const yid = ytId(url);
-        if (yid) { next[b.id] = `https://img.youtube.com/vi/${yid}/hqdefault.jpg`; continue; }
+        if (yid) {
+          return { id: b.id, thumb: `https://img.youtube.com/vi/${yid}/hqdefault.jpg` };
+        }
         const vid = vimeoId(url);
-        if (vid) { next[b.id] = `https://vumbnail.com/${vid}.jpg`; continue; }
-        // Try to extract middle frame for direct video URLs
+        if (vid) {
+          return { id: b.id, thumb: `https://vumbnail.com/${vid}.jpg` };
+        }
+        
+        // Try to extract middle frame for direct video URLs (optimized)
         try {
           const video = document.createElement('video');
           video.crossOrigin = 'anonymous';
           video.preload = 'metadata';
+          video.muted = true; // Mute to allow autoplay
+          video.playsInline = true;
+          video.style.display = 'none';
+          document.body.appendChild(video);
           video.src = url;
-          await new Promise(resolve => video.addEventListener('loadedmetadata', resolve, { once: true }));
-          const mid = Math.max(0, (video.duration || 1) / 2);
-          video.currentTime = mid;
-          await new Promise(resolve => video.addEventListener('seeked', resolve, { once: true }));
-          const canvas = document.createElement('canvas');
-          canvas.width = video.videoWidth || 640;
-          canvas.height = video.videoHeight || 360;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            next[b.id] = canvas.toDataURL('image/jpeg');
+          
+          // Wait for metadata to load
+          await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              document.body.removeChild(video);
+              reject(new Error('Timeout loading metadata'));
+            }, 3000);
+            video.addEventListener('loadedmetadata', () => {
+              clearTimeout(timeout);
+              resolve(null);
+            }, { once: true });
+            video.addEventListener('error', () => {
+              clearTimeout(timeout);
+              document.body.removeChild(video);
+              reject(new Error('Video load error'));
+            }, { once: true });
+          });
+          
+          // Calculate middle time (exactly in the middle)
+          const duration = video.duration || 0;
+          if (duration <= 0) {
+            document.body.removeChild(video);
+            return { id: b.id, thumb: placeholder };
           }
-        } catch {
-          next[b.id] = placeholder;
+          
+          const mid = duration / 2;
+          
+          // Seek to middle and wait for it to complete
+          video.currentTime = mid;
+          
+          // Wait for seek to complete - ensure we're at the middle frame
+          await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              document.body.removeChild(video);
+              reject(new Error('Timeout seeking'));
+            }, 3000);
+            
+            const onSeeked = () => {
+              // Double-check we're at the middle
+              const currentTime = video.currentTime;
+              const expectedMid = duration / 2;
+              if (Math.abs(currentTime - expectedMid) < 0.5) {
+                clearTimeout(timeout);
+                video.removeEventListener('seeked', onSeeked);
+                video.removeEventListener('error', onError);
+                resolve(null);
+              }
+            };
+            
+            const onError = () => {
+              clearTimeout(timeout);
+              video.removeEventListener('seeked', onSeeked);
+              video.removeEventListener('error', onError);
+              document.body.removeChild(video);
+              reject(new Error('Seek error'));
+            };
+            
+            video.addEventListener('seeked', onSeeked, { once: false });
+            video.addEventListener('error', onError, { once: false });
+            
+            // If seeked event doesn't fire, try again
+            setTimeout(() => {
+              if (Math.abs(video.currentTime - mid) > 0.5) {
+                video.currentTime = mid;
+              }
+            }, 100);
+          });
+          
+          // Use smaller canvas size for faster processing (max 240px width)
+          const maxWidth = 240;
+          const videoWidth = video.videoWidth || 640;
+          const videoHeight = video.videoHeight || 360;
+          const aspectRatio = videoHeight / videoWidth;
+          const canvas = document.createElement('canvas');
+          canvas.width = maxWidth;
+          canvas.height = Math.round(maxWidth * aspectRatio);
+          
+          const ctx = canvas.getContext('2d', { willReadFrequently: false });
+          if (ctx && videoWidth > 0 && videoHeight > 0) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const thumb = canvas.toDataURL('image/jpeg', 0.6); // Lower quality for speed
+            document.body.removeChild(video);
+            return { id: b.id, thumb };
+          }
+          document.body.removeChild(video);
+          return { id: b.id, thumb: placeholder };
+        } catch (error) {
+          console.warn(`[Guest] Failed to generate thumbnail for ${b.id}:`, error);
+          return { id: b.id, thumb: placeholder };
         }
+      });
+    
+      // Wait for all thumbnails to load in parallel
+      const results = await Promise.allSettled(thumbnailPromises);
+      if (cancelled) return;
+      
+      const newThumbs: Record<string, string> = {};
+      results.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          newThumbs[result.value.id] = result.value.thumb;
+        }
+      });
+      
+      if (Object.keys(newThumbs).length > 0) {
+        setThumbs(prev => ({ ...prev, ...newThumbs }));
       }
-      setThumbs(next);
+      
+      // Load remaining thumbnails lazily (one at a time to avoid overwhelming)
+      const remaining = filtered
+        .filter(b => b.betaVideoUrl && !currentThumbs[b.id] && !newThumbs[b.id])
+        .slice(5); // Skip first 5 that we already processed
+      
+      // Load remaining thumbnails one by one with delay
+      for (const b of remaining) {
+        if (cancelled) return;
+        await new Promise(resolve => setTimeout(resolve, 200)); // Small delay between each
+        
+        const url = b.betaVideoUrl!;
+        const yid = ytId(url);
+        if (yid) {
+          setThumbs(prev => ({ ...prev, [b.id]: `https://img.youtube.com/vi/${yid}/hqdefault.jpg` }));
+          continue;
+        }
+        const vid = vimeoId(url);
+        if (vid) {
+          setThumbs(prev => ({ ...prev, [b.id]: `https://vumbnail.com/${vid}.jpg` }));
+          continue;
+        }
+        
+        // For direct video URLs, generate thumbnail in background
+        (async () => {
+          try {
+            const video = document.createElement('video');
+            video.crossOrigin = 'anonymous';
+            video.preload = 'metadata';
+            video.muted = true;
+            video.playsInline = true;
+            video.style.display = 'none';
+            document.body.appendChild(video);
+            video.src = url;
+            
+            await new Promise((resolve, reject) => {
+              const timeout = setTimeout(() => {
+                document.body.removeChild(video);
+                reject(new Error('Timeout'));
+              }, 3000);
+              video.addEventListener('loadedmetadata', () => {
+                clearTimeout(timeout);
+                resolve(null);
+              }, { once: true });
+              video.addEventListener('error', () => {
+                clearTimeout(timeout);
+                document.body.removeChild(video);
+                reject(new Error('Error'));
+              }, { once: true });
+            });
+            
+            const duration = video.duration || 0;
+            if (duration > 0) {
+              const mid = duration / 2;
+              video.currentTime = mid;
+              
+              await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                  document.body.removeChild(video);
+                  reject(new Error('Timeout'));
+                }, 3000);
+                video.addEventListener('seeked', () => {
+                  clearTimeout(timeout);
+                  resolve(null);
+                }, { once: true });
+              });
+              
+              const maxWidth = 240;
+              const videoWidth = video.videoWidth || 640;
+              const videoHeight = video.videoHeight || 360;
+              const aspectRatio = videoHeight / videoWidth;
+              const canvas = document.createElement('canvas');
+              canvas.width = maxWidth;
+              canvas.height = Math.round(maxWidth * aspectRatio);
+              
+              const ctx = canvas.getContext('2d');
+              if (ctx && videoWidth > 0 && videoHeight > 0) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const thumb = canvas.toDataURL('image/jpeg', 0.6);
+                document.body.removeChild(video);
+                setThumbs(prev => ({ ...prev, [b.id]: thumb }));
+              } else {
+                document.body.removeChild(video);
+                setThumbs(prev => ({ ...prev, [b.id]: placeholder }));
+              }
+            } else {
+              document.body.removeChild(video);
+              setThumbs(prev => ({ ...prev, [b.id]: placeholder }));
+            }
+          } catch {
+            setThumbs(prev => ({ ...prev, [b.id]: placeholder }));
+          }
+        })();
+      }
     };
     run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtered]);
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [filteredBoulderIds, filtered]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -252,14 +448,26 @@ const Guest = () => {
           <Card 
             key={b.id} 
             className="hover:bg-muted/50 cursor-pointer transition-colors"
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('[Guest] Boulder clicked:', b.id, b.name);
               setSelectedBoulder(b);
               setDialogOpen(true);
             }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setSelectedBoulder(b);
+                setDialogOpen(true);
+              }
+            }}
           >
-            <CardContent className="p-0">
-              <img className="w-full aspect-video object-cover rounded-t-lg" src={thumbs[b.id] || placeholder} alt={b.name} />
-              <div className="p-4 flex items-center justify-between">
+            <CardContent className="p-0 pointer-events-none">
+              <img className="w-full aspect-video object-cover rounded-t-lg pointer-events-none" src={thumbs[b.id] || placeholder} alt={b.name} />
+              <div className="p-4 flex items-center justify-between pointer-events-none">
                 <div>
                   <div className="font-medium">{b.name}</div>
                   <div className="text-xs text-muted-foreground flex items-center gap-2">
@@ -279,11 +487,19 @@ const Guest = () => {
         ))}
       </div>
 
-      <BoulderDetailDialog
-        boulder={selectedBoulder}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-      />
+      {/* Boulder Detail Dialog */}
+      {selectedBoulder && (
+        <BoulderDetailDialog
+          boulder={selectedBoulder}
+          open={dialogOpen}
+          onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) {
+              setSelectedBoulder(null);
+            }
+          }}
+        />
+      )}
 
       
 
@@ -417,16 +633,6 @@ const Guest = () => {
                   </div>
                 )}
               </div>
-              {/* Auto-scroll to section when opened via quick button */}
-              {filterOpen && scrollTo && (
-                <span className="sr-only">
-                  {setTimeout(() => {
-                    const el = scrollTo === 'sector' ? sectorRef.current : scrollTo === 'difficulty' ? difficultyRef.current : colorRef.current;
-                    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    setScrollTo(null);
-                  }, 50)}
-                </span>
-              )}
               </SheetContent>
             </Sheet>
           </div>

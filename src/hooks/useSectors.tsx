@@ -55,7 +55,7 @@ export const useUpdateSector = () => {
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Sector> & { id: string }) => {
       // Only allow updating specific fields (exclude computed/read-only fields)
-      const allowedFields = ['name', 'description', 'next_schraubtermin', 'image_url'];
+      const allowedFields = ['name', 'description', 'image_url'];
       const cleanUpdates: any = {};
       
       Object.keys(updates).forEach(key => {
@@ -109,12 +109,11 @@ export const useCreateSector = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (newSector: Omit<Sector, 'id' | 'created_at' | 'updated_at' | 'boulder_count' | 'last_schraubtermin'>) => {
+    mutationFn: async (newSector: Omit<Sector, 'id' | 'created_at' | 'updated_at' | 'boulder_count' | 'last_schraubtermin' | 'next_schraubtermin'>) => {
       // Only allow specific fields for creation
       const cleanSector: any = {
         name: newSector.name?.trim(),
         description: newSector.description?.trim() || null,
-        next_schraubtermin: newSector.next_schraubtermin || null,
         image_url: newSector.image_url || null,
       };
 

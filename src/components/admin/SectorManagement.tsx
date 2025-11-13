@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useSectors, useCreateSector, useUpdateSector, useDeleteSector } from "@/hooks/useSectors";
 import { useBoulders } from "@/hooks/useBoulders";
+import { useSectorSchedule } from "@/hooks/useSectorSchedule";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +22,7 @@ import { Progress } from "@/components/ui/progress";
 export const SectorManagement = () => {
   const { data: sectors, isLoading } = useSectors();
   const { data: allBoulders } = useBoulders();
+  const { data: schedule } = useSectorSchedule();
   const createSector = useCreateSector();
   const updateSector = useUpdateSector();
   const deleteSector = useDeleteSector();
@@ -48,7 +50,6 @@ export const SectorManagement = () => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    next_schraubtermin: "",
     image_url: "",
   });
 
@@ -56,7 +57,6 @@ export const SectorManagement = () => {
     setFormData({
       name: "",
       description: "",
-      next_schraubtermin: "",
       image_url: "",
     });
     setEditingSector(null);
@@ -73,7 +73,6 @@ export const SectorManagement = () => {
     setFormData({
       name: sector.name,
       description: sector.description || "",
-      next_schraubtermin: sector.next_schraubtermin ? format(new Date(sector.next_schraubtermin), "yyyy-MM-dd'T'HH:mm") : "",
       image_url: sector.image_url || "",
     });
     setImagePreview(sector.image_url || null);
@@ -134,8 +133,12 @@ export const SectorManagement = () => {
       const data: any = {
         name: formData.name.trim(),
         description: formData.description?.trim() || null,
+<<<<<<< HEAD
         next_schraubtermin: formData.next_schraubtermin ? new Date(formData.next_schraubtermin).toISOString() : null,
         image_url: formData.image_url || null,
+=======
+        image_url: imageUrl || null,
+>>>>>>> 240937ccae7728db48c062fdf0436bfc6d7321c0
       };
 
       // Remove undefined values
@@ -240,40 +243,32 @@ export const SectorManagement = () => {
 
   // Form content direkt inline rendern, um Focus-Probleme zu vermeiden
   const formContent = (
-    <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
+    <form onSubmit={handleSubmit} className="space-y-4 w-full min-w-0">
+              <div className="w-full min-w-0">
                 <Label htmlFor="name">Name *</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
+                  className="w-full min-w-0"
                 />
               </div>
 
-              <div>
+              <div className="w-full min-w-0">
                 <Label htmlFor="description">Beschreibung</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Beschreibung des Sektors..."
+                  className="w-full min-w-0"
                 />
               </div>
 
-              <div>
-                <Label htmlFor="next_schraubtermin">Nächster Schraubtermin</Label>
-                <Input
-                  id="next_schraubtermin"
-                  type="datetime-local"
-                  value={formData.next_schraubtermin}
-                  onChange={(e) => setFormData({ ...formData, next_schraubtermin: e.target.value })}
-                />
-              </div>
-
-              <div>
+              <div className="w-full min-w-0">
                 <Label htmlFor="image">Sektor-Bild</Label>
-                <div className="space-y-2">
+                <div className="space-y-2 w-full min-w-0">
                   {imagePreview && (
                     <div className="relative w-full aspect-video rounded-lg overflow-hidden border">
                       <img 
@@ -299,7 +294,7 @@ export const SectorManagement = () => {
                     accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
                     onChange={handleImageSelect}
                     disabled={isUploading}
-                    className="cursor-pointer"
+                    className="cursor-pointer w-full min-w-0"
                   />
                   {isUploading && (
                     <div className="space-y-1">
@@ -332,10 +327,10 @@ export const SectorManagement = () => {
     );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full min-w-0">
       {/* Desktop Dialog */}
       {!isMobile && (
-        <div className="flex justify-end">
+        <div className="flex justify-end w-full min-w-0">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={resetForm}>
@@ -343,7 +338,7 @@ export const SectorManagement = () => {
                 Neuer Sektor
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-full min-w-0">
               <DialogHeader>
                 <DialogTitle>
                   {editingSector ? "Sektor bearbeiten" : "Neuer Sektor"}
@@ -386,9 +381,9 @@ export const SectorManagement = () => {
       )}
 
       {/* Desktop Table View */}
-      <div className="hidden md:block border rounded-lg shadow-soft bg-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
+      <div className="hidden md:block border rounded-lg shadow-soft bg-card overflow-hidden w-full min-w-0">
+        <div className="overflow-x-auto w-full min-w-0">
+          <Table className="w-full min-w-0">
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
@@ -405,9 +400,13 @@ export const SectorManagement = () => {
                   <TableCell className="max-w-xs truncate">{sector.description || "-"}</TableCell>
                   <TableCell>{(allBoulders || []).filter((b:any) => b.sector_id === sector.id && ((b as any).status === 'haengt' || (b as any).status == null)).length}</TableCell>
                   <TableCell>
-                    {sector.next_schraubtermin 
-                      ? format(new Date(sector.next_schraubtermin), "dd.MM.yyyy HH:mm")
-                      : "-"}
+                    {(() => {
+                      // Hole den nächsten Termin aus sector_schedule
+                      const next = (schedule || [])
+                        .filter((s: any) => s.sector_id === sector.id && new Date(s.scheduled_at) > new Date())
+                        .sort((a: any, b: any) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0];
+                      return next ? format(new Date(next.scheduled_at), "dd.MM.yyyy HH:mm") : "-";
+                    })()}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button
@@ -433,10 +432,10 @@ export const SectorManagement = () => {
       </div>
 
       {/* Mobile Card View */}
-      <div className="md:hidden space-y-3">
+      <div className="md:hidden space-y-3 w-full min-w-0">
         {sectors?.map((sector) => (
-          <Card key={sector.id} className="shadow-soft">
-            <CardContent className="p-4">
+          <Card key={sector.id} className="shadow-soft w-full min-w-0">
+            <CardContent className="p-4 w-full min-w-0">
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex-1">
                   <h3 className="font-semibold text-base mb-1">{sector.name}</h3>
@@ -471,12 +470,17 @@ export const SectorManagement = () => {
                 <Badge variant="secondary">
                   {(allBoulders || []).filter((b:any) => b.sector_id === sector.id && ((b as any).status === 'haengt' || (b as any).status == null)).length} Boulder
                 </Badge>
-                {sector.next_schraubtermin && (
-                  <Badge variant="outline" className="gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {format(new Date(sector.next_schraubtermin), "dd.MM.yy")}
-                  </Badge>
-                )}
+                {(() => {
+                  const next = (schedule || [])
+                    .filter((s: any) => s.sector_id === sector.id && new Date(s.scheduled_at) > new Date())
+                    .sort((a: any, b: any) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0];
+                  return next ? (
+                    <Badge variant="outline" className="gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {format(new Date(next.scheduled_at), "dd.MM.yy")}
+                    </Badge>
+                  ) : null;
+                })()}
               </div>
             </CardContent>
           </Card>

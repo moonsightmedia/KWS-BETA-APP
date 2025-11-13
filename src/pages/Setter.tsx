@@ -451,54 +451,54 @@ const Setter = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex overflow-x-hidden">
       <Sidebar hideMobileNav={view==='status' && selectedCount>0} />
-      <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+      <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0 overflow-x-hidden w-full min-w-0">
         <DashboardHeader />
-        <main className="flex-1 p-4 md:p-8">
+        <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-x-hidden">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground mb-2 font-teko tracking-wide">Setter</h1>
             <p className="text-muted-foreground">Boulder anlegen und bearbeiten. Nächsten Sektor planen.</p>
           </div>
           {/* Segmented top control for Setter views */}
           {!(view==='status' && selectedCount>0) && (
-            <div className="sticky top-[56px] md:top-[88px] z-30 px-3 md:px-4 mb-3">
-              <nav className="bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
-                <div className="max-w-7xl mx-auto flex items-center justify-around px-2 py-2">
+            <div className="sticky top-[56px] md:top-[88px] z-30 px-3 md:px-4 mb-3 w-full max-w-full overflow-x-hidden">
+              <nav className="bg-sidebar-bg rounded-2xl shadow-2xl border border-border w-full max-w-full">
+                <div className="w-full flex items-center justify-around px-2 py-2 min-w-0">
                   <button
-                    className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all ${view==='create' ? 'text-success' : 'text-sidebar-icon'}`}
+                    className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-3 py-2 rounded-xl transition-all flex-shrink-0 ${view==='create' ? 'text-success' : 'text-sidebar-icon'}`}
                     onClick={()=> setView('create')}
                   >
-                    <PlusCircle className="w-5 h-5" />
-                    <span className="text-xs">Hinzufügen</span>
+                    <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="text-[10px] sm:text-xs whitespace-nowrap">Hinzufügen</span>
                   </button>
                   <button
-                    className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all ${view==='edit' ? 'text-success' : 'text-sidebar-icon'}`}
+                    className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-3 py-2 rounded-xl transition-all flex-shrink-0 ${view==='edit' ? 'text-success' : 'text-sidebar-icon'}`}
                     onClick={()=> setView('edit')}
                   >
-                    <Edit3 className="w-5 h-5" />
-                    <span className="text-xs">Bearbeiten</span>
+                    <Edit3 className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="text-[10px] sm:text-xs whitespace-nowrap">Bearbeiten</span>
                   </button>
                   <button
-                    className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all ${view==='status' ? 'text-success' : 'text-sidebar-icon'}`}
+                    className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-3 py-2 rounded-xl transition-all flex-shrink-0 ${view==='status' ? 'text-success' : 'text-sidebar-icon'}`}
                     onClick={()=> setView('status')}
                   >
-                    <Wrench className="w-5 h-5" />
-                    <span className="text-xs">Status</span>
+                    <Wrench className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="text-[10px] sm:text-xs whitespace-nowrap">Status</span>
                   </button>
                   <button
-                    className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all ${view==='schedule' ? 'text-success' : 'text-sidebar-icon'}`}
+                    className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-3 py-2 rounded-xl transition-all flex-shrink-0 ${view==='schedule' ? 'text-success' : 'text-sidebar-icon'}`}
                     onClick={()=> setView('schedule')}
                   >
-                    <Calendar className="w-5 h-5" />
-                    <span className="text-xs">Schraubtermin</span>
+                    <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="text-[10px] sm:text-xs whitespace-nowrap">Schraubtermin</span>
                   </button>
                 </div>
               </nav>
             </div>
           )}
-          <div className="grid grid-cols-1 md:gap-8 max-w-7xl mx-auto">
-            <section className="w-full">
+          <div className="grid grid-cols-1 md:gap-8 max-w-7xl mx-auto w-full min-w-0">
+            <section className="w-full min-w-0">
         {view === 'create' && (
             <Card>
               <CardHeader>
@@ -506,20 +506,20 @@ const Setter = () => {
               </CardHeader>
               <CardContent>
                 <form id="create-form" onSubmit={onSubmit} className="space-y-4">
-            <div>
+            <div className="w-full min-w-0">
               <Label htmlFor="name">Name *</Label>
-              <div className="flex items-center gap-2">
-                <Input id="name" value={form.name} onChange={(e)=>setForm({...form, name: e.target.value})} required className="h-12 text-base flex-1" />
-                <Button type="button" variant="outline" className="h-12" onClick={() => setForm({ ...form, name: generateBoulderName(form.color, form.difficulty) })}>
+              <div className="flex items-center gap-2 w-full min-w-0">
+                <Input id="name" value={form.name} onChange={(e)=>setForm({...form, name: e.target.value})} required className="h-12 text-base flex-1 min-w-0" />
+                <Button type="button" variant="outline" className="h-12 flex-shrink-0" onClick={() => setForm({ ...form, name: generateBoulderName(form.color, form.difficulty) })}>
                   <Sparkles className="w-4 h-4 mr-2" />
-                  Vorschlagen
+                  <span className="hidden sm:inline">Vorschlagen</span>
                 </Button>
               </div>
             </div>
-            <div>
+            <div className="w-full min-w-0">
               <Label>Sektor *</Label>
                     <Select value={form.sector_id} onValueChange={(v)=>setForm({...form, sector_id: v})}>
-                      <SelectTrigger className="h-12 text-base">
+                      <SelectTrigger className="h-12 text-base w-full">
                   <SelectValue placeholder="Sektor wählen" />
                       </SelectTrigger>
                       <SelectContent>
@@ -542,14 +542,14 @@ const Setter = () => {
               </Label>
             </div>
             {form.spansMultipleSectors && (
-              <div>
+              <div className="w-full min-w-0">
                 <Label>Endet in Sektor</Label>
                 <Select 
                   value={form.sector_id_2} 
                   onValueChange={(v)=>setForm({...form, sector_id_2: v})}
                   disabled={!form.sector_id}
                 >
-                  <SelectTrigger className="h-12 text-base">
+                  <SelectTrigger className="h-12 text-base w-full">
                     <SelectValue placeholder="Sektor wählen" />
                   </SelectTrigger>
                   <SelectContent>
@@ -560,11 +560,11 @@ const Setter = () => {
                 </Select>
               </div>
             )}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0">
+              <div className="w-full min-w-0">
                 <Label>Schwierigkeit *</Label>
                       <Select value={String(form.difficulty)} onValueChange={(v)=>setForm({...form, difficulty: parseInt(v)})}>
-                        <SelectTrigger className="h-12 text-base">
+                        <SelectTrigger className="h-12 text-base w-full">
                     <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -572,10 +572,10 @@ const Setter = () => {
                         </SelectContent>
                       </Select>
               </div>
-              <div>
+              <div className="w-full min-w-0">
                 <Label>Farbe *</Label>
                       <Select value={form.color} onValueChange={(v)=>setForm(prev => ({...prev, color: v, name: adjustNameForColor(prev.name, v)}))}>
-                        <SelectTrigger className="h-12 text-base">
+                        <SelectTrigger className="h-12 text-base w-full">
                     <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -591,11 +591,15 @@ const Setter = () => {
                       </Select>
               </div>
             </div>
-            <div>
+            <div className="w-full min-w-0">
               <Label>Beta-Video (optional)</Label>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" className="flex-1 h-12" onClick={()=>captureInputRef.current?.click()}>Video aufnehmen</Button>
-                <Button type="button" variant="outline" className="flex-1 h-12" onClick={()=>galleryInputRef.current?.click()}>Aus Galerie</Button>
+              <div className="flex gap-2 w-full min-w-0">
+                <Button type="button" variant="outline" className="flex-1 h-12 min-w-0 text-sm sm:text-base" onClick={()=>captureInputRef.current?.click()}>
+                  <span className="truncate">Video aufnehmen</span>
+                </Button>
+                <Button type="button" variant="outline" className="flex-1 h-12 min-w-0 text-sm sm:text-base" onClick={()=>galleryInputRef.current?.click()}>
+                  <span className="truncate">Aus Galerie</span>
+                </Button>
               </div>
               <input ref={captureInputRef} hidden type="file" accept="video/*" capture="environment" onChange={(e)=>setForm({...form, file: e.target.files?.[0]||null})} />
               <input ref={galleryInputRef} hidden type="file" accept="video/*" onChange={(e)=>setForm({...form, file: e.target.files?.[0]||null})} />
@@ -605,9 +609,9 @@ const Setter = () => {
               <p className="text-xs text-muted-foreground mt-1">Upload startet beim Speichern.</p>
               {isUploading && <p className="text-xs text-muted-foreground mt-1">Lade hoch…</p>}
             </div>
-            <div>
+            <div className="w-full min-w-0">
               <Label>Notizen</Label>
-                    <Textarea value={form.note} onChange={(e)=>setForm({...form, note: e.target.value})} className="min-h-[100px]" />
+                    <Textarea value={form.note} onChange={(e)=>setForm({...form, note: e.target.value})} className="min-h-[100px] w-full min-w-0" />
             </div>
                 </form>
               </CardContent>
@@ -620,15 +624,15 @@ const Setter = () => {
         )}
 
         {view === 'edit' && (
-            <div className="space-y-4">
-              <div className="flex gap-2 sticky top-[56px] z-10 bg-background py-2 overflow-x-auto">
-                <div className="relative flex-1">
+            <div className="space-y-4 w-full min-w-0">
+              <div className="flex gap-2 sticky top-[56px] z-10 bg-background py-2 overflow-x-auto w-full min-w-0 -mx-4 px-4">
+                <div className="relative flex-1 min-w-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="Boulder suchen" className="pl-9 h-11" value={editSearch} onChange={(e)=>setEditSearch(e.target.value)} />
+                  <Input placeholder="Boulder suchen" className="pl-9 h-11 w-full min-w-0" value={editSearch} onChange={(e)=>setEditSearch(e.target.value)} />
                 </div>
-                <div className="w-40">
+                <div className="w-32 sm:w-40 flex-shrink-0">
                   <Select value={editSector} onValueChange={setEditSector}>
-                    <SelectTrigger className="h-11">
+                    <SelectTrigger className="h-11 w-full">
                       <SelectValue placeholder="Sektor" />
                     </SelectTrigger>
                     <SelectContent>
@@ -637,9 +641,9 @@ const Setter = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="w-36">
+                <div className="w-28 sm:w-36 flex-shrink-0">
                   <Select value={editDifficulty} onValueChange={setEditDifficulty}>
-                    <SelectTrigger className="h-11">
+                    <SelectTrigger className="h-11 w-full">
                       <SelectValue placeholder="Grad" />
                     </SelectTrigger>
                     <SelectContent>
@@ -648,9 +652,9 @@ const Setter = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="w-40">
+                <div className="w-32 sm:w-40 flex-shrink-0">
                   <Select value={editColor} onValueChange={setEditColor}>
-                    <SelectTrigger className="h-11">
+                    <SelectTrigger className="h-11 w-full">
                       <SelectValue placeholder="Farbe" />
                     </SelectTrigger>
                     <SelectContent>
@@ -716,20 +720,20 @@ const Setter = () => {
                 </CardHeader>
                 <CardContent>
                 <form id="edit-form" onSubmit={submitEdit} className="space-y-4">
-                    <div>
+                    <div className="w-full min-w-0">
                       <Label>Name *</Label>
-                      <div className="flex items-center gap-2">
-                        <Input value={form.name} onChange={(e)=>setForm({...form, name: e.target.value})} className="h-12 text-base flex-1" />
-                        <Button type="button" variant="outline" className="h-12" onClick={() => setForm({ ...form, name: generateBoulderName(form.color, form.difficulty) })}>
+                      <div className="flex items-center gap-2 w-full min-w-0">
+                        <Input value={form.name} onChange={(e)=>setForm({...form, name: e.target.value})} className="h-12 text-base flex-1 min-w-0" />
+                        <Button type="button" variant="outline" className="h-12 flex-shrink-0" onClick={() => setForm({ ...form, name: generateBoulderName(form.color, form.difficulty) })}>
                           <Sparkles className="w-4 h-4 mr-2" />
-                          Vorschlagen
+                          <span className="hidden sm:inline">Vorschlagen</span>
                         </Button>
                       </div>
                     </div>
-                    <div>
+                    <div className="w-full min-w-0">
                       <Label>Sektor *</Label>
                       <Select value={form.sector_id} onValueChange={(v)=>setForm({...form, sector_id: v})}>
-                        <SelectTrigger className="h-12 text-base">
+                        <SelectTrigger className="h-12 text-base w-full">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -750,14 +754,14 @@ const Setter = () => {
                       </Label>
                     </div>
                     {form.spansMultipleSectors && (
-                      <div>
+                      <div className="w-full min-w-0">
                         <Label>Endet in Sektor</Label>
                         <Select 
                           value={form.sector_id_2} 
                           onValueChange={(v)=>setForm({...form, sector_id_2: v})}
                           disabled={!form.sector_id}
                         >
-                          <SelectTrigger className="h-12 text-base">
+                          <SelectTrigger className="h-12 text-base w-full">
                             <SelectValue placeholder="Sektor wählen" />
                           </SelectTrigger>
                           <SelectContent>
@@ -768,11 +772,11 @@ const Setter = () => {
                         </Select>
                       </div>
                     )}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0">
+                      <div className="w-full min-w-0">
                         <Label>Schwierigkeit *</Label>
                         <Select value={String(form.difficulty)} onValueChange={(v)=>setForm({...form, difficulty: parseInt(v)})}>
-                          <SelectTrigger className="h-12 text-base">
+                          <SelectTrigger className="h-12 text-base w-full">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -780,10 +784,10 @@ const Setter = () => {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div>
+                      <div className="w-full min-w-0">
                         <Label>Farbe *</Label>
                         <Select value={form.color} onValueChange={(v)=>setForm(prev => ({...prev, color: v, name: adjustNameForColor(prev.name, v)}))}>
-                          <SelectTrigger className="h-12 text-base">
+                          <SelectTrigger className="h-12 text-base w-full">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -799,14 +803,14 @@ const Setter = () => {
                         </Select>
                       </div>
                     </div>
-                    <div>
+                    <div className="w-full min-w-0">
                       <Label>Beta-Video (optional)</Label>
-                      <input className="block w-full text-sm" type="file" accept="video/*" capture onChange={(e)=>setForm({...form, file: e.target.files?.[0]||null})} />
+                      <input className="block w-full text-sm min-w-0" type="file" accept="video/*" capture onChange={(e)=>setForm({...form, file: e.target.files?.[0]||null})} />
                       {isUploading && <p className="text-xs text-muted-foreground mt-1">Lade hoch…</p>}
                     </div>
-                    <div>
+                    <div className="w-full min-w-0">
                       <Label>Notizen</Label>
-                      <Textarea value={form.note} onChange={(e)=>setForm({...form, note: e.target.value})} className="min-h-[100px]" />
+                      <Textarea value={form.note} onChange={(e)=>setForm({...form, note: e.target.value})} className="min-h-[100px] w-full min-w-0" />
                     </div>
                     <div className="h-24" />
                   </form>
@@ -832,15 +836,15 @@ const Setter = () => {
         )}
 
         {view === 'status' && (
-          <div className="space-y-4">
-            <div className="flex gap-2 sticky top-[56px] z-10 bg-background py-2 overflow-x-auto">
-              <div className="relative flex-1">
+          <div className="space-y-4 w-full min-w-0">
+            <div className="flex gap-2 sticky top-[56px] z-10 bg-background py-2 overflow-x-auto w-full min-w-0 -mx-4 px-4">
+              <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Boulder suchen" className="pl-9 h-11" value={editSearch} onChange={(e)=>setEditSearch(e.target.value)} />
+                <Input placeholder="Boulder suchen" className="pl-9 h-11 w-full min-w-0" value={editSearch} onChange={(e)=>setEditSearch(e.target.value)} />
               </div>
-              <div className="w-40">
+              <div className="w-32 sm:w-40 flex-shrink-0">
                 <Select value={editSector} onValueChange={setEditSector}>
-                  <SelectTrigger className="h-11">
+                  <SelectTrigger className="h-11 w-full">
                     <SelectValue placeholder="Sektor" />
                   </SelectTrigger>
                   <SelectContent>
@@ -849,9 +853,9 @@ const Setter = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="w-36">
+              <div className="w-28 sm:w-36 flex-shrink-0">
                 <Select value={editDifficulty} onValueChange={setEditDifficulty}>
-                  <SelectTrigger className="h-11">
+                  <SelectTrigger className="h-11 w-full">
                     <SelectValue placeholder="Grad" />
                   </SelectTrigger>
                   <SelectContent>
@@ -860,9 +864,9 @@ const Setter = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="w-40">
+              <div className="w-32 sm:w-40 flex-shrink-0">
                 <Select value={editColor} onValueChange={setEditColor}>
-                  <SelectTrigger className="h-11">
+                  <SelectTrigger className="h-11 w-full">
                     <SelectValue placeholder="Farbe" />
                   </SelectTrigger>
                   <SelectContent>
@@ -878,9 +882,9 @@ const Setter = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="w-44">
+              <div className="w-36 sm:w-44 flex-shrink-0">
                 <Select value={statusFilter} onValueChange={(v:any)=>setStatusFilter(v)}>
-                  <SelectTrigger className="h-11">
+                  <SelectTrigger className="h-11 w-full">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>

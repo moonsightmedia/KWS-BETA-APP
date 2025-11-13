@@ -13,10 +13,47 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
   });
 }
 
-// Gracefully handle browsers/contexts where storage is not available
+// Create a completely safe storage adapter that NEVER throws errors
+// This prevents any "Access to storage is not allowed" errors
+const createSafeStorage = () => {
+  return {
+    getItem: (key: string) => {
+      try {
+        if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+          return null;
+        }
+        return localStorage.getItem(key);
+      } catch (error) {
+        // Silently return null - never throw
+        return null;
+      }
+    },
+    setItem: (key: string, value: string) => {
+      try {
+        if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+          return;
+        }
+        localStorage.setItem(key, value);
+      } catch (error) {
+        // Silently ignore - never throw
+      }
+    },
+    removeItem: (key: string) => {
+      try {
+        if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+          return;
+        }
+        localStorage.removeItem(key);
+      } catch (error) {
+        // Silently ignore - never throw
+      }
+    },
+  };
+};
+
+// Check if storage is available (but don't throw if it's not)
 const isStorageAvailable = (() => {
   try {
-    // Check if we're in a context that allows storage (not in service worker, iframe without storage, etc.)
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
       return false;
     }
@@ -25,8 +62,6 @@ const isStorageAvailable = (() => {
     localStorage.removeItem(testKey);
     return true;
   } catch (error) {
-    // Silently fail - storage not available in this context
-    // This is expected in some contexts (service workers, iframes, etc.)
     return false;
   }
 })();
@@ -34,14 +69,37 @@ const isStorageAvailable = (() => {
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(
-  SUPABASE_URL || 'https://placeholder.supabase.co',
-  SUPABASE_PUBLISHABLE_KEY || 'placeholder-key',
-  {
-    auth: {
-      storage: isStorageAvailable ? localStorage : undefined,
-      persistSession: isStorageAvailable,
-      autoRefreshToken: isStorageAvailable,
+// Wrap client creation in try-catch to prevent any initialization errors
+let supabaseInstance: ReturnType<typeof createClient<Database>>;
+
+try {
+  supabaseInstance = createClient<Database>(
+    SUPABASE_URL || 'https://placeholder.supabase.co',
+    SUPABASE_PUBLISHABLE_KEY || 'placeholder-key',
+    {
+      auth: {
+        storage: createSafeStorage(),
+        persistSession: isStorageAvailable,
+        autoRefreshToken: isStorageAvailable,
+        detectSessionInUrl: false, // Disable URL session detection to avoid storage access
+      }
     }
-  }
-);
+  );
+} catch (error) {
+  // If client creation fails, create a minimal client without auth features
+  console.warn('[Supabase] Error creating client, using fallback:', error);
+  supabaseInstance = createClient<Database>(
+    SUPABASE_URL || 'https://placeholder.supabase.co',
+    SUPABASE_PUBLISHABLE_KEY || 'placeholder-key',
+    {
+      auth: {
+        storage: createSafeStorage(),
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      }
+    }
+  );
+}
+
+export const supabase = supabaseInstance;
