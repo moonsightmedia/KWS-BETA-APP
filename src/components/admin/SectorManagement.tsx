@@ -130,35 +130,12 @@ export const SectorManagement = () => {
       setIsUploading(true);
       setUploadProgress(0);
 
-      let imageUrl = formData.image_url;
-
-      // Upload new image if selected
-      if (imageFile) {
-        // Delete old image if editing
-        if (editingSector && formData.image_url) {
-          try {
-            await deleteSectorImage(formData.image_url);
-          } catch (error) {
-            // Ignore deletion errors
-            console.error('Error deleting old image:', error);
-          }
-        }
-
-        // Upload new image
-        const sectorId = editingSector?.id || 'temp';
-        imageUrl = await uploadSectorImage(
-          imageFile,
-          sectorId,
-          (progress) => setUploadProgress(progress)
-        );
-      }
-
       // Prepare data, ensuring empty strings are converted to null
       const data: any = {
         name: formData.name.trim(),
         description: formData.description?.trim() || null,
         next_schraubtermin: formData.next_schraubtermin ? new Date(formData.next_schraubtermin).toISOString() : null,
-        image_url: imageUrl || null,
+        image_url: formData.image_url || null,
       };
 
       // Remove undefined values
@@ -168,16 +145,71 @@ export const SectorManagement = () => {
         }
       });
 
+      let sectorId: string;
+      let imageUrl = formData.image_url;
+
       if (editingSector) {
-        await updateSector.mutateAsync({ id: editingSector.id, ...data });
+        // Update existing sector
+        sectorId = editingSector.id;
+        
+        // Delete old image if a new one is being uploaded
+        if (imageFile && formData.image_url) {
+          try {
+            await deleteSectorImage(formData.image_url);
+          } catch (error) {
+            // Ignore deletion errors
+            console.error('Error deleting old image:', error);
+          }
+        }
+
+        // Upload new image if selected
+        if (imageFile) {
+          imageUrl = await uploadSectorImage(
+            imageFile,
+            sectorId,
+            (progress) => setUploadProgress(progress)
+          );
+          data.image_url = imageUrl;
+        }
+
+        await updateSector.mutateAsync({ id: sectorId, ...data });
       } else {
-        await createSector.mutateAsync(data);
+        // Create new sector first (without image)
+        const newSector = await createSector.mutateAsync(data);
+        sectorId = newSector.id;
+
+        // Upload image with the real sector ID
+        if (imageFile) {
+          try {
+            imageUrl = await uploadSectorImage(
+              imageFile,
+              sectorId,
+              (progress) => setUploadProgress(progress)
+            );
+            
+            // Update sector with image URL
+            await updateSector.mutateAsync({ 
+              id: sectorId, 
+              image_url: imageUrl 
+            });
+          } catch (error: any) {
+            // If image upload fails, delete the sector that was just created
+            console.error('Error uploading image:', error);
+            try {
+              await deleteSector.mutateAsync(sectorId);
+            } catch (deleteError) {
+              console.error('Error deleting sector after image upload failure:', deleteError);
+            }
+            throw new Error('Fehler beim Hochladen des Bildes: ' + (error.message || 'Unbekannter Fehler'));
+          }
+        }
       }
       
       setIsDialogOpen(false);
       resetForm();
       toast.success(editingSector ? 'Sektor erfolgreich aktualisiert!' : 'Sektor erfolgreich erstellt!');
     } catch (error: any) {
+      console.error('Error in handleSubmit:', error);
       toast.error('Fehler: ' + (error.message || 'Unbekannter Fehler'));
     } finally {
       setIsUploading(false);

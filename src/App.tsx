@@ -14,7 +14,31 @@ import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Configure QueryClient to always refetch on mount and never use stale data
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 0, // Data is immediately stale, always refetch
+      gcTime: 0, // Don't cache data (gcTime replaces cacheTime in v5)
+      refetchOnMount: true, // Always refetch when component mounts
+      refetchOnWindowFocus: true, // Refetch when window regains focus
+      refetchOnReconnect: true, // Refetch when network reconnects
+      retry: 1, // Only retry once on failure
+    },
+  },
+});
+
+// Clear all React Query cache on page load/refresh
+if (typeof window !== 'undefined') {
+  // Check if this is a page reload
+  const isReload = performance.navigation?.type === 1 || 
+                   (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type === 'reload';
+  
+  if (isReload) {
+    // Clear all queries on reload
+    queryClient.clear();
+  }
+}
 
 const RouteLogger = () => {
   const location = useLocation();

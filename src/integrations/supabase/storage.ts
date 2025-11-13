@@ -141,6 +141,16 @@ export async function uploadSectorImage(
     }
 
     if (error) {
+      console.error('[Sector Image Upload] Error details:', {
+        message: error.message,
+        statusCode: (error as any).statusCode,
+        error: error,
+        fileSize: file.size,
+        fileName: file.name,
+        fileType: file.type,
+        sectorId: sectorId,
+        objectPath: objectPath,
+      });
       throw error;
     }
 
@@ -158,6 +168,7 @@ export async function uploadSectorImage(
     if (progressInterval) {
       clearInterval(progressInterval);
     }
+    console.error('[Sector Image Upload] Upload failed:', error);
     throw error;
   }
 }
