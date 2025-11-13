@@ -80,6 +80,9 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-5">
         <DialogHeader>
+          <DialogDescription className="sr-only">
+            Details für Boulder {boulder.name} - {boulder.color} · Grad {boulder.difficulty} · {boulder.sector}
+          </DialogDescription>
           <div className="flex items-start justify-between mb-1 pr-12">
             <DialogTitle className="text-2xl sm:text-3xl font-teko tracking-wide leading-none">
               {boulder.name}

@@ -198,16 +198,16 @@ export const UserManagement = () => {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-end">
+    <div className="space-y-4 w-full min-w-0">
+      <div className="flex items-center justify-end w-full min-w-0">
         <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}>
           Neu laden
         </Button>
       </div>
       {/* Desktop Table View */}
-      <div className="hidden md:block border rounded-lg shadow-soft bg-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
+      <div className="hidden md:block border rounded-lg shadow-soft bg-card overflow-hidden w-full min-w-0">
+        <div className="overflow-x-auto w-full min-w-0">
+          <Table className="w-full min-w-0">
             <TableHeader>
               <TableRow>
                 <TableHead>E-Mail</TableHead>
@@ -296,10 +296,10 @@ export const UserManagement = () => {
       </div>
 
       {/* Mobile Card View */}
-      <div className="md:hidden space-y-3">
+      <div className="md:hidden space-y-3 w-full min-w-0">
         {users?.map((user) => (
-          <Card key={user.id} className="shadow-soft">
-            <CardContent className="p-4">
+          <Card key={user.id} className="shadow-soft w-full min-w-0">
+            <CardContent className="p-4 w-full min-w-0">
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{user.email}</p>
@@ -348,10 +348,11 @@ export const UserManagement = () => {
                   </>
                 )}
               </Button>
-              <div className="grid grid-cols-2 gap-2 mt-2">
+              <div className="grid grid-cols-2 gap-2 mt-2 w-full min-w-0">
                 <Button
                   variant={user.isSetter ? "destructive" : "outline"}
                   size="sm"
+                  className="min-w-0 text-xs sm:text-sm"
                   onClick={() =>
                     toggleSetterMutation.mutate({
                       userId: user.id,
@@ -360,14 +361,16 @@ export const UserManagement = () => {
                   }
                   disabled={toggleSetterMutation.isPending}
                 >
-                  {user.isSetter ? "Setter entfernen" : "Als Setter"}
+                  <span className="truncate">{user.isSetter ? "Setter entfernen" : "Als Setter"}</span>
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
+                  className="min-w-0 text-xs sm:text-sm"
                   onClick={() => openEdit(user)}
                 >
-                  <Pencil className="w-4 h-4 mr-2" /> Bearbeiten
+                  <Pencil className="w-4 h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Bearbeiten</span>
                 </Button>
               </div>
             </CardContent>
@@ -376,32 +379,33 @@ export const UserManagement = () => {
       </div>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
+        <DialogContent className="w-full max-w-[calc(100vw-2rem)] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Benutzer bearbeiten</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="grid gap-1">
+          <div className="space-y-3 w-full min-w-0">
+            <div className="grid gap-1 w-full min-w-0">
               <Label>E-Mail</Label>
-              <Input value={editUser?.email || ""} readOnly />
+              <Input value={editUser?.email || ""} readOnly className="w-full min-w-0" />
             </div>
-            <div className="grid gap-1">
+            <div className="grid gap-1 w-full min-w-0">
               <Label>Vorname</Label>
-              <Input value={firstName} onChange={(e)=>setFirstName(e.target.value)} />
+              <Input value={firstName} onChange={(e)=>setFirstName(e.target.value)} className="w-full min-w-0" />
             </div>
-            <div className="grid gap-1">
+            <div className="grid gap-1 w-full min-w-0">
               <Label>Nachname</Label>
-              <Input value={lastName} onChange={(e)=>setLastName(e.target.value)} />
+              <Input value={lastName} onChange={(e)=>setLastName(e.target.value)} className="w-full min-w-0" />
             </div>
-            <div className="grid gap-1">
+            <div className="grid gap-1 w-full min-w-0">
               <Label>Geburtsdatum</Label>
-              <Input type="date" value={birthDate || ""} onChange={(e)=>setBirthDate(e.target.value)} />
+              <Input type="date" value={birthDate || ""} onChange={(e)=>setBirthDate(e.target.value)} className="w-full min-w-0" />
             </div>
-            <div className="flex justify-between gap-2 pt-2">
-              <Button variant="outline" onClick={()=>setEditOpen(false)}>Abbrechen</Button>
-              <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row justify-between gap-2 pt-2 w-full min-w-0">
+              <Button variant="outline" onClick={()=>setEditOpen(false)} className="w-full sm:w-auto">Abbrechen</Button>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 <Button
                   variant="outline"
+                  className="w-full sm:w-auto text-xs sm:text-sm"
                   onClick={async ()=>{
                     if (!editUser?.email) return;
                     const redirectUrl = `${window.location.origin}/auth`;
@@ -412,8 +416,8 @@ export const UserManagement = () => {
                       toast.success('Passwort-Reset E-Mail gesendet');
                     }
                   }}
-                >Passwort zurücksetzen</Button>
-                <Button onClick={()=>saveProfileMutation.mutate()} disabled={saveProfileMutation.isPending}>Speichern</Button>
+                ><span className="truncate">Passwort zurücksetzen</span></Button>
+                <Button onClick={()=>saveProfileMutation.mutate()} disabled={saveProfileMutation.isPending} className="w-full sm:w-auto">Speichern</Button>
               </div>
             </div>
           </div>

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Beta Dashboard - Kletterwelt Sauerland</title>
     <meta name="description" content="Aktuelle Boulder-Übersicht der Kletterwelt Sauerland mit Beta-Videos, Schwierigkeitsgraden und Statistiken" />
     <meta name="author" content="Kletterwelt Sauerland" />
@@ -30,6 +30,75 @@
 
   <body>
     <div id="root"></div>
+    <!-- Global error handler - must be loaded before any other scripts -->
+    <script>
+      (function() {
+        'use strict';
+        
+        // Catch ALL unhandled promise rejections
+        window.addEventListener('unhandledrejection', function(event) {
+          var error = event.reason;
+          var errorMessage = '';
+          
+          try {
+            if (error) {
+              if (typeof error === 'string') {
+                errorMessage = error;
+              } else if (error.message) {
+                errorMessage = error.message;
+              } else if (error.toString && typeof error.toString === 'function') {
+                errorMessage = error.toString();
+              } else {
+                errorMessage = String(error);
+              }
+            }
+            
+            errorMessage = errorMessage.toLowerCase();
+            
+            // Ignore storage-related errors - these are expected in some contexts
+            if (
+              errorMessage.indexOf('storage') !== -1 ||
+              errorMessage.indexOf('access to storage') !== -1 ||
+              errorMessage.indexOf('not allowed from this context') !== -1
+            ) {
+              // Prevent the error from being logged to console
+              event.preventDefault();
+              event.stopPropagation();
+              return false;
+            }
+          } catch (e) {
+            // Ignore errors in error handler
+          }
+        }, true); // Use capture phase
+        
+        // Also catch regular errors
+        window.addEventListener('error', function(event) {
+          var error = event.error;
+          var errorMessage = '';
+          
+          try {
+            if (error && error.message) {
+              errorMessage = error.message.toLowerCase();
+            } else if (event.message) {
+              errorMessage = event.message.toLowerCase();
+            }
+            
+            // Ignore storage-related errors
+            if (
+              errorMessage.indexOf('storage') !== -1 ||
+              errorMessage.indexOf('access to storage') !== -1 ||
+              errorMessage.indexOf('not allowed from this context') !== -1
+            ) {
+              event.preventDefault();
+              event.stopPropagation();
+              return false;
+            }
+          } catch (e) {
+            // Ignore errors in error handler
+          }
+        }, true); // Use capture phase
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -62,28 +62,16 @@ const Guest = () => {
   }, []);
 
   useEffect(() => {
-    console.log('[Guest] Boulders data:', {
-      boulders,
-      count: boulders?.length || 0,
-      isLoading: isLoadingBoulders,
-      error: bouldersError
-    });
     if (bouldersError) {
       console.error('[Guest] Boulder loading error:', bouldersError);
     }
-  }, [boulders, isLoadingBoulders, bouldersError]);
+  }, [bouldersError]);
 
   useEffect(() => {
-    console.log('[Guest] Sectors data:', {
-      sectors,
-      count: sectors?.length || 0,
-      isLoading: isLoadingSectors,
-      error: sectorsError
-    });
     if (sectorsError) {
       console.error('[Guest] Sectors loading error:', sectorsError);
     }
-  }, [sectors, isLoadingSectors, sectorsError]);
+  }, [sectorsError]);
 
   useEffect(() => {
     const sectorParam = searchParams.get('sector');
@@ -104,54 +92,35 @@ const Guest = () => {
 
   const filtered = useMemo(() => {
     let list = boulders || [];
-    console.log('[Guest] Filtering boulders:', {
-      total: list.length,
-      beforeStatusFilter: list.length
-    });
     
     // show only hanging boulders in guest view
     list = list.filter((b:any) => {
       const status = (b as any).status;
-      const isHanging = status !== 'abgeschraubt';
-      if (!isHanging) {
-        console.log('[Guest] Filtered out boulder (abgeschraubt):', b.name, 'status:', status);
-      }
-      return isHanging;
+      return status !== 'abgeschraubt';
     });
     
-    console.log('[Guest] After status filter:', list.length);
-    
     if (sectorFilter !== 'all') {
-      const before = list.length;
       // Filter: Boulder erscheint, wenn er in einem der beiden Sektoren ist
       list = list.filter(b => {
         const inSector1 = b.sector === sectorFilter;
         const inSector2 = b.sector2 === sectorFilter;
         return inSector1 || inSector2;
       });
-      console.log('[Guest] After sector filter:', list.length, 'removed:', before - list.length);
     }
     if (difficultyFilter !== 'all') {
-      const before = list.length;
       list = list.filter(b => String(b.difficulty) === difficultyFilter);
-      console.log('[Guest] After difficulty filter:', list.length, 'removed:', before - list.length);
     }
     if (colorFilter !== 'all') {
-      const before = list.length;
       list = list.filter(b => b.color === colorFilter);
-      console.log('[Guest] After color filter:', list.length, 'removed:', before - list.length);
     }
     if (searchQuery.trim()) {
-      const before = list.length;
       const q = searchQuery.toLowerCase();
       list = list.filter(b => {
         const sectorText = b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector;
         return b.name.toLowerCase().includes(q) || sectorText.toLowerCase().includes(q);
       });
-      console.log('[Guest] After search filter:', list.length, 'removed:', before - list.length);
     }
     
-    console.log('[Guest] Final filtered count:', list.length);
     return list;
   }, [boulders, sectorFilter, difficultyFilter, colorFilter, searchQuery]);
 
@@ -165,159 +134,177 @@ const Guest = () => {
     return m ? m[1] : null;
   };
 
+  // Create a stable reference for boulder IDs to avoid infinite loops
+  const filteredBoulderIds = useMemo(() => {
+    return filtered.map(b => b.id).join(',');
+  }, [filtered]);
+
   useEffect(() => {
+    let cancelled = false;
+    
     const run = async () => {
-      const next: Record<string, string> = { ...thumbs };
+      // Get current thumbs state using a ref-like approach
+      let currentThumbs: Record<string, string> = {};
+      setThumbs(prev => {
+        currentThumbs = prev;
+        return prev;
+      });
       
-      // Only process first 5 thumbnails immediately, rest will load lazily
+      // Only process boulders that don't have thumbnails yet
       const bouldersToProcess = filtered
-        .filter(b => b.betaVideoUrl && !next[b.id])
+        .filter(b => b.betaVideoUrl && !currentThumbs[b.id])
         .slice(0, 5); // Only process first 5 immediately
+      
+      if (bouldersToProcess.length === 0) return;
       
       // Process thumbnails in parallel for better performance
       const thumbnailPromises = bouldersToProcess.map(async (b) => {
-          const url = b.betaVideoUrl!;
-          const yid = ytId(url);
-          if (yid) {
-            return { id: b.id, thumb: `https://img.youtube.com/vi/${yid}/hqdefault.jpg` };
-          }
-          const vid = vimeoId(url);
-          if (vid) {
-            return { id: b.id, thumb: `https://vumbnail.com/${vid}.jpg` };
+        const url = b.betaVideoUrl!;
+        const yid = ytId(url);
+        if (yid) {
+          return { id: b.id, thumb: `https://img.youtube.com/vi/${yid}/hqdefault.jpg` };
+        }
+        const vid = vimeoId(url);
+        if (vid) {
+          return { id: b.id, thumb: `https://vumbnail.com/${vid}.jpg` };
+        }
+        
+        // Try to extract middle frame for direct video URLs (optimized)
+        try {
+          const video = document.createElement('video');
+          video.crossOrigin = 'anonymous';
+          video.preload = 'metadata';
+          video.muted = true; // Mute to allow autoplay
+          video.playsInline = true;
+          video.style.display = 'none';
+          document.body.appendChild(video);
+          video.src = url;
+          
+          // Wait for metadata to load
+          await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              document.body.removeChild(video);
+              reject(new Error('Timeout loading metadata'));
+            }, 3000);
+            video.addEventListener('loadedmetadata', () => {
+              clearTimeout(timeout);
+              resolve(null);
+            }, { once: true });
+            video.addEventListener('error', () => {
+              clearTimeout(timeout);
+              document.body.removeChild(video);
+              reject(new Error('Video load error'));
+            }, { once: true });
+          });
+          
+          // Calculate middle time (exactly in the middle)
+          const duration = video.duration || 0;
+          if (duration <= 0) {
+            document.body.removeChild(video);
+            return { id: b.id, thumb: placeholder };
           }
           
-          // Try to extract middle frame for direct video URLs (optimized)
-          try {
-            const video = document.createElement('video');
-            video.crossOrigin = 'anonymous';
-            video.preload = 'metadata';
-            video.muted = true; // Mute to allow autoplay
-            video.playsInline = true;
-            video.style.display = 'none';
-            document.body.appendChild(video);
-            video.src = url;
-            
-            // Wait for metadata to load
-            await new Promise((resolve, reject) => {
-              const timeout = setTimeout(() => {
-                document.body.removeChild(video);
-                reject(new Error('Timeout loading metadata'));
-              }, 3000); // Reduced to 3s
-              video.addEventListener('loadedmetadata', () => {
-                clearTimeout(timeout);
-                resolve(null);
-              }, { once: true });
-              video.addEventListener('error', () => {
-                clearTimeout(timeout);
-                document.body.removeChild(video);
-                reject(new Error('Video load error'));
-              }, { once: true });
-            });
-            
-            // Calculate middle time (exactly in the middle)
-            const duration = video.duration || 0;
-            if (duration <= 0) {
+          const mid = duration / 2;
+          
+          // Seek to middle and wait for it to complete
+          video.currentTime = mid;
+          
+          // Wait for seek to complete - ensure we're at the middle frame
+          await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
               document.body.removeChild(video);
-              return { id: b.id, thumb: placeholder };
-            }
+              reject(new Error('Timeout seeking'));
+            }, 3000);
             
-            const mid = duration / 2;
-            
-            // Seek to middle and wait for it to complete
-            video.currentTime = mid;
-            
-            // Wait for seek to complete - ensure we're at the middle frame
-            await new Promise((resolve, reject) => {
-              const timeout = setTimeout(() => {
-                document.body.removeChild(video);
-                reject(new Error('Timeout seeking'));
-              }, 3000);
-              
-              const onSeeked = () => {
-                // Double-check we're at the middle
-                const currentTime = video.currentTime;
-                const expectedMid = duration / 2;
-                if (Math.abs(currentTime - expectedMid) < 0.5) {
-                  clearTimeout(timeout);
-                  video.removeEventListener('seeked', onSeeked);
-                  video.removeEventListener('error', onError);
-                  resolve(null);
-                }
-              };
-              
-              const onError = () => {
+            const onSeeked = () => {
+              // Double-check we're at the middle
+              const currentTime = video.currentTime;
+              const expectedMid = duration / 2;
+              if (Math.abs(currentTime - expectedMid) < 0.5) {
                 clearTimeout(timeout);
                 video.removeEventListener('seeked', onSeeked);
                 video.removeEventListener('error', onError);
-                document.body.removeChild(video);
-                reject(new Error('Seek error'));
-              };
-              
-              video.addEventListener('seeked', onSeeked, { once: false });
-              video.addEventListener('error', onError, { once: false });
-              
-              // If seeked event doesn't fire, try again
-              setTimeout(() => {
-                if (Math.abs(video.currentTime - mid) > 0.5) {
-                  video.currentTime = mid;
-                }
-              }, 100);
-            });
+                resolve(null);
+              }
+            };
             
-            // Use smaller canvas size for faster processing (max 240px width)
-            const maxWidth = 240;
-            const videoWidth = video.videoWidth || 640;
-            const videoHeight = video.videoHeight || 360;
-            const aspectRatio = videoHeight / videoWidth;
-            const canvas = document.createElement('canvas');
-            canvas.width = maxWidth;
-            canvas.height = Math.round(maxWidth * aspectRatio);
-            
-            const ctx = canvas.getContext('2d', { willReadFrequently: false });
-            if (ctx && videoWidth > 0 && videoHeight > 0) {
-              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-              const thumb = canvas.toDataURL('image/jpeg', 0.6); // Lower quality for speed
+            const onError = () => {
+              clearTimeout(timeout);
+              video.removeEventListener('seeked', onSeeked);
+              video.removeEventListener('error', onError);
               document.body.removeChild(video);
-              return { id: b.id, thumb };
-            }
+              reject(new Error('Seek error'));
+            };
+            
+            video.addEventListener('seeked', onSeeked, { once: false });
+            video.addEventListener('error', onError, { once: false });
+            
+            // If seeked event doesn't fire, try again
+            setTimeout(() => {
+              if (Math.abs(video.currentTime - mid) > 0.5) {
+                video.currentTime = mid;
+              }
+            }, 100);
+          });
+          
+          // Use smaller canvas size for faster processing (max 240px width)
+          const maxWidth = 240;
+          const videoWidth = video.videoWidth || 640;
+          const videoHeight = video.videoHeight || 360;
+          const aspectRatio = videoHeight / videoWidth;
+          const canvas = document.createElement('canvas');
+          canvas.width = maxWidth;
+          canvas.height = Math.round(maxWidth * aspectRatio);
+          
+          const ctx = canvas.getContext('2d', { willReadFrequently: false });
+          if (ctx && videoWidth > 0 && videoHeight > 0) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const thumb = canvas.toDataURL('image/jpeg', 0.6); // Lower quality for speed
             document.body.removeChild(video);
-            return { id: b.id, thumb: placeholder };
-          } catch (error) {
-            console.warn(`[Guest] Failed to generate thumbnail for ${b.id}:`, error);
-            return { id: b.id, thumb: placeholder };
+            return { id: b.id, thumb };
           }
-        });
-      
+          document.body.removeChild(video);
+          return { id: b.id, thumb: placeholder };
+        } catch (error) {
+          console.warn(`[Guest] Failed to generate thumbnail for ${b.id}:`, error);
+          return { id: b.id, thumb: placeholder };
+        }
+      });
+    
       // Wait for all thumbnails to load in parallel
       const results = await Promise.allSettled(thumbnailPromises);
+      if (cancelled) return;
+      
+      const newThumbs: Record<string, string> = {};
       results.forEach((result) => {
         if (result.status === 'fulfilled') {
-          next[result.value.id] = result.value.thumb;
+          newThumbs[result.value.id] = result.value.thumb;
         }
       });
       
-      setThumbs(next);
+      if (Object.keys(newThumbs).length > 0) {
+        setThumbs(prev => ({ ...prev, ...newThumbs }));
+      }
       
       // Load remaining thumbnails lazily (one at a time to avoid overwhelming)
       const remaining = filtered
-        .filter(b => b.betaVideoUrl && !next[b.id])
+        .filter(b => b.betaVideoUrl && !currentThumbs[b.id] && !newThumbs[b.id])
         .slice(5); // Skip first 5 that we already processed
       
       // Load remaining thumbnails one by one with delay
       for (const b of remaining) {
+        if (cancelled) return;
         await new Promise(resolve => setTimeout(resolve, 200)); // Small delay between each
         
         const url = b.betaVideoUrl!;
         const yid = ytId(url);
         if (yid) {
-          next[b.id] = `https://img.youtube.com/vi/${yid}/hqdefault.jpg`;
-          setThumbs({ ...next });
+          setThumbs(prev => ({ ...prev, [b.id]: `https://img.youtube.com/vi/${yid}/hqdefault.jpg` }));
           continue;
         }
         const vid = vimeoId(url);
         if (vid) {
-          next[b.id] = `https://vumbnail.com/${vid}.jpg`;
-          setThumbs({ ...next });
+          setThumbs(prev => ({ ...prev, [b.id]: `https://vumbnail.com/${vid}.jpg` }));
           continue;
         }
         
@@ -394,8 +381,11 @@ const Guest = () => {
       }
     };
     run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtered]);
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [filteredBoulderIds, filtered]);
 
   return (
     <div className="min-h-screen bg-background">
