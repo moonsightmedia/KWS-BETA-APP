@@ -28,6 +28,9 @@ export const useSectors = () => {
       if (error) throw error;
       return data as Sector[];
     },
+    staleTime: 0, // Always consider data stale
+    gcTime: 5 * 60 * 1000, // Keep data in cache for 5 minutes (for smooth UX)
+    refetchOnMount: true, // Always refetch on mount
   });
 };
 

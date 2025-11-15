@@ -1,0 +1,29 @@
+# CORS headers are set by PHP files themselves (upload.php, delete.php, video-proxy.php)
+# Explicitly unset any CORS headers that might be set by parent .htaccess or server config
+<IfModule mod_headers.c>
+    <FilesMatch "\.(php)$">
+        Header unset Access-Control-Allow-Origin
+        Header unset Access-Control-Allow-Methods
+        Header unset Access-Control-Allow-Headers
+        Header unset Access-Control-Expose-Headers
+        Header unset Access-Control-Max-Age
+    </FilesMatch>
+</IfModule>
+
+# Increase upload limits (only if allowed by server)
+<IfModule mod_php.c>
+    php_value upload_max_filesize 50M
+    php_value post_max_size 50M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+</IfModule>
+
+# Security: Prevent directory listing
+Options -Indexes
+
+# Allow PHP files to be executed
+<Files "*.php">
+    Order Allow,Deny
+    Allow from all
+</Files>
+

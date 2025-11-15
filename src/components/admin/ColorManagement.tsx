@@ -3,9 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { useColors, useCreateColor, useUpdateColor, useDeleteColor } from '@/hooks/useColors';
+import { useColors, useCreateColor, useUpdateColor, useDeleteColor, type ColorRow } from '@/hooks/useColors';
 import { supabase } from '@/integrations/supabase/client';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { GripVertical, Plus, Trash2 } from 'lucide-react';
 
 export const ColorManagement = () => {
@@ -70,21 +70,12 @@ export const ColorManagement = () => {
         ) : (
           <div className="space-y-2 w-full min-w-0">
             {filtered.map((c) => (
-              <div key={c.id} className="grid grid-cols-1 md:grid-cols-[24px,40px,1fr,120px,90px,90px,auto] items-center gap-3 border rounded-2xl p-3 bg-card/60 w-full min-w-0">
-                <GripVertical className="w-4 h-4 text-muted-foreground hidden md:block" />
-                <div className="w-8 h-8 rounded-full border flex-shrink-0" style={{ backgroundColor: c.hex }} />
-                <Input defaultValue={c.name} onBlur={(e)=>updateColor.mutate({ id: c.id, name: e.target.value })} className="w-full min-w-0" />
-                <Input defaultValue={c.hex} onBlur={(e)=>updateColor.mutate({ id: c.id, hex: e.target.value })} className="w-full min-w-0" />
-                <Input type="number" defaultValue={c.sort_order} onBlur={(e)=>updateColor.mutate({ id: c.id, sort_order: parseInt(e.target.value || '0') })} className="w-full min-w-0" />
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Label className="text-sm whitespace-nowrap">Aktiv</Label>
-                  <Switch defaultChecked={c.is_active} onCheckedChange={(v)=>updateColor.mutate({ id: c.id, is_active: v })} />
-                </div>
-                <Button type="button" variant="outline" className="text-destructive justify-self-end flex-shrink-0 text-xs sm:text-sm" onClick={()=>deleteColor.mutate(c.id)}>
-                  <Trash2 className="w-4 h-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Löschen</span>
-                </Button>
-              </div>
+              <ColorRow 
+                key={c.id} 
+                color={c} 
+                updateColor={updateColor} 
+                deleteColor={deleteColor} 
+              />
             ))}
           </div>
         )}
@@ -93,4 +84,101 @@ export const ColorManagement = () => {
   );
 };
 
+// Separate component for each color row to manage local state
+const ColorRow = ({ 
+  color, 
+  updateColor, 
+  deleteColor 
+}: { 
+  color: ColorRow; 
+  updateColor: ReturnType<typeof useUpdateColor>; 
+  deleteColor: ReturnType<typeof useDeleteColor>; 
+}) => {
+  const [name, setName] = useState(color.name);
+  const [hex, setHex] = useState(color.hex);
+  const [sortOrder, setSortOrder] = useState(color.sort_order);
+
+  // Update local state when color prop changes (after successful update)
+  useEffect(() => {
+    setName(color.name);
+    setHex(color.hex);
+    setSortOrder(color.sort_order);
+  }, [color.name, color.hex, color.sort_order]);
+
+  const handleNameBlur = () => {
+    const newValue = name.trim();
+    console.log('[ColorRow] handleNameBlur called:', {
+      colorId: color.id,
+      currentName: name,
+      trimmedValue: newValue,
+      originalName: color.name,
+      willUpdate: newValue !== color.name && newValue,
+    });
+    if (newValue !== color.name && newValue) {
+      console.log('[ColorRow] Calling updateColor.mutate with:', { id: color.id, name: newValue });
+      updateColor.mutate({ id: color.id, name: newValue });
+    } else if (!newValue) {
+      // Reset to original if empty
+      console.log('[ColorRow] Empty value, resetting to original:', color.name);
+      setName(color.name);
+    } else {
+      console.log('[ColorRow] No change detected, skipping update');
+    }
+  };
+
+  const handleHexBlur = () => {
+    const newValue = hex.trim();
+    if (newValue !== color.hex && newValue) {
+      updateColor.mutate({ id: color.id, hex: newValue });
+    } else if (!newValue) {
+      // Reset to original if empty
+      setHex(color.hex);
+    }
+  };
+
+  const handleSortOrderBlur = () => {
+    const newValue = parseInt(sortOrder.toString() || '0');
+    if (newValue !== color.sort_order) {
+      updateColor.mutate({ id: color.id, sort_order: newValue });
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-[24px,40px,1fr,120px,90px,90px,auto] items-center gap-3 border rounded-2xl p-3 bg-card/60 w-full min-w-0">
+      <GripVertical className="w-4 h-4 text-muted-foreground hidden md:block" />
+      <div className="w-8 h-8 rounded-full border flex-shrink-0" style={{ backgroundColor: hex }} />
+      <Input 
+        value={name} 
+        onChange={(e) => {
+          console.log('[ColorRow] Name onChange:', { colorId: color.id, oldValue: name, newValue: e.target.value });
+          setName(e.target.value);
+        }}
+        onBlur={handleNameBlur}
+        onFocus={() => console.log('[ColorRow] Name onFocus:', { colorId: color.id, currentValue: name })}
+        className="w-full min-w-0" 
+      />
+      <Input 
+        value={hex} 
+        onChange={(e) => setHex(e.target.value)}
+        onBlur={handleHexBlur}
+        className="w-full min-w-0" 
+      />
+      <Input 
+        type="number" 
+        value={sortOrder} 
+        onChange={(e) => setSortOrder(parseInt(e.target.value || '0'))}
+        onBlur={handleSortOrderBlur}
+        className="w-full min-w-0" 
+      />
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <Label className="text-sm whitespace-nowrap">Aktiv</Label>
+        <Switch checked={color.is_active} onCheckedChange={(v)=>updateColor.mutate({ id: color.id, is_active: v })} />
+      </div>
+      <Button type="button" variant="outline" className="text-destructive justify-self-end flex-shrink-0 text-xs sm:text-sm" onClick={()=>deleteColor.mutate(color.id)}>
+        <Trash2 className="w-4 h-4 mr-1 sm:mr-2" />
+        <span className="hidden sm:inline">Löschen</span>
+      </Button>
+    </div>
+  );
+};
 

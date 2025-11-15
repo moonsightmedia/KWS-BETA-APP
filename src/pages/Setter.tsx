@@ -15,7 +15,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Search, PlusCircle, Edit3, Calendar, Wrench, Hammer, X, Sparkles } from 'lucide-react';
+import { Search, PlusCircle, Edit3, Calendar, X, Sparkles } from 'lucide-react';
+import { MaterialIcon } from '@/components/MaterialIcon';
 import { useMemo as useMemoReact, useRef } from 'react';
 import { useSectorSchedule, useCreateSectorSchedule, useDeleteSectorSchedule } from '@/hooks/useSectorSchedule';
 import { useColors } from '@/hooks/useColors';
@@ -208,18 +209,19 @@ const Setter = () => {
           updateBoulder.mutateAsync({
             id: createdBoulder.id,
             beta_video_url: betaUrl,
-          } as any).catch((error) => {
+          } as any).then(() => {
+            // Update toast to success and auto-dismiss after 3 seconds
+            toast.success('Video erfolgreich hochgeladen!', {
+              id: toastId,
+              duration: 3000, // Auto-dismiss after 3 seconds
+            });
+          }).catch((error) => {
             console.error('[Setter] Failed to update boulder with video URL:', error);
             toast.error('Video hochgeladen, aber Boulder konnte nicht aktualisiert werden', {
+              id: toastId,
               description: error.message,
               duration: 5000,
             });
-          });
-          
-          // Update toast to success and auto-dismiss after 3 seconds
-          toast.success('Video erfolgreich hochgeladen!', {
-            id: toastId,
-            duration: 3000, // Auto-dismiss after 3 seconds
           });
         }).catch((error) => {
           console.error('[Setter] Video upload failed:', error);
@@ -349,18 +351,19 @@ const Setter = () => {
           updateBoulder.mutateAsync({
             id: editing.id,
             beta_video_url: betaUrl,
-          } as any).catch((error) => {
+          } as any).then(() => {
+            // Update toast to success and auto-dismiss after 3 seconds
+            toast.success('Video erfolgreich hochgeladen!', {
+              id: toastId,
+              duration: 3000, // Auto-dismiss after 3 seconds
+            });
+          }).catch((error) => {
             console.error('[Setter] Failed to update boulder with video URL:', error);
             toast.error('Video hochgeladen, aber Boulder konnte nicht aktualisiert werden', {
+              id: toastId,
               description: error.message,
               duration: 5000,
             });
-          });
-          
-          // Update toast to success and auto-dismiss after 3 seconds
-          toast.success('Video erfolgreich hochgeladen!', {
-            id: toastId,
-            duration: 3000, // Auto-dismiss after 3 seconds
           });
         }).catch((error) => {
           console.error('[Setter] Video upload failed:', error);
@@ -483,7 +486,7 @@ const Setter = () => {
                     className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-3 py-2 rounded-xl transition-all flex-shrink-0 ${view==='status' ? 'text-success' : 'text-sidebar-icon'}`}
                     onClick={()=> setView('status')}
                   >
-                    <Wrench className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <MaterialIcon name="build" className="w-4 h-4 sm:w-5 sm:h-5" size={20} />
                     <span className="text-[10px] sm:text-xs whitespace-nowrap">Status</span>
                   </button>
                   <button
@@ -819,15 +822,26 @@ const Setter = () => {
                   <Button form="edit-form" type="submit" className="h-12" disabled={!canSubmit || isUploading}>
                     {isUploading ? 'Speichere…' : 'Änderungen speichern'}
                   </Button>
-                  <Button type="button" variant="outline" className="h-12 text-destructive"
-                    onClick={() => {
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="h-12 text-destructive"
+                    disabled={deleteBoulder.isPending}
+                    onClick={async () => {
                       if (!editing) return;
-                      if (!confirm('Diesen Boulder wirklich löschen?')) return;
-                      deleteBoulder.mutate(editing.id);
-                      setEditing(null);
+                      if (!confirm('Diesen Boulder wirklich löschen? Das Beta-Video wird ebenfalls gelöscht.')) return;
+                      
+                      try {
+                        await deleteBoulder.mutateAsync(editing.id);
+                        // Only close dialog after successful deletion
+                        setEditing(null);
+                      } catch (error) {
+                        // Error is already handled by the hook's onError
+                        // Don't close dialog on error
+                      }
                     }}
                   >
-                    Löschen
+                    {deleteBoulder.isPending ? 'Lösche...' : 'Löschen'}
                   </Button>
                 </div>
               </Card>
@@ -1017,7 +1031,7 @@ const Setter = () => {
           </button>
           <button
             aria-label="Ausgewählte reinschrauben"
-            className="h-9 px-3 rounded-md bg-success text-success-foreground text-sm shadow"
+            className="h-9 px-3 rounded-md bg-success text-success-foreground text-sm shadow flex items-center gap-2"
             onClick={() => {
               const ids = filteredBoulders.filter(b => selected[b.id]).map(b => b.id);
               if (ids.length === 0) return;
@@ -1025,11 +1039,12 @@ const Setter = () => {
               setSelected({});
             }}
           >
+            <MaterialIcon name="input_circle" className="w-4 h-4" size={16} />
             Reinschrauben
           </button>
           <button
             aria-label="Ausgewählte rausschrauben"
-            className="h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm shadow"
+            className="h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm shadow flex items-center gap-2"
             onClick={() => {
               const ids = filteredBoulders.filter(b => selected[b.id]).map(b => b.id);
               if (ids.length === 0) return;
@@ -1037,6 +1052,7 @@ const Setter = () => {
               setSelected({});
             }}
           >
+            <MaterialIcon name="output_circle" className="w-4 h-4" size={16} />
             Rausschrauben
           </button>
         </div>
@@ -1062,7 +1078,7 @@ const Setter = () => {
               setSelected({});
             }}
           >
-            <Hammer className="w-5 h-5" />
+            <MaterialIcon name="input_circle" className="w-5 h-5" size={20} />
           </button>
           <button
             aria-label="Ausgewählte rausschrauben"
@@ -1074,7 +1090,7 @@ const Setter = () => {
               setSelected({});
             }}
           >
-            <Wrench className="w-5 h-5" />
+            <MaterialIcon name="output_circle" className="w-5 h-5" size={20} />
           </button>
         </div>
       )}

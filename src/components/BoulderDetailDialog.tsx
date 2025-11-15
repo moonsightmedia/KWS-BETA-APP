@@ -140,6 +140,8 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
                   controls 
                   className="w-full h-full"
                   poster="/placeholder.svg"
+                  preload="none"
+                  loading="lazy"
                 >
                   <source src={videoUrl} type="video/mp4" />
                   Dein Browser unterstützt keine Videos.

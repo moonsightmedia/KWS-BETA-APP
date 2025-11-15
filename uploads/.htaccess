@@ -1,0 +1,30 @@
+# Enable CORS for all video and image files
+# This file must be in the uploads/ directory
+
+# Set CORS headers for all media files
+<IfModule mod_headers.c>
+    # For files directly in uploads/
+    <FilesMatch "\.(mp4|mov|webm|avi|mkv|jpg|jpeg|png|gif|webp)$">
+        Header set Access-Control-Allow-Origin "*"
+        Header set Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+        Header set Access-Control-Allow-Headers "Range, Content-Type"
+        Header set Access-Control-Expose-Headers "Content-Length, Content-Range"
+    </FilesMatch>
+</IfModule>
+
+# Enable range requests for video streaming
+<IfModule mod_headers.c>
+    <FilesMatch "\.(mp4|mov|webm|avi|mkv)$">
+        Header set Accept-Ranges "bytes"
+    </FilesMatch>
+</IfModule>
+
+# Handle OPTIONS requests (CORS preflight)
+<IfModule mod_headers.c>
+    <If "%{REQUEST_METHOD} == 'OPTIONS'">
+        Header set Access-Control-Allow-Origin "*"
+        Header set Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+        Header set Access-Control-Allow-Headers "Range, Content-Type"
+        Header set Access-Control-Max-Age "3600"
+    </If>
+</IfModule>

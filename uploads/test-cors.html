@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CORS Test</title>
+</head>
+<body>
+    <h1>CORS Test für Videos</h1>
+    <p>Öffne die Browser-Konsole (F12) und prüfe, ob CORS-Header vorhanden sind.</p>
+    <script>
+        // Test CORS headers
+        fetch('https://cdn.kletterwelt-sauerland.de/uploads/e7d1439f-57dd-4037-8a34-fc5d0ad09597.webm', {
+            method: 'HEAD',
+            mode: 'cors'
+        })
+        .then(response => {
+            console.log('✅ CORS Headers:', {
+                'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers'),
+                'Status': response.status
+            });
+        })
+        .catch(error => {
+            console.error('❌ CORS Error:', error);
+        });
+    </script>
+</body>
+</html>
+

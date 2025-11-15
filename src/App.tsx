@@ -14,12 +14,12 @@ import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
-// Configure QueryClient to always refetch on mount and never use stale data
+// Configure QueryClient to always refetch on mount but keep data in cache for smooth UX
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 0, // Data is immediately stale, always refetch
-      gcTime: 0, // Don't cache data (gcTime replaces cacheTime in v5)
+      gcTime: 5 * 60 * 1000, // Keep data in cache for 5 minutes (for smooth UX during navigation)
       refetchOnMount: true, // Always refetch when component mounts
       refetchOnWindowFocus: true, // Refetch when window regains focus
       refetchOnReconnect: true, // Refetch when network reconnects

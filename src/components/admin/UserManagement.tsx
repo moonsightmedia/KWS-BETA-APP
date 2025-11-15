@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Shield, ShieldOff, Pencil, Wrench } from "lucide-react";
+import { Shield, ShieldOff, Pencil } from "lucide-react";
+import { MaterialIcon } from "@/components/MaterialIcon";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -232,7 +233,7 @@ export const UserManagement = () => {
                       )}
                       {user.isSetter && (
                         <Badge variant="outline" className="gap-1">
-                          <Wrench className="w-3 h-3" />
+                          <MaterialIcon name="build" className="w-3 h-3" size={12} />
                           Setter
                         </Badge>
                       )}
@@ -318,7 +319,7 @@ export const UserManagement = () => {
                   )}
                   {user.isSetter && (
                     <Badge variant="outline" className="gap-1">
-                      <Wrench className="w-3 h-3" />
+                      <MaterialIcon name="build" className="w-3 h-3" size={12} />
                       Setter
                     </Badge>
                   )}

@@ -334,7 +334,7 @@ export const SectorManagement = () => {
                 Neuer Sektor
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-full min-w-0">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-full min-w-0 max-w-[calc(100vw-2rem)]">
               <DialogHeader>
                 <DialogTitle>
                   {editingSector ? "Sektor bearbeiten" : "Neuer Sektor"}

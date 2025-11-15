@@ -8,7 +8,10 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "migrate:videos": "node scripts/migrate-videos-to-allinkl.js",
+    "check:video-urls": "node scripts/check-video-urls.js",
+    "fix:video-urls": "node scripts/fix-video-urls.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -45,10 +48,13 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
+    "dotenv": "^17.2.3",
     "embla-carousel-react": "^8.6.0",
+    "form-data": "^4.0.4",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
+    "node-fetch": "^2.7.0",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",

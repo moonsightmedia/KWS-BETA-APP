@@ -1,4 +1,5 @@
-import { LayoutDashboard, List, Map, ChevronRight, ChevronLeft, User, LogOut, Settings, HelpCircle, Shield, Wrench } from 'lucide-react';
+import { LayoutDashboard, List, Map, ChevronRight, ChevronLeft, User, LogOut, Settings, HelpCircle, Shield } from 'lucide-react';
+import { MaterialIcon } from '@/components/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -33,7 +34,7 @@ export const Sidebar = ({ className, hideMobileNav = false }: SidebarProps) => {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: List, label: 'Boulder', path: '/boulders' },
     { icon: Map, label: 'Sektoren', path: '/sectors' },
-    ...((isAdmin || isSetter) ? [{ icon: Wrench, label: 'Setter', path: '/setter' }] : []),
+    ...((isAdmin || isSetter) ? [{ icon: 'build', label: 'Setter', path: '/setter', isMaterialIcon: true }] : []),
     ...(isAdmin ? [{ icon: Shield, label: 'Admin', path: '/admin' }] : []),
   ];
 
@@ -69,7 +70,7 @@ export const Sidebar = ({ className, hideMobileNav = false }: SidebarProps) => {
                     "absolute h-5 w-5 p-0 flex items-center justify-center",
                     isAdmin ? "-bottom-1 -left-1" : "-bottom-1 -right-1"
                   )}>
-                    <Wrench className="h-3 w-3" />
+                    <MaterialIcon name="build" className="h-3 w-3" size={12} />
                   </Badge>
                 )}
               </button>
@@ -120,7 +121,11 @@ export const Sidebar = ({ className, hideMobileNav = false }: SidebarProps) => {
                         )}
                       >
                         <div className="grid place-items-center w-8 h-8 flex-shrink-0">
-                          <item.icon className="w-5 h-5" />
+                          {item.isMaterialIcon ? (
+                            <MaterialIcon name={item.icon as string} className="w-5 h-5" size={20} />
+                          ) : (
+                            <item.icon className="w-5 h-5" />
+                          )}
                         </div>
                         <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
                       </NavLink>
@@ -134,7 +139,11 @@ export const Sidebar = ({ className, hideMobileNav = false }: SidebarProps) => {
                             : "bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
                         )}
                       >
-                        <item.icon className="w-5 h-5" />
+                        {item.isMaterialIcon ? (
+                          <MaterialIcon name={item.icon as string} className="w-5 h-5" size={20} />
+                        ) : (
+                          <item.icon className="w-5 h-5" />
+                        )}
                       </NavLink>
                     )}
                   </TooltipTrigger>
@@ -185,7 +194,11 @@ export const Sidebar = ({ className, hideMobileNav = false }: SidebarProps) => {
                     isActive ? "text-success" : "text-sidebar-icon"
                   )}
                 >
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  {item.isMaterialIcon ? (
+                    <MaterialIcon name={item.icon as string} className="w-5 h-5 flex-shrink-0" size={20} />
+                  ) : (
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                  )}
                   <span className="text-xs font-medium truncate max-w-[60px]">{item.label}</span>
                 </NavLink>
               );

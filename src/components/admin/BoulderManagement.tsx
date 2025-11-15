@@ -206,8 +206,14 @@ export const BoulderManagement = () => {
 
   const handleDelete = async () => {
     if (deleteId) {
-      await deleteBoulder.mutateAsync(deleteId);
-      setDeleteId(null);
+      try {
+        await deleteBoulder.mutateAsync(deleteId);
+        // Only close dialog after successful deletion
+        setDeleteId(null);
+      } catch (error) {
+        // Error is already handled by the hook's onError
+        // Don't close dialog on error
+      }
     }
   };
 
@@ -564,7 +570,7 @@ export const BoulderManagement = () => {
               Neuer Boulder
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-full min-w-0 max-w-[calc(100vw-2rem)]">
             <DialogHeader>
               <DialogTitle>
                 {editingBoulder ? "Boulder bearbeiten" : "Neuer Boulder"}
@@ -858,12 +864,17 @@ export const BoulderManagement = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Boulder löschen?</AlertDialogTitle>
             <AlertDialogDescription>
-              Diese Aktion kann nicht rückgängig gemacht werden.
+              Diese Aktion kann nicht rückgängig gemacht werden. Das Beta-Video wird ebenfalls gelöscht.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Löschen</AlertDialogAction>
+            <AlertDialogCancel disabled={deleteBoulder.isPending}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              disabled={deleteBoulder.isPending}
+            >
+              {deleteBoulder.isPending ? 'Lösche...' : 'Löschen'}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

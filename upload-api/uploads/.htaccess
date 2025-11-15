@@ -1,0 +1,17 @@
+# Enable CORS for video and image files
+<IfModule mod_headers.c>
+    # Allow cross-origin requests for video and image files
+    <FilesMatch "\.(mp4|mov|webm|avi|mkv|jpg|jpeg|png|gif|webp)$">
+        Header set Access-Control-Allow-Origin "*"
+        Header set Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+        Header set Access-Control-Allow-Headers "Range, Content-Type"
+    </FilesMatch>
+</IfModule>
+
+# Enable range requests for video streaming
+<IfModule mod_headers.c>
+    <FilesMatch "\.(mp4|mov|webm|avi|mkv)$">
+        Header set Accept-Ranges "bytes"
+    </FilesMatch>
+</IfModule>
+
