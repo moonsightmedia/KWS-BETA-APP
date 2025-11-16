@@ -623,6 +623,20 @@ const Setter = () => {
       
       // If there's a new video file, upload it in the background and update the boulder
       if (form.file) {
+        // Delete old video before uploading new one
+        const oldVideoUrl = editing.betaVideoUrl;
+        if (oldVideoUrl) {
+          console.log('[Setter] Deleting old video before uploading new one:', oldVideoUrl);
+          try {
+            const { deleteBetaVideo } = await import('@/integrations/supabase/storage');
+            await deleteBetaVideo(oldVideoUrl);
+            console.log('[Setter] Old video deleted successfully');
+          } catch (error) {
+            console.error('[Setter] Error deleting old video (continuing anyway):', error);
+            // Continue with upload even if deletion fails
+          }
+        }
+        
         uploadPromises.push(
           uploadBetaVideo(form.file, (progress) => {
             // Progress handling can be added here if needed
@@ -645,6 +659,20 @@ const Setter = () => {
       
       // If there's a new thumbnail file, upload it in the background and update the boulder
       if (form.thumbnailFile) {
+        // Delete old thumbnail before uploading new one
+        const oldThumbnailUrl = editing.thumbnailUrl;
+        if (oldThumbnailUrl) {
+          console.log('[Setter] Deleting old thumbnail before uploading new one:', oldThumbnailUrl);
+          try {
+            const { deleteThumbnail } = await import('@/integrations/supabase/storage');
+            await deleteThumbnail(oldThumbnailUrl);
+            console.log('[Setter] Old thumbnail deleted successfully');
+          } catch (error) {
+            console.error('[Setter] Error deleting old thumbnail (continuing anyway):', error);
+            // Continue with upload even if deletion fails
+          }
+        }
+        
         uploadPromises.push(
           uploadThumbnail(form.thumbnailFile, (progress) => {
             // Progress handling can be added here if needed

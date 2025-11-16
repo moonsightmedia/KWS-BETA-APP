@@ -320,7 +320,7 @@ const Boulders = () => {
                                 <div className="flex items-center gap-2">
                                   <div 
                                     className={`w-4 h-4 rounded-full border ${colorInfo?.bg || ''} ${colorInfo?.border || ''}`}
-                                    style={!colorInfo?.bg ? { backgroundColor: colorInfo?.hex || '#9ca3af' } : {}}
+                                    style={!colorInfo?.bg ? { backgroundColor: '#9ca3af' } : {}}
                                   />
                                   {color}
                                 </div>

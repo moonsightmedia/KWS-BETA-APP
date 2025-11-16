@@ -43,9 +43,7 @@ export const useBoulders = () => {
       
       return data as Boulder[];
     },
-    staleTime: 0, // Always consider data stale
-    gcTime: 5 * 60 * 1000, // Keep data in cache for 5 minutes (for smooth UX)
-    refetchOnMount: true, // Always refetch on mount
+    // Use default query options from QueryClient (staleTime: 30s, refetchOnMount: false)
   });
 };
 
@@ -193,18 +191,20 @@ export const useDeleteBoulder = () => {
         throw fetchError;
       }
 
-      if (!boulder) {
+      if (!boulder || 'error' in boulder) {
         console.warn('[useDeleteBoulder] Boulder not found:', id);
         throw new Error('Boulder nicht gefunden');
       }
 
-      console.log('[useDeleteBoulder] Boulder found:', boulder.name, 'Video URL:', boulder.beta_video_url, 'Thumbnail URL:', boulder.thumbnail_url);
+      // Type guard: ensure boulder has the expected structure
+      const boulderData = boulder as unknown as { name: string; beta_video_url: string | null; thumbnail_url: string | null };
+      console.log('[useDeleteBoulder] Boulder found:', boulderData.name, 'Video URL:', boulderData.beta_video_url, 'Thumbnail URL:', boulderData.thumbnail_url);
 
       // Delete the beta video if it exists
-      if (boulder?.beta_video_url) {
-        console.log('[useDeleteBoulder] Deleting beta video:', boulder.beta_video_url);
+      if (boulderData.beta_video_url) {
+        console.log('[useDeleteBoulder] Deleting beta video:', boulderData.beta_video_url);
         try {
-          await deleteBetaVideo(boulder.beta_video_url);
+          await deleteBetaVideo(boulderData.beta_video_url);
           console.log('[useDeleteBoulder] Beta video deleted successfully');
         } catch (error) {
           console.error('[useDeleteBoulder] Error deleting beta video (continuing anyway):', error);
@@ -213,10 +213,10 @@ export const useDeleteBoulder = () => {
       }
 
       // Delete the thumbnail if it exists
-      if (boulder?.thumbnail_url) {
-        console.log('[useDeleteBoulder] Deleting thumbnail:', boulder.thumbnail_url);
+      if (boulderData.thumbnail_url) {
+        console.log('[useDeleteBoulder] Deleting thumbnail:', boulderData.thumbnail_url);
         try {
-          await deleteThumbnail(boulder.thumbnail_url);
+          await deleteThumbnail(boulderData.thumbnail_url);
           console.log('[useDeleteBoulder] Thumbnail deleted successfully');
         } catch (error) {
           console.error('[useDeleteBoulder] Error deleting thumbnail (continuing anyway):', error);

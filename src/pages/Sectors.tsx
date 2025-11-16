@@ -19,50 +19,92 @@ const Sectors = () => {
   const { data: sectors, isLoading, error } = useSectorsTransformed();
   const { data: boulders } = useBoulders();
   const { data: schedule } = useSectorSchedule();
-  const [imagesLoaded, setImagesLoaded] = useState(false);
+  const [imagesLoaded, setImagesLoaded] = useState(true); // Start with true, will be set to false when sectors change
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[Sectors] State:', { 
+      isLoading, 
+      hasSectors: !!sectors, 
+      sectorsCount: sectors?.length || 0,
+      imagesLoaded 
+    });
+  }, [isLoading, sectors, imagesLoaded]);
 
   // Preload all sector images and wait until they're loaded
   useEffect(() => {
-    if (sectors && sectors.length > 0) {
-      const imageUrls = sectors
-        .map(s => s.imageUrl)
-        .filter((url): url is string => !!url);
-      
-      if (imageUrls.length === 0) {
-        // No images to load, show content immediately
-        setImagesLoaded(true);
-        return;
-      }
-
+    // If still loading data, reset imagesLoaded and wait
+    if (isLoading) {
       setImagesLoaded(false);
-      let loadedCount = 0;
-      let errorCount = 0;
-      const totalImages = imageUrls.length;
-
-      const checkAllLoaded = () => {
-        if (loadedCount + errorCount >= totalImages) {
-          console.log(`[Sectors] All images loaded: ${loadedCount} successful, ${errorCount} errors`);
-          setImagesLoaded(true);
-        }
-      };
-
-      imageUrls.forEach((imageUrl) => {
-        const img = new Image();
-        img.onload = () => {
-          loadedCount++;
-          checkAllLoaded();
-        };
-        img.onerror = () => {
-          console.warn('[Sectors] Failed to load image:', imageUrl);
-          errorCount++;
-          checkAllLoaded();
-        };
-        img.src = imageUrl;
-      });
-    } else if (!isLoading && sectors) {
-      // Sectors loaded but no images
-      setImagesLoaded(true);
+      return;
     }
+
+    // If no sectors data yet, wait
+    if (!sectors) {
+      setImagesLoaded(false);
+      return;
+    }
+
+    // If sectors array is empty, show content immediately (no images to load)
+    if (sectors.length === 0) {
+      setImagesLoaded(true);
+      return;
+    }
+
+    // Extract image URLs
+    const imageUrls = sectors
+      .map(s => s.imageUrl)
+      .filter((url): url is string => !!url);
+    
+    // If no images to load, show content immediately
+    if (imageUrls.length === 0) {
+      setImagesLoaded(true);
+      return;
+    }
+
+    // Reset and start loading images
+    setImagesLoaded(false);
+    let loadedCount = 0;
+    let errorCount = 0;
+    const totalImages = imageUrls.length;
+
+    console.log(`[Sectors] Starting to load ${totalImages} images...`);
+
+    // Timeout: Show page after 15 seconds even if images aren't loaded (safety net)
+    const timeoutId = setTimeout(() => {
+      console.warn(`[Sectors] Image loading timeout after 15s (${loadedCount}/${totalImages} loaded, ${errorCount} errors), showing page anyway`);
+      setImagesLoaded(true);
+    }, 15000);
+
+    const checkAllLoaded = () => {
+      if (loadedCount + errorCount >= totalImages) {
+        clearTimeout(timeoutId);
+        console.log(`[Sectors] All images loaded: ${loadedCount} successful, ${errorCount} errors`);
+        setImagesLoaded(true);
+      }
+    };
+
+    // Load all images
+    imageUrls.forEach((imageUrl, index) => {
+      const img = new Image();
+      img.onload = () => {
+        loadedCount++;
+        console.log(`[Sectors] Image ${loadedCount}/${totalImages} loaded: ${imageUrl.split('/').pop()}`);
+        checkAllLoaded();
+      };
+      img.onerror = () => {
+        console.warn(`[Sectors] Failed to load image ${index + 1}/${totalImages}:`, imageUrl);
+        errorCount++;
+        checkAllLoaded();
+      };
+      // Set src to start loading
+      img.src = imageUrl;
+    });
+
+    // Cleanup timeout on unmount
+    return () => {
+      clearTimeout(timeoutId);
+    };
   }, [sectors, isLoading]);
 
   const handleViewBoulders = (sectorName: string) => {
@@ -70,6 +112,7 @@ const Sectors = () => {
   };
 
   // Show loading state while data is loading OR images are still loading
+  // Wait for both: data must be loaded AND all images must be loaded
   if (isLoading || !imagesLoaded) {
     return (
       <div className="min-h-screen bg-background flex">

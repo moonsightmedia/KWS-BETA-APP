@@ -20,17 +20,20 @@ export const useSectors = () => {
   return useQuery({
     queryKey: ['sectors'],
     queryFn: async () => {
+      console.log('[useSectors] Fetching sectors from Supabase...');
       const { data, error } = await supabase
         .from('sectors')
         .select('*')
         .order('name');
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useSectors] Error fetching sectors:', error);
+        throw error;
+      }
+      console.log('[useSectors] Fetched sectors:', data?.length || 0, 'sectors');
       return data as Sector[];
     },
-    staleTime: 0, // Always consider data stale
-    gcTime: 5 * 60 * 1000, // Keep data in cache for 5 minutes (for smooth UX)
-    refetchOnMount: true, // Always refetch on mount
+    // Use default query options from QueryClient (staleTime: 30s, refetchOnMount: false)
   });
 };
 
