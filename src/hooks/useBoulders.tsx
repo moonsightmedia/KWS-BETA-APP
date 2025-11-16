@@ -107,7 +107,7 @@ export const useUpdateBoulder = () => {
       if (error) throw error;
       if (!data) {
         throw new Error('Boulder konnte nicht aktualisiert werden. Möglicherweise fehlen die Berechtigungen.');
-      }    
+      }
       return { data, updates };
     },
     onSuccess: (result) => {

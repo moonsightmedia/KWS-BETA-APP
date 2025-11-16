@@ -11,30 +11,63 @@ import { useSectorsTransformed } from '@/hooks/useSectors';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { AlertCircle } from 'lucide-react';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useSectorSchedule } from '@/hooks/useSectorSchedule';
 
 const Index = () => {
   const statistics = useStatistics();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors();
   const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed();
   const isLoading = isLoadingBoulders || isLoadingSectors;
   const error = bouldersError || sectorsError;
 
   // Greeting state must be declared before any conditional returns to keep hook order stable
+  // Load persisted name from localStorage to avoid "Fremder" flash on remount
+  const getPersistedName = () => {
+    try {
+      return localStorage.getItem('greetingName');
+    } catch {
+      return null;
+    }
+  };
+  
   const initialFirstFromMeta = (() => {
+    // First try persisted name from localStorage, then user metadata
+    const persisted = getPersistedName();
+    if (persisted) return persisted;
     const meta = (user?.user_metadata || {}) as any;
     const full = meta?.first_name || meta?.full_name || meta?.name;
     return full ? String(full).split(' ')[0] : null;
   })();
+  
   const [greetingName, setGreetingName] = useState<string | null>(initialFirstFromMeta);
+  
+  // Persist the name in localStorage whenever it changes
+  useEffect(() => {
+    if (greetingName) {
+      try {
+        localStorage.setItem('greetingName', greetingName);
+      } catch {
+        // Ignore localStorage errors
+      }
+    }
+  }, [greetingName]);
+  
   useEffect(() => {
     let active = true;
     (async () => {
-      if (!user) return;
+      // Don't fetch if auth is still loading or user is not available
+      if (authLoading || !user) {
+        // If we have a persisted name from localStorage, use it
+        const persisted = getPersistedName();
+        if (persisted && !greetingName) {
+          setGreetingName(persisted);
+        }
+        return;
+      }
       const { data } = await supabase
         .from('profiles')
         .select('first_name, full_name')
@@ -43,12 +76,15 @@ const Index = () => {
       if (!active) return;
       const profile = data as any;
       const first = profile?.first_name || (profile?.full_name ? String(profile.full_name).split(' ')[0] : undefined);
-      if (first) setGreetingName(first);
+      if (first) {
+        setGreetingName(first);
+        // Name will be persisted via the useEffect above
+      }
     })();
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [user, authLoading, greetingName]);
 
   // Nächster Schraubtermin aus sector_schedule
   const { data: schedule } = useSectorSchedule();
@@ -142,7 +178,13 @@ const Index = () => {
           {/* Welcome Section */}
           <div className="mb-8">
             <div className="mb-2">
-              <h1 className="text-3xl font-bold mb-1 font-teko tracking-wide">Hallo, {greetingName || 'Fremder'}! 👋</h1>
+              <h1 className="text-3xl font-bold mb-1 font-teko tracking-wide">
+                {authLoading ? (
+                  <span className="opacity-50">Hallo... 👋</span>
+                ) : (
+                  <>Hallo, {greetingName || 'Fremder'}! 👋</>
+                )}
+              </h1>
               <p className="text-muted-foreground">Das passiert gerade in deiner Halle.</p>
             </div>
           </div>

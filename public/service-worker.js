@@ -74,12 +74,39 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Normal request: try network first, fallback to cache
+  // Normal request: try cache first for images, then network
+  // For images, check cache first to speed up loading
+  if (isMedia && !isVideo) {
+    // For images, try cache first, then network
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) {
+          // Return cached image immediately
+          return cached;
+        }
+        // If not in cache, fetch from network and cache it
+        return fetch(request).then((response) => {
+          // Only cache successful, complete responses (not partial 206)
+          if (response.status === 200 && response.ok && response.status !== 206) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, responseClone).catch(() => {
+                // Ignore cache errors (e.g., if response is too large)
+              });
+            });
+          }
+          return response;
+        });
+      })
+    );
+    return;
+  }
+
+  // For non-media requests: try network first, fallback to cache
   event.respondWith(
     fetch(request, { cache: 'no-cache' }).then((response) => {
       // Only cache successful, complete responses (not partial 206)
-      // Also skip caching for large media files
-      if (response.status === 200 && response.ok && !isMedia) {
+      if (response.status === 200 && response.ok && !isVideo) {
         const responseClone = response.clone();
         caches.open(CACHE_NAME).then((cache) => {
           // Double-check it's not a partial response before caching

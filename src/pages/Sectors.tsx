@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { Sidebar } from '@/components/Sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,21 +19,12 @@ const Sectors = () => {
   const { data: sectors, isLoading, error } = useSectorsTransformed();
   const { data: boulders } = useBoulders();
   const { data: schedule } = useSectorSchedule();
-  const [imagesLoaded, setImagesLoaded] = useState(true); // Start with true, will be set to false when sectors change
+  const [imagesLoaded, setImagesLoaded] = useState(false);
+  const loadedImagesRef = useRef<Set<string>>(new Set()); // Track which images are already loaded
 
-  // Debug logging
+  // Preload all images and wait until they're all loaded before showing the page
   useEffect(() => {
-    console.log('[Sectors] State:', { 
-      isLoading, 
-      hasSectors: !!sectors, 
-      sectorsCount: sectors?.length || 0,
-      imagesLoaded 
-    });
-  }, [isLoading, sectors, imagesLoaded]);
-
-  // Preload all sector images and wait until they're loaded
-  useEffect(() => {
-    // If still loading data, reset imagesLoaded and wait
+    // If still loading data, wait
     if (isLoading) {
       setImagesLoaded(false);
       return;
@@ -45,7 +36,7 @@ const Sectors = () => {
       return;
     }
 
-    // If sectors array is empty, show content immediately (no images to load)
+    // If sectors array is empty, show content immediately
     if (sectors.length === 0) {
       setImagesLoaded(true);
       return;
@@ -62,19 +53,29 @@ const Sectors = () => {
       return;
     }
 
-    // Reset and start loading images
+    // Check which images are already loaded (from previous visits)
+    const imagesToLoad = imageUrls.filter(url => !loadedImagesRef.current.has(url));
+    const alreadyLoadedCount = imageUrls.length - imagesToLoad.length;
+    
+    // If all images are already loaded, show page immediately
+    if (imagesToLoad.length === 0) {
+      console.log('[Sectors] All images already loaded from previous visit');
+      setImagesLoaded(true);
+      return;
+    }
+
+    // Start loading only the images that aren't already loaded
     setImagesLoaded(false);
-    let loadedCount = 0;
+    let loadedCount = alreadyLoadedCount; // Start with already loaded count
     let errorCount = 0;
     const totalImages = imageUrls.length;
 
-    console.log(`[Sectors] Starting to load ${totalImages} images...`);
-
-    // Timeout: Show page after 15 seconds even if images aren't loaded (safety net)
+    // Shorter timeout: Show page after 2 seconds even if images aren't loaded (safety net)
+    // This ensures the page doesn't hang forever, especially if images are already cached
     const timeoutId = setTimeout(() => {
-      console.warn(`[Sectors] Image loading timeout after 15s (${loadedCount}/${totalImages} loaded, ${errorCount} errors), showing page anyway`);
+      console.warn(`[Sectors] Image loading timeout after 2s (${loadedCount}/${totalImages} loaded), showing page anyway`);
       setImagesLoaded(true);
-    }, 15000);
+    }, 2000);
 
     const checkAllLoaded = () => {
       if (loadedCount + errorCount >= totalImages) {
@@ -84,21 +85,55 @@ const Sectors = () => {
       }
     };
 
-    // Load all images
-    imageUrls.forEach((imageUrl, index) => {
+    // Load only images that aren't already loaded
+    // If images are already cached, onload fires synchronously
+    imagesToLoad.forEach((imageUrl) => {
       const img = new Image();
-      img.onload = () => {
+      let handled = false;
+      
+      const handleLoad = () => {
+        if (handled) return;
+        handled = true;
+        loadedImagesRef.current.add(imageUrl); // Mark as loaded
         loadedCount++;
-        console.log(`[Sectors] Image ${loadedCount}/${totalImages} loaded: ${imageUrl.split('/').pop()}`);
         checkAllLoaded();
       };
-      img.onerror = () => {
-        console.warn(`[Sectors] Failed to load image ${index + 1}/${totalImages}:`, imageUrl);
+      
+      const handleError = () => {
+        if (handled) return;
+        handled = true;
         errorCount++;
         checkAllLoaded();
       };
+      
+      // Set up handlers BEFORE setting src
+      img.onload = handleLoad;
+      img.onerror = handleError;
+      
       // Set src to start loading
       img.src = imageUrl;
+      
+      // Check if image is already loaded (cached) - this must be checked immediately after setting src
+      // If the image was preloaded, it should be in the browser cache and img.complete will be true
+      // We check both immediately and in the next tick to catch all cases
+      if (img.complete && img.naturalWidth > 0) {
+        // Image is already in cache and fully loaded - call immediately
+        handleLoad();
+      } else {
+        // Also check in next tick in case the image loads very quickly
+        // Use requestIdleCallback if available, otherwise setTimeout
+        const checkCached = () => {
+          if (img.complete && img.naturalWidth > 0 && !handled) {
+            handleLoad();
+          }
+        };
+        
+        if (typeof requestIdleCallback !== 'undefined') {
+          requestIdleCallback(checkCached, { timeout: 100 });
+        } else {
+          setTimeout(checkCached, 0);
+        }
+      }
     });
 
     // Cleanup timeout on unmount
@@ -112,7 +147,7 @@ const Sectors = () => {
   };
 
   // Show loading state while data is loading OR images are still loading
-  // Wait for both: data must be loaded AND all images must be loaded
+  // Page will only display when both data AND all images are ready
   if (isLoading || !imagesLoaded) {
     return (
       <div className="min-h-screen bg-background flex">

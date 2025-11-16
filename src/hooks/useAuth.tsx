@@ -3,6 +3,9 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
+import { usePreloadSectorImages } from './usePreloadSectorImages';
+import { usePreloadBoulderThumbnails } from './usePreloadBoulderThumbnails';
 
 interface AuthContextType {
   user: User | null;
@@ -21,6 +24,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const queryClient = useQueryClient(); // Get queryClient at component level
 
   // Sync function to transfer user_metadata to profiles table
   const syncMetadataToProfiles = async (userId: string, metadata: any) => {
@@ -113,6 +117,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               if (meta && (meta.first_name || meta.last_name || meta.birth_date)) {
                 await syncMetadataToProfiles(session.user.id, meta);
               }
+              
+              // Prefetch critical data immediately after login for instant navigation
+              console.log('[Auth] User logged in, prefetching critical data...');
+              
+              // Prefetch sectors data
+              queryClient.prefetchQuery({
+                queryKey: ['sectors'],
+                queryFn: async () => {
+                  const { data, error } = await supabase
+                    .from('sectors')
+                    .select('*')
+                    .order('name');
+                  if (error) throw error;
+                  return data;
+                },
+              });
+              
+              // Prefetch boulders data
+              queryClient.prefetchQuery({
+                queryKey: ['boulders'],
+                queryFn: async () => {
+                  const { data, error } = await supabase
+                    .from('boulders')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                  if (error) throw error;
+                  return data;
+                },
+              });
+              
+              console.log('[Auth] Critical data prefetch initiated');
             }
           } catch (error: any) {
             // Ignore storage access errors
@@ -281,6 +316,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw error;
     }
     
+    // Clear persisted greeting name from localStorage
+    try {
+      localStorage.removeItem('greetingName');
+    } catch {
+      // Ignore localStorage errors
+    }
+    
     toast.success('Erfolgreich abgemeldet!');
     navigate('/auth');
   };
@@ -299,6 +341,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     toast.success('Passwort-Link wurde an deine E-Mail gesendet!');
   };
+
+  // Preload sector images when user is logged in
+  usePreloadSectorImages(!!session);
+  
+  // Preload boulder thumbnails when user is logged in
+  usePreloadBoulderThumbnails(!!session);
 
   return (
     <AuthContext.Provider value={{ user, session, signIn, signUp, signOut, resetPassword, loading }}>

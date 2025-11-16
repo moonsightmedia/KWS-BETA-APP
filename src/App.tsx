@@ -16,7 +16,19 @@ import Setter from "./pages/Setter";
 import Guest from "./pages/Guest";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Configure QueryClient for optimal caching and prefetching
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // Data is fresh for 5 minutes
+      gcTime: 10 * 60 * 1000, // Keep data in cache for 10 minutes
+      refetchOnMount: false, // Use cached data if available
+      refetchOnWindowFocus: false, // Don't refetch on window focus
+      refetchOnReconnect: true, // Refetch when network reconnects
+      retry: 1, // Only retry once on failure
+    },
+  },
+});
 
 const RouteLogger = () => {
   const location = useLocation();
