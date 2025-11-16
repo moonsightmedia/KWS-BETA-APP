@@ -32,29 +32,38 @@ export const DifficultyDistributionChart = ({ stats, avgDifficulty }: Difficulty
     });
   }, [boulders, selectedSector]);
   
-  // Berechne Verteilung für gefilterte Boulder - immer alle 1-8 anzeigen
+  // Berechne Verteilung für gefilterte Boulder - immer alle 1-8 + "?" anzeigen
   const filteredDistribution = useMemo(() => {
-    const distribution: Record<number, number> = {};
+    const distribution: Record<number | null, number> = {
+      null: filteredBoulders.filter(b => b.difficulty === null).length, // "?" (unbewertet)
+    };
     for (let i = 1; i <= 8; i++) {
       distribution[i] = filteredBoulders.filter(b => b.difficulty === i).length;
     }
     return distribution;
   }, [filteredBoulders]);
   
-  // Berechne durchschnittliche Schwierigkeit für gefilterte Boulder
+  // Berechne durchschnittliche Schwierigkeit für gefilterte Boulder (ignoriere "?" = null)
   const filteredAvg = useMemo(() => {
-    if (filteredBoulders.length === 0) return '0.0';
-    return (filteredBoulders.reduce((sum, b) => sum + b.difficulty, 0) / filteredBoulders.length).toFixed(1);
+    const ratedBoulders = filteredBoulders.filter(b => b.difficulty !== null);
+    if (ratedBoulders.length === 0) return '0.0';
+    return (ratedBoulders.reduce((sum, b) => sum + (b.difficulty || 0), 0) / ratedBoulders.length).toFixed(1);
   }, [filteredBoulders]);
   
-  // Stelle sicher, dass alle Schwierigkeiten 1-8 angezeigt werden, auch wenn count = 0
-  const data = Array.from({ length: 8 }, (_, i) => {
-    const difficulty = i + 1;
-    return {
-      name: String(difficulty),
-      value: filteredDistribution[difficulty] || 0,
-    };
-  });
+  // Stelle sicher, dass alle Schwierigkeiten "?" + 1-8 angezeigt werden, auch wenn count = 0
+  const data = [
+    {
+      name: '?',
+      value: filteredDistribution[null] || 0,
+    },
+    ...Array.from({ length: 8 }, (_, i) => {
+      const difficulty = i + 1;
+      return {
+        name: String(difficulty),
+        value: filteredDistribution[difficulty] || 0,
+      };
+    }),
+  ];
 
   return (
     <Card className="shadow-soft lg:col-span-2 w-full">

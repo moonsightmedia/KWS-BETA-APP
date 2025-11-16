@@ -107,13 +107,19 @@ const Index = () => {
     return boulders?.filter(b => b.status === 'haengt').length || 0;
   }, [boulders]);
   
-  // Berechne durchschnittliche Schwierigkeit (nur hängende)
+  // Berechne durchschnittliche Schwierigkeit (nur hängende, ignoriere "?" = null)
   const avgDifficulty = useMemo(() => {
     if (!statistics || statistics.totalBoulders === 0) return '0.0';
+    // Summiere nur bewertete Boulder (1-8), ignoriere "?" (null)
+    const totalRated = Object.entries(statistics.difficultyDistribution)
+      .filter(([diff]) => diff !== 'null') // Ignoriere "?"
+      .reduce((sum, [, count]) => sum + count, 0);
+    if (totalRated === 0) return '0.0';
     return (
       Object.entries(statistics.difficultyDistribution)
+        .filter(([diff]) => diff !== 'null') // Ignoriere "?"
         .reduce((sum, [diff, count]) => sum + (Number(diff) * count), 0) / 
-      statistics.totalBoulders
+      totalRated
     ).toFixed(1);
   }, [statistics]);
 

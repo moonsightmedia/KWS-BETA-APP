@@ -16,7 +16,8 @@ import { Boulder } from '@/types/boulder';
 // Use a data URL for placeholder to ensure it always works
 const placeholder = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';
 
-const DIFFICULTIES = [1,2,3,4,5,6,7,8];
+const DIFFICULTIES = [null, 1, 2, 3, 4, 5, 6, 7, 8]; // null = "?" (unknown/not rated)
+const formatDifficulty = (d: number | null): string => d === null ? '?' : String(d);
 const COLORS = ['Grün','Gelb','Blau','Orange','Rot','Schwarz','Weiß','Lila'];
 const COLOR_HEX: Record<string, string> = {
   'Grün': '#22c55e',
@@ -144,7 +145,10 @@ const Guest = () => {
     }
     if (difficultyFilter !== 'all') {
       const beforeDifficultyFilter = list.length;
-      list = list.filter(b => String(b.difficulty) === difficultyFilter);
+      list = list.filter(b => {
+        const bDifficulty = b.difficulty === null ? '?' : String(b.difficulty);
+        return bDifficulty === difficultyFilter;
+      });
       console.log('[Guest] After difficulty filter:', list.length, 'of', beforeDifficultyFilter);
     }
     if (colorFilter !== 'all') {
@@ -231,7 +235,7 @@ const Guest = () => {
           <SelectTrigger className="w-32"><SelectValue placeholder="Grad" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Alle</SelectItem>
-            {DIFFICULTIES.map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
+            {DIFFICULTIES.map(d => <SelectItem key={d === null ? '?' : String(d)} value={d === null ? '?' : String(d)}>{formatDifficulty(d)}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={colorFilter} onValueChange={setColorFilter}>
@@ -298,7 +302,7 @@ const Guest = () => {
                 </div>
                 <div className="mt-2 flex items-center gap-2">
                   <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold flex-shrink-0 text-white`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
-                    {b.difficulty}
+                    {formatDifficulty(b.difficulty)}
                   </span>
                   <span className="text-xs text-muted-foreground truncate">{b.color}</span>
                 </div>
@@ -350,11 +354,14 @@ const Guest = () => {
               {quickFilter === 'difficulty' && (
                 <>
                   <Button variant={difficultyFilter==='all'?'default':'outline'} size="sm" onClick={()=> setDifficultyFilter('all')}>Alle</Button>
-                  {DIFFICULTIES.map(d => (
-                    <Button key={d} variant={difficultyFilter===String(d)?'default':'outline'} size="sm" onClick={()=> setDifficultyFilter(String(d))}>
-                      {d}
-                    </Button>
-                  ))}
+                  {DIFFICULTIES.map(d => {
+                    const dStr = d === null ? '?' : String(d);
+                    return (
+                      <Button key={dStr} variant={difficultyFilter===dStr?'default':'outline'} size="sm" onClick={()=> setDifficultyFilter(dStr)}>
+                        {formatDifficulty(d)}
+                      </Button>
+                    );
+                  })}
                 </>
               )}
               {quickFilter === 'color' && (
@@ -435,7 +442,7 @@ const Guest = () => {
                       <SelectTrigger><SelectValue placeholder="Grad" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Alle</SelectItem>
-                        {DIFFICULTIES.map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
+                        {DIFFICULTIES.map(d => <SelectItem key={d === null ? '?' : String(d)} value={d === null ? '?' : String(d)}>{formatDifficulty(d)}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>

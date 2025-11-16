@@ -20,6 +20,7 @@ export const useStatistics = () => {
         lastUpdate: new Date(),
         newBouldersCount: 0,
         difficultyDistribution: {
+          null: 0, // "?" (unbewertet)
           1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0,
         },
         colorDistribution: {
@@ -29,13 +30,16 @@ export const useStatistics = () => {
       };
     }
 
-    // Berechne Schwierigkeitsverteilung (nur hängende)
-    const difficultyDistribution: Record<number, number> = {
+    // Berechne Schwierigkeitsverteilung (nur hängende) - inkl. "?" (null)
+    const difficultyDistribution: Record<number | null, number> = {
+      null: 0, // "?" (unbewertet)
       1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0,
     };
     
     hangingBoulders.forEach(boulder => {
-      if (boulder.difficulty >= 1 && boulder.difficulty <= 8) {
+      if (boulder.difficulty === null) {
+        difficultyDistribution[null] = (difficultyDistribution[null] || 0) + 1;
+      } else if (boulder.difficulty >= 1 && boulder.difficulty <= 8) {
         difficultyDistribution[boulder.difficulty] = (difficultyDistribution[boulder.difficulty] || 0) + 1;
       }
     });

@@ -17,7 +17,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const DEFAULT_COLORS = ['Grün', 'Gelb', 'Blau', 'Orange', 'Rot', 'Schwarz', 'Weiß', 'Lila'];
-const DIFFICULTIES = [1, 2, 3, 4, 5, 6, 7, 8];
+const DIFFICULTIES = [null, 1, 2, 3, 4, 5, 6, 7, 8]; // null = "?" (unknown/not rated)
+const formatDifficulty = (d: number | null): string => d === null ? '?' : String(d);
+const parseDifficulty = (value: string): number | null => value === '?' || value === 'null' ? null : parseInt(value, 10);
 
 const COLOR_MAP: Record<string, { bg: string; border: string; hex: string }> = {
   'Grün': { bg: 'bg-green-500', border: 'border-green-600', hex: '#22c55e' },
@@ -80,7 +82,7 @@ export const BoulderManagement = () => {
       const matchesSector = sectorFilter === 'all' || sector?.name === sectorFilter;
 
       // Schwierigkeits-Filter
-      const matchesDifficulty = difficultyFilter === 'all' || boulder.difficulty.toString() === difficultyFilter;
+      const matchesDifficulty = difficultyFilter === 'all' || (boulder.difficulty === null ? '?' : String(boulder.difficulty)) === difficultyFilter;
 
       // Farb-Filter
       const matchesColor = colorFilter === 'all' || boulder.color === colorFilter;
@@ -151,7 +153,7 @@ export const BoulderManagement = () => {
     setFormData({
       name: "",
       sector_id: "",
-      difficulty: 1,
+      difficulty: null,
       color: "Grün",
       beta_video_url: "",
       thumbnail_url: "",
@@ -263,18 +265,21 @@ export const BoulderManagement = () => {
                 <div>
                   <Label htmlFor="difficulty">Schwierigkeit *</Label>
                   <Select
-                    value={formData.difficulty.toString()}
-                    onValueChange={(value) => setFormData({ ...formData, difficulty: parseInt(value) })}
+                    value={formData.difficulty === null ? '?' : String(formData.difficulty)}
+                    onValueChange={(value) => setFormData({ ...formData, difficulty: parseDifficulty(value) })}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {DIFFICULTIES.map((diff) => (
-                        <SelectItem key={diff} value={diff.toString()}>
-                          {diff}
-                        </SelectItem>
-                      ))}
+                      {DIFFICULTIES.map((diff) => {
+                        const dStr = diff === null ? '?' : String(diff);
+                        return (
+                          <SelectItem key={dStr} value={dStr}>
+                            {formatDifficulty(diff)}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -860,11 +865,14 @@ export const BoulderManagement = () => {
               {quickFilter === 'difficulty' && (
                 <>
                   <Button variant={difficultyFilter==='all'?'default':'outline'} size="sm" onClick={()=> setDifficultyFilter('all')}>Alle</Button>
-                  {DIFFICULTIES.map(d => (
-                    <Button key={d} variant={difficultyFilter===String(d)?'default':'outline'} size="sm" onClick={()=> setDifficultyFilter(String(d))}>
-                      {d}
-                    </Button>
-                  ))}
+                  {DIFFICULTIES.map(d => {
+                    const dStr = d === null ? '?' : String(d);
+                    return (
+                      <Button key={dStr} variant={difficultyFilter===dStr?'default':'outline'} size="sm" onClick={()=> setDifficultyFilter(dStr)}>
+                        {formatDifficulty(d)}
+                      </Button>
+                    );
+                  })}
                 </>
               )}
               {quickFilter === 'color' && (
@@ -929,7 +937,10 @@ export const BoulderManagement = () => {
                       <SelectTrigger><SelectValue placeholder="Grad" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Alle</SelectItem>
-                        {DIFFICULTIES.map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
+                        {DIFFICULTIES.map(d => {
+                          const dStr = d === null ? '?' : String(d);
+                          return <SelectItem key={dStr} value={dStr}>{formatDifficulty(d)}</SelectItem>;
+                        })}
                       </SelectContent>
                     </Select>
                   </div>

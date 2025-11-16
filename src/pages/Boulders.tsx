@@ -109,7 +109,7 @@ const Boulders = () => {
       const matchesSearch = boulder.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            (boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector).toLowerCase().includes(searchQuery.toLowerCase());
       const matchesSector = sectorFilter === 'all' || boulder.sector === sectorFilter || boulder.sector2 === sectorFilter;
-      const matchesDifficulty = difficultyFilter === 'all' || boulder.difficulty.toString() === difficultyFilter;
+      const matchesDifficulty = difficultyFilter === 'all' || (boulder.difficulty === null ? '?' : String(boulder.difficulty)) === difficultyFilter;
       const matchesColor = colorFilter === 'all' || boulder.color === colorFilter;
       const matchesStatus = !showOnlyHanging || boulder.status === 'haengt';
       
@@ -124,7 +124,9 @@ const Boulders = () => {
           result = a.name.localeCompare(b.name);
           break;
         case 'difficulty':
-          result = a.difficulty - b.difficulty;
+          const aDiff = a.difficulty === null ? 999 : a.difficulty;
+          const bDiff = b.difficulty === null ? 999 : b.difficulty;
+          result = aDiff - bDiff;
           break;
         case 'date':
           result = b.createdAt.getTime() - a.createdAt.getTime();
@@ -437,7 +439,7 @@ const Boulders = () => {
                     </div>
                     <div className="mt-2 flex items-center gap-2">
                       <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold flex-shrink-0 text-white`} style={{ backgroundColor: COLOR_HEX[boulder.color] || '#9ca3af' }}>
-                        {boulder.difficulty}
+                        {boulder.difficulty === null ? '?' : boulder.difficulty}
                       </span>
                       <span className="text-xs text-muted-foreground truncate">{boulder.color}</span>
                     </div>
@@ -487,11 +489,15 @@ const Boulders = () => {
                 {quickFilter === 'difficulty' && (
                   <>
                     <Button variant={difficultyFilter==='all'?'default':'outline'} size="sm" onClick={()=> setDifficultyFilter('all')}>Alle</Button>
-                    {[1,2,3,4,5,6,7,8].map(d => (
-                      <Button key={d} variant={difficultyFilter===String(d)?'default':'outline'} size="sm" onClick={()=> setDifficultyFilter(String(d))}>
-                        {d}
-                      </Button>
-                    ))}
+                    {[null, 1, 2, 3, 4, 5, 6, 7, 8].map(d => {
+                      const dStr = d === null ? '?' : String(d);
+                      const formatDifficulty = (d: number | null): string => d === null ? '?' : String(d);
+                      return (
+                        <Button key={dStr} variant={difficultyFilter===dStr?'default':'outline'} size="sm" onClick={()=> setDifficultyFilter(dStr)}>
+                          {formatDifficulty(d)}
+                        </Button>
+                      );
+                    })}
                   </>
                 )}
                 {quickFilter === 'color' && (
@@ -565,7 +571,11 @@ const Boulders = () => {
                         <SelectTrigger><SelectValue placeholder="Grad" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Alle</SelectItem>
-                          {[1,2,3,4,5,6,7,8].map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
+                          {[null, 1, 2, 3, 4, 5, 6, 7, 8].map(d => {
+                            const dStr = d === null ? '?' : String(d);
+                            const formatDifficulty = (d: number | null): string => d === null ? '?' : String(d);
+                            return <SelectItem key={dStr} value={dStr}>{formatDifficulty(d)}</SelectItem>;
+                          })}
                         </SelectContent>
                       </Select>
                     </div>

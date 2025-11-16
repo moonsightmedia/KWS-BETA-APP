@@ -12,7 +12,8 @@ interface BoulderDetailDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const difficultyColors: Record<number, string> = {
+const difficultyColors: Record<number | null, string> = {
+  null: 'bg-gray-500',
   1: 'bg-green-500',
   2: 'bg-green-600',
   3: 'bg-yellow-500',
@@ -94,7 +95,7 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
       <DialogContent className="max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-4 md:p-5 w-[95vw] sm:w-full pb-4 sm:pb-6">
         <DialogHeader className="space-y-2 text-center !text-center">
           <DialogDescription className="sr-only">
-            Details für Boulder {boulder.name} - {boulder.color} · Grad {boulder.difficulty} · {boulder.sector}
+            Details für Boulder {boulder.name} - {boulder.color} · Grad {boulder.difficulty === null ? '?' : boulder.difficulty} · {boulder.sector}
           </DialogDescription>
           <DialogTitle className="text-xl sm:text-2xl md:text-3xl font-teko tracking-wide leading-tight text-center">
             {boulder.name}
@@ -113,9 +114,9 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
           </span>
           <span
             className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 h-7 sm:h-8 px-2 sm:px-3 rounded-full border text-xs ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${TEXT_ON_COLOR[boulder.color] || 'text-white'}`}
-            title={`${boulder.color} · Grad ${boulder.difficulty}`}
+            title={`${boulder.color} · Grad ${boulder.difficulty === null ? '?' : boulder.difficulty}`}
           >
-            <span className="font-semibold text-[10px] sm:text-xs">{boulder.difficulty}</span>
+            <span className="font-semibold text-[10px] sm:text-xs">{boulder.difficulty === null ? '?' : boulder.difficulty}</span>
             <span className="opacity-90 text-[10px] sm:text-xs hidden sm:inline">{boulder.color}</span>
           </span>
         </div>
