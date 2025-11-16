@@ -3,7 +3,6 @@ import { DashboardHeader } from '@/components/DashboardHeader';
 import { StatCard } from '@/components/StatCard';
 import { DifficultyDistributionChart } from '@/components/DifficultyDistributionChart';
 import { CategoryChart } from '@/components/CategoryChart';
-import { DatabaseTest } from '@/components/DatabaseTest';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useStatistics } from '@/hooks/useStatistics';
@@ -18,7 +17,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSectorSchedule } from '@/hooks/useSectorSchedule';
 
 const Index = () => {
-  const [showDbTest, setShowDbTest] = useState(false);
   const statistics = useStatistics();
   const { user } = useAuth();
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors();
@@ -137,10 +135,10 @@ const Index = () => {
     <div className="min-h-screen flex bg-background">
       <Sidebar />
       
-      <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+      <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0 overflow-x-hidden">
         <DashboardHeader />
         
-        <main className="flex-1 p-4 md:p-8">
+        <main className="flex-1 p-4 md:p-8 overflow-x-hidden">
           {/* Welcome Section */}
           <div className="mb-8">
             <div className="mb-2">
@@ -150,7 +148,7 @@ const Index = () => {
           </div>
 
           {/* Stats Grid - kompakt nur mobil */}
-          <div className="grid grid-cols-3 gap-3 mb-3 md:hidden">
+          <div className="grid grid-cols-3 gap-3 mb-3 md:hidden overflow-x-hidden">
             <StatCard
               title="Aktive Boulder"
               value={hangingBouldersCount}
@@ -211,19 +209,6 @@ const Index = () => {
             <DifficultyDistributionChart stats={statistics} avgDifficulty={avgDifficulty} />
             <CategoryChart />
           </div>
-
-          {/* Database Test (optional, für Debugging) */}
-          {import.meta.env.DEV && (
-            <div className="mt-8">
-              <button
-                onClick={() => setShowDbTest(!showDbTest)}
-                className="mb-4 text-sm text-muted-foreground hover:text-foreground underline"
-              >
-                {showDbTest ? '🔼 Datenbanktest ausblenden' : '🔽 Datenbanktest anzeigen'}
-              </button>
-              {showDbTest && <DatabaseTest />}
-            </div>
-          )}
         </main>
       </div>
     </div>

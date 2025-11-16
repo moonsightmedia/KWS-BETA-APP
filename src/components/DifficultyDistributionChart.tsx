@@ -32,7 +32,7 @@ export const DifficultyDistributionChart = ({ stats, avgDifficulty }: Difficulty
     });
   }, [boulders, selectedSector]);
   
-  // Berechne Verteilung für gefilterte Boulder
+  // Berechne Verteilung für gefilterte Boulder - immer alle 1-8 anzeigen
   const filteredDistribution = useMemo(() => {
     const distribution: Record<number, number> = {};
     for (let i = 1; i <= 8; i++) {
@@ -47,10 +47,14 @@ export const DifficultyDistributionChart = ({ stats, avgDifficulty }: Difficulty
     return (filteredBoulders.reduce((sum, b) => sum + b.difficulty, 0) / filteredBoulders.length).toFixed(1);
   }, [filteredBoulders]);
   
-  const data = Object.entries(filteredDistribution).map(([difficulty, count]) => ({
-    name: `Grad ${difficulty}`,
-    value: count,
-  }));
+  // Stelle sicher, dass alle Schwierigkeiten 1-8 angezeigt werden, auch wenn count = 0
+  const data = Array.from({ length: 8 }, (_, i) => {
+    const difficulty = i + 1;
+    return {
+      name: String(difficulty),
+      value: filteredDistribution[difficulty] || 0,
+    };
+  });
 
   return (
     <Card className="shadow-soft lg:col-span-2 w-full">
@@ -83,8 +87,8 @@ export const DifficultyDistributionChart = ({ stats, avgDifficulty }: Difficulty
           </Select>
         </div>
       </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <ResponsiveContainer width="100%" height={280} minWidth={300}>
+      <CardContent className="overflow-x-hidden">
+        <ResponsiveContainer width="100%" height={280}>
           <BarChart data={data} barSize={48} margin={{ left: -20, right: 10 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
             <XAxis 

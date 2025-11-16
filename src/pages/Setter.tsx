@@ -581,7 +581,12 @@ const Setter = () => {
       setVideoPreviewUrl(b.betaVideoUrl);
     }
     if (b.thumbnailUrl) {
-      setThumbnailPreviewUrl(b.thumbnailUrl);
+      // Fix old URLs that incorrectly include /videos/ in the path
+      let thumbnailUrl = b.thumbnailUrl;
+      if (thumbnailUrl.includes('cdn.kletterwelt-sauerland.de/uploads/videos/')) {
+        thumbnailUrl = thumbnailUrl.replace('/uploads/videos/', '/uploads/');
+      }
+      setThumbnailPreviewUrl(thumbnailUrl);
     }
   };
 
@@ -1458,14 +1463,21 @@ const Setter = () => {
                           setForm({...form, thumbnailFile: file});
                         }} 
                       />
-                      {editing.thumbnailUrl && !form.thumbnailFile && (
-                        <div className="mt-2">
-                          <p className="text-xs text-muted-foreground mb-2">Aktuelles Thumbnail:</p>
-                          <div className="aspect-[9/16] w-full max-w-xs rounded-lg overflow-hidden border">
-                            <img src={editing.thumbnailUrl} alt="Current thumbnail" className="w-full h-full object-cover" />
+                      {editing.thumbnailUrl && !form.thumbnailFile && (() => {
+                        // Fix old URLs that incorrectly include /videos/ in the path
+                        let thumbnailUrl = editing.thumbnailUrl;
+                        if (thumbnailUrl.includes('cdn.kletterwelt-sauerland.de/uploads/videos/')) {
+                          thumbnailUrl = thumbnailUrl.replace('/uploads/videos/', '/uploads/');
+                        }
+                        return (
+                          <div className="mt-2">
+                            <p className="text-xs text-muted-foreground mb-2">Aktuelles Thumbnail:</p>
+                            <div className="aspect-[9/16] w-full max-w-xs rounded-lg overflow-hidden border">
+                              <img src={thumbnailUrl} alt="Current thumbnail" className="w-full h-full object-cover" />
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                       {form.thumbnailFile && (
                         <div className="mt-2">
                           <p className="text-xs text-muted-foreground mb-2">
