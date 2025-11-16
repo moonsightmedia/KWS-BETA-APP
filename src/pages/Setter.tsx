@@ -558,6 +558,7 @@ const Setter = () => {
   }, [boulders, editSector, editDifficulty, editColor, editSearch, sectors]);
 
   const startEdit = (b: any) => {
+    console.log('[Setter] startEdit called with boulder:', b.name, 'thumbnailUrl:', b.thumbnailUrl);
     setEditing(b);
     setView('edit');
     setWizardStep(1); // Reset wizard to step 1 for editing
@@ -574,19 +575,26 @@ const Setter = () => {
       note: b.note || '',
       file: null,
       thumbnailFile: null,
-      videoUrl: '',
+      videoUrl: b.betaVideoUrl || '', // Set existing video URL if available
     });
     // Set preview URLs if boulder has existing video/thumbnail
     if (b.betaVideoUrl) {
       setVideoPreviewUrl(b.betaVideoUrl);
+    } else {
+      setVideoPreviewUrl(null);
     }
     if (b.thumbnailUrl) {
       // Fix old URLs that incorrectly include /videos/ in the path
       let thumbnailUrl = b.thumbnailUrl;
       if (thumbnailUrl.includes('cdn.kletterwelt-sauerland.de/uploads/videos/')) {
         thumbnailUrl = thumbnailUrl.replace('/uploads/videos/', '/uploads/');
+        console.log('[Setter] Fixed thumbnail URL:', b.thumbnailUrl, '→', thumbnailUrl);
       }
       setThumbnailPreviewUrl(thumbnailUrl);
+      console.log('[Setter] Set thumbnail preview URL:', thumbnailUrl);
+    } else {
+      setThumbnailPreviewUrl(null);
+      console.log('[Setter] No thumbnail URL found for boulder:', b.name);
     }
   };
 
@@ -1463,17 +1471,29 @@ const Setter = () => {
                           setForm({...form, thumbnailFile: file});
                         }} 
                       />
-                      {editing.thumbnailUrl && !form.thumbnailFile && (() => {
+                      {editing?.thumbnailUrl && !form.thumbnailFile && (() => {
                         // Fix old URLs that incorrectly include /videos/ in the path
                         let thumbnailUrl = editing.thumbnailUrl;
                         if (thumbnailUrl.includes('cdn.kletterwelt-sauerland.de/uploads/videos/')) {
                           thumbnailUrl = thumbnailUrl.replace('/uploads/videos/', '/uploads/');
                         }
+                        console.log('[Setter] Rendering thumbnail in edit view:', thumbnailUrl);
                         return (
                           <div className="mt-2">
                             <p className="text-xs text-muted-foreground mb-2">Aktuelles Thumbnail:</p>
                             <div className="aspect-[9/16] w-full max-w-xs rounded-lg overflow-hidden border">
-                              <img src={thumbnailUrl} alt="Current thumbnail" className="w-full h-full object-cover" />
+                              <img 
+                                src={thumbnailUrl} 
+                                alt="Current thumbnail" 
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  console.error('[Setter] Thumbnail image failed to load:', thumbnailUrl);
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                                onLoad={() => {
+                                  console.log('[Setter] Thumbnail image loaded successfully:', thumbnailUrl);
+                                }}
+                              />
                             </div>
                           </div>
                         );
