@@ -94,8 +94,12 @@ if ($isChunked && !$uploadSessionId) {
 // Determine upload directory
 // Videos are stored directly in uploads/ (not in uploads/videos/)
 // Sector images are stored in uploads/sectors/{sectorId}/
+// Thumbnails (images without sectorId) are stored in uploads/thumbnails/
 if ($isImage && $sectorId) {
     $uploadDir = $baseDir . '/sectors/' . preg_replace('/[^a-zA-Z0-9_-]/', '', $sectorId);
+} elseif ($isImage && !$sectorId) {
+    // Thumbnails go to uploads/thumbnails/
+    $uploadDir = $baseDir . '/thumbnails';
 } else {
     // Store videos directly in uploads/ directory
     $uploadDir = $baseDir;
@@ -172,9 +176,13 @@ if ($isChunked) {
 
         // Generate public URL
         // Videos are directly in uploads/, sector images in uploads/sectors/{sectorId}/
+        // Thumbnails are in uploads/thumbnails/
         if ($isImage && $sectorId) {
             $publicUrl = 'https://cdn.kletterwelt-sauerland.de/uploads/sectors/' . 
                         preg_replace('/[^a-zA-Z0-9_-]/', '', $sectorId) . '/' . $uniqueFileName;
+        } elseif ($isImage && !$sectorId) {
+            // Thumbnails
+            $publicUrl = 'https://cdn.kletterwelt-sauerland.de/uploads/thumbnails/' . $uniqueFileName;
         } else {
             // Videos are directly in uploads/
             $publicUrl = 'https://cdn.kletterwelt-sauerland.de/uploads/' . $uniqueFileName;
@@ -222,9 +230,18 @@ if ($isChunked) {
     }
 
     // Generate public URL
-    $publicUrl = 'https://cdn.kletterwelt-sauerland.de/uploads/' . 
-                ($isImage && $sectorId ? 'sectors/' . preg_replace('/[^a-zA-Z0-9_-]/', '', $sectorId) . '/' : 'videos/') . 
-                $uniqueFileName;
+    // Videos are directly in uploads/, sector images in uploads/sectors/{sectorId}/
+    // Thumbnails are in uploads/thumbnails/
+    if ($isImage && $sectorId) {
+        $publicUrl = 'https://cdn.kletterwelt-sauerland.de/uploads/sectors/' . 
+                    preg_replace('/[^a-zA-Z0-9_-]/', '', $sectorId) . '/' . $uniqueFileName;
+    } elseif ($isImage && !$sectorId) {
+        // Thumbnails
+        $publicUrl = 'https://cdn.kletterwelt-sauerland.de/uploads/thumbnails/' . $uniqueFileName;
+    } else {
+        // Videos are directly in uploads/
+        $publicUrl = 'https://cdn.kletterwelt-sauerland.de/uploads/' . $uniqueFileName;
+    }
 
     echo json_encode([
         'success' => true,

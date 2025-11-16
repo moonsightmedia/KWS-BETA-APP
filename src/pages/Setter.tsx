@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { useHasRole } from '@/hooks/useHasRole';
 import { useNavigate } from 'react-router-dom';
 import { useSectorsTransformed, useUpdateSector } from '@/hooks/useSectors';
-import { useBouldersWithSectors, useCreateBoulder, useUpdateBoulder, useBulkUpdateBoulderStatus, useDeleteBoulder } from '@/hooks/useBoulders';
-import { uploadBetaVideo } from '@/integrations/supabase/storage';
+import { useBouldersWithSectors, useCreateBoulder, useUpdateBoulder, useBulkUpdateBoulderStatus, useDeleteBoulder, useCdnVideos } from '@/hooks/useBoulders';
+import { uploadBetaVideo, uploadThumbnail } from '@/integrations/supabase/storage';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,11 +15,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Search, PlusCircle, Edit3, Calendar, X, Sparkles } from 'lucide-react';
+import { Search, PlusCircle, Edit3, Calendar, X, Sparkles, ChevronLeft, ChevronRight, Check, Video } from 'lucide-react';
 import { MaterialIcon } from '@/components/MaterialIcon';
-import { useMemo as useMemoReact, useRef } from 'react';
+import { useMemo as useMemoReact, useRef, useState } from 'react';
 import { useSectorSchedule, useCreateSectorSchedule, useDeleteSectorSchedule } from '@/hooks/useSectorSchedule';
 import { useColors } from '@/hooks/useColors';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 const DIFFICULTIES = [1,2,3,4,5,6,7,8];
 const DEFAULT_COLORS = ['Grün','Gelb','Blau','Orange','Rot','Schwarz','Weiß','Lila'];
@@ -86,6 +87,142 @@ function adjustNameForColor(name: string, newColor: string): string {
   return name.replace(pattern, newAdj);
 }
 
+// Component to visually select a video from CDN
+const VideoSelector = ({ 
+  selectedUrl, 
+  onSelect
+}: { 
+  selectedUrl: string; 
+  onSelect: (url: string) => void;
+}) => {
+  // Get all unique CDN video URLs directly from database
+  const { data: cdnVideos = [], isLoading } = useCdnVideos();
+
+  const [showManualInput, setShowManualInput] = useState(false);
+  const [manualUrl, setManualUrl] = useState('');
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        <p className="text-xs text-muted-foreground">Lade Videos...</p>
+      </div>
+    );
+  }
+
+  if (cdnVideos.length === 0 && !showManualInput) {
+    return (
+      <div className="space-y-2">
+        <p className="text-xs text-muted-foreground">
+          Keine Videos im CDN gefunden. Du kannst manuell eine URL eingeben.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setShowManualInput(true)}
+          className="w-full"
+        >
+          URL manuell eingeben
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {cdnVideos.length > 0 && (
+        <div>
+          <p className="text-xs text-muted-foreground mb-2">
+            Verfügbare Videos im CDN ({cdnVideos.length})
+          </p>
+          <ScrollArea className="w-full">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-4">
+              {cdnVideos.map((videoUrl) => {
+                const isSelected = selectedUrl === videoUrl;
+                return (
+                  <button
+                    key={videoUrl}
+                    type="button"
+                    onClick={() => onSelect(videoUrl)}
+                    className={`relative aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all ${
+                      isSelected 
+                        ? 'border-primary ring-2 ring-primary ring-offset-2' 
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <video
+                      src={videoUrl}
+                      className="w-full h-full object-cover pointer-events-none"
+                      preload="metadata"
+                      muted
+                    />
+                    {isSelected && (
+                      <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+                          <Check className="w-5 h-5 text-primary-foreground" />
+                        </div>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+      
+      {showManualInput || cdnVideos.length > 0 ? (
+        <div className="space-y-2">
+          {cdnVideos.length > 0 && (
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">oder</span>
+              </div>
+            </div>
+          )}
+          <div>
+            <Label htmlFor="video-url-manual" className="text-xs mb-1 block">
+              URL manuell eingeben
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="video-url-manual"
+                type="url"
+                placeholder="https://cdn.kletterwelt-sauerland.de/uploads/..."
+                value={manualUrl}
+                onChange={(e) => setManualUrl(e.target.value)}
+                className="flex-1"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && manualUrl) {
+                    onSelect(manualUrl);
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (manualUrl) {
+                    onSelect(manualUrl);
+                    setManualUrl('');
+                  }
+                }}
+                disabled={!manualUrl}
+              >
+                Übernehmen
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
 const Setter = () => {
   const { session } = useAuth();
   const { hasRole: isSetter, loading: loadingSetter } = useHasRole('setter');
@@ -115,9 +252,15 @@ const Setter = () => {
     color: 'Grün',
     note: '',
     file: null as File | null,
+    thumbnailFile: null as File | null,
+    videoUrl: '' as string, // For CDN video selection
   });
   const [isUploading, setIsUploading] = useState(false);
   const [view, setView] = useState<'create' | 'edit' | 'schedule' | 'status'>('create');
+  // Wizard state for multi-step boulder creation
+  const [wizardStep, setWizardStep] = useState(1);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState<string | null>(null);
   const [editSearch, setEditSearch] = useState('');
   const [editSector, setEditSector] = useState<string>('all');
   const [editDifficulty, setEditDifficulty] = useState<string>('all');
@@ -128,6 +271,7 @@ const Setter = () => {
   const scheduleRef = useRef<HTMLDivElement | null>(null);
   const captureInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
   const { data: schedule } = useSectorSchedule();
   const createSchedule = useCreateSectorSchedule();
   const deleteSchedule = useDeleteSectorSchedule();
@@ -152,6 +296,139 @@ const Setter = () => {
   const canSubmit = useMemo(() => {
     return !!form.name && !!form.sector_id && form.difficulty >= 1 && form.difficulty <= 8;
   }, [form]);
+
+  // Wizard validation helpers
+  const canProceedStep1 = useMemo(() => {
+    return !!form.name && !!form.sector_id;
+  }, [form.name, form.sector_id]);
+
+  const canProceedStep2 = useMemo(() => {
+    return !!form.file || !!form.videoUrl;
+  }, [form.file, form.videoUrl]);
+
+  const canProceedStep3 = useMemo(() => {
+    return true; // Thumbnail is optional
+  }, []);
+
+  const canProceedStep4 = useMemo(() => {
+    return form.difficulty >= 1 && form.difficulty <= 8 && !!form.color;
+  }, [form.difficulty, form.color]);
+
+  // Helper to create preview URLs
+  useEffect(() => {
+    if (form.file) {
+      const url = URL.createObjectURL(form.file);
+      setVideoPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else if (form.videoUrl) {
+      setVideoPreviewUrl(form.videoUrl);
+    } else {
+      setVideoPreviewUrl(null);
+    }
+  }, [form.file, form.videoUrl]);
+
+  useEffect(() => {
+    if (form.thumbnailFile) {
+      const url = URL.createObjectURL(form.thumbnailFile);
+      setThumbnailPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setThumbnailPreviewUrl(null);
+    }
+  }, [form.thumbnailFile]);
+
+  // Reset wizard when switching views
+  useEffect(() => {
+    if (view !== 'create') {
+      setWizardStep(1);
+      setVideoPreviewUrl(null);
+      setThumbnailPreviewUrl(null);
+    }
+  }, [view]);
+
+  // Wizard submit function (called at step 5)
+  const onWizardSubmit = async () => {
+    if (!canSubmit || !canAccess) return;
+    try {
+      setIsUploading(true);
+      
+      // Create boulder immediately (without video URL if file exists, but with CDN URL if provided)
+      const boulderData = {
+        name: form.name,
+        sector_id: form.sector_id,
+        sector_id_2: form.spansMultipleSectors && form.sector_id_2 ? form.sector_id_2 : null,
+        difficulty: form.difficulty,
+        color: form.color,
+        beta_video_url: form.videoUrl || (form.file ? null : null), // Use CDN URL if provided, otherwise null if file exists (will be updated)
+        thumbnail_url: form.thumbnailFile ? null : null, // Will be updated after upload
+        note: form.note,
+      };
+      
+      const createdBoulder = await createBoulder.mutateAsync(boulderData as any);
+      
+      // Upload video and thumbnail in parallel if they exist
+      const uploadPromises: Promise<void>[] = [];
+      
+      if (form.file && createdBoulder?.id) {
+        uploadPromises.push(
+          uploadBetaVideo(form.file, (progress) => {
+            // Progress handling can be added here if needed
+          }).then((betaUrl) => {
+            return updateBoulder.mutateAsync({
+              id: createdBoulder.id,
+              beta_video_url: betaUrl,
+            } as any).then(() => {
+              toast.success('Video erfolgreich hochgeladen!');
+            }).catch((error) => {
+              console.error('[Setter] Failed to update boulder with video URL:', error);
+              toast.error('Video hochgeladen, aber Boulder konnte nicht aktualisiert werden');
+            });
+          }).catch((error) => {
+            console.error('[Setter] Video upload failed:', error);
+            toast.error('Fehler beim Hochladen des Videos');
+          })
+        );
+      }
+      
+      if (form.thumbnailFile && createdBoulder?.id) {
+        uploadPromises.push(
+          uploadThumbnail(form.thumbnailFile, (progress) => {
+            // Progress handling can be added here if needed
+          }).then((thumbnailUrl) => {
+            return updateBoulder.mutateAsync({
+              id: createdBoulder.id,
+              thumbnail_url: thumbnailUrl,
+            } as any).then(() => {
+              toast.success('Thumbnail erfolgreich hochgeladen!');
+            }).catch((error) => {
+              console.error('[Setter] Failed to update boulder with thumbnail URL:', error);
+              toast.error('Thumbnail hochgeladen, aber Boulder konnte nicht aktualisiert werden');
+            });
+          }).catch((error) => {
+            console.error('[Setter] Thumbnail upload failed:', error);
+            toast.error('Fehler beim Hochladen des Thumbnails');
+          })
+        );
+      }
+      
+      // Wait for all uploads to complete
+      await Promise.allSettled(uploadPromises);
+      
+      setForm({ name: '', sector_id: '', spansMultipleSectors: false, sector_id_2: '', difficulty: 1, color: 'Grün', note: '', file: null, thumbnailFile: null, videoUrl: '' });
+      setWizardStep(1);
+      setVideoPreviewUrl(null);
+      setThumbnailPreviewUrl(null);
+      navigate('/boulders');
+    } catch (error: any) {
+      toast.dismiss();
+      toast.error('Fehler beim Erstellen', {
+        description: error.message || 'Unbekannter Fehler',
+        duration: 5000,
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,7 +510,10 @@ const Setter = () => {
         });
       }
       
-      setForm({ name: '', sector_id: '', spansMultipleSectors: false, sector_id_2: '', difficulty: 1, color: 'Grün', note: '', file: null });
+      setForm({ name: '', sector_id: '', spansMultipleSectors: false, sector_id_2: '', difficulty: 1, color: 'Grün', note: '', file: null, thumbnailFile: null, videoUrl: '' });
+      setWizardStep(1);
+      setVideoPreviewUrl(null);
+      setThumbnailPreviewUrl(null);
       navigate('/boulders');
     } catch (error: any) {
       // Dismiss any existing upload toast on error
@@ -280,6 +560,7 @@ const Setter = () => {
   const startEdit = (b: any) => {
     setEditing(b);
     setView('edit');
+    setWizardStep(1); // Reset wizard to step 1 for editing
     // map into form-like state
     const sector1Id = sectors?.find(s => s.name === b.sector)?.id || '';
     const sector2Id = b.sector2 ? sectors?.find(s => s.name === b.sector2)?.id || '' : '';
@@ -292,7 +573,16 @@ const Setter = () => {
       color: b.color,
       note: b.note || '',
       file: null,
+      thumbnailFile: null,
+      videoUrl: '',
     });
+    // Set preview URLs if boulder has existing video/thumbnail
+    if (b.betaVideoUrl) {
+      setVideoPreviewUrl(b.betaVideoUrl);
+    }
+    if (b.thumbnailUrl) {
+      setThumbnailPreviewUrl(b.thumbnailUrl);
+    }
   };
 
   const submitEdit = async (e: React.FormEvent) => {
@@ -300,7 +590,7 @@ const Setter = () => {
     if (!editing) return;
     setIsUploading(true);
     try {
-      // Update boulder immediately (without video URL if new file exists)
+      // Update boulder immediately (without video/thumbnail URLs if new files exist)
       const updateData = {
         id: editing.id,
         name: form.name,
@@ -308,74 +598,66 @@ const Setter = () => {
         sector_id_2: form.spansMultipleSectors && form.sector_id_2 ? form.sector_id_2 : null,
         difficulty: form.difficulty,
         color: form.color,
-        beta_video_url: form.file ? editing.betaVideoUrl || null : editing.betaVideoUrl || null, // Keep existing or null if new file
+        beta_video_url: form.file ? null : editing.betaVideoUrl || null, // Will be updated after upload
+        thumbnail_url: form.thumbnailFile ? null : editing.thumbnailUrl || null, // Will be updated after upload
         note: form.note,
       };
       
       await updateBoulder.mutateAsync(updateData as any);
       
-      // If there's a new file, upload it in the background and update the boulder
+      // Upload video and thumbnail in parallel if they exist
+      const uploadPromises: Promise<void>[] = [];
+      
+      // If there's a new video file, upload it in the background and update the boulder
       if (form.file) {
-        // Show upload progress toast with custom progress bar
-        let currentProgress = 0;
-        const toastId = toast.custom((t) => (
-          <div className="w-full max-w-sm">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Video wird hochgeladen...</span>
-              <span className="text-xs text-muted-foreground">{Math.round(currentProgress)}%</span>
-            </div>
-            <Progress value={currentProgress} className="h-2" />
-          </div>
-        ), {
-          duration: Infinity, // Keep toast open until we dismiss it
-        });
-        
-        // Upload video in background (don't await - let it run async)
-        uploadBetaVideo(form.file, (progress) => {
-          currentProgress = progress;
-          // Update toast with new progress
-          toast.custom((t) => (
-            <div className="w-full max-w-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Video wird hochgeladen...</span>
-                <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
-              </div>
-              <Progress value={progress} className="h-2" />
-            </div>
-          ), {
-            id: toastId,
-            duration: Infinity,
-          });
-        }).then((betaUrl) => {
-          // Update boulder with video URL after upload completes
-          updateBoulder.mutateAsync({
-            id: editing.id,
-            beta_video_url: betaUrl,
-          } as any).then(() => {
-            // Update toast to success and auto-dismiss after 3 seconds
-            toast.success('Video erfolgreich hochgeladen!', {
-              id: toastId,
-              duration: 3000, // Auto-dismiss after 3 seconds
+        uploadPromises.push(
+          uploadBetaVideo(form.file, (progress) => {
+            // Progress handling can be added here if needed
+          }).then((betaUrl) => {
+            return updateBoulder.mutateAsync({
+              id: editing.id,
+              beta_video_url: betaUrl,
+            } as any).then(() => {
+              toast.success('Video erfolgreich hochgeladen!');
+            }).catch((error) => {
+              console.error('[Setter] Failed to update boulder with video URL:', error);
+              toast.error('Video hochgeladen, aber Boulder konnte nicht aktualisiert werden');
             });
           }).catch((error) => {
-            console.error('[Setter] Failed to update boulder with video URL:', error);
-            toast.error('Video hochgeladen, aber Boulder konnte nicht aktualisiert werden', {
-              id: toastId,
-              description: error.message,
-              duration: 5000,
-            });
-          });
-        }).catch((error) => {
-          console.error('[Setter] Video upload failed:', error);
-          toast.error('Fehler beim Hochladen des Videos', {
-            id: toastId,
-            description: error.message || 'Unbekannter Fehler',
-            duration: 5000, // Auto-dismiss after 5 seconds
-          });
-        });
+            console.error('[Setter] Video upload failed:', error);
+            toast.error('Fehler beim Hochladen des Videos');
+          })
+        );
       }
       
+      // If there's a new thumbnail file, upload it in the background and update the boulder
+      if (form.thumbnailFile) {
+        uploadPromises.push(
+          uploadThumbnail(form.thumbnailFile, (progress) => {
+            // Progress handling can be added here if needed
+          }).then((thumbnailUrl) => {
+            return updateBoulder.mutateAsync({
+              id: editing.id,
+              thumbnail_url: thumbnailUrl,
+            } as any).then(() => {
+              toast.success('Thumbnail erfolgreich hochgeladen!');
+            }).catch((error) => {
+              console.error('[Setter] Failed to update boulder with thumbnail URL:', error);
+              toast.error('Thumbnail hochgeladen, aber Boulder konnte nicht aktualisiert werden');
+            });
+          }).catch((error) => {
+            console.error('[Setter] Thumbnail upload failed:', error);
+            toast.error('Fehler beim Hochladen des Thumbnails');
+          })
+        );
+      }
+      
+      // Wait for all uploads to complete
+      await Promise.allSettled(uploadPromises);
+      
       setEditing(null);
+      setVideoPreviewUrl(null);
+      setThumbnailPreviewUrl(null);
     } catch (error: any) {
       // Dismiss any existing upload toast on error
       toast.dismiss();
@@ -505,124 +787,417 @@ const Setter = () => {
         {view === 'create' && (
             <Card>
               <CardHeader>
-                <CardTitle>Neuen Boulder anlegen</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Neuen Boulder anlegen</CardTitle>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span>Schritt {wizardStep} von 5</span>
+                  </div>
+                </div>
+                {/* Progress indicator */}
+                <div className="mt-4 flex items-center gap-2">
+                  {[1, 2, 3, 4, 5].map((step) => (
+                    <div key={step} className="flex-1 flex items-center">
+                      <div className={`flex-1 h-1 rounded-full ${step <= wizardStep ? 'bg-primary' : 'bg-muted'}`} />
+                      {step < 5 && (
+                        <div className={`w-1 h-1 rounded-full mx-1 ${step < wizardStep ? 'bg-primary' : 'bg-muted'}`} />
+                      )}
+                    </div>
+                  ))}
+                </div>
               </CardHeader>
               <CardContent>
-                <form id="create-form" onSubmit={onSubmit} className="space-y-4">
-            <div className="w-full min-w-0">
-              <Label htmlFor="name">Name *</Label>
-              <div className="flex items-center gap-2 w-full min-w-0">
-                <Input id="name" value={form.name} onChange={(e)=>setForm({...form, name: e.target.value})} required className="h-12 text-base flex-1 min-w-0" />
-                <Button type="button" variant="outline" className="h-12 flex-shrink-0" onClick={() => setForm({ ...form, name: generateBoulderName(form.color, form.difficulty) })}>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline">Vorschlagen</span>
-                </Button>
-              </div>
-            </div>
-            <div className="w-full min-w-0">
-              <Label>Sektor *</Label>
-                    <Select value={form.sector_id} onValueChange={(v)=>setForm({...form, sector_id: v})}>
-                      <SelectTrigger className="h-12 text-base w-full">
-                  <SelectValue placeholder="Sektor wählen" />
-                      </SelectTrigger>
-                      <SelectContent>
-                  {sectors?.map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                      </SelectContent>
-                    </Select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="spans-multiple-sectors"
-                checked={form.spansMultipleSectors}
-                onChange={(e) => setForm({...form, spansMultipleSectors: e.target.checked, sector_id_2: e.target.checked ? form.sector_id_2 : ''})}
-                className="h-4 w-4 rounded border-gray-300"
-              />
-              <Label htmlFor="spans-multiple-sectors" className="cursor-pointer">
-                Verläuft über mehrere Sektoren
-              </Label>
-            </div>
-            {form.spansMultipleSectors && (
-              <div className="w-full min-w-0">
-                <Label>Endet in Sektor</Label>
-                <Select 
-                  value={form.sector_id_2} 
-                  onValueChange={(v)=>setForm({...form, sector_id_2: v})}
-                  disabled={!form.sector_id}
-                >
-                  <SelectTrigger className="h-12 text-base w-full">
-                    <SelectValue placeholder="Sektor wählen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sectors?.filter(s => s.id !== form.sector_id).map(s => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0">
-              <div className="w-full min-w-0">
-                <Label>Schwierigkeit *</Label>
-                      <Select value={String(form.difficulty)} onValueChange={(v)=>setForm({...form, difficulty: parseInt(v)})}>
+                {/* Step 1: Name & Sektor */}
+                {wizardStep === 1 && (
+                  <div className="space-y-4">
+                    <div className="w-full min-w-0">
+                      <Label htmlFor="name">Name *</Label>
+                      <div className="flex items-center gap-2 w-full min-w-0">
+                        <Input 
+                          id="name" 
+                          value={form.name} 
+                          onChange={(e)=>setForm({...form, name: e.target.value})} 
+                          required 
+                          className="h-12 text-base flex-1 min-w-0" 
+                        />
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          className="h-12 flex-shrink-0" 
+                          onClick={() => setForm({ ...form, name: generateBoulderName(form.color, form.difficulty) })}
+                        >
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          <span className="hidden sm:inline">Vorschlagen</span>
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="w-full min-w-0">
+                      <Label>Sektor *</Label>
+                      <Select value={form.sector_id} onValueChange={(v)=>setForm({...form, sector_id: v})}>
                         <SelectTrigger className="h-12 text-base w-full">
-                    <SelectValue />
+                          <SelectValue placeholder="Sektor wählen" />
                         </SelectTrigger>
                         <SelectContent>
-                    {DIFFICULTIES.map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
+                          {sectors?.map(s => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
-              </div>
-              <div className="w-full min-w-0">
-                <Label>Farbe *</Label>
-                      <Select value={form.color} onValueChange={(v)=>setForm(prev => ({...prev, color: v, name: adjustNameForColor(prev.name, v)}))}>
-                        <SelectTrigger className="h-12 text-base w-full">
-                    <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                    {COLORS.map(c => (
-                      <SelectItem key={c} value={c}>
-                        <div className="flex items-center gap-2">
-                          <span className="w-3 h-3 rounded-full border" style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }} />
-                          <span>{c}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="spans-multiple-sectors"
+                        checked={form.spansMultipleSectors}
+                        onChange={(e) => setForm({...form, spansMultipleSectors: e.target.checked, sector_id_2: e.target.checked ? form.sector_id_2 : ''})}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <Label htmlFor="spans-multiple-sectors" className="cursor-pointer">
+                        Verläuft über mehrere Sektoren
+                      </Label>
+                    </div>
+                    {form.spansMultipleSectors && (
+                      <div className="w-full min-w-0">
+                        <Label>Endet in Sektor</Label>
+                        <Select 
+                          value={form.sector_id_2} 
+                          onValueChange={(v)=>setForm({...form, sector_id_2: v})}
+                          disabled={!form.sector_id}
+                        >
+                          <SelectTrigger className="h-12 text-base w-full">
+                            <SelectValue placeholder="Sektor wählen" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {sectors?.filter(s => s.id !== form.sector_id).map(s => (
+                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 2: Video */}
+                {wizardStep === 2 && (
+                  <div className="space-y-4">
+                    <div className="w-full min-w-0">
+                      <Label>Beta-Video *</Label>
+                      <div className="flex flex-col gap-3 w-full min-w-0 mb-4">
+                        <div className="flex gap-2 w-full min-w-0">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            className="flex-1 h-12 min-w-0 text-sm sm:text-base" 
+                            onClick={()=>{
+                              setForm({...form, file: null, videoUrl: ''});
+                              captureInputRef.current?.click();
+                            }}
+                          >
+                            <span className="truncate">Video aufnehmen</span>
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            className="flex-1 h-12 min-w-0 text-sm sm:text-base" 
+                            onClick={()=>{
+                              setForm({...form, file: null, videoUrl: ''});
+                              galleryInputRef.current?.click();
+                            }}
+                          >
+                            <span className="truncate">Aus Galerie</span>
+                          </Button>
                         </div>
-                      </SelectItem>
-                    ))}
-                        </SelectContent>
-                      </Select>
-              </div>
-            </div>
-            <div className="w-full min-w-0">
-              <Label>Beta-Video (optional)</Label>
-              <div className="flex gap-2 w-full min-w-0">
-                <Button type="button" variant="outline" className="flex-1 h-12 min-w-0 text-sm sm:text-base" onClick={()=>captureInputRef.current?.click()}>
-                  <span className="truncate">Video aufnehmen</span>
-                </Button>
-                <Button type="button" variant="outline" className="flex-1 h-12 min-w-0 text-sm sm:text-base" onClick={()=>galleryInputRef.current?.click()}>
-                  <span className="truncate">Aus Galerie</span>
-                </Button>
-              </div>
-              <input ref={captureInputRef} hidden type="file" accept="video/*" capture="environment" onChange={(e)=>setForm({...form, file: e.target.files?.[0]||null})} />
-              <input ref={galleryInputRef} hidden type="file" accept="video/*" onChange={(e)=>setForm({...form, file: e.target.files?.[0]||null})} />
-              {form.file && (
-                <p className="text-xs text-muted-foreground mt-1 truncate">Ausgewählt: {form.file.name} ({Math.round(form.file.size/1024)} KB)</p>
-              )}
-              <p className="text-xs text-muted-foreground mt-1">Upload startet beim Speichern.</p>
-              {isUploading && <p className="text-xs text-muted-foreground mt-1">Lade hoch…</p>}
-            </div>
-            <div className="w-full min-w-0">
-              <Label>Notizen</Label>
-                    <Textarea value={form.note} onChange={(e)=>setForm({...form, note: e.target.value})} className="min-h-[100px] w-full min-w-0" />
-            </div>
-                </form>
+                        <div className="relative">
+                          <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t" />
+                          </div>
+                          <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-background px-2 text-muted-foreground">oder</span>
+                          </div>
+                        </div>
+                        <div className="w-full min-w-0">
+                          <Label className="text-sm mb-2 block">Video aus CDN auswählen</Label>
+                          <VideoSelector
+                            selectedUrl={form.videoUrl}
+                            onSelect={(url) => {
+                              setForm({...form, videoUrl: url, file: null});
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <input 
+                        ref={captureInputRef} 
+                        hidden 
+                        type="file" 
+                        accept="video/*" 
+                        capture="environment" 
+                        onChange={(e)=>{
+                          const file = e.target.files?.[0] || null;
+                          setForm({...form, file, videoUrl: ''});
+                        }} 
+                      />
+                      <input 
+                        ref={galleryInputRef} 
+                        hidden 
+                        type="file" 
+                        accept="video/*" 
+                        onChange={(e)=>{
+                          const file = e.target.files?.[0] || null;
+                          setForm({...form, file, videoUrl: ''});
+                        }} 
+                      />
+                      {(form.file || form.videoUrl) && (
+                        <div className="mt-4">
+                          {form.file && (
+                            <p className="text-sm text-muted-foreground mb-2">
+                              Ausgewählt: {form.file.name} ({(form.file.size / 1024 / 1024).toFixed(2)} MB)
+                            </p>
+                          )}
+                          {form.videoUrl && (
+                            <p className="text-sm text-muted-foreground mb-2">
+                              CDN-Video: {form.videoUrl}
+                            </p>
+                          )}
+                          {videoPreviewUrl && (
+                            <div className="aspect-[9/16] w-full max-w-xs mx-auto rounded-lg overflow-hidden border">
+                              <video 
+                                src={videoPreviewUrl} 
+                                controls 
+                                className="w-full h-full object-cover"
+                                playsInline
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 3: Thumbnail */}
+                {wizardStep === 3 && (
+                  <div className="space-y-4">
+                    <div className="w-full min-w-0">
+                      <Label>Thumbnail (optional)</Label>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Zeige die Startgriffe des Boulders. Dieses Bild wird in der Boulder-Liste angezeigt.
+                      </p>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        className="w-full h-12" 
+                        onClick={()=>thumbnailInputRef.current?.click()}
+                      >
+                        Thumbnail auswählen
+                      </Button>
+                      <input 
+                        ref={thumbnailInputRef} 
+                        hidden 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e)=>{
+                          const file = e.target.files?.[0] || null;
+                          setForm({...form, thumbnailFile: file});
+                        }} 
+                      />
+                      {form.thumbnailFile && (
+                        <div className="mt-4">
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Ausgewählt: {form.thumbnailFile.name} ({(form.thumbnailFile.size / 1024).toFixed(2)} KB)
+                          </p>
+                          {thumbnailPreviewUrl && (
+                            <div className="aspect-[9/16] w-full max-w-xs mx-auto rounded-lg overflow-hidden border">
+                              <img 
+                                src={thumbnailPreviewUrl} 
+                                alt="Thumbnail preview" 
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 4: Details */}
+                {wizardStep === 4 && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0">
+                      <div className="w-full min-w-0">
+                        <Label>Schwierigkeit *</Label>
+                        <Select value={String(form.difficulty)} onValueChange={(v)=>setForm({...form, difficulty: parseInt(v)})}>
+                          <SelectTrigger className="h-12 text-base w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {DIFFICULTIES.map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="w-full min-w-0">
+                        <Label>Farbe *</Label>
+                        <Select value={form.color} onValueChange={(v)=>setForm(prev => ({...prev, color: v, name: adjustNameForColor(prev.name, v)}))}>
+                          <SelectTrigger className="h-12 text-base w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {COLORS.map(c => (
+                              <SelectItem key={c} value={c}>
+                                <div className="flex items-center gap-2">
+                                  <span className="w-3 h-3 rounded-full border" style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }} />
+                                  <span>{c}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="w-full min-w-0">
+                      <Label>Notizen</Label>
+                      <Textarea 
+                        value={form.note} 
+                        onChange={(e)=>setForm({...form, note: e.target.value})} 
+                        className="min-h-[100px] w-full min-w-0" 
+                        placeholder="Optionale Notizen zum Boulder..."
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 5: Preview */}
+                {wizardStep === 5 && (
+                  <div className="space-y-4">
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-muted-foreground">Name</Label>
+                        <p className="text-lg font-medium">{form.name || '-'}</p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground">Sektor</Label>
+                        <p className="text-lg font-medium">
+                          {sectors?.find(s => s.id === form.sector_id)?.name || '-'}
+                          {form.spansMultipleSectors && form.sector_id_2 && (
+                            <span> → {sectors?.find(s => s.id === form.sector_id_2)?.name}</span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-muted-foreground">Schwierigkeit</Label>
+                          <p className="text-lg font-medium">{form.difficulty}</p>
+                        </div>
+                        <div>
+                          <Label className="text-muted-foreground">Farbe</Label>
+                          <div className="flex items-center gap-2">
+                            <span className="w-4 h-4 rounded-full border" style={{ backgroundColor: COLOR_HEX[form.color] || '#9ca3af' }} />
+                            <p className="text-lg font-medium">{form.color}</p>
+                          </div>
+                        </div>
+                      </div>
+                      {(form.file || form.videoUrl) && (
+                        <div>
+                          <Label className="text-muted-foreground">Video</Label>
+                          {form.file && (
+                            <p className="text-sm">{form.file.name} ({(form.file.size / 1024 / 1024).toFixed(2)} MB)</p>
+                          )}
+                          {form.videoUrl && (
+                            <p className="text-sm break-all">{form.videoUrl}</p>
+                          )}
+                          {videoPreviewUrl && (
+                            <div className="aspect-[9/16] w-full max-w-xs mt-2 rounded-lg overflow-hidden border">
+                              <video 
+                                src={videoPreviewUrl} 
+                                controls 
+                                className="w-full h-full object-cover"
+                                playsInline
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {form.thumbnailFile && (
+                        <div>
+                          <Label className="text-muted-foreground">Thumbnail</Label>
+                          <p className="text-sm">{form.thumbnailFile.name} ({(form.thumbnailFile.size / 1024).toFixed(2)} KB)</p>
+                          {thumbnailPreviewUrl && (
+                            <div className="aspect-[9/16] w-full max-w-xs mt-2 rounded-lg overflow-hidden border">
+                              <img 
+                                src={thumbnailPreviewUrl} 
+                                alt="Thumbnail preview" 
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {form.note && (
+                        <div>
+                          <Label className="text-muted-foreground">Notizen</Label>
+                          <p className="text-sm whitespace-pre-wrap">{form.note}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Navigation buttons */}
+                <div className="flex items-center justify-between gap-4 mt-6 pt-4 border-t">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setWizardStep(Math.max(1, wizardStep - 1))}
+                    disabled={wizardStep === 1}
+                    className="flex items-center gap-2"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Zurück
+                  </Button>
+                  {wizardStep < 5 ? (
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        // Validate current step before proceeding
+                        if (wizardStep === 1 && !canProceedStep1) return;
+                        if (wizardStep === 2 && !canProceedStep2) return;
+                        if (wizardStep === 3 && !canProceedStep3) return;
+                        if (wizardStep === 4 && !canProceedStep4) return;
+                        setWizardStep(wizardStep + 1);
+                      }}
+                      disabled={
+                        (wizardStep === 1 && !canProceedStep1) ||
+                        (wizardStep === 2 && !canProceedStep2) ||
+                        (wizardStep === 3 && !canProceedStep3) ||
+                        (wizardStep === 4 && !canProceedStep4)
+                      }
+                      className="flex items-center gap-2"
+                    >
+                      Weiter
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      onClick={onWizardSubmit}
+                      disabled={!canSubmit || isUploading}
+                      className="flex items-center gap-2"
+                    >
+                      {isUploading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                          Speichere...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          Boulder speichern
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
               </CardContent>
-              <div className="p-4 pt-0">
-                <Button form="create-form" type="submit" className="w-full h-12" disabled={!canSubmit || isUploading}>
-                  {isUploading ? 'Speichere…' : 'Speichern'}
-                </Button>
-              </div>
             </Card>
         )}
 
@@ -808,8 +1383,101 @@ const Setter = () => {
                     </div>
                     <div className="w-full min-w-0">
                       <Label>Beta-Video (optional)</Label>
-                      <input className="block w-full text-sm min-w-0" type="file" accept="video/*" capture onChange={(e)=>setForm({...form, file: e.target.files?.[0]||null})} />
-                      {isUploading && <p className="text-xs text-muted-foreground mt-1">Lade hoch…</p>}
+                      <div className="flex gap-2 w-full min-w-0 mb-2">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          className="flex-1 h-12 min-w-0 text-sm sm:text-base" 
+                          onClick={()=>captureInputRef.current?.click()}
+                        >
+                          <span className="truncate">Video aufnehmen</span>
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          className="flex-1 h-12 min-w-0 text-sm sm:text-base" 
+                          onClick={()=>galleryInputRef.current?.click()}
+                        >
+                          <span className="truncate">Aus Galerie</span>
+                        </Button>
+                      </div>
+                      <input 
+                        ref={captureInputRef} 
+                        hidden 
+                        type="file" 
+                        accept="video/*" 
+                        capture="environment" 
+                        onChange={(e)=>setForm({...form, file: e.target.files?.[0]||null})} 
+                      />
+                      <input 
+                        ref={galleryInputRef} 
+                        hidden 
+                        type="file" 
+                        accept="video/*" 
+                        onChange={(e)=>setForm({...form, file: e.target.files?.[0]||null})} 
+                      />
+                      {editing.betaVideoUrl && !form.file && (
+                        <div className="mt-2">
+                          <p className="text-xs text-muted-foreground mb-2">Aktuelles Video:</p>
+                          <div className="aspect-[9/16] w-full max-w-xs rounded-lg overflow-hidden border">
+                            <video src={editing.betaVideoUrl} controls className="w-full h-full object-cover" playsInline />
+                          </div>
+                        </div>
+                      )}
+                      {form.file && (
+                        <p className="text-xs text-muted-foreground mt-2 truncate">
+                          Neues Video: {form.file.name} ({(form.file.size / 1024 / 1024).toFixed(2)} MB)
+                        </p>
+                      )}
+                      {videoPreviewUrl && form.file && (
+                        <div className="aspect-[9/16] w-full max-w-xs mt-2 rounded-lg overflow-hidden border">
+                          <video src={videoPreviewUrl} controls className="w-full h-full object-cover" playsInline />
+                        </div>
+                      )}
+                    </div>
+                    <div className="w-full min-w-0">
+                      <Label>Thumbnail (optional)</Label>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Zeige die Startgriffe des Boulders. Dieses Bild wird in der Boulder-Liste angezeigt.
+                      </p>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        className="w-full h-12 mb-2" 
+                        onClick={()=>thumbnailInputRef.current?.click()}
+                      >
+                        {editing.thumbnailUrl && !form.thumbnailFile ? 'Thumbnail ändern' : 'Thumbnail auswählen'}
+                      </Button>
+                      <input 
+                        ref={thumbnailInputRef} 
+                        hidden 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e)=>{
+                          const file = e.target.files?.[0] || null;
+                          setForm({...form, thumbnailFile: file});
+                        }} 
+                      />
+                      {editing.thumbnailUrl && !form.thumbnailFile && (
+                        <div className="mt-2">
+                          <p className="text-xs text-muted-foreground mb-2">Aktuelles Thumbnail:</p>
+                          <div className="aspect-[9/16] w-full max-w-xs rounded-lg overflow-hidden border">
+                            <img src={editing.thumbnailUrl} alt="Current thumbnail" className="w-full h-full object-cover" />
+                          </div>
+                        </div>
+                      )}
+                      {form.thumbnailFile && (
+                        <div className="mt-2">
+                          <p className="text-xs text-muted-foreground mb-2">
+                            Neues Thumbnail: {form.thumbnailFile.name} ({(form.thumbnailFile.size / 1024).toFixed(2)} KB)
+                          </p>
+                          {thumbnailPreviewUrl && (
+                            <div className="aspect-[9/16] w-full max-w-xs rounded-lg overflow-hidden border">
+                              <img src={thumbnailPreviewUrl} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="w-full min-w-0">
                       <Label>Notizen</Label>

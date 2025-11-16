@@ -583,6 +583,59 @@ export async function uploadSectorImage(
 }
 
 /**
+ * Delete a thumbnail image from All-Inkl or Supabase Storage
+ */
+export async function deleteThumbnail(thumbnailUrl: string | null): Promise<void> {
+  if (!thumbnailUrl) return;
+
+  try {
+    // Check if it's an All-Inkl URL
+    if (thumbnailUrl.includes('cdn.kletterwelt-sauerland.de')) {
+      const response = await fetch(`${ALLINKL_API_URL}/delete.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: thumbnailUrl }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Delete failed' }));
+        console.error('Error deleting thumbnail from All-Inkl:', error);
+        // Log debug info if available
+        if (error.debug) {
+          console.error('Delete debug info:', error.debug);
+        }
+      }
+      return;
+    }
+
+    // Fallback to Supabase Storage
+    const url = new URL(thumbnailUrl);
+    const pathParts = url.pathname.split('/');
+    const bucketIndex = pathParts.findIndex(part => part === DEFAULT_BUCKET);
+    
+    if (bucketIndex === -1) {
+      // Not a Supabase Storage URL, skip deletion
+      return;
+    }
+
+    const filePath = pathParts.slice(bucketIndex + 1).join('/');
+    
+    const { error } = await supabase.storage
+      .from(DEFAULT_BUCKET)
+      .remove([filePath]);
+
+    if (error) {
+      throw error;
+    }
+  } catch (error: any) {
+    // Log error but don't throw - thumbnail might already be deleted or URL might be external
+    console.error('Error deleting thumbnail:', error);
+  }
+}
+
+/**
  * Delete a beta video from All-Inkl or Supabase Storage
  */
 export async function deleteBetaVideo(videoUrl: string | null): Promise<void> {
@@ -632,6 +685,104 @@ export async function deleteBetaVideo(videoUrl: string | null): Promise<void> {
   } catch (error: any) {
     // Log error but don't throw - video might already be deleted or URL might be external
     console.error('Error deleting beta video:', error);
+  }
+}
+
+/**
+ * Upload a boulder thumbnail image to All-Inkl or Supabase Storage
+ */
+export async function uploadThumbnail(
+  file: File,
+  onProgress?: (progress: number) => void
+): Promise<string> {
+  // Validate file type
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error(`Ungültiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
+  }
+
+  // Validate file size (5MB max for thumbnails)
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (file.size > maxSize) {
+    throw new Error(`Datei zu groß. Maximum: ${Math.round(maxSize / 1024 / 1024)}MB`);
+  }
+
+  // Use All-Inkl if enabled, otherwise fallback to Supabase
+  if (USE_ALLINKL_STORAGE) {
+    try {
+      return await uploadToAllInkl(file, 'image', undefined, onProgress);
+    } catch (error: any) {
+      console.error('[All-Inkl Thumbnail Upload] Failed, falling back to Supabase:', error);
+      // Fallback to Supabase if All-Inkl fails
+    }
+  }
+
+  // Fallback to Supabase Storage
+  // Store thumbnails in a separate bucket or in the beta-videos bucket with a prefix
+  const ext = getFileExt(file.name) || 'jpg';
+  const objectPath = `thumbnails/${randomId()}.${ext}`;
+
+  // Simulate progress if callback provided
+  const simulateProgress = () => {
+    if (!onProgress) return;
+    
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += Math.random() * 15;
+      if (progress >= 90) {
+        progress = 90;
+        clearInterval(interval);
+      }
+      onProgress(progress);
+    }, 200);
+    
+    return interval;
+  };
+
+  const progressInterval = simulateProgress();
+
+  try {
+    const { data, error } = await supabase.storage
+      .from(DEFAULT_BUCKET)
+      .upload(objectPath, file, {
+        cacheControl: '3600',
+        upsert: true,
+        contentType: file.type || 'image/jpeg',
+      });
+
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
+
+    if (error) {
+      console.error('[Thumbnail Upload] Error details:', {
+        message: error.message,
+        statusCode: (error as any).statusCode,
+        error: error,
+        fileSize: file.size,
+        fileName: file.name,
+        fileType: file.type,
+        objectPath: objectPath,
+      });
+      throw error;
+    }
+
+    if (onProgress) {
+      onProgress(100);
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from(DEFAULT_BUCKET)
+      .getPublicUrl(objectPath);
+
+    return urlData.publicUrl;
+  } catch (error: any) {
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
+    console.error('[Thumbnail Upload] Upload failed:', error);
+    throw error;
   }
 }
 

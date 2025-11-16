@@ -20,6 +20,7 @@ export const transformBoulder = (
     difficulty: boulder.difficulty as Boulder['difficulty'],
     color: boulder.color as Boulder['color'],
     betaVideoUrl: boulder.beta_video_url || undefined,
+    thumbnailUrl: boulder.thumbnail_url || undefined,
     note: boulder.note || undefined,
     createdAt: new Date(boulder.created_at),
     status: (boulder as any).status || 'haengt',

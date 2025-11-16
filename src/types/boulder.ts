@@ -9,6 +9,7 @@ export interface Boulder {
   difficulty: Difficulty;
   color: BoulderColor;
   betaVideoUrl?: string;
+  thumbnailUrl?: string; // URL to manually uploaded thumbnail image showing starting holds
   note?: string;
   createdAt: Date;
   status?: 'haengt' | 'abgeschraubt';

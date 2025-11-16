@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { Sidebar } from '@/components/Sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,12 +19,58 @@ const Sectors = () => {
   const { data: sectors, isLoading, error } = useSectorsTransformed();
   const { data: boulders } = useBoulders();
   const { data: schedule } = useSectorSchedule();
+  const [imagesLoaded, setImagesLoaded] = useState(false);
+
+  // Preload all sector images and wait until they're loaded
+  useEffect(() => {
+    if (sectors && sectors.length > 0) {
+      const imageUrls = sectors
+        .map(s => s.imageUrl)
+        .filter((url): url is string => !!url);
+      
+      if (imageUrls.length === 0) {
+        // No images to load, show content immediately
+        setImagesLoaded(true);
+        return;
+      }
+
+      setImagesLoaded(false);
+      let loadedCount = 0;
+      let errorCount = 0;
+      const totalImages = imageUrls.length;
+
+      const checkAllLoaded = () => {
+        if (loadedCount + errorCount >= totalImages) {
+          console.log(`[Sectors] All images loaded: ${loadedCount} successful, ${errorCount} errors`);
+          setImagesLoaded(true);
+        }
+      };
+
+      imageUrls.forEach((imageUrl) => {
+        const img = new Image();
+        img.onload = () => {
+          loadedCount++;
+          checkAllLoaded();
+        };
+        img.onerror = () => {
+          console.warn('[Sectors] Failed to load image:', imageUrl);
+          errorCount++;
+          checkAllLoaded();
+        };
+        img.src = imageUrl;
+      });
+    } else if (!isLoading && sectors) {
+      // Sectors loaded but no images
+      setImagesLoaded(true);
+    }
+  }, [sectors, isLoading]);
 
   const handleViewBoulders = (sectorName: string) => {
     navigate(`/boulders?sector=${encodeURIComponent(sectorName)}`);
   };
 
-  if (isLoading) {
+  // Show loading state while data is loading OR images are still loading
+  if (isLoading || !imagesLoaded) {
     return (
       <div className="min-h-screen bg-background flex">
         <Sidebar />
@@ -95,13 +142,28 @@ const Sectors = () => {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {sectors.map((sector) => (
               <Card key={sector.id} className="hover:shadow-lg transition-shadow overflow-hidden">
-                {sector.imageUrl && (
-                  <div className="aspect-video w-full overflow-hidden">
+                {sector.imageUrl ? (
+                  <div className="aspect-video w-full overflow-hidden bg-muted">
                     <img 
                       src={sector.imageUrl} 
                       alt={sector.name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-opacity duration-300"
+                      loading="eager"
+                      decoding="async"
+                      fetchpriority="high"
+                      onLoad={(e) => {
+                        e.currentTarget.style.opacity = '1';
+                      }}
+                      onError={(e) => {
+                        console.error('[Sectors] Image load error for sector:', sector.name, 'URL:', e.currentTarget.src);
+                        e.currentTarget.style.display = 'none';
+                      }}
+                      style={{ opacity: 0 }}
                     />
+                  </div>
+                ) : (
+                  <div className="aspect-video w-full bg-muted flex items-center justify-center">
+                    <Box className="w-12 h-12 text-muted-foreground/50" />
                   </div>
                 )}
                 

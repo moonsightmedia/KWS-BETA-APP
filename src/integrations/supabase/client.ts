@@ -22,6 +22,15 @@ const createSafeStorage = () => {
         if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
           return null;
         }
+        // Check if storage is actually accessible
+        const testKey = '__sb_storage_test__';
+        try {
+          localStorage.setItem(testKey, '1');
+          localStorage.removeItem(testKey);
+        } catch {
+          // Storage is blocked, return null
+          return null;
+        }
         return localStorage.getItem(key);
       } catch (error) {
         // Silently return null - never throw
@@ -33,6 +42,15 @@ const createSafeStorage = () => {
         if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
           return;
         }
+        // Check if storage is actually accessible
+        const testKey = '__sb_storage_test__';
+        try {
+          localStorage.setItem(testKey, '1');
+          localStorage.removeItem(testKey);
+        } catch {
+          // Storage is blocked, silently ignore
+          return;
+        }
         localStorage.setItem(key, value);
       } catch (error) {
         // Silently ignore - never throw
@@ -41,6 +59,15 @@ const createSafeStorage = () => {
     removeItem: (key: string) => {
       try {
         if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+          return;
+        }
+        // Check if storage is actually accessible
+        const testKey = '__sb_storage_test__';
+        try {
+          localStorage.setItem(testKey, '1');
+          localStorage.removeItem(testKey);
+        } catch {
+          // Storage is blocked, silently ignore
           return;
         }
         localStorage.removeItem(key);

@@ -372,60 +372,80 @@ const Boulders = () => {
           </div>
 
           {/* Boulder Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredAndSortedBoulders.map((boulder) => (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {filteredAndSortedBoulders.map((boulder) => {
+              // Get thumbnail URL for boulder
+              const getThumbnailUrl = (b: Boulder): string => {
+                if (b.thumbnailUrl) {
+                  // Fix old URLs that incorrectly include /videos/ in the path
+                  let url = b.thumbnailUrl;
+                  if (url.includes('cdn.kletterwelt-sauerland.de/uploads/videos/')) {
+                    url = url.replace('/uploads/videos/', '/uploads/');
+                  }
+                  return url;
+                }
+                // Use placeholder
+                return 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';
+              };
+
+              return (
               <Card 
                 key={boulder.id} 
-                className="hover:shadow-lg transition-shadow cursor-pointer"
+                className="hover:bg-muted/50 cursor-pointer transition-colors h-[120px] sm:h-[140px] overflow-hidden"
                 onClick={() => handleBoulderClick(boulder)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleBoulderClick(boulder);
+                  }
+                }}
               >
-              <CardHeader>
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="space-y-2">
-                      <CardTitle className="text-lg">{boulder.name}</CardTitle>
-                      <Badge variant="outline" className="font-medium">
-                        {boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold ${TEXT_ON_COLOR[boulder.color] || 'text-white'}`}
-                        title={boulder.color}
-                        style={{ backgroundColor: COLOR_HEX[boulder.color] || '#9ca3af' }}
-                      >
-                        {boulder.difficulty}
-                      </span>
+                <CardContent className="p-0 pointer-events-none flex h-full">
+                  {/* Thumbnail links */}
+                  <div className="w-24 sm:w-32 flex-shrink-0 h-full">
+                    <img 
+                      className="w-full h-full object-cover pointer-events-none" 
+                      src={getThumbnailUrl(boulder)} 
+                      alt={boulder.name}
+                      loading="lazy"
+                      decoding="async"
+                      onError={(e) => {
+                        const placeholder = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';
+                        if (e.currentTarget.src !== placeholder) {
+                          e.currentTarget.src = placeholder;
+                        }
+                      }}
+                    />
+                  </div>
+                  {/* Content rechts */}
+                  <div className="flex-1 p-3 sm:p-4 flex flex-col justify-between min-w-0">
+                    <div>
+                      <div className="font-medium text-sm sm:text-base truncate">{boulder.name}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        <div className="truncate">{boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}</div>
+                      </div>
                       {boulder.status && (
-                        <Badge variant={boulder.status === 'haengt' ? 'default' : 'secondary'}>
+                        <Badge 
+                          variant={boulder.status === 'haengt' ? 'default' : 'secondary'} 
+                          className="mt-1 text-[10px] px-1.5 py-0"
+                        >
                           {boulder.status === 'haengt' ? 'Hängt' : 'Abgeschraubt'}
                         </Badge>
                       )}
                     </div>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="space-y-3">
-                  {boulder.note && (
-                    <div className="flex items-start gap-2 text-sm">
-                      <FileText className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                      <p className="text-muted-foreground">{boulder.note}</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold flex-shrink-0 text-white`} style={{ backgroundColor: COLOR_HEX[boulder.color] || '#9ca3af' }}>
+                        {boulder.difficulty}
+                      </span>
+                      <span className="text-xs text-muted-foreground truncate">{boulder.color}</span>
                     </div>
-                  )}
-                  
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="w-4 h-4" />
-                    <span>Erstellt: {formatDate(boulder.createdAt, 'dd. MMM yyyy', { locale: de })}</span>
                   </div>
-
-                  {boulder.betaVideoUrl && (
-                    <Button variant="outline" size="sm" className="w-full">
-                      <Video className="w-4 h-4 mr-2" />
-                      Beta Video ansehen
-                    </Button>
-                  )}
                 </CardContent>
               </Card>
-            ))}
+            );
+            })}
           </div>
 
           {filteredAndSortedBoulders.length === 0 && (

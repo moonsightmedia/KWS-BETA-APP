@@ -76,45 +76,54 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
   const isVimeo = videoUrl ? isVimeoUrl(videoUrl) : false;
   const isDirectVideo = videoUrl && !isYouTube && !isVimeo;
 
+  // Get thumbnail URL for video poster
+  const getThumbnailUrl = (boulder: Boulder): string | undefined => {
+    if (boulder.thumbnailUrl) {
+      // Fix old URLs that incorrectly include /videos/ in the path
+      let url = boulder.thumbnailUrl;
+      if (url.includes('cdn.kletterwelt-sauerland.de/uploads/videos/')) {
+        url = url.replace('/uploads/videos/', '/uploads/');
+      }
+      return url;
+    }
+    return undefined;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-5">
-        <DialogHeader>
+      <DialogContent className="max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-4 md:p-5 w-[95vw] sm:w-full pb-4 sm:pb-6">
+        <DialogHeader className="space-y-2 text-center !text-center">
           <DialogDescription className="sr-only">
             Details für Boulder {boulder.name} - {boulder.color} · Grad {boulder.difficulty} · {boulder.sector}
           </DialogDescription>
-          <div className="flex items-start justify-between mb-1 pr-12">
-            <DialogTitle className="text-2xl sm:text-3xl font-teko tracking-wide leading-none">
-              {boulder.name}
-            </DialogTitle>
-            <div className="flex items-center gap-2">
-              <span
-                className={`inline-flex items-center justify-center gap-2 h-8 px-3 rounded-full border ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${TEXT_ON_COLOR[boulder.color] || 'text-white'}`}
-                title={`${boulder.color} · Grad ${boulder.difficulty}`}
-              >
-                <span className="text-xs font-semibold">{boulder.difficulty}</span>
-                <span className="text-xs opacity-90">{boulder.color}</span>
-              </span>
-            </div>
-          </div>
+          <DialogTitle className="text-xl sm:text-2xl md:text-3xl font-teko tracking-wide leading-tight text-center">
+            {boulder.name}
+          </DialogTitle>
         </DialogHeader>
 
         {/* Compact meta chips */}
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-xs">
-            <MapPin className="w-3.5 h-3.5 text-primary" />
-            <span className="truncate max-w-[10rem]">{boulder.sector}</span>
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-2 sm:mb-3">
+          <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs">
+            <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary flex-shrink-0" />
+            <span className="truncate max-w-[8rem] sm:max-w-[10rem]">{boulder.sector}</span>
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-xs">
-            <Calendar className="w-3.5 h-3.5 text-primary" />
+          <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs">
+            <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary flex-shrink-0" />
             <span>{formatDate(boulder.createdAt, 'dd. MMM yyyy', { locale: de })}</span>
+          </span>
+          <span
+            className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 h-7 sm:h-8 px-2 sm:px-3 rounded-full border text-xs ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${TEXT_ON_COLOR[boulder.color] || 'text-white'}`}
+            title={`${boulder.color} · Grad ${boulder.difficulty}`}
+          >
+            <span className="font-semibold text-[10px] sm:text-xs">{boulder.difficulty}</span>
+            <span className="opacity-90 text-[10px] sm:text-xs hidden sm:inline">{boulder.color}</span>
           </span>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {/* Video Section */}
           {videoUrl && (
-            <div className="aspect-video w-full overflow-hidden rounded-xl border bg-card/80 backdrop-blur shadow-sm">
+            <div className="aspect-[9/16] w-full max-w-[200px] sm:max-w-[280px] md:max-w-sm mx-auto overflow-hidden rounded-lg sm:rounded-xl border bg-card/80 backdrop-blur shadow-sm">
               {isYouTube && (
                 <iframe
                   src={getYouTubeEmbedUrl(videoUrl)}
@@ -139,9 +148,8 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
                 <video 
                   controls 
                   className="w-full h-full"
-                  poster="/placeholder.svg"
+                  poster={getThumbnailUrl(boulder) || undefined}
                   preload="none"
-                  loading="lazy"
                 >
                   <source src={videoUrl} type="video/mp4" />
                   Dein Browser unterstützt keine Videos.
@@ -182,14 +190,14 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
 
           {/* Notes Section */}
           {boulder.note && (
-            <div className="rounded-xl border bg-card/80 backdrop-blur p-3 shadow-sm">
-              <div className="flex items-start gap-3">
-                <span className="w-7 h-7 rounded-lg grid place-items-center bg-gradient-to-br from-primary/12 to-primary/5 text-primary">
-                  <FileText className="w-3.5 h-3.5" />
+            <div className="rounded-lg sm:rounded-xl border bg-card/80 backdrop-blur p-2.5 sm:p-3 shadow-sm">
+              <div className="flex items-start gap-2 sm:gap-3">
+                <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg grid place-items-center bg-gradient-to-br from-primary/12 to-primary/5 text-primary flex-shrink-0">
+                  <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </span>
-                <div className="flex-1">
-                  <p className="text-sm font-medium mb-1">Notizen</p>
-                  <p className="text-sm text-muted-foreground">{boulder.note}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm font-medium mb-1">Notizen</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground break-words">{boulder.note}</p>
                 </div>
               </div>
             </div>

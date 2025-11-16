@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { useBoulders, useCreateBoulder, useUpdateBoulder, useDeleteBoulder, useBouldersWithSectors } from "@/hooks/useBoulders";
+import { useBoulders, useCreateBoulder, useUpdateBoulder, useDeleteBoulder, useBouldersWithSectors, useDeleteAllBoulders } from "@/hooks/useBoulders";
 import { useSectors, useSectorsTransformed } from "@/hooks/useSectors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, Trash2, Plus, MoreVertical, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, Palette, Map, Dumbbell, X } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const DEFAULT_COLORS = ['Grün', 'Gelb', 'Blau', 'Orange', 'Rot', 'Schwarz', 'Weiß', 'Lila'];
@@ -37,10 +37,12 @@ export const BoulderManagement = () => {
   const createBoulder = useCreateBoulder();
   const updateBoulder = useUpdateBoulder();
   const deleteBoulder = useDeleteBoulder();
+  const deleteAllBoulders = useDeleteAllBoulders();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBoulder, setEditingBoulder] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
 
   const [availableColors, setAvailableColors] = useState<string[]>(DEFAULT_COLORS);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -141,6 +143,7 @@ export const BoulderManagement = () => {
     difficulty: 1,
     color: "Grün",
     beta_video_url: "",
+    thumbnail_url: "",
     note: "",
   });
 
@@ -151,6 +154,7 @@ export const BoulderManagement = () => {
       difficulty: 1,
       color: "Grün",
       beta_video_url: "",
+      thumbnail_url: "",
       note: "",
     });
     setEditingBoulder(null);
@@ -186,6 +190,7 @@ export const BoulderManagement = () => {
       difficulty: boulder.difficulty,
       color: boulder.color,
       beta_video_url: boulder.beta_video_url || "",
+      thumbnail_url: boulder.thumbnail_url || "",
       note: boulder.note || "",
     });
     setIsDialogOpen(true);
@@ -400,6 +405,53 @@ export const BoulderManagement = () => {
                   />
                   {isUploading && <span className="text-xs text-muted-foreground">Lade hoch…</span>}
                 </div>
+                {formData.beta_video_url && (
+                  <div className="mt-2 aspect-[9/16] w-full max-w-xs rounded-lg overflow-hidden border">
+                    <video src={formData.beta_video_url} controls className="w-full h-full object-cover" playsInline />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="thumbnail_url">Thumbnail URL (optional)</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Zeige die Startgriffe des Boulders. Dieses Bild wird in der Boulder-Liste angezeigt.
+                </p>
+                <Input
+                  id="thumbnail_url"
+                  type="url"
+                  value={formData.thumbnail_url}
+                  onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
+                  placeholder="https://..."
+                />
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    id="thumbnail_file"
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        setIsUploading(true);
+                        const { uploadThumbnail } = await import('@/integrations/supabase/storage');
+                        const url = await uploadThumbnail(file);
+                        setFormData({ ...formData, thumbnail_url: url });
+                      } catch (err) {
+                        // eslint-disable-next-line no-console
+                        console.error('Thumbnail-Upload fehlgeschlagen', err);
+                      } finally {
+                        setIsUploading(false);
+                      }
+                    }}
+                  />
+                  {isUploading && <span className="text-xs text-muted-foreground">Lade hoch…</span>}
+                </div>
+                {formData.thumbnail_url && (
+                  <div className="mt-2 aspect-[9/16] w-full max-w-xs rounded-lg overflow-hidden border">
+                    <img src={formData.thumbnail_url} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -425,6 +477,45 @@ export const BoulderManagement = () => {
 
   return (
     <div className="space-y-4">
+      {/* Header with Delete All Button */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold font-teko tracking-wide">Boulder verwalten</h2>
+        <AlertDialog open={showDeleteAllDialog} onOpenChange={setShowDeleteAllDialog}>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" size="sm">
+              <Trash2 className="w-4 h-4 mr-2" />
+              Alle Boulder löschen
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Alle Boulder löschen?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Diese Aktion löscht alle Boulder aus der Datenbank. Die Videos bleiben im CDN erhalten und können später wieder verwendet werden.
+                <br /><br />
+                Diese Aktion kann nicht rückgängig gemacht werden.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  try {
+                    await deleteAllBoulders.mutateAsync();
+                    setShowDeleteAllDialog(false);
+                  } catch (error) {
+                    // Error is handled by the hook
+                  }
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Alle löschen
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+
       {/* Search and Filter Controls */}
       <div className="flex gap-3 mb-6">
         <div className="relative flex-1">
