@@ -14,7 +14,7 @@ export const ColorManagement = () => {
   const updateColor = useUpdateColor();
   const deleteColor = useDeleteColor();
 
-  const [form, setForm] = useState({ name: '', hex: '#22c55e', sort_order: 0 });
+  const [form, setForm] = useState({ name: '', hex: '#22c55e', secondary_hex: '', sort_order: 0 });
   const [query, setQuery] = useState('');
   const seedDefaults = async () => {
     await supabase.from('colors').upsert([
@@ -32,8 +32,13 @@ export const ColorManagement = () => {
   const onCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.hex) return;
-    await createColor.mutateAsync({ name: form.name, hex: form.hex, sort_order: form.sort_order });
-    setForm({ name: '', hex: '#22c55e', sort_order: 0 });
+    await createColor.mutateAsync({ 
+      name: form.name, 
+      hex: form.hex, 
+      secondary_hex: form.secondary_hex || null,
+      sort_order: form.sort_order 
+    });
+    setForm({ name: '', hex: '#22c55e', secondary_hex: '', sort_order: 0 });
   };
 
   const filtered = useMemo(() => {
@@ -51,10 +56,18 @@ export const ColorManagement = () => {
       <CardContent className="space-y-4 w-full min-w-0">
         {/* Toolbar: Create inline + Suche + Defaults */}
         <form onSubmit={onCreate} className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between w-full min-w-0">
-          <div className="flex items-center gap-2 w-full md:w-auto min-w-0">
-            <div className="w-10 h-10 rounded-full border flex-shrink-0" style={{ backgroundColor: form.hex }} />
-            <Input placeholder="Name" value={form.name} onChange={(e)=>setForm({...form, name: e.target.value})} className="md:w-56 flex-1 min-w-0" required />
-            <Input placeholder="#HEX" value={form.hex} onChange={(e)=>setForm({...form, hex: e.target.value})} className="w-24 sm:w-28 flex-shrink-0" />
+          <div className="flex items-center gap-2 w-full md:w-auto min-w-0 flex-wrap">
+            <div 
+              className="w-10 h-10 rounded-full border flex-shrink-0" 
+              style={{ 
+                background: form.secondary_hex 
+                  ? `linear-gradient(135deg, ${form.hex} 0%, ${form.hex} 50%, ${form.secondary_hex} 50%, ${form.secondary_hex} 100%)`
+                  : form.hex 
+              }} 
+            />
+            <Input placeholder="Name (z.B. Grün-Gelb)" value={form.name} onChange={(e)=>setForm({...form, name: e.target.value})} className="md:w-56 flex-1 min-w-0" required />
+            <Input placeholder="#HEX 1" value={form.hex} onChange={(e)=>setForm({...form, hex: e.target.value})} className="w-24 sm:w-28 flex-shrink-0" />
+            <Input placeholder="#HEX 2 (optional)" value={form.secondary_hex} onChange={(e)=>setForm({...form, secondary_hex: e.target.value})} className="w-24 sm:w-28 flex-shrink-0" />
             <Input type="number" placeholder="Sort" value={form.sort_order} onChange={(e)=>setForm({...form, sort_order: parseInt(e.target.value || '0')})} className="w-16 sm:w-20 flex-shrink-0" />
             <Button type="submit" className="flex-shrink-0 text-xs sm:text-sm"><Plus className="w-4 h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Anlegen</span></Button>
           </div>
@@ -96,14 +109,16 @@ const ColorRow = ({
 }) => {
   const [name, setName] = useState(color.name);
   const [hex, setHex] = useState(color.hex);
+  const [secondaryHex, setSecondaryHex] = useState(color.secondary_hex || '');
   const [sortOrder, setSortOrder] = useState(color.sort_order);
 
   // Update local state when color prop changes (after successful update)
   useEffect(() => {
     setName(color.name);
     setHex(color.hex);
+    setSecondaryHex(color.secondary_hex || '');
     setSortOrder(color.sort_order);
-  }, [color.name, color.hex, color.sort_order]);
+  }, [color.name, color.hex, color.secondary_hex, color.sort_order]);
 
   const handleNameBlur = () => {
     const newValue = name.trim();
@@ -136,6 +151,16 @@ const ColorRow = ({
     }
   };
 
+  const handleSecondaryHexBlur = () => {
+    const newValue = secondaryHex.trim() || null;
+    if (newValue !== (color.secondary_hex || null)) {
+      updateColor.mutate({ id: color.id, secondary_hex: newValue });
+    } else {
+      // Reset to original if empty
+      setSecondaryHex(color.secondary_hex || '');
+    }
+  };
+
   const handleSortOrderBlur = () => {
     const newValue = parseInt(sortOrder.toString() || '0');
     if (newValue !== color.sort_order) {
@@ -144,9 +169,16 @@ const ColorRow = ({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[24px,40px,1fr,120px,90px,90px,auto] items-center gap-3 border rounded-2xl p-3 bg-card/60 w-full min-w-0">
+    <div className="grid grid-cols-1 md:grid-cols-[24px,40px,1fr,120px,120px,90px,90px,auto] items-center gap-3 border rounded-2xl p-3 bg-card/60 w-full min-w-0">
       <GripVertical className="w-4 h-4 text-muted-foreground hidden md:block" />
-      <div className="w-8 h-8 rounded-full border flex-shrink-0" style={{ backgroundColor: hex }} />
+      <div 
+        className="w-8 h-8 rounded-full border flex-shrink-0" 
+        style={{ 
+          background: secondaryHex 
+            ? `linear-gradient(135deg, ${hex} 0%, ${hex} 50%, ${secondaryHex} 50%, ${secondaryHex} 100%)`
+            : hex 
+        }} 
+      />
       <Input 
         value={name} 
         onChange={(e) => {
@@ -161,6 +193,14 @@ const ColorRow = ({
         value={hex} 
         onChange={(e) => setHex(e.target.value)}
         onBlur={handleHexBlur}
+        placeholder="#HEX 1"
+        className="w-full min-w-0" 
+      />
+      <Input 
+        value={secondaryHex} 
+        onChange={(e) => setSecondaryHex(e.target.value)}
+        onBlur={handleSecondaryHexBlur}
+        placeholder="#HEX 2 (optional)"
         className="w-full min-w-0" 
       />
       <Input 

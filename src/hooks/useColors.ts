@@ -6,6 +6,7 @@ export interface ColorRow {
   id: string;
   name: string;
   hex: string;
+  secondary_hex?: string | null; // Optional second color for two-color grips
   is_active: boolean;
   sort_order: number;
 }
@@ -24,10 +25,11 @@ export function useColors() {
 export function useCreateColor() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: { name: string; hex: string; sort_order?: number; is_active?: boolean }) => {
+    mutationFn: async (payload: { name: string; hex: string; secondary_hex?: string | null; sort_order?: number; is_active?: boolean }) => {
       const { error } = await supabase.from('colors').insert({
         name: payload.name,
         hex: payload.hex,
+        secondary_hex: payload.secondary_hex || null,
         sort_order: payload.sort_order ?? 0,
         is_active: payload.is_active ?? true,
       });
@@ -70,6 +72,7 @@ export function useUpdateColor() {
       const updateData: Partial<ColorRow> = {};
       if (rest.name !== undefined) updateData.name = rest.name;
       if (rest.hex !== undefined) updateData.hex = rest.hex;
+      if (rest.secondary_hex !== undefined) updateData.secondary_hex = rest.secondary_hex || null;
       if (rest.is_active !== undefined) updateData.is_active = rest.is_active;
       if (rest.sort_order !== undefined) updateData.sort_order = rest.sort_order;
       

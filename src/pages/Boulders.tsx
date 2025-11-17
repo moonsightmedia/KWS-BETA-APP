@@ -19,6 +19,8 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useSectorsTransformed } from '@/hooks/useSectors';
+import { useColors } from '@/hooks/useColors';
+import { getColorBackgroundStyle } from '@/utils/colorUtils';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Search, Video, FileText, Calendar, Filter, ArrowUpDown, ArrowUp, ArrowDown, AlertCircle, Palette, Map, Dumbbell, X, CheckCircle2 } from 'lucide-react';
@@ -87,6 +89,7 @@ const Boulders = () => {
   const [quickFilter, setQuickFilter] = useState<null | 'sector' | 'difficulty' | 'color'>(null);
   const [scrollTo, setScrollTo] = useState<null | 'sector' | 'difficulty' | 'color'>(null);
   const sectorRef = useRef<HTMLDivElement | null>(null);
+  const { data: colors } = useColors();
   const difficultyRef = useRef<HTMLDivElement | null>(null);
   const colorRef = useRef<HTMLDivElement | null>(null);
 
@@ -406,13 +409,19 @@ const Boulders = () => {
               >
                 <CardContent className="p-0 pointer-events-none flex h-full">
                   {/* Thumbnail links */}
-                  <div className="w-24 sm:w-32 flex-shrink-0 h-full">
+                  <div className="w-24 sm:w-32 flex-shrink-0 h-full relative overflow-hidden bg-muted">
                     <img 
                       className="w-full h-full object-cover pointer-events-none" 
                       src={getThumbnailUrl(boulder)} 
                       alt={boulder.name}
                       loading="lazy"
                       decoding="async"
+                      style={{ 
+                        objectFit: 'cover',
+                        objectPosition: 'center',
+                        minHeight: '100%',
+                        width: '100%'
+                      }}
                       onError={(e) => {
                         const placeholder = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';
                         if (e.currentTarget.src !== placeholder) {
@@ -438,7 +447,10 @@ const Boulders = () => {
                       )}
                     </div>
                     <div className="mt-2 flex items-center gap-2">
-                      <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold flex-shrink-0 text-white`} style={{ backgroundColor: COLOR_HEX[boulder.color] || '#9ca3af' }}>
+                      <span 
+                        className="w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold flex-shrink-0 text-white" 
+                        style={getColorBackgroundStyle(boulder.color, colors)}
+                      >
                         {boulder.difficulty === null ? '?' : boulder.difficulty}
                       </span>
                       <span className="text-xs text-muted-foreground truncate">{boulder.color}</span>

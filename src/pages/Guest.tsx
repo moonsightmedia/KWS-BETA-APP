@@ -3,6 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useSectorsTransformed } from '@/hooks/useSectors';
+import { useColors } from '@/hooks/useColors';
+import { getColorBackgroundStyle } from '@/utils/colorUtils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -44,6 +46,7 @@ const Guest = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { data: colors } = useColors();
   const [searchQuery, setSearchQuery] = useState('');
   const [sectorFilter, setSectorFilter] = useState<string>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
@@ -273,13 +276,19 @@ const Guest = () => {
           >
             <CardContent className="p-0 pointer-events-none flex h-full">
               {/* Thumbnail links */}
-              <div className="w-24 sm:w-32 flex-shrink-0 h-full">
+              <div className="w-24 sm:w-32 flex-shrink-0 h-full relative overflow-hidden bg-muted">
                 <img 
                   className="w-full h-full object-cover pointer-events-none" 
                   src={getThumbnailUrl(b)} 
                   alt={b.name}
                   loading="lazy"
                   decoding="async"
+                  style={{ 
+                    objectFit: 'cover',
+                    objectPosition: 'center',
+                    minHeight: '100%',
+                    width: '100%'
+                  }}
                   onError={(e) => {
                     // Fallback to placeholder if image fails to load
                     console.error('[Guest] Image load error for boulder:', b.name, 'URL:', e.currentTarget.src);
@@ -301,7 +310,10 @@ const Guest = () => {
                   </div>
                 </div>
                 <div className="mt-2 flex items-center gap-2">
-                  <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold flex-shrink-0 text-white`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
+                  <span 
+                    className="w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold flex-shrink-0 text-white" 
+                    style={getColorBackgroundStyle(b.color, colors)}
+                  >
                     {formatDifficulty(b.difficulty)}
                   </span>
                   <span className="text-xs text-muted-foreground truncate">{b.color}</span>
