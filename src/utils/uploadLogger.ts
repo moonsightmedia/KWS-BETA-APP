@@ -126,13 +126,25 @@ export function collectNetworkInfo(): NetworkInfo {
  * Generate a unique session ID for an upload
  */
 export function generateSessionId(): string {
-  return `${Date.now()}-${crypto.randomUUID()}`;
+  const timestamp = Date.now();
+  // Use crypto.randomUUID if available, otherwise fallback to Math.random
+  const uuid = typeof crypto !== 'undefined' && crypto.randomUUID 
+    ? crypto.randomUUID() 
+    : `${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+  return `${timestamp}-${uuid}`;
 }
 
 /**
  * Calculate SHA-256 hash of a file for duplicate detection
  */
 export async function calculateFileHash(file: File): Promise<string> {
+  // Check if crypto.subtle is available
+  if (typeof crypto === 'undefined' || !crypto.subtle) {
+    // Use fallback hash if crypto.subtle is not available (e.g., in non-HTTPS contexts)
+    const fallbackHash = `${file.name}-${file.size}-${file.lastModified}`;
+    return btoa(fallbackHash).replace(/[^a-zA-Z0-9]/g, '').substring(0, 64);
+  }
+  
   try {
     const arrayBuffer = await file.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
@@ -140,9 +152,11 @@ export async function calculateFileHash(file: File): Promise<string> {
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     return hashHex;
   } catch (error) {
-    console.warn('[UploadLogger] Failed to calculate file hash:', error);
-    // Return a fallback hash based on file name and size
-    return `${file.name}-${file.size}-${file.lastModified}`;
+    console.warn('[UploadLogger] Failed to calculate file hash, using fallback:', error);
+    // Return a fallback hash based on file name, size, and lastModified
+    const fallbackHash = `${file.name}-${file.size}-${file.lastModified}`;
+    // Create a simple hash-like string from the fallback data
+    return btoa(fallbackHash).replace(/[^a-zA-Z0-9]/g, '').substring(0, 64);
   }
 }
 
@@ -273,6 +287,11 @@ export class UploadLogger {
 
       if (error) {
         console.error('[UploadLogger] Failed to create log entry:', error);
+        console.error('[UploadLogger] Error details:', JSON.stringify(error, null, 2));
+        // Check if table exists
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          console.error('[UploadLogger] upload_logs table does not exist! Please run the migration.');
+        }
         // Don't throw - logging should not break uploads
         return;
       }
@@ -334,9 +353,12 @@ export class UploadLogger {
           }
         : null;
 
+      // Round progress to integer (0-100) as database expects INTEGER
+      const progressInt = Math.round(Math.max(0, Math.min(100, progress || 0)));
+
       const updateData: Partial<UploadLogData> = {
         status,
-        progress,
+        progress: progressInt,
         error_message: errorMessage,
         error_details: errorDetails,
         chunk_info: chunkInfo || null,

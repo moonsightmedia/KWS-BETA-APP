@@ -15,13 +15,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Search, PlusCircle, Edit3, Calendar, X, Sparkles, ChevronLeft, ChevronRight, Check, Video, FileText } from 'lucide-react';
+import { Search, PlusCircle, Edit3, Calendar, X, Sparkles, ChevronLeft, ChevronRight, Check, Video, FileText, Upload } from 'lucide-react';
 import { MaterialIcon } from '@/components/MaterialIcon';
 import { useMemo as useMemoReact, useRef, useState } from 'react';
 import { useSectorSchedule, useCreateSectorSchedule, useDeleteSectorSchedule } from '@/hooks/useSectorSchedule';
 import { useColors } from '@/hooks/useColors';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { UploadLogViewer } from '@/components/admin/UploadLogViewer';
+import { BatchUpload } from '@/components/setter/BatchUpload';
 
 const DIFFICULTIES = [null, 1, 2, 3, 4, 5, 6, 7, 8]; // null = "?" (unknown/not rated)
 
@@ -359,7 +360,7 @@ const Setter = () => {
     videoUrl: '' as string, // For CDN video selection
   });
   const [isUploading, setIsUploading] = useState(false);
-  const [view, setView] = useState<'create' | 'edit' | 'schedule' | 'status' | 'logs'>('create');
+  const [view, setView] = useState<'create' | 'edit' | 'schedule' | 'status' | 'logs' | 'batch'>('create');
   // Wizard state for multi-step boulder creation
   const [wizardStep, setWizardStep] = useState(1);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
@@ -476,7 +477,7 @@ const Setter = () => {
         uploadPromises.push(
           uploadBetaVideo(form.file, (progress) => {
             // Progress handling can be added here if needed
-          }, createdBoulder.id).then((betaUrl) => {
+          }, createdBoulder.id || null).then((betaUrl) => {
             return updateBoulder.mutateAsync({
               id: createdBoulder.id,
               beta_video_url: betaUrl,
@@ -497,7 +498,7 @@ const Setter = () => {
         uploadPromises.push(
           uploadThumbnail(form.thumbnailFile, (progress) => {
             // Progress handling can be added here if needed
-          }, createdBoulder.id).then((thumbnailUrl) => {
+          }, createdBoulder.id || null).then((thumbnailUrl) => {
             return updateBoulder.mutateAsync({
               id: createdBoulder.id,
               thumbnail_url: thumbnailUrl,
@@ -746,7 +747,7 @@ const Setter = () => {
         uploadPromises.push(
           uploadBetaVideo(form.file, (progress) => {
             // Progress handling can be added here if needed
-          }, editing.id).then((betaUrl) => {
+          }, editing.id || null).then((betaUrl) => {
             return updateBoulder.mutateAsync({
               id: editing.id,
               beta_video_url: betaUrl,
@@ -782,7 +783,7 @@ const Setter = () => {
         uploadPromises.push(
           uploadThumbnail(form.thumbnailFile, (progress) => {
             // Progress handling can be added here if needed
-          }, editing.id).then((thumbnailUrl) => {
+          }, editing.id || null).then((thumbnailUrl) => {
             return updateBoulder.mutateAsync({
               id: editing.id,
               thumbnail_url: thumbnailUrl,
@@ -894,43 +895,50 @@ const Setter = () => {
           </div>
           {/* Segmented top control for Setter views */}
           {!(view==='status' && selectedCount>0) && (
-            <div className="sticky top-[56px] md:top-[88px] z-30 px-3 md:px-4 mb-3 w-full max-w-full overflow-x-hidden">
+            <div className="sticky top-[56px] md:top-[88px] z-30 px-2 sm:px-3 md:px-4 mb-3 w-full max-w-full overflow-x-hidden">
               <nav className="bg-sidebar-bg rounded-2xl shadow-2xl border border-border w-full max-w-full">
-                <div className="w-full flex items-center justify-around px-2 py-2 min-w-0">
+                <div className="w-full flex items-center justify-start gap-1 sm:gap-2 overflow-x-auto px-1 sm:px-2 py-2 min-w-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                   <button
-                    className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-3 py-2 rounded-xl transition-all flex-shrink-0 ${view==='create' ? 'text-success' : 'text-sidebar-icon'}`}
+                    className={`flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 rounded-xl transition-all flex-shrink-0 min-w-0 ${view==='create' ? 'text-success' : 'text-sidebar-icon'}`}
                     onClick={()=> setView('create')}
                   >
-                    <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="text-[10px] sm:text-xs whitespace-nowrap">Hinzufügen</span>
+                    <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex-shrink-0" />
+                    <span className="text-[9px] sm:text-[10px] md:text-xs whitespace-nowrap truncate max-w-[60px] sm:max-w-none">Hinzufügen</span>
                   </button>
                   <button
-                    className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-3 py-2 rounded-xl transition-all flex-shrink-0 ${view==='edit' ? 'text-success' : 'text-sidebar-icon'}`}
+                    className={`flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 rounded-xl transition-all flex-shrink-0 min-w-0 ${view==='batch' ? 'text-success' : 'text-sidebar-icon'}`}
+                    onClick={()=> setView('batch')}
+                  >
+                    <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex-shrink-0" />
+                    <span className="text-[9px] sm:text-[10px] md:text-xs whitespace-nowrap truncate max-w-[60px] sm:max-w-none">Batch</span>
+                  </button>
+                  <button
+                    className={`flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 rounded-xl transition-all flex-shrink-0 min-w-0 ${view==='edit' ? 'text-success' : 'text-sidebar-icon'}`}
                     onClick={()=> setView('edit')}
                   >
-                    <Edit3 className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="text-[10px] sm:text-xs whitespace-nowrap">Bearbeiten</span>
+                    <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex-shrink-0" />
+                    <span className="text-[9px] sm:text-[10px] md:text-xs whitespace-nowrap truncate max-w-[60px] sm:max-w-none">Bearbeiten</span>
                   </button>
                   <button
-                    className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-3 py-2 rounded-xl transition-all flex-shrink-0 ${view==='status' ? 'text-success' : 'text-sidebar-icon'}`}
+                    className={`flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 rounded-xl transition-all flex-shrink-0 min-w-0 ${view==='status' ? 'text-success' : 'text-sidebar-icon'}`}
                     onClick={()=> setView('status')}
                   >
-                    <MaterialIcon name="build" className="w-4 h-4 sm:w-5 sm:h-5" size={20} />
-                    <span className="text-[10px] sm:text-xs whitespace-nowrap">Status</span>
+                    <MaterialIcon name="build" className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex-shrink-0" size={16} />
+                    <span className="text-[9px] sm:text-[10px] md:text-xs whitespace-nowrap truncate max-w-[60px] sm:max-w-none">Status</span>
                   </button>
                   <button
-                    className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-3 py-2 rounded-xl transition-all flex-shrink-0 ${view==='schedule' ? 'text-success' : 'text-sidebar-icon'}`}
+                    className={`flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 rounded-xl transition-all flex-shrink-0 min-w-0 ${view==='schedule' ? 'text-success' : 'text-sidebar-icon'}`}
                     onClick={()=> setView('schedule')}
                   >
-                    <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="text-[10px] sm:text-xs whitespace-nowrap">Schraubtermin</span>
+                    <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex-shrink-0" />
+                    <span className="text-[9px] sm:text-[10px] md:text-xs whitespace-nowrap truncate max-w-[60px] sm:max-w-none">Termin</span>
                   </button>
                   <button
-                    className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-3 py-2 rounded-xl transition-all flex-shrink-0 ${view==='logs' ? 'text-success' : 'text-sidebar-icon'}`}
+                    className={`flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 rounded-xl transition-all flex-shrink-0 min-w-0 ${view==='logs' ? 'text-success' : 'text-sidebar-icon'}`}
                     onClick={()=> setView('logs')}
                   >
-                    <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="text-[10px] sm:text-xs whitespace-nowrap">Upload-Logs</span>
+                    <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex-shrink-0" />
+                    <span className="text-[9px] sm:text-[10px] md:text-xs whitespace-nowrap truncate max-w-[60px] sm:max-w-none">Logs</span>
                   </button>
                 </div>
               </nav>
@@ -1859,6 +1867,9 @@ const Setter = () => {
         )}
         {view === 'logs' && (
           <UploadLogViewer />
+        )}
+        {view === 'batch' && (
+          <BatchUpload />
         )}
             </section>
           </div>

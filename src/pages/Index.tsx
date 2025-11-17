@@ -15,6 +15,7 @@ import { useMemo, useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useSectorSchedule } from '@/hooks/useSectorSchedule';
+import { usePreloadBoulderThumbnails } from '@/hooks/usePreloadBoulderThumbnails';
 
 const Index = () => {
   const statistics = useStatistics();
@@ -23,6 +24,9 @@ const Index = () => {
   const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed();
   const isLoading = isLoadingBoulders || isLoadingSectors;
   const error = bouldersError || sectorsError;
+  
+  // Preload all boulder thumbnails when user is logged in
+  usePreloadBoulderThumbnails(!!user && !authLoading);
 
   // Greeting state must be declared before any conditional returns to keep hook order stable
   // Load persisted name from localStorage to avoid "Fremder" flash on remount

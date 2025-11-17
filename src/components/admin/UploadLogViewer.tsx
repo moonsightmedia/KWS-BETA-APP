@@ -178,7 +178,7 @@ export const UploadLogViewer = () => {
       </CardHeader>
       <CardContent className="space-y-4 w-full min-w-0">
         {/* Filter */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <div className="flex-1">
             <Input
               placeholder="Suche nach Dateiname, Session-ID, Boulder-ID..."
@@ -223,25 +223,25 @@ export const UploadLogViewer = () => {
             <div className="text-xs text-muted-foreground mb-2">
               {filteredLogs.length} {filteredLogs.length === 1 ? 'Log' : 'Logs'} gefunden
             </div>
-            <ScrollArea className="h-[600px]">
-              <div className="space-y-2 pr-4">
+            <ScrollArea className="h-[400px] sm:h-[600px]">
+              <div className="space-y-2 pr-2 sm:pr-4">
                 {filteredLogs.map((log) => {
                   const StatusIcon = STATUS_ICONS[log.status] || FileText;
                   return (
                     <div
                       key={log.id}
-                      className="border rounded-lg p-3 hover:bg-muted/50 cursor-pointer transition-colors"
+                      className="border rounded-lg p-2 sm:p-3 hover:bg-muted/50 cursor-pointer transition-colors"
                       onClick={() => setSelectedLog(log)}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <StatusIcon className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium text-sm truncate">{log.file_name}</span>
-                            <Badge variant="outline" className={STATUS_COLORS[log.status]}>
+                          <div className="flex items-center gap-1 sm:gap-2 mb-1 flex-wrap">
+                            <StatusIcon className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
+                            <span className="font-medium text-xs sm:text-sm truncate flex-1 min-w-0">{log.file_name}</span>
+                            <Badge variant="outline" className={`${STATUS_COLORS[log.status]} text-[10px] sm:text-xs px-1 sm:px-2`}>
                               {log.status}
                             </Badge>
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-[10px] sm:text-xs px-1 sm:px-2">
                               {log.file_type}
                             </Badge>
                           </div>
@@ -284,7 +284,7 @@ export const UploadLogViewer = () => {
 
         {/* Detail Dialog */}
         <Dialog open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
-          <DialogContent className="max-w-3xl max-h-[80vh]">
+          <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[80vh]">
             <DialogHeader>
               <DialogTitle>Upload-Log Details</DialogTitle>
               <DialogDescription>
@@ -292,9 +292,9 @@ export const UploadLogViewer = () => {
               </DialogDescription>
             </DialogHeader>
             {selectedLog && (
-              <ScrollArea className="max-h-[60vh] pr-4">
+              <ScrollArea className="max-h-[60vh] pr-2 sm:pr-4">
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <div className="text-xs text-muted-foreground mb-1">Dateiname</div>
                       <div className="font-medium">{selectedLog.file_name}</div>
@@ -321,9 +321,9 @@ export const UploadLogViewer = () => {
                       <div className="text-xs text-muted-foreground mb-1">Progress</div>
                       <div>{selectedLog.progress}%</div>
                     </div>
-                    <div>
+                    <div className="sm:col-span-2">
                       <div className="text-xs text-muted-foreground mb-1">Session-ID</div>
-                      <code className="text-xs">{selectedLog.upload_session_id}</code>
+                      <code className="text-[10px] sm:text-xs break-all break-words overflow-wrap-anywhere block">{selectedLog.upload_session_id}</code>
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground mb-1">Retry Count</div>
@@ -338,7 +338,7 @@ export const UploadLogViewer = () => {
                         href={selectedLog.final_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-primary hover:underline break-all"
+                        className="text-xs sm:text-sm text-primary hover:underline break-all break-words overflow-wrap-anywhere block"
                       >
                         {selectedLog.final_url}
                       </a>
@@ -357,7 +357,7 @@ export const UploadLogViewer = () => {
                   {selectedLog.error_details && (
                     <div>
                       <div className="text-xs text-muted-foreground mb-1">Fehler-Details</div>
-                      <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-40">
+                      <pre className="text-[10px] sm:text-xs bg-muted p-2 rounded overflow-x-auto max-h-32 sm:max-h-40">
                         {JSON.stringify(selectedLog.error_details, null, 2)}
                       </pre>
                     </div>
@@ -366,7 +366,7 @@ export const UploadLogViewer = () => {
                   {selectedLog.device_info && (
                     <div>
                       <div className="text-xs text-muted-foreground mb-1">Device-Info</div>
-                      <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-40">
+                      <pre className="text-[10px] sm:text-xs bg-muted p-2 rounded overflow-x-auto max-h-32 sm:max-h-40">
                         {JSON.stringify(selectedLog.device_info, null, 2)}
                       </pre>
                     </div>
@@ -375,7 +375,7 @@ export const UploadLogViewer = () => {
                   {selectedLog.network_info && (
                     <div>
                       <div className="text-xs text-muted-foreground mb-1">Network-Info</div>
-                      <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-40">
+                      <pre className="text-[10px] sm:text-xs bg-muted p-2 rounded overflow-x-auto max-h-32 sm:max-h-40">
                         {JSON.stringify(selectedLog.network_info, null, 2)}
                       </pre>
                     </div>
@@ -384,13 +384,13 @@ export const UploadLogViewer = () => {
                   {selectedLog.chunk_info && (
                     <div>
                       <div className="text-xs text-muted-foreground mb-1">Chunk-Info</div>
-                      <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-40">
+                      <pre className="text-[10px] sm:text-xs bg-muted p-2 rounded overflow-x-auto max-h-32 sm:max-h-40">
                         {JSON.stringify(selectedLog.chunk_info, null, 2)}
                       </pre>
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t">
                     <div>
                       <div className="text-xs text-muted-foreground mb-1">Gestartet</div>
                       <div className="text-sm">

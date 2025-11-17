@@ -464,128 +464,223 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
 
 /**
  * Upload file to All-Inkl using chunked upload for large files
+ * Includes retry mechanism and better error handling
  */
 async function uploadToAllInkl(
   file: File,
   fileType: 'video' | 'image',
   sectorId?: string,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  retryCount: number = 0
 ): Promise<string> {
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 1000; // 1 second base delay
+  const UPLOAD_TIMEOUT = 300000; // 5 minutes timeout
+  
   // Ensure file type is set correctly (especially for converted webm files)
-  const mimeType = file.type || (fileType === 'video' ? 'video/webm' : 'image/jpeg');
+  // Remove codecs parameter from MIME type for server compatibility
+  let mimeType = file.type || (fileType === 'video' ? 'video/webm' : 'image/jpeg');
+  // Remove codecs parameter (e.g., 'video/webm;codecs=vp9' -> 'video/webm')
+  if (mimeType.includes(';')) {
+    mimeType = mimeType.split(';')[0];
+  }
   
   const chunkSize = 5 * 1024 * 1024; // 5MB chunks
   const totalChunks = Math.ceil(file.size / chunkSize);
   const useChunked = totalChunks > 1;
   const uploadSessionId = useChunked ? randomId() : null;
+  
+  // Helper function to retry with exponential backoff
+  const retryWithBackoff = async (fn: () => Promise<string>): Promise<string> => {
+    try {
+      return await fn();
+    } catch (error: any) {
+      const isNetworkError = error.message?.toLowerCase().includes('network') || 
+                            error.message?.toLowerCase().includes('fetch') ||
+                            error.message?.toLowerCase().includes('timeout');
+      
+      if (isNetworkError && retryCount < MAX_RETRIES) {
+        const delay = RETRY_DELAY * Math.pow(2, retryCount);
+        console.warn(`[All-Inkl Upload] Retry ${retryCount + 1}/${MAX_RETRIES} after ${delay}ms:`, error.message);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return uploadToAllInkl(file, fileType, sectorId, onProgress, retryCount + 1);
+      }
+      throw error;
+    }
+  };
 
   if (useChunked) {
-    // Chunked upload for large files
-    for (let i = 0; i < totalChunks; i++) {
-      const start = i * chunkSize;
-      const end = Math.min(start + chunkSize, file.size);
-      const chunk = file.slice(start, end);
+    // Chunked upload for large files with retry mechanism
+    return retryWithBackoff(async () => {
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * chunkSize;
+        const end = Math.min(start + chunkSize, file.size);
+        const chunk = file.slice(start, end);
 
+        const formData = new FormData();
+        formData.append('chunk', chunk);
+
+        const headers: Record<string, string> = {
+          'X-File-Name': file.name,
+          'X-File-Size': file.size.toString(),
+          'X-File-Type': mimeType,
+          'X-Chunk-Number': i.toString(),
+          'X-Total-Chunks': totalChunks.toString(),
+        };
+
+        if (uploadSessionId) {
+          headers['X-Upload-Session-Id'] = uploadSessionId;
+        }
+
+        if (sectorId) {
+          headers['X-Sector-Id'] = sectorId;
+        }
+
+        // Upload chunk with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT);
+
+        try {
+          const response = await fetch(`${ALLINKL_API_URL}/upload.php`, {
+            method: 'POST',
+            body: formData,
+            headers: headers,
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            let errorMessage = `Upload failed: ${response.statusText}`;
+            try {
+              const errorData = await response.json();
+              errorMessage = errorData.error || errorMessage;
+            } catch {
+              // If JSON parsing fails, use status text
+            }
+            throw new Error(errorMessage);
+          }
+
+          const result = await response.json();
+
+          // Update progress
+          if (onProgress) {
+            const chunkProgress = ((i + 1) / totalChunks) * 100;
+            onProgress(chunkProgress);
+          }
+
+          // If this is the last chunk, return the URL
+          if (i === totalChunks - 1 && result.url) {
+            return result.url;
+          }
+        } catch (error: any) {
+          clearTimeout(timeoutId);
+          if (error.name === 'AbortError') {
+            throw new Error('Upload timeout: Request took too long');
+          }
+          throw error;
+        }
+      }
+
+      throw new Error('Upload completed but no URL returned');
+    });
+  } else {
+    // Single file upload for small files with retry mechanism
+    return retryWithBackoff(async () => {
       const formData = new FormData();
-      formData.append('chunk', chunk);
+      formData.append('file', file);
 
       const headers: Record<string, string> = {
         'X-File-Name': file.name,
         'X-File-Size': file.size.toString(),
         'X-File-Type': mimeType,
-        'X-Chunk-Number': i.toString(),
-        'X-Total-Chunks': totalChunks.toString(),
       };
-
-      if (uploadSessionId) {
-        headers['X-Upload-Session-Id'] = uploadSessionId;
-      }
 
       if (sectorId) {
         headers['X-Sector-Id'] = sectorId;
       }
 
-      const response = await fetch(`${ALLINKL_API_URL}/upload.php`, {
-        method: 'POST',
-        body: formData,
-        headers: headers,
-      });
+      // Track upload progress using XMLHttpRequest for better progress tracking
+      return new Promise<string>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        let isResolved = false;
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Upload failed' }));
-        throw new Error(error.error || `Upload failed: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-
-      // Update progress
-      if (onProgress) {
-        const chunkProgress = ((i + 1) / totalChunks) * 100;
-        onProgress(chunkProgress);
-      }
-
-      // If this is the last chunk, return the URL
-      if (i === totalChunks - 1 && result.url) {
-        return result.url;
-      }
-    }
-
-    throw new Error('Upload completed but no URL returned');
-  } else {
-    // Single file upload for small files
-    const formData = new FormData();
-    formData.append('file', file);
-
-      const headers: Record<string, string> = {
-        'X-File-Name': file.name,
-        'X-File-Size': file.size.toString(),
-        'X-File-Type': mimeType,
-      };
-
-    if (sectorId) {
-      headers['X-Sector-Id'] = sectorId;
-    }
-
-    // Track upload progress using XMLHttpRequest for better progress tracking
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable && onProgress) {
-          const progress = (e.loaded / e.total) * 100;
-          onProgress(progress);
-        }
-      });
-
-      xhr.addEventListener('load', () => {
-        if (xhr.status === 200) {
-          try {
-            const result = JSON.parse(xhr.responseText);
-            if (result.success && result.url) {
-              resolve(result.url);
-            } else {
-              reject(new Error(result.error || 'Upload failed'));
-            }
-          } catch (error) {
-            reject(new Error('Failed to parse response'));
+        // Timeout handling
+        const timeoutId = setTimeout(() => {
+          if (!isResolved) {
+            xhr.abort();
+            isResolved = true;
+            reject(new Error('Upload timeout: Request took too long'));
           }
-        } else {
-          reject(new Error(`Upload failed: ${xhr.statusText}`));
-        }
-      });
+        }, UPLOAD_TIMEOUT);
 
-      xhr.addEventListener('error', () => {
-        reject(new Error('Upload failed: Network error'));
-      });
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable && onProgress) {
+            const progress = (e.loaded / e.total) * 100;
+            onProgress(progress);
+          }
+        });
 
-      xhr.open('POST', `${ALLINKL_API_URL}/upload.php`);
-      
-      // Set headers
-      Object.keys(headers).forEach(key => {
-        xhr.setRequestHeader(key, headers[key]);
-      });
+        xhr.addEventListener('load', () => {
+          clearTimeout(timeoutId);
+          if (isResolved) return;
+          
+          if (xhr.status === 200) {
+            try {
+              const result = JSON.parse(xhr.responseText);
+              if (result.success && result.url) {
+                isResolved = true;
+                resolve(result.url);
+              } else {
+                isResolved = true;
+                const errorMsg = result.error || 'Upload failed';
+                console.error('[All-Inkl Upload] Server error:', errorMsg, 'Response:', result);
+                reject(new Error(errorMsg));
+              }
+            } catch (error) {
+              isResolved = true;
+              console.error('[All-Inkl Upload] Failed to parse response:', xhr.responseText);
+              reject(new Error(`Failed to parse response: ${xhr.responseText.substring(0, 200)}`));
+            }
+          } else {
+            isResolved = true;
+            let errorMsg = `Upload failed: ${xhr.statusText} (${xhr.status})`;
+            try {
+              const errorResponse = JSON.parse(xhr.responseText);
+              if (errorResponse.error) {
+                errorMsg = errorResponse.error;
+              }
+            } catch (e) {
+              // If response is not JSON, use status text
+            }
+            console.error('[All-Inkl Upload] HTTP error:', xhr.status, xhr.statusText, 'Response:', xhr.responseText);
+            reject(new Error(errorMsg));
+          }
+        });
 
-      xhr.send(formData);
+        xhr.addEventListener('error', () => {
+          clearTimeout(timeoutId);
+          if (isResolved) return;
+          isResolved = true;
+          reject(new Error('Upload failed: Network error'));
+        });
+
+        xhr.addEventListener('abort', () => {
+          clearTimeout(timeoutId);
+          if (isResolved) return;
+          isResolved = true;
+          reject(new Error('Upload aborted'));
+        });
+
+        xhr.open('POST', `${ALLINKL_API_URL}/upload.php`);
+        
+        // Set headers
+        Object.keys(headers).forEach(key => {
+          xhr.setRequestHeader(key, headers[key]);
+        });
+
+        xhr.send(formData);
+      });
     });
   }
 }
@@ -670,7 +765,7 @@ export async function uploadBetaVideo(
       await logger.updateStatus('completed', 100, null, null, url).catch(() => {});
       return url;
     } catch (error: any) {
-      console.error('[All-Inkl Video Upload] Failed, falling back to Supabase:', error);
+      console.error('[All-Inkl Video Upload] Failed:', error);
       console.error('[All-Inkl Video Upload] Error details:', {
         message: error.message,
         fileName: videoToUpload.name,
@@ -679,12 +774,13 @@ export async function uploadBetaVideo(
         stack: error.stack,
       });
       await logger.incrementRetry().catch(() => {});
-      await logger.updateStatus('uploading', 50, error).catch(() => {});
-      // Fallback to Supabase if All-Inkl fails
+      await logger.updateStatus('failed', 50, error).catch(() => {});
+      // DO NOT fallback to Supabase - throw error instead
+      throw new Error(`CDN-Upload fehlgeschlagen: ${error.message}. Bitte versuche es erneut oder kontaktiere den Administrator.`);
     }
   }
 
-  // Fallback to Supabase Storage
+  // If All-Inkl is not enabled, use Supabase Storage
   await logger.updateStatus('uploading', file.size > 20 * 1024 * 1024 ? 50 : 0).catch(() => {});
   
   const ext = getFileExt(videoToUpload.name) || (videoToUpload.type.includes('webm') ? 'webm' : 'mp4');
@@ -1023,14 +1119,15 @@ export async function uploadThumbnail(
       await logger.updateStatus('completed', 100, null, null, url).catch(() => {});
       return url;
     } catch (error: any) {
-      console.error('[All-Inkl Thumbnail Upload] Failed, falling back to Supabase:', error);
+      console.error('[All-Inkl Thumbnail Upload] Failed:', error);
       await logger.incrementRetry().catch(() => {});
-      await logger.updateStatus('uploading', 0, error).catch(() => {});
-      // Fallback to Supabase if All-Inkl fails
+      await logger.updateStatus('failed', 0, error).catch(() => {});
+      // DO NOT fallback to Supabase - throw error instead
+      throw new Error(`CDN-Upload fehlgeschlagen: ${error.message}. Bitte versuche es erneut oder kontaktiere den Administrator.`);
     }
   }
 
-  // Fallback to Supabase Storage
+  // If All-Inkl is not enabled, use Supabase Storage
   await logger.updateStatus('uploading', 0).catch(() => {});
   
   // Store thumbnails in a separate bucket or in the beta-videos bucket with a prefix

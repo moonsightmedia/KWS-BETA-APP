@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { createBrowserRouter, RouterProvider, Outlet, useLocation } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -48,6 +48,36 @@ const RouteLogger = () => {
  */
 const PullToRefreshHandler = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Restore route immediately on mount if it was preserved
+  // This must run BEFORE any other effects to prevent navigation conflicts
+  useEffect(() => {
+    const preserveRoute = sessionStorage.getItem('preserveRoute');
+    if (preserveRoute) {
+      const currentPath = window.location.pathname;
+      console.log(`[PullToRefresh] Checking route restoration: current=${currentPath}, preserved=${preserveRoute}`);
+      
+      if (preserveRoute !== currentPath) {
+        console.log(`[PullToRefresh] Restoring route from ${currentPath} to ${preserveRoute}`);
+        sessionStorage.removeItem('preserveRoute');
+        
+        // First, update the browser URL directly to prevent any race conditions
+        if (window.history.replaceState) {
+          window.history.replaceState(null, '', preserveRoute);
+        }
+        
+        // Then navigate with React Router
+        navigate(preserveRoute, { replace: true });
+      } else {
+        // Route is already correct, just clean up
+        console.log(`[PullToRefresh] Route ${preserveRoute} is already correct`);
+        sessionStorage.removeItem('preserveRoute');
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
   
   useEffect(() => {
     // Detect pull-to-refresh on mobile devices
@@ -80,6 +110,11 @@ const PullToRefreshHandler = () => {
         isRefreshing = true;
         console.log('[PullToRefresh] Detected pull-to-refresh gesture');
         
+        // Save current route before refreshing
+        const currentRoute = location.pathname || window.location.pathname;
+        sessionStorage.setItem('preserveRoute', currentRoute);
+        console.log(`[PullToRefresh] Saving route for pull-to-refresh: ${currentRoute}`);
+        
         try {
           // Clear all caches
           await clearAllCaches(queryClient);
@@ -101,18 +136,46 @@ const PullToRefreshHandler = () => {
     
     // Also listen for beforeunload to detect page refresh
     const handleBeforeUnload = () => {
-      // Mark that we're refreshing
+      // Mark that we're refreshing and save current route
+      // Use location.pathname from React Router to get the correct route
+      const currentRoute = location.pathname || window.location.pathname;
+      const windowPath = window.location.pathname;
+      console.log(`[PullToRefresh] beforeunload - location.pathname: ${location.pathname}, window.location.pathname: ${windowPath}`);
       sessionStorage.setItem('isRefreshing', 'true');
+      sessionStorage.setItem('preserveRoute', currentRoute);
+      console.log(`[PullToRefresh] Saving route for refresh: ${currentRoute} (stored in sessionStorage)`);
+      
+      // Double-check it was saved
+      const saved = sessionStorage.getItem('preserveRoute');
+      console.log(`[PullToRefresh] Verification - saved route: ${saved}`);
+    };
+    
+    // Also save route on visibility change (when user switches tabs/apps)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        const currentRoute = location.pathname || window.location.pathname;
+        sessionStorage.setItem('preserveRoute', currentRoute);
+        console.log(`[PullToRefresh] Saving route on visibility change: ${currentRoute}`);
+      }
     };
     
     // Check on load if this was a refresh
     const handleLoad = async () => {
       const wasRefreshing = sessionStorage.getItem('isRefreshing');
+      const preserveRoute = sessionStorage.getItem('preserveRoute');
+      
       if (wasRefreshing === 'true') {
         sessionStorage.removeItem('isRefreshing');
         console.log('[PullToRefresh] Page was refreshed, clearing caches and refreshing data');
         
         try {
+          // Route restoration is handled in the mount effect above
+          // Just clean up the storage here
+          if (preserveRoute) {
+            // Route will be restored by the mount effect
+            console.log(`[PullToRefresh] Route ${preserveRoute} will be restored on mount`);
+          }
+          
           // Clear all caches
           await clearAllCaches(queryClient);
           
@@ -135,8 +198,11 @@ const PullToRefreshHandler = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('load', handleLoad);
     
-    // Also listen for visibility change (when user switches back to tab)
-    const handleVisibilityChange = async () => {
+    // Listen for visibility change to save route
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Also listen for visibility change (when user switches back to tab) to refresh data
+    const handleVisibilityChangeRefresh = async () => {
       if (document.visibilityState === 'visible') {
         // Check if page was just refreshed
         const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
@@ -152,7 +218,7 @@ const PullToRefreshHandler = () => {
       }
     };
     
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleVisibilityChangeRefresh);
     
     return () => {
       document.removeEventListener('touchstart', handleTouchStart);
@@ -161,18 +227,58 @@ const PullToRefreshHandler = () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('load', handleLoad);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChangeRefresh);
     };
-  }, [queryClient]);
+  }, [queryClient, navigate, location]);
   
   return null;
 };
 
-const Root = () => (
-  <AuthProvider>
-    <RouteLogger />
-    <Outlet />
-  </AuthProvider>
-);
+const Root = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Restore route VERY EARLY, before any other components mount
+  useEffect(() => {
+    const preserveRoute = sessionStorage.getItem('preserveRoute');
+    if (preserveRoute && preserveRoute !== location.pathname) {
+      console.log(`[Root] Early route restoration: ${location.pathname} → ${preserveRoute}`);
+      sessionStorage.removeItem('preserveRoute');
+      // Update URL immediately
+      if (window.history.replaceState) {
+        window.history.replaceState(null, '', preserveRoute);
+      }
+      // Navigate with React Router
+      navigate(preserveRoute, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
+  
+  return (
+    <AuthProvider>
+      <RouteLogger />
+      <PullToRefreshHandler />
+      <Outlet />
+    </AuthProvider>
+  );
+};
+
+// Restore route from sessionStorage BEFORE creating router
+// This ensures the URL is correct before React Router initializes
+const restoreRouteOnInit = () => {
+  const preserveRoute = sessionStorage.getItem('preserveRoute');
+  if (preserveRoute && preserveRoute !== window.location.pathname) {
+    console.log(`[RouterInit] Restoring route before router init: ${window.location.pathname} → ${preserveRoute}`);
+    // Update URL directly before React Router initializes
+    if (window.history.replaceState) {
+      window.history.replaceState(null, '', preserveRoute);
+    }
+    sessionStorage.removeItem('preserveRoute');
+  }
+};
+
+// Restore route immediately
+restoreRouteOnInit();
 
 const router = createBrowserRouter([
   {
@@ -201,7 +307,6 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <PullToRefreshHandler />
       <RouterProvider 
         router={router} 
         future={{ v7_startTransition: true }} 

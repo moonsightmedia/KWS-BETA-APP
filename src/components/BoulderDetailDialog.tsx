@@ -1,10 +1,12 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { Boulder } from '@/types/boulder';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Calendar, MapPin, Palette, FileText, ExternalLink, Video } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 
 interface BoulderDetailDialogProps {
   boulder: Boulder | null;
@@ -60,6 +62,123 @@ const getYouTubeEmbedUrl = (url: string): string => {
   const match = url.match(regExp);
   const videoId = (match && match[2].length === 11) ? match[2] : null;
   return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
+};
+
+/**
+ * Video Player Component with improved buffering and preloading
+ */
+const VideoPlayerWithBuffer = ({ videoUrl, poster }: { videoUrl: string; poster?: string }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [bufferProgress, setBufferProgress] = useState(0);
+  const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const updateBufferProgress = () => {
+      if (video.buffered.length > 0 && video.duration > 0) {
+        const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+        const progress = (bufferedEnd / video.duration) * 100;
+        setBufferProgress(progress);
+        
+        // Show loading indicator if buffer is low
+        const currentTime = video.currentTime;
+        const bufferAhead = bufferedEnd - currentTime;
+        setShowLoadingIndicator(bufferAhead < 2); // Less than 2 seconds buffer
+        
+        // Auto-pause if buffer is too low
+        if (bufferAhead < 1 && !video.paused) {
+          video.pause();
+          setIsBuffering(true);
+        }
+        
+        // Resume if buffer is sufficient
+        if (bufferAhead > 3 && video.paused && isBuffering) {
+          video.play().catch(() => {
+            // Ignore play errors
+          });
+          setIsBuffering(false);
+        }
+      }
+    };
+
+    const handleProgress = () => {
+      updateBufferProgress();
+    };
+
+    const handleTimeUpdate = () => {
+      updateBufferProgress();
+    };
+
+    const handleWaiting = () => {
+      setIsBuffering(true);
+      setShowLoadingIndicator(true);
+    };
+
+    const handleCanPlay = () => {
+      setIsBuffering(false);
+      setShowLoadingIndicator(false);
+    };
+
+    const handleCanPlayThrough = () => {
+      setIsBuffering(false);
+      setShowLoadingIndicator(false);
+    };
+
+    video.addEventListener('progress', handleProgress);
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('waiting', handleWaiting);
+    video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('canplaythrough', handleCanPlayThrough);
+
+    return () => {
+      video.removeEventListener('progress', handleProgress);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('waiting', handleWaiting);
+      video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('canplaythrough', handleCanPlayThrough);
+    };
+  }, [isBuffering]);
+
+  return (
+    <div className="relative w-full h-full">
+      <video 
+        ref={videoRef}
+        controls 
+        className="w-full h-full"
+        poster={poster || undefined}
+        preload="metadata"
+      >
+        <source src={videoUrl} type="video/webm" />
+        <source src={videoUrl} type="video/mp4" />
+        Dein Browser unterstützt keine Videos.
+        <p className="p-4">
+          Dein Browser unterstützt dieses Video-Format nicht.{' '}
+          <a 
+            href={videoUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            Video direkt öffnen
+          </a>
+        </p>
+      </video>
+      {showLoadingIndicator && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center flex-col gap-2">
+          <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <p className="text-white text-sm">Video wird geladen...</p>
+          {bufferProgress > 0 && (
+            <div className="w-48">
+              <Progress value={bufferProgress} className="h-1" />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 };
 
 const getVimeoEmbedUrl = (url: string): string => {
@@ -146,26 +265,7 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
                 />
               )}
               {isDirectVideo && (
-                <video 
-                  controls 
-                  className="w-full h-full"
-                  poster={getThumbnailUrl(boulder) || undefined}
-                  preload="none"
-                >
-                  <source src={videoUrl} type="video/mp4" />
-                  Dein Browser unterstützt keine Videos.
-                  <p className="p-4">
-                    Dein Browser unterstützt dieses Video-Format nicht.{' '}
-                    <a 
-                      href={videoUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      Video direkt öffnen
-                    </a>
-                  </p>
-                </video>
+                <VideoPlayerWithBuffer videoUrl={videoUrl} poster={getThumbnailUrl(boulder)} />
               )}
               {!isYouTube && !isVimeo && !isDirectVideo && (
                 <div className="w-full h-full flex items-center justify-center flex-col gap-4 p-4">
