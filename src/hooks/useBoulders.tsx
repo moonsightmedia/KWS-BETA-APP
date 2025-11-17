@@ -111,17 +111,20 @@ export const useUpdateBoulder = () => {
       return { data, updates };
     },
     onSuccess: (result) => {
-      // Always invalidate boulders
+      // Always invalidate and refetch boulders immediately
       queryClient.invalidateQueries({ queryKey: ['boulders'] });
+      queryClient.refetchQueries({ queryKey: ['boulders'] });
       
       // If sector_id was changed, also invalidate sectors (affects boulder_count)
       if (result.updates.sector_id !== undefined) {
         queryClient.invalidateQueries({ queryKey: ['sectors'] });
+        queryClient.refetchQueries({ queryKey: ['sectors'] });
       }
       
       // If status was changed, also invalidate sectors (affects boulder_count)
       if (result.updates.status !== undefined) {
         queryClient.invalidateQueries({ queryKey: ['sectors'] });
+        queryClient.refetchQueries({ queryKey: ['sectors'] });
       }
       
       toast.success('Boulder erfolgreich aktualisiert!');
@@ -162,8 +165,11 @@ export const useCreateBoulder = () => {
       return data;
     },
     onSuccess: () => {
+      // Invalidate and immediately refetch to show new boulder
       queryClient.invalidateQueries({ queryKey: ['boulders'] });
+      queryClient.refetchQueries({ queryKey: ['boulders'] });
       queryClient.invalidateQueries({ queryKey: ['sectors'] });
+      queryClient.refetchQueries({ queryKey: ['sectors'] });
       toast.success('Boulder erfolgreich erstellt!');
     },
     onError: (error) => {
@@ -282,9 +288,11 @@ export const useBulkUpdateBoulderStatus = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      // Invalidate both boulders and sectors (status changes affect sector boulder_count)
+      // Invalidate and refetch both boulders and sectors (status changes affect sector boulder_count)
       queryClient.invalidateQueries({ queryKey: ['boulders'] });
+      queryClient.refetchQueries({ queryKey: ['boulders'] });
       queryClient.invalidateQueries({ queryKey: ['sectors'] });
+      queryClient.refetchQueries({ queryKey: ['sectors'] });
       toast.success('Status aktualisiert');
     },
     onError: (error) => toast.error('Status-Update fehlgeschlagen: ' + error.message)

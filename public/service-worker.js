@@ -49,26 +49,37 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For refresh requests, always fetch from network and bypass cache
+  // For refresh requests, always fetch from network and bypass ALL caches
   if (isRefresh) {
+    // Clear all caches when refresh is detected
+    event.waitUntil(
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            return caches.delete(cacheName);
+          })
+        );
+      }).then(() => {
+        console.log('[ServiceWorker] All caches cleared due to refresh');
+      }).catch((error) => {
+        console.error('[ServiceWorker] Error clearing caches:', error);
+      })
+    );
+    
+    // Always fetch from network, never use cache
     event.respondWith(
-      fetch(request, { cache: 'no-store' }).then((response) => {
-        // Only cache successful, complete responses (not partial 206)
-        if (response.status === 200 && response.ok) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            // Double-check it's not a partial response before caching
-            if (responseClone.status !== 206) {
-              cache.put(request, responseClone).catch(() => {
-                // Ignore cache errors (e.g., if response is too large)
-              });
-            }
-          });
+      fetch(request, { 
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
         }
+      }).then((response) => {
+        // Don't cache refresh responses - we want fresh data
         return response;
       }).catch(() => {
-        // If network fails, try cache as fallback
-        return caches.match(request);
+        // If network fails completely, return error (don't use cache)
+        return new Response('Network error', { status: 503 });
       })
     );
     return;

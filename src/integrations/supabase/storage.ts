@@ -441,7 +441,7 @@ export async function uploadBetaVideo(
     const { data, error } = await supabase.storage
       .from(DEFAULT_BUCKET)
       .upload(objectPath, videoToUpload, {
-        cacheControl: '31536000', // 1 year cache to reduce egress
+        cacheControl: '604800', // 7 days cache (reduced from 1 year to allow updates)
         upsert: true,
         contentType: videoToUpload.type || 'video/mp4',
       });
@@ -540,7 +540,7 @@ export async function uploadSectorImage(
     const { data, error } = await supabase.storage
       .from(SECTOR_IMAGES_BUCKET)
       .upload(objectPath, file, {
-        cacheControl: '3600',
+        cacheControl: '3600', // 1 hour cache for sector images
         upsert: true,
         contentType: file.type || 'image/jpeg',
       });
@@ -745,7 +745,7 @@ export async function uploadThumbnail(
     const { data, error } = await supabase.storage
       .from(DEFAULT_BUCKET)
       .upload(objectPath, file, {
-        cacheControl: '3600',
+        cacheControl: '1800', // 30 minutes cache for thumbnails (reduced from 1 hour)
         upsert: true,
         contentType: file.type || 'image/jpeg',
       });

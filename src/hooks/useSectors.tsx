@@ -103,6 +103,7 @@ export const useUpdateSector = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sectors'] });
+      queryClient.refetchQueries({ queryKey: ['sectors'] });
       toast.success('Sektor erfolgreich aktualisiert!');
     },
     onError: (error) => {
@@ -149,6 +150,7 @@ export const useCreateSector = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sectors'] });
+      queryClient.refetchQueries({ queryKey: ['sectors'] });
       toast.success('Sektor erfolgreich erstellt!');
     },
     onError: (error) => {
@@ -171,6 +173,7 @@ export const useDeleteSector = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sectors'] });
+      queryClient.refetchQueries({ queryKey: ['sectors'] });
       toast.success('Sektor erfolgreich gelöscht!');
     },
     onError: (error) => {

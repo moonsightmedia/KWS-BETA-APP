@@ -38,23 +38,9 @@ if (typeof window !== 'undefined') {
   }, { passive: false });
 }
 
-// Clear all caches on page load to ensure fresh data
-if ('caches' in window) {
-  caches.keys().then((cacheNames) => {
-    return Promise.all(
-      cacheNames.map((cacheName) => {
-        // Keep service worker cache but clear it
-        return caches.open(cacheName).then((cache) => {
-          return cache.keys().then((keys) => {
-            return Promise.all(keys.map((key) => cache.delete(key)));
-          });
-        });
-      })
-    );
-  }).catch(() => {
-    // Ignore errors
-  });
-}
+// Don't clear all caches on page load - this was too aggressive
+// Instead, rely on React Query's staleTime and refetchOnMount settings
+// Only clear caches on explicit refresh (handled by service worker)
 
 createRoot(document.getElementById("root")!).render(<App />);
 
@@ -64,13 +50,26 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     navigator.serviceWorker.register('/service-worker.js').catch(() => {});
   });
   
-  // On page reload/refresh, unregister and re-register service worker to ensure fresh start
-  if (performance.navigation?.type === 1 || performance.getEntriesByType('navigation')[0]?.type === 'reload') {
+  // On page reload/refresh, clear all caches and refresh service worker
+  const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+  if (performance.navigation?.type === 1 || navigation?.type === 'reload') {
+    // Clear all browser caches on refresh
+    if ('caches' in window) {
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => caches.delete(cacheName))
+        );
+      }).then(() => {
+        console.log('[Main] All caches cleared on page reload');
+      }).catch((error) => {
+        console.error('[Main] Error clearing caches on reload:', error);
+      });
+    }
+    
+    // Refresh service worker
     navigator.serviceWorker.getRegistrations().then((registrations) => {
       registrations.forEach((registration) => {
-        registration.unregister().then(() => {
-          navigator.serviceWorker.register('/service-worker.js').catch(() => {});
-        });
+        registration.update(); // Update service worker
       });
     });
   }

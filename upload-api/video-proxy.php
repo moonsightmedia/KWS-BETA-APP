@@ -69,7 +69,7 @@ $mimeType = mime_content_type($filePath);
 header('Content-Type: ' . $mimeType);
 header('Content-Length: ' . $fileSize);
 header('Accept-Ranges: bytes');
-header('Cache-Control: public, max-age=31536000');
+header('Cache-Control: public, max-age=604800'); // 7 days instead of 1 year
 
 // Handle range requests (for video seeking)
 $range = $_SERVER['HTTP_RANGE'] ?? '';
