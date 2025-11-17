@@ -398,7 +398,7 @@ export const BoulderManagement = () => {
                       try {
                         setIsUploading(true);
                         const { uploadBetaVideo } = await import('@/integrations/supabase/storage');
-                        const url = await uploadBetaVideo(file);
+                        const url = await uploadBetaVideo(file, undefined, formData.id || null);
                         setFormData({ ...formData, beta_video_url: url });
                       } catch (err) {
                         // eslint-disable-next-line no-console
@@ -440,7 +440,7 @@ export const BoulderManagement = () => {
                       try {
                         setIsUploading(true);
                         const { uploadThumbnail } = await import('@/integrations/supabase/storage');
-                        const url = await uploadThumbnail(file);
+                        const url = await uploadThumbnail(file, undefined, formData.id || null);
                         setFormData({ ...formData, thumbnail_url: url });
                       } catch (err) {
                         // eslint-disable-next-line no-console

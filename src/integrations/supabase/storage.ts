@@ -1,4 +1,5 @@
 import { supabase } from './client';
+import { UploadLogger } from '@/utils/uploadLogger';
 
 const DEFAULT_BUCKET = 'beta-videos';
 const SECTOR_IMAGES_BUCKET = 'sector-images';
@@ -17,15 +18,233 @@ function randomId(): string {
 }
 
 /**
- * Compress video file to reduce size before upload
- * Optimized for mobile devices - uses MediaRecorder with lower bitrate
+ * Remove audio track from video file
+ * Always removes audio, even for small files
  */
-async function compressVideo(file: File, onProgress?: (progress: number) => void): Promise<File> {
-  // If file is already small enough (< 20MB), skip compression
-  const skipCompressionThreshold = 20 * 1024 * 1024; // 20MB
-  if (file.size < skipCompressionThreshold) {
+async function removeAudioFromVideo(file: File, onProgress?: (progress: number) => void): Promise<File> {
+  // Check if MediaRecorder is available
+  if (!MediaRecorder.isTypeSupported('video/webm;codecs=vp9') && 
+      !MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
+    console.warn('MediaRecorder nicht unterstützt, verwende Original-Video (mit möglichem Audio)');
     if (onProgress) onProgress(100);
     return file;
+  }
+
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.preload = 'auto';
+    video.muted = true; // Mute for playback
+    video.playsInline = true;
+    video.setAttribute('playsinline', 'true');
+    
+    const objectUrl = URL.createObjectURL(file);
+    video.src = objectUrl;
+
+    let mediaRecorder: MediaRecorder | null = null;
+    const chunks: Blob[] = [];
+    let hasResolved = false;
+
+    const cleanup = () => {
+      if (video.parentNode) {
+        video.parentNode.removeChild(video);
+      }
+      URL.revokeObjectURL(objectUrl);
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        try {
+          mediaRecorder.stop();
+        } catch (e) {
+          // Ignore
+        }
+      }
+    };
+
+    const resolveWithOriginal = () => {
+      if (hasResolved) return;
+      hasResolved = true;
+      cleanup();
+      if (onProgress) onProgress(100);
+      resolve(file);
+    };
+
+    video.addEventListener('loadedmetadata', () => {
+      if (hasResolved) return;
+      
+      try {
+        // Use canvas to capture video stream (NO AUDIO)
+        const canvas = document.createElement('canvas');
+        // Keep original resolution for audio removal (no need to downscale)
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolveWithOriginal();
+          return;
+        }
+
+        // Determine best codec
+        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') 
+          ? 'video/webm;codecs=vp9'
+          : MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
+          ? 'video/webm;codecs=vp8'
+          : 'video/webm';
+
+        // Capture stream from canvas (this stream has NO audio track)
+        const stream = canvas.captureStream(30); // 30 FPS
+        
+        // High quality bitrate: adjust based on resolution
+        // ~4 Mbps per 1000px width, minimum 5 Mbps for good quality
+        const bitrate = Math.max(5000000, Math.round((canvas.width / 1000) * 4000000));
+        
+        // MediaRecorder will only record the video track (no audio in canvas stream)
+        mediaRecorder = new MediaRecorder(stream, {
+          mimeType: mimeType,
+          videoBitsPerSecond: bitrate,
+        });
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            chunks.push(e.data);
+            if (onProgress) {
+              const progress = Math.min(50 + (chunks.length * 2), 95);
+              onProgress(progress);
+            }
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          if (hasResolved) return;
+          
+          try {
+            const noAudioBlob = new Blob(chunks, { type: mimeType });
+            
+            if (noAudioBlob.size > 0) {
+            // Ensure MIME type is set correctly for webm
+            const finalMimeType = mimeType || 'video/webm';
+            const noAudioFile = new File([noAudioBlob], file.name.replace(/\.[^/.]+$/, '.webm'), {
+              type: finalMimeType,
+              lastModified: Date.now(),
+            });
+              if (onProgress) onProgress(100);
+              hasResolved = true;
+              cleanup();
+              resolve(noAudioFile);
+            } else {
+              resolveWithOriginal();
+            }
+          } catch (error) {
+            console.warn('Fehler beim Erstellen der Datei ohne Audio:', error);
+            resolveWithOriginal();
+          }
+        };
+
+        mediaRecorder.onerror = (e) => {
+          console.warn('MediaRecorder Fehler:', e);
+          resolveWithOriginal();
+        };
+
+        // Start recording
+        try {
+          mediaRecorder.start(100); // Collect data every 100ms
+          
+          // Draw video frames to canvas
+          video.currentTime = 0;
+          let lastTime = 0;
+          
+          const drawFrame = () => {
+            if (hasResolved || video.ended || !mediaRecorder || mediaRecorder.state === 'inactive') {
+              if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+              }
+              return;
+            }
+            
+            const currentTime = video.currentTime;
+            if (currentTime !== lastTime) {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              lastTime = currentTime;
+            }
+            
+            // Continue playing
+            if (!video.paused && !video.ended) {
+              requestAnimationFrame(drawFrame);
+            }
+          };
+
+          video.addEventListener('seeked', () => {
+            if (!hasResolved) {
+              drawFrame();
+            }
+          });
+
+          video.addEventListener('timeupdate', () => {
+            if (!hasResolved) {
+              drawFrame();
+            }
+          });
+
+          // Start playing video
+          video.play().catch((error) => {
+            console.warn('Video play fehlgeschlagen:', error);
+            resolveWithOriginal();
+          });
+
+          // Stop after video ends
+          video.addEventListener('ended', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+              setTimeout(() => {
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                  mediaRecorder.stop();
+                }
+              }, 500);
+            }
+          });
+
+          // Safety timeout - stop after 2 minutes
+          setTimeout(() => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+              mediaRecorder.stop();
+            }
+            if (!hasResolved) {
+              resolveWithOriginal();
+            }
+          }, 120000); // 2 minutes max
+
+        } catch (error) {
+          console.warn('Fehler beim Starten der Audio-Entfernung:', error);
+          resolveWithOriginal();
+        }
+      } catch (error) {
+        console.warn('Fehler bei Audio-Entfernung:', error);
+        resolveWithOriginal();
+      }
+    }, { once: true });
+
+    video.addEventListener('error', () => {
+      resolveWithOriginal();
+    });
+
+    // Append to body (hidden) for mobile compatibility
+    video.style.position = 'fixed';
+    video.style.top = '-9999px';
+    video.style.left = '-9999px';
+    video.style.width = '1px';
+    video.style.height = '1px';
+    document.body.appendChild(video);
+  });
+}
+
+/**
+ * Compress video file to reduce size before upload
+ * Optimized for mobile devices - uses MediaRecorder with lower bitrate
+ * Also removes audio track
+ */
+async function compressVideo(file: File, onProgress?: (progress: number) => void): Promise<File> {
+  // If file is already small enough (< 20MB), just remove audio without compression
+  const skipCompressionThreshold = 20 * 1024 * 1024; // 20MB
+  if (file.size < skipCompressionThreshold) {
+    // Still remove audio, but don't compress
+    return removeAudioFromVideo(file, onProgress);
   }
 
   // Check if MediaRecorder is available
@@ -78,8 +297,8 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
       try {
         // Use canvas to capture video stream
         const canvas = document.createElement('canvas');
-        // Limit resolution for mobile performance (max 1280px width)
-        const maxWidth = Math.min(video.videoWidth, 1280);
+        // Keep high quality: max 1920px width (Full HD), or original if smaller
+        const maxWidth = Math.min(video.videoWidth, 1920);
         const aspectRatio = video.videoHeight / video.videoWidth;
         canvas.width = maxWidth;
         canvas.height = Math.round(maxWidth * aspectRatio);
@@ -90,17 +309,18 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
           return;
         }
 
-        // Determine best codec
+        // Determine best codec (VP9 for better quality)
         const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') 
           ? 'video/webm;codecs=vp9'
           : MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
           ? 'video/webm;codecs=vp8'
           : 'video/webm';
 
-        const stream = canvas.captureStream(25); // 25 FPS for mobile
+        const stream = canvas.captureStream(30); // 30 FPS for smooth playback
         
-        // Lower bitrate for mobile (1.5 Mbps)
-        const bitrate = 1500000;
+        // Higher bitrate for better quality (8 Mbps for Full HD)
+        // Adjust based on resolution: ~4 Mbps per 1000px width
+        const bitrate = Math.max(4000000, Math.round((maxWidth / 1000) * 4000000));
         
         mediaRecorder = new MediaRecorder(stream, {
           mimeType: mimeType,
@@ -126,8 +346,10 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
             
             // Only use compressed version if it's at least 10% smaller
             if (compressedBlob.size > 0 && compressedBlob.size < file.size * 0.9) {
+              // Ensure MIME type is set correctly for webm
+              const finalMimeType = mimeType || 'video/webm';
               const compressedFile = new File([compressedBlob], file.name.replace(/\.[^/.]+$/, '.webm'), {
-                type: mimeType,
+                type: finalMimeType,
                 lastModified: Date.now(),
               });
               if (onProgress) onProgress(100);
@@ -249,6 +471,9 @@ async function uploadToAllInkl(
   sectorId?: string,
   onProgress?: (progress: number) => void
 ): Promise<string> {
+  // Ensure file type is set correctly (especially for converted webm files)
+  const mimeType = file.type || (fileType === 'video' ? 'video/webm' : 'image/jpeg');
+  
   const chunkSize = 5 * 1024 * 1024; // 5MB chunks
   const totalChunks = Math.ceil(file.size / chunkSize);
   const useChunked = totalChunks > 1;
@@ -267,7 +492,7 @@ async function uploadToAllInkl(
       const headers: Record<string, string> = {
         'X-File-Name': file.name,
         'X-File-Size': file.size.toString(),
-        'X-File-Type': file.type,
+        'X-File-Type': mimeType,
         'X-Chunk-Number': i.toString(),
         'X-Total-Chunks': totalChunks.toString(),
       };
@@ -311,11 +536,11 @@ async function uploadToAllInkl(
     const formData = new FormData();
     formData.append('file', file);
 
-    const headers: Record<string, string> = {
-      'X-File-Name': file.name,
-      'X-File-Size': file.size.toString(),
-      'X-File-Type': file.type,
-    };
+      const headers: Record<string, string> = {
+        'X-File-Name': file.name,
+        'X-File-Size': file.size.toString(),
+        'X-File-Type': mimeType,
+      };
 
     if (sectorId) {
       headers['X-Sector-Id'] = sectorId;
@@ -367,53 +592,101 @@ async function uploadToAllInkl(
 
 export async function uploadBetaVideo(
   file: File,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  boulderId?: string | null
 ): Promise<string> {
+  // Determine upload type
+  const uploadType = USE_ALLINKL_STORAGE ? 'allinkl' : 'supabase';
+  
+  // Initialize logger
+  const logger = new UploadLogger(file, 'video', uploadType, boulderId);
+  
+  try {
+    // Initialize log entry and check for duplicates
+    await logger.initialize();
+    await logger.updateStatus('pending', 0);
+  } catch (error: any) {
+    if (error.message === 'Duplicate file detected') {
+      throw error; // Re-throw duplicate errors
+    }
+    // Continue with upload even if logging fails
+    console.warn('[UploadLogger] Failed to initialize, continuing without logging:', error);
+  }
+
   // Validate file type
   const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/3gpp'];
   if (!allowedTypes.includes(file.type)) {
-    throw new Error(`Ungültiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
+    const error = new Error(`Ungültiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
+    await logger.updateStatus('failed', 0, error).catch(() => {});
+    throw error;
   }
 
-  // Compress video if needed (reports progress 0-50%)
+  // Always remove audio and compress if needed (reports progress 0-50%)
   let videoToUpload = file;
-  if (file.size > 20 * 1024 * 1024) { // Only compress if > 20MB
-    try {
-      if (onProgress) onProgress(5);
-      videoToUpload = await compressVideo(file, (progress) => {
-        if (onProgress) {
-          // Compression takes 5-50% of total progress
-          onProgress(5 + (progress * 0.45));
-        }
-      });
-    } catch (error) {
-      console.warn('Video compression failed, using original:', error);
-      videoToUpload = file; // Use original if compression fails
-    }
+  try {
+    await logger.updateStatus('compressing', 5).catch(() => {});
+    if (onProgress) onProgress(5);
+    
+    // Always remove audio (and compress if > 20MB)
+    videoToUpload = await compressVideo(file, (progress) => {
+      const compressionProgress = 5 + (progress * 0.45);
+      logger.updateStatus('compressing', compressionProgress).catch(() => {});
+      if (onProgress) {
+        // Compression/audio removal takes 5-50% of total progress
+        onProgress(compressionProgress);
+      }
+    });
+    
+    await logger.updateStatus('compressing', 50).catch(() => {});
+  } catch (error: any) {
+    console.warn('Video processing (audio removal/compression) failed, using original:', error);
+    await logger.updateStatus('compressing', 50, error).catch(() => {});
+    videoToUpload = file; // Use original if processing fails
   }
 
   // Validate file size after compression (50MB max to reduce egress costs)
   const maxSize = 50 * 1024 * 1024; // 50MB
   if (videoToUpload.size > maxSize) {
-    throw new Error(`Datei zu groß. Maximum: ${Math.round(maxSize / 1024 / 1024)}MB. Bitte komprimiere das Video oder verwende YouTube/Vimeo für größere Videos.`);
+    const error = new Error(`Datei zu groß. Maximum: ${Math.round(maxSize / 1024 / 1024)}MB. Bitte komprimiere das Video oder verwende YouTube/Vimeo für größere Videos.`);
+    await logger.updateStatus('failed', 0, error).catch(() => {});
+    throw error;
   }
 
   // Use All-Inkl if enabled, otherwise fallback to Supabase
   if (USE_ALLINKL_STORAGE) {
     try {
+      await logger.updateStatus('uploading', 50).catch(() => {});
+      
       // Adjust progress: compression took 0-50%, upload takes 50-100%
       const uploadProgress = onProgress 
-        ? (progress: number) => onProgress(50 + (progress * 0.5))
+        ? (progress: number) => {
+            const totalProgress = 50 + (progress * 0.5);
+            logger.updateStatus('uploading', totalProgress).catch(() => {});
+            onProgress(totalProgress);
+          }
         : undefined;
       
-      return await uploadToAllInkl(videoToUpload, 'video', undefined, uploadProgress);
+      const url = await uploadToAllInkl(videoToUpload, 'video', undefined, uploadProgress);
+      await logger.updateStatus('completed', 100, null, null, url).catch(() => {});
+      return url;
     } catch (error: any) {
-      console.error('[All-Inkl Upload] Failed, falling back to Supabase:', error);
+      console.error('[All-Inkl Video Upload] Failed, falling back to Supabase:', error);
+      console.error('[All-Inkl Video Upload] Error details:', {
+        message: error.message,
+        fileName: videoToUpload.name,
+        fileSize: videoToUpload.size,
+        fileType: videoToUpload.type,
+        stack: error.stack,
+      });
+      await logger.incrementRetry().catch(() => {});
+      await logger.updateStatus('uploading', 50, error).catch(() => {});
       // Fallback to Supabase if All-Inkl fails
     }
   }
 
   // Fallback to Supabase Storage
+  await logger.updateStatus('uploading', file.size > 20 * 1024 * 1024 ? 50 : 0).catch(() => {});
+  
   const ext = getFileExt(videoToUpload.name) || (videoToUpload.type.includes('webm') ? 'webm' : 'mp4');
   const objectPath = `uploads/${randomId()}.${ext}`;
 
@@ -428,6 +701,7 @@ export async function uploadBetaVideo(
         progress = 95; // Cap at 95% until upload completes
         clearInterval(interval);
       }
+      logger.updateStatus('uploading', progress).catch(() => {});
       onProgress(progress);
     }, 200); // Update every 200ms
     
@@ -460,6 +734,7 @@ export async function uploadBetaVideo(
         fileName: file.name,
         fileType: file.type,
       });
+      await logger.updateStatus('failed', 0, error).catch(() => {});
       throw error;
     }
 
@@ -473,12 +748,14 @@ export async function uploadBetaVideo(
       .from(DEFAULT_BUCKET)
       .getPublicUrl(objectPath);
 
+    await logger.updateStatus('completed', 100, null, null, urlData.publicUrl).catch(() => {});
     return urlData.publicUrl;
   } catch (error: any) {
     // Clear progress simulation on error
     if (progressInterval) {
       clearInterval(progressInterval);
     }
+    await logger.updateStatus('failed', 0, error).catch(() => {});
     throw error;
   }
 }
@@ -693,31 +970,69 @@ export async function deleteBetaVideo(videoUrl: string | null): Promise<void> {
  */
 export async function uploadThumbnail(
   file: File,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  boulderId?: string | null
 ): Promise<string> {
+  // Determine upload type
+  const uploadType = USE_ALLINKL_STORAGE ? 'allinkl' : 'supabase';
+  
+  // Initialize logger
+  const logger = new UploadLogger(file, 'thumbnail', uploadType, boulderId);
+  
+  try {
+    // Initialize log entry and check for duplicates
+    await logger.initialize();
+    await logger.updateStatus('pending', 0);
+  } catch (error: any) {
+    if (error.message === 'Duplicate file detected') {
+      throw error; // Re-throw duplicate errors
+    }
+    // Continue with upload even if logging fails
+    console.warn('[UploadLogger] Failed to initialize, continuing without logging:', error);
+  }
+
   // Validate file type
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
   if (!allowedTypes.includes(file.type)) {
-    throw new Error(`Ungültiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
+    const error = new Error(`Ungültiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
+    await logger.updateStatus('failed', 0, error).catch(() => {});
+    throw error;
   }
 
   // Validate file size (5MB max for thumbnails)
   const maxSize = 5 * 1024 * 1024; // 5MB
   if (file.size > maxSize) {
-    throw new Error(`Datei zu groß. Maximum: ${Math.round(maxSize / 1024 / 1024)}MB`);
+    const error = new Error(`Datei zu groß. Maximum: ${Math.round(maxSize / 1024 / 1024)}MB`);
+    await logger.updateStatus('failed', 0, error).catch(() => {});
+    throw error;
   }
 
   // Use All-Inkl if enabled, otherwise fallback to Supabase
   if (USE_ALLINKL_STORAGE) {
     try {
-      return await uploadToAllInkl(file, 'image', undefined, onProgress);
+      await logger.updateStatus('uploading', 0).catch(() => {});
+      
+      const uploadProgress = onProgress 
+        ? (progress: number) => {
+            logger.updateStatus('uploading', progress).catch(() => {});
+            onProgress(progress);
+          }
+        : undefined;
+      
+      const url = await uploadToAllInkl(file, 'image', undefined, uploadProgress);
+      await logger.updateStatus('completed', 100, null, null, url).catch(() => {});
+      return url;
     } catch (error: any) {
       console.error('[All-Inkl Thumbnail Upload] Failed, falling back to Supabase:', error);
+      await logger.incrementRetry().catch(() => {});
+      await logger.updateStatus('uploading', 0, error).catch(() => {});
       // Fallback to Supabase if All-Inkl fails
     }
   }
 
   // Fallback to Supabase Storage
+  await logger.updateStatus('uploading', 0).catch(() => {});
+  
   // Store thumbnails in a separate bucket or in the beta-videos bucket with a prefix
   const ext = getFileExt(file.name) || 'jpg';
   const objectPath = `thumbnails/${randomId()}.${ext}`;
@@ -733,6 +1048,7 @@ export async function uploadThumbnail(
         progress = 90;
         clearInterval(interval);
       }
+      logger.updateStatus('uploading', progress).catch(() => {});
       onProgress(progress);
     }, 200);
     
@@ -764,6 +1080,7 @@ export async function uploadThumbnail(
         fileType: file.type,
         objectPath: objectPath,
       });
+      await logger.updateStatus('failed', 0, error).catch(() => {});
       throw error;
     }
 
@@ -776,12 +1093,14 @@ export async function uploadThumbnail(
       .from(DEFAULT_BUCKET)
       .getPublicUrl(objectPath);
 
+    await logger.updateStatus('completed', 100, null, null, urlData.publicUrl).catch(() => {});
     return urlData.publicUrl;
   } catch (error: any) {
     if (progressInterval) {
       clearInterval(progressInterval);
     }
     console.error('[Thumbnail Upload] Upload failed:', error);
+    await logger.updateStatus('failed', 0, error).catch(() => {});
     throw error;
   }
 }

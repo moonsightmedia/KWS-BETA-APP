@@ -15,12 +15,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Search, PlusCircle, Edit3, Calendar, X, Sparkles, ChevronLeft, ChevronRight, Check, Video } from 'lucide-react';
+import { Search, PlusCircle, Edit3, Calendar, X, Sparkles, ChevronLeft, ChevronRight, Check, Video, FileText } from 'lucide-react';
 import { MaterialIcon } from '@/components/MaterialIcon';
 import { useMemo as useMemoReact, useRef, useState } from 'react';
 import { useSectorSchedule, useCreateSectorSchedule, useDeleteSectorSchedule } from '@/hooks/useSectorSchedule';
 import { useColors } from '@/hooks/useColors';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { UploadLogViewer } from '@/components/admin/UploadLogViewer';
 
 const DIFFICULTIES = [null, 1, 2, 3, 4, 5, 6, 7, 8]; // null = "?" (unknown/not rated)
 
@@ -358,7 +359,7 @@ const Setter = () => {
     videoUrl: '' as string, // For CDN video selection
   });
   const [isUploading, setIsUploading] = useState(false);
-  const [view, setView] = useState<'create' | 'edit' | 'schedule' | 'status'>('create');
+  const [view, setView] = useState<'create' | 'edit' | 'schedule' | 'status' | 'logs'>('create');
   // Wizard state for multi-step boulder creation
   const [wizardStep, setWizardStep] = useState(1);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
@@ -475,7 +476,7 @@ const Setter = () => {
         uploadPromises.push(
           uploadBetaVideo(form.file, (progress) => {
             // Progress handling can be added here if needed
-          }).then((betaUrl) => {
+          }, createdBoulder.id).then((betaUrl) => {
             return updateBoulder.mutateAsync({
               id: createdBoulder.id,
               beta_video_url: betaUrl,
@@ -496,7 +497,7 @@ const Setter = () => {
         uploadPromises.push(
           uploadThumbnail(form.thumbnailFile, (progress) => {
             // Progress handling can be added here if needed
-          }).then((thumbnailUrl) => {
+          }, createdBoulder.id).then((thumbnailUrl) => {
             return updateBoulder.mutateAsync({
               id: createdBoulder.id,
               thumbnail_url: thumbnailUrl,
@@ -583,7 +584,7 @@ const Setter = () => {
             id: toastId,
             duration: Infinity,
           });
-        }).then((betaUrl) => {
+        }, createdBoulder.id).then((betaUrl) => {
           // Update boulder with video URL after upload completes
           updateBoulder.mutateAsync({
             id: createdBoulder.id,
@@ -745,7 +746,7 @@ const Setter = () => {
         uploadPromises.push(
           uploadBetaVideo(form.file, (progress) => {
             // Progress handling can be added here if needed
-          }).then((betaUrl) => {
+          }, editing.id).then((betaUrl) => {
             return updateBoulder.mutateAsync({
               id: editing.id,
               beta_video_url: betaUrl,
@@ -781,7 +782,7 @@ const Setter = () => {
         uploadPromises.push(
           uploadThumbnail(form.thumbnailFile, (progress) => {
             // Progress handling can be added here if needed
-          }).then((thumbnailUrl) => {
+          }, editing.id).then((thumbnailUrl) => {
             return updateBoulder.mutateAsync({
               id: editing.id,
               thumbnail_url: thumbnailUrl,
@@ -923,6 +924,13 @@ const Setter = () => {
                   >
                     <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
                     <span className="text-[10px] sm:text-xs whitespace-nowrap">Schraubtermin</span>
+                  </button>
+                  <button
+                    className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-3 py-2 rounded-xl transition-all flex-shrink-0 ${view==='logs' ? 'text-success' : 'text-sidebar-icon'}`}
+                    onClick={()=> setView('logs')}
+                  >
+                    <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="text-[10px] sm:text-xs whitespace-nowrap">Upload-Logs</span>
                   </button>
                 </div>
               </nav>
@@ -1848,6 +1856,9 @@ const Setter = () => {
               </CardContent>
             </Card>
           </div>
+        )}
+        {view === 'logs' && (
+          <UploadLogViewer />
         )}
             </section>
           </div>

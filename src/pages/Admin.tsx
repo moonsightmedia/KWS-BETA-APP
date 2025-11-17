@@ -11,6 +11,7 @@ import { UserManagement } from "@/components/admin/UserManagement";
 import { ColorManagement } from "@/components/admin/ColorManagement";
 import { SectorManagement } from "@/components/admin/SectorManagement";
 import { BoulderManagement } from "@/components/admin/BoulderManagement";
+import { UploadLogViewer } from "@/components/admin/UploadLogViewer";
 
 const Admin = () => {
   const { user } = useAuth();
@@ -65,11 +66,12 @@ const Admin = () => {
           </div>
 
           <Tabs defaultValue="users" className="w-full min-w-0">
-            <TabsList className="grid w-full grid-cols-4 mb-6 h-auto min-w-0">
+            <TabsList className="grid w-full grid-cols-5 mb-6 h-auto min-w-0">
               <TabsTrigger value="users" className="text-xs sm:text-sm min-w-0">Benutzer</TabsTrigger>
               <TabsTrigger value="colors" className="text-xs sm:text-sm min-w-0">Farben</TabsTrigger>
               <TabsTrigger value="sectors" className="text-xs sm:text-sm min-w-0">Sektoren</TabsTrigger>
               <TabsTrigger value="boulders" className="text-xs sm:text-sm min-w-0">Boulder</TabsTrigger>
+              <TabsTrigger value="logs" className="text-xs sm:text-sm min-w-0">Upload-Logs</TabsTrigger>
             </TabsList>
 
             <TabsContent value="users" className="mt-0">
@@ -86,6 +88,10 @@ const Admin = () => {
 
             <TabsContent value="boulders" className="mt-0">
               <BoulderManagement />
+            </TabsContent>
+
+            <TabsContent value="logs" className="mt-0">
+              <UploadLogViewer />
             </TabsContent>
           </Tabs>
         </main>
