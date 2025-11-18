@@ -24,12 +24,48 @@ const Auth = () => {
   const navigate = useNavigate();
   useEffect(() => {
     console.log('[Auth] mounted');
+    
     if (user) {
+      // Try to restore the original route if it was preserved
+      try {
+        const preserveRoute = sessionStorage.getItem('preserveRoute');
+        if (preserveRoute && preserveRoute !== '/auth' && preserveRoute !== window.location.pathname) {
+          console.log('[Auth] User logged in, restoring preserved route:', preserveRoute);
+          sessionStorage.removeItem('preserveRoute');
+          navigate(preserveRoute);
+          return;
+        }
+      } catch (error) {
+        // Ignore storage errors
+        console.warn('[Auth] Error checking preserved route:', error);
+      }
+      
+      // Default: navigate to home
       navigate('/');
+    } else {
+      // Clear any preserved route when explicitly on auth page (only if no user)
+      try {
+        const preserveRoute = sessionStorage.getItem('preserveRoute');
+        if (preserveRoute) {
+          console.log('[Auth] Clearing preserved route on auth page:', preserveRoute);
+          sessionStorage.removeItem('preserveRoute');
+        }
+      } catch (error) {
+        // Ignore storage errors
+        console.warn('[Auth] Error clearing preserved route:', error);
+      }
     }
   }, [user, navigate]);
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Clear any preserved route before attempting login
+    try {
+      sessionStorage.removeItem('preserveRoute');
+    } catch (error) {
+      // Ignore storage errors
+    }
+    
     try {
       await signIn(email, password);
     } catch (error) {

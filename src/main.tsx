@@ -9,33 +9,51 @@ import "./index.css";
 if (typeof window !== 'undefined') {
   // Prevent double-tap zoom
   let lastTouchEnd = 0;
-  document.addEventListener('touchend', (event) => {
+  const handleTouchEnd = (event: TouchEvent) => {
     const now = Date.now();
     if (now - lastTouchEnd <= 300) {
       event.preventDefault();
     }
     lastTouchEnd = now;
-  }, false);
+  };
 
   // Prevent pinch zoom
-  document.addEventListener('gesturestart', (e) => {
+  const handleGestureStart = (e: Event) => {
     e.preventDefault();
-  });
+  };
   
-  document.addEventListener('gesturechange', (e) => {
+  const handleGestureChange = (e: Event) => {
     e.preventDefault();
-  });
+  };
   
-  document.addEventListener('gestureend', (e) => {
+  const handleGestureEnd = (e: Event) => {
     e.preventDefault();
-  });
+  };
 
   // Prevent zoom on wheel with Ctrl/Cmd key
-  document.addEventListener('wheel', (e) => {
+  const handleWheel = (e: WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
     }
-  }, { passive: false });
+  };
+
+  document.addEventListener('touchend', handleTouchEnd, false);
+  document.addEventListener('gesturestart', handleGestureStart);
+  document.addEventListener('gesturechange', handleGestureChange);
+  document.addEventListener('gestureend', handleGestureEnd);
+  document.addEventListener('wheel', handleWheel, { passive: false });
+
+  // Cleanup function (though this runs on page unload, so cleanup is less critical)
+  // But it's good practice to have it for potential hot-reload scenarios
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('gesturestart', handleGestureStart);
+      document.removeEventListener('gesturechange', handleGestureChange);
+      document.removeEventListener('gestureend', handleGestureEnd);
+      document.removeEventListener('wheel', handleWheel);
+    });
+  }
 }
 
 // Don't clear all caches on page load - this was too aggressive

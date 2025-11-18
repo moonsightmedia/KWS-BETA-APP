@@ -6,6 +6,7 @@ import { createBrowserRouter, RouterProvider, Outlet, useLocation, useNavigate }
 import { useEffect } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider } from "@/hooks/useAuth";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { refreshAllData, clearAllCaches } from "@/utils/cacheUtils";
 import Index from "./pages/Index";
 import Sectors from "./pages/Sectors";
@@ -54,27 +55,46 @@ const PullToRefreshHandler = () => {
   // Restore route immediately on mount if it was preserved
   // This must run BEFORE any other effects to prevent navigation conflicts
   useEffect(() => {
-    const preserveRoute = sessionStorage.getItem('preserveRoute');
-    if (preserveRoute) {
-      const currentPath = window.location.pathname;
-      console.log(`[PullToRefresh] Checking route restoration: current=${currentPath}, preserved=${preserveRoute}`);
-      
-      if (preserveRoute !== currentPath) {
-        console.log(`[PullToRefresh] Restoring route from ${currentPath} to ${preserveRoute}`);
-        sessionStorage.removeItem('preserveRoute');
+    try {
+      const preserveRoute = sessionStorage.getItem('preserveRoute');
+      if (preserveRoute) {
+        const currentPath = window.location.pathname;
+        console.log(`[PullToRefresh] Checking route restoration: current=${currentPath}, preserved=${preserveRoute}`);
         
-        // First, update the browser URL directly to prevent any race conditions
-        if (window.history.replaceState) {
-          window.history.replaceState(null, '', preserveRoute);
+        // Don't restore route if we're on /auth - user might be trying to log in
+        if (currentPath === '/auth') {
+          console.log(`[PullToRefresh] On /auth page, clearing preserved route: ${preserveRoute}`);
+          sessionStorage.removeItem('preserveRoute');
+          return;
         }
         
-        // Then navigate with React Router
-        navigate(preserveRoute, { replace: true });
-      } else {
-        // Route is already correct, just clean up
-        console.log(`[PullToRefresh] Route ${preserveRoute} is already correct`);
-        sessionStorage.removeItem('preserveRoute');
+        // Also don't restore to /auth if we're not already there
+        if (preserveRoute === '/auth') {
+          console.log(`[PullToRefresh] Preserved route is /auth but we're on ${currentPath}, clearing it`);
+          sessionStorage.removeItem('preserveRoute');
+          return;
+        }
+        
+        if (preserveRoute !== currentPath) {
+          console.log(`[PullToRefresh] Restoring route from ${currentPath} to ${preserveRoute}`);
+          sessionStorage.removeItem('preserveRoute');
+          
+          // First, update the browser URL directly to prevent any race conditions
+          if (window.history.replaceState) {
+            window.history.replaceState(null, '', preserveRoute);
+          }
+          
+          // Then navigate with React Router
+          navigate(preserveRoute, { replace: true });
+        } else {
+          // Route is already correct, just clean up
+          console.log(`[PullToRefresh] Route ${preserveRoute} is already correct`);
+          sessionStorage.removeItem('preserveRoute');
+        }
       }
+    } catch (error) {
+      // Ignore storage errors
+      console.warn('[PullToRefresh] Error restoring route:', error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
@@ -240,16 +260,39 @@ const Root = () => {
   
   // Restore route VERY EARLY, before any other components mount
   useEffect(() => {
-    const preserveRoute = sessionStorage.getItem('preserveRoute');
-    if (preserveRoute && preserveRoute !== location.pathname) {
-      console.log(`[Root] Early route restoration: ${location.pathname} → ${preserveRoute}`);
-      sessionStorage.removeItem('preserveRoute');
-      // Update URL immediately
-      if (window.history.replaceState) {
-        window.history.replaceState(null, '', preserveRoute);
+    try {
+      const preserveRoute = sessionStorage.getItem('preserveRoute');
+      const currentPath = location.pathname;
+      
+      // Don't restore route if we're on /auth - user might be trying to log in
+      if (currentPath === '/auth') {
+        if (preserveRoute) {
+          console.log(`[Root] On /auth page, clearing preserved route: ${preserveRoute}`);
+          sessionStorage.removeItem('preserveRoute');
+        }
+        return;
       }
-      // Navigate with React Router
-      navigate(preserveRoute, { replace: true });
+      
+      if (preserveRoute && preserveRoute !== currentPath) {
+        // Also don't restore to /auth if we're not already there
+        if (preserveRoute === '/auth') {
+          console.log(`[Root] Preserved route is /auth but we're on ${currentPath}, clearing it`);
+          sessionStorage.removeItem('preserveRoute');
+          return;
+        }
+        
+        console.log(`[Root] Early route restoration: ${currentPath} → ${preserveRoute}`);
+        sessionStorage.removeItem('preserveRoute');
+        // Update URL immediately
+        if (window.history.replaceState) {
+          window.history.replaceState(null, '', preserveRoute);
+        }
+        // Navigate with React Router
+        navigate(preserveRoute, { replace: true });
+      }
+    } catch (error) {
+      // Ignore storage errors
+      console.warn('[Root] Error restoring route:', error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
@@ -266,14 +309,37 @@ const Root = () => {
 // Restore route from sessionStorage BEFORE creating router
 // This ensures the URL is correct before React Router initializes
 const restoreRouteOnInit = () => {
-  const preserveRoute = sessionStorage.getItem('preserveRoute');
-  if (preserveRoute && preserveRoute !== window.location.pathname) {
-    console.log(`[RouterInit] Restoring route before router init: ${window.location.pathname} → ${preserveRoute}`);
-    // Update URL directly before React Router initializes
-    if (window.history.replaceState) {
-      window.history.replaceState(null, '', preserveRoute);
+  try {
+    const preserveRoute = sessionStorage.getItem('preserveRoute');
+    const currentPath = window.location.pathname;
+    
+    // Don't restore route if we're on /auth - user might be trying to log in
+    if (currentPath === '/auth') {
+      if (preserveRoute) {
+        console.log(`[RouterInit] On /auth page, clearing preserved route: ${preserveRoute}`);
+        sessionStorage.removeItem('preserveRoute');
+      }
+      return;
     }
-    sessionStorage.removeItem('preserveRoute');
+    
+    if (preserveRoute && preserveRoute !== currentPath) {
+      // Also don't restore to /auth if we're not already there
+      if (preserveRoute === '/auth') {
+        console.log(`[RouterInit] Preserved route is /auth but we're on ${currentPath}, clearing it`);
+        sessionStorage.removeItem('preserveRoute');
+        return;
+      }
+      
+      console.log(`[RouterInit] Restoring route before router init: ${currentPath} → ${preserveRoute}`);
+      // Update URL directly before React Router initializes
+      if (window.history.replaceState) {
+        window.history.replaceState(null, '', preserveRoute);
+      }
+      sessionStorage.removeItem('preserveRoute');
+    }
+  } catch (error) {
+    // Ignore storage errors
+    console.warn('[RouterInit] Error restoring route:', error);
   }
 };
 
@@ -303,16 +369,18 @@ const router = createBrowserRouter([
 ]);
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <RouterProvider 
-        router={router} 
-        future={{ v7_startTransition: true }} 
-      />
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <RouterProvider 
+          router={router} 
+          future={{ v7_startTransition: true }} 
+        />
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

@@ -328,7 +328,7 @@ const VideoSelector = ({
 };
 
 const Setter = () => {
-  const { session } = useAuth();
+  const { session, loading: authLoading } = useAuth();
   const { hasRole: isSetter, loading: loadingSetter } = useHasRole('setter');
   const { hasRole: isAdmin, loading: loadingAdmin } = useHasRole('admin');
   const navigate = useNavigate();
@@ -341,8 +341,23 @@ const Setter = () => {
   const bulkStatus = useBulkUpdateBoulderStatus();
 
   useEffect(() => {
-    if (!session) navigate('/auth');
-  }, [session, navigate]);
+    // Only redirect if auth is done loading and there's no session
+    // This prevents redirect during page refresh when session is still loading
+    if (!authLoading && !session) {
+      // Save current route before navigating to auth, so we can return after login
+      try {
+        const currentRoute = window.location.pathname + window.location.search;
+        if (currentRoute !== '/auth') {
+          sessionStorage.setItem('preserveRoute', currentRoute);
+          console.log('[Setter] Saving route before redirect to auth:', currentRoute);
+        }
+      } catch (error) {
+        // Ignore storage errors
+        console.warn('[Setter] Error saving route:', error);
+      }
+      navigate('/auth');
+    }
+  }, [session, authLoading, navigate]);
 
   const isLoadingRoles = loadingSetter || loadingAdmin;
   const canAccess = isSetter || isAdmin;

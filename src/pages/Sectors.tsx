@@ -22,7 +22,8 @@ const Sectors = () => {
   const [imagesLoaded, setImagesLoaded] = useState(false);
   const loadedImagesRef = useRef<Set<string>>(new Set()); // Track which images are already loaded
 
-  // Preload all images and wait until they're all loaded before showing the page
+  // Preload images in background, but don't block page display
+  // Page will show immediately when data is loaded, images will load progressively
   useEffect(() => {
     // If still loading data, wait
     if (isLoading) {
@@ -36,9 +37,11 @@ const Sectors = () => {
       return;
     }
 
-    // If sectors array is empty, show content immediately
+    // Show page immediately when data is loaded - don't wait for images
+    setImagesLoaded(true);
+
+    // If sectors array is empty, nothing to do
     if (sectors.length === 0) {
-      setImagesLoaded(true);
       return;
     }
 
@@ -47,41 +50,29 @@ const Sectors = () => {
       .map(s => s.imageUrl)
       .filter((url): url is string => !!url);
     
-    // If no images to load, show content immediately
+    // If no images to load, nothing to do
     if (imageUrls.length === 0) {
-      setImagesLoaded(true);
       return;
     }
 
     // Check which images are already loaded (from previous visits)
     const imagesToLoad = imageUrls.filter(url => !loadedImagesRef.current.has(url));
-    const alreadyLoadedCount = imageUrls.length - imagesToLoad.length;
     
-    // If all images are already loaded, show page immediately
+    // If all images are already loaded, nothing to do
     if (imagesToLoad.length === 0) {
       console.log('[Sectors] All images already loaded from previous visit');
-      setImagesLoaded(true);
       return;
     }
 
-    // Start loading only the images that aren't already loaded
-    setImagesLoaded(false);
-    let loadedCount = alreadyLoadedCount; // Start with already loaded count
+    // Start loading images in background (non-blocking)
+    // Images will load progressively and display as they become available
+    let loadedCount = imageUrls.length - imagesToLoad.length;
     let errorCount = 0;
     const totalImages = imageUrls.length;
 
-    // Shorter timeout: Show page after 2 seconds even if images aren't loaded (safety net)
-    // This ensures the page doesn't hang forever, especially if images are already cached
-    const timeoutId = setTimeout(() => {
-      console.warn(`[Sectors] Image loading timeout after 2s (${loadedCount}/${totalImages} loaded), showing page anyway`);
-      setImagesLoaded(true);
-    }, 2000);
-
     const checkAllLoaded = () => {
       if (loadedCount + errorCount >= totalImages) {
-        clearTimeout(timeoutId);
         console.log(`[Sectors] All images loaded: ${loadedCount} successful, ${errorCount} errors`);
-        setImagesLoaded(true);
       }
     };
 
@@ -135,19 +126,14 @@ const Sectors = () => {
         }
       }
     });
-
-    // Cleanup timeout on unmount
-    return () => {
-      clearTimeout(timeoutId);
-    };
   }, [sectors, isLoading]);
 
   const handleViewBoulders = (sectorName: string) => {
     navigate(`/boulders?sector=${encodeURIComponent(sectorName)}`);
   };
 
-  // Show loading state while data is loading OR images are still loading
-  // Page will only display when both data AND all images are ready
+  // Show loading state only while data is loading
+  // Images will load progressively and display as they become available
   if (isLoading || !imagesLoaded) {
     return (
       <div className="min-h-screen bg-background flex">
