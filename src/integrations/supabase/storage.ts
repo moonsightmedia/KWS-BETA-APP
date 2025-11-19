@@ -1076,8 +1076,8 @@ export async function uploadBetaVideo(
     if (onProgress) onProgress(0);
   }
 
-  // Validate file size (50MB max to reduce egress costs)
-  const maxSize = 50 * 1024 * 1024; // 50MB
+  // Validate file size (500MB max to allow larger videos while still having a reasonable limit)
+  const maxSize = 500 * 1024 * 1024; // 500MB
   if (videoToUpload.size > maxSize) {
     const error = new Error(`Datei zu groß. Maximum: ${Math.round(maxSize / 1024 / 1024)}MB. Bitte komprimiere das Video oder verwende YouTube/Vimeo für größere Videos.`);
     await logger.updateStatus('failed', 0, error).catch(() => {});

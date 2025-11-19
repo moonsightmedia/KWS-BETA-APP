@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // Videos should be stored in the root uploads/ directory, not in upload-api/uploads/
 // This allows the .htaccess in uploads/ to set CORS headers
 $baseDir = dirname(__DIR__) . '/uploads';
-$maxFileSize = 50 * 1024 * 1024; // 50MB
+$maxFileSize = 500 * 1024 * 1024; // 500MB (increased to allow larger videos)
 $allowedVideoTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/3gpp'];
 $allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 
