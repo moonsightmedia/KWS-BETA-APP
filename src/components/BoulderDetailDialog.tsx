@@ -151,8 +151,18 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster }: { videoUrl: string; poster?
         poster={poster || undefined}
         preload="metadata"
       >
-        <source src={videoUrl} type="video/webm" />
-        <source src={videoUrl} type="video/mp4" />
+        {/* Dynamically determine video type based on URL extension */}
+        {videoUrl.toLowerCase().endsWith('.mp4') ? (
+          <>
+            <source src={videoUrl} type="video/mp4" />
+            <source src={videoUrl} type="video/webm" />
+          </>
+        ) : (
+          <>
+            <source src={videoUrl} type="video/webm" />
+            <source src={videoUrl} type="video/mp4" />
+          </>
+        )}
         Dein Browser unterstützt keine Videos.
         <p className="p-4">
           Dein Browser unterstützt dieses Video-Format nicht.{' '}

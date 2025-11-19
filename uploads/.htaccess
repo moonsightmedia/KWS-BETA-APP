@@ -12,10 +12,34 @@
     </FilesMatch>
 </IfModule>
 
+# Optimize caching for thumbnails (long cache for better performance)
+<IfModule mod_headers.c>
+    <FilesMatch "thumbnails/.*\.(jpg|jpeg|png|webp)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+        Header set Expires "Thu, 31 Dec 2037 23:55:55 GMT"
+    </FilesMatch>
+</IfModule>
+
+# Optimize caching for videos
+<IfModule mod_headers.c>
+    <FilesMatch "\.(mp4|mov|webm|avi|mkv)$">
+        Header set Cache-Control "public, max-age=604800"
+        Header set Accept-Ranges "bytes"
+    </FilesMatch>
+</IfModule>
+
 # Enable range requests for video streaming
 <IfModule mod_headers.c>
     <FilesMatch "\.(mp4|mov|webm|avi|mkv)$">
         Header set Accept-Ranges "bytes"
+    </FilesMatch>
+</IfModule>
+
+# Enable compression for images (if mod_deflate is available)
+<IfModule mod_deflate.c>
+    <FilesMatch "\.(jpg|jpeg|png|gif|webp)$">
+        # Images are already compressed, but we can enable gzip for transfer
+        SetOutputFilter DEFLATE
     </FilesMatch>
 </IfModule>
 

@@ -3,12 +3,14 @@ import { useBouldersWithSectors } from './useBoulders';
 
 /**
  * Hook to preload all boulder thumbnails in the background
+ * Optimized with batch loading and priority queue
  * This should be called when the user logs in to ensure thumbnails are ready
  * when navigating to boulder pages
  */
 export const usePreloadBoulderThumbnails = (enabled: boolean = true) => {
   const { data: boulders } = useBouldersWithSectors();
   const preloadedRef = useRef<Set<string>>(new Set());
+  const loadingRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!enabled || !boulders || boulders.length === 0) return;
@@ -28,30 +30,58 @@ export const usePreloadBoulderThumbnails = (enabled: boolean = true) => {
     
     if (thumbnailUrls.length === 0) return;
 
-    // Filter out already preloaded thumbnails
-    const thumbnailsToLoad = thumbnailUrls.filter(url => !preloadedRef.current.has(url));
+    // Filter out already preloaded or currently loading thumbnails
+    const thumbnailsToLoad = thumbnailUrls.filter(
+      url => !preloadedRef.current.has(url) && !loadingRef.current.has(url)
+    );
     
     if (thumbnailsToLoad.length === 0) {
-      console.log('[PreloadBoulderThumbnails] All thumbnails already preloaded');
-      return;
+      return; // All thumbnails already preloaded or loading
     }
 
-    console.log(`[PreloadBoulderThumbnails] Preloading ${thumbnailsToLoad.length} boulder thumbnails...`);
+    // Batch load thumbnails with concurrency limit for better performance
+    const CONCURRENT_LIMIT = 5; // Load max 5 thumbnails at once
+    let currentIndex = 0;
 
-    // Preload all thumbnails in the background
-    thumbnailsToLoad.forEach((thumbnailUrl) => {
-      preloadedRef.current.add(thumbnailUrl);
-      const img = new Image();
-      img.onload = () => {
-        console.log(`[PreloadBoulderThumbnails] Thumbnail preloaded: ${thumbnailUrl.split('/').pop()}`);
-      };
-      img.onerror = () => {
-        console.warn(`[PreloadBoulderThumbnails] Failed to preload thumbnail: ${thumbnailUrl}`);
-        preloadedRef.current.delete(thumbnailUrl); // Remove from set on error so it can be retried
-      };
-      // Set src to start loading immediately
-      img.src = thumbnailUrl;
-    });
+    const loadNextBatch = () => {
+      const batch = thumbnailsToLoad.slice(currentIndex, currentIndex + CONCURRENT_LIMIT);
+      currentIndex += CONCURRENT_LIMIT;
+
+      batch.forEach((thumbnailUrl) => {
+        loadingRef.current.add(thumbnailUrl);
+        const img = new Image();
+        
+        // Use decode() for better performance if supported
+        img.onload = () => {
+          preloadedRef.current.add(thumbnailUrl);
+          loadingRef.current.delete(thumbnailUrl);
+        };
+        
+        img.onerror = () => {
+          console.warn(`[PreloadBoulderThumbnails] Failed to preload thumbnail: ${thumbnailUrl}`);
+          loadingRef.current.delete(thumbnailUrl);
+          // Don't add to preloadedRef on error, so it can be retried
+        };
+        
+        // Set src to start loading immediately
+        img.src = thumbnailUrl;
+        
+        // Use decode() API if available for better performance
+        if (img.decode) {
+          img.decode().catch(() => {
+            // decode() failed, but onload/onerror will still fire
+          });
+        }
+      });
+
+      // Load next batch after a short delay to avoid blocking
+      if (currentIndex < thumbnailsToLoad.length) {
+        setTimeout(loadNextBatch, 100);
+      }
+    };
+
+    // Start loading first batch
+    loadNextBatch();
   }, [boulders, enabled]);
 };
 

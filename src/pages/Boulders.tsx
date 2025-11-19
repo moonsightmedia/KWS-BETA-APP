@@ -409,7 +409,7 @@ const Boulders = () => {
               >
                 <CardContent className="p-0 pointer-events-none flex h-full">
                   {/* Thumbnail links */}
-                  <div className="w-24 sm:w-32 flex-shrink-0 h-full relative overflow-hidden bg-muted">
+                  <div className="w-20 sm:w-24 flex-shrink-0 h-full relative overflow-hidden bg-muted">
                     <img 
                       className="w-full h-full object-cover pointer-events-none transition-opacity duration-300" 
                       src={getThumbnailUrl(boulder)} 
@@ -419,12 +419,19 @@ const Boulders = () => {
                       style={{ 
                         objectFit: 'cover',
                         objectPosition: 'center',
-                        minHeight: '100%',
-                        width: '100%',
                         opacity: 0
                       }}
                       onLoad={(e) => {
-                        e.currentTarget.style.opacity = '1';
+                        const img = e.currentTarget;
+                        
+                        // Check if image is landscape (width > height) and rotate it to portrait
+                        if (img.naturalWidth > img.naturalHeight) {
+                          // Landscape image: rotate 90° clockwise to make it portrait
+                          img.style.transform = 'rotate(90deg)';
+                          console.log(`[Boulders] Rotating landscape thumbnail to portrait: ${img.naturalWidth}x${img.naturalHeight}`);
+                        }
+                        
+                        img.style.opacity = '1';
                       }}
                       onError={(e) => {
                         const placeholder = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';

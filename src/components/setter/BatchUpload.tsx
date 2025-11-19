@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { PlusCircle, Trash2, Upload, X, CheckCircle2, AlertCircle, Loader2, Sparkles } from 'lucide-react';
 import { useSectorsTransformed } from '@/hooks/useSectors';
@@ -48,6 +49,8 @@ export const BatchUpload = () => {
   const [boulders, setBoulders] = useState<BoulderDraft[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [currentUploadIndex, setCurrentUploadIndex] = useState<number | null>(null);
+  const [uploadErrors, setUploadErrors] = useState<Array<{ boulderName: string; error: string; type: 'video' | 'thumbnail' | 'creation' }>>([]);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
 
   const videoInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const thumbnailInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -70,7 +73,7 @@ export const BatchUpload = () => {
       status: 'draft',
       progress: 0,
     };
-    setBoulders([...boulders, newBoulder]);
+    setBoulders([newBoulder, ...boulders]);
     console.log('[BatchUpload] Added new boulder:', newBoulder);
   };
 
@@ -108,20 +111,24 @@ export const BatchUpload = () => {
     const invalidBoulders = boulders.filter(b => {
       const hasName = !!b.name && b.name.trim().length > 0;
       const hasSector = !!b.sector_id && b.sector_id.trim().length > 0;
+      const hasValidSector2 = !b.spansMultipleSectors || (b.spansMultipleSectors && !!b.sector_id_2 && b.sector_id_2 !== b.sector_id);
       const hasValidDifficulty = b.difficulty === null || (b.difficulty >= 1 && b.difficulty <= 8);
       const hasVideo = !!(b.videoFile || (b.videoUrl && typeof b.videoUrl === 'string' && b.videoUrl.trim().length > 0));
       
-      const isValid = hasName && hasSector && hasValidDifficulty && hasVideo;
+      const isValid = hasName && hasSector && hasValidSector2 && hasValidDifficulty && hasVideo;
       
       if (!isValid) {
         console.log('[BatchUpload] Invalid boulder:', {
           id: b.id,
           hasName,
           hasSector,
+          hasValidSector2,
           hasValidDifficulty,
           hasVideo,
           name: b.name,
           sector_id: b.sector_id,
+          sector_id_2: b.sector_id_2,
+          spansMultipleSectors: b.spansMultipleSectors,
           difficulty: b.difficulty,
           videoFile: !!b.videoFile,
           videoUrl: b.videoUrl,
@@ -145,6 +152,9 @@ export const BatchUpload = () => {
 
     setIsUploading(true);
     setCurrentUploadIndex(0);
+    setUploadErrors([]); // Reset errors
+
+    const errors: Array<{ boulderName: string; error: string; type: 'video' | 'thumbnail' | 'creation' }> = [];
 
     for (let i = 0; i < boulders.length; i++) {
       const boulder = boulders[i];
@@ -194,8 +204,14 @@ export const BatchUpload = () => {
             updateBoulderField(boulder.id, 'progress', 70);
           } catch (error: any) {
             console.error(`[BatchUpload] Video upload failed for ${boulder.name}:`, error);
-            updateBoulderField(boulder.id, 'error', `Video-Upload fehlgeschlagen: ${error.message}`);
+            const errorMessage = error.message || 'Unbekannter Fehler';
+            updateBoulderField(boulder.id, 'error', `Video-Upload fehlgeschlagen: ${errorMessage}`);
             updateBoulderField(boulder.id, 'status', 'failed');
+            errors.push({
+              boulderName: boulder.name,
+              error: errorMessage,
+              type: 'video'
+            });
             continue; // Skip thumbnail if video failed
           }
         }
@@ -219,8 +235,14 @@ export const BatchUpload = () => {
             } as any);
           } catch (error: any) {
             console.error(`[BatchUpload] Thumbnail upload failed for ${boulder.name}:`, error);
+            const errorMessage = error.message || 'Unbekannter Fehler';
+            updateBoulderField(boulder.id, 'error', `Thumbnail-Upload fehlgeschlagen: ${errorMessage}`);
+            errors.push({
+              boulderName: boulder.name,
+              error: errorMessage,
+              type: 'thumbnail'
+            });
             // Don't fail the whole upload if thumbnail fails
-            updateBoulderField(boulder.id, 'error', `Thumbnail-Upload fehlgeschlagen: ${error.message}`);
           }
         }
 
@@ -228,32 +250,43 @@ export const BatchUpload = () => {
         updateBoulderField(boulder.id, 'status', 'completed');
       } catch (error: any) {
         console.error(`[BatchUpload] Failed to create/upload ${boulder.name}:`, error);
+        const errorMessage = error.message || 'Unbekannter Fehler';
         updateBoulderField(boulder.id, 'status', 'failed');
-        updateBoulderField(boulder.id, 'error', error.message || 'Unbekannter Fehler');
+        updateBoulderField(boulder.id, 'error', errorMessage);
+        errors.push({
+          boulderName: boulder.name,
+          error: errorMessage,
+          type: 'creation'
+        });
       }
     }
 
-    // Show summary
-    const completed = boulders.filter(b => b.status === 'completed').length;
-    const failed = boulders.filter(b => b.status === 'failed').length;
-    
     // Wait a moment to show final progress in dialog
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     setIsUploading(false);
     setCurrentUploadIndex(null);
+    setUploadErrors(errors);
+    
+    // Show summary
+    const completed = boulders.filter(b => b.status === 'completed').length;
+    const failed = boulders.filter(b => b.status === 'failed').length;
     
     if (completed > 0) {
       toast.success(`${completed} Boulder erfolgreich hochgeladen!`);
     }
     if (failed > 0) {
       toast.error(`${failed} Boulder fehlgeschlagen`);
+      // Show error dialog if there are errors
+      if (errors.length > 0) {
+        setShowErrorDialog(true);
+      }
+    } else {
+      // Navigate to boulders page after 2 seconds if no errors
+      setTimeout(() => {
+        navigate('/boulders');
+      }, 2000);
     }
-
-    // Navigate to boulders page after 2 seconds
-    setTimeout(() => {
-      navigate('/boulders');
-    }, 2000);
   };
 
   // Calculate overall progress
@@ -359,6 +392,62 @@ export const BatchUpload = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Error Dialog */}
+      <Dialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+        <DialogContent className="sm:max-w-2xl max-w-[95vw] w-full max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              Upload-Fehler
+            </DialogTitle>
+            <DialogDescription>
+              {uploadErrors.length} Boulder konnte(n) nicht vollständig hochgeladen werden.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-3 py-4">
+            {uploadErrors.map((error, index) => (
+              <div key={index} className="p-3 border rounded-lg bg-destructive/5 border-destructive/20">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-sm">{error.boulderName}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {error.type === 'video' && 'Video-Fehler'}
+                        {error.type === 'thumbnail' && 'Thumbnail-Fehler'}
+                        {error.type === 'creation' && 'Erstellungs-Fehler'}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground break-words">{error.error}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowErrorDialog(false);
+                navigate('/boulders');
+              }}
+            >
+              Schließen
+            </Button>
+            <Button
+              onClick={() => {
+                setShowErrorDialog(false);
+                // Optionally: Retry failed uploads or navigate to boulders
+                navigate('/boulders');
+              }}
+            >
+              Zu Boulder-Übersicht
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Card className="w-full min-w-0 max-w-full overflow-hidden">
       <CardHeader className="pb-3 sm:pb-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
@@ -409,11 +498,14 @@ export const BatchUpload = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {boulders.map((boulder, index) => (
+            {boulders.map((boulder, index) => {
+              // Reverse numbering: first boulder (index 0) is at bottom, newest at top
+              const displayNumber = boulders.length - index;
+              return (
               <Card key={boulder.id} className="border-2 w-full min-w-0 max-w-full overflow-hidden">
                 <CardHeader className="pb-3 px-3 sm:px-6">
                   <div className="flex items-center justify-between gap-2 min-w-0">
-                    <CardTitle className="text-base sm:text-lg truncate min-w-0">Boulder {index + 1}</CardTitle>
+                    <CardTitle className="text-base sm:text-lg truncate min-w-0">Boulder {displayNumber}</CardTitle>
                     <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                       {boulder.status === 'completed' && (
                         <Badge className="bg-green-500">
@@ -484,7 +576,13 @@ export const BatchUpload = () => {
                       <Label htmlFor={`sector-${boulder.id}`}>Sektor *</Label>
                       <Select
                         value={boulder.sector_id}
-                        onValueChange={(value) => updateBoulderField(boulder.id, 'sector_id', value)}
+                        onValueChange={(value) => {
+                          updateBoulderField(boulder.id, 'sector_id', value);
+                          // Reset sector_id_2 if it's the same as the new sector_id
+                          if (boulder.sector_id_2 === value) {
+                            updateBoulderField(boulder.id, 'sector_id_2', null);
+                          }
+                        }}
                         disabled={isUploading}
                       >
                         <SelectTrigger id={`sector-${boulder.id}`} className="w-full min-w-0">
@@ -496,6 +594,43 @@ export const BatchUpload = () => {
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+                    <div className="w-full min-w-0 flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`spans-multiple-sectors-${boulder.id}`}
+                          checked={boulder.spansMultipleSectors}
+                          onCheckedChange={(checked) => {
+                            updateBoulderField(boulder.id, 'spansMultipleSectors', checked);
+                            if (!checked) {
+                              updateBoulderField(boulder.id, 'sector_id_2', null);
+                            }
+                          }}
+                          disabled={isUploading || !boulder.sector_id}
+                        />
+                        <Label htmlFor={`spans-multiple-sectors-${boulder.id}`} className="cursor-pointer text-sm">
+                          Verläuft über mehrere Sektoren
+                        </Label>
+                      </div>
+                      {boulder.spansMultipleSectors && (
+                        <div className="w-full min-w-0">
+                          <Label htmlFor={`sector-2-${boulder.id}`}>Endet in Sektor</Label>
+                          <Select
+                            value={boulder.sector_id_2 || ''}
+                            onValueChange={(value) => updateBoulderField(boulder.id, 'sector_id_2', value)}
+                            disabled={isUploading || !boulder.sector_id}
+                          >
+                            <SelectTrigger id={`sector-2-${boulder.id}`} className="w-full min-w-0">
+                              <SelectValue placeholder="Sektor wählen" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {sectors?.filter(s => s.id !== boulder.sector_id).map(s => (
+                                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </div>
                     <div className="w-full min-w-0">
                       <Label htmlFor={`difficulty-${boulder.id}`}>Schwierigkeit</Label>
@@ -524,13 +659,15 @@ export const BatchUpload = () => {
                         disabled={isUploading}
                       >
                         <SelectTrigger id={`color-${boulder.id}`} className="w-full min-w-0">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <div 
-                              className="w-4 h-4 rounded-full border flex-shrink-0" 
-                              style={getColorBackgroundStyle(boulder.color, colorsDb || undefined)}
-                            />
-                            <SelectValue className="flex-1 min-w-0" />
-                          </div>
+                          <SelectValue className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="w-4 h-4 rounded-full border flex-shrink-0" 
+                                style={getColorBackgroundStyle(boulder.color, colorsDb || undefined)}
+                              />
+                              <span>{boulder.color}</span>
+                            </div>
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {COLORS.map(color => {
@@ -637,7 +774,8 @@ export const BatchUpload = () => {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>

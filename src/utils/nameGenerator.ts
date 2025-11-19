@@ -28,50 +28,48 @@ const NAME_ADJECTIVES: string[] = [
 ];
 
 // Extensive noun collection - animals, nature, objects, abstract
+// All nouns are masculine (der) for consistent grammar
 const NAME_NOUNS: string[] = [
-  // Animals
+  // Animals (all masculine)
   'Gecko', 'Phantom', 'Panther', 'Meteor', 'Kolibri', 'Specht', 'Saturn', 'Drache', 'Komet', 'Puma',
   'Goblin', 'Adler', 'Wal', 'Berserker', 'Nebel', 'Fuchs', 'Wolf', 'Rätsel', 'Rücken', 'Block',
-  'Löwe', 'Tiger', 'Bär', 'Eule', 'Falke', 'Hai', 'Schlange', 'Skorpion', 'Spinne', 'Biene',
-  'Schmetterling', 'Libelle', 'Grashüpfer', 'Ameise', 'Käfer', 'Schnecke', 'Wurm', 'Fisch', 'Frosch',
-  'Eichhörnchen', 'Hase', 'Igel', 'Dachs', 'Marder', 'Luchs', 'Wildkatze', 'Jaguar', 'Leopard', 'Gepard',
-  // Nature & Elements
-  'Fels', 'Stein', 'Klippe', 'Wand', 'Grat', 'Spitze', 'Gipfel', 'Abgrund', 'Schlucht', 'Canyon',
-  'Welle', 'Strom', 'Fluss', 'Wasserfall', 'Quelle', 'See', 'Meer', 'Ozean', 'Gischt', 'Schaum',
-  'Wind', 'Sturm', 'Böe', 'Luft', 'Atem', 'Hauch', 'Brise', 'Wirbel', 'Tornado', 'Hurrikan',
-  'Feuer', 'Flamme', 'Funke', 'Glut', 'Asche', 'Rauch', 'Brand', 'Inferno', 'Lavastrom',
-  'Eis', 'Frost', 'Schnee', 'Hagel', 'Eiszapfen', 'Gletscher', 'Eisberg', 'Polareis',
-  // Objects & Tools
-  'Anker', 'Kette', 'Seil', 'Knoten', 'Haken', 'Nagel', 'Schraube', 'Bolzen', 'Dübel', 'Klammer',
-  'Hammer', 'Meißel', 'Axt', 'Säge', 'Messer', 'Klinge', 'Schwert', 'Dolch', 'Speer', 'Pfeil',
-  'Schild', 'Rüstung', 'Helm', 'Panzer', 'Mauer', 'Turm', 'Burg', 'Festung', 'Bastion',
-  // Abstract & Mystical
-  'Geist', 'Seele', 'Kraft', 'Energie', 'Macht', 'Stärke', 'Schwäche', 'Mut', 'Angst', 'Hoffnung',
-  'Traum', 'Vision', 'Illusion', 'Täuschung', 'Wahrheit', 'Lüge', 'Geheimnis', 'Rätsel', 'Mysterium',
-  'Schatten', 'Licht', 'Dunkelheit', 'Helligkeit', 'Glanz', 'Schimmer', 'Funkeln', 'Leuchten',
-  'Echo', 'Klang', 'Ton', 'Melodie', 'Rhythmus', 'Takt', 'Harmonie', 'Dissonanz',
-  // Celestial & Space
-  'Stern', 'Planet', 'Mond', 'Sonne', 'Galaxie', 'Nebel', 'Komet', 'Asteroid', 'Meteorit',
-  'Orion', 'Sirius', 'Polaris', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptun',
-  // Mythical & Fantasy
-  'Phoenix', 'Gryphon', 'Pegasus', 'Einhorn', 'Basilisk', 'Hydra', 'Kraken', 'Leviathan',
-  'Valkyrie', 'Vampir', 'Werwolf', 'Zombie', 'Skelett', 'Ghul', 'Dämon', 'Engel', 'Dämon',
-  'Zauberer', 'Hexe', 'Magier', 'Alchemist', 'Nekromant', 'Druide', 'Schamane', 'Priester',
-  // Action & Movement
-  'Sprung', 'Satz', 'Hüpfer', 'Flug', 'Sturz', 'Fall', 'Aufstieg', 'Abstieg', 'Kletterei',
-  'Balance', 'Gleichgewicht', 'Stabilität', 'Instabilität', 'Schwung', 'Impuls', 'Momentum',
+  'Löwe', 'Tiger', 'Bär', 'Falke', 'Hai', 'Skorpion', 'Käfer', 'Fisch', 'Frosch',
+  'Schmetterling', 'Grashüpfer', 'Wurm',
+  'Eichhörnchen', 'Hase', 'Igel', 'Dachs', 'Marder', 'Luchs', 'Jaguar', 'Leopard', 'Gepard',
+  // Nature & Elements (all masculine)
+  'Fels', 'Stein', 'Grat', 'Gipfel', 'Abgrund', 'Canyon',
+  'Strom', 'Fluss', 'Wasserfall', 'See', 'Ozean', 'Schaum',
+  'Wind', 'Sturm', 'Böe', 'Atem', 'Hauch', 'Brise', 'Wirbel', 'Tornado', 'Hurrikan',
+  'Funke', 'Rauch', 'Brand', 'Lavastrom',
+  'Frost', 'Hagel', 'Gletscher', 'Eisberg', 'Polareis',
+  // Objects & Tools (all masculine)
+  'Anker', 'Knoten', 'Haken', 'Nagel', 'Bolzen', 'Dübel',
+  'Hammer', 'Meißel', 'Klinge', 'Schwert', 'Dolch', 'Speer', 'Pfeil',
+  'Helm', 'Panzer', 'Turm', 'Bastion',
+  // Abstract & Mystical (all masculine)
+  'Geist', 'Kraft', 'Mut', 'Traum', 'Schatten', 'Echo', 'Klang', 'Ton', 'Rhythmus', 'Takt',
+  // Celestial & Space (all masculine)
+  'Stern', 'Planet', 'Nebel', 'Komet', 'Asteroid', 'Meteorit',
+  'Orion', 'Sirius', 'Polaris', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptun',
+  // Mythical & Fantasy (all masculine)
+  'Phoenix', 'Gryphon', 'Pegasus', 'Basilisk', 'Kraken', 'Leviathan',
+  'Vampir', 'Werwolf', 'Zombie', 'Ghul', 'Dämon', 'Engel',
+  'Zauberer', 'Magier', 'Alchemist', 'Nekromant', 'Druide', 'Schamane', 'Priester',
+  // Action & Movement (all masculine)
+  'Sprung', 'Satz', 'Hüpfer', 'Flug', 'Sturz', 'Fall', 'Aufstieg', 'Abstieg', 'Schwung', 'Impuls', 'Momentum',
 ];
 
 // Difficulty-based name modifiers for more context-aware names
+// All in masculine form (ending with 'er' or 'e') for grammatically correct names
 const DIFFICULTY_MODIFIERS: Record<number, string[]> = {
   1: ['Leichter', 'Sanfter', 'Einfacher', 'Milder', 'Zarter', 'Weicher'],
-  2: ['Angenehmer', 'Komfortabler', 'Entspannte', 'Ruhige', 'Gelassene'],
-  3: ['Mittlere', 'Ausgewogene', 'Stabile', 'Solide', 'Zuverlässige'],
-  4: ['Herausfordernde', 'Anspruchsvolle', 'Interessante', 'Spannende'],
-  5: ['Schwierige', 'Knifflige', 'Trickreiche', 'Komplexe', 'Verschlungene'],
-  6: ['Harte', 'Robuste', 'Widerstandsfähige', 'Zähe', 'Hartnäckige'],
-  7: ['Extreme', 'Brutale', 'Gnadenlose', 'Unerbittliche', 'Mörderische'],
-  8: ['Legendäre', 'Mythische', 'Epische', 'Ultimative', 'Unmögliche', 'Unvorstellbare'],
+  2: ['Angenehmer', 'Komfortabler', 'Entspannter', 'Ruhiger', 'Gelassener'],
+  3: ['Mittlerer', 'Ausgewogener', 'Stabiler', 'Solider', 'Zuverlässiger'],
+  4: ['Herausfordernder', 'Anspruchsvoller', 'Interessanter', 'Spannender'],
+  5: ['Schwieriger', 'Kniffliger', 'Trickreicher', 'Komplexer', 'Verschlungener'],
+  6: ['Harter', 'Robuster', 'Widerstandsfähiger', 'Zäher', 'Hartnäckiger'],
+  7: ['Extremer', 'Brutaler', 'Gnadenloser', 'Unerbittlicher', 'Mörderischer'],
+  8: ['Legendärer', 'Mythischer', 'Epischer', 'Ultimativer', 'Unmöglicher', 'Unvorstellbarer'],
 };
 
 function toColorAdjective(color: string): string {
@@ -82,45 +80,91 @@ function getRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]; 
 }
 
+// Helper to ensure grammatically correct adjective forms for masculine nouns
+// All nouns in NAME_NOUNS are masculine, so adjectives should end with 'er' or 'e' (masculine nominative)
+function ensureMasculineForm(adjective: string): string {
+  // Most adjectives already end with 'er' which is correct for masculine nouns
+  // Some end with 'e' which is also correct
+  // If it ends with something else, we might need to adjust, but for now keep as is
+  return adjective;
+}
+
 export function generateBoulderName(color: string, difficulty: number | null): string {
   const parts: string[] = [];
+  const colorAdj = toColorAdjective(color);
+  
+  if (!colorAdj) {
+    // Fallback if color not found
+    return getRandom(NAME_ADJECTIVES) + ' ' + getRandom(NAME_NOUNS);
+  }
+  
   const patterns = [
-    // Pattern 1: Color + Adjective + Noun (classic)
+    // Pattern 1: Color + Adjective + Noun (classic, most common)
     () => {
-      const colorAdj = toColorAdjective(color);
-      if (colorAdj) parts.push(colorAdj);
-      parts.push(getRandom(NAME_ADJECTIVES));
+      parts.push(colorAdj);
+      parts.push(ensureMasculineForm(getRandom(NAME_ADJECTIVES)));
       parts.push(getRandom(NAME_NOUNS));
     },
-    // Pattern 2: Difficulty modifier + Noun
+    // Pattern 2: Color + Difficulty modifier + Noun
     () => {
+      parts.push(colorAdj);
       const modifiers = DIFFICULTY_MODIFIERS[difficulty || 0] || [];
-      if (modifiers.length > 0 && Math.random() > 0.5) {
-        parts.push(getRandom(modifiers));
+      if (modifiers.length > 0) {
+        parts.push(ensureMasculineForm(getRandom(modifiers)));
+      } else {
+        parts.push(ensureMasculineForm(getRandom(NAME_ADJECTIVES)));
       }
       parts.push(getRandom(NAME_NOUNS));
     },
-    // Pattern 3: Adjective + Noun (no color)
+    // Pattern 3: Color + Noun (simpler, but still creative)
     () => {
-      parts.push(getRandom(NAME_ADJECTIVES));
+      parts.push(colorAdj);
       parts.push(getRandom(NAME_NOUNS));
     },
-    // Pattern 4: Color + Noun (simpler)
+    // Pattern 4: Color + Adjective + Adjective + Noun (double adjective for creativity)
     () => {
-      const colorAdj = toColorAdjective(color);
-      if (colorAdj) parts.push(colorAdj);
+      parts.push(colorAdj);
+      parts.push(ensureMasculineForm(getRandom(NAME_ADJECTIVES)));
+      parts.push(ensureMasculineForm(getRandom(NAME_ADJECTIVES)));
       parts.push(getRandom(NAME_NOUNS));
     },
-    // Pattern 5: Double adjective + Noun
+    // Pattern 5: Color + Adjective + Noun (with difficulty context)
     () => {
-      parts.push(getRandom(NAME_ADJECTIVES));
-      parts.push(getRandom(NAME_ADJECTIVES));
+      parts.push(colorAdj);
+      // Mix difficulty modifier with regular adjective
+      const modifiers = DIFFICULTY_MODIFIERS[difficulty || 0] || [];
+      if (modifiers.length > 0 && Math.random() > 0.3) {
+        parts.push(ensureMasculineForm(getRandom(modifiers)));
+      } else {
+        parts.push(ensureMasculineForm(getRandom(NAME_ADJECTIVES)));
+      }
+      parts.push(getRandom(NAME_NOUNS));
+    },
+    // Pattern 6: Color + Creative compound (adjective + noun combination)
+    () => {
+      parts.push(colorAdj);
+      // Create more creative combinations
+      const creativeAdjectives = ['Mystischer', 'Geheimer', 'Verlorener', 'Wilder', 'Kühner', 'Listiger'];
+      parts.push(ensureMasculineForm(getRandom(creativeAdjectives)));
       parts.push(getRandom(NAME_NOUNS));
     },
   ];
   
-  // Randomly select a pattern
-  const selectedPattern = getRandom(patterns);
+  // Randomly select a pattern (weighted towards more creative patterns)
+  const weights = [0.25, 0.20, 0.15, 0.15, 0.15, 0.10]; // Pattern 1 most common, Pattern 6 least common
+  let random = Math.random();
+  let selectedIndex = 0;
+  let cumulativeWeight = 0;
+  
+  for (let i = 0; i < patterns.length; i++) {
+    cumulativeWeight += weights[i];
+    if (random <= cumulativeWeight) {
+      selectedIndex = i;
+      break;
+    }
+  }
+  
+  const selectedPattern = patterns[selectedIndex];
   selectedPattern();
   
   return parts.join(' ');

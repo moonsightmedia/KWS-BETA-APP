@@ -375,7 +375,7 @@ const Setter = () => {
     videoUrl: '' as string, // For CDN video selection
   });
   const [isUploading, setIsUploading] = useState(false);
-  const [view, setView] = useState<'create' | 'edit' | 'schedule' | 'status' | 'logs' | 'batch'>('create');
+  const [view, setView] = useState<'create' | 'edit' | 'schedule' | 'status' | 'logs' | 'batch'>('batch');
   // Wizard state for multi-step boulder creation
   const [wizardStep, setWizardStep] = useState(1);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
@@ -914,13 +914,6 @@ const Setter = () => {
               <nav className="bg-sidebar-bg rounded-2xl shadow-2xl border border-border w-full max-w-full">
                 <div className="w-full flex items-center justify-start gap-1 sm:gap-2 overflow-x-auto px-1 sm:px-2 py-2 min-w-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                   <button
-                    className={`flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 rounded-xl transition-all flex-shrink-0 min-w-0 ${view==='create' ? 'text-success' : 'text-sidebar-icon'}`}
-                    onClick={()=> setView('create')}
-                  >
-                    <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex-shrink-0" />
-                    <span className="text-[9px] sm:text-[10px] md:text-xs whitespace-nowrap truncate max-w-[60px] sm:max-w-none">Hinzufügen</span>
-                  </button>
-                  <button
                     className={`flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 rounded-xl transition-all flex-shrink-0 min-w-0 ${view==='batch' ? 'text-success' : 'text-sidebar-icon'}`}
                     onClick={()=> setView('batch')}
                   >
@@ -961,7 +954,10 @@ const Setter = () => {
           )}
           <div className="grid grid-cols-1 md:gap-8 max-w-7xl mx-auto w-full min-w-0">
             <section className="w-full min-w-0">
-        {view === 'create' && (
+        {view === 'batch' && (
+          <BatchUpload />
+        )}
+        {view === 'create' && false && (
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -1882,9 +1878,6 @@ const Setter = () => {
         )}
         {view === 'logs' && (
           <UploadLogViewer />
-        )}
-        {view === 'batch' && (
-          <BatchUpload />
         )}
             </section>
           </div>

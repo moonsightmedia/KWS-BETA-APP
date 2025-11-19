@@ -118,3 +118,81 @@ Mode: DRY RUN (no files will be deleted)
    Run without --dry-run to actually delete these videos.
 ```
 
+---
+
+## compress-thumbnails.js
+
+Dieses Skript komprimiert alle vorhandenen Thumbnails im CDN für bessere Performance.
+
+### Voraussetzungen
+
+1. Installiere die benötigten Dependencies:
+```bash
+npm install sharp node-fetch form-data dotenv
+```
+
+2. Stelle sicher, dass `.env.local` die folgenden Variablen enthält:
+- `VITE_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY` (wichtig: Service Role Key für Admin-Zugriff)
+- `VITE_ALLINKL_API_URL` (optional, Standard: https://cdn.kletterwelt-sauerland.de/upload-api)
+
+### Verwendung
+
+**Dry-Run (zeigt nur an, welche Thumbnails komprimiert würden):**
+```bash
+npm run compress:thumbnails:dry-run
+# oder
+node scripts/compress-thumbnails.js --dry-run
+```
+
+**Tatsächliche Komprimierung:**
+```bash
+npm run compress:thumbnails
+# oder
+node scripts/compress-thumbnails.js
+```
+
+### Was das Skript macht
+
+1. Findet alle Boulder mit Thumbnail-URLs
+2. Lädt Thumbnails vom CDN herunter
+3. Komprimiert sie (max. 800px, JPEG 85% Qualität)
+4. Lädt komprimierte Versionen zurück zum CDN hoch
+5. Aktualisiert die Datenbank mit den neuen URLs
+6. Löscht alte Thumbnails (optional, um Speicherplatz zu sparen)
+
+### Komprimierungseinstellungen
+
+- **Maximale Größe:** 800px (Breite oder Höhe, Seitenverhältnis bleibt erhalten)
+- **Format:** JPEG mit 85% Qualität
+- **Nur wenn kleiner:** Komprimierte Version wird nur verwendet, wenn sie kleiner ist als das Original
+
+### Hinweise
+
+- Das Skript überspringt Thumbnails, die bereits optimal komprimiert sind
+- Fehlerhafte Thumbnails werden protokolliert, aber die Komprimierung wird fortgesetzt
+- Alte Thumbnails werden automatisch gelöscht, um Speicherplatz zu sparen
+- **Immer zuerst mit `--dry-run` testen!**
+
+### Beispiel-Ausgabe
+
+```
+🚀 Starting thumbnail compression...
+
+📥 Fetching boulders with thumbnails...
+📊 Found 25 boulder(s) with thumbnails
+
+[1/25] Processing: Boulder 1 (abc-123)
+  URL: https://cdn.kletterwelt-sauerland.de/uploads/thumbnails/old.jpg
+  📥 Downloading thumbnail...
+  ✅ Downloaded 245.3 KB
+  🗜️  Compressing thumbnail...
+  📦 Compression: 245.3 KB → 89.2 KB (63.6% smaller)
+  📐 Size: 1920x1080 → 800x450
+  📤 Uploading compressed thumbnail...
+  💾 Updating database...
+  🗑️  Deleted old thumbnail
+  ✅ Successfully compressed and updated!
+  New URL: https://cdn.kletterwelt-sauerland.de/uploads/thumbnails/new.jpg
+```
+

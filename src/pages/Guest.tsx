@@ -10,11 +10,12 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Filter, Search, Palette, Map, Dumbbell, X } from 'lucide-react';
+import { Filter, Search, Palette, Map as MapIcon, Dumbbell, X, Loader2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { BoulderDetailDialog } from '@/components/BoulderDetailDialog';
 import { Boulder } from '@/types/boulder';
+import { Progress } from '@/components/ui/progress';
 // Use a data URL for placeholder to ensure it always works
 const placeholder = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';
 
@@ -45,6 +46,7 @@ const TEXT_ON_COLOR: Record<string, string> = {
 const Guest = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [loadedThumbnails, setLoadedThumbnails] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
   const { data: colors } = useColors();
   const [searchQuery, setSearchQuery] = useState('');
@@ -173,53 +175,173 @@ const Guest = () => {
     return list;
   }, [boulders, sectorFilter, difficultyFilter, colorFilter, searchQuery]);
 
+  // Reset loaded thumbnails when filtered list changes
+  useEffect(() => {
+    setLoadedThumbnails(new Set());
+  }, [filtered.length, sectorFilter, difficultyFilter, colorFilter, searchQuery]);
+
   // Get thumbnail URL for a boulder - use manually uploaded thumbnail or placeholder
-  const getThumbnailUrl = (boulder: Boulder): string => {
-    console.log('[Guest] getThumbnailUrl for boulder:', boulder.name, {
-      thumbnailUrl: boulder.thumbnailUrl,
-      hasThumbnail: !!boulder.thumbnailUrl,
-    });
-    if (boulder.thumbnailUrl) {
-      // Fix old URLs that incorrectly include /videos/ in the path
-      // Thumbnails should be in uploads/thumbnails/ or directly in uploads/
-      // But NOT in uploads/videos/
-      let url = boulder.thumbnailUrl;
-      if (url.includes('cdn.kletterwelt-sauerland.de/uploads/videos/')) {
-        // Remove /videos/ from the path - thumbnails are directly in uploads/ or uploads/thumbnails/
-        url = url.replace('/uploads/videos/', '/uploads/');
-        console.log('[Guest] Fixed thumbnail URL:', boulder.thumbnailUrl, '→', url);
+  // Memoized to avoid recalculating on every render
+  const thumbnailUrlMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!filtered) return map;
+    
+    filtered.forEach(b => {
+      if (b.thumbnailUrl) {
+        let url = b.thumbnailUrl;
+        if (url.includes('cdn.kletterwelt-sauerland.de/uploads/videos/')) {
+          url = url.replace('/uploads/videos/', '/uploads/');
+        }
+        map.set(b.id, url);
+      } else {
+        map.set(b.id, placeholder);
       }
-      return url;
-    }
-    return placeholder;
+    });
+    return map;
+  }, [filtered]);
+
+  const getThumbnailUrl = (boulder: Boulder): string => {
+    return thumbnailUrlMap.get(boulder.id) || placeholder;
   };
+
+  // Preload ALL thumbnails before showing the page
+  useEffect(() => {
+    if (!filtered || filtered.length === 0) {
+      // No thumbnails to load, page can be shown
+      return;
+    }
+    
+    // Get all thumbnail URLs that need to be loaded (exclude placeholders)
+    const allThumbnailUrls = filtered
+      .map(b => thumbnailUrlMap.get(b.id) || placeholder)
+      .filter(url => url !== placeholder);
+    
+    if (allThumbnailUrls.length === 0) {
+      // No real thumbnails to load, page can be shown
+      return;
+    }
+    
+    // Filter out already loaded thumbnails
+    const thumbnailsToLoad = allThumbnailUrls.filter(url => !loadedThumbnails.has(url));
+    
+    if (thumbnailsToLoad.length === 0) {
+      // All thumbnails already loaded
+      return;
+    }
+    
+    console.log(`[Guest] Preloading ${thumbnailsToLoad.length} thumbnails before showing page...`);
+    
+    // Load all thumbnails with staggered timing to avoid overwhelming the browser
+    thumbnailsToLoad.forEach((url, index) => {
+      const delay = index < 6 ? 0 : (index - 6) * 10; // First 6 immediate, rest with 10ms delay
+      
+      setTimeout(() => {
+        const img = new Image();
+        img.onload = () => {
+          setLoadedThumbnails(prev => {
+            const next = new Set(prev);
+            next.add(url);
+            return next;
+          });
+        };
+        img.onerror = () => {
+          // Mark as loaded even on error (will show placeholder)
+          setLoadedThumbnails(prev => {
+            const next = new Set(prev);
+            next.add(url);
+            return next;
+          });
+        };
+        // Set src immediately to start loading
+        img.src = url;
+        // Use decode() for better performance if available
+        if (img.decode) {
+          img.decode().catch(() => {});
+        }
+      }, delay);
+    });
+  }, [filtered, thumbnailUrlMap, loadedThumbnails]);
+
+  // Check if all thumbnails are loaded
+  const allThumbnailsLoaded = useMemo(() => {
+    if (!filtered || filtered.length === 0) return true;
+    
+    // Get all thumbnail URLs that need to be loaded (exclude placeholders)
+    const allThumbnailUrls = filtered
+      .map(b => thumbnailUrlMap.get(b.id) || placeholder)
+      .filter(url => url !== placeholder);
+    
+    if (allThumbnailUrls.length === 0) return true;
+    
+    // Check if all thumbnails are loaded
+    const allLoaded = allThumbnailUrls.every(url => loadedThumbnails.has(url));
+    return allLoaded;
+  }, [filtered, thumbnailUrlMap, loadedThumbnails]);
+
+  // Calculate loading progress
+  const loadingProgress = useMemo(() => {
+    if (!filtered || filtered.length === 0) return 100;
+    
+    const allThumbnailUrls = filtered
+      .map(b => thumbnailUrlMap.get(b.id) || placeholder)
+      .filter(url => url !== placeholder);
+    
+    if (allThumbnailUrls.length === 0) return 100;
+    
+    const loadedCount = allThumbnailUrls.filter(url => loadedThumbnails.has(url)).length;
+    return Math.round((loadedCount / allThumbnailUrls.length) * 100);
+  }, [filtered, thumbnailUrlMap, loadedThumbnails]);
 
   // Removed automatic thumbnail generation - now using manually uploaded thumbnails
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 border-b bg-gradient-to-b from-primary/10 to-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-teko tracking-wide leading-none">Boulder (Gastansicht)</h1>
-            <p className="text-xs text-muted-foreground mt-1">Filtere die Boulder. Für mehr Infos anmelden.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="hidden sm:inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full border bg-card">
-              <span className="inline-block w-2 h-2 rounded-full bg-primary" />
-              {filtered.length} Treffer
-            </span>
-            <Button size="sm" onClick={() => { 
-              console.log('[Guest] CTA clicked → hard redirect to /auth');
-              window.location.href = '/auth';
-            }}>
-              Mehr erfahren – Anmelden
-            </Button>
+      {/* Full-Screen Loading Overlay - Show until all thumbnails are loaded */}
+      {!allThumbnailsLoaded && (
+        <div className="fixed inset-0 z-50 bg-background flex items-center justify-center">
+          <div className="text-center space-y-4 max-w-sm mx-auto px-4">
+            <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
+            <div className="space-y-2">
+              <h2 className="text-lg font-semibold">Thumbnails werden geladen...</h2>
+              <p className="text-sm text-muted-foreground">
+                Bitte warten, während die Bilder vorbereitet werden
+              </p>
+              <div className="space-y-1 pt-2">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Fortschritt</span>
+                  <span>{loadingProgress}%</span>
+                </div>
+                <Progress value={loadingProgress} className="h-2" />
+              </div>
+            </div>
           </div>
         </div>
-      </header>
+      )}
 
-      <main className="p-4 max-w-4xl mx-auto">
+      {/* Main Content - Only visible when all thumbnails are loaded */}
+      <div className={allThumbnailsLoaded ? '' : 'opacity-0 pointer-events-none'}>
+        <header className="sticky top-0 z-30 border-b bg-gradient-to-b from-primary/10 to-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-teko tracking-wide leading-none">Boulder (Gastansicht)</h1>
+              <p className="text-xs text-muted-foreground mt-1">Filtere die Boulder. Für mehr Infos anmelden.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full border bg-card">
+                <span className="inline-block w-2 h-2 rounded-full bg-primary" />
+                {filtered.length} Treffer
+              </span>
+              <Button size="sm" onClick={() => { 
+                console.log('[Guest] CTA clicked → hard redirect to /auth');
+                window.location.href = '/auth';
+              }}>
+                Mehr erfahren – Anmelden
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        <main className="p-4 max-w-4xl mx-auto">
 
       {/* Desktop filter row */}
       <div className="hidden sm:flex flex-row gap-2 mb-4">
@@ -253,7 +375,7 @@ const Guest = () => {
       {/* Mobile: no top search; use floating filter bar below */}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {filtered.map(b => (
+        {filtered.map((b, index) => (
           <Card 
             key={b.id} 
             className="hover:bg-muted/50 cursor-pointer transition-colors h-[120px] sm:h-[140px] overflow-hidden"
@@ -275,32 +397,43 @@ const Guest = () => {
             }}
           >
             <CardContent className="p-0 pointer-events-none flex h-full">
-              {/* Thumbnail links */}
-              <div className="w-24 sm:w-32 flex-shrink-0 h-full relative overflow-hidden bg-muted">
+              {/* Thumbnail links - Portrait aspect ratio for vertical images */}
+              <div className="w-20 sm:w-24 flex-shrink-0 h-full relative overflow-hidden bg-muted">
                 <img 
-                  className="w-full h-full object-cover pointer-events-none transition-opacity duration-300" 
+                  className="w-full h-full object-cover pointer-events-none transition-opacity duration-200" 
                   src={getThumbnailUrl(b)} 
                   alt={b.name}
-                  loading="lazy"
+                  loading={index < 18 ? "eager" : "lazy"}
                   decoding="async"
+                  fetchPriority={index < 6 ? "high" : index < 18 ? "auto" : "low"}
                   style={{ 
                     objectFit: 'cover',
                     objectPosition: 'center',
-                    minHeight: '100%',
-                    width: '100%',
-                    opacity: 0
                   }}
                   onLoad={(e) => {
-                    e.currentTarget.style.opacity = '1';
-                    console.log('[Guest] Image loaded successfully for boulder:', b.name);
+                    const img = e.currentTarget;
+                    const thumbnailUrl = getThumbnailUrl(b);
+                    
+                    // Check if image is landscape (width > height) and rotate it to portrait
+                    if (img.naturalWidth > img.naturalHeight) {
+                      // Landscape image: rotate 90° clockwise to make it portrait
+                      img.style.transform = 'rotate(90deg)';
+                      console.log(`[Guest] Rotating landscape thumbnail to portrait: ${img.naturalWidth}x${img.naturalHeight}`);
+                    }
+                    
+                    // Track loaded thumbnail (skip placeholder)
+                    if (thumbnailUrl !== placeholder) {
+                      setLoadedThumbnails(prev => {
+                        const next = new Set(prev);
+                        next.add(thumbnailUrl);
+                        return next;
+                      });
+                    }
                   }}
                   onError={(e) => {
                     // Fallback to placeholder if image fails to load
-                    console.error('[Guest] Image load error for boulder:', b.name, 'URL:', e.currentTarget.src);
-                    const placeholder = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';
                     if (e.currentTarget.src !== placeholder) {
                       e.currentTarget.src = placeholder;
-                      e.currentTarget.style.opacity = '1';
                     }
                   }}
                 />
@@ -412,7 +545,7 @@ const Guest = () => {
               </Button>
               <Button aria-label="Sektor filtern" variant="outline" size="icon" onClick={()=> setQuickFilter(prev => prev === 'sector' ? null : 'sector')}>
                 <span className="relative inline-flex">
-                  <Map className="w-5 h-5" />
+                  <MapIcon className="w-5 h-5" />
                   {sectorFilter !== 'all' && <span className="absolute -right-0.5 -bottom-0.5 w-2 h-2 rounded-full bg-primary border border-background" />}
                 </span>
               </Button>
@@ -483,7 +616,8 @@ const Guest = () => {
         </div>
       </nav>
       <div className="h-24 sm:h-0" />
-      </main>
+        </main>
+      </div>
     </div>
   );
 };

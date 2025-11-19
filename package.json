@@ -13,7 +13,9 @@
     "check:video-urls": "node scripts/check-video-urls.js",
     "fix:video-urls": "node scripts/fix-video-urls.js",
     "cleanup:videos": "node scripts/cleanup-unused-videos.js",
-    "cleanup:videos:dry-run": "node scripts/cleanup-unused-videos.js --dry-run"
+    "cleanup:videos:dry-run": "node scripts/cleanup-unused-videos.js --dry-run",
+    "compress:thumbnails": "node scripts/compress-thumbnails.js",
+    "compress:thumbnails:dry-run": "node scripts/compress-thumbnails.js --dry-run"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -64,6 +66,7 @@
     "react-resizable-panels": "^2.1.9",
     "react-router-dom": "^6.30.1",
     "recharts": "^2.15.4",
+    "sharp": "^0.33.5",
     "sonner": "^1.7.4",
     "supabase": "^2.54.11",
     "tailwind-merge": "^2.6.0",

@@ -1,5 +1,6 @@
 import { supabase } from './client';
 import { UploadLogger } from '@/utils/uploadLogger';
+import EXIF from 'exif-js';
 
 const DEFAULT_BUCKET = 'beta-videos';
 const SECTOR_IMAGES_BUCKET = 'sector-images';
@@ -18,10 +19,229 @@ function randomId(): string {
 }
 
 /**
+ * Get EXIF orientation from image file
+ */
+function getExifOrientation(file: File): Promise<number> {
+  return new Promise((resolve) => {
+    try {
+      EXIF.getData(file as any, function() {
+        try {
+          const orientation = EXIF.getTag(this, 'Orientation') || 1;
+          resolve(orientation);
+        } catch (error) {
+          console.warn('[EXIF] Error reading orientation tag:', error);
+          resolve(1); // Default orientation on error
+        }
+      });
+    } catch (error) {
+      console.warn('[EXIF] Error reading EXIF data:', error);
+      resolve(1); // Default orientation on error
+    }
+  });
+}
+
+/**
+ * Apply EXIF orientation transformation to canvas context
+ * This ensures images are saved in the correct orientation (portrait images stay portrait)
+ */
+function applyExifOrientation(ctx: CanvasRenderingContext2D, orientation: number, width: number, height: number) {
+  switch (orientation) {
+    case 2:
+      // Horizontal flip
+      ctx.transform(-1, 0, 0, 1, width, 0);
+      break;
+    case 3:
+      // 180° rotation
+      ctx.transform(-1, 0, 0, -1, width, height);
+      break;
+    case 4:
+      // Vertical flip
+      ctx.transform(1, 0, 0, -1, 0, height);
+      break;
+    case 5:
+      // 90° clockwise + horizontal flip
+      ctx.transform(0, 1, 1, 0, 0, 0);
+      break;
+    case 6:
+      // 90° clockwise (portrait images taken with phone rotated)
+      ctx.transform(0, 1, -1, 0, height, 0);
+      break;
+    case 7:
+      // 90° counter-clockwise + horizontal flip
+      ctx.transform(0, -1, -1, 0, height, width);
+      break;
+    case 8:
+      // 90° counter-clockwise (portrait images taken with phone rotated)
+      ctx.transform(0, -1, 1, 0, 0, width);
+      break;
+    default:
+      // Orientation 1 or unknown - no transformation
+      break;
+  }
+}
+
+/**
+ * Compress and resize thumbnail image for optimal performance
+ * Resizes to max 800px width/height and compresses to JPEG with 85% quality
+ * Automatically corrects EXIF orientation so portrait images are saved as portrait
+ */
+async function compressThumbnail(file: File, onProgress?: (progress: number) => void): Promise<File> {
+  return new Promise(async (resolve, reject) => {
+    // Read EXIF orientation first
+    const orientation = await getExifOrientation(file);
+    
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.src = objectUrl;
+
+    img.onload = () => {
+      try {
+        // Browser automatically applies EXIF orientation when displaying
+        // So img.width/height are already corrected for display
+        let imgWidth = img.width;
+        let imgHeight = img.height;
+
+        // Determine if image is landscape (width > height) or portrait (height > width)
+        const isLandscape = imgWidth > imgHeight;
+        
+        // ALWAYS save as portrait (height > width)
+        // If landscape, we'll rotate it 90° clockwise to make it portrait
+        let canvasWidth = imgWidth;
+        let canvasHeight = imgHeight;
+        let needsRotation = false;
+        
+        if (isLandscape) {
+          // Landscape image: swap dimensions and rotate 90° clockwise
+          canvasWidth = imgHeight;
+          canvasHeight = imgWidth;
+          needsRotation = true;
+        }
+        // If already portrait, keep dimensions as-is
+
+        // Calculate optimal dimensions (max 800px, maintain aspect ratio)
+        const maxDimension = 800;
+        let width = canvasWidth;
+        let height = canvasHeight;
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height / width) * maxDimension);
+            width = maxDimension;
+          } else {
+            width = Math.round((width / height) * maxDimension);
+            height = maxDimension;
+          }
+        }
+
+        // Create canvas for resizing (always portrait orientation)
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          URL.revokeObjectURL(objectUrl);
+          resolve(file); // Return original if canvas not supported
+          return;
+        }
+
+        // Use high-quality image rendering
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
+        // Save context state
+        ctx.save();
+
+        // Apply transformations to ensure portrait orientation
+        if (needsRotation) {
+          // Landscape image: rotate 90° clockwise to make it portrait
+          ctx.translate(width / 2, height / 2);
+          ctx.rotate(Math.PI / 2); // 90° clockwise
+          ctx.translate(-height / 2, -width / 2);
+          // Draw with swapped dimensions
+          ctx.drawImage(img, 0, 0, height, width);
+        } else {
+          // Already portrait: apply EXIF orientation correction if needed
+          // But only if it doesn't make it landscape again
+          applyExifOrientation(ctx, orientation, width, height);
+          
+          // For EXIF orientations 6 and 8, we need to handle them specially
+          if (orientation === 6 || orientation === 8) {
+            // These are portrait images stored as landscape in EXIF
+            // The browser already corrected them, so we just draw normally
+            ctx.drawImage(img, 0, 0, width, height);
+          } else {
+            // Normal portrait or other orientations
+            ctx.drawImage(img, 0, 0, width, height);
+          }
+        }
+
+        // Restore context state
+        ctx.restore();
+
+        if (onProgress) onProgress(50);
+
+        // Convert to JPEG with 85% quality (good balance between size and quality)
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(objectUrl);
+            
+            if (!blob) {
+              resolve(file); // Return original if conversion fails
+              return;
+            }
+
+            // Only use compressed version if it's smaller
+            if (blob.size < file.size) {
+              const compressedFile = new File(
+                [blob],
+                file.name.replace(/\.[^/.]+$/, '.jpg'),
+                {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                }
+              );
+              if (onProgress) onProgress(100);
+              resolve(compressedFile);
+            } else {
+              // Original is smaller, use it
+              if (onProgress) onProgress(100);
+              resolve(file);
+            }
+          },
+          'image/jpeg',
+          0.85 // 85% quality
+        );
+      } catch (error) {
+        URL.revokeObjectURL(objectUrl);
+        console.warn('[Thumbnail Compression] Error during compression:', error);
+        resolve(file); // Return original on error
+      }
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      console.warn('[Thumbnail Compression] Failed to load image for compression');
+      resolve(file); // Return original on error
+    };
+  });
+}
+
+/**
  * Remove audio track from video file
- * Always removes audio, even for small files
+ * NOTE: This function converts to WebM format (MediaRecorder limitation)
+ * Only use when audio removal is critical and format change is acceptable
+ * For MP4 files, this will convert to WebM, which may reduce quality
  */
 async function removeAudioFromVideo(file: File, onProgress?: (progress: number) => void): Promise<File> {
+  // Skip audio removal for MP4 files to preserve format and quality
+  // MediaRecorder only supports WebM, so removing audio would convert MP4 to WebM
+  if (file.type === 'video/mp4' || file.name.toLowerCase().endsWith('.mp4')) {
+    console.log('[Video Processing] Skipping audio removal for MP4 to preserve format');
+    if (onProgress) onProgress(100);
+    return file;
+  }
+
   // Check if MediaRecorder is available
   if (!MediaRecorder.isTypeSupported('video/webm;codecs=vp9') && 
       !MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
@@ -236,15 +456,27 @@ async function removeAudioFromVideo(file: File, onProgress?: (progress: number) 
 
 /**
  * Compress video file to reduce size before upload
- * Optimized for mobile devices - uses MediaRecorder with lower bitrate
- * Also removes audio track
+ * Only compresses if file is > 20MB
+ * Preserves original format (MP4) when possible to maintain quality
  */
 async function compressVideo(file: File, onProgress?: (progress: number) => void): Promise<File> {
-  // If file is already small enough (< 20MB), just remove audio without compression
+  // If file is already small enough (< 20MB), return original without processing
+  // This preserves MP4 format and quality
   const skipCompressionThreshold = 20 * 1024 * 1024; // 20MB
   if (file.size < skipCompressionThreshold) {
-    // Still remove audio, but don't compress
-    return removeAudioFromVideo(file, onProgress);
+    console.log('[Video Processing] File < 20MB, skipping compression to preserve format and quality');
+    if (onProgress) onProgress(100);
+    return file;
+  }
+
+  // For MP4 files > 20MB, we could compress but MediaRecorder only supports WebM
+  // So we'll return the original to preserve format and quality
+  // Compression would convert MP4 to WebM, which may reduce quality
+  if (file.type === 'video/mp4' || file.name.toLowerCase().endsWith('.mp4')) {
+    console.log('[Video Processing] MP4 file > 20MB, but skipping compression to preserve MP4 format and quality');
+    console.warn('[Video Processing] Consider compressing the video manually before upload for better performance');
+    if (onProgress) onProgress(100);
+    return file;
   }
 
   // Check if MediaRecorder is available
@@ -716,27 +948,39 @@ export async function uploadBetaVideo(
     throw error;
   }
 
-  // Always remove audio and compress if needed (reports progress 0-50%)
+  // Preserve original file extension for format detection
+  const originalExt = getFileExt(file.name) || (file.type.includes('mp4') ? 'mp4' : 'webm');
+  
+  // Process video: compress if needed, but preserve format (reports progress 0-50%)
+  // For small files (< 20MB) or MP4 files, skip processing to preserve quality and format
   let videoToUpload = file;
-  try {
-    await logger.updateStatus('compressing', 5).catch(() => {});
-    if (onProgress) onProgress(5);
-    
-    // Always remove audio (and compress if > 20MB)
-    videoToUpload = await compressVideo(file, (progress) => {
-      const compressionProgress = 5 + (progress * 0.45);
-      logger.updateStatus('compressing', compressionProgress).catch(() => {});
-      if (onProgress) {
-        // Compression/audio removal takes 5-50% of total progress
-        onProgress(compressionProgress);
-      }
-    });
-    
+  const skipProcessing = file.size < 20 * 1024 * 1024 || file.type === 'video/mp4' || file.name.toLowerCase().endsWith('.mp4');
+  
+  if (!skipProcessing) {
+    try {
+      await logger.updateStatus('compressing', 5).catch(() => {});
+      if (onProgress) onProgress(5);
+      
+      // Compress if > 20MB and not MP4, but preserve format when possible
+      videoToUpload = await compressVideo(file, (progress) => {
+        const compressionProgress = 5 + (progress * 0.45);
+        logger.updateStatus('compressing', compressionProgress).catch(() => {});
+        if (onProgress) {
+          // Compression takes 5-50% of total progress (only if needed)
+          onProgress(compressionProgress);
+        }
+      });
+      
+      await logger.updateStatus('compressing', 50).catch(() => {});
+    } catch (error: any) {
+      console.warn('Video processing (compression) failed, using original:', error);
+      await logger.updateStatus('compressing', 50, error).catch(() => {});
+      videoToUpload = file; // Use original if processing fails
+    }
+  } else {
+    // Skip processing for small files or MP4 - preserve quality and format
     await logger.updateStatus('compressing', 50).catch(() => {});
-  } catch (error: any) {
-    console.warn('Video processing (audio removal/compression) failed, using original:', error);
-    await logger.updateStatus('compressing', 50, error).catch(() => {});
-    videoToUpload = file; // Use original if processing fails
+    if (onProgress) onProgress(50);
   }
 
   // Validate file size after compression (50MB max to reduce egress costs)
@@ -783,7 +1027,8 @@ export async function uploadBetaVideo(
   // If All-Inkl is not enabled, use Supabase Storage
   await logger.updateStatus('uploading', file.size > 20 * 1024 * 1024 ? 50 : 0).catch(() => {});
   
-  const ext = getFileExt(videoToUpload.name) || (videoToUpload.type.includes('webm') ? 'webm' : 'mp4');
+  // Preserve original file extension to maintain format (MP4, WebM, etc.)
+  const ext = getFileExt(videoToUpload.name) || originalExt;
   const objectPath = `uploads/${randomId()}.${ext}`;
 
   // Simulate progress if callback provided (starts at 50% after compression)
@@ -1103,19 +1348,43 @@ export async function uploadThumbnail(
     throw error;
   }
 
+  // Compress and optimize thumbnail before upload
+  let thumbnailToUpload = file;
+  try {
+    await logger.updateStatus('compressing', 5).catch(() => {});
+    if (onProgress) onProgress(5);
+    
+    thumbnailToUpload = await compressThumbnail(file, (progress) => {
+      const compressionProgress = 5 + (progress * 0.4); // 5-45% for compression
+      logger.updateStatus('compressing', compressionProgress).catch(() => {});
+      if (onProgress) {
+        onProgress(compressionProgress);
+      }
+    });
+    
+    await logger.updateStatus('compressing', 45).catch(() => {});
+    if (onProgress) onProgress(45);
+  } catch (error: any) {
+    console.warn('[Thumbnail Upload] Compression failed, using original:', error);
+    await logger.updateStatus('compressing', 45, error).catch(() => {});
+    thumbnailToUpload = file; // Use original if compression fails
+  }
+
   // Use All-Inkl if enabled, otherwise fallback to Supabase
   if (USE_ALLINKL_STORAGE) {
     try {
-      await logger.updateStatus('uploading', 0).catch(() => {});
+      await logger.updateStatus('uploading', 45).catch(() => {});
       
       const uploadProgress = onProgress 
         ? (progress: number) => {
-            logger.updateStatus('uploading', progress).catch(() => {});
-            onProgress(progress);
+            // Compression took 0-45%, upload takes 45-100%
+            const totalProgress = 45 + (progress * 0.55);
+            logger.updateStatus('uploading', totalProgress).catch(() => {});
+            onProgress(totalProgress);
           }
         : undefined;
       
-      const url = await uploadToAllInkl(file, 'image', undefined, uploadProgress);
+      const url = await uploadToAllInkl(thumbnailToUpload, 'image', undefined, uploadProgress);
       await logger.updateStatus('completed', 100, null, null, url).catch(() => {});
       return url;
     } catch (error: any) {
@@ -1128,25 +1397,27 @@ export async function uploadThumbnail(
   }
 
   // If All-Inkl is not enabled, use Supabase Storage
-  await logger.updateStatus('uploading', 0).catch(() => {});
+  await logger.updateStatus('uploading', 45).catch(() => {});
   
   // Store thumbnails in a separate bucket or in the beta-videos bucket with a prefix
-  const ext = getFileExt(file.name) || 'jpg';
+  // Always use .jpg extension for compressed thumbnails
+  const ext = 'jpg';
   const objectPath = `thumbnails/${randomId()}.${ext}`;
 
-  // Simulate progress if callback provided
+  // Simulate progress if callback provided (starts at 45% after compression)
   const simulateProgress = () => {
     if (!onProgress) return;
     
-    let progress = 0;
+    let progress = 45; // Start at 45% after compression
     const interval = setInterval(() => {
-      progress += Math.random() * 15;
-      if (progress >= 90) {
-        progress = 90;
+      progress += Math.random() * 10;
+      if (progress >= 95) {
+        progress = 95;
         clearInterval(interval);
       }
-      logger.updateStatus('uploading', progress).catch(() => {});
-      onProgress(progress);
+      const totalProgress = progress;
+      logger.updateStatus('uploading', totalProgress).catch(() => {});
+      onProgress(totalProgress);
     }, 200);
     
     return interval;
@@ -1157,10 +1428,10 @@ export async function uploadThumbnail(
   try {
     const { data, error } = await supabase.storage
       .from(DEFAULT_BUCKET)
-      .upload(objectPath, file, {
-        cacheControl: '1800', // 30 minutes cache for thumbnails (reduced from 1 hour)
+      .upload(objectPath, thumbnailToUpload, {
+        cacheControl: '31536000', // 1 year cache for thumbnails (immutable)
         upsert: true,
-        contentType: file.type || 'image/jpeg',
+        contentType: 'image/jpeg', // Always JPEG after compression
       });
 
     if (progressInterval) {
