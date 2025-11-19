@@ -1,6 +1,8 @@
 import { supabase } from './client';
 import { UploadLogger } from '@/utils/uploadLogger';
 import exifr from 'exifr';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 const DEFAULT_BUCKET = 'beta-videos';
 const SECTOR_IMAGES_BUCKET = 'sector-images';
@@ -445,244 +447,163 @@ async function removeAudioFromVideo(file: File, onProgress?: (progress: number) 
   });
 }
 
+// FFmpeg instance (lazy-loaded)
+let ffmpegInstance: FFmpeg | null = null;
+
 /**
- * Compress video file to reduce size before upload
- * Only compresses if file is > 20MB
- * Preserves original format (MP4) when possible to maintain quality
+ * Initialize FFmpeg instance (lazy loading)
+ */
+async function getFFmpeg(): Promise<FFmpeg> {
+  if (ffmpegInstance) {
+    return ffmpegInstance;
+  }
+
+  const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+  const ffmpeg = new FFmpeg();
+  
+  ffmpeg.on('log', ({ message }) => {
+    console.log('[FFmpeg]', message);
+  });
+
+  try {
+    await ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    });
+    
+    ffmpegInstance = ffmpeg;
+    return ffmpeg;
+  } catch (error) {
+    console.error('[FFmpeg] Failed to load:', error);
+    throw error;
+  }
+}
+
+/**
+ * Compress video file to reduce size before upload using FFmpeg
+ * Only called for files >= 20MB to improve loading performance
+ * Preserves original format (MP4, MOV, etc.) - no WebM conversion
  */
 async function compressVideo(file: File, onProgress?: (progress: number) => void): Promise<File> {
-  // If file is already small enough (< 20MB), return original without processing
-  // This preserves MP4 format and quality
-  const skipCompressionThreshold = 20 * 1024 * 1024; // 20MB
-  if (file.size < skipCompressionThreshold) {
-    console.log('[Video Processing] File < 20MB, skipping compression to preserve format and quality');
-    if (onProgress) onProgress(100);
-    return file;
-  }
-
-  // For MP4 files > 20MB, we could compress but MediaRecorder only supports WebM
-  // So we'll return the original to preserve format and quality
-  // Compression would convert MP4 to WebM, which may reduce quality
-  if (file.type === 'video/mp4' || file.name.toLowerCase().endsWith('.mp4')) {
-    console.log('[Video Processing] MP4 file > 20MB, but skipping compression to preserve MP4 format and quality');
-    console.warn('[Video Processing] Consider compressing the video manually before upload for better performance');
-    if (onProgress) onProgress(100);
-    return file;
-  }
-
-  // Check if MediaRecorder is available
-  if (!MediaRecorder.isTypeSupported('video/webm;codecs=vp9') && 
-      !MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
-    console.warn('MediaRecorder nicht unterstützt, verwende Original-Video');
-    if (onProgress) onProgress(100);
-    return file;
-  }
-
-  return new Promise((resolve) => {
-    const video = document.createElement('video');
-    video.preload = 'auto';
-    video.muted = true;
-    video.playsInline = true;
-    video.setAttribute('playsinline', 'true');
+  try {
+    if (onProgress) onProgress(10);
     
+    // Initialize FFmpeg
+    const ffmpeg = await getFFmpeg();
+    if (onProgress) onProgress(20);
+
+    // Get video metadata to determine optimal compression settings
+    const video = document.createElement('video');
     const objectUrl = URL.createObjectURL(file);
     video.src = objectUrl;
-
-    let mediaRecorder: MediaRecorder | null = null;
-    const chunks: Blob[] = [];
-    let hasResolved = false;
-
-    const cleanup = () => {
-      if (video.parentNode) {
-        video.parentNode.removeChild(video);
-      }
-      URL.revokeObjectURL(objectUrl);
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        try {
-          mediaRecorder.stop();
-        } catch (e) {
-          // Ignore
-        }
-      }
-    };
-
-    const resolveWithOriginal = () => {
-      if (hasResolved) return;
-      hasResolved = true;
-      cleanup();
-      if (onProgress) onProgress(100);
-      resolve(file);
-    };
-
-    video.addEventListener('loadedmetadata', () => {
-      if (hasResolved) return;
-      
-      try {
-        // Use canvas to capture video stream
-        const canvas = document.createElement('canvas');
-        // Keep high quality: max 1920px width (Full HD), or original if smaller
-        const maxWidth = Math.min(video.videoWidth, 1920);
-        const aspectRatio = video.videoHeight / video.videoWidth;
-        canvas.width = maxWidth;
-        canvas.height = Math.round(maxWidth * aspectRatio);
-        
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolveWithOriginal();
-          return;
-        }
-
-        // Determine best codec (VP9 for better quality)
-        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') 
-          ? 'video/webm;codecs=vp9'
-          : MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
-          ? 'video/webm;codecs=vp8'
-          : 'video/webm';
-
-        const stream = canvas.captureStream(30); // 30 FPS for smooth playback
-        
-        // Higher bitrate for better quality (8 Mbps for Full HD)
-        // Adjust based on resolution: ~4 Mbps per 1000px width
-        const bitrate = Math.max(4000000, Math.round((maxWidth / 1000) * 4000000));
-        
-        mediaRecorder = new MediaRecorder(stream, {
-          mimeType: mimeType,
-          videoBitsPerSecond: bitrate,
-        });
-
-        mediaRecorder.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) {
-            chunks.push(e.data);
-            // Update progress during recording
-            if (onProgress) {
-              const progress = Math.min(30 + (chunks.length * 2), 80);
-              onProgress(progress);
-            }
-          }
-        };
-
-        mediaRecorder.onstop = () => {
-          if (hasResolved) return;
-          
-          try {
-            const compressedBlob = new Blob(chunks, { type: mimeType });
-            
-            // Only use compressed version if it's at least 10% smaller
-            if (compressedBlob.size > 0 && compressedBlob.size < file.size * 0.9) {
-              // Ensure MIME type is set correctly for webm
-              const finalMimeType = mimeType || 'video/webm';
-              const compressedFile = new File([compressedBlob], file.name.replace(/\.[^/.]+$/, '.webm'), {
-                type: finalMimeType,
-                lastModified: Date.now(),
-              });
-              if (onProgress) onProgress(100);
-              hasResolved = true;
-              cleanup();
-              resolve(compressedFile);
-            } else {
-              // Compression didn't help enough, use original
-              resolveWithOriginal();
-            }
-          } catch (error) {
-            console.warn('Fehler beim Erstellen der komprimierten Datei:', error);
-            resolveWithOriginal();
-          }
-        };
-
-        mediaRecorder.onerror = (e) => {
-          console.warn('MediaRecorder Fehler:', e);
-          resolveWithOriginal();
-        };
-
-        // Start recording
-        try {
-          mediaRecorder.start(100); // Collect data every 100ms
-          
-          // Draw video frames to canvas
-          video.currentTime = 0;
-          let lastTime = 0;
-          
-          const drawFrame = () => {
-            if (hasResolved || video.ended || !mediaRecorder || mediaRecorder.state === 'inactive') {
-              if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-              }
-              return;
-            }
-            
-            const currentTime = video.currentTime;
-            if (currentTime !== lastTime) {
-              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-              lastTime = currentTime;
-            }
-            
-            // Continue playing
-            if (!video.paused && !video.ended) {
-              requestAnimationFrame(drawFrame);
-            }
-          };
-
-          video.addEventListener('seeked', () => {
-            if (!hasResolved) {
-              drawFrame();
-            }
-          });
-
-          video.addEventListener('timeupdate', () => {
-            if (!hasResolved) {
-              drawFrame();
-            }
-          });
-
-          // Start playing video
-          video.play().catch((error) => {
-            console.warn('Video play fehlgeschlagen:', error);
-            resolveWithOriginal();
-          });
-
-          // Stop after video ends
-          video.addEventListener('ended', () => {
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-              setTimeout(() => {
-                if (mediaRecorder && mediaRecorder.state === 'recording') {
-                  mediaRecorder.stop();
-                }
-              }, 500);
-            }
-          });
-
-          // Safety timeout - stop after 2 minutes
-          setTimeout(() => {
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-              mediaRecorder.stop();
-            }
-            if (!hasResolved) {
-              resolveWithOriginal();
-            }
-          }, 120000); // 2 minutes max
-
-        } catch (error) {
-          console.warn('Fehler beim Starten der Kompression:', error);
-          resolveWithOriginal();
-        }
-      } catch (error) {
-        console.warn('Fehler bei Video-Kompression:', error);
-        resolveWithOriginal();
-      }
-    }, { once: true });
-
-    video.addEventListener('error', () => {
-      resolveWithOriginal();
+    
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve();
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Failed to load video metadata'));
+      };
     });
 
-    // Append to body (hidden) for mobile compatibility
-    video.style.position = 'fixed';
-    video.style.top = '-9999px';
-    video.style.left = '-9999px';
-    video.style.width = '1px';
-    video.style.height = '1px';
-    document.body.appendChild(video);
-  });
+    const originalWidth = video.videoWidth;
+    const originalHeight = video.videoHeight;
+    const maxWidth = Math.min(originalWidth, 1920); // Max Full HD
+    const aspectRatio = originalHeight / originalWidth;
+    const targetHeight = Math.round(maxWidth * aspectRatio);
+
+    // Determine if we need to resize
+    const needsResize = originalWidth > 1920;
+    
+    // Calculate bitrate based on resolution (4 Mbps per 1000px width, min 2 Mbps)
+    const bitrate = Math.max(2000000, Math.round((maxWidth / 1000) * 4000000));
+
+    // Get file extension to preserve format
+    const ext = getFileExt(file.name) || 'mp4';
+    const inputFileName = `input.${ext}`;
+    const outputFileName = `output.${ext}`;
+
+    if (onProgress) onProgress(30);
+
+    // Write input file to FFmpeg
+    await ffmpeg.writeFile(inputFileName, await fetchFile(file));
+    if (onProgress) onProgress(40);
+
+    // Build FFmpeg command
+    // -i: input file
+    // -c:v libx264: use H.264 codec (MP4 compatible)
+    // -preset medium: balance between speed and compression
+    // -crf 23: quality setting (lower = better quality, 18-28 is good range)
+    // -vf scale: resize if needed
+    // -c:a aac: audio codec for MP4
+    // -b:a 128k: audio bitrate
+    // -movflags +faststart: enable fast start for web playback
+    const args = [
+      '-i', inputFileName,
+      '-c:v', 'libx264',
+      '-preset', 'medium',
+      '-crf', '23',
+      ...(needsResize ? ['-vf', `scale=${maxWidth}:${targetHeight}`] : []),
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-b:v', `${bitrate}`,
+      '-movflags', '+faststart',
+      '-y', // Overwrite output file
+      outputFileName,
+    ];
+
+    // Monitor progress
+    ffmpeg.on('progress', ({ progress }) => {
+      if (onProgress) {
+        // Progress from 40% to 90% (FFmpeg processing)
+        const ffmpegProgress = 40 + (progress * 0.5);
+        onProgress(ffmpegProgress);
+      }
+    });
+
+    if (onProgress) onProgress(45);
+
+    // Execute FFmpeg command
+    await ffmpeg.exec(args);
+    if (onProgress) onProgress(90);
+
+    // Read output file
+    const data = await ffmpeg.readFile(outputFileName);
+    if (onProgress) onProgress(95);
+
+    // Clean up
+    await ffmpeg.deleteFile(inputFileName);
+    await ffmpeg.deleteFile(outputFileName);
+
+    // Create File object from compressed data
+    const compressedBlob = new Blob([data], { type: file.type || `video/${ext}` });
+    
+    // Only use compressed version if it's at least 10% smaller
+    if (compressedBlob.size > 0 && compressedBlob.size < file.size * 0.9) {
+      const compressedFile = new File(
+        [compressedBlob],
+        file.name.replace(/\.[^/.]+$/, `.${ext}`),
+        {
+          type: file.type || `video/${ext}`,
+          lastModified: Date.now(),
+        }
+      );
+      if (onProgress) onProgress(100);
+      console.log(`[Video Compression] Reduced from ${(file.size / 1024 / 1024).toFixed(2)}MB to ${(compressedBlob.size / 1024 / 1024).toFixed(2)}MB`);
+      return compressedFile;
+    } else {
+      // Compression didn't help enough, use original
+      console.log('[Video Compression] Compression did not reduce size significantly, using original');
+      if (onProgress) onProgress(100);
+      return file;
+    }
+  } catch (error) {
+    console.warn('[Video Compression] FFmpeg compression failed, using original:', error);
+    if (onProgress) onProgress(100);
+    return file; // Fallback to original on error
+  }
 }
 
 /**
@@ -700,9 +621,9 @@ async function uploadToAllInkl(
   const RETRY_DELAY = 1000; // 1 second base delay
   const UPLOAD_TIMEOUT = 300000; // 5 minutes timeout
   
-  // Ensure file type is set correctly (especially for converted webm files)
+  // Ensure file type is set correctly
   // Remove codecs parameter from MIME type for server compatibility
-  let mimeType = file.type || (fileType === 'video' ? 'video/webm' : 'image/jpeg');
+  let mimeType = file.type || (fileType === 'video' ? 'video/mp4' : 'image/jpeg');
   // Remove codecs parameter (e.g., 'video/webm;codecs=vp9' -> 'video/webm')
   if (mimeType.includes(';')) {
     mimeType = mimeType.split(';')[0];
@@ -940,41 +861,47 @@ export async function uploadBetaVideo(
   }
 
   // Preserve original file extension for format detection
-  const originalExt = getFileExt(file.name) || (file.type.includes('mp4') ? 'mp4' : 'webm');
+  const originalExt = getFileExt(file.name) || (file.type.includes('mp4') ? 'mp4' : 'mp4');
   
-  // Process video: compress if needed, but preserve format (reports progress 0-50%)
-  // For small files (< 20MB) or MP4 files, skip processing to preserve quality and format
+  // Process video: compress large files for better performance
+  // Strategy: 
+  // - Small videos (< 20MB): keep original format (MP4, MOV, etc.) for quality
+  // - Large videos (>= 20MB): compress using FFmpeg while preserving original format (MP4, MOV, etc.)
+  // FFmpeg allows compression without format conversion
   let videoToUpload = file;
-  const skipProcessing = file.size < 20 * 1024 * 1024 || file.type === 'video/mp4' || file.name.toLowerCase().endsWith('.mp4');
+  const compressionThreshold = 20 * 1024 * 1024; // 20MB
+  const shouldCompress = file.size >= compressionThreshold;
   
-  if (!skipProcessing) {
+  if (shouldCompress) {
     try {
       await logger.updateStatus('compressing', 5).catch(() => {});
       if (onProgress) onProgress(5);
       
-      // Compress if > 20MB and not MP4, but preserve format when possible
+      console.log('[Video Upload] Compressing large video (>20MB) for better performance:', file.type, file.name);
+      // FFmpeg compression preserves original format (MP4, MOV, etc.)
       videoToUpload = await compressVideo(file, (progress) => {
-        const compressionProgress = 5 + (progress * 0.45);
+        const compressionProgress = 5 + (progress * 0.45); // 5-50% for compression
         logger.updateStatus('compressing', compressionProgress).catch(() => {});
         if (onProgress) {
-          // Compression takes 5-50% of total progress (only if needed)
           onProgress(compressionProgress);
         }
       });
       
       await logger.updateStatus('compressing', 50).catch(() => {});
+      if (onProgress) onProgress(50);
     } catch (error: any) {
       console.warn('Video processing (compression) failed, using original:', error);
       await logger.updateStatus('compressing', 50, error).catch(() => {});
       videoToUpload = file; // Use original if processing fails
     }
   } else {
-    // Skip processing for small files or MP4 - preserve quality and format
-    await logger.updateStatus('compressing', 50).catch(() => {});
-    if (onProgress) onProgress(50);
+    // Small videos: preserve original format and quality
+    console.log('[Video Upload] Keeping original format for small video (<20MB):', file.type, file.name);
+    await logger.updateStatus('uploading', 0).catch(() => {});
+    if (onProgress) onProgress(0);
   }
 
-  // Validate file size after compression (50MB max to reduce egress costs)
+  // Validate file size (50MB max to reduce egress costs)
   const maxSize = 50 * 1024 * 1024; // 50MB
   if (videoToUpload.size > maxSize) {
     const error = new Error(`Datei zu groß. Maximum: ${Math.round(maxSize / 1024 / 1024)}MB. Bitte komprimiere das Video oder verwende YouTube/Vimeo für größere Videos.`);
@@ -985,12 +912,13 @@ export async function uploadBetaVideo(
   // Use All-Inkl if enabled, otherwise fallback to Supabase
   if (USE_ALLINKL_STORAGE) {
     try {
-      await logger.updateStatus('uploading', 50).catch(() => {});
+      const uploadStartProgress = shouldCompress ? 50 : 0;
+      await logger.updateStatus('uploading', uploadStartProgress).catch(() => {});
       
-      // Adjust progress: compression took 0-50%, upload takes 50-100%
+      // Upload progress: starts at 50% if compression was done, otherwise 0%
       const uploadProgress = onProgress 
         ? (progress: number) => {
-            const totalProgress = 50 + (progress * 0.5);
+            const totalProgress = uploadStartProgress + (progress * (shouldCompress ? 0.5 : 1.0));
             logger.updateStatus('uploading', totalProgress).catch(() => {});
             onProgress(totalProgress);
           }
@@ -1016,17 +944,19 @@ export async function uploadBetaVideo(
   }
 
   // If All-Inkl is not enabled, use Supabase Storage
-  await logger.updateStatus('uploading', file.size > 20 * 1024 * 1024 ? 50 : 0).catch(() => {});
+  const uploadStartProgress = shouldCompress ? 50 : 0;
+  await logger.updateStatus('uploading', uploadStartProgress).catch(() => {});
   
-  // Preserve original file extension to maintain format (MP4, WebM, etc.)
+  // Preserve original file extension to maintain format (MP4, MOV, etc.)
+  // FFmpeg compression preserves the original format
   const ext = getFileExt(videoToUpload.name) || originalExt;
   const objectPath = `uploads/${randomId()}.${ext}`;
 
-  // Simulate progress if callback provided (starts at 50% after compression)
+  // Simulate progress if callback provided (starts at 50% if compression was done, otherwise 0%)
   const simulateProgress = () => {
     if (!onProgress) return;
     
-    let progress = file.size > 20 * 1024 * 1024 ? 50 : 0; // Start at 50% if compression was done
+    let progress = uploadStartProgress;
     const interval = setInterval(() => {
       progress += Math.random() * 10; // Increment by 0-10% each time
       if (progress >= 95) {
@@ -1331,15 +1261,8 @@ export async function uploadThumbnail(
     throw error;
   }
 
-  // Validate file size (5MB max for thumbnails)
-  const maxSize = 5 * 1024 * 1024; // 5MB
-  if (file.size > maxSize) {
-    const error = new Error(`Datei zu groß. Maximum: ${Math.round(maxSize / 1024 / 1024)}MB`);
-    await logger.updateStatus('failed', 0, error).catch(() => {});
-    throw error;
-  }
-
   // Compress and optimize thumbnail before upload
+  // This reduces file size significantly, so we check size AFTER compression
   let thumbnailToUpload = file;
   try {
     await logger.updateStatus('compressing', 5).catch(() => {});
@@ -1359,6 +1282,15 @@ export async function uploadThumbnail(
     console.warn('[Thumbnail Upload] Compression failed, using original:', error);
     await logger.updateStatus('compressing', 45, error).catch(() => {});
     thumbnailToUpload = file; // Use original if compression fails
+  }
+
+  // Validate file size AFTER compression (5MB max for thumbnails)
+  // Large original files can be compressed to under 5MB, so we check after compression
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (thumbnailToUpload.size > maxSize) {
+    const error = new Error(`Datei zu groß. Maximum: ${Math.round(maxSize / 1024 / 1024)}MB nach Kompression. Bitte verwende ein kleineres Bild.`);
+    await logger.updateStatus('failed', 0, error).catch(() => {});
+    throw error;
   }
 
   // Use All-Inkl if enabled, otherwise fallback to Supabase
