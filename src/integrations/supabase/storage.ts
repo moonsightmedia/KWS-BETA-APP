@@ -1,6 +1,6 @@
 import { supabase } from './client';
 import { UploadLogger } from '@/utils/uploadLogger';
-import EXIF from 'exif-js';
+import exifr from 'exifr';
 
 const DEFAULT_BUCKET = 'beta-videos';
 const SECTOR_IMAGES_BUCKET = 'sector-images';
@@ -21,23 +21,14 @@ function randomId(): string {
 /**
  * Get EXIF orientation from image file
  */
-function getExifOrientation(file: File): Promise<number> {
-  return new Promise((resolve) => {
-    try {
-      EXIF.getData(file as any, function() {
-        try {
-          const orientation = EXIF.getTag(this, 'Orientation') || 1;
-          resolve(orientation);
-        } catch (error) {
-          console.warn('[EXIF] Error reading orientation tag:', error);
-          resolve(1); // Default orientation on error
-        }
-      });
-    } catch (error) {
-      console.warn('[EXIF] Error reading EXIF data:', error);
-      resolve(1); // Default orientation on error
-    }
-  });
+async function getExifOrientation(file: File): Promise<number> {
+  try {
+    const exifData = await exifr.parse(file, { orientation: true });
+    return exifData?.Orientation || 1;
+  } catch (error) {
+    console.warn('[EXIF] Error reading EXIF data:', error);
+    return 1; // Default orientation on error
+  }
 }
 
 /**
