@@ -110,7 +110,9 @@ async function compressThumbnail(file: File, onProgress?: (progress: number) => 
         // If already portrait, keep dimensions as-is
 
         // Calculate optimal dimensions (max 800px, maintain aspect ratio)
-        const maxDimension = 800;
+        // If original file is very large (>10MB), use smaller max dimension
+        const fileSizeMB = file.size / (1024 * 1024);
+        const maxDimension = fileSizeMB > 10 ? 600 : 800; // Smaller dimension for very large files
         let width = canvasWidth;
         let height = canvasHeight;
 
@@ -172,37 +174,78 @@ async function compressThumbnail(file: File, onProgress?: (progress: number) => 
 
         if (onProgress) onProgress(50);
 
-        // Convert to JPEG with 85% quality (good balance between size and quality)
-        canvas.toBlob(
-          (blob) => {
-            URL.revokeObjectURL(objectUrl);
-            
-            if (!blob) {
-              resolve(file); // Return original if conversion fails
-              return;
-            }
-
-            // Only use compressed version if it's smaller
-            if (blob.size < file.size) {
-              const compressedFile = new File(
-                [blob],
-                file.name.replace(/\.[^/.]+$/, '.jpg'),
-                {
-                  type: 'image/jpeg',
-                  lastModified: Date.now(),
+        // Convert to JPEG with adaptive quality to ensure file is under 5MB
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        const qualityLevels = [0.85, 0.70, 0.55, 0.40, 0.25]; // Try different quality levels
+        
+        let currentQualityIndex = 0;
+        
+        const tryCompress = (quality: number) => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                // If conversion fails, try next quality level or return original
+                if (currentQualityIndex < qualityLevels.length - 1) {
+                  currentQualityIndex++;
+                  tryCompress(qualityLevels[currentQualityIndex]);
+                } else {
+                  URL.revokeObjectURL(objectUrl);
+                  resolve(file); // Return original if all quality levels fail
                 }
-              );
-              if (onProgress) onProgress(100);
-              resolve(compressedFile);
-            } else {
-              // Original is smaller, use it
-              if (onProgress) onProgress(100);
-              resolve(file);
-            }
-          },
-          'image/jpeg',
-          0.85 // 85% quality
-        );
+                return;
+              }
+
+              // If compressed version is under 5MB, use it
+              if (blob.size <= maxSize) {
+                const compressedFile = new File(
+                  [blob],
+                  file.name.replace(/\.[^/.]+$/, '.jpg'),
+                  {
+                    type: 'image/jpeg',
+                    lastModified: Date.now(),
+                  }
+                );
+                URL.revokeObjectURL(objectUrl);
+                if (onProgress) onProgress(100);
+                resolve(compressedFile);
+              } else if (blob.size < file.size && currentQualityIndex < qualityLevels.length - 1) {
+                // Compressed version is smaller than original but still too large
+                // Try lower quality
+                currentQualityIndex++;
+                tryCompress(qualityLevels[currentQualityIndex]);
+              } else if (blob.size < file.size) {
+                // Best we can do - use compressed version even if still > 5MB
+                // (will be caught by validation later)
+                const compressedFile = new File(
+                  [blob],
+                  file.name.replace(/\.[^/.]+$/, '.jpg'),
+                  {
+                    type: 'image/jpeg',
+                    lastModified: Date.now(),
+                  }
+                );
+                URL.revokeObjectURL(objectUrl);
+                if (onProgress) onProgress(100);
+                resolve(compressedFile);
+              } else {
+                // Compressed version is larger than original
+                // Try lower quality or return original
+                if (currentQualityIndex < qualityLevels.length - 1) {
+                  currentQualityIndex++;
+                  tryCompress(qualityLevels[currentQualityIndex]);
+                } else {
+                  URL.revokeObjectURL(objectUrl);
+                  resolve(file); // Return original if compression doesn't help
+                }
+              }
+            },
+            'image/jpeg',
+            quality
+          );
+        };
+        
+        // Start with first quality level
+        tryCompress(qualityLevels[0]);
       } catch (error) {
         URL.revokeObjectURL(objectUrl);
         console.warn('[Thumbnail Compression] Error during compression:', error);
@@ -1292,7 +1335,12 @@ export async function uploadThumbnail(
   // Large original files can be compressed to under 5MB, so we check after compression
   const maxSize = 5 * 1024 * 1024; // 5MB
   if (thumbnailToUpload.size > maxSize) {
-    const error = new Error(`Datei zu groß. Maximum: ${Math.round(maxSize / 1024 / 1024)}MB nach Kompression. Bitte verwende ein kleineres Bild.`);
+    const originalSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    const compressedSizeMB = (thumbnailToUpload.size / (1024 * 1024)).toFixed(2);
+    const error = new Error(
+      `Datei zu groß. Original: ${originalSizeMB}MB, nach Kompression: ${compressedSizeMB}MB. ` +
+      `Maximum: ${Math.round(maxSize / 1024 / 1024)}MB. Bitte verwende ein kleineres Bild oder reduziere die Auflösung.`
+    );
     await logger.updateStatus('failed', 0, error).catch(() => {});
     throw error;
   }
