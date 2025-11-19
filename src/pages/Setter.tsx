@@ -15,13 +15,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Search, PlusCircle, Edit3, Calendar, X, Sparkles, ChevronLeft, ChevronRight, Check, Video, FileText, Upload } from 'lucide-react';
+import { Search, PlusCircle, Edit3, Calendar, X, Sparkles, ChevronLeft, ChevronRight, Check, Video, Upload } from 'lucide-react';
 import { MaterialIcon } from '@/components/MaterialIcon';
 import { useMemo as useMemoReact, useRef, useState } from 'react';
 import { useSectorSchedule, useCreateSectorSchedule, useDeleteSectorSchedule } from '@/hooks/useSectorSchedule';
 import { useColors } from '@/hooks/useColors';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { UploadLogViewer } from '@/components/admin/UploadLogViewer';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BatchUpload } from '@/components/setter/BatchUpload';
 
 const DIFFICULTIES = [null, 1, 2, 3, 4, 5, 6, 7, 8]; // null = "?" (unknown/not rated)
@@ -375,7 +375,7 @@ const Setter = () => {
     videoUrl: '' as string, // For CDN video selection
   });
   const [isUploading, setIsUploading] = useState(false);
-  const [view, setView] = useState<'create' | 'edit' | 'schedule' | 'status' | 'logs' | 'batch'>('batch');
+  const [view, setView] = useState<'create' | 'edit' | 'schedule' | 'status' | 'batch'>('batch');
   // Wizard state for multi-step boulder creation
   const [wizardStep, setWizardStep] = useState(1);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
@@ -908,58 +908,26 @@ const Setter = () => {
             <h1 className="text-3xl font-bold text-foreground mb-2 font-teko tracking-wide">Setter</h1>
             <p className="text-muted-foreground">Boulder anlegen und bearbeiten. Nächsten Sektor planen.</p>
           </div>
-          {/* Segmented top control for Setter views */}
+          {/* Tabs navigation like Admin area */}
           {!(view==='status' && selectedCount>0) && (
-            <div className="sticky top-[56px] md:top-[88px] z-30 px-2 sm:px-3 md:px-4 mb-3 w-full max-w-full overflow-x-hidden">
-              <nav className="bg-sidebar-bg rounded-2xl shadow-2xl border border-border w-full max-w-full">
-                <div className="w-full flex items-center justify-start gap-1 sm:gap-2 overflow-x-auto px-1 sm:px-2 py-2 min-w-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                  <button
-                    className={`flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 rounded-xl transition-all flex-shrink-0 min-w-0 ${view==='batch' ? 'text-success' : 'text-sidebar-icon'}`}
-                    onClick={()=> setView('batch')}
-                  >
-                    <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex-shrink-0" />
-                    <span className="text-[9px] sm:text-[10px] md:text-xs whitespace-nowrap truncate max-w-[60px] sm:max-w-none">Batch</span>
-                  </button>
-                  <button
-                    className={`flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 rounded-xl transition-all flex-shrink-0 min-w-0 ${view==='edit' ? 'text-success' : 'text-sidebar-icon'}`}
-                    onClick={()=> setView('edit')}
-                  >
-                    <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex-shrink-0" />
-                    <span className="text-[9px] sm:text-[10px] md:text-xs whitespace-nowrap truncate max-w-[60px] sm:max-w-none">Bearbeiten</span>
-                  </button>
-                  <button
-                    className={`flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 rounded-xl transition-all flex-shrink-0 min-w-0 ${view==='status' ? 'text-success' : 'text-sidebar-icon'}`}
-                    onClick={()=> setView('status')}
-                  >
-                    <MaterialIcon name="build" className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex-shrink-0" size={16} />
-                    <span className="text-[9px] sm:text-[10px] md:text-xs whitespace-nowrap truncate max-w-[60px] sm:max-w-none">Status</span>
-                  </button>
-                  <button
-                    className={`flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 rounded-xl transition-all flex-shrink-0 min-w-0 ${view==='schedule' ? 'text-success' : 'text-sidebar-icon'}`}
-                    onClick={()=> setView('schedule')}
-                  >
-                    <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex-shrink-0" />
-                    <span className="text-[9px] sm:text-[10px] md:text-xs whitespace-nowrap truncate max-w-[60px] sm:max-w-none">Termin</span>
-                  </button>
-                  <button
-                    className={`flex flex-col items-center justify-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 md:px-3 py-1.5 sm:py-2 rounded-xl transition-all flex-shrink-0 min-w-0 ${view==='logs' ? 'text-success' : 'text-sidebar-icon'}`}
-                    onClick={()=> setView('logs')}
-                  >
-                    <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex-shrink-0" />
-                    <span className="text-[9px] sm:text-[10px] md:text-xs whitespace-nowrap truncate max-w-[60px] sm:max-w-none">Logs</span>
-                  </button>
-                </div>
-              </nav>
-            </div>
-          )}
-          <div className="grid grid-cols-1 md:gap-8 max-w-7xl mx-auto w-full min-w-0">
-            <section className="w-full min-w-0">
-        {view === 'batch' && (
-          <BatchUpload />
-        )}
-        {view === 'create' && false && (
-            <Card>
-              <CardHeader>
+            <Tabs value={view} onValueChange={(value) => setView(value as typeof view)} className="w-full min-w-0">
+              <TabsList className="grid w-full grid-cols-4 mb-6 h-auto min-w-0">
+                <TabsTrigger value="batch" className="text-xs sm:text-sm min-w-0">Batch</TabsTrigger>
+                <TabsTrigger value="edit" className="text-xs sm:text-sm min-w-0">Bearbeiten</TabsTrigger>
+                <TabsTrigger value="status" className="text-xs sm:text-sm min-w-0">Status</TabsTrigger>
+                <TabsTrigger value="schedule" className="text-xs sm:text-sm min-w-0">Termin</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="batch" className="mt-0">
+                <BatchUpload />
+              </TabsContent>
+
+              <TabsContent value="edit" className="mt-0">
+                <div className="space-y-4 w-full min-w-0">
+                  {/* Create wizard - currently disabled */}
+                  {false && (
+                    <Card>
+                      <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Neuen Boulder anlegen</CardTitle>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -1371,11 +1339,8 @@ const Setter = () => {
                   )}
                 </div>
               </CardContent>
-            </Card>
-        )}
-
-        {view === 'edit' && (
-            <div className="space-y-4 w-full min-w-0">
+                    </Card>
+                  )}
               <div className="flex gap-2 sticky top-[56px] z-10 bg-background py-2 overflow-x-auto w-full min-w-0 -mx-4 px-4">
                 <div className="relative flex-1 min-w-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -1711,11 +1676,11 @@ const Setter = () => {
                 </div>
               </Card>
               )}
-            </div>
-        )}
+                </div>
+              </TabsContent>
 
-        {view === 'status' && (
-          <div className="space-y-4 w-full min-w-0">
+              <TabsContent value="status" className="mt-0">
+                <div className="space-y-4 w-full min-w-0">
             <div className="flex gap-2 sticky top-[56px] z-10 bg-background py-2 overflow-x-auto w-full min-w-0 -mx-4 px-4">
               <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -1810,9 +1775,10 @@ const Setter = () => {
               ))}
             </div>
           </div>
-        )}
-        {view === 'schedule' && (
-          <div className="space-y-3" ref={scheduleRef}>
+              </TabsContent>
+
+              <TabsContent value="schedule" className="mt-0">
+                <div className="space-y-3" ref={scheduleRef}>
             <Card>
               <CardHeader>
                 <CardTitle>Schrauberplan</CardTitle>
@@ -1874,13 +1840,10 @@ const Setter = () => {
                 </div>
               </CardContent>
             </Card>
-          </div>
-        )}
-        {view === 'logs' && (
-          <UploadLogViewer />
-        )}
-            </section>
-          </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          )}
         </main>
 
       {/* Spacer for mobile only global nav */}

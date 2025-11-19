@@ -134,8 +134,38 @@ async function compressThumbnail(file: File, onProgress?: (progress: number) => 
 
         if (!ctx) {
           URL.revokeObjectURL(objectUrl);
-          resolve(file); // Return original if canvas not supported
-          return;
+          // Canvas not supported - try to reduce dimensions further and retry
+          if (maxDimension > 400) {
+            // Retry with smaller dimension
+            const smallerDimension = 400;
+            let retryWidth = canvasWidth;
+            let retryHeight = canvasHeight;
+            if (retryWidth > smallerDimension || retryHeight > smallerDimension) {
+              if (retryWidth > retryHeight) {
+                retryHeight = Math.round((retryHeight / retryWidth) * smallerDimension);
+                retryWidth = smallerDimension;
+              } else {
+                retryWidth = Math.round((retryWidth / retryHeight) * smallerDimension);
+                retryHeight = smallerDimension;
+              }
+            }
+            canvas.width = retryWidth;
+            canvas.height = retryHeight;
+            const retryCtx = canvas.getContext('2d');
+            if (retryCtx) {
+              // Retry with smaller canvas
+              retryCtx.imageSmoothingEnabled = true;
+              retryCtx.imageSmoothingQuality = 'high';
+              retryCtx.drawImage(img, 0, 0, retryWidth, retryHeight);
+              // Continue with compression...
+            } else {
+              resolve(file); // Canvas truly not supported
+              return;
+            }
+          } else {
+            resolve(file); // Already at minimum, canvas not supported
+            return;
+          }
         }
 
         // Use high-quality image rendering
@@ -176,23 +206,85 @@ async function compressThumbnail(file: File, onProgress?: (progress: number) => 
 
         // Convert to JPEG with adaptive quality to ensure file is under 5MB
         const maxSize = 5 * 1024 * 1024; // 5MB
-        const qualityLevels = [0.85, 0.70, 0.55, 0.40, 0.25]; // Try different quality levels
+        const qualityLevels = [0.85, 0.70, 0.55, 0.40, 0.25, 0.15, 0.10]; // Extended quality levels
+        const dimensionLevels = [maxDimension, 600, 500, 400, 300]; // Progressive dimension reduction
         
         let currentQualityIndex = 0;
+        let currentDimensionIndex = 0;
+        let bestResult: { blob: Blob; quality: number; dimension: number } | null = null;
         
-        const tryCompress = (quality: number) => {
+        const tryCompress = (quality: number, dimension: number, retryWithSmallerDimension: boolean = false) => {
+          // If we need to retry with smaller dimension, recreate canvas
+          if (retryWithSmallerDimension && currentDimensionIndex < dimensionLevels.length - 1) {
+            currentDimensionIndex++;
+            const newDimension = dimensionLevels[currentDimensionIndex];
+            let newWidth = canvasWidth;
+            let newHeight = canvasHeight;
+            
+            if (newWidth > newDimension || newHeight > newDimension) {
+              if (newWidth > newHeight) {
+                newHeight = Math.round((newHeight / newWidth) * newDimension);
+                newWidth = newDimension;
+              } else {
+                newWidth = Math.round((newWidth / newHeight) * newDimension);
+                newHeight = newDimension;
+              }
+            }
+            
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            
+            // Redraw image with new dimensions
+            if (needsRotation) {
+              ctx.save();
+              ctx.translate(newWidth / 2, newHeight / 2);
+              ctx.rotate(Math.PI / 2);
+              ctx.translate(-newHeight / 2, -newWidth / 2);
+              ctx.drawImage(img, 0, 0, newHeight, newWidth);
+              ctx.restore();
+            } else {
+              applyExifOrientation(ctx, orientation, newWidth, newHeight);
+              ctx.drawImage(img, 0, 0, newWidth, newHeight);
+            }
+            
+            dimension = newDimension;
+          }
+          
           canvas.toBlob(
             (blob) => {
               if (!blob) {
-                // If conversion fails, try next quality level or return original
+                // If conversion fails, try next quality level
                 if (currentQualityIndex < qualityLevels.length - 1) {
                   currentQualityIndex++;
-                  tryCompress(qualityLevels[currentQualityIndex]);
+                  tryCompress(qualityLevels[currentQualityIndex], dimension, false);
+                } else if (currentDimensionIndex < dimensionLevels.length - 1) {
+                  // Try with smaller dimension
+                  currentQualityIndex = 0; // Reset quality
+                  tryCompress(qualityLevels[0], dimension, true);
                 } else {
+                  // All options exhausted - use best result or original
                   URL.revokeObjectURL(objectUrl);
-                  resolve(file); // Return original if all quality levels fail
+                  if (bestResult && bestResult.blob.size < file.size) {
+                    const compressedFile = new File(
+                      [bestResult.blob],
+                      file.name.replace(/\.[^/.]+$/, '.jpg'),
+                      { type: 'image/jpeg', lastModified: Date.now() }
+                    );
+                    if (onProgress) onProgress(100);
+                    resolve(compressedFile);
+                  } else {
+                    resolve(file); // Return original if all attempts fail
+                  }
                 }
                 return;
+              }
+
+              // Track best result (smallest that's still smaller than original)
+              if (blob.size < file.size && (!bestResult || blob.size < bestResult.blob.size)) {
+                bestResult = { blob, quality, dimension };
               }
 
               // If compressed version is under 5MB, use it
@@ -200,10 +292,7 @@ async function compressThumbnail(file: File, onProgress?: (progress: number) => 
                 const compressedFile = new File(
                   [blob],
                   file.name.replace(/\.[^/.]+$/, '.jpg'),
-                  {
-                    type: 'image/jpeg',
-                    lastModified: Date.now(),
-                  }
+                  { type: 'image/jpeg', lastModified: Date.now() }
                 );
                 URL.revokeObjectURL(objectUrl);
                 if (onProgress) onProgress(100);
@@ -212,30 +301,44 @@ async function compressThumbnail(file: File, onProgress?: (progress: number) => 
                 // Compressed version is smaller than original but still too large
                 // Try lower quality
                 currentQualityIndex++;
-                tryCompress(qualityLevels[currentQualityIndex]);
-              } else if (blob.size < file.size) {
-                // Best we can do - use compressed version even if still > 5MB
-                // (will be caught by validation later)
+                tryCompress(qualityLevels[currentQualityIndex], dimension, false);
+              } else if (blob.size < file.size && currentDimensionIndex < dimensionLevels.length - 1) {
+                // Try with smaller dimension
+                currentQualityIndex = 0; // Reset quality
+                tryCompress(qualityLevels[0], dimension, true);
+              } else if (bestResult && bestResult.blob.size < file.size) {
+                // Use best result we found
                 const compressedFile = new File(
-                  [blob],
+                  [bestResult.blob],
                   file.name.replace(/\.[^/.]+$/, '.jpg'),
-                  {
-                    type: 'image/jpeg',
-                    lastModified: Date.now(),
-                  }
+                  { type: 'image/jpeg', lastModified: Date.now() }
                 );
                 URL.revokeObjectURL(objectUrl);
                 if (onProgress) onProgress(100);
                 resolve(compressedFile);
               } else {
-                // Compressed version is larger than original
-                // Try lower quality or return original
+                // Compressed version is larger than original or no improvement
+                // Try lower quality or smaller dimension
                 if (currentQualityIndex < qualityLevels.length - 1) {
                   currentQualityIndex++;
-                  tryCompress(qualityLevels[currentQualityIndex]);
+                  tryCompress(qualityLevels[currentQualityIndex], dimension, false);
+                } else if (currentDimensionIndex < dimensionLevels.length - 1) {
+                  currentQualityIndex = 0;
+                  tryCompress(qualityLevels[0], dimension, true);
                 } else {
+                  // All options exhausted
                   URL.revokeObjectURL(objectUrl);
-                  resolve(file); // Return original if compression doesn't help
+                  if (bestResult && bestResult.blob.size < file.size) {
+                    const compressedFile = new File(
+                      [bestResult.blob],
+                      file.name.replace(/\.[^/.]+$/, '.jpg'),
+                      { type: 'image/jpeg', lastModified: Date.now() }
+                    );
+                    if (onProgress) onProgress(100);
+                    resolve(compressedFile);
+                  } else {
+                    resolve(file); // Return original if compression doesn't help
+                  }
                 }
               }
             },
@@ -245,11 +348,36 @@ async function compressThumbnail(file: File, onProgress?: (progress: number) => 
         };
         
         // Start with first quality level
-        tryCompress(qualityLevels[0]);
+        tryCompress(qualityLevels[0], maxDimension, false);
       } catch (error) {
         URL.revokeObjectURL(objectUrl);
         console.warn('[Thumbnail Compression] Error during compression:', error);
-        resolve(file); // Return original on error
+        // Try a last-ditch effort: create a very small version
+        try {
+          const fallbackCanvas = document.createElement('canvas');
+          fallbackCanvas.width = 400;
+          fallbackCanvas.height = 400;
+          const fallbackCtx = fallbackCanvas.getContext('2d');
+          if (fallbackCtx) {
+            fallbackCtx.drawImage(img, 0, 0, 400, 400);
+            fallbackCanvas.toBlob((blob) => {
+              if (blob && blob.size < file.size && blob.size <= 5 * 1024 * 1024) {
+                const compressedFile = new File(
+                  [blob],
+                  file.name.replace(/\.[^/.]+$/, '.jpg'),
+                  { type: 'image/jpeg', lastModified: Date.now() }
+                );
+                resolve(compressedFile);
+              } else {
+                resolve(file); // Return original if fallback also fails
+              }
+            }, 'image/jpeg', 0.3);
+          } else {
+            resolve(file); // Canvas not supported
+          }
+        } catch (fallbackError) {
+          resolve(file); // Return original if all attempts fail
+        }
       }
     };
 

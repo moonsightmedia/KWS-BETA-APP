@@ -14,7 +14,7 @@ interface BoulderDetailDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const difficultyColors: Record<number | null, string> = {
+const difficultyColors: Partial<Record<number | null, string>> & { null: string } = {
   null: 'bg-gray-500',
   1: 'bg-green-500',
   2: 'bg-green-600',
@@ -83,19 +83,41 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster }: { videoUrl: string; poster?
         const progress = (bufferedEnd / video.duration) * 100;
         setBufferProgress(progress);
         
-        // Show loading indicator if buffer is low
+        // Don't show loading indicator if video has ended
+        if (video.ended) {
+          setShowLoadingIndicator(false);
+          setIsBuffering(false);
+          return;
+        }
+        
+        // Show loading indicator if buffer is low (but not at the end)
         const currentTime = video.currentTime;
         const bufferAhead = bufferedEnd - currentTime;
-        setShowLoadingIndicator(bufferAhead < 2); // Less than 2 seconds buffer
         
-        // Auto-pause if buffer is too low
-        if (bufferAhead < 1 && !video.paused) {
+        // Check if we're near the end - use both time-based and percentage-based checks
+        const timeFromEnd = video.duration - currentTime;
+        const percentRemaining = (timeFromEnd / video.duration) * 100;
+        // Hide loading indicator if within 5 seconds OR in last 10% of video
+        const isNearEnd = video.duration > 0 && (timeFromEnd <= 5 || percentRemaining <= 10);
+        
+        // Only show loading indicator if buffer is low AND not near the end
+        if (isNearEnd) {
+          // Near the end - hide loading indicator completely
+          setShowLoadingIndicator(false);
+          setIsBuffering(false);
+        } else {
+          // Not near the end - show loading indicator if buffer is low
+          setShowLoadingIndicator(bufferAhead < 2);
+        }
+        
+        // Auto-pause if buffer is too low (but not if near end)
+        if (bufferAhead < 1 && !video.paused && !isNearEnd) {
           video.pause();
           setIsBuffering(true);
         }
         
         // Resume if buffer is sufficient
-        if (bufferAhead > 3 && video.paused && isBuffering) {
+        if (bufferAhead > 3 && video.paused && isBuffering && !isNearEnd) {
           video.play().catch(() => {
             // Ignore play errors
           });
@@ -113,6 +135,26 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster }: { videoUrl: string; poster?
     };
 
     const handleWaiting = () => {
+      const video = videoRef.current;
+      if (!video) return;
+      
+      // Don't show loading indicator if video has ended or is near the end
+      if (video.ended) {
+        setIsBuffering(false);
+        setShowLoadingIndicator(false);
+        return;
+      }
+      
+      // Check if we're near the end - use both time-based and percentage-based checks
+      const timeFromEnd = video.duration - video.currentTime;
+      const percentRemaining = (timeFromEnd / video.duration) * 100;
+      const isNearEnd = video.duration > 0 && (timeFromEnd <= 5 || percentRemaining <= 10);
+      if (isNearEnd) {
+        setIsBuffering(false);
+        setShowLoadingIndicator(false);
+        return;
+      }
+      
       setIsBuffering(true);
       setShowLoadingIndicator(true);
     };
@@ -127,11 +169,17 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster }: { videoUrl: string; poster?
       setShowLoadingIndicator(false);
     };
 
+    const handleEnded = () => {
+      setIsBuffering(false);
+      setShowLoadingIndicator(false);
+    };
+
     video.addEventListener('progress', handleProgress);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('waiting', handleWaiting);
     video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('canplaythrough', handleCanPlayThrough);
+    video.addEventListener('ended', handleEnded);
 
     return () => {
       video.removeEventListener('progress', handleProgress);
@@ -139,6 +187,7 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster }: { videoUrl: string; poster?
       video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('canplaythrough', handleCanPlayThrough);
+      video.removeEventListener('ended', handleEnded);
     };
   }, [isBuffering]);
 
@@ -147,9 +196,10 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster }: { videoUrl: string; poster?
       <video 
         ref={videoRef}
         controls 
-        className="w-full h-full"
+        className="w-full h-full object-cover object-center"
         poster={poster || undefined}
         preload="metadata"
+        style={{ objectFit: 'cover', objectPosition: 'center' }}
       >
         {/* Dynamically determine video type based on URL extension */}
         {videoUrl.toLowerCase().endsWith('.mp4') ? (
@@ -177,7 +227,7 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster }: { videoUrl: string; poster?
         </p>
       </video>
       {showLoadingIndicator && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center flex-col gap-2">
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center flex-col gap-2 z-10">
           <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
           <p className="text-white text-sm">Video wird geladen...</p>
           {bufferProgress > 0 && (
