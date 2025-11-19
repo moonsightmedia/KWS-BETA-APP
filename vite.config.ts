@@ -17,5 +17,15 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     sourcemap: mode === 'development',
+    rollupOptions: {
+      output: {
+        // Ensure FFmpeg.wasm files are handled correctly
+        manualChunks: undefined,
+      },
+    },
+  },
+  optimizeDeps: {
+    // Exclude FFmpeg from pre-bundling as it uses WebAssembly
+    exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
   },
 }));

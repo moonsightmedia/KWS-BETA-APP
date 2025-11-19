@@ -1,8 +1,6 @@
 import { supabase } from './client';
 import { UploadLogger } from '@/utils/uploadLogger';
 import exifr from 'exifr';
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 const DEFAULT_BUCKET = 'beta-videos';
 const SECTOR_IMAGES_BUCKET = 'sector-images';
@@ -448,20 +446,26 @@ async function removeAudioFromVideo(file: File, onProgress?: (progress: number) 
 }
 
 // FFmpeg instance (lazy-loaded)
-let ffmpegInstance: FFmpeg | null = null;
+let ffmpegInstance: any = null;
 
 /**
- * Initialize FFmpeg instance (lazy loading)
+ * Initialize FFmpeg instance (lazy loading with dynamic import)
  */
-async function getFFmpeg(): Promise<FFmpeg> {
+async function getFFmpeg(): Promise<any> {
   if (ffmpegInstance) {
     return ffmpegInstance;
   }
 
+  // Dynamically import FFmpeg to avoid bundling it in the main bundle
+  const [{ FFmpeg }, { fetchFile, toBlobURL }] = await Promise.all([
+    import('@ffmpeg/ffmpeg'),
+    import('@ffmpeg/util'),
+  ]);
+
   const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
   const ffmpeg = new FFmpeg();
   
-  ffmpeg.on('log', ({ message }) => {
+  ffmpeg.on('log', ({ message }: { message: string }) => {
     console.log('[FFmpeg]', message);
   });
 
