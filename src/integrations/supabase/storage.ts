@@ -19,6 +19,108 @@ function randomId(): string {
 }
 
 /**
+ * Keep uploads alive when page visibility changes
+ * Prevents browser from pausing uploads when display is off or tab is switched
+ */
+function setupUploadKeepAlive(): () => void {
+  // Keep a reference to prevent garbage collection
+  let keepAliveInterval: number | null = null;
+  let wakeLock: WakeLockSentinel | null = null;
+  let isActive = true;
+
+  // Request wake lock if available (prevents device from sleeping)
+  // This works even when tab is switched or app is in background
+  const requestWakeLock = async () => {
+    if ('wakeLock' in navigator) {
+      try {
+        const lock = await (navigator as any).wakeLock.request('screen');
+        wakeLock = lock;
+        console.log('[Upload] Wake lock acquired to keep uploads running');
+        
+        // Handle wake lock release (e.g., when user manually locks screen)
+        lock.addEventListener('release', () => {
+          console.log('[Upload] Wake lock released, attempting to reacquire...');
+          // Try to reacquire if upload is still active
+          if (isActive) {
+            requestWakeLock();
+          }
+        });
+      } catch (err: any) {
+        console.warn('[Upload] Wake lock not available:', err);
+      }
+    }
+  };
+
+  // Request wake lock immediately
+  requestWakeLock();
+
+  // Keep connection alive with periodic ping when page is hidden (tab switched or minimized)
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      // Page is hidden (tab switched or minimized) - keep connection alive
+      if (keepAliveInterval === null) {
+        keepAliveInterval = window.setInterval(() => {
+          // Send a small keep-alive request to prevent connection timeout
+          // Use keepalive flag for better background support
+          fetch(`${ALLINKL_API_URL}/upload.php`, {
+            method: 'OPTIONS',
+            cache: 'no-cache',
+            keepalive: true, // Helps keep request alive in background
+          }).catch(() => {
+            // Ignore errors - this is just a keep-alive
+          });
+        }, 30000); // Every 30 seconds
+        console.log('[Upload] Tab switched/minimized - keeping uploads alive');
+      }
+      
+      // Try to reacquire wake lock if it was released
+      if (!wakeLock && isActive) {
+        requestWakeLock();
+      }
+    } else {
+      // Page is visible - clear keep-alive (not needed when visible)
+      if (keepAliveInterval !== null) {
+        clearInterval(keepAliveInterval);
+        keepAliveInterval = null;
+      }
+      console.log('[Upload] Tab visible - normal operation');
+    }
+  };
+
+  // Also listen for pagehide event (when tab is being closed/navigated away)
+  const handlePageHide = () => {
+    // Keep uploads running even when navigating away
+    if (keepAliveInterval === null && isActive) {
+      keepAliveInterval = window.setInterval(() => {
+        fetch(`${ALLINKL_API_URL}/upload.php`, {
+          method: 'OPTIONS',
+          cache: 'no-cache',
+          keepalive: true,
+        }).catch(() => {});
+      }, 30000);
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  window.addEventListener('pagehide', handlePageHide);
+
+  // Cleanup function
+  return () => {
+    isActive = false;
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.removeEventListener('pagehide', handlePageHide);
+    if (keepAliveInterval !== null) {
+      clearInterval(keepAliveInterval);
+      keepAliveInterval = null;
+    }
+    if (wakeLock) {
+      wakeLock.release().catch(() => {});
+      wakeLock = null;
+    }
+  };
+}
+
+/**
  * Get EXIF orientation from image file
  */
 async function getExifOrientation(file: File): Promise<number> {
@@ -809,16 +911,52 @@ async function uploadToAllInkl(
   const useChunked = totalChunks > 1;
   const uploadSessionId = useChunked ? randomId() : null;
   
-  // Helper function to retry with exponential backoff
+  // Helper function to wait for network to come back online
+  const waitForNetwork = (): Promise<void> => {
+    return new Promise((resolve) => {
+      // If already online, resolve immediately
+      if (navigator.onLine) {
+        resolve();
+        return;
+      }
+
+      console.log('[Upload] Network offline, waiting for connection...');
+      
+      // Wait for online event
+      const handleOnline = () => {
+        window.removeEventListener('online', handleOnline);
+        console.log('[Upload] Network back online, resuming upload...');
+        // Wait a bit more to ensure connection is stable
+        setTimeout(resolve, 1000);
+      };
+
+      window.addEventListener('online', handleOnline, { once: true });
+    });
+  };
+
+  // Helper function to retry with exponential backoff and network detection
   const retryWithBackoff = async (fn: () => Promise<string>): Promise<string> => {
     try {
       return await fn();
     } catch (error: any) {
-      const isNetworkError = error.message?.toLowerCase().includes('network') || 
-                            error.message?.toLowerCase().includes('fetch') ||
-                            error.message?.toLowerCase().includes('timeout');
+      // Check if it's a network-related error
+      const isNetworkError = 
+        error.message?.toLowerCase().includes('network') || 
+        error.message?.toLowerCase().includes('fetch') ||
+        error.message?.toLowerCase().includes('timeout') ||
+        error.message?.toLowerCase().includes('failed to fetch') ||
+        error.message?.toLowerCase().includes('networkerror') ||
+        error.name === 'NetworkError' ||
+        error.name === 'TypeError' ||
+        !navigator.onLine; // Browser is offline
       
       if (isNetworkError && retryCount < MAX_RETRIES) {
+        // If offline, wait for network to come back
+        if (!navigator.onLine) {
+          console.log('[Upload] Internet offline, waiting for connection to resume...');
+          await waitForNetwork();
+        }
+        
         const delay = RETRY_DELAY * Math.pow(2, retryCount);
         console.warn(`[All-Inkl Upload] Retry ${retryCount + 1}/${MAX_RETRIES} after ${delay}ms:`, error.message);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -831,77 +969,103 @@ async function uploadToAllInkl(
   if (useChunked) {
     // Chunked upload for large files with retry mechanism
     return retryWithBackoff(async () => {
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * chunkSize;
-        const end = Math.min(start + chunkSize, file.size);
-        const chunk = file.slice(start, end);
+      // Setup keep-alive for background uploads (once for entire upload)
+      const cleanupKeepAlive = setupUploadKeepAlive();
+      
+      try {
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * chunkSize;
+          const end = Math.min(start + chunkSize, file.size);
+          const chunk = file.slice(start, end);
 
-        const formData = new FormData();
-        formData.append('chunk', chunk);
+          const formData = new FormData();
+          formData.append('chunk', chunk);
 
-        const headers: Record<string, string> = {
-          'X-File-Name': file.name,
-          'X-File-Size': file.size.toString(),
-          'X-File-Type': mimeType,
-          'X-Chunk-Number': i.toString(),
-          'X-Total-Chunks': totalChunks.toString(),
-        };
+          const headers: Record<string, string> = {
+            'X-File-Name': file.name,
+            'X-File-Size': file.size.toString(),
+            'X-File-Type': mimeType,
+            'X-Chunk-Number': i.toString(),
+            'X-Total-Chunks': totalChunks.toString(),
+          };
 
-        if (uploadSessionId) {
-          headers['X-Upload-Session-Id'] = uploadSessionId;
-        }
+          if (uploadSessionId) {
+            headers['X-Upload-Session-Id'] = uploadSessionId;
+          }
 
-        if (sectorId) {
-          headers['X-Sector-Id'] = sectorId;
-        }
+          if (sectorId) {
+            headers['X-Sector-Id'] = sectorId;
+          }
 
-        // Upload chunk with timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT);
+          // Upload chunk with timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT);
 
-        try {
-          const response = await fetch(`${ALLINKL_API_URL}/upload.php`, {
-            method: 'POST',
-            body: formData,
-            headers: headers,
-            signal: controller.signal,
-          });
-
-          clearTimeout(timeoutId);
-
-          if (!response.ok) {
-            let errorMessage = `Upload failed: ${response.statusText}`;
-            try {
-              const errorData = await response.json();
-              errorMessage = errorData.error || errorMessage;
-            } catch {
-              // If JSON parsing fails, use status text
+          try {
+            // Check if network is available before attempting upload
+            if (!navigator.onLine) {
+              console.log('[Upload] Network offline, waiting for connection...');
+              await waitForNetwork();
             }
-            throw new Error(errorMessage);
-          }
 
-          const result = await response.json();
+            const response = await fetch(`${ALLINKL_API_URL}/upload.php`, {
+              method: 'POST',
+              body: formData,
+              headers: headers,
+              signal: controller.signal,
+              // keepalive helps keep request alive when tab is switched
+              // Note: Some browsers may still throttle, but this improves chances
+              keepalive: true,
+            });
 
-          // Update progress
-          if (onProgress) {
-            const chunkProgress = ((i + 1) / totalChunks) * 100;
-            onProgress(chunkProgress);
-          }
+            clearTimeout(timeoutId);
 
-          // If this is the last chunk, return the URL
-          if (i === totalChunks - 1 && result.url) {
-            return result.url;
+            if (!response.ok) {
+              let errorMessage = `Upload failed: ${response.statusText}`;
+              try {
+                const errorData = await response.json();
+                errorMessage = errorData.error || errorMessage;
+              } catch {
+                // If JSON parsing fails, use status text
+              }
+              throw new Error(errorMessage);
+            }
+
+            const result = await response.json();
+
+            // Update progress
+            if (onProgress) {
+              const chunkProgress = ((i + 1) / totalChunks) * 100;
+              onProgress(chunkProgress);
+            }
+
+            // If this is the last chunk, return the URL
+            if (i === totalChunks - 1 && result.url) {
+              cleanupKeepAlive();
+              return result.url;
+            }
+          } catch (error: any) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+              // Check if abort was due to network issue
+              if (!navigator.onLine) {
+                cleanupKeepAlive();
+                throw new Error('Upload interrupted: Network connection lost');
+              }
+              cleanupKeepAlive();
+              throw new Error('Upload timeout: Request took too long');
+            }
+            cleanupKeepAlive();
+            throw error;
           }
-        } catch (error: any) {
-          clearTimeout(timeoutId);
-          if (error.name === 'AbortError') {
-            throw new Error('Upload timeout: Request took too long');
-          }
-          throw error;
         }
-      }
 
-      throw new Error('Upload completed but no URL returned');
+        cleanupKeepAlive();
+        throw new Error('Upload completed but no URL returned');
+      } catch (error) {
+        cleanupKeepAlive();
+        throw error;
+      }
     });
   } else {
     // Single file upload for small files with retry mechanism
@@ -919,16 +1083,53 @@ async function uploadToAllInkl(
         headers['X-Sector-Id'] = sectorId;
       }
 
+      // Setup keep-alive for background uploads
+      const cleanupKeepAlive = setupUploadKeepAlive();
+      
+      // Check if network is available before attempting upload
+      if (!navigator.onLine) {
+        console.log('[Upload] Network offline, waiting for connection...');
+        await waitForNetwork();
+      }
+      
       // Track upload progress using XMLHttpRequest for better progress tracking
       return new Promise<string>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         let isResolved = false;
+
+        // Monitor network status during upload
+        const handleOffline = () => {
+          if (!isResolved) {
+            console.log('[Upload] Network went offline during upload, will retry...');
+            // Don't abort immediately, wait a bit to see if connection comes back
+            setTimeout(() => {
+              if (!navigator.onLine && !isResolved) {
+                xhr.abort();
+                isResolved = true;
+                cleanupKeepAlive();
+                window.removeEventListener('offline', handleOffline);
+                window.removeEventListener('online', handleOnline);
+                reject(new Error('Upload interrupted: Network connection lost'));
+              }
+            }, 5000); // Wait 5 seconds before giving up
+          }
+        };
+
+        const handleOnline = () => {
+          console.log('[Upload] Network back online during upload');
+        };
+
+        window.addEventListener('offline', handleOffline);
+        window.addEventListener('online', handleOnline);
 
         // Timeout handling
         const timeoutId = setTimeout(() => {
           if (!isResolved) {
             xhr.abort();
             isResolved = true;
+            cleanupKeepAlive();
+            window.removeEventListener('offline', handleOffline);
+            window.removeEventListener('online', handleOnline);
             reject(new Error('Upload timeout: Request took too long'));
           }
         }, UPLOAD_TIMEOUT);
@@ -942,6 +1143,9 @@ async function uploadToAllInkl(
 
         xhr.addEventListener('load', () => {
           clearTimeout(timeoutId);
+          cleanupKeepAlive();
+          window.removeEventListener('offline', handleOffline);
+          window.removeEventListener('online', handleOnline);
           if (isResolved) return;
           
           if (xhr.status === 200) {
@@ -978,17 +1182,29 @@ async function uploadToAllInkl(
         });
 
         xhr.addEventListener('error', () => {
+          cleanupKeepAlive();
           clearTimeout(timeoutId);
+          window.removeEventListener('offline', handleOffline);
+          window.removeEventListener('online', handleOnline);
           if (isResolved) return;
           isResolved = true;
-          reject(new Error('Upload failed: Network error'));
+          const errorMsg = !navigator.onLine 
+            ? 'Upload failed: Network connection lost'
+            : 'Upload failed: Network error';
+          reject(new Error(errorMsg));
         });
 
         xhr.addEventListener('abort', () => {
+          cleanupKeepAlive();
           clearTimeout(timeoutId);
+          window.removeEventListener('offline', handleOffline);
+          window.removeEventListener('online', handleOnline);
           if (isResolved) return;
           isResolved = true;
-          reject(new Error('Upload aborted'));
+          const errorMsg = !navigator.onLine
+            ? 'Upload aborted: Network connection lost'
+            : 'Upload aborted';
+          reject(new Error(errorMsg));
         });
 
         xhr.open('POST', `${ALLINKL_API_URL}/upload.php`);
@@ -1198,6 +1414,100 @@ export async function uploadBetaVideo(
 }
 
 /**
+ * Compress and resize sector image for optimal performance
+ * Resizes to max 1920px width (Full HD) and compresses to JPEG with 85% quality
+ * Maintains aspect ratio and corrects EXIF orientation
+ */
+async function compressSectorImage(file: File, onProgress?: (progress: number) => void): Promise<File> {
+  return new Promise(async (resolve, reject) => {
+    // Read EXIF orientation first
+    const orientation = await getExifOrientation(file);
+    
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.src = objectUrl;
+
+    img.onload = () => {
+      try {
+        let imgWidth = img.width;
+        let imgHeight = img.height;
+
+        // Calculate optimal dimensions (max 1920px width, maintain aspect ratio)
+        const maxWidth = 1920;
+        const maxHeight = 1080;
+        let width = imgWidth;
+        let height = imgHeight;
+
+        if (width > maxWidth || height > maxHeight) {
+          const aspectRatio = width / height;
+          if (width > height) {
+            // Landscape
+            width = Math.min(width, maxWidth);
+            height = Math.round(width / aspectRatio);
+            if (height > maxHeight) {
+              height = maxHeight;
+              width = Math.round(height * aspectRatio);
+            }
+          } else {
+            // Portrait
+            height = Math.min(height, maxHeight);
+            width = Math.round(height * aspectRatio);
+            if (width > maxWidth) {
+              width = maxWidth;
+              height = Math.round(width / aspectRatio);
+            }
+          }
+        }
+
+        // Create canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error('Canvas context not available'));
+          return;
+        }
+
+        // Apply EXIF orientation correction
+        applyExifOrientation(ctx, orientation, width, height);
+
+        // Draw and scale image
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert to blob with compression
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(objectUrl);
+            if (!blob) {
+              reject(new Error('Failed to compress image'));
+              return;
+            }
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            if (onProgress) onProgress(100);
+            resolve(compressedFile);
+          },
+          'image/jpeg',
+          0.85 // 85% quality
+        );
+      } catch (error) {
+        URL.revokeObjectURL(objectUrl);
+        reject(error);
+      }
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Failed to load image'));
+    };
+  });
+}
+
+/**
  * Upload a sector image to All-Inkl or Supabase Storage
  */
 export async function uploadSectorImage(
@@ -1211,16 +1521,44 @@ export async function uploadSectorImage(
     throw new Error(`Ungültiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
   }
 
-  // Validate file size (10MB max)
-  const maxSize = 10 * 1024 * 1024; // 10MB
-  if (file.size > maxSize) {
-    throw new Error(`Datei zu groß. Maximum: ${Math.round(maxSize / 1024 / 1024)}MB`);
+  // Compress image before upload to reduce size and improve loading performance
+  let imageToUpload = file;
+  try {
+    if (onProgress) onProgress(5);
+    imageToUpload = await compressSectorImage(file, (progress) => {
+      const compressionProgress = 5 + (progress * 0.4); // 5-45% for compression
+      if (onProgress) {
+        onProgress(compressionProgress);
+      }
+    });
+    if (onProgress) onProgress(45);
+  } catch (error: any) {
+    console.warn('[Sector Image Upload] Compression failed, using original:', error);
+    imageToUpload = file; // Use original if compression fails
+  }
+
+  // Validate file size AFTER compression (5MB max)
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (imageToUpload.size > maxSize) {
+    const originalSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    const compressedSizeMB = (imageToUpload.size / (1024 * 1024)).toFixed(2);
+    throw new Error(
+      `Datei zu groß. Original: ${originalSizeMB}MB, nach Kompression: ${compressedSizeMB}MB. ` +
+      `Maximum: ${Math.round(maxSize / (1024 * 1024))}MB. Bitte verwende ein kleineres Bild.`
+    );
   }
 
   // Use All-Inkl if enabled, otherwise fallback to Supabase
   if (USE_ALLINKL_STORAGE) {
     try {
-      return await uploadToAllInkl(file, 'image', sectorId, onProgress);
+      const uploadProgress = onProgress 
+        ? (progress: number) => {
+            // Compression took 0-45%, upload takes 45-100%
+            const totalProgress = 45 + (progress * 0.55);
+            onProgress(totalProgress);
+          }
+        : undefined;
+      return await uploadToAllInkl(imageToUpload, 'image', sectorId, uploadProgress);
     } catch (error: any) {
       console.error('[All-Inkl Upload] Failed, falling back to Supabase:', error);
       // Fallback to Supabase if All-Inkl fails
@@ -1228,18 +1566,18 @@ export async function uploadSectorImage(
   }
 
   // Fallback to Supabase Storage
-  const ext = getFileExt(file.name) || 'jpg';
+  const ext = 'jpg'; // Always use JPEG after compression
   const objectPath = `${sectorId}/${randomId()}.${ext}`;
 
-  // Simulate progress if callback provided
+  // Simulate progress if callback provided (starts at 45% after compression)
   const simulateProgress = () => {
     if (!onProgress) return;
     
-    let progress = 0;
+    let progress = 45; // Start at 45% after compression
     const interval = setInterval(() => {
-      progress += Math.random() * 15;
-      if (progress >= 90) {
-        progress = 90;
+      progress += Math.random() * 10;
+      if (progress >= 95) {
+        progress = 95;
         clearInterval(interval);
       }
       onProgress(progress);
@@ -1253,10 +1591,10 @@ export async function uploadSectorImage(
   try {
     const { data, error } = await supabase.storage
       .from(SECTOR_IMAGES_BUCKET)
-      .upload(objectPath, file, {
-        cacheControl: '3600', // 1 hour cache for sector images
+      .upload(objectPath, imageToUpload, {
+        cacheControl: '604800', // 7 days cache for sector images
         upsert: true,
-        contentType: file.type || 'image/jpeg',
+        contentType: 'image/jpeg', // Always JPEG after compression
       });
 
     if (progressInterval) {

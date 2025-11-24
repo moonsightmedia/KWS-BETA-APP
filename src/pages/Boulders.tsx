@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { DashboardHeader } from '@/components/DashboardHeader';
-import { Sidebar } from '@/components/Sidebar';
 import { BoulderDetailDialog } from '@/components/BoulderDetailDialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -151,7 +150,6 @@ const Boulders = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex">
-        <Sidebar />
         <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8">
@@ -186,7 +184,6 @@ const Boulders = () => {
   if (bouldersError) {
     return (
       <div className="min-h-screen bg-background flex">
-        <Sidebar />
         <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8">
@@ -205,8 +202,6 @@ const Boulders = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      <Sidebar />
-      
       <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
         <DashboardHeader />
         

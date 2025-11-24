@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,25 +39,98 @@ interface BoulderDraft {
 
 const DIFFICULTIES = [null, 1, 2, 3, 4, 5, 6, 7, 8];
 
-export const BatchUpload = () => {
+interface BatchUploadProps {
+  onAddBoulderRef?: (addBoulderFn: () => void) => void;
+}
+
+export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
   const navigate = useNavigate();
   const { data: sectors } = useSectorsTransformed();
   const { data: colorsDb } = useColors();
   const createBoulder = useCreateBoulder();
   const updateBoulder = useUpdateBoulder();
 
-  const [boulders, setBoulders] = useState<BoulderDraft[]>([]);
+  // Load boulder drafts from localStorage on mount
+  const loadDraftsFromStorage = (): BoulderDraft[] => {
+    try {
+      const saved = localStorage.getItem('boulder-drafts');
+      if (saved) {
+        const drafts = JSON.parse(saved) as Array<Omit<BoulderDraft, 'videoFile' | 'thumbnailFile'>>;
+        if (drafts.length > 0) {
+          // Show notification that drafts were restored
+          toast.info(`${drafts.length} gespeicherte Boulder-Entwürfe wiederhergestellt. Bitte Dateien erneut auswählen.`, {
+            duration: 5000,
+          });
+        }
+        // Convert back to BoulderDraft format (files will be null, user needs to re-select)
+        return drafts.map(draft => ({
+          ...draft,
+          videoFile: null,
+          thumbnailFile: null,
+        }));
+      }
+    } catch (error) {
+      console.warn('[BatchUpload] Error loading drafts from localStorage:', error);
+    }
+    return [];
+  };
+
+  // Save boulder drafts to localStorage whenever they change
+  const saveDraftsToStorage = (drafts: BoulderDraft[]) => {
+    try {
+      // Only save drafts (not uploading/completed/failed)
+      const draftsToSave = drafts
+        .filter(b => b.status === 'draft')
+        .map(({ videoFile, thumbnailFile, ...rest }) => rest); // Remove File objects (can't be serialized)
+      localStorage.setItem('boulder-drafts', JSON.stringify(draftsToSave));
+    } catch (error) {
+      console.warn('[BatchUpload] Error saving drafts to localStorage:', error);
+    }
+  };
+
+  const [boulders, setBoulders] = useState<BoulderDraft[]>(() => loadDraftsFromStorage());
   const [isUploading, setIsUploading] = useState(false);
   const [currentUploadIndex, setCurrentUploadIndex] = useState<number | null>(null);
   const [uploadErrors, setUploadErrors] = useState<Array<{ boulderName: string; error: string; type: 'video' | 'thumbnail' | 'creation' }>>([]);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
+
+  // Save drafts to localStorage whenever boulders change
+  useEffect(() => {
+    saveDraftsToStorage(boulders);
+  }, [boulders]);
+
+  // Clear completed/failed boulders from storage after upload
+  const clearCompletedFromStorage = () => {
+    try {
+      const saved = localStorage.getItem('boulder-drafts');
+      if (saved) {
+        const drafts = JSON.parse(saved) as Array<Omit<BoulderDraft, 'videoFile' | 'thumbnailFile'>>;
+        // Only keep drafts that are still in 'draft' status
+        const activeDrafts = drafts.filter(d => {
+          const boulder = boulders.find(b => b.id === d.id);
+          return boulder && boulder.status === 'draft';
+        });
+        if (activeDrafts.length === 0) {
+          localStorage.removeItem('boulder-drafts');
+        } else {
+          localStorage.setItem('boulder-drafts', JSON.stringify(activeDrafts));
+        }
+      }
+    } catch (error) {
+      console.warn('[BatchUpload] Error clearing completed drafts from localStorage:', error);
+    }
+  };
 
   const videoInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const thumbnailInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const COLORS = colorsDb?.map(c => c.name) || ['Grün', 'Gelb', 'Blau', 'Orange', 'Rot', 'Schwarz', 'Weiß', 'Lila'];
 
-  const addBoulder = () => {
+  // Use useRef to store the latest function without causing re-renders
+  const addBoulderRef = useRef<() => void>();
+  
+  // Create the addBoulder function
+  const addBoulder = useCallback(() => {
     const newBoulder: BoulderDraft = {
       id: `boulder-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       name: '',
@@ -73,14 +146,35 @@ export const BatchUpload = () => {
       status: 'draft',
       progress: 0,
     };
-    setBoulders([newBoulder, ...boulders]);
+    setBoulders(prev => [newBoulder, ...prev]);
     console.log('[BatchUpload] Added new boulder:', newBoulder);
-  };
+  }, [sectors, COLORS]);
+  
+  // Update the ref whenever addBoulder changes
+  addBoulderRef.current = addBoulder;
+
+  // Expose addBoulder function to parent via ref callback
+  // Only call onAddBoulderRef when it changes, not when addBoulder changes
+  const onAddBoulderRefRef = useRef(onAddBoulderRef);
+  onAddBoulderRefRef.current = onAddBoulderRef;
+  
+  useEffect(() => {
+    if (onAddBoulderRefRef.current) {
+      // Pass a stable function that calls the current ref
+      onAddBoulderRefRef.current(() => {
+        if (addBoulderRef.current) {
+          addBoulderRef.current();
+        }
+      });
+    }
+  }, [onAddBoulderRef]); // Only depend on onAddBoulderRef, not addBoulder
 
   const removeBoulder = (id: string) => {
     setBoulders(boulders.filter(b => b.id !== id));
     delete videoInputRefs.current[id];
     delete thumbnailInputRefs.current[id];
+    // Update localStorage after removal
+    clearCompletedFromStorage();
   };
 
   const updateBoulderField = (id: string, field: keyof BoulderDraft, value: any) => {
@@ -267,6 +361,9 @@ export const BatchUpload = () => {
     setIsUploading(false);
     setCurrentUploadIndex(null);
     setUploadErrors(errors);
+    
+    // Clear completed/failed boulders from localStorage
+    clearCompletedFromStorage();
     
     // Show summary
     const completed = boulders.filter(b => b.status === 'completed').length;
@@ -548,6 +645,80 @@ export const BatchUpload = () => {
                   )}
                 </CardHeader>
                 <CardContent className="space-y-4 px-2 sm:px-6">
+                  {/* Thumbnail first */}
+                  <div className="w-full min-w-0">
+                    <Label>Thumbnail (optional)</Label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      ref={(el) => { thumbnailInputRefs.current[boulder.id] = el; }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        handleThumbnailFileChange(boulder.id, file);
+                      }}
+                      disabled={isUploading}
+                      className="text-xs w-full min-w-0"
+                    />
+                    {boulder.thumbnailFile && (
+                      <p className="text-xs text-muted-foreground mt-1 truncate">
+                        {boulder.thumbnailFile.name} ({(boulder.thumbnailFile.size / 1024).toFixed(2)} KB)
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Video second */}
+                  <div className="w-full min-w-0">
+                    <Label>Video *</Label>
+                    <div className="space-y-2">
+                      <Input
+                        type="file"
+                        accept="video/*"
+                        ref={(el) => { videoInputRefs.current[boulder.id] = el; }}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          console.log(`[BatchUpload] Video file selected for ${boulder.id}:`, file?.name, file?.size);
+                          handleVideoFileChange(boulder.id, file);
+                        }}
+                        disabled={isUploading}
+                        className="text-xs w-full min-w-0"
+                      />
+                      <Input
+                        type="url"
+                        placeholder="Oder CDN-URL eingeben"
+                        value={boulder.videoUrl || ''}
+                        onChange={(e) => {
+                          const url = e.target.value;
+                          console.log(`[BatchUpload] Video URL changed for ${boulder.id}:`, url);
+                          updateBoulderField(boulder.id, 'videoUrl', url);
+                          if (url) {
+                            updateBoulderField(boulder.id, 'videoFile', null);
+                            if (videoInputRefs.current[boulder.id]) {
+                              videoInputRefs.current[boulder.id]!.value = '';
+                            }
+                          }
+                        }}
+                        disabled={isUploading}
+                        className="text-xs w-full min-w-0"
+                      />
+                      {boulder.videoFile && (
+                        <p className="text-xs text-green-600 truncate">
+                          ✓ {boulder.videoFile.name} ({(boulder.videoFile.size / 1024 / 1024).toFixed(2)} MB)
+                        </p>
+                      )}
+                      {boulder.videoUrl && !boulder.videoFile && (
+                        <p className="text-xs text-green-600 truncate">
+                          ✓ CDN-URL: {boulder.videoUrl}
+                        </p>
+                      )}
+                      {!boulder.videoFile && !boulder.videoUrl && (
+                        <p className="text-xs text-red-500 font-medium">
+                          ⚠ Video ist erforderlich (Datei oder CDN-URL)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Text inputs after video */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <div className="w-full min-w-0">
                       <Label htmlFor={`name-${boulder.id}`}>Name *</Label>
@@ -700,77 +871,6 @@ export const BatchUpload = () => {
                       rows={2}
                       className="w-full min-w-0 text-sm sm:text-base"
                     />
-                  </div>
-
-                  <div className="w-full min-w-0">
-                    <Label>Video *</Label>
-                    <div className="space-y-2">
-                      <Input
-                        type="file"
-                        accept="video/*"
-                        ref={(el) => { videoInputRefs.current[boulder.id] = el; }}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] || null;
-                          console.log(`[BatchUpload] Video file selected for ${boulder.id}:`, file?.name, file?.size);
-                          handleVideoFileChange(boulder.id, file);
-                        }}
-                        disabled={isUploading}
-                        className="text-xs w-full min-w-0"
-                      />
-                      <Input
-                        type="url"
-                        placeholder="Oder CDN-URL eingeben"
-                        value={boulder.videoUrl || ''}
-                        onChange={(e) => {
-                          const url = e.target.value;
-                          console.log(`[BatchUpload] Video URL changed for ${boulder.id}:`, url);
-                          updateBoulderField(boulder.id, 'videoUrl', url);
-                          if (url) {
-                            updateBoulderField(boulder.id, 'videoFile', null);
-                            if (videoInputRefs.current[boulder.id]) {
-                              videoInputRefs.current[boulder.id]!.value = '';
-                            }
-                          }
-                        }}
-                        disabled={isUploading}
-                        className="text-xs w-full min-w-0"
-                      />
-                      {boulder.videoFile && (
-                        <p className="text-xs text-green-600 truncate">
-                          ✓ {boulder.videoFile.name} ({(boulder.videoFile.size / 1024 / 1024).toFixed(2)} MB)
-                        </p>
-                      )}
-                      {boulder.videoUrl && !boulder.videoFile && (
-                        <p className="text-xs text-green-600 truncate">
-                          ✓ CDN-URL: {boulder.videoUrl}
-                        </p>
-                      )}
-                      {!boulder.videoFile && !boulder.videoUrl && (
-                        <p className="text-xs text-red-500 font-medium">
-                          ⚠ Video ist erforderlich (Datei oder CDN-URL)
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="w-full min-w-0">
-                    <Label>Thumbnail (optional)</Label>
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      ref={(el) => { thumbnailInputRefs.current[boulder.id] = el; }}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] || null;
-                        handleThumbnailFileChange(boulder.id, file);
-                      }}
-                      disabled={isUploading}
-                      className="text-xs w-full min-w-0"
-                    />
-                    {boulder.thumbnailFile && (
-                      <p className="text-xs text-muted-foreground mt-1 truncate">
-                        {boulder.thumbnailFile.name} ({(boulder.thumbnailFile.size / 1024).toFixed(2)} KB)
-                      </p>
-                    )}
                   </div>
                 </CardContent>
               </Card>

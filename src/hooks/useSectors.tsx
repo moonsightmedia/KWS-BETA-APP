@@ -21,18 +21,47 @@ export const useSectors = () => {
     queryKey: ['sectors'],
     queryFn: async () => {
       console.log('[useSectors] Fetching sectors from Supabase...');
-      const { data, error } = await supabase
-        .from('sectors')
-        .select('*')
-        .order('name');
+      try {
+        const { data, error } = await supabase
+          .from('sectors')
+          .select('*')
+          .order('name');
 
-      if (error) {
-        console.error('[useSectors] Error fetching sectors:', error);
-        throw error;
+        if (error) {
+          console.error('[useSectors] Error fetching sectors:', error);
+          // Provide more user-friendly error messages
+          let errorMessage = error.message || 'Fehler beim Laden der Sektoren';
+          
+          // Check for specific error types
+          if (error.code === 'PGRST116' || error.message?.includes('permission') || error.message?.includes('denied')) {
+            errorMessage = 'Keine Berechtigung zum Laden der Sektoren. Bitte melde dich an.';
+          } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+            errorMessage = 'Netzwerkfehler. Bitte überprüfe deine Internetverbindung.';
+          } else if (error.message?.includes('timeout')) {
+            errorMessage = 'Zeitüberschreitung beim Laden. Bitte versuche es erneut.';
+          }
+          
+          const enhancedError = new Error(errorMessage);
+          (enhancedError as any).originalError = error;
+          throw enhancedError;
+        }
+        
+        if (!data) {
+          throw new Error('Keine Daten zurückgegeben');
+        }
+        
+        console.log('[useSectors] Fetched sectors:', data.length, 'sectors');
+        return data as Sector[];
+      } catch (error) {
+        // Re-throw with better message if it's not already an Error
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error('Unbekannter Fehler beim Laden der Sektoren');
       }
-      console.log('[useSectors] Fetched sectors:', data?.length || 0, 'sectors');
-      return data as Sector[];
     },
+    retry: 2, // Retry up to 2 times on failure
+    retryDelay: 1000, // Wait 1 second between retries
     // Use default query options from QueryClient (staleTime: 30s, refetchOnMount: false)
   });
 };

@@ -15,7 +15,9 @@
     "cleanup:videos": "node scripts/cleanup-unused-videos.js",
     "cleanup:videos:dry-run": "node scripts/cleanup-unused-videos.js --dry-run",
     "compress:thumbnails": "node scripts/compress-thumbnails.js",
-    "compress:thumbnails:dry-run": "node scripts/compress-thumbnails.js --dry-run"
+    "compress:thumbnails:dry-run": "node scripts/compress-thumbnails.js --dry-run",
+    "compress:sector-images": "node scripts/compress-sector-images.js",
+    "compress:sector-images:dry-run": "node scripts/compress-sector-images.js --dry-run"
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.10",

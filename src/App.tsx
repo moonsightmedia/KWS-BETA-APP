@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { createBrowserRouter, RouterProvider, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { refreshAllData, clearAllCaches } from "@/utils/cacheUtils";
 import Index from "./pages/Index";
@@ -17,15 +17,16 @@ import Admin from "./pages/Admin";
 import Setter from "./pages/Setter";
 import Guest from "./pages/Guest";
 import NotFound from "./pages/NotFound";
+import { Sidebar } from "@/components/Sidebar";
 
 // Configure QueryClient for optimal caching and prefetching
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30 * 1000, // Data is fresh for 30 seconds (reduced from 5 minutes)
-      gcTime: 5 * 60 * 1000, // Keep data in cache for 5 minutes (reduced from 10 minutes)
-      refetchOnMount: true, // Always refetch on mount if data is stale (CHANGED from false)
-      refetchOnWindowFocus: true, // Refetch on window focus if data is stale (CHANGED from false)
+      staleTime: 5 * 60 * 1000, // Data is fresh for 5 minutes
+      gcTime: 10 * 60 * 1000, // Keep data in cache for 10 minutes
+      refetchOnMount: false, // Don't refetch on mount - use cached data
+      refetchOnWindowFocus: false, // Don't refetch on window focus - use cached data
       refetchOnReconnect: true, // Refetch when network reconnects
       retry: 1, // Only retry once on failure
     },
@@ -53,11 +54,14 @@ const PullToRefreshHandler = () => {
   const location = useLocation();
   
   // Restore route immediately on mount if it was preserved
-  // This must run BEFORE any other effects to prevent navigation conflicts
+  // Only restore if this was actually a page refresh (not a normal navigation)
   useEffect(() => {
     try {
       const preserveRoute = sessionStorage.getItem('preserveRoute');
-      if (preserveRoute) {
+      const wasRefreshing = sessionStorage.getItem('isRefreshing');
+      
+      // Only restore route if this was a page refresh, not a normal navigation
+      if (preserveRoute && wasRefreshing === 'true') {
         const currentPath = window.location.pathname;
         console.log(`[PullToRefresh] Checking route restoration: current=${currentPath}, preserved=${preserveRoute}`);
         
@@ -65,6 +69,7 @@ const PullToRefreshHandler = () => {
         if (currentPath === '/auth') {
           console.log(`[PullToRefresh] On /auth page, clearing preserved route: ${preserveRoute}`);
           sessionStorage.removeItem('preserveRoute');
+          sessionStorage.removeItem('isRefreshing');
           return;
         }
         
@@ -72,12 +77,14 @@ const PullToRefreshHandler = () => {
         if (preserveRoute === '/auth') {
           console.log(`[PullToRefresh] Preserved route is /auth but we're on ${currentPath}, clearing it`);
           sessionStorage.removeItem('preserveRoute');
+          sessionStorage.removeItem('isRefreshing');
           return;
         }
         
         if (preserveRoute !== currentPath) {
           console.log(`[PullToRefresh] Restoring route from ${currentPath} to ${preserveRoute}`);
           sessionStorage.removeItem('preserveRoute');
+          sessionStorage.removeItem('isRefreshing');
           
           // First, update the browser URL directly to prevent any race conditions
           if (window.history.replaceState) {
@@ -90,7 +97,13 @@ const PullToRefreshHandler = () => {
           // Route is already correct, just clean up
           console.log(`[PullToRefresh] Route ${preserveRoute} is already correct`);
           sessionStorage.removeItem('preserveRoute');
+          sessionStorage.removeItem('isRefreshing');
         }
+      } else if (preserveRoute && !wasRefreshing) {
+        // If preserveRoute exists but isRefreshing is not set, it's from visibility change
+        // Don't restore in this case - it would interfere with normal navigation
+        console.log(`[PullToRefresh] Clearing preserveRoute from visibility change (not a refresh)`);
+        sessionStorage.removeItem('preserveRoute');
       }
     } catch (error) {
       // Ignore storage errors
@@ -170,14 +183,8 @@ const PullToRefreshHandler = () => {
       console.log(`[PullToRefresh] Verification - saved route: ${saved}`);
     };
     
-    // Also save route on visibility change (when user switches tabs/apps)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        const currentRoute = location.pathname || window.location.pathname;
-        sessionStorage.setItem('preserveRoute', currentRoute);
-        console.log(`[PullToRefresh] Saving route on visibility change: ${currentRoute}`);
-      }
-    };
+    // Don't save route on visibility change - this interferes with normal navigation
+    // Only save route on actual page refresh (beforeunload)
     
     // Check on load if this was a refresh
     const handleLoad = async () => {
@@ -218,10 +225,7 @@ const PullToRefreshHandler = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('load', handleLoad);
     
-    // Listen for visibility change to save route
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    // Also listen for visibility change (when user switches back to tab) to refresh data
+    // Listen for visibility change (when user switches back to tab) to refresh data
     const handleVisibilityChangeRefresh = async () => {
       if (document.visibilityState === 'visible') {
         // Check if page was just refreshed
@@ -246,7 +250,6 @@ const PullToRefreshHandler = () => {
       document.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('load', handleLoad);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
       document.removeEventListener('visibilitychange', handleVisibilityChangeRefresh);
     };
   }, [queryClient, navigate, location]);
@@ -254,55 +257,35 @@ const PullToRefreshHandler = () => {
   return null;
 };
 
+import { SidebarProvider } from '@/components/SidebarContext';
+
+// Component to conditionally show Sidebar only for authenticated users
+const ConditionalSidebar = () => {
+  const location = useLocation();
+  const { user, loading } = useAuth();
+  
+  // Hide sidebar on auth page or if user is not logged in
+  if (location.pathname === '/auth' || (!loading && !user)) {
+    return null;
+  }
+  
+  return <Sidebar />;
+};
+
 const Root = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Restore route VERY EARLY, before any other components mount
-  useEffect(() => {
-    try {
-      const preserveRoute = sessionStorage.getItem('preserveRoute');
-      const currentPath = location.pathname;
-      
-      // Don't restore route if we're on /auth - user might be trying to log in
-      if (currentPath === '/auth') {
-        if (preserveRoute) {
-          console.log(`[Root] On /auth page, clearing preserved route: ${preserveRoute}`);
-          sessionStorage.removeItem('preserveRoute');
-        }
-        return;
-      }
-      
-      if (preserveRoute && preserveRoute !== currentPath) {
-        // Also don't restore to /auth if we're not already there
-        if (preserveRoute === '/auth') {
-          console.log(`[Root] Preserved route is /auth but we're on ${currentPath}, clearing it`);
-          sessionStorage.removeItem('preserveRoute');
-          return;
-        }
-        
-        console.log(`[Root] Early route restoration: ${currentPath} → ${preserveRoute}`);
-        sessionStorage.removeItem('preserveRoute');
-        // Update URL immediately
-        if (window.history.replaceState) {
-          window.history.replaceState(null, '', preserveRoute);
-        }
-        // Navigate with React Router
-        navigate(preserveRoute, { replace: true });
-      }
-    } catch (error) {
-      // Ignore storage errors
-      console.warn('[Root] Error restoring route:', error);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
+  // Don't restore route in Root - let PullToRefreshHandler handle it
+  // This prevents conflicts with normal navigation
   
   return (
-    <AuthProvider>
+    <SidebarProvider>
       <RouteLogger />
       <PullToRefreshHandler />
+      <ConditionalSidebar />
       <Outlet />
-    </AuthProvider>
+    </SidebarProvider>
   );
 };
 
@@ -349,7 +332,11 @@ restoreRouteOnInit();
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <Root />,
+    element: (
+      <AuthProvider>
+        <Root />
+      </AuthProvider>
+    ),
     children: [
       { index: true, element: (
         <RequireAuth>

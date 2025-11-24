@@ -25,7 +25,9 @@ export const useBoulders = () => {
   return useQuery({
     queryKey: ['boulders'],
     queryFn: async () => {
-      console.log('[useBoulders] Fetching boulders from Supabase...');
+      if (import.meta.env.DEV) {
+        console.log('[useBoulders] Fetching boulders from Supabase...');
+      }
       const { data, error } = await supabase
         .from('boulders')
         .select('*')
@@ -36,9 +38,11 @@ export const useBoulders = () => {
         throw error;
       }
       
-      console.log('[useBoulders] Fetched boulders:', data?.length || 0, 'boulders');
-      if (data && data.length > 0) {
-        console.log('[useBoulders] Sample boulder:', data[0]);
+      if (import.meta.env.DEV) {
+        console.log('[useBoulders] Fetched boulders:', data?.length || 0, 'boulders');
+        if (data && data.length > 0) {
+          console.log('[useBoulders] Sample boulder:', data[0]);
+        }
       }
       
       return data as Boulder[];
@@ -54,7 +58,10 @@ export const useBouldersWithSectors = () => {
   const { data: boulders, isLoading: isLoadingBoulders, error } = useBoulders();
   const { data: sectors, isLoading: isLoadingSectors } = useSectors();
 
-  console.log('[useBouldersWithSectors] Raw boulders:', boulders?.length || 0, 'sectors:', sectors?.length || 0, 'isLoadingBoulders:', isLoadingBoulders, 'isLoadingSectors:', isLoadingSectors);
+  // Only log in development to reduce console noise
+  if (import.meta.env.DEV) {
+    console.log('[useBouldersWithSectors] Raw boulders:', boulders?.length || 0, 'sectors:', sectors?.length || 0, 'isLoadingBoulders:', isLoadingBoulders, 'isLoadingSectors:', isLoadingSectors);
+  }
 
   // Only transform if we have both boulders and sectors (or at least boulders)
   const transformedBoulders: FrontendBoulder[] | undefined = boulders && boulders.length > 0
@@ -79,9 +86,12 @@ export const useBouldersWithSectors = () => {
       })
     : undefined;
 
-  console.log('[useBouldersWithSectors] Transformed boulders:', transformedBoulders?.length || 0);
-  if (transformedBoulders && transformedBoulders.length > 0) {
-    console.log('[useBouldersWithSectors] Sample transformed boulder:', transformedBoulders[0]);
+  // Only log in development to reduce console noise
+  if (import.meta.env.DEV) {
+    console.log('[useBouldersWithSectors] Transformed boulders:', transformedBoulders?.length || 0);
+    if (transformedBoulders && transformedBoulders.length > 0) {
+      console.log('[useBouldersWithSectors] Sample transformed boulder:', transformedBoulders[0]);
+    }
   }
 
   return {

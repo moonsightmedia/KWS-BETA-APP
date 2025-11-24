@@ -1,6 +1,6 @@
-import { useEffect, useMemo } from 'react';
-import { Sidebar } from '@/components/Sidebar';
+import { useEffect, useMemo, useCallback } from 'react';
 import { DashboardHeader } from '@/components/DashboardHeader';
+import { useSidebar } from '@/components/SidebarContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useHasRole } from '@/hooks/useHasRole';
 import { useNavigate } from 'react-router-dom';
@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Search, PlusCircle, Edit3, Calendar, X, Sparkles, ChevronLeft, ChevronRight, Check, Video, Upload } from 'lucide-react';
+import { Search, PlusCircle, Edit3, Calendar, X, Sparkles, ChevronLeft, ChevronRight, Check, Video, Upload, Plus } from 'lucide-react';
 import { MaterialIcon } from '@/components/MaterialIcon';
 import { useMemo as useMemoReact, useRef, useState } from 'react';
 import { useSectorSchedule, useCreateSectorSchedule, useDeleteSectorSchedule } from '@/hooks/useSectorSchedule';
@@ -23,6 +23,8 @@ import { useColors } from '@/hooks/useColors';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BatchUpload } from '@/components/setter/BatchUpload';
+import { BoulderDetailDialog } from '@/components/BoulderDetailDialog';
+import { Boulder } from '@/types/boulder';
 
 const DIFFICULTIES = [null, 1, 2, 3, 4, 5, 6, 7, 8]; // null = "?" (unknown/not rated)
 
@@ -332,6 +334,7 @@ const Setter = () => {
   const { hasRole: isSetter, loading: loadingSetter } = useHasRole('setter');
   const { hasRole: isAdmin, loading: loadingAdmin } = useHasRole('admin');
   const navigate = useNavigate();
+  const { setHideMobileNav } = useSidebar();
   const { data: sectors } = useSectorsTransformed();
   const { data: boulders } = useBouldersWithSectors();
   const createBoulder = useCreateBoulder();
@@ -375,7 +378,34 @@ const Setter = () => {
     videoUrl: '' as string, // For CDN video selection
   });
   const [isUploading, setIsUploading] = useState(false);
-  const [view, setView] = useState<'create' | 'edit' | 'schedule' | 'status' | 'batch'>('batch');
+  const [addBoulderFn, setAddBoulderFn] = useState<(() => void) | null>(null);
+  
+  // Use useCallback to prevent onAddBoulderRef from changing on every render
+  const handleAddBoulderRef = useCallback((fn: () => void) => {
+    setAddBoulderFn(() => fn);
+  }, []);
+  
+  // Persist view state in sessionStorage to prevent loss on navigation
+  const [view, setView] = useState<'create' | 'edit' | 'schedule' | 'status' | 'batch'>(() => {
+    try {
+      const savedView = sessionStorage.getItem('setter-view');
+      if (savedView && ['create', 'edit', 'schedule', 'status', 'batch'].includes(savedView)) {
+        return savedView as typeof view;
+      }
+    } catch (error) {
+      console.warn('[Setter] Error reading view from sessionStorage:', error);
+    }
+    return 'batch';
+  });
+  
+  // Update sessionStorage when view changes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('setter-view', view);
+    } catch (error) {
+      console.warn('[Setter] Error saving view to sessionStorage:', error);
+    }
+  }, [view]);
   // Wizard state for multi-step boulder creation
   const [wizardStep, setWizardStep] = useState(1);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
@@ -396,6 +426,8 @@ const Setter = () => {
   const deleteSchedule = useDeleteSectorSchedule();
   const [statusFilter, setStatusFilter] = useState<'all' | 'haengt' | 'abgeschraubt'>('all');
   const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [selectedBoulder, setSelectedBoulder] = useState<Boulder | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const { data: colorsDb } = useColors();
   const COLORS = useMemo(() => (colorsDb && colorsDb.length>0 ? colorsDb.map(c=>c.name) : DEFAULT_COLORS), [colorsDb]);
   const COLOR_HEX: Record<string, string> = useMemo(() => {
@@ -411,6 +443,17 @@ const Setter = () => {
     (COLORS || []).forEach(name => { map[name] = getTextClassForHex(COLOR_HEX[name]); });
     return map;
   }, [COLORS, COLOR_HEX]);
+
+  // Helper function to get thumbnail URL for a boulder
+  const getThumbnailUrl = (b: any): string | null => {
+    if (!b.thumbnailUrl) return null;
+    // Fix old URLs that incorrectly include /videos/ in the path
+    let url = b.thumbnailUrl;
+    if (url.includes('cdn.kletterwelt-sauerland.de/uploads/videos/')) {
+      url = url.replace('/uploads/videos/', '/uploads/');
+    }
+    return url;
+  };
 
   const canSubmit = useMemo(() => {
     return !!form.name && !!form.sector_id && (form.difficulty === null || (form.difficulty >= 1 && form.difficulty <= 8));
@@ -657,27 +700,30 @@ const Setter = () => {
         return inSector1 || inSector2;
       });
     }
-    if (statusFilter !== 'all') {
-      list = list.filter((b:any) => (b as any).status === statusFilter);
-    }
-    if (editDifficulty !== 'all') {
-      list = list.filter(b => {
-        const bDifficulty = b.difficulty === null ? '?' : String(b.difficulty);
-        return bDifficulty === editDifficulty;
-      });
-    }
-    if (editColor !== 'all') {
-      list = list.filter(b => b.color === editColor);
-    }
-    if (editSearch.trim()) {
-      const q = editSearch.toLowerCase();
-      list = list.filter(b => {
-        const sectorText = b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector;
-        return b.name.toLowerCase().includes(q) || sectorText.toLowerCase().includes(q);
-      });
+    // Only apply difficulty, color, status, and search filters when NOT in status view
+    if (view !== 'status') {
+      if (statusFilter !== 'all') {
+        list = list.filter((b:any) => (b as any).status === statusFilter);
+      }
+      if (editDifficulty !== 'all') {
+        list = list.filter(b => {
+          const bDifficulty = b.difficulty === null ? '?' : String(b.difficulty);
+          return bDifficulty === editDifficulty;
+        });
+      }
+      if (editColor !== 'all') {
+        list = list.filter(b => b.color === editColor);
+      }
+      if (editSearch.trim()) {
+        const q = editSearch.toLowerCase();
+        list = list.filter(b => {
+          const sectorText = b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector;
+          return b.name.toLowerCase().includes(q) || sectorText.toLowerCase().includes(q);
+        });
+      }
     }
     return list.slice(0, 100);
-  }, [boulders, editSector, editDifficulty, editColor, editSearch, sectors]);
+  }, [boulders, editSector, editDifficulty, editColor, editSearch, sectors, view, statusFilter]);
 
   const startEdit = (b: any) => {
     console.log('[Setter] startEdit called with boulder:', b.name, 'thumbnailUrl:', b.thumbnailUrl);
@@ -871,6 +917,13 @@ const Setter = () => {
     return (boulders || []).filter(b => selected[(b as any).id]).length;
   }, [boulders, selected]);
 
+  // Update sidebar mobile nav visibility
+  // IMPORTANT: This hook must be called BEFORE any early returns to maintain hook order
+  useEffect(() => {
+    setHideMobileNav(view === 'status' && selectedCount > 0);
+    return () => setHideMobileNav(false);
+  }, [view, selectedCount, setHideMobileNav]);
+
   // Warte, bis die Rollen geladen sind, bevor wir "Zugriff verweigert" anzeigen
   if (isLoadingRoles) {
     return (
@@ -900,7 +953,6 @@ const Setter = () => {
 
   return (
     <div className="min-h-screen bg-background flex overflow-x-hidden">
-      <Sidebar hideMobileNav={view==='status' && selectedCount>0} />
       <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0 overflow-x-hidden w-full min-w-0">
         <DashboardHeader />
         <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-x-hidden">
@@ -919,7 +971,7 @@ const Setter = () => {
               </TabsList>
 
               <TabsContent value="batch" className="mt-0">
-                <BatchUpload />
+                <BatchUpload onAddBoulderRef={handleAddBoulderRef} />
               </TabsContent>
 
               <TabsContent value="edit" className="mt-0">
@@ -1413,26 +1465,42 @@ const Setter = () => {
 
               {!editing ? (
                 <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-                  {filteredBoulders.map(b => (
+                  {filteredBoulders.map(b => {
+                    const thumbnailUrl = getThumbnailUrl(b);
+                    return (
                     <button key={b.id} className="text-left" onClick={()=>startEdit(b)}>
                       <Card className="hover:bg-muted/50">
                         <CardContent className="p-4 flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold ${TEXT_ON_COLOR[b.color] || 'text-white'}`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
-                              {b.difficulty}
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            {thumbnailUrl && (
+                              <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
+                                <img 
+                                  src={thumbnailUrl} 
+                                  alt={b.name}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                  decoding="async"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              </div>
+                            )}
+                            <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold flex-shrink-0 ${TEXT_ON_COLOR[b.color] || 'text-white'}`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
+                              {formatDifficulty(b.difficulty)}
                             </span>
-                            <div>
-                              <div className="font-medium text-base">{b.name}</div>
-                              <div className="text-xs text-muted-foreground">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-base truncate">{b.name}</div>
+                              <div className="text-xs text-muted-foreground truncate">
                                 {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
                               </div>
                             </div>
                           </div>
-                          <span className="text-primary text-sm">Bearbeiten</span>
+                          <span className="text-primary text-sm flex-shrink-0">Bearbeiten</span>
                         </CardContent>
                       </Card>
                     </button>
-                  ))}
+                  )})}
                 </div>
               ) : (
               <Card>
@@ -1682,59 +1750,14 @@ const Setter = () => {
               <TabsContent value="status" className="mt-0">
                 <div className="space-y-4 w-full min-w-0">
             <div className="flex gap-2 sticky top-[56px] z-10 bg-background py-2 overflow-x-auto w-full min-w-0 -mx-4 px-4">
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Boulder suchen" className="pl-9 h-11 w-full min-w-0" value={editSearch} onChange={(e)=>setEditSearch(e.target.value)} />
-              </div>
               <div className="w-32 sm:w-40 flex-shrink-0">
                 <Select value={editSector} onValueChange={setEditSector}>
                   <SelectTrigger className="h-11 w-full">
-                    <SelectValue placeholder="Sektor" />
+                    <SelectValue placeholder="Wandbereich" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Alle</SelectItem>
                     {sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-28 sm:w-36 flex-shrink-0">
-                <Select value={editDifficulty} onValueChange={setEditDifficulty}>
-                  <SelectTrigger className="h-11 w-full">
-                    <SelectValue placeholder="Grad" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle</SelectItem>
-                    {DIFFICULTIES.map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-32 sm:w-40 flex-shrink-0">
-                <Select value={editColor} onValueChange={setEditColor}>
-                  <SelectTrigger className="h-11 w-full">
-                    <SelectValue placeholder="Farbe" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle</SelectItem>
-                    {COLORS.map(c => (
-                      <SelectItem key={c} value={c}>
-                        <div className="flex items-center gap-2">
-                          <span className="w-3 h-3 rounded-full border" style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }} />
-                          <span>{c}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-36 sm:w-44 flex-shrink-0">
-                <Select value={statusFilter} onValueChange={(v:any)=>setStatusFilter(v)}>
-                  <SelectTrigger className="h-11 w-full">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle</SelectItem>
-                    <SelectItem value="haengt">Hängt</SelectItem>
-                    <SelectItem value="abgeschraubt">Abgeschraubt</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1750,30 +1773,77 @@ const Setter = () => {
             </div>
 
             <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-              {filteredBoulders.map(b => (
-                <label key={b.id} className="block">
-                  <Card className={`hover:bg-muted/50 ${selected[b.id] ? 'ring-2 ring-primary' : ''}`}>
+              {filteredBoulders.map(b => {
+                const thumbnailUrl = getThumbnailUrl(b);
+                return (
+                <div key={b.id} className="block">
+                  <Card 
+                    className={`hover:bg-muted/50 cursor-pointer ${selected[b.id] ? 'ring-2 ring-primary' : ''}`}
+                    onClick={(e) => {
+                      // Don't open dialog if clicking on checkbox
+                      if ((e.target as HTMLElement).closest('input[type="checkbox"]')) {
+                        return;
+                      }
+                      setSelectedBoulder(b as Boulder);
+                      setDialogOpen(true);
+                    }}
+                  >
                     <CardContent className="p-4 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <input type="checkbox" className="w-5 h-5" checked={!!selected[b.id]} onChange={()=>toggleSelect(b.id)} />
-                        <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold ${TEXT_ON_COLOR[b.color] || 'text-white'}`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
-                          {b.difficulty}
-                        </span>
-                        <div>
-                          <div className="font-medium text-base">{b.name}</div>
-                          <div className="text-xs text-muted-foreground">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <input 
+                          type="checkbox" 
+                          className="w-5 h-5 flex-shrink-0" 
+                          checked={!!selected[b.id]} 
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            toggleSelect(b.id);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        {thumbnailUrl ? (
+                          <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
+                            <img 
+                              src={thumbnailUrl} 
+                              alt={b.name}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                              decoding="async"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold flex-shrink-0 ${TEXT_ON_COLOR[b.color] || 'text-white'}`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
+                            {formatDifficulty(b.difficulty)}
+                          </span>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-base truncate">{b.name}</div>
+                          <div className="text-xs text-muted-foreground truncate">
                             {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
                           </div>
                         </div>
                       </div>
-                      <span className="text-xs px-2 py-1 rounded-full border">
+                      <span className="text-xs px-2 py-1 rounded-full border flex-shrink-0">
                         {b.status === 'abgeschraubt' ? 'Abgeschraubt' : 'Hängt'}
                       </span>
                     </CardContent>
                   </Card>
-                </label>
-              ))}
+                </div>
+              )})}
             </div>
+            
+            <BoulderDetailDialog 
+              boulder={selectedBoulder}
+              open={dialogOpen}
+              onOpenChange={(open) => {
+                setDialogOpen(open);
+                if (!open) {
+                  setSelectedBoulder(null);
+                }
+              }}
+            />
           </div>
               </TabsContent>
 
@@ -1925,6 +1995,41 @@ const Setter = () => {
           </button>
         </div>
       )}
+
+      {/* Floating Action Button - Boulder hinzufügen (immer sichtbar) */}
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          // Switch to batch tab if not already there
+          if (view !== 'batch') {
+            setView('batch');
+            // Wait for tab to switch, then add boulder
+            setTimeout(() => {
+              if (addBoulderFn) {
+                addBoulderFn();
+                setTimeout(() => {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }, 100);
+              }
+            }, 300);
+          } else {
+            if (addBoulderFn) {
+              addBoulderFn();
+              // Scroll to top to see the new boulder
+              setTimeout(() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }, 100);
+            }
+          }
+        }}
+        className="fixed bottom-28 md:bottom-6 right-6 z-[90] w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-2xl hover:shadow-3xl hover:scale-110 transition-all duration-300 flex items-center justify-center group disabled:opacity-50 disabled:cursor-not-allowed"
+        aria-label="Boulder hinzufügen"
+        disabled={!addBoulderFn}
+      >
+        <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
+      </button>
       </div>
     </div>
   );

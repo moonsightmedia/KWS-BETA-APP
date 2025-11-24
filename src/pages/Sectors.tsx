@@ -1,163 +1,36 @@
-import { useEffect, useState, useRef } from 'react';
 import { DashboardHeader } from '@/components/DashboardHeader';
-import { Sidebar } from '@/components/Sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { useBoulders } from '@/hooks/useBoulders';
 import { useSectorSchedule } from '@/hooks/useSectorSchedule';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Calendar, Box, ArrowRight, AlertCircle } from 'lucide-react';
+import { Calendar, Box, ArrowRight, AlertCircle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useQueryClient } from '@tanstack/react-query';
 
 const Sectors = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: sectors, isLoading, error } = useSectorsTransformed();
   const { data: boulders } = useBoulders();
   const { data: schedule } = useSectorSchedule();
-  const [imagesLoaded, setImagesLoaded] = useState(false);
-  const loadedImagesRef = useRef<Set<string>>(new Set()); // Track which images are already loaded
-
-  // Preload images in background, but don't block page display
-  // Page will show immediately when data is loaded, images will load progressively
-  useEffect(() => {
-    // If still loading data, wait
-    if (isLoading) {
-      setImagesLoaded(false);
-      return;
-    }
-
-    // If no sectors data yet, wait
-    if (!sectors) {
-      setImagesLoaded(false);
-      return;
-    }
-
-    // Show page immediately when data is loaded - don't wait for images
-    setImagesLoaded(true);
-
-    // If sectors array is empty, nothing to do
-    if (sectors.length === 0) {
-      return;
-    }
-
-    // Extract image URLs
-    const imageUrls = sectors
-      .map(s => s.imageUrl)
-      .filter((url): url is string => !!url);
-    
-    // If no images to load, nothing to do
-    if (imageUrls.length === 0) {
-      return;
-    }
-
-    // Check which images are already loaded (from previous visits)
-    const imagesToLoad = imageUrls.filter(url => !loadedImagesRef.current.has(url));
-    
-    // If all images are already loaded, nothing to do
-    if (imagesToLoad.length === 0) {
-      console.log('[Sectors] All images already loaded from previous visit');
-      return;
-    }
-
-    // Start loading images in background (non-blocking)
-    // Images will load progressively and display as they become available
-    let loadedCount = imageUrls.length - imagesToLoad.length;
-    let errorCount = 0;
-    const totalImages = imageUrls.length;
-
-    const checkAllLoaded = () => {
-      if (loadedCount + errorCount >= totalImages) {
-        console.log(`[Sectors] All images loaded: ${loadedCount} successful, ${errorCount} errors`);
-      }
-    };
-
-    // Load only images that aren't already loaded
-    // If images are already cached, onload fires synchronously
-    imagesToLoad.forEach((imageUrl) => {
-      const img = new Image();
-      let handled = false;
-      
-      const handleLoad = () => {
-        if (handled) return;
-        handled = true;
-        loadedImagesRef.current.add(imageUrl); // Mark as loaded
-        loadedCount++;
-        checkAllLoaded();
-      };
-      
-      const handleError = () => {
-        if (handled) return;
-        handled = true;
-        errorCount++;
-        checkAllLoaded();
-      };
-      
-      // Set up handlers BEFORE setting src
-      img.onload = handleLoad;
-      img.onerror = handleError;
-      
-      // Set src to start loading
-      img.src = imageUrl;
-      
-      // Check if image is already loaded (cached) - this must be checked immediately after setting src
-      // If the image was preloaded, it should be in the browser cache and img.complete will be true
-      // We check both immediately and in the next tick to catch all cases
-      if (img.complete && img.naturalWidth > 0) {
-        // Image is already in cache and fully loaded - call immediately
-        handleLoad();
-      } else {
-        // Also check in next tick in case the image loads very quickly
-        // Use requestIdleCallback if available, otherwise setTimeout
-        const checkCached = () => {
-          if (img.complete && img.naturalWidth > 0 && !handled) {
-            handleLoad();
-          }
-        };
-        
-        if (typeof requestIdleCallback !== 'undefined') {
-          requestIdleCallback(checkCached, { timeout: 100 });
-        } else {
-          setTimeout(checkCached, 0);
-        }
-      }
-    });
-  }, [sectors, isLoading]);
 
   const handleViewBoulders = (sectorName: string) => {
     navigate(`/boulders?sector=${encodeURIComponent(sectorName)}`);
   };
 
-  // Show loading state only while data is loading
-  // Images will load progressively and display as they become available
-  if (isLoading || !imagesLoaded) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex">
-        <Sidebar />
         <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
           <DashboardHeader />
-          <main className="flex-1 p-4 md:p-8">
-            <div className="mb-8">
-              <Skeleton className="h-9 w-48 mb-2" />
-              <Skeleton className="h-5 w-64" />
-            </div>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {[...Array(3)].map((_, i) => (
-                <Card key={i}>
-                  <Skeleton className="aspect-video w-full" />
-                  <CardHeader>
-                    <Skeleton className="h-6 w-32 mb-2" />
-                    <Skeleton className="h-4 w-full" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-10 w-full" />
-                  </CardContent>
-                </Card>
-              ))}
+          <main className="flex-1 p-4 md:p-8 flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-muted-foreground">Lade Sektoren...</p>
             </div>
           </main>
         </div>
@@ -166,19 +39,59 @@ const Sectors = () => {
   }
 
   if (error) {
+    // Get more detailed error information
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : typeof error === 'object' && error !== null && 'message' in error
+      ? String(error.message)
+      : 'Ein unbekannter Fehler ist aufgetreten.';
+    
+    // Check if it's a network/auth error
+    const isNetworkError = errorMessage.toLowerCase().includes('network') || 
+                         errorMessage.toLowerCase().includes('fetch') ||
+                         errorMessage.toLowerCase().includes('auth') ||
+                         errorMessage.toLowerCase().includes('permission');
+    
     return (
       <div className="min-h-screen bg-background flex">
-        <Sidebar />
         <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
           <DashboardHeader />
-          <main className="flex-1 p-4 md:p-8">
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
-              <AlertDescription>
-                {error instanceof Error ? error.message : 'Ein unbekannter Fehler ist aufgetreten.'}
-              </AlertDescription>
-            </Alert>
+          <main className="flex-1 p-4 md:p-8 flex items-center justify-center">
+            <div className="w-full max-w-md">
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
+                <AlertDescription className="mt-2">
+                  {errorMessage}
+                </AlertDescription>
+                {isNetworkError && (
+                  <AlertDescription className="mt-2 text-sm">
+                    Bitte überprüfe deine Internetverbindung und versuche es erneut.
+                  </AlertDescription>
+                )}
+                <div className="mt-4 flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      // Refetch sectors data
+                      queryClient.invalidateQueries({ queryKey: ['sectors'] });
+                      queryClient.refetchQueries({ queryKey: ['sectors'] });
+                    }}
+                    className="flex-1"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Erneut versuchen
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => window.location.reload()}
+                    className="flex-1"
+                  >
+                    Seite neu laden
+                  </Button>
+                </div>
+              </Alert>
+            </div>
           </main>
         </div>
       </div>
@@ -187,8 +100,6 @@ const Sectors = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      <Sidebar />
-      
       <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
         <DashboardHeader />
         
@@ -211,18 +122,27 @@ const Sectors = () => {
                     <img 
                       src={sector.imageUrl} 
                       alt={sector.name}
-                      className="w-full h-full object-cover transition-opacity duration-300"
+                      className="w-full h-full object-cover"
                       loading="eager"
                       decoding="async"
                       fetchpriority="high"
-                      onLoad={(e) => {
-                        e.currentTarget.style.opacity = '1';
-                      }}
+                      crossOrigin="anonymous"
                       onError={(e) => {
-                        console.error('[Sectors] Image load error for sector:', sector.name, 'URL:', e.currentTarget.src);
-                        e.currentTarget.style.display = 'none';
+                        const img = e.currentTarget;
+                        // Retry loading the image
+                        const retryCount = parseInt(img.getAttribute('data-retry-count') || '0');
+                        if (retryCount < 2) {
+                          const delay = 1000 * Math.pow(2, retryCount);
+                          img.setAttribute('data-retry-count', String(retryCount + 1));
+                          setTimeout(() => {
+                            const newSrc = img.src;
+                            img.src = '';
+                            img.src = newSrc;
+                          }, delay);
+                        } else {
+                          img.style.display = 'none';
+                        }
                       }}
-                      style={{ opacity: 0 }}
                     />
                   </div>
                 ) : (

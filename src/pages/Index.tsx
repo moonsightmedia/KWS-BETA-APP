@@ -1,4 +1,3 @@
-import { Sidebar } from '@/components/Sidebar';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { StatCard } from '@/components/StatCard';
 import { DifficultyDistributionChart } from '@/components/DifficultyDistributionChart';
@@ -130,7 +129,6 @@ const Index = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex bg-background">
-        <Sidebar />
         <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8">
@@ -156,7 +154,6 @@ const Index = () => {
   if (error) {
     return (
       <div className="min-h-screen flex bg-background">
-        <Sidebar />
         <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8">
@@ -179,8 +176,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex bg-background">
-      <Sidebar />
-      
       <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0 overflow-x-hidden">
         <DashboardHeader />
         

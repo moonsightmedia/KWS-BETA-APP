@@ -65,11 +65,27 @@
             if (
               errorMessage.indexOf('storage') !== -1 ||
               errorMessage.indexOf('access to storage') !== -1 ||
-              errorMessage.indexOf('not allowed from this context') !== -1
+              errorMessage.indexOf('not allowed from this context') !== -1 ||
+              errorMessage.indexOf('access to') !== -1 && errorMessage.indexOf('context') !== -1
             ) {
               // Prevent the error from being logged to console
               event.preventDefault();
               event.stopPropagation();
+              event.stopImmediatePropagation();
+              // Also suppress console.error for this error
+              if (console && console.error) {
+                var originalError = console.error;
+                console.error = function() {
+                  var args = Array.prototype.slice.call(arguments);
+                  var msg = args.join(' ').toLowerCase();
+                  if (msg.indexOf('storage') === -1 && msg.indexOf('access to') === -1) {
+                    originalError.apply(console, args);
+                  }
+                };
+                setTimeout(function() {
+                  console.error = originalError;
+                }, 0);
+              }
               return false;
             }
           } catch (e) {
