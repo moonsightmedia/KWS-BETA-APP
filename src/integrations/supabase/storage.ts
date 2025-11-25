@@ -906,7 +906,12 @@ async function uploadToAllInkl(
     mimeType = mimeType.split(';')[0];
   }
   
-  const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+  // Use smaller chunks for better reliability, especially for large files
+  // Smaller chunks reduce timeout risk and improve progress tracking
+  // For files > 50MB, use 3MB chunks; for smaller files, use 5MB chunks
+  const chunkSize = file.size > 50 * 1024 * 1024 
+    ? 3 * 1024 * 1024  // 3MB chunks for large files (>50MB)
+    : 5 * 1024 * 1024; // 5MB chunks for smaller files
   const totalChunks = Math.ceil(file.size / chunkSize);
   const useChunked = totalChunks > 1;
   const uploadSessionId = useChunked ? randomId() : null;
@@ -942,7 +947,7 @@ async function uploadToAllInkl(
       // Check if it's a network-related error
       const isNetworkError = 
         error.message?.toLowerCase().includes('network') || 
-        error.message?.toLowerCase().includes('fetch') ||
+                            error.message?.toLowerCase().includes('fetch') ||
         error.message?.toLowerCase().includes('timeout') ||
         error.message?.toLowerCase().includes('failed to fetch') ||
         error.message?.toLowerCase().includes('networkerror') ||
@@ -973,95 +978,99 @@ async function uploadToAllInkl(
       const cleanupKeepAlive = setupUploadKeepAlive();
       
       try {
-        for (let i = 0; i < totalChunks; i++) {
-          const start = i * chunkSize;
-          const end = Math.min(start + chunkSize, file.size);
-          const chunk = file.slice(start, end);
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * chunkSize;
+        const end = Math.min(start + chunkSize, file.size);
+        const chunk = file.slice(start, end);
 
-          const formData = new FormData();
-          formData.append('chunk', chunk);
+        const formData = new FormData();
+        formData.append('chunk', chunk);
 
-          const headers: Record<string, string> = {
-            'X-File-Name': file.name,
-            'X-File-Size': file.size.toString(),
-            'X-File-Type': mimeType,
-            'X-Chunk-Number': i.toString(),
-            'X-Total-Chunks': totalChunks.toString(),
-          };
+        const headers: Record<string, string> = {
+          'X-File-Name': file.name,
+          'X-File-Size': file.size.toString(),
+          'X-File-Type': mimeType,
+          'X-Chunk-Number': i.toString(),
+          'X-Total-Chunks': totalChunks.toString(),
+        };
 
-          if (uploadSessionId) {
-            headers['X-Upload-Session-Id'] = uploadSessionId;
-          }
+        if (uploadSessionId) {
+          headers['X-Upload-Session-Id'] = uploadSessionId;
+        }
 
-          if (sectorId) {
-            headers['X-Sector-Id'] = sectorId;
-          }
+        if (sectorId) {
+          headers['X-Sector-Id'] = sectorId;
+        }
 
           // Upload chunk with timeout
+          // Use longer timeout for larger files (more chunks = more time needed)
+          const chunkTimeout = totalChunks > 10 
+            ? UPLOAD_TIMEOUT * 2  // 10 minutes for files with many chunks
+            : UPLOAD_TIMEOUT;      // 5 minutes for smaller files
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT);
+          const timeoutId = setTimeout(() => controller.abort(), chunkTimeout);
 
-          try {
+        try {
             // Check if network is available before attempting upload
             if (!navigator.onLine) {
               console.log('[Upload] Network offline, waiting for connection...');
               await waitForNetwork();
             }
 
-            const response = await fetch(`${ALLINKL_API_URL}/upload.php`, {
-              method: 'POST',
-              body: formData,
-              headers: headers,
-              signal: controller.signal,
+          const response = await fetch(`${ALLINKL_API_URL}/upload.php`, {
+            method: 'POST',
+            body: formData,
+            headers: headers,
+            signal: controller.signal,
               // keepalive helps keep request alive when tab is switched
               // Note: Some browsers may still throttle, but this improves chances
               keepalive: true,
-            });
+          });
 
-            clearTimeout(timeoutId);
+          clearTimeout(timeoutId);
 
-            if (!response.ok) {
-              let errorMessage = `Upload failed: ${response.statusText}`;
-              try {
-                const errorData = await response.json();
-                errorMessage = errorData.error || errorMessage;
-              } catch {
-                // If JSON parsing fails, use status text
-              }
-              throw new Error(errorMessage);
+          if (!response.ok) {
+            let errorMessage = `Upload failed: ${response.statusText}`;
+            try {
+              const errorData = await response.json();
+              errorMessage = errorData.error || errorMessage;
+            } catch {
+              // If JSON parsing fails, use status text
             }
+            throw new Error(errorMessage);
+          }
 
-            const result = await response.json();
+          const result = await response.json();
 
-            // Update progress
-            if (onProgress) {
-              const chunkProgress = ((i + 1) / totalChunks) * 100;
-              onProgress(chunkProgress);
-            }
+          // Update progress
+          if (onProgress) {
+            const chunkProgress = ((i + 1) / totalChunks) * 100;
+            onProgress(chunkProgress);
+          }
 
-            // If this is the last chunk, return the URL
-            if (i === totalChunks - 1 && result.url) {
+          // If this is the last chunk, return the URL
+          if (i === totalChunks - 1 && result.url) {
               cleanupKeepAlive();
-              return result.url;
-            }
-          } catch (error: any) {
-            clearTimeout(timeoutId);
-            if (error.name === 'AbortError') {
+            return result.url;
+          }
+        } catch (error: any) {
+          clearTimeout(timeoutId);
+          if (error.name === 'AbortError') {
               // Check if abort was due to network issue
               if (!navigator.onLine) {
                 cleanupKeepAlive();
                 throw new Error('Upload interrupted: Network connection lost');
               }
               cleanupKeepAlive();
-              throw new Error('Upload timeout: Request took too long');
-            }
-            cleanupKeepAlive();
-            throw error;
+            throw new Error('Upload timeout: Request took too long');
           }
+            cleanupKeepAlive();
+          throw error;
         }
+      }
 
         cleanupKeepAlive();
-        throw new Error('Upload completed but no URL returned');
+      throw new Error('Upload completed but no URL returned');
       } catch (error) {
         cleanupKeepAlive();
         throw error;
@@ -1091,7 +1100,7 @@ async function uploadToAllInkl(
         console.log('[Upload] Network offline, waiting for connection...');
         await waitForNetwork();
       }
-      
+
       // Track upload progress using XMLHttpRequest for better progress tracking
       return new Promise<string>((resolve, reject) => {
         const xhr = new XMLHttpRequest();

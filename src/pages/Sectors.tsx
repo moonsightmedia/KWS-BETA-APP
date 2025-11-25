@@ -58,16 +58,16 @@ const Sectors = () => {
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8 flex items-center justify-center">
             <div className="w-full max-w-md">
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
                 <AlertDescription className="mt-2">
                   {errorMessage}
                 </AlertDescription>
                 {isNetworkError && (
                   <AlertDescription className="mt-2 text-sm">
                     Bitte überprüfe deine Internetverbindung und versuche es erneut.
-                  </AlertDescription>
+              </AlertDescription>
                 )}
                 <div className="mt-4 flex gap-2">
                   <Button 
@@ -90,7 +90,7 @@ const Sectors = () => {
                     Seite neu laden
                   </Button>
                 </div>
-              </Alert>
+            </Alert>
             </div>
           </main>
         </div>

@@ -216,9 +216,9 @@ export const Sidebar = ({ className }: SidebarProps) => {
   // Compute navigation items - always stable, never changes during navigation
   const navItems = useMemo(() => {
     const baseItems = [
-      { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-      { icon: List, label: 'Boulder', path: '/boulders' },
-      { icon: Map, label: 'Sektoren', path: '/sectors' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: List, label: 'Boulder', path: '/boulders' },
+    { icon: Map, label: 'Sektoren', path: '/sectors' },
     ];
 
     // Always show Setter/Admin items if user has those roles

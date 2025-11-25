@@ -702,24 +702,24 @@ const Setter = () => {
     }
     // Only apply difficulty, color, status, and search filters when NOT in status view
     if (view !== 'status') {
-      if (statusFilter !== 'all') {
-        list = list.filter((b:any) => (b as any).status === statusFilter);
-      }
-      if (editDifficulty !== 'all') {
-        list = list.filter(b => {
-          const bDifficulty = b.difficulty === null ? '?' : String(b.difficulty);
-          return bDifficulty === editDifficulty;
-        });
-      }
-      if (editColor !== 'all') {
-        list = list.filter(b => b.color === editColor);
-      }
-      if (editSearch.trim()) {
-        const q = editSearch.toLowerCase();
-        list = list.filter(b => {
-          const sectorText = b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector;
-          return b.name.toLowerCase().includes(q) || sectorText.toLowerCase().includes(q);
-        });
+    if (statusFilter !== 'all') {
+      list = list.filter((b:any) => (b as any).status === statusFilter);
+    }
+    if (editDifficulty !== 'all') {
+      list = list.filter(b => {
+        const bDifficulty = b.difficulty === null ? '?' : String(b.difficulty);
+        return bDifficulty === editDifficulty;
+      });
+    }
+    if (editColor !== 'all') {
+      list = list.filter(b => b.color === editColor);
+    }
+    if (editSearch.trim()) {
+      const q = editSearch.toLowerCase();
+      list = list.filter(b => {
+        const sectorText = b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector;
+        return b.name.toLowerCase().includes(q) || sectorText.toLowerCase().includes(q);
+      });
       }
     }
     return list.slice(0, 100);
@@ -1816,7 +1816,7 @@ const Setter = () => {
                         ) : (
                           <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold flex-shrink-0 ${TEXT_ON_COLOR[b.color] || 'text-white'}`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
                             {formatDifficulty(b.difficulty)}
-                          </span>
+                        </span>
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-base truncate">{b.name}</div>
@@ -1830,7 +1830,7 @@ const Setter = () => {
                       </span>
                     </CardContent>
                   </Card>
-                </div>
+            </div>
               )})}
             </div>
             

@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { PlusCircle, Trash2, Upload, X, CheckCircle2, AlertCircle, Loader2, Sparkles } from 'lucide-react';
+import { PlusCircle, Trash2, Upload, X, CheckCircle2, AlertCircle, Loader2, Sparkles, RefreshCw } from 'lucide-react';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { useColors } from '@/hooks/useColors';
 import { useCreateBoulder, useUpdateBoulder } from '@/hooks/useBoulders';
@@ -241,6 +241,96 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
     return true;
   }, [boulders]);
 
+  // Retry upload for a single failed boulder
+  const retryBoulderUpload = async (boulderId: string) => {
+    const boulder = boulders.find(b => b.id === boulderId);
+    if (!boulder || isUploading) return;
+
+    setIsUploading(true);
+    setCurrentUploadIndex(boulders.findIndex(b => b.id === boulderId));
+    
+    try {
+      // Reset error and status
+      updateBoulderField(boulder.id, 'error', undefined);
+      updateBoulderField(boulder.id, 'status', 'uploading');
+      updateBoulderField(boulder.id, 'progress', 0);
+
+      // If boulder was already created, use existing ID, otherwise create new
+      let boulderDbId = boulder.boulderId;
+      
+      if (!boulderDbId) {
+        // Create boulder in database
+        const boulderData = {
+          name: boulder.name,
+          sector_id: boulder.sector_id,
+          sector_id_2: boulder.spansMultipleSectors && boulder.sector_id_2 ? boulder.sector_id_2 : null,
+          difficulty: boulder.difficulty,
+          color: boulder.color,
+          beta_video_url: boulder.videoUrl || null,
+          thumbnail_url: null,
+          note: boulder.note,
+        };
+
+        const createdBoulder = await createBoulder.mutateAsync(boulderData as any);
+        if (!createdBoulder?.id) {
+          throw new Error('Boulder wurde erstellt, aber keine ID zurückgegeben');
+        }
+        boulderDbId = createdBoulder.id;
+        updateBoulderField(boulder.id, 'boulderId', boulderDbId);
+      }
+      
+      updateBoulderField(boulder.id, 'progress', 20);
+
+      // Upload video if file exists
+      if (boulder.videoFile) {
+        const videoUrl = await uploadBetaVideo(
+          boulder.videoFile,
+          (progress) => {
+            const totalProgress = 20 + (progress * 0.5);
+            updateBoulderField(boulder.id, 'progress', totalProgress);
+          },
+          boulderDbId
+        );
+        
+        await updateBoulder.mutateAsync({
+          id: boulderDbId,
+          beta_video_url: videoUrl,
+        } as any);
+        updateBoulderField(boulder.id, 'progress', 70);
+      }
+
+      // Upload thumbnail if file exists
+      if (boulder.thumbnailFile) {
+        const thumbnailUrl = await uploadThumbnail(
+          boulder.thumbnailFile,
+          (progress) => {
+            const totalProgress = 70 + (progress * 0.3);
+            updateBoulderField(boulder.id, 'progress', totalProgress);
+          },
+          boulderDbId
+        );
+        
+        await updateBoulder.mutateAsync({
+          id: boulderDbId,
+          thumbnail_url: thumbnailUrl,
+        } as any);
+      }
+
+      updateBoulderField(boulder.id, 'progress', 100);
+      updateBoulderField(boulder.id, 'status', 'completed');
+      toast.success(`Boulder "${boulder.name}" erfolgreich hochgeladen!`);
+    } catch (error: any) {
+      console.error(`[BatchUpload] Retry failed for ${boulder.name}:`, error);
+      const errorMessage = error.message || 'Unbekannter Fehler';
+      updateBoulderField(boulder.id, 'error', errorMessage);
+      updateBoulderField(boulder.id, 'status', 'failed');
+      toast.error(`Fehler beim erneuten Versuch: ${errorMessage}`);
+    } finally {
+      setIsUploading(false);
+      setCurrentUploadIndex(null);
+    }
+  };
+
   const uploadAllBoulders = async () => {
     if (!canUpload || isUploading) return;
 
@@ -444,7 +534,15 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>{completedCount} von {totalCount} erfolgreich</span>
                 {failedCount > 0 && (
-                  <span className="text-destructive">{failedCount} fehlgeschlagen</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowErrorDialog(true)}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 h-auto p-1"
+                  >
+                    <span className="text-destructive">{failedCount} fehlgeschlagen</span>
+                    <AlertCircle className="w-4 h-4 ml-1" />
+                  </Button>
                 )}
               </div>
             </div>
@@ -489,58 +587,126 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
         </DialogContent>
       </Dialog>
 
-      {/* Error Dialog */}
+      {/* Error Dialog - Übersicht aller fehlgeschlagenen Boulder */}
       <Dialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
-        <DialogContent className="sm:max-w-2xl max-w-[95vw] w-full max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-3xl max-w-[95vw] w-full max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-destructive" />
-              Upload-Fehler
+              Upload-Fehler - Übersicht
             </DialogTitle>
             <DialogDescription>
-              {uploadErrors.length} Boulder konnte(n) nicht vollständig hochgeladen werden.
+              {boulders.filter(b => b.status === 'failed').length} Boulder konnte(n) nicht vollständig hochgeladen werden.
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-3 py-4">
-            {uploadErrors.map((error, index) => (
-              <div key={index} className="p-3 border rounded-lg bg-destructive/5 border-destructive/20">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-sm">{error.boulderName}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {error.type === 'video' && 'Video-Fehler'}
-                        {error.type === 'thumbnail' && 'Thumbnail-Fehler'}
-                        {error.type === 'creation' && 'Erstellungs-Fehler'}
-                      </Badge>
+            {boulders
+              .filter(b => b.status === 'failed')
+              .map((boulder) => {
+                const error = uploadErrors.find(e => e.boulderName === boulder.name);
+                return (
+                  <div key={boulder.id} className="p-4 border-2 rounded-lg bg-destructive/5 border-destructive/30">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-semibold text-base">{boulder.name}</span>
+                          {error && (
+                            <Badge variant="outline" className="text-xs">
+                              {error.type === 'video' && 'Video-Fehler'}
+                              {error.type === 'thumbnail' && 'Thumbnail-Fehler'}
+                              {error.type === 'creation' && 'Erstellungs-Fehler'}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="bg-destructive/10 border border-destructive/20 rounded p-3 mb-3">
+                          <p className="text-sm font-medium text-destructive mb-1">Fehlermeldung:</p>
+                          <p className="text-sm text-destructive/90 break-words whitespace-pre-wrap">
+                            {boulder.error || error?.error || 'Unbekannter Fehler'}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setShowErrorDialog(false);
+                            retryBoulderUpload(boulder.id);
+                          }}
+                          disabled={isUploading}
+                          className="w-full sm:w-auto"
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Erneut versuchen
+                        </Button>
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground break-words">{error.error}</p>
                   </div>
-                </div>
-              </div>
-            ))}
+                );
+              })}
           </div>
 
-          <div className="flex justify-end gap-2 pt-2 border-t">
+          <div className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">
             <Button
-              variant="outline"
-              onClick={() => {
+              variant="default"
+              onClick={async () => {
                 setShowErrorDialog(false);
-                navigate('/boulders');
+                // Retry all failed boulders sequentially
+                const failedBoulders = boulders.filter(b => b.status === 'failed');
+                if (failedBoulders.length > 0) {
+                  setIsUploading(true);
+                  let successCount = 0;
+                  let failCount = 0;
+                  
+                  for (const boulder of failedBoulders) {
+                    try {
+                      await retryBoulderUpload(boulder.id);
+                      successCount++;
+                      // Small delay between retries to avoid overwhelming the server
+                      await new Promise(resolve => setTimeout(resolve, 1000));
+                    } catch (error) {
+                      failCount++;
+                      console.error(`[BatchUpload] Failed to retry ${boulder.name}:`, error);
+                    }
+                  }
+                  
+                  setIsUploading(false);
+                  
+                  if (successCount > 0) {
+                    toast.success(`${successCount} Boulder erfolgreich erneut hochgeladen!`);
+                  }
+                  if (failCount > 0) {
+                    toast.error(`${failCount} Boulder sind erneut fehlgeschlagen`);
+                    // Show dialog again if there are still failures
+                    if (boulders.filter(b => b.status === 'failed').length > 0) {
+                      setTimeout(() => setShowErrorDialog(true), 500);
+                    }
+                  }
+                }
               }}
+              disabled={isUploading || boulders.filter(b => b.status === 'failed').length === 0}
+              className="w-full sm:w-auto bg-primary hover:bg-primary/90"
             >
-              Schließen
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Alle erneut versuchen ({boulders.filter(b => b.status === 'failed').length})
             </Button>
-            <Button
-              onClick={() => {
-                setShowErrorDialog(false);
-                // Optionally: Retry failed uploads or navigate to boulders
-                navigate('/boulders');
-              }}
-            >
-              Zu Boulder-Übersicht
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowErrorDialog(false);
+                }}
+              >
+                Schließen
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowErrorDialog(false);
+                  navigate('/boulders');
+                }}
+              >
+                Zu Boulder-Übersicht
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -639,8 +805,28 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
                     </div>
                   )}
                   {boulder.error && (
-                    <div className="mt-2 p-2 bg-red-50 text-red-600 text-sm rounded">
-                      {boulder.error}
+                    <div className="mt-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-destructive mb-1">Fehler:</p>
+                          <p className="text-sm text-destructive/90 break-words">{boulder.error}</p>
+                        </div>
+                      </div>
+                      {boulder.status === 'failed' && (
+                        <div className="mt-3 pt-3 border-t border-destructive/20">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => retryBoulderUpload(boulder.id)}
+                            disabled={isUploading}
+                            className="w-full sm:w-auto"
+                          >
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Erneut versuchen
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardHeader>
