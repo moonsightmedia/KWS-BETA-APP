@@ -1,8 +1,151 @@
-const CACHE_NAME = 'kws-beta-v1';
+const CACHE_NAME = 'kws-beta-v2';
+const UPLOAD_QUEUE_DB = 'upload-queue-db';
+const UPLOAD_QUEUE_STORE = 'uploads';
+
 const CORE_ASSETS = [
   '/',
   '/index.html'
 ];
+
+// IndexedDB helper functions
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(UPLOAD_QUEUE_DB, 1);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(UPLOAD_QUEUE_STORE)) {
+        const store = db.createObjectStore(UPLOAD_QUEUE_STORE, { keyPath: 'id', autoIncrement: true });
+        store.createIndex('status', 'status', { unique: false });
+        store.createIndex('timestamp', 'timestamp', { unique: false });
+      }
+    };
+  });
+}
+
+async function addToQueue(uploadData) {
+  const db = await openDB();
+  const tx = db.transaction([UPLOAD_QUEUE_STORE], 'readwrite');
+  const store = tx.objectStore(UPLOAD_QUEUE_STORE);
+  return store.add({
+    ...uploadData,
+    status: 'pending',
+    timestamp: Date.now(),
+    retries: 0
+  });
+}
+
+async function updateQueueItem(id, updates) {
+  const db = await openDB();
+  const tx = db.transaction([UPLOAD_QUEUE_STORE], 'readwrite');
+  const store = tx.objectStore(UPLOAD_QUEUE_STORE);
+  const item = await store.get(id);
+  if (item) {
+    Object.assign(item, updates);
+    return store.put(item);
+  }
+}
+
+async function getQueueItems(status = null) {
+  const db = await openDB();
+  const tx = db.transaction([UPLOAD_QUEUE_STORE], 'readonly');
+  const store = tx.objectStore(UPLOAD_QUEUE_STORE);
+  
+  if (status) {
+    const index = store.index('status');
+    return index.getAll(status);
+  }
+  return store.getAll();
+}
+
+// Upload function that runs in service worker
+async function processUpload(uploadData) {
+  const { id, url, method, headers, body, fileData, chunkIndex, totalChunks, uploadSessionId } = uploadData;
+  
+  try {
+    // Convert fileData back to Blob if needed
+    let formData;
+    if (chunkIndex !== undefined) {
+      // Chunked upload
+      formData = new FormData();
+      const blob = new Blob([new Uint8Array(fileData)], { type: headers['Content-Type'] || 'application/octet-stream' });
+      formData.append('chunk', blob);
+      
+      // Add chunk headers
+      Object.keys(headers).forEach(key => {
+        if (key !== 'Content-Type') {
+          formData.append(key, headers[key]);
+        }
+      });
+    } else {
+      // Single file upload
+      formData = new FormData();
+      const blob = new Blob([new Uint8Array(fileData)], { type: headers['Content-Type'] || 'application/octet-stream' });
+      formData.append('file', blob, headers['X-File-Name'] || 'file');
+      
+      // Add headers as form data
+      Object.keys(headers).forEach(key => {
+        if (key !== 'Content-Type' && key !== 'X-File-Name') {
+          formData.append(key, headers[key]);
+        }
+      });
+    }
+    
+    const response = await fetch(url, {
+      method: method || 'POST',
+      body: formData,
+      // Don't set headers here - FormData handles it
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    
+    // Update queue item
+    await updateQueueItem(id, {
+      status: 'completed',
+      result: result
+    });
+    
+    // Notify client
+    const clients = await self.clients.matchAll();
+    clients.forEach(client => {
+      client.postMessage({
+        type: 'UPLOAD_COMPLETE',
+        uploadId: id,
+        result: result
+      });
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('[Service Worker] Upload error:', error);
+    
+    // Update queue item with error
+    await updateQueueItem(id, {
+      status: 'failed',
+      error: error.message,
+      retries: (uploadData.retries || 0) + 1
+    });
+    
+    // Notify client
+    const clients = await self.clients.matchAll();
+    clients.forEach(client => {
+      client.postMessage({
+        type: 'UPLOAD_ERROR',
+        uploadId: id,
+        error: error.message
+      });
+    });
+    
+    throw error;
+  }
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -23,6 +166,59 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Background Sync for uploads
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'upload-queue') {
+    event.waitUntil(
+      getQueueItems('pending').then(items => {
+        return Promise.all(
+          items.map(item => {
+            if (item.retries < 3) {
+              return processUpload(item).catch(err => {
+                console.error('[Service Worker] Failed to process upload:', err);
+              });
+            }
+          })
+        );
+      })
+    );
+  }
+});
+
+// Message handler for upload requests
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'QUEUE_UPLOAD') {
+    const uploadData = event.data.uploadData;
+    
+    // Add to queue
+    addToQueue(uploadData).then(id => {
+      // Register background sync
+      if ('sync' in self.registration) {
+        self.registration.sync.register('upload-queue').catch(err => {
+          console.error('[Service Worker] Failed to register sync:', err);
+          // Fallback: process immediately
+          processUpload({ ...uploadData, id }).catch(console.error);
+        });
+      } else {
+        // Fallback: process immediately if sync not supported
+        processUpload({ ...uploadData, id }).catch(console.error);
+      }
+      
+      // Notify client
+      event.ports[0].postMessage({ success: true, id });
+    }).catch(err => {
+      console.error('[Service Worker] Failed to queue upload:', err);
+      event.ports[0].postMessage({ success: false, error: err.message });
+    });
+  } else if (event.data && event.data.type === 'GET_QUEUE_STATUS') {
+    getQueueItems().then(items => {
+      event.ports[0].postMessage({ items });
+    }).catch(err => {
+      event.ports[0].postMessage({ error: err.message });
+    });
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   
@@ -36,7 +232,7 @@ self.addEventListener('fetch', (event) => {
   // When user pulls to refresh, the browser adds Cache-Control: no-cache
   const isRefresh = request.headers.get('cache-control') === 'no-cache' ||
                     request.headers.get('pragma') === 'no-cache' ||
-                    request.mode === 'navigate' && request.cache === 'reload';
+                    (request.mode === 'navigate' && request.cache === 'reload');
 
   // Don't cache videos or large media files (they use Range Requests with 206 status)
   const url = new URL(request.url);
@@ -51,93 +247,60 @@ self.addEventListener('fetch', (event) => {
 
   // For refresh requests, always fetch from network and bypass ALL caches
   if (isRefresh) {
-    // Clear all caches when refresh is detected
-    event.waitUntil(
-      caches.keys().then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => {
-            return caches.delete(cacheName);
-          })
-        );
-      }).then(() => {
-        console.log('[ServiceWorker] All caches cleared due to refresh');
-      }).catch((error) => {
-        console.error('[ServiceWorker] Error clearing caches:', error);
-      })
-    );
-    
-    // Always fetch from network, never use cache
     event.respondWith(
-      fetch(request, { 
+      fetch(request, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
+          'Pragma': 'no-cache',
         }
-      }).then((response) => {
-        // Don't cache refresh responses - we want fresh data
+      })
+    );
+    return;
+  }
+
+  // For media files, try network first, then cache
+  if (isMedia) {
+    event.respondWith(
+      fetch(request).then((response) => {
+        // Only cache successful responses
+        if (response.ok) {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, responseToCache);
+          });
+        }
         return response;
       }).catch(() => {
-        // If network fails completely, return error (don't use cache)
-        return new Response('Network error', { status: 503 });
-      })
-    );
-    return;
-  }
-
-  // Normal request: try cache first for images, then network
-  // For images, check cache first to speed up loading
-  if (isMedia && !isVideo) {
-    // For images, try cache first, then network
-    event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) {
-          // Return cached image immediately
-          return cached;
-        }
-        // If not in cache, fetch from network and cache it
-        return fetch(request).then((response) => {
-          // Only cache successful, complete responses (not partial 206)
-          if (response.status === 200 && response.ok && response.status !== 206) {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseClone).catch(() => {
-                // Ignore cache errors (e.g., if response is too large)
-              });
-            });
+        // If network fails, try cache
+        return caches.match(request).then((cached) => {
+          if (cached) {
+            return cached;
           }
-          return response;
+          // If cache also fails, return network error
+          throw new Error('Network request failed and no cache available');
         });
       })
     );
     return;
   }
 
-  // For non-media requests: try network first, fallback to cache
+  // For other requests, use cache-first strategy
   event.respondWith(
-    fetch(request, { cache: 'no-cache' }).then((response) => {
-      // Only cache successful, complete responses (not partial 206)
-      if (response.status === 200 && response.ok && !isVideo) {
-        const responseClone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          // Double-check it's not a partial response before caching
-          if (responseClone.status !== 206) {
-            cache.put(request, responseClone).catch(() => {
-              // Ignore cache errors (e.g., if response is too large)
-            });
-          }
-        });
+    caches.match(request).then((cached) => {
+      if (cached) {
+        return cached;
       }
-      return response;
-    }).catch(() => {
-      // Network failed, try cache
-      return caches.match(request).then((cached) => {
-        if (cached) return cached;
-        // If both fail, return error response
-        return new Response('Offline', { status: 503 });
+      return fetch(request).then((response) => {
+        // Only cache successful responses
+        if (response.ok) {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, responseToCache);
+          });
+        }
+        return response;
       });
     })
   );
-});
-
-
+}

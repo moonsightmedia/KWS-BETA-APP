@@ -20,13 +20,15 @@ export const useHasRole = (role: 'admin' | 'user' | 'setter') => {
       try {
         const { data, error } = await supabase.rpc('has_role', { _user_id: user.id, _role: role });
         if (error) {
-          console.error(`[useHasRole] Error checking role "${role}":`, error);
+          console.error(`[useHasRole] Error checking role "${role}" for user ${user.id}:`, error);
           setHasRole(false);
         } else {
-          setHasRole(!!data);
+          const hasRoleValue = !!data;
+          console.log(`[useHasRole] Role "${role}" check for user ${user.id}:`, hasRoleValue);
+          setHasRole(hasRoleValue);
         }
       } catch (error) {
-        console.error(`[useHasRole] Error checking role "${role}":`, error);
+        console.error(`[useHasRole] Exception checking role "${role}" for user ${user.id}:`, error);
         setHasRole(false);
       } finally {
         setLoading(false);

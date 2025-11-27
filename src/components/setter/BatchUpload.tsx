@@ -18,6 +18,9 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
 import { generateBoulderName } from '@/utils/nameGenerator';
+import { listenForUploadEvents } from '@/utils/backgroundUpload';
+import { useUploadTracker } from '@/hooks/useUploadTracker';
+import { supabase } from '@/integrations/supabase/client';
 
 interface BoulderDraft {
   id: string;
@@ -31,10 +34,19 @@ interface BoulderDraft {
   videoFile: File | null;
   videoUrl: string;
   thumbnailFile: File | null;
-  status: 'draft' | 'uploading' | 'completed' | 'failed';
+  status: 'draft' | 'uploading' | 'partially_uploaded' | 'completed' | 'failed';
   progress: number;
   error?: string;
   boulderId?: string;
+  currentStep?: string; // Z.B. "Komprimierung...", "Video-Upload...", "Thumbnail-Upload..."
+  isRestored?: boolean; // Flag to mark restored drafts from localStorage
+  // Upload status tracking
+  videoUploaded?: boolean; // Video bereits hochgeladen?
+  thumbnailUploaded?: boolean; // Thumbnail bereits hochgeladen?
+  uploadedVideoUrl?: string; // URL des hochgeladenen Videos (falls bereits hochgeladen)
+  uploadedThumbnailUrl?: string; // URL des hochgeladenen Thumbnails
+  uploadSessionId?: string; // Session ID für Resume bei Chunked Uploads
+  uploadedChunks?: number[]; // Bereits hochgeladene Chunk-Indizes für Resume
 }
 
 const DIFFICULTIES = [null, 1, 2, 3, 4, 5, 6, 7, 8];
@@ -49,6 +61,7 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
   const { data: colorsDb } = useColors();
   const createBoulder = useCreateBoulder();
   const updateBoulder = useUpdateBoulder();
+  const { activeUploads, getBoulderUploads, refetch: refetchUploads } = useUploadTracker();
 
   // Load boulder drafts from localStorage on mount
   const loadDraftsFromStorage = (): BoulderDraft[] => {
@@ -56,18 +69,26 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
       const saved = localStorage.getItem('boulder-drafts');
       if (saved) {
         const drafts = JSON.parse(saved) as Array<Omit<BoulderDraft, 'videoFile' | 'thumbnailFile'>>;
-        if (drafts.length > 0) {
-          // Show notification that drafts were restored
-          toast.info(`${drafts.length} gespeicherte Boulder-Entwürfe wiederhergestellt. Bitte Dateien erneut auswählen.`, {
-            duration: 5000,
+        // Only restore 'draft' and 'failed' status - 'uploading' and 'partially_uploaded' become 'failed'
+        const restoredDrafts = drafts
+          .filter(draft => draft.status === 'draft' || draft.status === 'failed')
+          .map(draft => {
+            // If status was 'uploading' or 'partially_uploaded', mark as 'failed' (upload was interrupted)
+            const finalStatus = (draft.status === 'draft' || draft.status === 'failed') 
+              ? draft.status 
+              : 'failed';
+            
+            return {
+              ...draft,
+              status: finalStatus as 'draft' | 'failed',
+              videoFile: null, // Files can't be restored from localStorage
+              thumbnailFile: null,
+              isRestored: true, // Mark as restored from localStorage
+              // Upload status flags and URLs are preserved from localStorage
+            };
           });
-        }
-        // Convert back to BoulderDraft format (files will be null, user needs to re-select)
-        return drafts.map(draft => ({
-          ...draft,
-          videoFile: null,
-          thumbnailFile: null,
-        }));
+        
+        return restoredDrafts;
       }
     } catch (error) {
       console.warn('[BatchUpload] Error loading drafts from localStorage:', error);
@@ -75,21 +96,193 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
     return [];
   };
 
+  // Load boulders from database based on active uploads
+  const loadBouldersFromUploads = useCallback(async (activeBoulderUploads: any[]) => {
+    console.log('[BatchUpload] 🔄 [loadBouldersFromUploads] START');
+    console.log('[BatchUpload] 📋 [loadBouldersFromUploads] Input:', {
+      activeBoulderUploadsCount: activeBoulderUploads.length,
+      activeBoulderUploads: activeBoulderUploads.map(u => ({
+        boulder_id: u.boulder_id,
+        file_name: u.file_name,
+        file_type: u.file_type,
+        status: u.status
+      }))
+    });
+    
+    // Get unique boulder IDs from uploads
+    const boulderIds = [...new Set(activeBoulderUploads.map(u => u.boulder_id).filter(Boolean))];
+    
+    console.log('[BatchUpload] 🔍 [loadBouldersFromUploads] Schritt 1: Extrahiere Boulder-IDs:', {
+      boulderIdsCount: boulderIds.length,
+      boulderIds
+    });
+    
+    if (boulderIds.length === 0) {
+      console.log('[BatchUpload] ⚠️ [loadBouldersFromUploads] Keine Boulder-IDs in Uploads gefunden');
+      return [];
+    }
+    
+    console.log(`[BatchUpload] 🔄 [loadBouldersFromUploads] Schritt 2: Lade ${boulderIds.length} Boulder aus DB...`);
+    
+    // Load boulder data from database
+    const { data: bouldersData, error } = await supabase
+      .from('boulders')
+      .select('*')
+      .in('id', boulderIds);
+    
+    console.log('[BatchUpload] 📊 [loadBouldersFromUploads] Schritt 3: DB-Query Ergebnis:', {
+      hasError: !!error,
+      error: error ? error.message : null,
+      bouldersDataCount: bouldersData?.length || 0,
+      bouldersData: bouldersData?.map(b => ({
+        id: b.id,
+        name: b.name,
+        sector_id: b.sector_id
+      })) || []
+    });
+    
+    if (error) {
+      console.error('[BatchUpload] ❌ [loadBouldersFromUploads] Fehler beim Laden der Boulder aus DB:', error);
+      return [];
+    }
+    
+    if (!bouldersData || bouldersData.length === 0) {
+      console.log('[BatchUpload] ⚠️ [loadBouldersFromUploads] Keine Boulder in DB gefunden für IDs:', boulderIds);
+      return [];
+    }
+    
+    console.log(`[BatchUpload] ✅ [loadBouldersFromUploads] Schritt 4: ${bouldersData.length} Boulder aus DB geladen`);
+    
+    // Create BoulderDraft objects from DB data
+    const loadedBoulders: BoulderDraft[] = bouldersData.map(b => {
+      // Handle sector_id_2 - it might not exist in the type, so use type assertion
+      const boulderData = b as any;
+      const draft = {
+        id: `boulder-${Date.now()}-${b.id}`, // Generate a unique ID for the draft
+        name: b.name,
+        sector_id: b.sector_id,
+        sector_id_2: boulderData.sector_id_2 || null,
+        spansMultipleSectors: !!boulderData.sector_id_2,
+        difficulty: b.difficulty,
+        color: b.color,
+        note: b.note || '',
+        videoFile: null, // Files can't be restored
+        videoUrl: b.beta_video_url || '',
+        thumbnailFile: null,
+        status: 'uploading' as const, // Set to uploading since uploads are active
+        progress: 0, // Will be updated by sync
+        boulderId: b.id,
+        currentStep: 'Synchronisiere...',
+      };
+      
+      console.log(`[BatchUpload] 📝 [loadBouldersFromUploads] Erstelle Draft für "${b.name}":`, {
+        draftId: draft.id,
+        boulderId: draft.boulderId,
+        status: draft.status,
+        progress: draft.progress
+      });
+      
+      return draft;
+    });
+    
+    console.log('[BatchUpload] 📊 [loadBouldersFromUploads] Schritt 5: Erstellte Drafts:', {
+      loadedBouldersCount: loadedBoulders.length,
+      loadedBoulders: loadedBoulders.map(b => ({
+        id: b.id,
+        name: b.name,
+        boulderId: b.boulderId,
+        status: b.status
+      }))
+    });
+    
+    // Add to local state
+    console.log('[BatchUpload] 🔄 [loadBouldersFromUploads] Schritt 6: Füge Boulder zum lokalen State hinzu...');
+    setBoulders(prevBoulders => {
+      console.log('[BatchUpload] 📊 [loadBouldersFromUploads] Vorheriger State:', {
+        prevBouldersCount: prevBoulders.length,
+        prevBouldersWithId: prevBoulders.filter(b => b.boulderId).map(b => b.boulderId)
+      });
+      
+      // Merge with existing boulders, avoid duplicates
+      const existingIds = new Set(prevBoulders.map(b => b.boulderId).filter(Boolean));
+      const newBoulders = loadedBoulders.filter(b => b.boulderId && !existingIds.has(b.boulderId));
+      
+      console.log('[BatchUpload] 🔍 [loadBouldersFromUploads] Duplikat-Prüfung:', {
+        existingIdsCount: existingIds.size,
+        existingIds: Array.from(existingIds),
+        newBouldersCount: newBoulders.length,
+        newBoulders: newBoulders.map(b => ({
+          id: b.id,
+          name: b.name,
+          boulderId: b.boulderId
+        }))
+      });
+      
+      if (newBoulders.length > 0) {
+        console.log(`[BatchUpload] ➕ [loadBouldersFromUploads] Füge ${newBoulders.length} neue Boulder zum lokalen State hinzu`);
+        const updatedBoulders = [...prevBoulders, ...newBoulders];
+        console.log('[BatchUpload] 📊 [loadBouldersFromUploads] Neuer State:', {
+          updatedBouldersCount: updatedBoulders.length,
+          updatedBouldersWithId: updatedBoulders.filter(b => b.boulderId).map(b => ({
+            id: b.id,
+            name: b.name,
+            boulderId: b.boulderId
+          }))
+        });
+        return updatedBoulders;
+      }
+      
+      console.log('[BatchUpload] ⚠️ [loadBouldersFromUploads] Keine neuen Boulder hinzugefügt (alle bereits vorhanden)');
+      return prevBoulders;
+    });
+    
+    console.log('[BatchUpload] ✅ [loadBouldersFromUploads] ENDE - Rückgabe:', {
+      loadedBouldersCount: loadedBoulders.length
+    });
+    
+    return loadedBoulders;
+  }, []);
+
   // Save boulder drafts to localStorage whenever they change
   const saveDraftsToStorage = (drafts: BoulderDraft[]) => {
     try {
-      // Only save drafts (not uploading/completed/failed)
+      // Only save 'draft' and 'failed' status - 'uploading' and 'partially_uploaded' are not saved
+      // (they will be treated as 'failed' on reload if upload was interrupted)
       const draftsToSave = drafts
-        .filter(b => b.status === 'draft')
-        .map(({ videoFile, thumbnailFile, ...rest }) => rest); // Remove File objects (can't be serialized)
-      localStorage.setItem('boulder-drafts', JSON.stringify(draftsToSave));
+        .filter(b => b.status === 'draft' || b.status === 'failed')
+        .map(({ videoFile, thumbnailFile, isRestored, ...rest }) => {
+          // Remove File objects (can't be serialized) and isRestored flag (will be set on restore)
+          return rest;
+        });
+      
+      if (draftsToSave.length > 0) {
+        localStorage.setItem('boulder-drafts', JSON.stringify(draftsToSave));
+      } else {
+        localStorage.removeItem('boulder-drafts');
+      }
     } catch (error) {
       console.warn('[BatchUpload] Error saving drafts to localStorage:', error);
     }
   };
 
   const [boulders, setBoulders] = useState<BoulderDraft[]>(() => loadDraftsFromStorage());
-  const [isUploading, setIsUploading] = useState(false);
+  
+  // Show toast notification only once when drafts are restored
+  const hasShownRestoreToast = useRef(false);
+  useEffect(() => {
+    if (boulders.length > 0 && !hasShownRestoreToast.current) {
+      // Check if these are restored drafts (they have the isRestored flag)
+      const restoredDrafts = boulders.filter(b => b.isRestored === true);
+      if (restoredDrafts.length > 0) {
+        hasShownRestoreToast.current = true;
+        toast.info(`${restoredDrafts.length} gespeicherte Boulder-Entwürfe wiederhergestellt. Bitte Dateien erneut auswählen.`, {
+          duration: 5000,
+        });
+      }
+    }
+  }, [boulders]);
+  const [isUploading, setIsUploading] = useState(false); // Upload-Prozess läuft
+  const [showUploadDialog, setShowUploadDialog] = useState(false); // Dialog-Sichtbarkeit (separat von isUploading)
   const [currentUploadIndex, setCurrentUploadIndex] = useState<number | null>(null);
   const [uploadErrors, setUploadErrors] = useState<Array<{ boulderName: string; error: string; type: 'video' | 'thumbnail' | 'creation' }>>([]);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
@@ -99,21 +292,400 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
     saveDraftsToStorage(boulders);
   }, [boulders]);
 
-  // Clear completed/failed boulders from storage after upload
+  // Sync progress from database when tab becomes visible again
+  // This ensures that if user switches tabs and comes back, they see the current progress
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('[BatchUpload] 🔄 TAB-WECHSEL SYNCHRONISATION GESTARTET');
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('[BatchUpload] 📊 Schritt 0: Initial State:', {
+          bouldersCount: boulders.length,
+          bouldersWithId: boulders.filter(b => b.boulderId).length,
+          bouldersWithoutId: boulders.filter(b => !b.boulderId).length,
+          isUploading,
+          showUploadDialog,
+          activeUploadsCount: activeUploads.length,
+          bouldersDetails: boulders.map(b => ({
+            id: b.id,
+            name: b.name,
+            boulderId: b.boulderId,
+            status: b.status,
+            progress: b.progress,
+            currentStep: b.currentStep
+          }))
+        });
+        
+        // ALWAYS check database for active uploads, not just local state
+        // This fixes the issue where progress is lost after tab switch
+        console.log('[BatchUpload] 🔄 Schritt 1: Refetch upload status from database...');
+        
+        // Refetch upload status from database FIRST
+        const refetchResult = await refetchUploads();
+        console.log('[BatchUpload] ✅ Schritt 1 abgeschlossen - Refetch Result:', refetchResult);
+        
+        // Wait longer to ensure refetch has updated the state and activeUploads is populated
+        // Use multiple small delays to ensure React state has updated
+        console.log('[BatchUpload] ⏳ Schritt 2: Warte auf State-Update (300ms)...');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        console.log('[BatchUpload] ⏳ Schritt 3: Warte auf State-Update (300ms)...');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Get fresh activeUploads from the hook (it's already an array)
+        // Force a re-read by accessing it fresh
+        const allActiveUploads = activeUploads || [];
+        console.log('[BatchUpload] 📦 Schritt 4: Aktive Uploads aus Hook:', {
+          activeUploadsType: typeof activeUploads,
+          activeUploadsIsArray: Array.isArray(activeUploads),
+          activeUploadsLength: activeUploads?.length || 0,
+          allActiveUploadsLength: allActiveUploads.length,
+          allActiveUploads: allActiveUploads.map(u => ({
+            sessionId: u.upload_session_id,
+            boulderId: u.boulder_id,
+            fileName: u.file_name,
+            fileType: u.file_type,
+            status: u.status,
+            progress: u.progress
+          }))
+        });
+        
+        const activeBoulderUploads = allActiveUploads.filter(u => u.boulder_id !== null);
+        const hasActiveBouldersInDb = activeBoulderUploads.length > 0;
+        
+        console.log('[BatchUpload] 🔍 Schritt 5: Filtere Boulder-Uploads:', {
+          totalActiveUploads: allActiveUploads.length,
+          activeBoulderUploadsCount: activeBoulderUploads.length,
+          hasActiveBouldersInDb,
+          activeBoulderUploads: activeBoulderUploads.map(u => ({
+            boulderId: u.boulder_id,
+            fileName: u.file_name,
+            status: u.status,
+            progress: u.progress
+          }))
+        });
+        
+        // Also check local state - calculate inline to avoid dependency issues
+        const hasActiveBoulders = boulders.some(b => 
+          b.status === 'uploading' || 
+          (b.boulderId && b.status !== 'completed' && b.status !== 'failed')
+        );
+        
+        console.log('[BatchUpload] 🔍 Schritt 6: Prüfe lokalen State:', {
+          hasActiveBoulders,
+          bouldersCount: boulders.length,
+          bouldersWithId: boulders.filter(b => b.boulderId).map(b => ({
+            id: b.id,
+            name: b.name,
+            boulderId: b.boulderId,
+            status: b.status,
+            progress: b.progress
+          })),
+          bouldersWithoutId: boulders.filter(b => !b.boulderId).length
+        });
+        
+        console.log('[BatchUpload] 📊 Schritt 7: Zusammenfassung:', {
+          totalActiveUploads: allActiveUploads.length,
+          activeBoulderUploads: activeBoulderUploads.length,
+          hasActiveBouldersInDb,
+          hasActiveBoulders,
+          isUploading,
+          showUploadDialog,
+          bouldersWithId: boulders.filter(b => b.boulderId).length
+        });
+        
+        // ALWAYS open dialog if there are active uploads in DB, even if local state is empty
+        // This handles the case where the page was reloaded or state was lost
+        // IMPORTANT: Always open dialog if there are active uploads, even if it was already open
+        // This ensures the dialog is visible after tab switch
+        if (hasActiveBouldersInDb) {
+          if (!showUploadDialog) {
+            console.log('[BatchUpload] 📂 Schritt 8: Aktive Uploads in DB gefunden, öffne Dialog automatisch');
+            setShowUploadDialog(true);
+          } else {
+            console.log('[BatchUpload] ✅ Schritt 8: Dialog bereits geöffnet und aktive Uploads gefunden');
+          }
+          
+          // If no boulders in local state, load them from DB
+          if (!hasActiveBoulders) {
+            console.log('[BatchUpload] 🔄 Schritt 9: Keine Boulder im lokalen State, lade aus DB...');
+            console.log('[BatchUpload] 📋 Schritt 9: Boulder-IDs zum Laden:', activeBoulderUploads.map(u => u.boulder_id));
+            
+            const loadedBoulders = await loadBouldersFromUploads(activeBoulderUploads);
+            
+            console.log('[BatchUpload] 📊 Schritt 10: Ergebnis des Ladens:', {
+              loadedBouldersCount: loadedBoulders?.length || 0,
+              loadedBoulders: loadedBoulders?.map(b => ({
+                id: b.id,
+                name: b.name,
+                boulderId: b.boulderId,
+                status: b.status,
+                progress: b.progress
+              })) || []
+            });
+            
+            if (loadedBoulders && loadedBoulders.length > 0) {
+              console.log(`[BatchUpload] ✅ Schritt 10: ${loadedBoulders.length} Boulder aus DB geladen`);
+              // Wait a bit for state to update, then sync progress
+              console.log('[BatchUpload] ⏳ Schritt 11: Warte auf State-Update nach Laden (300ms)...');
+              await new Promise(resolve => setTimeout(resolve, 300));
+              console.log('[BatchUpload] 🔄 Schritt 12: Refetch Uploads nach Laden...');
+              await refetchUploads();
+              console.log('[BatchUpload] ⏳ Schritt 13: Warte auf State-Update nach Refetch (200ms)...');
+              await new Promise(resolve => setTimeout(resolve, 200));
+            } else {
+              console.log('[BatchUpload] ⚠️ Schritt 10: Keine Boulder konnten aus DB geladen werden');
+            }
+          } else {
+            console.log('[BatchUpload] ✅ Schritt 9: Boulder bereits im lokalen State vorhanden');
+          }
+        } else {
+          console.log('[BatchUpload] ⚠️ Schritt 8: Keine aktiven Uploads in DB gefunden');
+          // Don't close dialog here - let the auto-close logic handle it
+        }
+        
+        // Re-check state after potential loading
+        const currentBoulders = boulders; // Capture current state
+        const hasActiveBouldersAfterLoad = currentBoulders.some(b => 
+          b.status === 'uploading' || 
+          (b.boulderId && b.status !== 'completed' && b.status !== 'failed')
+        );
+        
+        console.log('[BatchUpload] 🔍 Schritt 14: State nach Laden:', {
+          bouldersCount: currentBoulders.length,
+          hasActiveBouldersAfterLoad,
+          bouldersWithId: currentBoulders.filter(b => b.boulderId).map(b => ({
+            id: b.id,
+            name: b.name,
+            boulderId: b.boulderId,
+            status: b.status,
+            progress: b.progress
+          }))
+        });
+        
+        // If there are active uploads in DB or local state, sync progress
+        if (hasActiveBouldersInDb || hasActiveBouldersAfterLoad || isUploading) {
+          console.log('[BatchUpload] 🔄 Schritt 15: Starte Progress-Synchronisation...');
+          
+          // Update boulder progress from database
+          setBoulders((prevBoulders) => {
+            console.log('[BatchUpload] 📊 Schritt 16: Synchronisiere Progress für Boulder:', {
+              prevBouldersCount: prevBoulders.length,
+              prevBouldersWithId: prevBoulders.filter(b => b.boulderId).length
+            });
+            
+            let hasChanges = false;
+            const updatedBoulders = prevBoulders.map((boulder) => {
+              // Only sync if boulder has a database ID (was created)
+              if (boulder.boulderId) {
+                console.log(`[BatchUpload] 🔍 Schritt 17: Prüfe Boulder "${boulder.name}" (${boulder.boulderId})`);
+                
+                const uploads = getBoulderUploads(boulder.boulderId);
+                
+                console.log(`[BatchUpload] 📋 Schritt 18: Uploads für "${boulder.name}":`, {
+                  uploadsCount: uploads.length,
+                  uploads: uploads.map(u => ({
+                    type: u.file_type,
+                    status: u.status,
+                    progress: u.progress,
+                    sessionId: u.upload_session_id
+                  })),
+                  boulderThumbnailUploaded: boulder.thumbnailUploaded,
+                  boulderUploadedThumbnailUrl: boulder.uploadedThumbnailUrl
+                });
+                
+                if (uploads.length > 0) {
+                  // Get video and thumbnail uploads separately
+                  const videoUpload = uploads.find(u => u.file_type === 'video');
+                  const thumbnailUpload = uploads.find(u => u.file_type === 'thumbnail');
+                  
+                  // Check if thumbnail is completed (even if not in active uploads)
+                  const thumbnailCompleted = boulder.thumbnailUploaded || !!boulder.uploadedThumbnailUrl;
+                  
+                  console.log(`[BatchUpload] 🎥 Schritt 19: Video/Thumbnail für "${boulder.name}":`, {
+                    hasVideoUpload: !!videoUpload,
+                    videoStatus: videoUpload?.status,
+                    videoProgress: videoUpload?.progress,
+                    hasThumbnailUpload: !!thumbnailUpload,
+                    thumbnailStatus: thumbnailUpload?.status,
+                    thumbnailProgress: thumbnailUpload?.progress,
+                    thumbnailCompleted,
+                    boulderThumbnailUploaded: boulder.thumbnailUploaded,
+                    boulderUploadedThumbnailUrl: boulder.uploadedThumbnailUrl
+                  });
+                  
+                  // Map upload status to boulder progress
+                  let newProgress = boulder.progress;
+                  let newStatus = boulder.status;
+                  let newCurrentStep = boulder.currentStep;
+                  
+                  // Prioritize video upload status (it's the main upload)
+                  const mainUpload = videoUpload || thumbnailUpload || uploads[0];
+                  
+                  console.log(`[BatchUpload] 🎯 Schritt 20: Main Upload für "${boulder.name}":`, {
+                    mainUploadType: mainUpload.file_type,
+                    mainUploadStatus: mainUpload.status,
+                    mainUploadProgress: mainUpload.progress
+                  });
+                  
+                  if (mainUpload.status === 'completed') {
+                    // Check if both video and thumbnail are completed
+                    if (videoUpload?.status === 'completed' && (!boulder.thumbnailFile || thumbnailUpload?.status === 'completed')) {
+                      newProgress = 100;
+                      newStatus = 'completed';
+                      newCurrentStep = 'Fertig!';
+                    } else if (videoUpload?.status === 'completed') {
+                      newProgress = Math.max(boulder.progress, 90);
+                      newStatus = 'partially_uploaded';
+                      newCurrentStep = 'Thumbnail wird hochgeladen...';
+                    } else {
+                      newProgress = Math.max(boulder.progress, mainUpload.progress);
+                      newStatus = 'uploading';
+                      newCurrentStep = 'Upload läuft...';
+                    }
+                  } else if (mainUpload.status === 'uploading') {
+                    // For video uploads, progress is 10-90% (video phase)
+                    // For thumbnail uploads, progress is 20-30% (thumbnail phase)
+                    if (videoUpload && videoUpload.status === 'uploading') {
+                      // Video upload: 10% (boulder created) + 0-80% (video upload)
+                      newProgress = Math.max(boulder.progress, 10 + (videoUpload.progress * 0.8));
+                      newStatus = 'uploading';
+                      newCurrentStep = `Video hochladen... ${Math.round(videoUpload.progress)}%`;
+                    } else if (thumbnailUpload && thumbnailUpload.status === 'uploading') {
+                      // Thumbnail upload: 20% (thumbnail phase)
+                      newProgress = Math.max(boulder.progress, 20 + (thumbnailUpload.progress * 0.1));
+                      newStatus = 'uploading';
+                      newCurrentStep = `Thumbnail hochladen... ${Math.round(thumbnailUpload.progress)}%`;
+                    } else {
+                      newProgress = Math.max(boulder.progress, mainUpload.progress);
+                      newStatus = 'uploading';
+                      newCurrentStep = `Hochladen... ${Math.round(mainUpload.progress)}%`;
+                    }
+                  } else if (mainUpload.status === 'compressing') {
+                    // Compression phase: 10% (boulder created) + 0-10% (compression, which is 0-50% of video phase)
+                    // Video phase is 10-90% (80% of total), so compression is 10% + (compression_progress * 0.1)
+                    // But we need to account for the fact that compression progress is 0-100%, representing 0-50% of video phase
+                    // So: 10% base + (compression_progress / 100 * 10%) = 10% + (compression_progress * 0.1)
+                    const compressionProgress = mainUpload.progress || 0;
+                    const compressionPhaseProgress = 10 + (compressionProgress * 0.1);
+                    
+                    // Check if thumbnail is completed (even if not in active uploads)
+                    const thumbnailCompleted = boulder.thumbnailUploaded || !!boulder.uploadedThumbnailUrl;
+                    
+                    console.log(`[BatchUpload] 🔍 Schritt 20.5: Thumbnail-Status für "${boulder.name}":`, {
+                      thumbnailCompleted,
+                      boulderThumbnailUploaded: boulder.thumbnailUploaded,
+                      boulderUploadedThumbnailUrl: boulder.uploadedThumbnailUrl,
+                      hasThumbnailUpload: !!thumbnailUpload,
+                      thumbnailUploadStatus: thumbnailUpload?.status
+                    });
+                    
+                    if (thumbnailUpload && (thumbnailUpload.status === 'uploading' || thumbnailUpload.status === 'completed')) {
+                      // Thumbnail phase: 20% base + 0-10% (thumbnail upload)
+                      const thumbnailPhaseProgress = thumbnailUpload.status === 'completed' 
+                        ? 30  // Thumbnail completed = 20% base + 10% upload
+                        : 20 + (thumbnailUpload.progress * 0.1);
+                      newProgress = Math.max(boulder.progress, Math.max(compressionPhaseProgress, thumbnailPhaseProgress));
+                      newStatus = 'uploading';
+                      newCurrentStep = thumbnailUpload.status === 'completed' 
+                        ? 'Thumbnail fertig, Video wird komprimiert...' 
+                        : `Thumbnail hochladen... ${Math.round(thumbnailUpload.progress)}%`;
+                    } else if (thumbnailCompleted) {
+                      // Thumbnail is completed (but not in active uploads), so we're at 30%
+                      // But we should show the compression progress if it's higher
+                      const maxProgress = Math.max(compressionPhaseProgress, 30);
+                      newProgress = Math.max(boulder.progress, maxProgress);
+                      newStatus = 'uploading';
+                      newCurrentStep = `Thumbnail fertig, Video wird komprimiert... ${Math.round(compressionProgress)}%`;
+                      console.log(`[BatchUpload] ✅ Schritt 20.6: Thumbnail fertig erkannt für "${boulder.name}": Progress=${newProgress}%, Step="${newCurrentStep}"`);
+                    } else {
+                      newProgress = Math.max(boulder.progress, compressionPhaseProgress);
+                      newStatus = 'uploading';
+                      newCurrentStep = `Komprimieren... ${Math.round(compressionProgress)}%`;
+                    }
+                  } else if (mainUpload.status === 'failed') {
+                    newStatus = 'failed';
+                    newCurrentStep = mainUpload.error_message || 'Upload fehlgeschlagen';
+                  }
+                  
+                  console.log(`[BatchUpload] 📊 Schritt 21: Progress-Berechnung für "${boulder.name}":`, {
+                    oldProgress: boulder.progress,
+                    newProgress,
+                    oldStatus: boulder.status,
+                    newStatus,
+                    oldStep: boulder.currentStep,
+                    newStep: newCurrentStep,
+                    willUpdate: newProgress !== boulder.progress || newStatus !== boulder.status || newCurrentStep !== boulder.currentStep
+                  });
+                  
+                  // Only update if something changed
+                  if (newProgress !== boulder.progress || newStatus !== boulder.status || newCurrentStep !== boulder.currentStep) {
+                    console.log(`[BatchUpload] ✅ Schritt 22: Aktualisiere "${boulder.name}": ${boulder.progress}% → ${newProgress}%, ${boulder.status} → ${newStatus}`);
+                    hasChanges = true;
+                    return {
+                      ...boulder,
+                      progress: newProgress,
+                      status: newStatus,
+                      currentStep: newCurrentStep,
+                    };
+                  } else {
+                    console.log(`[BatchUpload] ✅ Schritt 22: "${boulder.name}" bereits synchronisiert (${boulder.progress}%, ${boulder.status})`);
+                  }
+                } else {
+                  console.log(`[BatchUpload] ⚠️ Schritt 18: Keine Uploads gefunden für "${boulder.name}" (${boulder.boulderId})`);
+                }
+              } else {
+                console.log(`[BatchUpload] ⚠️ Schritt 17: Boulder "${boulder.name}" hat keine boulderId, überspringe`);
+              }
+              
+              return boulder;
+            });
+            
+            console.log('[BatchUpload] 📊 Schritt 23: Synchronisation abgeschlossen:', {
+              hasChanges,
+              updatedBouldersCount: updatedBoulders.length,
+              updatedBouldersWithId: updatedBoulders.filter(b => b.boulderId).length
+            });
+            
+            return updatedBoulders;
+          });
+        } else {
+          console.log('[BatchUpload] ⚠️ Schritt 15: Keine aktiven Uploads gefunden - keine Synchronisation');
+        }
+        
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('[BatchUpload] ✅ TAB-WECHSEL SYNCHRONISATION ABGESCHLOSSEN');
+        console.log('═══════════════════════════════════════════════════════════');
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [boulders, isUploading, getBoulderUploads, refetchUploads, showUploadDialog, activeUploads, loadBouldersFromUploads]);
+
+  // Clear completed boulders from storage after upload
+  // Keep 'draft' and 'failed' boulders for retry
   const clearCompletedFromStorage = () => {
     try {
       const saved = localStorage.getItem('boulder-drafts');
       if (saved) {
         const drafts = JSON.parse(saved) as Array<Omit<BoulderDraft, 'videoFile' | 'thumbnailFile'>>;
-        // Only keep drafts that are still in 'draft' status
+        // Only keep 'draft' and 'failed' status - remove 'completed'
         const activeDrafts = drafts.filter(d => {
           const boulder = boulders.find(b => b.id === d.id);
-          return boulder && boulder.status === 'draft';
+          // Keep if status is 'draft' or 'failed', remove if 'completed'
+          return boulder && (boulder.status === 'draft' || boulder.status === 'failed');
         });
+        
         if (activeDrafts.length === 0) {
           localStorage.removeItem('boulder-drafts');
         } else {
-          localStorage.setItem('boulder-drafts', JSON.stringify(activeDrafts));
+          // Remove isRestored flag before saving (videoFile and thumbnailFile are already omitted in the type)
+          const cleanedDrafts = activeDrafts.map(({ isRestored, ...rest }) => rest);
+          localStorage.setItem('boulder-drafts', JSON.stringify(cleanedDrafts));
         }
       }
     } catch (error) {
@@ -145,6 +717,7 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
       thumbnailFile: null,
       status: 'draft',
       progress: 0,
+      isRestored: false, // New boulder, not restored
     };
     setBoulders(prev => [newBoulder, ...prev]);
     console.log('[BatchUpload] Added new boulder:', newBoulder);
@@ -197,12 +770,14 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
   };
 
   const canUpload = useMemo(() => {
-    if (boulders.length === 0) {
+    // Only consider non-completed boulders for upload
+    const activeBoulders = boulders.filter(b => b.status !== 'completed');
+    if (activeBoulders.length === 0) {
       console.log('[BatchUpload] canUpload: false - no boulders');
       return false;
     }
     
-    const invalidBoulders = boulders.filter(b => {
+    const invalidBoulders = activeBoulders.filter(b => {
       const hasName = !!b.name && b.name.trim().length > 0;
       const hasSector = !!b.sector_id && b.sector_id.trim().length > 0;
       const hasValidSector2 = !b.spansMultipleSectors || (b.spansMultipleSectors && !!b.sector_id_2 && b.sector_id_2 !== b.sector_id);
@@ -241,19 +816,28 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
     return true;
   }, [boulders]);
 
-  // Retry upload for a single failed boulder
+  // Retry upload for a single failed boulder - only upload missing parts
   const retryBoulderUpload = async (boulderId: string) => {
     const boulder = boulders.find(b => b.id === boulderId);
     if (!boulder || isUploading) return;
 
     setIsUploading(true);
+    setShowUploadDialog(true); // Dialog öffnen beim Retry
     setCurrentUploadIndex(boulders.findIndex(b => b.id === boulderId));
     
     try {
       // Reset error and status
       updateBoulderField(boulder.id, 'error', undefined);
       updateBoulderField(boulder.id, 'status', 'uploading');
-      updateBoulderField(boulder.id, 'progress', 0);
+      
+      // Calculate starting progress based on what's already uploaded
+      let startProgress = 0;
+      if (boulder.videoUploaded && boulder.uploadedVideoUrl) {
+        startProgress = 70; // Video already uploaded
+      } else if (boulder.boulderId) {
+        startProgress = 10; // Boulder created, but video not uploaded
+      }
+      updateBoulderField(boulder.id, 'progress', startProgress);
 
       // If boulder was already created, use existing ID, otherwise create new
       let boulderDbId = boulder.boulderId;
@@ -266,8 +850,8 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
           sector_id_2: boulder.spansMultipleSectors && boulder.sector_id_2 ? boulder.sector_id_2 : null,
           difficulty: boulder.difficulty,
           color: boulder.color,
-          beta_video_url: boulder.videoUrl || null,
-          thumbnail_url: null,
+          beta_video_url: boulder.uploadedVideoUrl || boulder.videoUrl || null,
+          thumbnail_url: boulder.uploadedThumbnailUrl || null,
           note: boulder.note,
         };
 
@@ -277,45 +861,75 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
         }
         boulderDbId = createdBoulder.id;
         updateBoulderField(boulder.id, 'boulderId', boulderDbId);
+        startProgress = 10;
+        updateBoulderField(boulder.id, 'progress', startProgress);
       }
-      
-      updateBoulderField(boulder.id, 'progress', 20);
 
-      // Upload video if file exists
-      if (boulder.videoFile) {
+      // Upload video only if not already uploaded
+      if (boulder.videoFile && !boulder.videoUploaded) {
+        updateBoulderField(boulder.id, 'currentStep', 'Video wird hochgeladen...');
         const videoUrl = await uploadBetaVideo(
           boulder.videoFile,
           (progress) => {
-            const totalProgress = 20 + (progress * 0.5);
+            // Progress: startProgress to 70% for video upload
+            const totalProgress = startProgress + (progress * (70 - startProgress) / 100);
             updateBoulderField(boulder.id, 'progress', totalProgress);
+            updateBoulderField(boulder.id, 'currentStep', `Video hochladen... ${Math.round(progress)}%`);
           },
           boulderDbId
         );
         
+        // Mark video as uploaded and save URL
+        updateBoulderField(boulder.id, 'videoUploaded', true);
+        updateBoulderField(boulder.id, 'uploadedVideoUrl', videoUrl);
+        updateBoulderField(boulder.id, 'currentStep', 'Video-URL wird gespeichert...');
         await updateBoulder.mutateAsync({
           id: boulderDbId,
           beta_video_url: videoUrl,
         } as any);
         updateBoulderField(boulder.id, 'progress', 70);
+      } else if (boulder.uploadedVideoUrl && boulderDbId) {
+        // Video already uploaded, just update DB if needed
+        updateBoulderField(boulder.id, 'currentStep', 'Video-URL wird aktualisiert...');
+        await updateBoulder.mutateAsync({
+          id: boulderDbId,
+          beta_video_url: boulder.uploadedVideoUrl,
+        } as any);
+        updateBoulderField(boulder.id, 'progress', 70);
       }
 
-      // Upload thumbnail if file exists
-      if (boulder.thumbnailFile) {
+      // Upload thumbnail only if not already uploaded
+      if (boulder.thumbnailFile && !boulder.thumbnailUploaded) {
+        updateBoulderField(boulder.id, 'currentStep', 'Thumbnail wird hochgeladen...');
         const thumbnailUrl = await uploadThumbnail(
           boulder.thumbnailFile,
           (progress) => {
+            // Progress: 70-100% for thumbnail upload
             const totalProgress = 70 + (progress * 0.3);
             updateBoulderField(boulder.id, 'progress', totalProgress);
+            updateBoulderField(boulder.id, 'currentStep', `Thumbnail hochladen... ${Math.round(progress)}%`);
           },
           boulderDbId
         );
         
+        // Mark thumbnail as uploaded and save URL
+        updateBoulderField(boulder.id, 'thumbnailUploaded', true);
+        updateBoulderField(boulder.id, 'uploadedThumbnailUrl', thumbnailUrl);
+        updateBoulderField(boulder.id, 'currentStep', 'Thumbnail-URL wird gespeichert...');
         await updateBoulder.mutateAsync({
           id: boulderDbId,
           thumbnail_url: thumbnailUrl,
         } as any);
+      } else if (boulder.uploadedThumbnailUrl && boulderDbId) {
+        // Thumbnail already uploaded, just update DB if needed
+        updateBoulderField(boulder.id, 'currentStep', 'Thumbnail-URL wird aktualisiert...');
+        await updateBoulder.mutateAsync({
+          id: boulderDbId,
+          thumbnail_url: boulder.uploadedThumbnailUrl,
+        } as any);
       }
 
+      updateBoulderField(boulder.id, 'currentStep', 'Fertig!');
       updateBoulderField(boulder.id, 'progress', 100);
       updateBoulderField(boulder.id, 'status', 'completed');
       toast.success(`Boulder "${boulder.name}" erfolgreich hochgeladen!`);
@@ -334,13 +948,47 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
   const uploadAllBoulders = async () => {
     if (!canUpload || isUploading) return;
 
+    // Request wake lock to prevent device from sleeping during upload
+    let wakeLock: WakeLockSentinel | null = null;
+    if ('wakeLock' in navigator) {
+      try {
+        wakeLock = await (navigator as any).wakeLock.request('screen');
+        console.log('[BatchUpload] Wake lock acquired for batch upload');
+      } catch (err) {
+        console.warn('[BatchUpload] Wake lock not available:', err);
+      }
+    }
+
     setIsUploading(true);
+    setShowUploadDialog(true); // Dialog öffnen beim Upload-Start
     setCurrentUploadIndex(0);
     setUploadErrors([]); // Reset errors
 
+    // Subscribe to Service Worker upload events for background uploads
+    let cleanupServiceWorkerListener: (() => void) | null = null;
+    try {
+      cleanupServiceWorkerListener = listenForUploadEvents(
+        (uploadId, result) => {
+          // Upload completed in background
+          console.log('[BatchUpload] Background upload completed:', uploadId, result);
+          // Find boulder by upload session ID and update status
+          // This will be handled by the upload functions themselves
+        },
+        (uploadId, error) => {
+          // Upload failed in background
+          console.error('[BatchUpload] Background upload failed:', uploadId, error);
+          // Find boulder by upload session ID and mark as failed
+          // This will be handled by the upload functions themselves
+        }
+      );
+    } catch (error) {
+      console.warn('[BatchUpload] Failed to setup service worker listener:', error);
+    }
+
     const errors: Array<{ boulderName: string; error: string; type: 'video' | 'thumbnail' | 'creation' }> = [];
 
-    for (let i = 0; i < boulders.length; i++) {
+    try {
+      for (let i = 0; i < boulders.length; i++) {
       const boulder = boulders[i];
       setCurrentUploadIndex(i);
       
@@ -348,6 +996,7 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
         // Update status to uploading
         updateBoulderField(boulder.id, 'status', 'uploading');
         updateBoulderField(boulder.id, 'progress', 0);
+        updateBoulderField(boulder.id, 'currentStep', 'Boulder wird erstellt...');
 
         // Create boulder in database
         const boulderData = {
@@ -366,72 +1015,194 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
           throw new Error('Boulder wurde erstellt, aber keine ID zurückgegeben');
         }
         updateBoulderField(boulder.id, 'boulderId', createdBoulder.id);
-        updateBoulderField(boulder.id, 'progress', 20);
+        updateBoulderField(boulder.id, 'progress', 10);
+        updateBoulderField(boulder.id, 'currentStep', 'Boulder erstellt');
+
+        // Upload video and thumbnail in parallel for maximum speed
+        const uploadPromises: Promise<void>[] = [];
+        let videoProgress = 0;
+        let thumbnailProgress = 0;
+        const hasVideo = !!boulder.videoFile;
+        const hasThumbnail = !!boulder.thumbnailFile;
 
         // Upload video if file exists
         if (boulder.videoFile) {
+          const fileSizeMB = (boulder.videoFile.size / (1024 * 1024)).toFixed(1);
+          const isLargeFile = boulder.videoFile.size >= 50 * 1024 * 1024; // Updated threshold
+          
+          const videoUploadPromise = (async () => {
+            try {
+              if (isLargeFile) {
+                updateBoulderField(boulder.id, 'currentStep', `Video komprimieren (${fileSizeMB} MB)...`);
+              } else {
+                updateBoulderField(boulder.id, 'currentStep', 'Video wird hochgeladen...');
+              }
+              
+              const videoUrl = await uploadBetaVideo(
+                boulder.videoFile!,
+                (progress) => {
+                  videoProgress = progress;
+                  // Calculate combined progress: video is weighted more (70% of upload phase)
+                  // Upload phase is 10-90%, video takes 70% of that, thumbnail 30%
+                  const videoWeight = hasThumbnail ? 0.7 : 1.0;
+                  const totalProgress = 10 + (progress * 0.8 * videoWeight);
+                  updateBoulderField(boulder.id, 'progress', totalProgress);
+                  
+                  // Update step based on progress
+                  if (isLargeFile) {
+                    if (progress < 50) {
+                      updateBoulderField(boulder.id, 'currentStep', `Video komprimieren... ${Math.round(progress * 0.5)}%`);
+                    } else {
+                      updateBoulderField(boulder.id, 'currentStep', `Video hochladen... ${Math.round((progress - 50) * 0.5)}%`);
+                    }
+                  } else {
+                    updateBoulderField(boulder.id, 'currentStep', `Video hochladen... ${Math.round(progress)}%`);
+                  }
+                },
+                createdBoulder.id
+              );
+              
+              // Mark video as uploaded and save URL
+              updateBoulderField(boulder.id, 'videoUploaded', true);
+              updateBoulderField(boulder.id, 'uploadedVideoUrl', videoUrl);
+              await updateBoulder.mutateAsync({
+                id: createdBoulder.id,
+                beta_video_url: videoUrl,
+              } as any);
+            } catch (error: any) {
+              console.error(`[BatchUpload] Video upload failed for ${boulder.name}:`, error);
+              const errorMessage = error.message || 'Unbekannter Fehler';
+              updateBoulderField(boulder.id, 'error', `Video-Upload fehlgeschlagen: ${errorMessage}`);
+              updateBoulderField(boulder.id, 'status', 'failed');
+              errors.push({
+                boulderName: boulder.name,
+                error: errorMessage,
+                type: 'video'
+              });
+              throw error; // Re-throw to mark promise as failed
+            }
+          })();
+          
+          uploadPromises.push(videoUploadPromise);
+        }
+
+        // Upload thumbnail if file exists (in parallel with video)
+        if (boulder.thumbnailFile) {
+          const thumbnailUploadPromise = (async () => {
+            try {
+              updateBoulderField(boulder.id, 'currentStep', 'Thumbnail wird verarbeitet...');
+              const thumbnailUrl = await uploadThumbnail(
+                boulder.thumbnailFile!,
+                (progress) => {
+                  thumbnailProgress = progress;
+                  // Calculate combined progress: thumbnail is weighted less (30% of upload phase)
+                  // Upload phase is 10-90%, video takes 70% of that, thumbnail 30%
+                  const thumbnailWeight = hasVideo ? 0.3 : 1.0;
+                  const totalProgress = 10 + (progress * 0.8 * thumbnailWeight);
+                  updateBoulderField(boulder.id, 'progress', Math.max(totalProgress, boulder.progress));
+                  
+                  // Update step based on progress
+                  if (progress < 45) {
+                    updateBoulderField(boulder.id, 'currentStep', `Thumbnail komprimieren... ${Math.round(progress * 2.2)}%`);
+                  } else {
+                    updateBoulderField(boulder.id, 'currentStep', `Thumbnail hochladen... ${Math.round((progress - 45) * 1.8)}%`);
+                  }
+                },
+                createdBoulder.id
+              );
+              
+              // Mark thumbnail as uploaded and save URL
+              updateBoulderField(boulder.id, 'thumbnailUploaded', true);
+              updateBoulderField(boulder.id, 'uploadedThumbnailUrl', thumbnailUrl);
+              await updateBoulder.mutateAsync({
+                id: createdBoulder.id,
+                thumbnail_url: thumbnailUrl,
+              } as any);
+            } catch (error: any) {
+              console.error(`[BatchUpload] Thumbnail upload failed for ${boulder.name}:`, error);
+              const errorMessage = error.message || 'Unbekannter Fehler';
+              updateBoulderField(boulder.id, 'error', `Thumbnail-Upload fehlgeschlagen: ${errorMessage}`);
+              errors.push({
+                boulderName: boulder.name,
+                error: errorMessage,
+                type: 'thumbnail'
+              });
+              // Don't throw - thumbnail failure shouldn't fail the whole upload
+            }
+          })();
+          
+          uploadPromises.push(thumbnailUploadPromise);
+        }
+
+        // Wait for all uploads to complete in parallel
+        // Use Promise.allSettled to handle thumbnail errors gracefully
+        if (uploadPromises.length > 0) {
           try {
-            const videoUrl = await uploadBetaVideo(
-              boulder.videoFile,
-              (progress) => {
-                // Progress: 20-70% for video upload
-                const totalProgress = 20 + (progress * 0.5);
-                updateBoulderField(boulder.id, 'progress', totalProgress);
-              },
-              createdBoulder.id
-            );
-            
-            await updateBoulder.mutateAsync({
-              id: createdBoulder.id,
-              beta_video_url: videoUrl,
-            } as any);
-            updateBoulderField(boulder.id, 'progress', 70);
+            // Add timeout for entire upload process (30 minutes max per boulder)
+            const uploadTimeout = new Promise<never>((_, reject) => {
+              setTimeout(() => {
+                reject(new Error('Upload timeout: Der Upload dauerte länger als 30 Minuten'));
+              }, 30 * 60 * 1000); // 30 minutes
+            });
+
+            const results = await Promise.race([
+              Promise.allSettled(uploadPromises),
+              uploadTimeout,
+            ]) as PromiseSettledResult<void>[];
+
+            // Check results - video upload must succeed, thumbnail can fail
+            // Results are in the same order as uploadPromises
+            let videoResult: PromiseSettledResult<void> | null = null;
+            let thumbnailResult: PromiseSettledResult<void> | null = null;
+
+            if (hasVideo && hasThumbnail) {
+              // Both exist: video is first, thumbnail is second
+              videoResult = results[0];
+              thumbnailResult = results[1];
+            } else if (hasVideo) {
+              // Only video
+              videoResult = results[0];
+            } else if (hasThumbnail) {
+              // Only thumbnail
+              thumbnailResult = results[0];
+            }
+
+            // If video upload failed, mark boulder as failed
+            if (videoResult && videoResult.status === 'rejected') {
+              throw videoResult.reason;
+            }
+
+            // Thumbnail errors are already logged, don't fail the upload
+            if (thumbnailResult && thumbnailResult.status === 'rejected') {
+              console.warn(`[BatchUpload] Thumbnail upload failed for ${boulder.name}, but continuing with video`);
+            }
+
+            // Update progress to 90% after uploads complete (or video completes if thumbnail failed)
+            updateBoulderField(boulder.id, 'progress', 90);
           } catch (error: any) {
-            console.error(`[BatchUpload] Video upload failed for ${boulder.name}:`, error);
+            // Video upload failed or timeout - already handled in promise
+            console.error(`[BatchUpload] Upload failed or timed out for ${boulder.name}:`, error);
             const errorMessage = error.message || 'Unbekannter Fehler';
-            updateBoulderField(boulder.id, 'error', `Video-Upload fehlgeschlagen: ${errorMessage}`);
+            updateBoulderField(boulder.id, 'error', `Upload fehlgeschlagen: ${errorMessage}`);
             updateBoulderField(boulder.id, 'status', 'failed');
             errors.push({
               boulderName: boulder.name,
               error: errorMessage,
               type: 'video'
             });
-            continue; // Skip thumbnail if video failed
+            // Continue to next boulder
+            continue;
           }
         }
 
-        // Upload thumbnail if file exists
-        if (boulder.thumbnailFile) {
-          try {
-            const thumbnailUrl = await uploadThumbnail(
-              boulder.thumbnailFile,
-              (progress) => {
-                // Progress: 70-100% for thumbnail upload
-                const totalProgress = 70 + (progress * 0.3);
-                updateBoulderField(boulder.id, 'progress', totalProgress);
-              },
-              createdBoulder.id
-            );
-            
-            await updateBoulder.mutateAsync({
-              id: createdBoulder.id,
-              thumbnail_url: thumbnailUrl,
-            } as any);
-          } catch (error: any) {
-            console.error(`[BatchUpload] Thumbnail upload failed for ${boulder.name}:`, error);
-            const errorMessage = error.message || 'Unbekannter Fehler';
-            updateBoulderField(boulder.id, 'error', `Thumbnail-Upload fehlgeschlagen: ${errorMessage}`);
-            errors.push({
-              boulderName: boulder.name,
-              error: errorMessage,
-              type: 'thumbnail'
-            });
-            // Don't fail the whole upload if thumbnail fails
-          }
-        }
-
+        updateBoulderField(boulder.id, 'currentStep', 'Fertig!');
         updateBoulderField(boulder.id, 'progress', 100);
         updateBoulderField(boulder.id, 'status', 'completed');
+        
+        // Remove completed boulder from list immediately (only show failed/draft boulders)
+        setTimeout(() => {
+          setBoulders(prev => prev.filter(b => b.id !== boulder.id));
+        }, 1000); // Wait 1 second to show completion message
       } catch (error: any) {
         console.error(`[BatchUpload] Failed to create/upload ${boulder.name}:`, error);
         const errorMessage = error.message || 'Unbekannter Fehler';
@@ -445,42 +1216,82 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
       }
     }
 
-    // Wait a moment to show final progress in dialog
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setIsUploading(false);
-    setCurrentUploadIndex(null);
-    setUploadErrors(errors);
-    
-    // Clear completed/failed boulders from localStorage
-    clearCompletedFromStorage();
-    
-    // Show summary
-    const completed = boulders.filter(b => b.status === 'completed').length;
-    const failed = boulders.filter(b => b.status === 'failed').length;
-    
-    if (completed > 0) {
-      toast.success(`${completed} Boulder erfolgreich hochgeladen!`);
-    }
-    if (failed > 0) {
-      toast.error(`${failed} Boulder fehlgeschlagen`);
-      // Show error dialog if there are errors
-      if (errors.length > 0) {
-        setShowErrorDialog(true);
+      // Wait a moment to show final progress in dialog
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (error) {
+      console.error('[BatchUpload] Fatal error during batch upload:', error);
+    } finally {
+      // Cleanup Service Worker listener (always cleanup, even on error)
+      if (cleanupServiceWorkerListener) {
+        try {
+          cleanupServiceWorkerListener();
+        } catch (error) {
+          console.warn('[BatchUpload] Error cleaning up service worker listener:', error);
+        }
       }
-    } else {
-      // Navigate to boulders page after 2 seconds if no errors
-      setTimeout(() => {
-        navigate('/boulders');
-      }, 2000);
+      
+      // Release wake lock (always release, even on error)
+      if (wakeLock) {
+        try {
+          wakeLock.release().catch(() => {});
+        } catch (error) {
+          console.warn('[BatchUpload] Error releasing wake lock:', error);
+        }
+      }
+      
+      setIsUploading(false);
+      setCurrentUploadIndex(null);
+      setUploadErrors(errors);
+      
+      // Dialog schließen wenn alle Uploads fertig sind
+      // BUT: Don't close if there are still active uploads in the database
+      // This prevents the dialog from closing when tab is switched
+      if (!hasActiveUploads) {
+        // Only close if we're sure there are no active uploads
+        // The auto-close useEffect will handle this more gracefully
+        console.log('[BatchUpload] Alle lokalen Uploads fertig, aber prüfe DB für aktive Uploads...');
+        // Don't close here - let the auto-close useEffect handle it
+      }
+      
+      // Clear completed/failed boulders from localStorage
+      clearCompletedFromStorage();
+      
+      // Show summary
+      const completed = boulders.filter(b => b.status === 'completed').length;
+      const failed = boulders.filter(b => b.status === 'failed').length;
+      
+      if (completed > 0) {
+        toast.success(`${completed} Boulder erfolgreich hochgeladen!`);
+      }
+      if (failed > 0) {
+        toast.error(`${failed} Boulder fehlgeschlagen`);
+        // Show error dialog if there are errors
+        if (errors.length > 0) {
+          setShowErrorDialog(true);
+        }
+      } else if (completed > 0) {
+        // Navigate to boulders page after 2 seconds if no errors
+        setTimeout(() => {
+          navigate('/boulders');
+        }, 2000);
+      }
     }
   };
 
-  // Calculate overall progress
+  // Calculate if there are active uploads (boulders that are uploading or have boulderId but not completed/failed)
+  const hasActiveUploads = useMemo(() => {
+    return boulders.some(b => 
+      b.status === 'uploading' || 
+      (b.boulderId && b.status !== 'completed' && b.status !== 'failed')
+    );
+  }, [boulders]);
+
+  // Calculate overall progress (only for active boulders, excluding completed)
   const overallProgress = useMemo(() => {
-    if (boulders.length === 0) return 0;
-    const totalProgress = boulders.reduce((sum, b) => sum + b.progress, 0);
-    return totalProgress / boulders.length;
+    const activeBoulders = boulders.filter(b => b.status !== 'completed');
+    if (activeBoulders.length === 0) return 0;
+    const totalProgress = activeBoulders.reduce((sum, b) => sum + b.progress, 0);
+    return totalProgress / activeBoulders.length;
   }, [boulders]);
 
   // Get current uploading boulder
@@ -491,11 +1302,38 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
   const failedCount = boulders.filter(b => b.status === 'failed').length;
   const totalCount = boulders.length;
 
+  // Auto-close dialog when all uploads are done
+  useEffect(() => {
+    if (!hasActiveUploads && showUploadDialog && !isUploading) {
+      // All uploads are done, close dialog after a short delay to show completion
+      const timer = setTimeout(() => {
+        setShowUploadDialog(false);
+        console.log('[BatchUpload] Alle Uploads fertig, Dialog automatisch geschlossen');
+      }, 2000); // 2 seconds delay to show completion message
+      
+      return () => clearTimeout(timer);
+    }
+  }, [hasActiveUploads, showUploadDialog, isUploading]);
+
   return (
     <>
       {/* Upload Progress Dialog */}
-      <Dialog open={isUploading} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-md max-w-[95vw] w-full" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+      {/* Dialog ist jetzt schließbar, aber Upload läuft im Hintergrund weiter */}
+      <Dialog 
+        open={showUploadDialog} 
+        onOpenChange={(open) => {
+          setShowUploadDialog(open);
+          // Wenn Dialog geschlossen wird und Uploads noch aktiv sind, zeigen wir den Badge
+          if (!open && hasActiveUploads) {
+            console.log('[BatchUpload] Dialog geschlossen, aber Upload läuft weiter im Hintergrund');
+          }
+          // Wenn alle Uploads fertig sind, schließen wir den Dialog automatisch
+          if (!open && !hasActiveUploads) {
+            console.log('[BatchUpload] Alle Uploads fertig, Dialog geschlossen');
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md max-w-[95vw] w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {overallProgress < 100 ? (
@@ -510,6 +1348,11 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
                 </>
               )}
             </DialogTitle>
+            {overallProgress < 100 && (
+              <DialogDescription className="text-blue-600 dark:text-blue-500 bg-blue-50 dark:bg-blue-950/20 p-2 rounded text-xs">
+                ℹ️ Info: Uploads laufen auch im Hintergrund weiter, wenn du den Tab wechselst oder das Display ausschaltest. Du kannst die App sicher in den Hintergrund schicken.
+              </DialogDescription>
+            )}
             <DialogDescription>
               {currentBoulder ? (
                 <>
@@ -551,16 +1394,39 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
             {currentBoulder && (
               <div className="space-y-2 pt-2 border-t">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Aktueller Boulder</span>
+                  <span className="text-muted-foreground">
+                    {currentBoulder.name || `Boulder ${(currentUploadIndex || 0) + 1}`}
+                  </span>
                   <span className="font-medium">{Math.round(currentBoulder.progress)}%</span>
                 </div>
                 <Progress value={currentBoulder.progress} className="h-2" />
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground space-y-1">
                   {currentBoulder.status === 'uploading' && (
-                    <span className="flex items-center gap-1">
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      Upload läuft...
-                    </span>
+                    <>
+                      <div className="flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span className="font-medium">{currentBoulder.currentStep || 'Upload läuft...'}</span>
+                      </div>
+                      {currentBoulder.progress > 0 && currentBoulder.progress < 100 && (
+                        <div className="text-[10px] opacity-75">
+                          {currentBoulder.progress < 10 && 'Boulder wird erstellt...'}
+                          {currentBoulder.progress >= 10 && currentBoulder.progress < 70 && 'Video wird hochgeladen...'}
+                          {currentBoulder.progress >= 70 && currentBoulder.progress < 100 && 'Thumbnail wird hochgeladen...'}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {currentBoulder.status === 'completed' && (
+                    <div className="flex items-center gap-1 text-green-600">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Erfolgreich hochgeladen</span>
+                    </div>
+                  )}
+                  {currentBoulder.status === 'failed' && (
+                    <div className="flex items-center gap-1 text-destructive">
+                      <AlertCircle className="w-3 h-3" />
+                      <span className="truncate">Fehlgeschlagen: {currentBoulder.error?.substring(0, 50) || 'Unbekannter Fehler'}</span>
+                    </div>
                   )}
                 </div>
               </div>
@@ -716,6 +1582,20 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
           <CardTitle className="text-lg sm:text-xl">Batch-Upload</CardTitle>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            {/* Minimierter Progress-Badge: Zeigt wenn Upload aktiv aber Dialog geschlossen */}
+            {hasActiveUploads && !showUploadDialog && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setShowUploadDialog(true)}
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+              >
+                <Loader2 className="w-4 h-4 mr-2 animate-spin flex-shrink-0" />
+                <span className="truncate">
+                  Upload läuft ({Math.round(overallProgress)}%)
+                </span>
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -751,24 +1631,33 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
         </p>
       </CardHeader>
       <CardContent className="space-y-4 px-2 sm:px-6">
-        {boulders.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <p className="mb-4">Noch keine Boulder hinzugefügt</p>
-            <Button onClick={addBoulder} variant="outline">
-              <PlusCircle className="w-4 h-4 mr-2" />
-              Ersten Boulder hinzufügen
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {boulders.map((boulder, index) => {
+        {(() => {
+          const activeBoulders = boulders.filter(b => b.status !== 'completed');
+          return activeBoulders.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p className="mb-4">Noch keine Boulder hinzugefügt</p>
+              <Button onClick={addBoulder} variant="outline">
+                <PlusCircle className="w-4 h-4 mr-2" />
+                Ersten Boulder hinzufügen
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {activeBoulders.map((boulder, index) => {
               // Reverse numbering: first boulder (index 0) is at bottom, newest at top
-              const displayNumber = boulders.length - index;
+              const displayNumber = activeBoulders.length - index;
               return (
               <Card key={boulder.id} className="border-2 w-full min-w-0 max-w-full overflow-hidden">
                 <CardHeader className="pb-3 px-3 sm:px-6">
                   <div className="flex items-center justify-between gap-2 min-w-0">
-                    <CardTitle className="text-base sm:text-lg truncate min-w-0">Boulder {displayNumber}</CardTitle>
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <CardTitle className="text-base sm:text-lg truncate min-w-0">Boulder {displayNumber}</CardTitle>
+                      {boulder.isRestored && (
+                        <Badge variant="outline" className="text-xs bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400">
+                          Wiederhergestellt
+                        </Badge>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                       {boulder.status === 'completed' && (
                         <Badge className="bg-green-500">
@@ -799,9 +1688,14 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
                     </div>
                   </div>
                   {boulder.status === 'uploading' && (
-                    <div className="mt-2">
+                    <div className="mt-2 space-y-1">
                       <Progress value={boulder.progress} className="h-2" />
-                      <p className="text-xs text-muted-foreground mt-1">{Math.round(boulder.progress)}%</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">{Math.round(boulder.progress)}%</p>
+                        {boulder.currentStep && (
+                          <p className="text-xs text-muted-foreground font-medium truncate ml-2">{boulder.currentStep}</p>
+                        )}
+                      </div>
                     </div>
                   )}
                   {boulder.error && (
@@ -1062,8 +1956,9 @@ export const BatchUpload = ({ onAddBoulderRef }: BatchUploadProps = {}) => {
               </Card>
               );
             })}
-          </div>
-        )}
+            </div>
+          );
+        })()}
       </CardContent>
     </Card>
     </>

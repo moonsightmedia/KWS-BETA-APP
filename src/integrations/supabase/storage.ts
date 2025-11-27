@@ -1,5 +1,6 @@
 import { supabase } from './client';
 import { UploadLogger } from '@/utils/uploadLogger';
+import { queueBackgroundUpload } from '@/utils/backgroundUpload';
 import exifr from 'exifr';
 
 const DEFAULT_BUCKET = 'beta-videos';
@@ -35,19 +36,31 @@ function setupUploadKeepAlive(): () => void {
       try {
         const lock = await (navigator as any).wakeLock.request('screen');
         wakeLock = lock;
-        console.log('[Upload] Wake lock acquired to keep uploads running');
+        console.log('[Upload] ✅ Wake lock acquired to keep uploads running');
         
-        // Handle wake lock release (e.g., when user manually locks screen)
+        // Handle wake lock release (e.g., when user manually locks screen or display turns off)
         lock.addEventListener('release', () => {
-          console.log('[Upload] Wake lock released, attempting to reacquire...');
+          console.log('[Upload] ⚠️ Wake lock released (display may be off), attempting to reacquire...');
           // Try to reacquire if upload is still active
+          // Use a small delay to avoid rapid re-acquisition attempts
           if (isActive) {
-            requestWakeLock();
+            setTimeout(() => {
+              if (isActive && !wakeLock) {
+                requestWakeLock().catch((err) => {
+                  console.warn('[Upload] Failed to reacquire wake lock:', err);
+                  // Continue without wake lock - uploads should still work
+                });
+              }
+            }, 1000); // Wait 1 second before retry
           }
         });
       } catch (err: any) {
-        console.warn('[Upload] Wake lock not available:', err);
+        // Wake lock may not be available (e.g., in some browsers, when battery saver is on)
+        console.warn('[Upload] ⚠️ Wake lock not available:', err.message || err);
+        console.log('[Upload] ℹ️ Uploads will continue, but device may sleep. This is usually fine.');
       }
+    } else {
+      console.log('[Upload] ℹ️ Wake Lock API not supported. Uploads will continue normally.');
     }
   };
 
@@ -70,12 +83,18 @@ function setupUploadKeepAlive(): () => void {
             // Ignore errors - this is just a keep-alive
           });
         }, 30000); // Every 30 seconds
-        console.log('[Upload] Tab switched/minimized - keeping uploads alive');
+        console.log('[Upload] ℹ️ Tab switched/minimized - keeping uploads alive in background');
       }
       
       // Try to reacquire wake lock if it was released
       if (!wakeLock && isActive) {
-        requestWakeLock();
+        setTimeout(() => {
+          if (isActive && !wakeLock) {
+            requestWakeLock().catch((err) => {
+              console.warn('[Upload] ⚠️ Failed to reacquire wake lock after tab switch:', err);
+            });
+          }
+        }, 1000); // Wait 1 second before retry
       }
     } else {
       // Page is visible - clear keep-alive (not needed when visible)
@@ -83,7 +102,7 @@ function setupUploadKeepAlive(): () => void {
         clearInterval(keepAliveInterval);
         keepAliveInterval = null;
       }
-      console.log('[Upload] Tab visible - normal operation');
+      console.log('[Upload] ✅ Tab visible - normal operation resumed');
     }
   };
 
@@ -91,13 +110,13 @@ function setupUploadKeepAlive(): () => void {
   const handlePageHide = () => {
     // Keep uploads running even when navigating away
     if (keepAliveInterval === null && isActive) {
+      console.log('[Upload] ℹ️ Page hiding, starting keep-alive for background uploads');
       keepAliveInterval = window.setInterval(() => {
-        fetch(`${ALLINKL_API_URL}/upload.php`, {
-          method: 'OPTIONS',
-          cache: 'no-cache',
-          keepalive: true,
-        }).catch(() => {});
-      }, 30000);
+        // Use XMLHttpRequest for better background support
+        const xhr = new XMLHttpRequest();
+        xhr.open('OPTIONS', `${ALLINKL_API_URL}/upload.php`, true);
+        xhr.send();
+      }, 20000); // Every 20 seconds
     }
   };
 
@@ -107,6 +126,7 @@ function setupUploadKeepAlive(): () => void {
   // Cleanup function
   return () => {
     isActive = false;
+    console.log('[Upload] 🧹 Cleaning up keep-alive and wake lock');
     document.removeEventListener('visibilitychange', handleVisibilityChange);
     window.removeEventListener('pagehide', handlePageHide);
     if (keepAliveInterval !== null) {
@@ -762,11 +782,78 @@ async function getFFmpeg(): Promise<any> {
  * Preserves original format (MP4, MOV, etc.) - no WebM conversion
  */
 async function compressVideo(file: File, onProgress?: (progress: number) => void): Promise<File> {
+  // Set timeout for compression (15 minutes max)
+  const COMPRESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+  let timeoutId: NodeJS.Timeout | null = null;
+  let isResolved = false;
+  let wakeLock: WakeLockSentinel | null = null;
+  
+  // Request wake lock to prevent browser from throttling compression in background
+  const requestWakeLock = async () => {
+    if ('wakeLock' in navigator) {
+      try {
+        wakeLock = await (navigator as any).wakeLock.request('screen');
+        console.log('[Video Compression] ✅ Wake lock acquired to keep compression running');
+        
+        // Handle wake lock release
+        wakeLock.addEventListener('release', () => {
+          console.log('[Video Compression] ⚠️ Wake lock released, attempting to reacquire...');
+          if (!isResolved) {
+            setTimeout(() => {
+              if (!isResolved && !wakeLock) {
+                requestWakeLock().catch((err) => {
+                  console.warn('[Video Compression] Failed to reacquire wake lock:', err);
+                });
+              }
+            }, 1000);
+          }
+        });
+      } catch (err: any) {
+        console.warn('[Video Compression] ⚠️ Wake lock not available:', err.message || err);
+        console.log('[Video Compression] ℹ️ Compression will continue, but may be throttled in background');
+      }
+    }
+  };
+  
+  // Request wake lock immediately
+  await requestWakeLock();
+  
+  // Monitor visibility changes to reacquire wake lock if needed
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      console.log('[Video Compression] ⚠️ Tab switched to background - ensuring compression continues');
+      // Reacquire wake lock if it was released
+      if (!wakeLock && !isResolved && 'wakeLock' in navigator) {
+        requestWakeLock().catch((err) => {
+          console.warn('[Video Compression] Failed to reacquire wake lock on visibility change:', err);
+        });
+      }
+    } else {
+      console.log('[Video Compression] ✅ Tab visible again - compression should continue normally');
+    }
+  };
+  
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      if (!isResolved) {
+        isResolved = true;
+        reject(new Error('Video compression timeout: Komprimierung dauerte länger als 15 Minuten'));
+      }
+    }, COMPRESSION_TIMEOUT);
+  });
+
   try {
     if (onProgress) onProgress(10);
     
-    // Initialize FFmpeg
-    const ffmpeg = await getFFmpeg();
+    // Initialize FFmpeg with timeout
+    const ffmpeg = await Promise.race([
+      getFFmpeg(),
+      timeoutPromise,
+    ]);
+    
+    if (timeoutId) clearTimeout(timeoutId);
     if (onProgress) onProgress(20);
 
     // Get video metadata to determine optimal compression settings
@@ -811,8 +898,8 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
     // Build FFmpeg command
     // -i: input file
     // -c:v libx264: use H.264 codec (MP4 compatible)
-    // -preset medium: balance between speed and compression
-    // -crf 23: quality setting (lower = better quality, 18-28 is good range)
+    // -preset fast: prioritize speed over compression (much faster than medium)
+    // -crf 24: quality setting (slightly higher = faster encoding, still good quality)
     // -vf scale: resize if needed
     // -c:a aac: audio codec for MP4
     // -b:a 128k: audio bitrate
@@ -820,8 +907,8 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
     const args = [
       '-i', inputFileName,
       '-c:v', 'libx264',
-      '-preset', 'medium',
-      '-crf', '23',
+      '-preset', 'fast', // Changed from 'medium' to 'fast' for 2-3x faster compression
+      '-crf', '24', // Changed from 23 to 24 for slightly faster encoding
       ...(needsResize ? ['-vf', `scale=${maxWidth}:${targetHeight}`] : []),
       '-c:a', 'aac',
       '-b:a', '128k',
@@ -831,23 +918,40 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
       outputFileName,
     ];
 
-    // Monitor progress
+    // Monitor progress and ensure wake lock stays active
     ffmpeg.on('progress', ({ progress }) => {
       if (onProgress) {
         // Progress from 40% to 90% (FFmpeg processing)
         const ffmpegProgress = 40 + (progress * 0.5);
         onProgress(ffmpegProgress);
       }
+      
+      // Reacquire wake lock if it was released (e.g., screen locked)
+      if (!wakeLock && !isResolved && 'wakeLock' in navigator) {
+        requestWakeLock().catch((err) => {
+          console.warn('[Video Compression] Failed to reacquire wake lock during progress:', err);
+        });
+      }
     });
 
     if (onProgress) onProgress(45);
 
-    // Execute FFmpeg command
-    await ffmpeg.exec(args);
+    // Execute FFmpeg command with timeout
+    await Promise.race([
+      ffmpeg.exec(args),
+      timeoutPromise,
+    ]);
+    
+    if (timeoutId) clearTimeout(timeoutId);
     if (onProgress) onProgress(90);
 
-    // Read output file
-    const data = await ffmpeg.readFile(outputFileName);
+    // Read output file with timeout
+    const data = await Promise.race([
+      ffmpeg.readFile(outputFileName),
+      timeoutPromise,
+    ]);
+    
+    if (timeoutId) clearTimeout(timeoutId);
     if (onProgress) onProgress(95);
 
     // Clean up
@@ -877,9 +981,27 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
       return file;
     }
   } catch (error) {
+    if (timeoutId) clearTimeout(timeoutId);
+    isResolved = true;
     console.warn('[Video Compression] FFmpeg compression failed, using original:', error);
     if (onProgress) onProgress(100);
     return file; // Fallback to original on error
+  } finally {
+    // Clean up event listeners
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    
+    if (timeoutId) clearTimeout(timeoutId);
+    isResolved = true;
+    // Release wake lock when compression is done
+    if (wakeLock) {
+      try {
+        await wakeLock.release();
+        console.log('[Video Compression] 🧹 Wake lock released');
+      } catch (err) {
+        console.warn('[Video Compression] Failed to release wake lock:', err);
+      }
+      wakeLock = null;
+    }
   }
 }
 
@@ -906,15 +1028,20 @@ async function uploadToAllInkl(
     mimeType = mimeType.split(';')[0];
   }
   
-  // Use smaller chunks for better reliability, especially for large files
-  // Smaller chunks reduce timeout risk and improve progress tracking
-  // For files > 50MB, use 3MB chunks; for smaller files, use 5MB chunks
-  const chunkSize = file.size > 50 * 1024 * 1024 
-    ? 3 * 1024 * 1024  // 3MB chunks for large files (>50MB)
-    : 5 * 1024 * 1024; // 5MB chunks for smaller files
+  // Optimized chunk sizes for speed: larger chunks = fewer requests = faster uploads
+  // For files > 100MB, use 10MB chunks; for files > 50MB, use 8MB chunks; otherwise 5MB chunks
+  const chunkSize = file.size > 100 * 1024 * 1024 
+    ? 10 * 1024 * 1024  // 10MB chunks for very large files (>100MB) - faster
+    : file.size > 50 * 1024 * 1024
+    ? 8 * 1024 * 1024   // 8MB chunks for large files (>50MB) - faster
+    : 5 * 1024 * 1024;  // 5MB chunks for smaller files
   const totalChunks = Math.ceil(file.size / chunkSize);
   const useChunked = totalChunks > 1;
   const uploadSessionId = useChunked ? randomId() : null;
+  
+  // Support for resume: if uploadedChunks is provided, only upload missing chunks
+  // This will be passed from the caller if retrying a failed upload
+  const uploadedChunksParam = (onProgress as any)?.uploadedChunks as number[] | undefined;
   
   // Helper function to wait for network to come back online
   const waitForNetwork = (): Promise<void> => {
@@ -940,7 +1067,7 @@ async function uploadToAllInkl(
   };
 
   // Helper function to retry with exponential backoff and network detection
-  const retryWithBackoff = async (fn: () => Promise<string>): Promise<string> => {
+  const retryWithBackoff = async (fn: () => Promise<string>, logger?: UploadLogger): Promise<string> => {
     try {
       return await fn();
     } catch (error: any) {
@@ -956,6 +1083,12 @@ async function uploadToAllInkl(
         !navigator.onLine; // Browser is offline
       
       if (isNetworkError && retryCount < MAX_RETRIES) {
+        // Log retry attempt
+        if (logger) {
+          await logger.incrementRetry().catch(() => {});
+          await logger.updateStatus('uploading', 0, error).catch(() => {});
+        }
+        
         // If offline, wait for network to come back
         if (!navigator.onLine) {
           console.log('[Upload] Internet offline, waiting for connection to resume...');
@@ -975,9 +1108,49 @@ async function uploadToAllInkl(
     // Chunked upload for large files with retry mechanism
     return retryWithBackoff(async () => {
       // Setup keep-alive for background uploads (once for entire upload)
+      // This MUST be called before any uploads to prevent tab switching from aborting
       const cleanupKeepAlive = setupUploadKeepAlive();
       
+      // Also request wake lock immediately to prevent device from sleeping
+      let wakeLock: WakeLockSentinel | null = null;
+      if ('wakeLock' in navigator) {
+        try {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+          console.log('[Upload] ✅ Wake lock acquired for chunked upload');
+          
+          // Handle wake lock release (e.g., when display turns off)
+          wakeLock.addEventListener('release', () => {
+            console.log('[Upload] ⚠️ Wake lock released during chunked upload, attempting to reacquire...');
+            // Try to reacquire after a short delay
+            setTimeout(async () => {
+              if ('wakeLock' in navigator) {
+                try {
+                  wakeLock = await (navigator as any).wakeLock.request('screen');
+                  console.log('[Upload] ✅ Wake lock reacquired');
+                } catch (err: any) {
+                  console.warn('[Upload] ⚠️ Failed to reacquire wake lock:', err.message || err);
+                  // Continue without wake lock - upload should still work
+                }
+              }
+            }, 1000);
+          });
+        } catch (err: any) {
+          console.warn('[Upload] ⚠️ Wake lock not available:', err.message || err);
+          console.log('[Upload] ℹ️ Upload will continue without wake lock');
+        }
+      }
+      
       try {
+      // Check if we should use background upload (tab is hidden)
+      // Note: We use XMLHttpRequest which works in background, so Service Worker is optional
+      const useBackgroundUpload = document.visibilityState === 'hidden' && 'serviceWorker' in navigator;
+      if (useBackgroundUpload) {
+        console.log('[Upload] ℹ️ Tab is hidden, using background upload strategy');
+      }
+      
+      // Track uploaded chunks for resume capability
+      const uploadedChunks: number[] = [];
+      
       for (let i = 0; i < totalChunks; i++) {
         const start = i * chunkSize;
         const end = Math.min(start + chunkSize, file.size);
@@ -1001,6 +1174,32 @@ async function uploadToAllInkl(
         if (sectorId) {
           headers['X-Sector-Id'] = sectorId;
         }
+        
+        // If using background upload and tab is hidden, queue in service worker
+        if (useBackgroundUpload && document.visibilityState === 'hidden') {
+          try {
+            const chunkArrayBuffer = await chunk.arrayBuffer();
+            await queueBackgroundUpload({
+              url: `${ALLINKL_API_URL}/upload.php`,
+              method: 'POST',
+              headers: headers,
+              fileData: chunkArrayBuffer,
+              chunkIndex: i,
+              totalChunks: totalChunks,
+              uploadSessionId: uploadSessionId,
+            });
+            uploadedChunks.push(i);
+            // Update progress
+            if (onProgress) {
+              const chunkProgress = ((i + 1) / totalChunks) * 100;
+              onProgress(chunkProgress);
+            }
+            continue; // Skip normal upload for this chunk
+          } catch (bgError) {
+            console.warn('[Upload] Background upload failed for chunk, falling back to normal upload:', bgError);
+            // Fall through to normal upload
+          }
+        }
 
           // Upload chunk with timeout
           // Use longer timeout for larger files (more chunks = more time needed)
@@ -1017,14 +1216,122 @@ async function uploadToAllInkl(
               await waitForNetwork();
             }
 
-          const response = await fetch(`${ALLINKL_API_URL}/upload.php`, {
-            method: 'POST',
-            body: formData,
-            headers: headers,
-            signal: controller.signal,
-              // keepalive helps keep request alive when tab is switched
-              // Note: Some browsers may still throttle, but this improves chances
-              keepalive: true,
+          // Use XMLHttpRequest for chunked uploads - MUCH better background support than fetch
+          // XMLHttpRequest continues in background even when tab is switched
+          // CRITICAL: Don't use AbortController for chunked uploads - it causes issues with background
+          const response = await new Promise<Response>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            let isResolved = false;
+            
+            // CRITICAL: Disable timeout completely for chunked uploads
+            // Browsers pause uploads when tab is hidden, so we can't use aggressive timeouts
+            // Instead, we rely on the server timeout and network error handling
+            let timeoutId: NodeJS.Timeout | null = null;
+            
+            // Only set a very long timeout (30 minutes) as a safety net
+            // This prevents truly stuck uploads but allows background uploads
+            timeoutId = setTimeout(() => {
+              if (!isResolved) {
+                console.error('[Upload] Chunk upload timeout after 30 minutes');
+                xhr.abort();
+                isResolved = true;
+                reject(new Error('Upload timeout: Request took too long (30+ minutes)'));
+              }
+            }, 30 * 60 * 1000); // 30 minutes - very long timeout
+            
+            // Monitor visibility - warn but don't abort (uploads continue in background)
+            const handleVisibilityChange = () => {
+              if (document.visibilityState === 'hidden' && !isResolved) {
+                console.log('[Upload] ℹ️ Tab wurde gewechselt während Chunk-Upload. Upload läuft im Hintergrund weiter.');
+              } else if (document.visibilityState === 'visible' && !isResolved) {
+                console.log('[Upload] ✅ Tab wieder sichtbar. Upload läuft weiter.');
+              }
+            };
+            
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+            
+            xhr.upload.addEventListener('progress', (e) => {
+              if (e.lengthComputable && onProgress) {
+                // Calculate progress for this chunk
+                const chunkProgress = ((i + 1) / totalChunks) * 100;
+                // Progress updates work even when tab is hidden
+                if (document.visibilityState === 'hidden') {
+                  // Log progress updates in background for debugging
+                  if (chunkProgress % 10 === 0 || chunkProgress === 100) {
+                    console.log(`[Upload] 📊 Background progress: Chunk ${i + 1}/${totalChunks} (${Math.round(chunkProgress)}%)`);
+                  }
+                }
+                onProgress(chunkProgress);
+              }
+            });
+            
+            xhr.addEventListener('load', () => {
+              clearTimeout(timeoutId);
+              document.removeEventListener('visibilitychange', handleVisibilityChange);
+              if (isResolved) return;
+              isResolved = true;
+              
+              if (xhr.status === 200) {
+                try {
+                  const result = JSON.parse(xhr.responseText);
+                  // Create a Response-like object
+                  resolve({
+                    ok: true,
+                    status: 200,
+                    json: async () => result,
+                  } as Response);
+                } catch (error) {
+                  reject(new Error('Failed to parse response'));
+                }
+              } else {
+                let errorMsg = `Upload failed: ${xhr.statusText} (${xhr.status})`;
+                try {
+                  const errorResponse = JSON.parse(xhr.responseText);
+                  if (errorResponse.error) {
+                    errorMsg = errorResponse.error;
+                  }
+                } catch (e) {
+                  // If response is not JSON, use status text
+                }
+                reject(new Error(errorMsg));
+              }
+            });
+            
+            xhr.addEventListener('error', () => {
+              clearTimeout(timeoutId);
+              document.removeEventListener('visibilitychange', handleVisibilityChange);
+              if (isResolved) return;
+              isResolved = true;
+              const errorMsg = !navigator.onLine 
+                ? 'Upload failed: Network connection lost'
+                : 'Upload failed: Network error';
+              reject(new Error(errorMsg));
+            });
+            
+            xhr.addEventListener('abort', () => {
+              clearTimeout(timeoutId);
+              document.removeEventListener('visibilitychange', handleVisibilityChange);
+              if (isResolved) return;
+              isResolved = true;
+              // Don't abort uploads just because tab is hidden - only abort on real errors
+              const errorMsg = !navigator.onLine
+                ? 'Upload aborted: Network connection lost'
+                : 'Upload aborted: Request was cancelled';
+              reject(new Error(errorMsg));
+            });
+            
+            xhr.open('POST', `${ALLINKL_API_URL}/upload.php`);
+            
+            // Set headers
+            Object.keys(headers).forEach(key => {
+              xhr.setRequestHeader(key, headers[key]);
+            });
+            
+            // CRITICAL: Disable timeout completely to allow background uploads
+            // Browser will pause uploads when tab is hidden, but we don't want to abort
+            xhr.timeout = 0; // No timeout - allows uploads to continue when tab is hidden
+            
+            xhr.send(formData);
           });
 
           clearTimeout(timeoutId);
@@ -1042,7 +1349,9 @@ async function uploadToAllInkl(
 
           const result = await response.json();
 
-          // Update progress
+          // Update progress - calculate based on actual chunk upload progress
+          // Each chunk contributes equally to total progress
+          uploadedChunks.push(i);
           if (onProgress) {
             const chunkProgress = ((i + 1) / totalChunks) * 100;
             onProgress(chunkProgress);
@@ -1050,11 +1359,17 @@ async function uploadToAllInkl(
 
           // If this is the last chunk, return the URL
           if (i === totalChunks - 1 && result.url) {
-              cleanupKeepAlive();
+            if (wakeLock) {
+              wakeLock.release().catch(() => {});
+            }
+            cleanupKeepAlive();
             return result.url;
           }
         } catch (error: any) {
           clearTimeout(timeoutId);
+          if (wakeLock) {
+            wakeLock.release().catch(() => {});
+          }
           if (error.name === 'AbortError') {
               // Check if abort was due to network issue
               if (!navigator.onLine) {
@@ -1069,9 +1384,15 @@ async function uploadToAllInkl(
         }
       }
 
+      if (wakeLock) {
+        wakeLock.release().catch(() => {});
+      }
         cleanupKeepAlive();
       throw new Error('Upload completed but no URL returned');
       } catch (error) {
+        if (wakeLock) {
+          wakeLock.release().catch(() => {});
+        }
         cleanupKeepAlive();
         throw error;
       }
@@ -1094,6 +1415,35 @@ async function uploadToAllInkl(
 
       // Setup keep-alive for background uploads
       const cleanupKeepAlive = setupUploadKeepAlive();
+      
+      // Also request wake lock immediately to prevent device from sleeping
+      let wakeLock: WakeLockSentinel | null = null;
+      if ('wakeLock' in navigator) {
+        try {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+          console.log('[Upload] ✅ Wake lock acquired for single file upload');
+          
+          // Handle wake lock release (e.g., when display turns off)
+          wakeLock.addEventListener('release', () => {
+            console.log('[Upload] ⚠️ Wake lock released during upload, attempting to reacquire...');
+            // Try to reacquire after a short delay
+            setTimeout(async () => {
+              if ('wakeLock' in navigator) {
+                try {
+                  wakeLock = await (navigator as any).wakeLock.request('screen');
+                  console.log('[Upload] ✅ Wake lock reacquired');
+                } catch (err: any) {
+                  console.warn('[Upload] ⚠️ Failed to reacquire wake lock:', err.message || err);
+                  // Continue without wake lock - upload should still work
+                }
+              }
+            }, 1000);
+          });
+        } catch (err: any) {
+          console.warn('[Upload] ⚠️ Wake lock not available:', err.message || err);
+          console.log('[Upload] ℹ️ Upload will continue without wake lock');
+        }
+      }
       
       // Check if network is available before attempting upload
       if (!navigator.onLine) {
@@ -1131,27 +1481,54 @@ async function uploadToAllInkl(
         window.addEventListener('offline', handleOffline);
         window.addEventListener('online', handleOnline);
 
-        // Timeout handling
-        const timeoutId = setTimeout(() => {
+        // CRITICAL: Use very long timeout (30 minutes) to allow background uploads
+        // Browsers pause uploads when tab is hidden, so we need a very long timeout
+        let timeoutId: NodeJS.Timeout | null = null;
+        
+        // Monitor visibility - inform but don't abort (uploads continue in background)
+        const handleVisibilityChange = () => {
+          if (document.visibilityState === 'hidden' && !isResolved) {
+            console.log('[Upload] ℹ️ Tab wurde gewechselt während Upload. Upload läuft im Hintergrund weiter.');
+          } else if (document.visibilityState === 'visible' && !isResolved) {
+            console.log('[Upload] ✅ Tab wieder sichtbar. Upload läuft weiter.');
+          }
+        };
+        
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        // Set a very long timeout (30 minutes) as safety net only
+        timeoutId = setTimeout(() => {
           if (!isResolved) {
+            console.error('[Upload] Upload timeout after 30 minutes');
             xhr.abort();
             isResolved = true;
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             cleanupKeepAlive();
             window.removeEventListener('offline', handleOffline);
             window.removeEventListener('online', handleOnline);
-            reject(new Error('Upload timeout: Request took too long'));
+            reject(new Error('Upload timeout: Request took too long (30+ minutes)'));
           }
-        }, UPLOAD_TIMEOUT);
+        }, 30 * 60 * 1000); // 30 minutes - very long timeout
 
         xhr.upload.addEventListener('progress', (e) => {
           if (e.lengthComputable && onProgress) {
             const progress = (e.loaded / e.total) * 100;
+            // Progress updates work even when tab is hidden
+            if (document.visibilityState === 'hidden') {
+              // Log progress updates in background for debugging
+              if (progress % 10 === 0 || progress === 100) {
+                console.log(`[Upload] 📊 Background progress: ${Math.round(progress)}%`);
+              }
+            }
             onProgress(progress);
           }
         });
 
         xhr.addEventListener('load', () => {
           clearTimeout(timeoutId);
+          if (wakeLock) {
+            wakeLock.release().catch(() => {});
+          }
           cleanupKeepAlive();
           window.removeEventListener('offline', handleOffline);
           window.removeEventListener('online', handleOnline);
@@ -1191,12 +1568,18 @@ async function uploadToAllInkl(
         });
 
         xhr.addEventListener('error', () => {
+          if (wakeLock) {
+            wakeLock.release().catch(() => {});
+          }
+          if (timeoutId) clearTimeout(timeoutId);
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
           cleanupKeepAlive();
-          clearTimeout(timeoutId);
           window.removeEventListener('offline', handleOffline);
           window.removeEventListener('online', handleOnline);
           if (isResolved) return;
           isResolved = true;
+          
+          // Don't fail uploads just because tab is hidden - only fail on real network errors
           const errorMsg = !navigator.onLine 
             ? 'Upload failed: Network connection lost'
             : 'Upload failed: Network error';
@@ -1204,15 +1587,21 @@ async function uploadToAllInkl(
         });
 
         xhr.addEventListener('abort', () => {
+          if (wakeLock) {
+            wakeLock.release().catch(() => {});
+          }
+          if (timeoutId) clearTimeout(timeoutId);
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
           cleanupKeepAlive();
-          clearTimeout(timeoutId);
           window.removeEventListener('offline', handleOffline);
           window.removeEventListener('online', handleOnline);
           if (isResolved) return;
           isResolved = true;
+          
+          // Don't abort uploads just because tab is hidden - only abort on real errors
           const errorMsg = !navigator.onLine
             ? 'Upload aborted: Network connection lost'
-            : 'Upload aborted';
+            : 'Upload aborted: Request was cancelled';
           reject(new Error(errorMsg));
         });
 
@@ -1265,29 +1654,36 @@ export async function uploadBetaVideo(
   
   // Process video: compress large files for better performance
   // Strategy: 
-  // - Small videos (< 20MB): keep original format (MP4, MOV, etc.) for quality
-  // - Large videos (>= 20MB): compress using FFmpeg while preserving original format (MP4, MOV, etc.)
+  // - Small videos (< 50MB): keep original format (MP4, MOV, etc.) for quality and speed
+  // - Large videos (>= 50MB): compress using FFmpeg while preserving original format (MP4, MOV, etc.)
   // FFmpeg allows compression without format conversion
+  // Increased threshold to 50MB to skip compression for most videos and speed up uploads
   let videoToUpload = file;
-  const compressionThreshold = 20 * 1024 * 1024; // 20MB
+  const compressionThreshold = 50 * 1024 * 1024; // 50MB (increased from 20MB for speed)
   const shouldCompress = file.size >= compressionThreshold;
   
   if (shouldCompress) {
     try {
-      await logger.updateStatus('compressing', 5).catch(() => {});
+      await logger.updateStatus('compressing', 5).catch((err) => {
+        console.warn('[UploadLogger] Failed to update status to compressing:', err);
+      });
       if (onProgress) onProgress(5);
       
       console.log('[Video Upload] Compressing large video (>20MB) for better performance:', file.type, file.name);
       // FFmpeg compression preserves original format (MP4, MOV, etc.)
       videoToUpload = await compressVideo(file, (progress) => {
         const compressionProgress = 5 + (progress * 0.45); // 5-50% for compression
-        logger.updateStatus('compressing', compressionProgress).catch(() => {});
+        logger.updateStatus('compressing', compressionProgress).catch((err) => {
+          console.warn('[UploadLogger] Failed to update compression progress:', err);
+        });
         if (onProgress) {
           onProgress(compressionProgress);
         }
       });
       
-      await logger.updateStatus('compressing', 50).catch(() => {});
+      await logger.updateStatus('compressing', 50).catch((err) => {
+        console.warn('[UploadLogger] Failed to update status after compression:', err);
+      });
       if (onProgress) onProgress(50);
     } catch (error: any) {
       console.warn('Video processing (compression) failed, using original:', error);
@@ -1319,7 +1715,9 @@ export async function uploadBetaVideo(
       const uploadProgress = onProgress 
         ? (progress: number) => {
             const totalProgress = uploadStartProgress + (progress * (shouldCompress ? 0.5 : 1.0));
-            logger.updateStatus('uploading', totalProgress).catch(() => {});
+            logger.updateStatus('uploading', totalProgress).catch((err) => {
+              console.warn('[UploadLogger] Failed to update upload progress:', err);
+            });
             onProgress(totalProgress);
           }
         : undefined;

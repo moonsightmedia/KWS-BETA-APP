@@ -62,10 +62,23 @@ if (typeof window !== 'undefined') {
 
 createRoot(document.getElementById("root")!).render(<App />);
 
-// Register service worker in production
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+// Register service worker (both dev and prod for background uploads)
+if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+    navigator.serviceWorker.register('/service-worker.js')
+      .then((registration) => {
+        console.log('[Main] Service Worker registered:', registration.scope);
+        
+        // Request persistent storage for background uploads
+        if ('storage' in navigator && 'persist' in navigator.storage) {
+          navigator.storage.persist().then((granted) => {
+            console.log('[Main] Persistent storage granted:', granted);
+          });
+        }
+      })
+      .catch((err) => {
+        console.error('[Main] Service Worker registration failed:', err);
+      });
   });
   
   // On page reload/refresh, clear all caches and refresh service worker

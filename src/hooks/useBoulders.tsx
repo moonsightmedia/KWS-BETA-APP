@@ -28,25 +28,33 @@ export const useBoulders = () => {
       if (import.meta.env.DEV) {
         console.log('[useBoulders] Fetching boulders from Supabase...');
       }
-      const { data, error } = await supabase
-        .from('boulders')
-        .select('*')
-        .order('created_at', { ascending: false });
+      try {
+        const { data, error } = await supabase
+          .from('boulders')
+          .select('*')
+          .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('[useBoulders] Error fetching boulders:', error);
-        throw error;
-      }
-      
-      if (import.meta.env.DEV) {
-        console.log('[useBoulders] Fetched boulders:', data?.length || 0, 'boulders');
-        if (data && data.length > 0) {
-          console.log('[useBoulders] Sample boulder:', data[0]);
+        if (error) {
+          console.error('[useBoulders] Error fetching boulders:', error);
+          throw error;
         }
+        
+        if (import.meta.env.DEV) {
+          console.log('[useBoulders] Fetched boulders:', data?.length || 0, 'boulders');
+          if (data && data.length > 0) {
+            console.log('[useBoulders] Sample boulder:', data[0]);
+          }
+        }
+        
+        return data as Boulder[];
+      } catch (error: any) {
+        console.error('[useBoulders] Exception in queryFn:', error);
+        // Return empty array on error to prevent infinite loading
+        return [] as Boulder[];
       }
-      
-      return data as Boulder[];
     },
+    retry: 1, // Only retry once
+    retryDelay: 1000, // Wait 1 second before retry
     // Use default query options from QueryClient (staleTime: 30s, refetchOnMount: false)
   });
 };
@@ -55,19 +63,30 @@ export const useBoulders = () => {
  * Hook der Boulders mit Sektor-Informationen zurückgibt (transformiert zu Frontend Types)
  */
 export const useBouldersWithSectors = () => {
-  const { data: boulders, isLoading: isLoadingBoulders, error } = useBoulders();
-  const { data: sectors, isLoading: isLoadingSectors } = useSectors();
+  const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBoulders();
+  const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectors();
 
   // Only log in development to reduce console noise
   if (import.meta.env.DEV) {
     console.log('[useBouldersWithSectors] Raw boulders:', boulders?.length || 0, 'sectors:', sectors?.length || 0, 'isLoadingBoulders:', isLoadingBoulders, 'isLoadingSectors:', isLoadingSectors);
+    if (bouldersError) {
+      console.error('[useBouldersWithSectors] Boulders error:', bouldersError);
+    }
+    if (sectorsError) {
+      console.error('[useBouldersWithSectors] Sectors error:', sectorsError);
+    }
   }
+  
+  // If there's an error, don't wait forever - use empty arrays
+  const effectiveBoulders = bouldersError ? [] : (boulders || []);
+  const effectiveSectors = sectorsError ? [] : (sectors || []);
 
   // Only transform if we have both boulders and sectors (or at least boulders)
-  const transformedBoulders: FrontendBoulder[] | undefined = boulders && boulders.length > 0
-    ? boulders.map(b => {
+  // If we have errors, return empty array instead of undefined to prevent infinite loading
+  const transformedBoulders: FrontendBoulder[] | undefined = effectiveBoulders && effectiveBoulders.length > 0
+    ? effectiveBoulders.map(b => {
         try {
-          return transformBoulder(b, sectors);
+          return transformBoulder(b, effectiveSectors);
         } catch (error) {
           console.error('[useBouldersWithSectors] Error transforming boulder:', b.id, error);
           // Return a fallback boulder
@@ -84,7 +103,7 @@ export const useBouldersWithSectors = () => {
           };
         }
       })
-    : undefined;
+    : (bouldersError || sectorsError ? [] : undefined); // Return empty array on error, undefined if still loading
 
   // Only log in development to reduce console noise
   if (import.meta.env.DEV) {
@@ -94,11 +113,16 @@ export const useBouldersWithSectors = () => {
     }
   }
 
+  // If there are errors, don't show loading state forever
+  const hasError = bouldersError || sectorsError;
+  const isLoading = hasError ? false : (isLoadingBoulders || isLoadingSectors);
+  
   return {
     data: transformedBoulders,
-    isLoading: isLoadingBoulders || isLoadingSectors,
-    error,
-    rawBoulders: boulders,
+    isLoading: isLoading,
+    error: bouldersError || sectorsError,
+    rawBoulders: effectiveBoulders,
+    rawSectors: effectiveSectors,
   };
 };
 

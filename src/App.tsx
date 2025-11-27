@@ -18,6 +18,7 @@ import Setter from "./pages/Setter";
 import Guest from "./pages/Guest";
 import NotFound from "./pages/NotFound";
 import { Sidebar } from "@/components/Sidebar";
+import { startStaleUploadCleanup } from "@/utils/uploadTimeout";
 
 // Configure QueryClient for optimal caching and prefetching
 const queryClient = new QueryClient({
@@ -278,6 +279,12 @@ const Root = () => {
   
   // Don't restore route in Root - let PullToRefreshHandler handle it
   // This prevents conflicts with normal navigation
+  
+  // Start stale upload cleanup (runs every 5 minutes)
+  useEffect(() => {
+    const cleanup = startStaleUploadCleanup(5);
+    return cleanup;
+  }, []);
   
   return (
     <SidebarProvider>

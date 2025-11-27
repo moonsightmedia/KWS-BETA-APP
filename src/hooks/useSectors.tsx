@@ -60,7 +60,7 @@ export const useSectors = () => {
         throw new Error('Unbekannter Fehler beim Laden der Sektoren');
       }
     },
-    retry: 2, // Retry up to 2 times on failure
+    retry: 1, // Only retry once to prevent infinite loading
     retryDelay: 1000, // Wait 1 second between retries
     // Use default query options from QueryClient (staleTime: 30s, refetchOnMount: false)
   });

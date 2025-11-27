@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Search, PlusCircle, Edit3, Calendar, X, Sparkles, ChevronLeft, ChevronRight, Check, Video, Upload, Plus } from 'lucide-react';
 import { MaterialIcon } from '@/components/MaterialIcon';
 import { useMemo as useMemoReact, useRef, useState } from 'react';
@@ -428,6 +429,7 @@ const Setter = () => {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [selectedBoulder, setSelectedBoulder] = useState<Boulder | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedBouldersForDelete, setSelectedBouldersForDelete] = useState<Set<string>>(new Set());
   const { data: colorsDb } = useColors();
   const COLORS = useMemo(() => (colorsDb && colorsDb.length>0 ? colorsDb.map(c=>c.name) : DEFAULT_COLORS), [colorsDb]);
   const COLOR_HEX: Record<string, string> = useMemo(() => {
@@ -1464,44 +1466,158 @@ const Setter = () => {
               </div>
 
               {!editing ? (
-                <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-                  {filteredBoulders.map(b => {
-                    const thumbnailUrl = getThumbnailUrl(b);
-                    return (
-                    <button key={b.id} className="text-left" onClick={()=>startEdit(b)}>
-                      <Card className="hover:bg-muted/50">
-                        <CardContent className="p-4 flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            {thumbnailUrl && (
-                              <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
-                                <img 
-                                  src={thumbnailUrl} 
-                                  alt={b.name}
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                  decoding="async"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                  }}
-                                />
+                <>
+                  {/* Bulk Delete Button */}
+                  <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                    {selectedBouldersForDelete.size > 0 ? (
+                      <div className="flex-1 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                        <span className="text-sm font-medium text-center sm:text-left">
+                          {selectedBouldersForDelete.size} {selectedBouldersForDelete.size === 1 ? 'Boulder' : 'Boulder'} ausgewählt
+                        </span>
+                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedBouldersForDelete(new Set())}
+                            className="w-full sm:w-auto"
+                          >
+                            Abbrechen
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            disabled={deleteBoulder.isPending}
+                            onClick={async () => {
+                              const count = selectedBouldersForDelete.size;
+                              if (!confirm(`Wirklich ${count} ${count === 1 ? 'Boulder' : 'Boulder'} löschen? Die Beta-Videos werden ebenfalls gelöscht.`)) {
+                                return;
+                              }
+                              
+                              try {
+                                const ids = Array.from(selectedBouldersForDelete);
+                                let successCount = 0;
+                                let failCount = 0;
+                                
+                                for (const id of ids) {
+                                  try {
+                                    await deleteBoulder.mutateAsync(id);
+                                    successCount++;
+                                  } catch (error) {
+                                    console.error(`[Setter] Failed to delete boulder ${id}:`, error);
+                                    failCount++;
+                                  }
+                                }
+                                
+                                if (successCount > 0) {
+                                  toast.success(`${successCount} ${successCount === 1 ? 'Boulder' : 'Boulder'} erfolgreich gelöscht`);
+                                }
+                                if (failCount > 0) {
+                                  toast.error(`${failCount} ${failCount === 1 ? 'Boulder' : 'Boulder'} konnten nicht gelöscht werden`);
+                                }
+                                
+                                setSelectedBouldersForDelete(new Set());
+                              } catch (error) {
+                                console.error('[Setter] Bulk delete error:', error);
+                                toast.error('Fehler beim Löschen der Boulder');
+                              }
+                            }}
+                            className="w-full sm:w-auto"
+                          >
+                            {deleteBoulder.isPending ? 'Lösche...' : `Löschen (${selectedBouldersForDelete.size})`}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const allIds = new Set(filteredBoulders.map(b => b.id));
+                          setSelectedBouldersForDelete(allIds);
+                        }}
+                        className="w-full sm:w-auto"
+                      >
+                        Alle auswählen
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredBoulders.map(b => {
+                      const thumbnailUrl = getThumbnailUrl(b);
+                      const isSelected = selectedBouldersForDelete.has(b.id);
+                      return (
+                      <div key={b.id} className="relative">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={(checked) => {
+                            setSelectedBouldersForDelete(prev => {
+                              const next = new Set(prev);
+                              if (checked) {
+                                next.add(b.id);
+                              } else {
+                                next.delete(b.id);
+                              }
+                              return next;
+                            });
+                          }}
+                          className="absolute top-2 left-2 z-10 bg-background/80 backdrop-blur-sm w-5 h-5 sm:w-4 sm:h-4"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <button 
+                          className="text-left w-full touch-manipulation" 
+                          onClick={(e) => {
+                            // On mobile, clicking the card should toggle selection if checkbox is visible
+                            // On desktop, only open edit if not selected
+                            if (isSelected) {
+                              e.preventDefault();
+                              setSelectedBouldersForDelete(prev => {
+                                const next = new Set(prev);
+                                next.delete(b.id);
+                                return next;
+                              });
+                            } else {
+                              startEdit(b);
+                            }
+                          }}
+                        >
+                          <Card className={`hover:bg-muted/50 ${isSelected ? 'ring-2 ring-primary' : ''}`}>
+                            <CardContent className="p-4 flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                {thumbnailUrl && (
+                                  <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
+                                    <img 
+                                      src={thumbnailUrl} 
+                                      alt={b.name}
+                                      className="w-full h-full object-cover"
+                                      loading="lazy"
+                                      decoding="async"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                                <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold flex-shrink-0 ${TEXT_ON_COLOR[b.color] || 'text-white'}`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
+                                  {formatDifficulty(b.difficulty)}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium text-base truncate">{b.name}</div>
+                                  <div className="text-xs text-muted-foreground truncate">
+                                    {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
+                                  </div>
+                                </div>
                               </div>
-                            )}
-                            <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold flex-shrink-0 ${TEXT_ON_COLOR[b.color] || 'text-white'}`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
-                              {formatDifficulty(b.difficulty)}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-base truncate">{b.name}</div>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
-                              </div>
-                            </div>
-                          </div>
-                          <span className="text-primary text-sm flex-shrink-0">Bearbeiten</span>
-                        </CardContent>
-                      </Card>
-                    </button>
-                  )})}
-                </div>
+                              {!isSelected && (
+                                <span className="text-primary text-sm flex-shrink-0">Bearbeiten</span>
+                              )}
+                            </CardContent>
+                          </Card>
+                        </button>
+                      </div>
+                    )})}
+                  </div>
+                </>
               ) : (
               <Card>
                 <CardHeader>

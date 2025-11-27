@@ -1,4 +1,4 @@
-import { LayoutDashboard, List, Map, ChevronRight, ChevronLeft, User, LogOut, Settings, HelpCircle, Shield } from 'lucide-react';
+import { LayoutDashboard, List, Map, ChevronRight, ChevronLeft, User, LogOut, Settings, HelpCircle, Shield, Upload } from 'lucide-react';
 import { MaterialIcon } from '@/components/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -10,6 +10,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useHasRole } from '@/hooks/useHasRole';
 import { useSidebar } from './SidebarContext';
+import { useUploadTracker } from '@/hooks/useUploadTracker';
+import { UploadOverview } from '@/components/UploadOverview';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,11 +80,13 @@ const clearStoredRoles = (): void => {
 export const Sidebar = ({ className }: SidebarProps) => {
   const { hideMobileNav } = useSidebar();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showUploadOverview, setShowUploadOverview] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   const { hasRole: isSetter, loading: setterLoading } = useHasRole('setter');
+  const { hasActiveUploads, activeUploads } = useUploadTracker();
 
   // Stable role state - initialized from sessionStorage immediately (even before user loads)
   // This ensures roles persist across page refreshes
@@ -158,49 +162,54 @@ export const Sidebar = ({ className }: SidebarProps) => {
       }
     }
 
-    // Update stable roles when hooks finish loading (only once per user)
-    // CRITICAL: Only update if we haven't initialized yet for this user
-    // IMPORTANT: Don't overwrite stored true values with false during loading
-    // Only update if hooks return true, or if we haven't initialized at all
-    if (currentUserId && !adminLoading && !setterLoading && !rolesInitializedRef.current) {
+    // Update stable roles when hooks finish loading
+    // CRITICAL: Always trust the hooks when they finish loading - they are the source of truth
+    // IMPORTANT: Update roles whenever hooks change, not just once, to handle race conditions
+    if (currentUserId && !adminLoading && !setterLoading) {
       // Admin users also have setter access
       const effectiveSetter = isSetter || isAdmin;
 
-      console.log('[Sidebar] Hooks finished loading, updating roles:', { 
-        isAdmin, 
-        isSetter, 
-        effectiveSetter,
-        currentStableAdmin: stableIsAdmin,
-        currentStableSetter: stableIsSetter
-      });
+      // Only update if values have changed to avoid unnecessary re-renders
+      const adminChanged = stableIsAdmin !== isAdmin;
+      const setterChanged = stableIsSetter !== effectiveSetter;
+      
+      if (adminChanged || setterChanged || !rolesInitializedRef.current) {
+        console.log('[Sidebar] Hooks finished loading, updating roles:', { 
+          isAdmin, 
+          isSetter, 
+          effectiveSetter,
+          currentStableAdmin: stableIsAdmin,
+          currentStableSetter: stableIsSetter,
+          willSetAdmin: isAdmin,
+          willSetSetter: effectiveSetter,
+          adminChanged,
+          setterChanged,
+          firstInit: !rolesInitializedRef.current
+        });
 
-      // CRITICAL: Only update if hooks return true, NEVER overwrite stored true with false
-      // This ensures that if we have stored true values, they persist until hooks confirm true
-      if (isAdmin) {
-        // Hook returned true - update
-        setStableIsAdmin(true);
-        setStoredValue(STORAGE_KEY_ADMIN, true);
-      } else if (!stableIsAdmin) {
-        // Hook returned false AND we don't have a stored true value - safe to set false
-        setStableIsAdmin(false);
-        setStoredValue(STORAGE_KEY_ADMIN, false);
+        // Always update based on hook results - hooks are the source of truth
+        // This ensures that if roles change in the database, the UI reflects it immediately
+        console.log('[Sidebar] Setting roles:', { 
+          admin: isAdmin, 
+          setter: effectiveSetter,
+          reason: isAdmin ? 'User is admin' : (isSetter ? 'User is setter' : 'User has no special roles')
+        });
+        
+        setStableIsAdmin(isAdmin);
+        setStoredValue(STORAGE_KEY_ADMIN, isAdmin);
+
+        setStableIsSetter(effectiveSetter);
+        setStoredValue(STORAGE_KEY_SETTER, effectiveSetter);
+
+        setStoredUserId(currentUserId);
+
+        rolesInitializedRef.current = true;
+        
+        console.log('[Sidebar] Roles updated successfully:', { 
+          stableIsAdmin: isAdmin, 
+          stableIsSetter: effectiveSetter 
+        });
       }
-      // If hook is false but stableIsAdmin is true, keep the stored true value
-
-      if (effectiveSetter) {
-        // Hook returned true - update
-        setStableIsSetter(true);
-        setStoredValue(STORAGE_KEY_SETTER, true);
-      } else if (!stableIsSetter) {
-        // Hook returned false AND we don't have a stored true value - safe to set false
-        setStableIsSetter(false);
-        setStoredValue(STORAGE_KEY_SETTER, false);
-      }
-      // If hook is false but stableIsSetter is true, keep the stored true value
-
-      setStoredUserId(currentUserId);
-
-      rolesInitializedRef.current = true;
     }
   }, [user?.id, isAdmin, isSetter, adminLoading, setterLoading, stableIsAdmin, stableIsSetter]);
 
@@ -223,13 +232,18 @@ export const Sidebar = ({ className }: SidebarProps) => {
 
     // Always show Setter/Admin items if user has those roles
     // These values are stable and don't change during navigation
+    console.log('[Sidebar] Computing nav items:', { stableIsSetter, stableIsAdmin });
+    
     if (stableIsSetter) {
+      console.log('[Sidebar] Adding Setter menu item');
       baseItems.push({ icon: 'build', label: 'Setter', path: '/setter', isMaterialIcon: true });
     }
     if (stableIsAdmin) {
+      console.log('[Sidebar] Adding Admin menu item');
       baseItems.push({ icon: Shield, label: 'Admin', path: '/admin' });
     }
 
+    console.log('[Sidebar] Final nav items count:', baseItems.length);
     return baseItems;
   }, [stableIsAdmin, stableIsSetter]); // Only depend on stable values
 
@@ -241,6 +255,38 @@ export const Sidebar = ({ className }: SidebarProps) => {
         isExpanded ? "w-48 items-start" : "w-20 items-center",
         className
       )}>
+        {/* Upload Icon - Before Profile */}
+        <div className={cn("mb-4", isExpanded ? "px-4" : "")}>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setShowUploadOverview(true)}
+                  className="cursor-pointer focus:outline-none relative w-12 h-12 flex items-center justify-center rounded-full hover:bg-primary/10 transition-colors"
+                >
+                  <div className="relative">
+                    <Upload className={cn(
+                      "w-6 h-6 text-primary transition-all",
+                      hasActiveUploads && "animate-pulse"
+                    )} />
+                    {hasActiveUploads && activeUploads.length > 0 && (
+                      <Badge 
+                        variant="destructive" 
+                        className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs"
+                      >
+                        {activeUploads.length > 9 ? '9+' : activeUploads.length}
+                      </Badge>
+                    )}
+                  </div>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>Upload-Übersicht ({activeUploads.length} aktiv)</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+
         {/* Profile Picture with Dropdown */}
         <div className={cn("mb-6", isExpanded ? "px-4" : "")}>
           <DropdownMenu>
@@ -397,6 +443,14 @@ export const Sidebar = ({ className }: SidebarProps) => {
             })}
           </div>
         </nav>
+      )}
+
+      {/* Upload Overview Dialog */}
+      {showUploadOverview && (
+        <UploadOverview 
+          open={showUploadOverview} 
+          onOpenChange={setShowUploadOverview} 
+        />
       )}
     </>
   );
