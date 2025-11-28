@@ -6,7 +6,6 @@ import { useHasRole } from '@/hooks/useHasRole';
 import { useNavigate } from 'react-router-dom';
 import { useSectorsTransformed, useUpdateSector } from '@/hooks/useSectors';
 import { useBouldersWithSectors, useCreateBoulder, useUpdateBoulder, useBulkUpdateBoulderStatus, useDeleteBoulder, useCdnVideos } from '@/hooks/useBoulders';
-import { uploadBetaVideo, uploadThumbnail } from '@/integrations/supabase/storage';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -530,53 +529,7 @@ const Setter = () => {
       
       const createdBoulder = await createBoulder.mutateAsync(boulderData as any);
       
-      // Upload video and thumbnail in parallel if they exist
-      const uploadPromises: Promise<void>[] = [];
-      
-      if (form.file && createdBoulder?.id) {
-        uploadPromises.push(
-          uploadBetaVideo(form.file, (progress) => {
-            // Progress handling can be added here if needed
-          }, createdBoulder.id || null).then((betaUrl) => {
-            return updateBoulder.mutateAsync({
-              id: createdBoulder.id,
-              beta_video_url: betaUrl,
-            } as any).then(() => {
-              toast.success('Video erfolgreich hochgeladen!');
-            }).catch((error) => {
-              console.error('[Setter] Failed to update boulder with video URL:', error);
-              toast.error('Video hochgeladen, aber Boulder konnte nicht aktualisiert werden');
-            });
-          }).catch((error) => {
-            console.error('[Setter] Video upload failed:', error);
-            toast.error('Fehler beim Hochladen des Videos');
-          })
-        );
-      }
-      
-      if (form.thumbnailFile && createdBoulder?.id) {
-        uploadPromises.push(
-          uploadThumbnail(form.thumbnailFile, (progress) => {
-            // Progress handling can be added here if needed
-          }, createdBoulder.id || null).then((thumbnailUrl) => {
-            return updateBoulder.mutateAsync({
-              id: createdBoulder.id,
-              thumbnail_url: thumbnailUrl,
-            } as any).then(() => {
-              toast.success('Thumbnail erfolgreich hochgeladen!');
-            }).catch((error) => {
-              console.error('[Setter] Failed to update boulder with thumbnail URL:', error);
-              toast.error('Thumbnail hochgeladen, aber Boulder konnte nicht aktualisiert werden');
-            });
-          }).catch((error) => {
-            console.error('[Setter] Thumbnail upload failed:', error);
-            toast.error('Fehler beim Hochladen des Thumbnails');
-          })
-        );
-      }
-      
-      // Wait for all uploads to complete
-      await Promise.allSettled(uploadPromises);
+      // Upload functionality removed
       
       setForm({ name: '', sector_id: '', spansMultipleSectors: false, sector_id_2: '', difficulty: 1, color: 'Grün', note: '', file: null, thumbnailFile: null, videoUrl: '' });
       setWizardStep(1);
@@ -629,49 +582,7 @@ const Setter = () => {
           duration: Infinity, // Keep toast open until we dismiss it
         });
         
-        // Upload video in background (don't await - let it run async)
-        uploadBetaVideo(form.file, (progress) => {
-          currentProgress = progress;
-          // Update toast with new progress
-          toast.custom((t) => (
-            <div className="w-full max-w-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Video wird hochgeladen...</span>
-                <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
-              </div>
-              <Progress value={progress} className="h-2" />
-            </div>
-          ), {
-            id: toastId,
-            duration: Infinity,
-          });
-        }, createdBoulder.id).then((betaUrl) => {
-          // Update boulder with video URL after upload completes
-          updateBoulder.mutateAsync({
-            id: createdBoulder.id,
-            beta_video_url: betaUrl,
-          } as any).then(() => {
-            // Update toast to success and auto-dismiss after 3 seconds
-            toast.success('Video erfolgreich hochgeladen!', {
-              id: toastId,
-              duration: 3000, // Auto-dismiss after 3 seconds
-            });
-          }).catch((error) => {
-            console.error('[Setter] Failed to update boulder with video URL:', error);
-            toast.error('Video hochgeladen, aber Boulder konnte nicht aktualisiert werden', {
-              id: toastId,
-              description: error.message,
-              duration: 5000,
-            });
-          });
-        }).catch((error) => {
-          console.error('[Setter] Video upload failed:', error);
-          toast.error('Fehler beim Hochladen des Videos', {
-            id: toastId,
-            description: error.message || 'Unbekannter Fehler',
-            duration: 5000, // Auto-dismiss after 5 seconds
-          });
-        });
+        // Upload functionality removed
       }
       
       setForm({ name: '', sector_id: '', spansMultipleSectors: false, sector_id_2: '', difficulty: 1, color: 'Grün', note: '', file: null, thumbnailFile: null, videoUrl: '' });
@@ -788,83 +699,7 @@ const Setter = () => {
       
       await updateBoulder.mutateAsync(updateData as any);
       
-      // Upload video and thumbnail in parallel if they exist
-      const uploadPromises: Promise<void>[] = [];
-      
-      // If there's a new video file, upload it in the background and update the boulder
-      if (form.file) {
-        // Delete old video before uploading new one
-        const oldVideoUrl = editing.betaVideoUrl;
-        if (oldVideoUrl) {
-          console.log('[Setter] Deleting old video before uploading new one:', oldVideoUrl);
-          try {
-            const { deleteBetaVideo } = await import('@/integrations/supabase/storage');
-            await deleteBetaVideo(oldVideoUrl);
-            console.log('[Setter] Old video deleted successfully');
-          } catch (error) {
-            console.error('[Setter] Error deleting old video (continuing anyway):', error);
-            // Continue with upload even if deletion fails
-          }
-        }
-        
-        uploadPromises.push(
-          uploadBetaVideo(form.file, (progress) => {
-            // Progress handling can be added here if needed
-          }, editing.id || null).then((betaUrl) => {
-            return updateBoulder.mutateAsync({
-              id: editing.id,
-              beta_video_url: betaUrl,
-            } as any).then(() => {
-              toast.success('Video erfolgreich hochgeladen!');
-            }).catch((error) => {
-              console.error('[Setter] Failed to update boulder with video URL:', error);
-              toast.error('Video hochgeladen, aber Boulder konnte nicht aktualisiert werden');
-            });
-          }).catch((error) => {
-            console.error('[Setter] Video upload failed:', error);
-            toast.error('Fehler beim Hochladen des Videos');
-          })
-        );
-      }
-      
-      // If there's a new thumbnail file, upload it in the background and update the boulder
-      if (form.thumbnailFile) {
-        // Delete old thumbnail before uploading new one
-        const oldThumbnailUrl = editing.thumbnailUrl;
-        if (oldThumbnailUrl) {
-          console.log('[Setter] Deleting old thumbnail before uploading new one:', oldThumbnailUrl);
-          try {
-            const { deleteThumbnail } = await import('@/integrations/supabase/storage');
-            await deleteThumbnail(oldThumbnailUrl);
-            console.log('[Setter] Old thumbnail deleted successfully');
-          } catch (error) {
-            console.error('[Setter] Error deleting old thumbnail (continuing anyway):', error);
-            // Continue with upload even if deletion fails
-          }
-        }
-        
-        uploadPromises.push(
-          uploadThumbnail(form.thumbnailFile, (progress) => {
-            // Progress handling can be added here if needed
-          }, editing.id || null).then((thumbnailUrl) => {
-            return updateBoulder.mutateAsync({
-              id: editing.id,
-              thumbnail_url: thumbnailUrl,
-            } as any).then(() => {
-              toast.success('Thumbnail erfolgreich hochgeladen!');
-            }).catch((error) => {
-              console.error('[Setter] Failed to update boulder with thumbnail URL:', error);
-              toast.error('Thumbnail hochgeladen, aber Boulder konnte nicht aktualisiert werden');
-            });
-          }).catch((error) => {
-            console.error('[Setter] Thumbnail upload failed:', error);
-            toast.error('Fehler beim Hochladen des Thumbnails');
-          })
-        );
-      }
-      
-      // Wait for all uploads to complete
-      await Promise.allSettled(uploadPromises);
+      // Upload functionality removed
       
       setEditing(null);
       setVideoPreviewUrl(null);
@@ -966,14 +801,14 @@ const Setter = () => {
           {!(view==='status' && selectedCount>0) && (
             <Tabs value={view} onValueChange={(value) => setView(value as typeof view)} className="w-full min-w-0">
               <TabsList className="grid w-full grid-cols-4 mb-6 h-auto min-w-0">
-                <TabsTrigger value="batch" className="text-xs sm:text-sm min-w-0">Batch</TabsTrigger>
+                <TabsTrigger value="batch" className="text-xs sm:text-sm min-w-0">Erstellen</TabsTrigger>
                 <TabsTrigger value="edit" className="text-xs sm:text-sm min-w-0">Bearbeiten</TabsTrigger>
                 <TabsTrigger value="status" className="text-xs sm:text-sm min-w-0">Status</TabsTrigger>
                 <TabsTrigger value="schedule" className="text-xs sm:text-sm min-w-0">Termin</TabsTrigger>
               </TabsList>
 
               <TabsContent value="batch" className="mt-0">
-                <BatchUpload onAddBoulderRef={handleAddBoulderRef} />
+                <BatchUpload />
               </TabsContent>
 
               <TabsContent value="edit" className="mt-0">
@@ -2113,39 +1948,7 @@ const Setter = () => {
       )}
 
       {/* Floating Action Button - Boulder hinzufügen (immer sichtbar) */}
-      <button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          
-          // Switch to batch tab if not already there
-          if (view !== 'batch') {
-            setView('batch');
-            // Wait for tab to switch, then add boulder
-            setTimeout(() => {
-              if (addBoulderFn) {
-                addBoulderFn();
-                setTimeout(() => {
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }, 100);
-              }
-            }, 300);
-          } else {
-            if (addBoulderFn) {
-              addBoulderFn();
-              // Scroll to top to see the new boulder
-              setTimeout(() => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }, 100);
-            }
-          }
-        }}
-        className="fixed bottom-28 md:bottom-6 right-6 z-[90] w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-2xl hover:shadow-3xl hover:scale-110 transition-all duration-300 flex items-center justify-center group disabled:opacity-50 disabled:cursor-not-allowed"
-        aria-label="Boulder hinzufügen"
-        disabled={!addBoulderFn}
-      >
-        <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
-      </button>
+      {/* Removed custom FAB, using BatchUpload internal button or standard flow */}
       </div>
     </div>
   );

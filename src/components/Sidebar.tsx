@@ -1,4 +1,4 @@
-import { LayoutDashboard, List, Map, ChevronRight, ChevronLeft, User, LogOut, Settings, HelpCircle, Shield, Upload } from 'lucide-react';
+import { LayoutDashboard, List, Map, ChevronRight, ChevronLeft, User, LogOut, Settings, HelpCircle, Shield } from 'lucide-react';
 import { MaterialIcon } from '@/components/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -10,8 +10,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useHasRole } from '@/hooks/useHasRole';
 import { useSidebar } from './SidebarContext';
-import { useUploadTracker } from '@/hooks/useUploadTracker';
-import { UploadOverview } from '@/components/UploadOverview';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,13 +78,11 @@ const clearStoredRoles = (): void => {
 export const Sidebar = ({ className }: SidebarProps) => {
   const { hideMobileNav } = useSidebar();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showUploadOverview, setShowUploadOverview] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   const { hasRole: isSetter, loading: setterLoading } = useHasRole('setter');
-  const { hasActiveUploads, activeUploads } = useUploadTracker();
 
   // Stable role state - initialized from sessionStorage immediately (even before user loads)
   // This ensures roles persist across page refreshes
@@ -364,51 +360,6 @@ export const Sidebar = ({ className }: SidebarProps) => {
           </nav>
         </TooltipProvider>
 
-        {/* Upload Icon - Above Toggle Button */}
-        <div className={cn("w-full mb-2", isExpanded ? "px-4" : "")}>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => setShowUploadOverview(true)}
-                  className={cn(
-                    "cursor-pointer focus:outline-none relative transition-all duration-300",
-                    isExpanded 
-                      ? "flex flex-row items-center gap-3 px-6 py-3 mx-4 rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
-                      : "grid place-items-center w-12 h-12 mx-auto rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
-                  )}
-                >
-                  <div className="relative">
-                    <Upload className={cn(
-                      "w-5 h-5 flex-shrink-0 transition-all",
-                      hasActiveUploads && "animate-pulse text-primary"
-                    )} />
-                    {hasActiveUploads && activeUploads.length > 0 && (
-                      <Badge 
-                        variant="destructive" 
-                        className={cn(
-                          "absolute h-4 w-4 p-0 flex items-center justify-center text-xs",
-                          isExpanded ? "-top-1 -right-1" : "top-0 right-0"
-                        )}
-                      >
-                        {activeUploads.length > 9 ? '9+' : activeUploads.length}
-                      </Badge>
-                    )}
-                  </div>
-                  {isExpanded && (
-                    <span className="text-sm font-medium whitespace-nowrap">Uploads</span>
-                  )}
-                </button>
-              </TooltipTrigger>
-              {!isExpanded && (
-                <TooltipContent side="right">
-                  <p>Upload-Übersicht ({activeUploads.length} aktiv)</p>
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-
         {/* Toggle Button */}
         <div className="w-full">
           {isExpanded ? (
@@ -456,14 +407,6 @@ export const Sidebar = ({ className }: SidebarProps) => {
             })}
           </div>
         </nav>
-      )}
-
-      {/* Upload Overview Dialog */}
-      {showUploadOverview && (
-        <UploadOverview 
-          open={showUploadOverview} 
-          onOpenChange={setShowUploadOverview} 
-        />
       )}
     </>
   );

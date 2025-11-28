@@ -4,8 +4,6 @@ import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { useUploadTracker } from '@/hooks/useUploadTracker';
-import { UploadOverview } from '@/components/UploadOverview';
 import { Badge } from '@/components/ui/badge';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -22,8 +20,6 @@ export const DashboardHeader = () => {
   const today = new Date();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const { hasActiveUploads, activeUploads } = useUploadTracker();
-  const [showUploadOverview, setShowUploadOverview] = useState(false);
   
   return (
     <header className="bg-muted/30 border-b border-border px-4 md:px-8 py-4">
@@ -35,26 +31,6 @@ export const DashboardHeader = () => {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2 md:gap-4">
-          {/* Upload Icon - Mobile */}
-          <button
-            onClick={() => setShowUploadOverview(true)}
-            className="cursor-pointer focus:outline-none relative md:hidden"
-          >
-            <div className="relative">
-              <Upload className={cn(
-                "w-5 h-5 text-primary transition-all",
-                hasActiveUploads && "animate-pulse"
-              )} />
-              {hasActiveUploads && activeUploads.length > 0 && (
-                <Badge 
-                  variant="destructive" 
-                  className="absolute -top-2 -right-2 h-4 w-4 p-0 flex items-center justify-center text-xs"
-                >
-                  {activeUploads.length > 9 ? '9+' : activeUploads.length}
-                </Badge>
-              )}
-            </div>
-          </button>
 
           <Button 
             variant="ghost" 
@@ -107,14 +83,6 @@ export const DashboardHeader = () => {
           </DropdownMenu>
         </div>
       </div>
-
-      {/* Upload Overview Dialog */}
-      {showUploadOverview && (
-        <UploadOverview 
-          open={showUploadOverview} 
-          onOpenChange={setShowUploadOverview} 
-        />
-      )}
     </header>
   );
 };
