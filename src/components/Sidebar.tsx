@@ -255,38 +255,6 @@ export const Sidebar = ({ className }: SidebarProps) => {
         isExpanded ? "w-48 items-start" : "w-20 items-center",
         className
       )}>
-        {/* Upload Icon - Before Profile */}
-        <div className={cn("mb-4", isExpanded ? "px-4" : "")}>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => setShowUploadOverview(true)}
-                  className="cursor-pointer focus:outline-none relative w-12 h-12 flex items-center justify-center rounded-full hover:bg-primary/10 transition-colors"
-                >
-                  <div className="relative">
-                    <Upload className={cn(
-                      "w-6 h-6 text-primary transition-all",
-                      hasActiveUploads && "animate-pulse"
-                    )} />
-                    {hasActiveUploads && activeUploads.length > 0 && (
-                      <Badge 
-                        variant="destructive" 
-                        className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs"
-                      >
-                        {activeUploads.length > 9 ? '9+' : activeUploads.length}
-                      </Badge>
-                    )}
-                  </div>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>Upload-Übersicht ({activeUploads.length} aktiv)</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-
         {/* Profile Picture with Dropdown */}
         <div className={cn("mb-6", isExpanded ? "px-4" : "")}>
           <DropdownMenu>
@@ -395,6 +363,51 @@ export const Sidebar = ({ className }: SidebarProps) => {
             })}
           </nav>
         </TooltipProvider>
+
+        {/* Upload Icon - Above Toggle Button */}
+        <div className={cn("w-full mb-2", isExpanded ? "px-4" : "")}>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setShowUploadOverview(true)}
+                  className={cn(
+                    "cursor-pointer focus:outline-none relative transition-all duration-300",
+                    isExpanded 
+                      ? "flex flex-row items-center gap-3 px-6 py-3 mx-4 rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
+                      : "grid place-items-center w-12 h-12 mx-auto rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80"
+                  )}
+                >
+                  <div className="relative">
+                    <Upload className={cn(
+                      "w-5 h-5 flex-shrink-0 transition-all",
+                      hasActiveUploads && "animate-pulse text-primary"
+                    )} />
+                    {hasActiveUploads && activeUploads.length > 0 && (
+                      <Badge 
+                        variant="destructive" 
+                        className={cn(
+                          "absolute h-4 w-4 p-0 flex items-center justify-center text-xs",
+                          isExpanded ? "-top-1 -right-1" : "top-0 right-0"
+                        )}
+                      >
+                        {activeUploads.length > 9 ? '9+' : activeUploads.length}
+                      </Badge>
+                    )}
+                  </div>
+                  {isExpanded && (
+                    <span className="text-sm font-medium whitespace-nowrap">Uploads</span>
+                  )}
+                </button>
+              </TooltipTrigger>
+              {!isExpanded && (
+                <TooltipContent side="right">
+                  <p>Upload-Übersicht ({activeUploads.length} aktiv)</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        </div>
 
         {/* Toggle Button */}
         <div className="w-full">
