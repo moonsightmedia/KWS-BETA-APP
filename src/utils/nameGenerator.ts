@@ -91,7 +91,32 @@ function ensureMasculineForm(adjective: string): string {
 
 export function generateBoulderName(color: string, difficulty: number | null): string {
   const parts: string[] = [];
-  const colorAdj = toColorAdjective(color);
+  
+  // Check if color is a two-color combination (e.g., "Grün-Gelb")
+  const isTwoColor = color.includes('-');
+  let colorAdj: string;
+  
+  if (isTwoColor) {
+    // For two-color combinations, use both colors
+    const [color1, color2] = color.split('-').map(c => c.trim());
+    const adj1 = toColorAdjective(color1);
+    const adj2 = toColorAdjective(color2);
+    
+    if (adj1 && adj2) {
+      // Create combined color adjective (e.g., "Grün-Gelber")
+      // Remove the 'er' from the first color and combine
+      const base1 = adj1.replace(/er$/, '');
+      colorAdj = `${base1}-${adj2}`;
+    } else if (adj1) {
+      colorAdj = adj1;
+    } else if (adj2) {
+      colorAdj = adj2;
+    } else {
+      colorAdj = '';
+    }
+  } else {
+    colorAdj = toColorAdjective(color);
+  }
   
   if (!colorAdj) {
     // Fallback if color not found

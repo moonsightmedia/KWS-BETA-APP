@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Filter, Search, Palette, Map as MapIcon, Dumbbell, X, Loader2 } from 'lucide-react';
+import { Filter, Search, Palette, Map as MapIcon, Dumbbell, X, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { BoulderDetailDialog } from '@/components/BoulderDetailDialog';
@@ -53,18 +53,15 @@ const Guest = () => {
   const [sectorFilter, setSectorFilter] = useState<string>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [colorFilter, setColorFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'name' | 'difficulty' | 'date'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors();
   const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed();
   
   // Note: Hooks already have refetchOnMount: true, so data will be reloaded automatically
   const [selectedBoulder, setSelectedBoulder] = useState<Boulder | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [scrollTo, setScrollTo] = useState<null | 'sector' | 'difficulty' | 'color'>(null);
-  const [quickFilter, setQuickFilter] = useState<null | 'sector' | 'difficulty' | 'color'>(null);
-  const sectorRef = useRef<HTMLDivElement | null>(null);
-  const difficultyRef = useRef<HTMLDivElement | null>(null);
-  const colorRef = useRef<HTMLDivElement | null>(null);
+  const [quickFilter, setQuickFilter] = useState<null | 'sector' | 'difficulty' | 'color' | 'sort'>(null);
 
   useEffect(() => {
     console.log('[Guest] mounted');
@@ -102,18 +99,6 @@ const Guest = () => {
     const sectorParam = searchParams.get('sector');
     if (sectorParam) setSectorFilter(sectorParam);
   }, [searchParams]);
-
-  // Auto-scroll to section when filter sheet opens
-  useEffect(() => {
-    if (filterOpen && scrollTo) {
-      const timeout = setTimeout(() => {
-        const el = scrollTo === 'sector' ? sectorRef.current : scrollTo === 'difficulty' ? difficultyRef.current : colorRef.current;
-        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        setScrollTo(null);
-      }, 50);
-      return () => clearTimeout(timeout);
-    }
-  }, [filterOpen, scrollTo]);
 
   const filtered = useMemo(() => {
     let list = boulders || [];
@@ -171,9 +156,30 @@ const Guest = () => {
       console.log('[Guest] After search filter:', list.length, 'of', beforeSearchFilter);
     }
     
-    console.log('[Guest] Final filtered count:', list.length);
-    return list;
-  }, [boulders, sectorFilter, difficultyFilter, colorFilter, searchQuery]);
+    // Sortierung
+    const sorted = [...list].sort((a, b) => {
+      let result = 0;
+      switch (sortBy) {
+        case 'name':
+          result = a.name.localeCompare(b.name, 'de');
+          break;
+        case 'difficulty':
+          const aDiff = a.difficulty === null ? -1 : a.difficulty;
+          const bDiff = b.difficulty === null ? -1 : b.difficulty;
+          result = aDiff - bDiff;
+          break;
+        case 'date':
+          const aDate = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt || 0).getTime();
+          const bDate = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt || 0).getTime();
+          result = aDate - bDate;
+          break;
+      }
+      return sortOrder === 'asc' ? result : -result;
+    });
+    
+    console.log('[Guest] Final filtered and sorted count:', sorted.length);
+    return sorted;
+  }, [boulders, sectorFilter, difficultyFilter, colorFilter, searchQuery, sortBy, sortOrder]);
 
   // Reset loaded thumbnails when filtered list changes
   useEffect(() => {
@@ -350,26 +356,62 @@ const Guest = () => {
           <Input className="pl-9" placeholder="Suchen" value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)} />
         </div>
         <Select value={sectorFilter} onValueChange={setSectorFilter}>
-          <SelectTrigger className="w-44"><SelectValue placeholder="Sektor" /></SelectTrigger>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Sektor">
+              {sectorFilter === 'all' ? 'Alle Sektoren' : sectorFilter}
+            </SelectValue>
+          </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Alle</SelectItem>
+            <SelectItem value="all">Alle Sektoren</SelectItem>
             {sectors?.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-          <SelectTrigger className="w-32"><SelectValue placeholder="Grad" /></SelectTrigger>
+          <SelectTrigger className="w-32">
+            <SelectValue placeholder="Grad">
+              {difficultyFilter === 'all' ? 'Alle Grade' : formatDifficulty(difficultyFilter === '?' ? null : Number(difficultyFilter))}
+            </SelectValue>
+          </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Alle</SelectItem>
+            <SelectItem value="all">Alle Grade</SelectItem>
             {DIFFICULTIES.map(d => <SelectItem key={d === null ? '?' : String(d)} value={d === null ? '?' : String(d)}>{formatDifficulty(d)}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={colorFilter} onValueChange={setColorFilter}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Farbe" /></SelectTrigger>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Farbe">
+              {colorFilter === 'all' ? 'Alle Farben' : colorFilter}
+            </SelectValue>
+          </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Alle</SelectItem>
+            <SelectItem value="all">Alle Farben</SelectItem>
             {COLORS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Sortieren nach">
+              {sortBy === 'date' ? 'Datum' : sortBy === 'name' ? 'Name' : 'Schwierigkeit'}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="date">Datum</SelectItem>
+            <SelectItem value="name">Name</SelectItem>
+            <SelectItem value="difficulty">Schwierigkeit</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+          className="w-10"
+        >
+          {sortOrder === 'asc' ? (
+            <ArrowUp className="w-4 h-4" />
+          ) : (
+            <ArrowDown className="w-4 h-4" />
+          )}
+        </Button>
       </div>
 
       {/* Mobile: no top search; use floating filter bar below */}
@@ -477,18 +519,18 @@ const Guest = () => {
 
       
 
-      {/* Floating Filter Bar (mobile) */}
+      {/* Quick Filter Bar (mobile) */}
       {quickFilter && (
-        <div className="sm:hidden fixed left-4 right-4 bottom-24 z-50 bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
+        <div className="sm:hidden fixed left-4 right-4 bottom-36 z-[70] bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
           <div className="flex items-center justify-between px-3 py-2">
             <span className="text-xs px-2 py-1 rounded-full border bg-card">
-              {quickFilter === 'color' ? 'Farbe' : quickFilter === 'sector' ? 'Sektor' : 'Schwierigkeit'}
+              {quickFilter === 'color' ? 'Farbe' : quickFilter === 'sector' ? 'Sektor' : quickFilter === 'difficulty' ? 'Schwierigkeit' : 'Sortierung'}
             </span>
             <Button variant="ghost" size="icon" onClick={()=> setQuickFilter(null)}>
               <X className="w-5 h-5" />
             </Button>
           </div>
-          <ScrollArea className="w-full">
+          <ScrollArea className="w-full scrollbar-hide">
             <div className="flex items-center gap-2 px-3 pb-3 min-w-max">
               {quickFilter === 'sector' && (
                 <>
@@ -526,92 +568,97 @@ const Guest = () => {
                   ))}
                 </>
               )}
+              {quickFilter === 'sort' && (
+                <>
+                  <Button 
+                    variant={sortBy==='date'?'default':'outline'} 
+                    size="sm" 
+                    onClick={()=> setSortBy('date')}
+                  >
+                    Datum
+                  </Button>
+                  <Button 
+                    variant={sortBy==='name'?'default':'outline'} 
+                    size="sm" 
+                    onClick={()=> setSortBy('name')}
+                  >
+                    Name
+                  </Button>
+                  <Button 
+                    variant={sortBy==='difficulty'?'default':'outline'} 
+                    size="sm" 
+                    onClick={()=> setSortBy('difficulty')}
+                  >
+                    Schwierigkeit
+                  </Button>
+                  <div className="h-6 w-px bg-border mx-1" />
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={()=> setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                    className="flex items-center gap-1"
+                  >
+                    {sortOrder === 'asc' ? (
+                      <ArrowUp className="w-3 h-3" />
+                    ) : (
+                      <ArrowDown className="w-3 h-3" />
+                    )}
+                  </Button>
+                </>
+              )}
             </div>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
         </div>
       )}
-      <nav className="sm:hidden fixed bottom-4 left-4 right-4 z-40 bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
+      {/* Floating Filter Bar (mobile) */}
+      <nav className="sm:hidden fixed bottom-20 left-4 right-4 z-[70] bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
         <div className="flex items-center justify-between px-3 py-2 gap-2">
           <span className="text-xs px-3 py-1 rounded-full border bg-card">{filtered.length} Treffer</span>
           <div className="flex items-center gap-2">
-            <Sheet open={filterOpen} onOpenChange={(open)=>{ setFilterOpen(open); if(!open) setScrollTo(null); }}>
-              <Button aria-label="Farben filtern" variant="outline" size="icon" onClick={()=> setQuickFilter(prev => prev === 'color' ? null : 'color')}>
-                {colorFilter !== 'all' ? (
-                  <span className="w-5 h-5 rounded-full border" style={{ backgroundColor: COLOR_HEX[colorFilter] || '#22c55e' }} />
-                ) : (
-                  <Palette className="w-5 h-5" />
-                )}
-              </Button>
-              <Button aria-label="Sektor filtern" variant="outline" size="icon" onClick={()=> setQuickFilter(prev => prev === 'sector' ? null : 'sector')}>
-                <span className="relative inline-flex">
-                  <MapIcon className="w-5 h-5" />
-                  {sectorFilter !== 'all' && <span className="absolute -right-0.5 -bottom-0.5 w-2 h-2 rounded-full bg-primary border border-background" />}
-                </span>
-              </Button>
-              <Button aria-label="Schwierigkeit filtern" variant="outline" size="icon" onClick={()=> setQuickFilter(prev => prev === 'difficulty' ? null : 'difficulty')}>
-                {difficultyFilter !== 'all' ? (
-                  <span className="w-5 h-5 grid place-items-center text-[11px] font-semibold leading-none">{difficultyFilter}</span>
-                ) : (
-                  <Dumbbell className="w-5 h-5" />
-                )}
-              </Button>
-              <Button variant="outline" size="icon" onClick={()=>{ setScrollTo(null); setFilterOpen(true); }}><Filter className="w-5 h-5" /></Button>
-              <SheetContent side="bottom" className="h-[85vh]">
-              <SheetHeader>
-                <SheetTitle>
-                  {scrollTo === 'color' ? 'Farbe wählen' : scrollTo === 'sector' ? 'Sektor wählen' : scrollTo === 'difficulty' ? 'Schwierigkeit wählen' : 'Filter'}
-                </SheetTitle>
-              </SheetHeader>
-              <div className="mt-4 space-y-3">
-                {scrollTo === null && (
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input className="pl-9" placeholder="Suchen" value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)} />
-                  </div>
-                )}
-
-                {(scrollTo === null || scrollTo === 'sector') && (
-                  <div ref={sectorRef}>
-                    <label className="text-sm font-medium">Sektor</label>
-                    <Select value={sectorFilter} onValueChange={setSectorFilter}>
-                      <SelectTrigger><SelectValue placeholder="Sektor" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alle</SelectItem>
-                        {sectors?.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {(scrollTo === null || scrollTo === 'difficulty') && (
-                  <div ref={difficultyRef}>
-                    <label className="text-sm font-medium">Schwierigkeit</label>
-                    <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-                      <SelectTrigger><SelectValue placeholder="Grad" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alle</SelectItem>
-                        {DIFFICULTIES.map(d => <SelectItem key={d === null ? '?' : String(d)} value={d === null ? '?' : String(d)}>{formatDifficulty(d)}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {(scrollTo === null || scrollTo === 'color') && (
-                  <div ref={colorRef}>
-                    <label className="text-sm font-medium">Farbe</label>
-                    <Select value={colorFilter} onValueChange={setColorFilter}>
-                      <SelectTrigger><SelectValue placeholder="Farbe" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Alle</SelectItem>
-                        {COLORS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </div>
-              </SheetContent>
-            </Sheet>
+            <Button 
+              aria-label="Farben filtern" 
+              variant={quickFilter === 'color' ? 'default' : 'outline'} 
+              size="icon" 
+              onClick={()=> setQuickFilter(prev => prev === 'color' ? null : 'color')}
+            >
+              {colorFilter !== 'all' ? (
+                <span className="w-5 h-5 rounded-full border" style={{ backgroundColor: COLOR_HEX[colorFilter] || '#22c55e' }} />
+              ) : (
+                <Palette className="w-5 h-5" />
+              )}
+            </Button>
+            <Button 
+              aria-label="Sektor filtern" 
+              variant={quickFilter === 'sector' ? 'default' : 'outline'} 
+              size="icon" 
+              onClick={()=> setQuickFilter(prev => prev === 'sector' ? null : 'sector')}
+            >
+              <span className="relative inline-flex">
+                <MapIcon className="w-5 h-5" />
+                {sectorFilter !== 'all' && <span className="absolute -right-0.5 -bottom-0.5 w-2 h-2 rounded-full bg-primary border border-background" />}
+              </span>
+            </Button>
+            <Button 
+              aria-label="Schwierigkeit filtern" 
+              variant={quickFilter === 'difficulty' ? 'default' : 'outline'} 
+              size="icon" 
+              onClick={()=> setQuickFilter(prev => prev === 'difficulty' ? null : 'difficulty')}
+            >
+              {difficultyFilter !== 'all' ? (
+                <span className="w-5 h-5 grid place-items-center text-[11px] font-semibold leading-none">{difficultyFilter}</span>
+              ) : (
+                <Dumbbell className="w-5 h-5" />
+              )}
+            </Button>
+            <Button 
+              variant={quickFilter === 'sort' ? 'default' : 'outline'} 
+              size="icon" 
+              onClick={()=> setQuickFilter(prev => prev === 'sort' ? null : 'sort')}
+              aria-label="Sortierung"
+            >
+              <Filter className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       </nav>

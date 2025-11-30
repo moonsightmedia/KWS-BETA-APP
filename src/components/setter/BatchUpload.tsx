@@ -10,6 +10,8 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { useUpload } from '@/contexts/UploadContext';
+import { generateBoulderName } from '@/utils/nameGenerator';
+import { getColorBackgroundStyle } from '@/utils/colorUtils';
 import {
   Dialog,
   DialogContent,
@@ -42,20 +44,21 @@ export const BatchUpload = () => {
   const [currentBoulder, setCurrentBoulder] = useState<BatchBoulder>(createEmptyBoulder());
   const [isEditing, setIsEditing] = useState(false);
 
-  function generateBoulderName(): string {
-    const timestamp = new Date();
-    const dateStr = timestamp.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-    const timeStr = timestamp.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-    const randomNum = Math.floor(Math.random() * 1000);
-    return `Boulder ${dateStr} ${timeStr} #${randomNum}`;
-  }
+  // Helper function to adjust name when color changes
+  const adjustNameForColor = (colorId: string): string => {
+    const color = colors?.find(c => c.id === colorId);
+    if (!color) return currentBoulder.name;
+    // Generate new name with current color and difficulty
+    return generateBoulderName(color.name, currentBoulder.difficulty);
+  };
 
   function createEmptyBoulder(): BatchBoulder {
+    const defaultColor = colors?.[0];
     return {
       id: Math.random().toString(36).substr(2, 9),
-      name: generateBoulderName(),
+      name: defaultColor ? generateBoulderName(defaultColor.name, 4) : 'Neuer Boulder',
       sectorId: '',
-      colorId: '',
+      colorId: defaultColor?.id || '',
       difficulty: 4,
       videoFile: null,
       thumbFile: null,
@@ -127,44 +130,63 @@ export const BatchUpload = () => {
     toast.info('Bereite Uploads vor...', { duration: 1000 });
     
     const successfulIds: string[] = [];
+    const failedBoulders: Array<{ name: string; error: string }> = [];
     const bouldersToProcess = [...boulders];
 
+    // Process boulders sequentially to avoid overwhelming the system
     for (const boulder of bouldersToProcess) {
         try {
+            // Create boulder in database first
             const { data: dbBoulder, error: dbError } = await supabase
                 .from('boulders')
                 .insert({
-          name: boulder.name,
+                    name: boulder.name,
                     sector_id: boulder.sectorId,
                     color: colors?.find(c => c.id === boulder.colorId)?.name || 'Unbekannt',
-          difficulty: boulder.difficulty,
+                    difficulty: boulder.difficulty,
                     status: 'haengt' 
                 })
                 .select()
                 .single();
 
-            if (dbError || !dbBoulder) throw new Error('DB Error: ' + (dbError?.message || 'Unknown'));
+            if (dbError || !dbBoulder) {
+                throw new Error('DB Error: ' + (dbError?.message || 'Unknown'));
+            }
 
+            // Start uploads (they will be queued by UploadContext)
+            // Add small delay between boulders to avoid overwhelming the system
             if (boulder.thumbFile) {
-                startUpload(dbBoulder.id, boulder.thumbFile, 'thumbnail', boulder.sectorId);
+                await startUpload(dbBoulder.id, boulder.thumbFile, 'thumbnail', boulder.sectorId);
+                // Small delay to prevent too many simultaneous uploads
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
             
-        if (boulder.videoFile) {
-                startUpload(dbBoulder.id, boulder.videoFile, 'video', boulder.sectorId);
+            if (boulder.videoFile) {
+                await startUpload(dbBoulder.id, boulder.videoFile, 'video', boulder.sectorId);
+                // Small delay to prevent too many simultaneous uploads
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
 
             successfulIds.push(boulder.id);
 
-            } catch (error: any) {
+        } catch (error: any) {
             console.error('Failed to queue boulder:', boulder.name, error);
+            failedBoulders.push({ name: boulder.name, error: error.message });
             toast.error(`Fehler bei "${boulder.name}": ${error.message}`);
         }
     }
     
+    // Remove successfully queued boulders from the list
     setBoulders(prev => prev.filter(b => !successfulIds.includes(b.id)));
     
+    // Show summary
     if (successfulIds.length > 0) {
-        toast.success(`${successfulIds.length} Boulder in die Upload-Warteschlange gestellt.`);
+        const totalFiles = successfulIds.length * 2; // Each boulder has video + thumbnail
+        toast.success(`${successfulIds.length} Boulder (${totalFiles} Dateien) in die Upload-Warteschlange gestellt.`, { duration: 3000 });
+    }
+    
+    if (failedBoulders.length > 0) {
+        toast.error(`${failedBoulders.length} Boulder konnten nicht hinzugefügt werden.`, { duration: 3000 });
     }
 
     setIsProcessing(false);
@@ -174,7 +196,7 @@ export const BatchUpload = () => {
     <div className="space-y-6 pb-48 relative min-h-[calc(100vh-200px)]">
       
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="!max-w-[calc(100vw-1rem)] sm:!max-w-[500px] max-h-[85vh] overflow-y-auto overflow-x-hidden p-3 sm:p-6">
+        <DialogContent className="!max-w-[calc(100vw-2rem)] sm:!max-w-[450px] max-h-[85vh] overflow-y-auto overflow-x-hidden p-4 sm:p-8 w-full scrollbar-hide [&>button]:hidden">
           <DialogHeader>
             <DialogTitle>{isEditing ? 'Boulder bearbeiten' : 'Neuer Boulder'}</DialogTitle>
             <DialogDescription>
@@ -182,9 +204,9 @@ export const BatchUpload = () => {
             </DialogDescription>
           </DialogHeader>
           
-            <div className="grid gap-4 py-2 sm:py-4 w-full box-border">
-                <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full box-border">
-                    <div className="relative w-full aspect-[9/16] max-h-[200px] bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 hover:bg-accent/50 transition-all overflow-hidden group cursor-pointer">
+            <div className="grid gap-3 py-2 sm:py-3 w-full box-border min-w-0">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full box-border min-w-0">
+                    <div className="relative w-full aspect-[9/16] max-h-[160px] bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 hover:bg-accent/50 transition-all overflow-hidden group cursor-pointer">
                         <input
                             type="file"
                             accept="image/*"
@@ -206,13 +228,13 @@ export const BatchUpload = () => {
                             </>
                         ) : (
                             <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center pointer-events-none">
-                                <ImageIcon className="w-6 h-6 text-muted-foreground mb-2" />
-                                <span className="text-xs text-muted-foreground">Thumbnail</span>
+                                <ImageIcon className="w-5 h-5 text-muted-foreground mb-1" />
+                                <span className="text-[10px] text-muted-foreground">Thumbnail</span>
                             </div>
                         )}
             </div>
 
-                    <div className="relative w-full aspect-[9/16] max-h-[200px] bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 hover:bg-accent/50 transition-all overflow-hidden group cursor-pointer">
+                    <div className="relative w-full aspect-[9/16] max-h-[160px] bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 hover:bg-accent/50 transition-all overflow-hidden group cursor-pointer">
                         <input
                             type="file"
                             accept="video/*"
@@ -224,7 +246,7 @@ export const BatchUpload = () => {
                         {currentBoulder.videoFile ? (
                             <>
                                 <div className="absolute inset-0 w-full h-full bg-black/5 flex flex-col items-center justify-center p-2 text-center">
-                                    <FileVideo className="w-8 h-8 text-primary mb-2" />
+                                    <FileVideo className="w-6 h-6 text-primary mb-1" />
                                     <span className="text-[10px] text-muted-foreground truncate w-full px-1">{currentBoulder.videoFile.name}</span>
                       </div>
                                 <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1 z-10">
@@ -233,38 +255,44 @@ export const BatchUpload = () => {
                             </>
                         ) : (
                             <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center pointer-events-none">
-                                <FileVideo className="w-6 h-6 text-muted-foreground mb-2" />
-                                <span className="text-xs text-muted-foreground">Video</span>
+                                <FileVideo className="w-5 h-5 text-muted-foreground mb-1" />
+                                <span className="text-[10px] text-muted-foreground">Video</span>
                     </div>
                   )}
                     </div>
                 </div>
 
-                <div className="space-y-4 w-full box-border">
-                    <div className="space-y-2 w-full box-border">
-                        <Label>Name</Label>
-                        <div className="flex gap-2 w-full box-border">
+                <div className="space-y-3 w-full box-border min-w-0">
+                    <div className="space-y-1.5 w-full box-border min-w-0">
+                        <Label className="text-sm">Name</Label>
+                        <div className="flex gap-2 w-full box-border min-w-0">
                             <Input 
                                 value={currentBoulder.name} 
                                 onChange={(e) => updateCurrentBoulder({ name: e.target.value })} 
                                 placeholder="Boulder Name"
-                                className="flex-1"
+                                className="flex-1 min-w-0"
                             />
                             <Button
                                 type="button"
                                 variant="outline"
                                 size="icon"
-                                onClick={() => updateCurrentBoulder({ name: generateBoulderName() })}
+                                onClick={() => {
+                                    const color = colors?.find(c => c.id === currentBoulder.colorId);
+                                    const newName = color 
+                                        ? generateBoulderName(color.name, currentBoulder.difficulty)
+                                        : generateBoulderName('Grün', currentBoulder.difficulty);
+                                    updateCurrentBoulder({ name: newName });
+                                }}
                                 title="Neuen Namen generieren"
                             >
                                 <Plus className="h-4 w-4" />
                             </Button>
                         </div>
                     </div>
-                    <div className="space-y-4 w-full box-border">
-                        <div className="space-y-2 w-full box-border">
-                            <Label>Sektor</Label>
-                            <div className="w-full overflow-x-auto overflow-y-hidden pb-2 box-border -mx-1 px-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.1) transparent' }}>
+                    <div className="space-y-3 w-full box-border">
+                        <div className="space-y-1.5 w-full box-border min-w-0">
+                            <Label className="text-sm">Sektor</Label>
+                            <div className="w-full overflow-x-auto overflow-y-hidden pb-2 box-border -mx-1 px-1 scrollbar-hide touch-pan-x">
                                 <div className="flex gap-2 min-w-max">
                                     {sectors?.map(s => (
                                         <button
@@ -283,37 +311,47 @@ export const BatchUpload = () => {
                                 </div>
                             </div>
                         </div>
-                        <div className="space-y-2 w-full box-border">
-                            <Label>Farbe</Label>
-                            <div className="w-full overflow-x-auto overflow-y-hidden pb-2 box-border -mx-1 px-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.1) transparent' }}>
-                                <div className="flex gap-2 min-w-max">
-                                    {colors?.map(c => (
-                                        <button
-                                            key={c.id}
-                                            onClick={() => updateCurrentBoulder({ colorId: c.id })}
-                                            className={cn(
-                                                "flex-shrink-0 px-3 py-1.5 rounded-md text-sm font-medium transition-all border whitespace-nowrap flex items-center gap-2",
-                                                currentBoulder.colorId === c.id
-                                                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                                                    : "bg-muted text-muted-foreground border-transparent hover:bg-accent hover:text-accent-foreground"
-                                            )}
-                                        >
-                                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: c.hex }} />
-                                            {c.name}
-                                        </button>
-                                    ))}
-                                </div>
+                        <div className="space-y-1.5 w-full box-border min-w-0">
+                            <Label className="text-sm">Farbe</Label>
+                            <div className="w-full flex gap-2 flex-wrap">
+                                {colors?.map(c => (
+                                    <button
+                                        key={c.id}
+                                        onClick={() => {
+                                            const newName = adjustNameForColor(c.id);
+                                            updateCurrentBoulder({ colorId: c.id, name: newName });
+                                        }}
+                                        className={cn(
+                                            "flex-shrink-0 w-10 h-10 rounded-full transition-all border-2 flex items-center justify-center",
+                                            currentBoulder.colorId === c.id
+                                                ? "border-primary shadow-lg scale-110"
+                                                : "border-border hover:border-primary/50 hover:scale-105"
+                                        )}
+                                        style={getColorBackgroundStyle(c.name, colors)}
+                                        title={c.name}
+                                    >
+                                        {currentBoulder.colorId === c.id && (
+                                            <div className="w-3 h-3 rounded-full bg-white/90 shadow-sm" />
+                                        )}
+                                    </button>
+                                ))}
                             </div>
                         </div>
                     </div>
-                    <div className="space-y-2 w-full box-border">
-                        <Label className="text-sm font-medium">Schwierigkeit: {currentBoulder.difficulty}</Label>
-                        <div className="grid grid-cols-8 gap-1 w-full">
+                    <div className="space-y-1.5 w-full box-border min-w-0">
+                        <Label className="text-sm">Schwierigkeit: {currentBoulder.difficulty}</Label>
+                        <div className="grid grid-cols-8 gap-1 w-full min-w-0">
                             {[1, 2, 3, 4, 5, 6, 7, 8].map((level) => (
                                 <button
                                     key={level}
                                     type="button"
-                                    onClick={() => updateCurrentBoulder({ difficulty: level })}
+                                    onClick={() => {
+                                        const color = colors?.find(c => c.id === currentBoulder.colorId);
+                                        const newName = color 
+                                            ? generateBoulderName(color.name, level)
+                                            : generateBoulderName('Grün', level);
+                                        updateCurrentBoulder({ difficulty: level, name: newName });
+                                    }}
                                     className={cn(
                                         "w-full aspect-square rounded-md flex items-center justify-center text-xs sm:text-sm font-bold transition-all border min-w-0",
                                         currentBoulder.difficulty === level 

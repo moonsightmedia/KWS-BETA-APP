@@ -199,12 +199,12 @@ const Index = () => {
             <StatCard
               title="Aktive Boulder"
               value={hangingBouldersCount}
-              variant="primary"
               subtitle="Aktuell"
             />
             <StatCard
               title="Neue Boulder"
               value={statistics.newBouldersCount}
+              variant="primary"
               subtitle="7 Tage"
             />
             <StatCard
@@ -229,12 +229,12 @@ const Index = () => {
             <StatCard
               title="Aktive Boulder"
               value={hangingBouldersCount}
-              variant="primary"
               subtitle="Aktueller Stand"
             />
             <StatCard
               title="Neue Boulder"
               value={statistics.newBouldersCount}
+              variant="primary"
               subtitle="Seit letzter Woche"
             />
             <StatCard
