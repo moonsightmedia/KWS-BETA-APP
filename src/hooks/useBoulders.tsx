@@ -6,6 +6,44 @@ import { Boulder as FrontendBoulder } from '@/types/boulder';
 import { useSectors } from './useSectors';
 import { deleteBetaVideo, deleteThumbnail } from '@/integrations/supabase/storage';
 
+// Helper function to log boulder operations
+async function logBoulderOperation(
+  operationType: 'create' | 'update' | 'delete',
+  boulderId: string | null,
+  boulderName: string | null,
+  boulderData?: any,
+  changes?: Record<string, any>
+) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Get profile id from user id
+    let profileId: string | null = null;
+    if (user?.id) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+      profileId = profile?.id || null;
+    }
+    
+    await supabase
+      .from('boulder_operation_logs')
+      .insert({
+        boulder_id: boulderId,
+        operation_type: operationType,
+        user_id: profileId,
+        boulder_name: boulderName,
+        boulder_data: boulderData || null,
+        changes: changes || null,
+      });
+  } catch (error) {
+    console.error('[logBoulderOperation] Error logging operation:', error);
+    // Don't throw - logging failures shouldn't break the operation
+  }
+}
+
 export interface Boulder {
   id: string;
   name: string;
@@ -131,6 +169,13 @@ export const useUpdateBoulder = () => {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Boulder> & { id: string }) => {
+      // Get old data for logging
+      const { data: oldData } = await supabase
+        .from('boulders')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
       const { data, error } = await supabase
         .from('boulders')
         .update(updates)
@@ -142,6 +187,21 @@ export const useUpdateBoulder = () => {
       if (!data) {
         throw new Error('Boulder konnte nicht aktualisiert werden. Möglicherweise fehlen die Berechtigungen.');
       }
+
+      // Calculate changes
+      const changes: Record<string, any> = {};
+      Object.keys(updates).forEach(key => {
+        if (oldData && oldData[key] !== updates[key as keyof typeof updates]) {
+          changes[key] = {
+            old: oldData[key],
+            new: updates[key as keyof typeof updates],
+          };
+        }
+      });
+
+      // Log the operation
+      await logBoulderOperation('update', id, data.name, data, changes);
+
       return { data, updates };
     },
     onSuccess: (result) => {
@@ -196,6 +256,9 @@ export const useCreateBoulder = () => {
         // Wir werfen den Fehler nicht, da der Boulder bereits erstellt wurde
       }
 
+      // Log the operation
+      await logBoulderOperation('create', data.id, data.name, data);
+
       return data;
     },
     onSuccess: () => {
@@ -240,6 +303,13 @@ export const useDeleteBoulder = () => {
       const boulderData = boulder as unknown as { name: string; beta_video_url: string | null; thumbnail_url: string | null };
       console.log('[useDeleteBoulder] Boulder found:', boulderData.name, 'Video URL:', boulderData.beta_video_url, 'Thumbnail URL:', boulderData.thumbnail_url);
 
+      // Get full boulder data for logging
+      const { data: fullBoulderData } = await supabase
+        .from('boulders')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
       // Delete the beta video if it exists
       if (boulderData.beta_video_url) {
         console.log('[useDeleteBoulder] Deleting beta video:', boulderData.beta_video_url);
@@ -264,6 +334,20 @@ export const useDeleteBoulder = () => {
         }
       }
 
+      // Delete upload_logs entries for this boulder first (to avoid foreign key constraint violation)
+      console.log('[useDeleteBoulder] Deleting upload_logs for boulder:', id);
+      const { error: uploadLogsError } = await supabase
+        .from('upload_logs')
+        .delete()
+        .eq('boulder_id', id);
+
+      if (uploadLogsError) {
+        console.error('[useDeleteBoulder] Error deleting upload_logs (continuing anyway):', uploadLogsError);
+        // Continue with boulder deletion even if upload_logs deletion fails
+      } else {
+        console.log('[useDeleteBoulder] Upload logs deleted successfully');
+      }
+
       // Then delete the boulder
       console.log('[useDeleteBoulder] Deleting boulder from database:', id);
       const { data: deleteData, error } = await supabase
@@ -278,6 +362,11 @@ export const useDeleteBoulder = () => {
       }
 
       console.log('[useDeleteBoulder] Boulder deleted successfully. Response:', deleteData);
+
+      // Log the operation (before checking if deletion was successful)
+      if (fullBoulderData) {
+        await logBoulderOperation('delete', id, fullBoulderData.name, fullBoulderData);
+      }
       
       // Check if anything was actually deleted
       if (!deleteData || deleteData.length === 0) {

@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
-import { useBoulders, useCreateBoulder, useUpdateBoulder, useDeleteBoulder, useBouldersWithSectors, useDeleteAllBoulders } from "@/hooks/useBoulders";
+import { useBoulders, useCreateBoulder, useDeleteBoulder, useBouldersWithSectors, useDeleteAllBoulders } from "@/hooks/useBoulders";
+import { toast } from "sonner";
 import { useSectors, useSectorsTransformed } from "@/hooks/useSectors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, Plus, MoreVertical, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, Palette, Map, Dumbbell, X } from "lucide-react";
+import { Trash2, Plus, MoreVertical, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, Palette, Map, Dumbbell, X } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -37,12 +38,10 @@ export const BoulderManagement = () => {
   const { data: sectors } = useSectors();
   const { data: sectorsTransformed } = useSectorsTransformed();
   const createBoulder = useCreateBoulder();
-  const updateBoulder = useUpdateBoulder();
   const deleteBoulder = useDeleteBoulder();
   const deleteAllBoulders = useDeleteAllBoulders();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingBoulder, setEditingBoulder] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
 
@@ -159,7 +158,6 @@ export const BoulderManagement = () => {
       thumbnail_url: "",
       note: "",
     });
-    setEditingBoulder(null);
     setShowColorPicker(false);
     setCustomColorName("");
     setCustomColorHex("#000000");
@@ -184,32 +182,14 @@ export const BoulderManagement = () => {
     }
   }, [customColorName, customColorHex, availableColors]);
 
-  const handleEdit = (boulder: any) => {
-    setEditingBoulder(boulder);
-    setFormData({
-      name: boulder.name,
-      sector_id: boulder.sector_id,
-      difficulty: boulder.difficulty,
-      color: boulder.color,
-      beta_video_url: boulder.beta_video_url || "",
-      thumbnail_url: boulder.thumbnail_url || "",
-      note: boulder.note || "",
-    });
-    setIsDialogOpen(true);
-  };
-
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (editingBoulder) {
-      await updateBoulder.mutateAsync({ id: editingBoulder.id, ...formData });
-    } else {
-      await createBoulder.mutateAsync(formData);
-    }
+    await createBoulder.mutateAsync(formData);
     
     setIsDialogOpen(false);
     resetForm();
-  }, [editingBoulder, formData, updateBoulder, createBoulder, resetForm]);
+  }, [formData, createBoulder, resetForm]);
 
   const handleDelete = async () => {
     if (deleteId) {
@@ -478,7 +458,7 @@ export const BoulderManagement = () => {
             Abbrechen
           </Button>
           <Button type="submit" className="flex-shrink-0">
-            {editingBoulder ? "Speichern" : "Erstellen"}
+            Erstellen
           </Button>
         </div>
       </form>
@@ -681,7 +661,7 @@ export const BoulderManagement = () => {
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-full min-w-0 max-w-[calc(100vw-2rem)]">
             <DialogHeader>
               <DialogTitle>
-                {editingBoulder ? "Boulder bearbeiten" : "Neuer Boulder"}
+                Neuer Boulder
               </DialogTitle>
             </DialogHeader>
             {formContent}
@@ -704,7 +684,7 @@ export const BoulderManagement = () => {
           <SheetContent side="bottom" className="h-[90vh] overflow-y-auto overflow-x-hidden w-full max-w-full">
             <SheetHeader>
               <SheetTitle>
-                {editingBoulder ? "Boulder bearbeiten" : "Neuer Boulder"}
+                Neuer Boulder
               </SheetTitle>
             </SheetHeader>
             <div className="mt-4 w-full min-w-0 px-1">
@@ -776,13 +756,6 @@ export const BoulderManagement = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleEdit(boulder)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
                           onClick={() => setDeleteId(boulder.id)}
                         >
                           <Trash2 className="w-4 h-4 text-destructive" />
@@ -823,10 +796,6 @@ export const BoulderManagement = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(boulder)}>
-                          <Pencil className="w-4 h-4 mr-2" />
-                          Bearbeiten
-                        </DropdownMenuItem>
                         <DropdownMenuItem 
                           onClick={() => setDeleteId(boulder.id)}
                           className="text-destructive"
