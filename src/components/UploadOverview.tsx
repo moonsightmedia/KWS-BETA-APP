@@ -1,334 +1,250 @@
-import { useState, useMemo, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
+import React, { useState, useRef } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { useUploadTracker } from '@/hooks/useUploadTracker';
-import { Loader2, X, AlertCircle, CheckCircle2, Upload, Video, Image, RefreshCw, FileDown, Zap } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Upload, CheckCircle2, AlertCircle, Loader2, Minimize2, FileVideo, Image as ImageIcon, CloudUpload, RefreshCw, X, Trash2 } from 'lucide-react';
+import { useUpload } from '@/contexts/UploadContext';
 import { cn } from '@/lib/utils';
+
+import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useIsMobile } from '@/hooks/use-mobile';
 
-interface UploadOverviewProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
+export const UploadOverview = () => {
+  const { uploads, isUploading, resumeUpload, cancelUpload, removeUpload } = useUpload();
+  const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-export const UploadOverview = ({ open, onOpenChange }: UploadOverviewProps) => {
-  const { activeUploads, hasActiveUploads, cancelUpload, refetch } = useUploadTracker();
-  const [cancellingIds, setCancellingIds] = useState<Set<string>>(new Set());
-  const [currentTime, setCurrentTime] = useState(Date.now());
-  const isMobile = useIsMobile();
+  const isSetterArea = location.pathname.startsWith('/setter');
+  
+  if (!isSetterArea) return null;
 
-  // Update current time every second to keep elapsed time display fresh
-  useEffect(() => {
-    if (!hasActiveUploads) return;
+  const activeUploads = uploads;
+  const hasActiveUploads = activeUploads.length > 0;
+
+  // Always show the component in setter area, but only show button if there are uploads or dialog is open
+  // This ensures the button is visible even after refresh if there are uploads in DB
+
+  // Calculate total progress
+  const totalProgress = hasActiveUploads 
+    ? activeUploads.reduce((acc, curr) => acc + (curr.progress || 0), 0) / activeUploads.length 
+    : 0;
+  const uploadingCount = activeUploads.filter(u => u.status === 'uploading' || u.status === 'pending').length;
+  const errorCount = activeUploads.filter(u => u.status === 'error').length;
+  const restoringCount = activeUploads.filter(u => u.status === 'restoring').length;
+
+  const handleFileSelect = async (sessionId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
     
-    const interval = setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 1000); // Update every second
-
-    return () => clearInterval(interval);
-  }, [hasActiveUploads]);
-
-  // Group uploads by boulder_id
-  const groupedUploads = useMemo(() => {
-    const groups = new Map<string | null, typeof activeUploads>();
+    try {
+      await resumeUpload(sessionId, file);
+      toast.success('Datei ausgewählt. Upload wird fortgesetzt...');
+    } catch (error: any) {
+      toast.error('Fehler beim Fortsetzen: ' + error.message);
+    }
     
-    activeUploads.forEach(upload => {
-      const key = upload.boulder_id || 'standalone';
-      if (!groups.has(key)) {
-        groups.set(key, []);
-      }
-      groups.get(key)!.push(upload);
-    });
-    
-    return groups;
-  }, [activeUploads]);
+    // Reset input
+    if (fileInputRefs.current[sessionId]) {
+      fileInputRefs.current[sessionId]!.value = '';
+    }
+  };
+
+  const triggerFileSelect = (sessionId: string) => {
+    fileInputRefs.current[sessionId]?.click();
+  };
 
   const handleCancel = async (sessionId: string) => {
-    setCancellingIds(prev => new Set(prev).add(sessionId));
-    try {
-      await cancelUpload(sessionId);
-      toast.success('Upload abgebrochen');
-      await refetch();
-    } catch (error) {
-      console.error('[UploadOverview] Failed to cancel upload:', error);
-      toast.error('Fehler beim Abbrechen des Uploads');
-    } finally {
-      setCancellingIds(prev => {
-        const next = new Set(prev);
-        next.delete(sessionId);
-        return next;
-      });
+    await cancelUpload(sessionId);
+    toast.success('Upload abgebrochen');
+  };
+
+  const handleRemove = async (sessionId: string) => {
+    const upload = uploads.find(u => u.sessionId === sessionId);
+    const wasLastUpload = uploads.length === 1;
+    
+    await removeUpload(sessionId);
+    toast.success(`Upload "${upload?.fileName || 'unbekannt'}" entfernt`);
+    
+    // Close dialog if it was the last upload, after a short delay
+    if (wasLastUpload && isOpen) {
+      setTimeout(() => {
+        setIsOpen(false);
+      }, 1500);
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle2 className="w-4 h-4 text-green-600" />;
-      case 'failed':
-        return <AlertCircle className="w-4 h-4 text-destructive" />;
-      case 'uploading':
-      case 'compressing':
-        return <Loader2 className="w-4 h-4 animate-spin text-primary" />;
-      default:
-        return <Upload className="w-4 h-4 text-muted-foreground" />;
-    }
-  };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Fertig</Badge>;
-      case 'failed':
-        return <Badge variant="destructive">Fehlgeschlagen</Badge>;
-      case 'uploading':
-        return <Badge variant="default" className="bg-blue-50 text-blue-700 border-blue-200">Hochladen</Badge>;
-      case 'compressing':
-        return <Badge variant="default" className="bg-yellow-50 text-yellow-700 border-yellow-200">Komprimieren</Badge>;
-      case 'pending':
-        return <Badge variant="outline">Wartend</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
-
-  const Content = () => (
-    <div className="space-y-4">
-      {!hasActiveUploads ? (
-        <div className="text-center py-8 text-muted-foreground">
-          <Upload className="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <p>Keine aktiven Uploads</p>
-        </div>
-      ) : (
-        <>
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-muted-foreground">
-              {activeUploads.length} {activeUploads.length === 1 ? 'Upload' : 'Uploads'} aktiv
-            </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => refetch()}
-              className="h-8"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Aktualisieren
-            </Button>
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="default"
+          size="lg"
+          className={cn(
+            "fixed bottom-32 left-4 md:bottom-8 md:left-8 z-50 rounded-full shadow-2xl transition-all duration-300 flex items-center gap-3 border-2 border-white/20",
+            hasActiveUploads && (uploadingCount > 0 || restoringCount > 0 || errorCount > 0) ? "px-4 h-14" : "p-3 h-14 w-14",
+            "bg-[#2E432D] text-white hover:bg-[#2E432D]/90",
+            errorCount > 0 && "bg-destructive hover:bg-destructive/90 border-destructive-foreground/20"
+          )}
+        >
+          {errorCount > 0 ? (
+            <div className="relative">
+                <AlertCircle className="w-6 h-6 animate-pulse text-white" />
+                <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-[#2E432D]" />
+            </div>
+          ) : (
+            <div className="relative">
+                <Upload className={cn("w-6 h-6 text-white/90", uploadingCount > 0 && "animate-bounce")} />
+                {uploadingCount > 0 && <span className="absolute -bottom-1 -right-1 h-2 w-2 bg-green-400 rounded-full animate-ping" />}
+            </div>
+          )}
+          {hasActiveUploads && (uploadingCount > 0 || restoringCount > 0 || errorCount > 0) && (
+            <div className="flex flex-col items-start text-sm">
+              <span className="font-bold tracking-tight">
+                  {uploadingCount + restoringCount + errorCount} Upload{(uploadingCount + restoringCount + errorCount) !== 1 ? 's' : ''} {uploadingCount > 0 ? 'aktiv' : 'wartend'}
+              </span>
+              {uploadingCount > 0 && (
+                <span className="text-white/80 text-xs font-medium">{totalProgress.toFixed(0)}% abgeschlossen</span>
+              )}
+            </div>
+          )}
+        </Button>
+      </DialogTrigger>
+      
+      <DialogContent className="sm:max-w-[500px] w-[95vw] bottom-4 right-4 translate-y-0 top-auto left-auto translate-x-0 data-[state=open]:slide-in-from-bottom-10 p-0 gap-0 overflow-hidden border-none shadow-2xl rounded-xl">
+        <div className="bg-[#2E432D] p-4 text-white flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CloudUpload className="w-5 h-5 text-green-400" />
+            <DialogTitle className="text-lg font-bold">Upload Zentrale</DialogTitle>
           </div>
-
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-            {Array.from(groupedUploads.entries()).map(([boulderId, uploads]) => (
-              <div key={boulderId || 'standalone'} className="border rounded-lg p-4 space-y-3">
-                {boulderId && boulderId !== 'standalone' && (
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-sm">Boulder: {boulderId}</h4>
-                    <Badge variant="outline" className="text-xs">
-                      {uploads.length} {uploads.length === 1 ? 'Datei' : 'Dateien'}
-                    </Badge>
+          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/10 rounded-full">
+            <Minimize2 className="w-5 h-5" />
+          </Button>
+        </div>
+        
+        <ScrollArea className="h-[400px] bg-background/95 backdrop-blur-sm">
+          <div className="p-4 space-y-3">
+            {activeUploads.length === 0 && (
+                <div className="text-center py-10 text-muted-foreground flex flex-col items-center">
+                    <CheckCircle2 className="w-12 h-12 mb-2 text-green-500/20" />
+                    <p>Alle Uploads abgeschlossen</p>
+                </div>
+            )}
+            {activeUploads.map((upload) => (
+              <div key={upload.sessionId} className={cn(
+                  "p-4 rounded-xl border transition-all",
+                  upload.status === 'error' ? "bg-red-50/50 border-red-100" : "bg-card border-border/50 shadow-sm"
+              )}>
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={cn(
+                        "p-2 rounded-lg flex-shrink-0",
+                        upload.type === 'video' ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"
+                    )}>
+                        {upload.type === 'video' ? <FileVideo className="w-5 h-5" /> : <ImageIcon className="w-5 h-5" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <h4 className="font-bold text-sm truncate max-w-[180px] sm:max-w-[250px]" title={upload.fileName}>
+                            {upload.fileName}
+                        </h4>
+                        <span className="text-xs text-muted-foreground capitalize flex items-center gap-1">
+                            {upload.status === 'uploading' && <Loader2 className="w-3 h-3 animate-spin" />}
+                            {upload.status === 'restoring' && <RefreshCw className="w-3 h-3" />}
+                            {upload.status === 'error' && <AlertCircle className="w-3 h-3" />}
+                            {upload.status === 'cancelled' && <X className="w-3 h-3" />}
+                            {upload.status === 'restoring' ? 'Wartet auf Datei' : 
+                             upload.status === 'cancelled' ? 'Abgebrochen' : upload.status}
+                        </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {upload.status === 'completed' && <div className="bg-green-100 text-green-700 p-1 rounded-full"><CheckCircle2 className="w-5 h-5" /></div>}
+                    {upload.status === 'error' && <div className="bg-red-100 text-red-700 p-1 rounded-full"><AlertCircle className="w-5 h-5" /></div>}
+                    
+                    {(upload.status === 'uploading' || upload.status === 'pending') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCancel(upload.sessionId)}
+                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        title="Upload abbrechen"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                    
+                    {(upload.status === 'error' || upload.status === 'restoring' || upload.status === 'completed' || upload.status === 'cancelled') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRemove(upload.sessionId)}
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        title="Upload entfernen"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs font-medium">
+                    <span className="text-muted-foreground">Fortschritt</span>
+                    <span className={cn(
+                        upload.status === 'completed' ? "text-green-600" : "text-primary"
+                    )}>{upload.progress?.toFixed(0)}%</span>
+                  </div>
+                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                    <div 
+                      className={cn(
+                        "h-full transition-all duration-500 ease-out rounded-full relative overflow-hidden",
+                        upload.status === 'completed' ? "bg-green-500" :
+                        upload.status === 'error' ? "bg-red-500" :
+                        "bg-[#2E432D]"
+                      )}
+                      style={{ width: `${upload.progress || 0}%` }}
+                    >
+                        {upload.status === 'uploading' && (
+                            <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite] skew-x-12" />
+                        )}
+                    </div>
+                  </div>
+                </div>
+                
+                {upload.error && (
+                  <div className="mt-3 space-y-2">
+                    <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100 flex gap-2 items-start">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                      <p>{upload.error}</p>
+                    </div>
+                    {(upload.status === 'restoring' || upload.status === 'error') && (
+                      <div className="flex gap-2">
+                        <input
+                          type="file"
+                          ref={(el) => { fileInputRefs.current[upload.sessionId] = el; }}
+                          accept={upload.type === 'video' ? 'video/*' : 'image/*'}
+                          className="hidden"
+                          onChange={(e) => handleFileSelect(upload.sessionId, e)}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => triggerFileSelect(upload.sessionId)}
+                          className="flex-1 text-xs"
+                        >
+                          <RefreshCw className="w-3 h-3 mr-1" />
+                          Datei neu wählen
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
-                
-                {uploads.map((upload) => {
-                  // Calculate time elapsed if started_at is available
-                  // Use currentTime state to force re-render every second
-                  const getTimeElapsed = () => {
-                    if (!upload.started_at) return null;
-                    const start = new Date(upload.started_at).getTime();
-                    const now = currentTime; // Use state instead of Date.now() for reactivity
-                    const elapsed = Math.floor((now - start) / 1000); // seconds
-                    if (elapsed < 0) return '0s'; // Handle edge case
-                    if (elapsed < 60) return `${elapsed}s`;
-                    const minutes = Math.floor(elapsed / 60);
-                    const seconds = elapsed % 60;
-                    return `${minutes}m ${seconds}s`;
-                  };
-
-                  // Get detailed status message for compressing
-                  const getCompressingMessage = () => {
-                    if (upload.status !== 'compressing') return null;
-                    const progress = upload.progress || 0;
-                    if (progress < 10) return 'Initialisiere Komprimierung...';
-                    if (progress < 25) return 'Analysiere Video...';
-                    if (progress < 40) return 'Komprimiere Video...';
-                    if (progress < 50) return 'Finalisiere Komprimierung...';
-                    return 'Komprimierung abgeschlossen';
-                  };
-
-                  // Format file size if available (from upload_logs table)
-                  const formatFileSize = (bytes?: number) => {
-                    if (!bytes) return null;
-                    if (bytes < 1024) return `${bytes} B`;
-                    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-                    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-                  };
-
-                  return (
-                    <div key={upload.upload_session_id} className="space-y-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-start gap-2 flex-1 min-w-0">
-                          {upload.file_type === 'video' ? (
-                            <Video className="w-4 h-4 mt-0.5 text-primary flex-shrink-0" />
-                          ) : (
-                            <Image className="w-4 h-4 mt-0.5 text-primary flex-shrink-0" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{upload.file_name}</p>
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              {getStatusIcon(upload.status)}
-                              {getStatusBadge(upload.status)}
-                              {upload.progress > 0 && upload.progress < 100 && (
-                                <span className="text-xs font-semibold text-primary">
-                                  {Math.round(upload.progress)}%
-                                </span>
-                              )}
-                              {getTimeElapsed() && (
-                                <span className="text-xs text-muted-foreground">
-                                  • {getTimeElapsed()}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {['pending', 'compressing', 'uploading'].includes(upload.status) && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleCancel(upload.upload_session_id)}
-                            disabled={cancellingIds.has(upload.upload_session_id)}
-                            className="h-8 w-8 p-0 flex-shrink-0"
-                          >
-                            {cancellingIds.has(upload.upload_session_id) ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <X className="w-4 h-4" />
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                      
-                      {/* Detailed compressing status */}
-                      {upload.status === 'compressing' && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Zap className="w-3 h-3 text-yellow-600 animate-pulse" />
-                            <span className="font-medium">{getCompressingMessage()}</span>
-                          </div>
-                          <div className="relative">
-                            <Progress 
-                              value={upload.progress || 0} 
-                              className="h-3 bg-muted"
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                              <span className="text-[10px] font-semibold text-primary drop-shadow-sm">
-                                {Math.round(upload.progress || 0)}% Komprimierung
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                            {getTimeElapsed() && (
-                              <span className="flex items-center gap-1">
-                                <span>⏱️</span>
-                                <span className="font-medium">{getTimeElapsed()} verstrichen</span>
-                              </span>
-                            )}
-                            {upload.progress !== undefined && upload.progress > 0 && upload.progress < 100 && (
-                              <span className="flex items-center gap-1">
-                                <FileDown className="w-3 h-3 animate-pulse" />
-                                <span>Verarbeitung läuft...</span>
-                              </span>
-                            )}
-                            {(upload.progress === undefined || upload.progress === 0) && (
-                              <span className="flex items-center gap-1 text-yellow-600">
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                                <span>Starte Komprimierung...</span>
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Uploading status */}
-                      {upload.status === 'uploading' && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Upload className="w-3 h-3 text-blue-600 animate-pulse" />
-                            <span className="font-medium">
-                              {upload.progress < 20 ? 'Vorbereitung...' :
-                               upload.progress < 50 ? 'Hochladen...' :
-                               upload.progress < 80 ? 'Upload läuft...' :
-                               upload.progress < 95 ? 'Fast fertig...' :
-                               'Finalisiere...'}
-                            </span>
-                          </div>
-                          <Progress value={upload.progress} className="h-2" />
-                          {getTimeElapsed() && (
-                            <div className="text-xs text-muted-foreground">
-                              ⏱️ {getTimeElapsed()} verstrichen
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      
-                      {/* Pending status */}
-                      {upload.status === 'pending' && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          <span>Warte auf Start...</span>
-                        </div>
-                      )}
-                      
-                      {/* Failed status */}
-                      {upload.status === 'failed' && upload.error_message && (
-                        <div className="text-xs text-destructive bg-destructive/10 p-2 rounded">
-                          {upload.error_message}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
               </div>
             ))}
           </div>
-        </>
-      )}
-    </div>
-  );
-
-  if (isMobile) {
-    return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-full sm:max-w-lg">
-          <SheetHeader>
-            <SheetTitle>Upload-Übersicht</SheetTitle>
-            <SheetDescription>
-              Alle aktiven Uploads in der App
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-6">
-            <Content />
-          </div>
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[85vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Upload-Übersicht</DialogTitle>
-          <DialogDescription>
-            Alle aktiven Uploads in der App
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex-1 overflow-hidden">
-          <Content />
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

@@ -18,7 +18,6 @@ import Setter from "./pages/Setter";
 import Guest from "./pages/Guest";
 import NotFound from "./pages/NotFound";
 import { Sidebar } from "@/components/Sidebar";
-import { startStaleUploadCleanup } from "@/utils/uploadTimeout";
 
 // Configure QueryClient for optimal caching and prefetching
 const queryClient = new QueryClient({
@@ -259,6 +258,8 @@ const PullToRefreshHandler = () => {
 };
 
 import { SidebarProvider } from '@/components/SidebarContext';
+import { UploadOverview } from '@/components/UploadOverview';
+import { UploadProvider } from '@/contexts/UploadContext';
 
 // Component to conditionally show Sidebar only for authenticated users
 const ConditionalSidebar = () => {
@@ -280,18 +281,15 @@ const Root = () => {
   // Don't restore route in Root - let PullToRefreshHandler handle it
   // This prevents conflicts with normal navigation
   
-  // Start stale upload cleanup (runs every 5 minutes)
-  useEffect(() => {
-    const cleanup = startStaleUploadCleanup(5);
-    return cleanup;
-  }, []);
-  
   return (
     <SidebarProvider>
-      <RouteLogger />
-      <PullToRefreshHandler />
-      <ConditionalSidebar />
-      <Outlet />
+      <UploadProvider>
+        <RouteLogger />
+        <PullToRefreshHandler />
+        <ConditionalSidebar />
+        <UploadOverview />
+        <Outlet />
+      </UploadProvider>
     </SidebarProvider>
   );
 };

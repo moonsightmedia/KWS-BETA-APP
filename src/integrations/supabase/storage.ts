@@ -1,6 +1,4 @@
 import { supabase } from './client';
-import { UploadLogger } from '@/utils/uploadLogger';
-import { queueBackgroundUpload } from '@/utils/backgroundUpload';
 import exifr from 'exifr';
 
 const DEFAULT_BUCKET = 'beta-videos';
@@ -1067,7 +1065,7 @@ async function uploadToAllInkl(
   };
 
   // Helper function to retry with exponential backoff and network detection
-  const retryWithBackoff = async (fn: () => Promise<string>, logger?: UploadLogger): Promise<string> => {
+  const retryWithBackoff = async (fn: () => Promise<string>): Promise<string> => {
     try {
       return await fn();
     } catch (error: any) {
@@ -1083,11 +1081,7 @@ async function uploadToAllInkl(
         !navigator.onLine; // Browser is offline
       
       if (isNetworkError && retryCount < MAX_RETRIES) {
-        // Log retry attempt
-        if (logger) {
-          await logger.incrementRetry().catch(() => {});
-          await logger.updateStatus('uploading', 0, error).catch(() => {});
-        }
+        // Log retry attempt (logger removed)
         
         // If offline, wait for network to come back
         if (!navigator.onLine) {
@@ -1175,39 +1169,13 @@ async function uploadToAllInkl(
           headers['X-Sector-Id'] = sectorId;
         }
         
-        // If using background upload and tab is hidden, queue in service worker
-        if (useBackgroundUpload && document.visibilityState === 'hidden') {
-          try {
-            const chunkArrayBuffer = await chunk.arrayBuffer();
-            await queueBackgroundUpload({
-              url: `${ALLINKL_API_URL}/upload.php`,
-              method: 'POST',
-              headers: headers,
-              fileData: chunkArrayBuffer,
-              chunkIndex: i,
-              totalChunks: totalChunks,
-              uploadSessionId: uploadSessionId,
-            });
-            uploadedChunks.push(i);
-            // Update progress
-            if (onProgress) {
-              const chunkProgress = ((i + 1) / totalChunks) * 100;
-              onProgress(chunkProgress);
-            }
-            continue; // Skip normal upload for this chunk
-          } catch (bgError) {
-            console.warn('[Upload] Background upload failed for chunk, falling back to normal upload:', bgError);
-            // Fall through to normal upload
-          }
-        }
-
-          // Upload chunk with timeout
-          // Use longer timeout for larger files (more chunks = more time needed)
-          const chunkTimeout = totalChunks > 10 
-            ? UPLOAD_TIMEOUT * 2  // 10 minutes for files with many chunks
-            : UPLOAD_TIMEOUT;      // 5 minutes for smaller files
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), chunkTimeout);
+        // Upload chunk with timeout
+        // Use longer timeout for larger files (more chunks = more time needed)
+        const chunkTimeout = totalChunks > 10 
+          ? UPLOAD_TIMEOUT * 2  // 10 minutes for files with many chunks
+          : UPLOAD_TIMEOUT;      // 5 minutes for smaller files
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), chunkTimeout);
 
         try {
             // Check if network is available before attempting upload
@@ -1387,7 +1355,7 @@ async function uploadToAllInkl(
       if (wakeLock) {
         wakeLock.release().catch(() => {});
       }
-        cleanupKeepAlive();
+      cleanupKeepAlive();
       throw new Error('Upload completed but no URL returned');
       } catch (error) {
         if (wakeLock) {
@@ -1623,201 +1591,7 @@ export async function uploadBetaVideo(
   onProgress?: (progress: number) => void,
   boulderId?: string | null
 ): Promise<string> {
-  // Determine upload type
-  const uploadType = USE_ALLINKL_STORAGE ? 'allinkl' : 'supabase';
-  
-  // Initialize logger
-  const logger = new UploadLogger(file, 'video', uploadType, boulderId);
-  
-  try {
-    // Initialize log entry and check for duplicates
-    await logger.initialize();
-    await logger.updateStatus('pending', 0);
-  } catch (error: any) {
-    if (error.message === 'Duplicate file detected') {
-      throw error; // Re-throw duplicate errors
-    }
-    // Continue with upload even if logging fails
-    console.warn('[UploadLogger] Failed to initialize, continuing without logging:', error);
-  }
-
-  // Validate file type
-  const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/3gpp'];
-  if (!allowedTypes.includes(file.type)) {
-    const error = new Error(`Ungültiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
-    await logger.updateStatus('failed', 0, error).catch(() => {});
-    throw error;
-  }
-
-  // Preserve original file extension for format detection
-  const originalExt = getFileExt(file.name) || (file.type.includes('mp4') ? 'mp4' : 'mp4');
-  
-  // Process video: compress large files for better performance
-  // Strategy: 
-  // - Small videos (< 50MB): keep original format (MP4, MOV, etc.) for quality and speed
-  // - Large videos (>= 50MB): compress using FFmpeg while preserving original format (MP4, MOV, etc.)
-  // FFmpeg allows compression without format conversion
-  // Increased threshold to 50MB to skip compression for most videos and speed up uploads
-  let videoToUpload = file;
-  const compressionThreshold = 50 * 1024 * 1024; // 50MB (increased from 20MB for speed)
-  const shouldCompress = file.size >= compressionThreshold;
-  
-  if (shouldCompress) {
-    try {
-      await logger.updateStatus('compressing', 5).catch((err) => {
-        console.warn('[UploadLogger] Failed to update status to compressing:', err);
-      });
-      if (onProgress) onProgress(5);
-      
-      console.log('[Video Upload] Compressing large video (>20MB) for better performance:', file.type, file.name);
-      // FFmpeg compression preserves original format (MP4, MOV, etc.)
-      videoToUpload = await compressVideo(file, (progress) => {
-        const compressionProgress = 5 + (progress * 0.45); // 5-50% for compression
-        logger.updateStatus('compressing', compressionProgress).catch((err) => {
-          console.warn('[UploadLogger] Failed to update compression progress:', err);
-        });
-        if (onProgress) {
-          onProgress(compressionProgress);
-        }
-      });
-      
-      await logger.updateStatus('compressing', 50).catch((err) => {
-        console.warn('[UploadLogger] Failed to update status after compression:', err);
-      });
-      if (onProgress) onProgress(50);
-    } catch (error: any) {
-      console.warn('Video processing (compression) failed, using original:', error);
-      await logger.updateStatus('compressing', 50, error).catch(() => {});
-      videoToUpload = file; // Use original if processing fails
-    }
-  } else {
-    // Small videos: preserve original format and quality
-    console.log('[Video Upload] Keeping original format for small video (<20MB):', file.type, file.name);
-    await logger.updateStatus('uploading', 0).catch(() => {});
-    if (onProgress) onProgress(0);
-  }
-
-  // Validate file size (500MB max to allow larger videos while still having a reasonable limit)
-  const maxSize = 500 * 1024 * 1024; // 500MB
-  if (videoToUpload.size > maxSize) {
-    const error = new Error(`Datei zu groß. Maximum: ${Math.round(maxSize / 1024 / 1024)}MB. Bitte komprimiere das Video oder verwende YouTube/Vimeo für größere Videos.`);
-    await logger.updateStatus('failed', 0, error).catch(() => {});
-    throw error;
-  }
-
-  // Use All-Inkl if enabled, otherwise fallback to Supabase
-  if (USE_ALLINKL_STORAGE) {
-    try {
-      const uploadStartProgress = shouldCompress ? 50 : 0;
-      await logger.updateStatus('uploading', uploadStartProgress).catch(() => {});
-      
-      // Upload progress: starts at 50% if compression was done, otherwise 0%
-      const uploadProgress = onProgress 
-        ? (progress: number) => {
-            const totalProgress = uploadStartProgress + (progress * (shouldCompress ? 0.5 : 1.0));
-            logger.updateStatus('uploading', totalProgress).catch((err) => {
-              console.warn('[UploadLogger] Failed to update upload progress:', err);
-            });
-            onProgress(totalProgress);
-          }
-        : undefined;
-      
-      const url = await uploadToAllInkl(videoToUpload, 'video', undefined, uploadProgress);
-      await logger.updateStatus('completed', 100, null, null, url).catch(() => {});
-      return url;
-    } catch (error: any) {
-      console.error('[All-Inkl Video Upload] Failed:', error);
-      console.error('[All-Inkl Video Upload] Error details:', {
-        message: error.message,
-        fileName: videoToUpload.name,
-        fileSize: videoToUpload.size,
-        fileType: videoToUpload.type,
-        stack: error.stack,
-      });
-      await logger.incrementRetry().catch(() => {});
-      await logger.updateStatus('failed', 50, error).catch(() => {});
-      // DO NOT fallback to Supabase - throw error instead
-      throw new Error(`CDN-Upload fehlgeschlagen: ${error.message}. Bitte versuche es erneut oder kontaktiere den Administrator.`);
-    }
-  }
-
-  // If All-Inkl is not enabled, use Supabase Storage
-  const uploadStartProgress = shouldCompress ? 50 : 0;
-  await logger.updateStatus('uploading', uploadStartProgress).catch(() => {});
-  
-  // Preserve original file extension to maintain format (MP4, MOV, etc.)
-  // FFmpeg compression preserves the original format
-  const ext = getFileExt(videoToUpload.name) || originalExt;
-  const objectPath = `uploads/${randomId()}.${ext}`;
-
-  // Simulate progress if callback provided (starts at 50% if compression was done, otherwise 0%)
-  const simulateProgress = () => {
-    if (!onProgress) return;
-    
-    let progress = uploadStartProgress;
-    const interval = setInterval(() => {
-      progress += Math.random() * 10; // Increment by 0-10% each time
-      if (progress >= 95) {
-        progress = 95; // Cap at 95% until upload completes
-        clearInterval(interval);
-      }
-      logger.updateStatus('uploading', progress).catch(() => {});
-      onProgress(progress);
-    }, 200); // Update every 200ms
-    
-    return interval;
-  };
-
-  const progressInterval = simulateProgress();
-
-  try {
-    // Use native Supabase Storage upload method
-    const { data, error } = await supabase.storage
-      .from(DEFAULT_BUCKET)
-      .upload(objectPath, videoToUpload, {
-        cacheControl: '604800', // 7 days cache (reduced from 1 year to allow updates)
-        upsert: true,
-        contentType: videoToUpload.type || 'video/mp4',
-      });
-
-    // Clear progress simulation
-    if (progressInterval) {
-      clearInterval(progressInterval);
-    }
-
-    if (error) {
-      console.error('[Storage Upload] Error details:', {
-        message: error.message,
-        statusCode: (error as any).statusCode,
-        error: error,
-        fileSize: file.size,
-        fileName: file.name,
-        fileType: file.type,
-      });
-      await logger.updateStatus('failed', 0, error).catch(() => {});
-      throw error;
-    }
-
-    // Report 100% completion
-    if (onProgress) {
-      onProgress(100);
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from(DEFAULT_BUCKET)
-      .getPublicUrl(objectPath);
-
-    await logger.updateStatus('completed', 100, null, null, urlData.publicUrl).catch(() => {});
-    return urlData.publicUrl;
-  } catch (error: any) {
-    // Clear progress simulation on error
-    if (progressInterval) {
-      clearInterval(progressInterval);
-    }
-    await logger.updateStatus('failed', 0, error).catch(() => {});
-    throw error;
-  }
+  throw new Error('Upload-Funktionalität wurde entfernt');
 }
 
 /**
@@ -2155,170 +1929,7 @@ export async function uploadThumbnail(
   onProgress?: (progress: number) => void,
   boulderId?: string | null
 ): Promise<string> {
-  // Determine upload type
-  const uploadType = USE_ALLINKL_STORAGE ? 'allinkl' : 'supabase';
-  
-  // Initialize logger
-  const logger = new UploadLogger(file, 'thumbnail', uploadType, boulderId);
-  
-  try {
-    // Initialize log entry and check for duplicates
-    await logger.initialize();
-    await logger.updateStatus('pending', 0);
-  } catch (error: any) {
-    if (error.message === 'Duplicate file detected') {
-      throw error; // Re-throw duplicate errors
-    }
-    // Continue with upload even if logging fails
-    console.warn('[UploadLogger] Failed to initialize, continuing without logging:', error);
-  }
-
-  // Validate file type
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  if (!allowedTypes.includes(file.type)) {
-    const error = new Error(`Ungültiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
-    await logger.updateStatus('failed', 0, error).catch(() => {});
-    throw error;
-  }
-
-  // Compress and optimize thumbnail before upload
-  // This reduces file size significantly, so we check size AFTER compression
-  let thumbnailToUpload = file;
-  try {
-    await logger.updateStatus('compressing', 5).catch(() => {});
-    if (onProgress) onProgress(5);
-    
-    thumbnailToUpload = await compressThumbnail(file, (progress) => {
-      const compressionProgress = 5 + (progress * 0.4); // 5-45% for compression
-      logger.updateStatus('compressing', compressionProgress).catch(() => {});
-      if (onProgress) {
-        onProgress(compressionProgress);
-      }
-    });
-    
-    await logger.updateStatus('compressing', 45).catch(() => {});
-    if (onProgress) onProgress(45);
-  } catch (error: any) {
-    console.warn('[Thumbnail Upload] Compression failed, using original:', error);
-    await logger.updateStatus('compressing', 45, error).catch(() => {});
-    thumbnailToUpload = file; // Use original if compression fails
-  }
-
-  // Validate file size AFTER compression (5MB max for thumbnails)
-  // Large original files can be compressed to under 5MB, so we check after compression
-  const maxSize = 5 * 1024 * 1024; // 5MB
-  if (thumbnailToUpload.size > maxSize) {
-    const originalSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-    const compressedSizeMB = (thumbnailToUpload.size / (1024 * 1024)).toFixed(2);
-    const error = new Error(
-      `Datei zu groß. Original: ${originalSizeMB}MB, nach Kompression: ${compressedSizeMB}MB. ` +
-      `Maximum: ${Math.round(maxSize / 1024 / 1024)}MB. Bitte verwende ein kleineres Bild oder reduziere die Auflösung.`
-    );
-    await logger.updateStatus('failed', 0, error).catch(() => {});
-    throw error;
-  }
-
-  // Use All-Inkl if enabled, otherwise fallback to Supabase
-  if (USE_ALLINKL_STORAGE) {
-    try {
-      await logger.updateStatus('uploading', 45).catch(() => {});
-      
-      const uploadProgress = onProgress 
-        ? (progress: number) => {
-            // Compression took 0-45%, upload takes 45-100%
-            const totalProgress = 45 + (progress * 0.55);
-            logger.updateStatus('uploading', totalProgress).catch(() => {});
-            onProgress(totalProgress);
-          }
-        : undefined;
-      
-      const url = await uploadToAllInkl(thumbnailToUpload, 'image', undefined, uploadProgress);
-      await logger.updateStatus('completed', 100, null, null, url).catch(() => {});
-      return url;
-    } catch (error: any) {
-      console.error('[All-Inkl Thumbnail Upload] Failed:', error);
-      await logger.incrementRetry().catch(() => {});
-      await logger.updateStatus('failed', 0, error).catch(() => {});
-      // DO NOT fallback to Supabase - throw error instead
-      throw new Error(`CDN-Upload fehlgeschlagen: ${error.message}. Bitte versuche es erneut oder kontaktiere den Administrator.`);
-    }
-  }
-
-  // If All-Inkl is not enabled, use Supabase Storage
-  await logger.updateStatus('uploading', 45).catch(() => {});
-  
-  // Store thumbnails in a separate bucket or in the beta-videos bucket with a prefix
-  // Always use .jpg extension for compressed thumbnails
-  const ext = 'jpg';
-  const objectPath = `thumbnails/${randomId()}.${ext}`;
-
-  // Simulate progress if callback provided (starts at 45% after compression)
-  const simulateProgress = () => {
-    if (!onProgress) return;
-    
-    let progress = 45; // Start at 45% after compression
-    const interval = setInterval(() => {
-      progress += Math.random() * 10;
-      if (progress >= 95) {
-        progress = 95;
-        clearInterval(interval);
-      }
-      const totalProgress = progress;
-      logger.updateStatus('uploading', totalProgress).catch(() => {});
-      onProgress(totalProgress);
-    }, 200);
-    
-    return interval;
-  };
-
-  const progressInterval = simulateProgress();
-
-  try {
-    const { data, error } = await supabase.storage
-      .from(DEFAULT_BUCKET)
-      .upload(objectPath, thumbnailToUpload, {
-        cacheControl: '31536000', // 1 year cache for thumbnails (immutable)
-        upsert: true,
-        contentType: 'image/jpeg', // Always JPEG after compression
-      });
-
-    if (progressInterval) {
-      clearInterval(progressInterval);
-    }
-
-    if (error) {
-      console.error('[Thumbnail Upload] Error details:', {
-        message: error.message,
-        statusCode: (error as any).statusCode,
-        error: error,
-        fileSize: file.size,
-        fileName: file.name,
-        fileType: file.type,
-        objectPath: objectPath,
-      });
-      await logger.updateStatus('failed', 0, error).catch(() => {});
-      throw error;
-    }
-
-    if (onProgress) {
-      onProgress(100);
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from(DEFAULT_BUCKET)
-      .getPublicUrl(objectPath);
-
-    await logger.updateStatus('completed', 100, null, null, urlData.publicUrl).catch(() => {});
-    return urlData.publicUrl;
-  } catch (error: any) {
-    if (progressInterval) {
-      clearInterval(progressInterval);
-    }
-    console.error('[Thumbnail Upload] Upload failed:', error);
-    await logger.updateStatus('failed', 0, error).catch(() => {});
-    throw error;
-  }
+  throw new Error('Upload-Funktionalität wurde entfernt');
 }
 
 /**

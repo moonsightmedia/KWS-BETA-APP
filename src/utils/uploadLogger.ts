@@ -1,480 +1,113 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from "@/integrations/supabase/client";
 
-export interface DeviceInfo {
-  userAgent: string;
-  platform: string;
-  isMobile: boolean;
-  isIOS: boolean;
-  isAndroid: boolean;
-  isSafari: boolean;
-  isChrome: boolean;
-  connectionType?: string;
-  screenWidth?: number;
-  screenHeight?: number;
-}
+export class UploadLogger {
+  private sessionId: string;
+  private retryCount: number = 0;
 
-export interface NetworkInfo {
-  effectiveType?: string;
-  downlink?: number;
-  rtt?: number;
-  saveData?: boolean;
-  onLine?: boolean;
-}
-
-export interface ChunkInfo {
-  totalChunks: number;
-  chunkSize: number;
-  uploadedChunks: number[];
-  failedChunks?: number[];
-}
-
-export interface ErrorDetails {
-  code?: string;
-  message: string;
-  stack?: string;
-  networkError?: boolean;
-  timeout?: boolean;
-  chunkNumber?: number;
-  totalChunks?: number;
-  statusCode?: number;
-  responseText?: string;
-}
-
-export type UploadStatus = 'pending' | 'compressing' | 'uploading' | 'completed' | 'failed' | 'duplicate';
-export type FileType = 'video' | 'thumbnail';
-export type UploadType = 'allinkl' | 'supabase';
-
-export interface UploadLogData {
-  upload_session_id: string;
-  boulder_id?: string | null;
-  file_name: string;
-  file_size: number;
-  file_type: FileType;
-  upload_type: UploadType;
-  status: UploadStatus;
-  progress: number;
-  error_message?: string | null;
-  error_details?: ErrorDetails | null;
-  final_url?: string | null;
-  chunk_info?: ChunkInfo | null;
-  device_info: DeviceInfo;
-  network_info?: NetworkInfo | null;
-  retry_count: number;
-  file_hash?: string | null;
-}
-
-/**
- * Collect device information
- */
-export function collectDeviceInfo(): DeviceInfo {
-  const userAgent = navigator.userAgent;
-  const platform = navigator.platform || 'unknown';
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(userAgent);
-  const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
-  const isAndroid = /Android/i.test(userAgent);
-  const isSafari = /Safari/i.test(userAgent) && !/Chrome/i.test(userAgent);
-  const isChrome = /Chrome/i.test(userAgent) && !/Edg/i.test(userAgent);
-
-  // Get connection type if available (Network Information API)
-  let connectionType: string | undefined;
-  const nav = navigator as any;
-  if (nav.connection) {
-    connectionType = nav.connection.effectiveType || nav.connection.type || 'unknown';
-  } else if (nav.mozConnection) {
-    connectionType = nav.mozConnection.effectiveType || nav.mozConnection.type || 'unknown';
-  } else if (nav.webkitConnection) {
-    connectionType = nav.webkitConnection.effectiveType || nav.webkitConnection.type || 'unknown';
+  constructor(sessionId: string) {
+    this.sessionId = sessionId;
   }
 
-  return {
-    userAgent,
-    platform,
-    isMobile,
-    isIOS,
-    isAndroid,
-    isSafari,
-    isChrome,
-    connectionType,
-    screenWidth: window.screen?.width,
-    screenHeight: window.screen?.height,
-  };
-}
-
-/**
- * Collect network information
- */
-export function collectNetworkInfo(): NetworkInfo {
-  const nav = navigator as any;
-  const connection = nav.connection || nav.mozConnection || nav.webkitConnection;
-
-  if (!connection) {
-    return {
-      onLine: navigator.onLine,
-    };
-  }
-
-  return {
-    effectiveType: connection.effectiveType,
-    downlink: connection.downlink,
-    rtt: connection.rtt,
-    saveData: connection.saveData,
-    onLine: navigator.onLine,
-  };
-}
-
-/**
- * Generate a unique session ID for an upload
- */
-export function generateSessionId(): string {
-  const timestamp = Date.now();
-  // Use crypto.randomUUID if available, otherwise fallback to Math.random
-  const uuid = typeof crypto !== 'undefined' && crypto.randomUUID 
-    ? crypto.randomUUID() 
-    : `${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-  return `${timestamp}-${uuid}`;
-}
-
-/**
- * Calculate SHA-256 hash of a file for duplicate detection
- */
-export async function calculateFileHash(file: File): Promise<string> {
-  // Check if crypto.subtle is available
-  if (typeof crypto === 'undefined' || !crypto.subtle) {
-    // Use fallback hash if crypto.subtle is not available (e.g., in non-HTTPS contexts)
-    const fallbackHash = `${file.name}-${file.size}-${file.lastModified}`;
-    return btoa(fallbackHash).replace(/[^a-zA-Z0-9]/g, '').substring(0, 64);
-  }
-  
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    return hashHex;
-  } catch (error) {
-    console.warn('[UploadLogger] Failed to calculate file hash, using fallback:', error);
-    // Return a fallback hash based on file name, size, and lastModified
-    const fallbackHash = `${file.name}-${file.size}-${file.lastModified}`;
-    // Create a simple hash-like string from the fallback data
-    return btoa(fallbackHash).replace(/[^a-zA-Z0-9]/g, '').substring(0, 64);
-  }
-}
-
-/**
- * Check if a file with the same hash was recently uploaded (duplicate detection)
- */
-export async function checkForDuplicate(fileHash: string, fileName: string, fileSize: number): Promise<boolean> {
-  try {
-    // Check for exact hash match in last 5 minutes
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  static async create(
+    sessionId: string,
+    boulderId: string | null,
+    fileType: 'video' | 'thumbnail',
+    fileName: string,
+    fileSize: number,
+    totalChunks: number
+  ) {
+    // Note: boulder_id can be null initially and updated later if needed, 
+    // but usually we have it. If null, we might need to allow nulls in DB or ensure we have it.
+    // Our SQL schema allows boulder_id REFERENCES public.boulders(id), which implies it can be null?
+    // Wait, in my SQL I wrote: `boulder_id UUID REFERENCES public.boulders(id)`. 
+    // It doesn't say NOT NULL, so it's nullable.
     
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('upload_logs')
-      .select('id, status, created_at')
-      .eq('file_hash', fileHash)
-      .gte('created_at', fiveMinutesAgo)
-      .order('created_at', { ascending: false })
-      .limit(1);
+      .insert({
+        session_id: sessionId,
+        boulder_id: boulderId,
+        file_type: fileType,
+        status: 'pending',
+        file_name: fileName,
+        file_size: fileSize,
+        total_chunks: totalChunks,
+        progress: 0,
+        uploaded_chunks: 0
+      });
 
     if (error) {
-      console.warn('[UploadLogger] Error checking for duplicates:', error);
-      return false;
+      console.error('[UploadLogger] Failed to create log:', error);
+    }
+    
+    return new UploadLogger(sessionId);
+  }
+
+  async updateProgress(progress: number, uploadedChunksCount?: number) {
+    const updates: any = {
+      progress,
+      status: 'uploading',
+      updated_at: new Date().toISOString()
+    };
+    
+    if (uploadedChunksCount !== undefined) {
+      updates.uploaded_chunks = uploadedChunksCount;
     }
 
-    if (data && data.length > 0) {
-      const recentLog = data[0];
-      // If there's a completed upload with the same hash in the last 5 minutes, it's a duplicate
-      if (recentLog.status === 'completed') {
-        return true;
-      }
-    }
-
-    // Also check for same filename and size in last 2 minutes (additional check)
-    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-    const { data: nameData, error: nameError } = await supabase
+    const { error } = await supabase
       .from('upload_logs')
-      .select('id, status, created_at')
-      .eq('file_name', fileName)
-      .eq('file_size', fileSize)
-      .gte('created_at', twoMinutesAgo)
-      .order('created_at', { ascending: false })
-      .limit(1);
+      .update(updates)
+      .eq('session_id', this.sessionId);
 
-    if (nameError) {
-      console.warn('[UploadLogger] Error checking for duplicate by name:', nameError);
-      return false;
+    if (error) {
+      console.warn('[UploadLogger] Failed to update progress:', error);
+    }
+  }
+
+  async updateStatus(status: 'pending' | 'uploading' | 'completed' | 'failed', progress?: number, errorMsg?: any) {
+    const updates: any = {
+      status,
+      updated_at: new Date().toISOString()
+    };
+
+    if (progress !== undefined) {
+      updates.progress = progress;
+    }
+    
+    if (errorMsg) {
+        // Extract message if it's an error object
+      updates.error = errorMsg instanceof Error ? errorMsg.message : String(errorMsg);
     }
 
-    if (nameData && nameData.length > 0) {
-      const recentLog = nameData[0];
-      if (recentLog.status === 'completed' || recentLog.status === 'uploading') {
-        return true;
-      }
-    }
+    const { error } = await supabase
+      .from('upload_logs')
+      .update(updates)
+      .eq('session_id', this.sessionId);
 
-    return false;
-  } catch (error) {
-    console.warn('[UploadLogger] Exception checking for duplicates:', error);
-    return false;
+    if (error) {
+      console.error('[UploadLogger] Failed to update status:', error);
+    }
+  }
+  
+  async incrementRetry() {
+      this.retryCount++;
+      // Optionally log this retry to DB if we had a retries column, currently just tracking locally/console
+      console.log(`[UploadLogger] Retry ${this.retryCount} for session ${this.sessionId}`);
   }
 }
 
-/**
- * UploadLogger class for structured logging of uploads
- */
-export class UploadLogger {
-  private logId: string | null = null;
-  private sessionId: string;
-  private fileHash: string | null = null;
-
-  constructor(
-    private file: File,
-    private fileType: FileType,
-    private uploadType: UploadType,
-    private boulderId?: string | null
-  ) {
-    this.sessionId = generateSessionId();
-  }
-
-  /**
-   * Initialize the log entry in the database
-   */
-  async initialize(): Promise<void> {
-    try {
-      // Calculate file hash for duplicate detection
-      this.fileHash = await calculateFileHash(this.file);
-
-      // Check for duplicates
-      const isDuplicate = await checkForDuplicate(this.fileHash, this.file.name, this.file.size);
-      if (isDuplicate) {
-        await this.createLogEntry('duplicate', 0, null, {
-          message: 'Duplicate file detected',
-          code: 'DUPLICATE_FILE',
-        });
-        throw new Error('Duplicate file detected');
-      }
-
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-
-      const logData: UploadLogData = {
-        upload_session_id: this.sessionId,
-        boulder_id: this.boulderId || null,
-        file_name: this.file.name,
-        file_size: this.file.size,
-        file_type: this.fileType,
-        upload_type: this.uploadType,
-        status: 'pending',
-        progress: 0,
-        error_message: null,
-        error_details: null,
-        final_url: null,
-        chunk_info: null,
-        device_info: collectDeviceInfo(),
-        network_info: collectNetworkInfo(),
-        retry_count: 0,
-        file_hash: this.fileHash,
-      };
-
-      const { data, error } = await supabase
+export async function getActiveUploads() {
+    const { data, error } = await supabase
         .from('upload_logs')
-        .insert({
-          ...logData,
-          user_id: user?.id || null,
-        })
-        .select('id')
-        .single();
-
-      if (error) {
-        console.error('[UploadLogger] Failed to create log entry:', error);
-        console.error('[UploadLogger] Error details:', JSON.stringify(error, null, 2));
-        // Check if table exists
-        if (error.code === '42P01' || error.message?.includes('does not exist')) {
-          console.error('[UploadLogger] upload_logs table does not exist! Please run the migration.');
-        }
-        // Don't throw - logging should not break uploads
-        return;
-      }
-
-      this.logId = data.id;
-    } catch (error: any) {
-      if (error.message === 'Duplicate file detected') {
-        throw error; // Re-throw duplicate errors
-      }
-      console.error('[UploadLogger] Failed to initialize log:', error);
-      // Don't throw - logging should not break uploads
+        .select('*')
+        .in('status', ['pending', 'uploading'])
+        .order('created_at', { ascending: false });
+        
+    if (error) {
+        console.error('[UploadLogger] Failed to fetch active uploads:', error);
+        return [];
     }
-  }
-
-  /**
-   * Update the log entry status and progress
-   */
-  async updateStatus(
-    status: UploadStatus,
-    progress: number,
-    error?: Error | string | null,
-    chunkInfo?: ChunkInfo | null,
-    finalUrl?: string | null
-  ): Promise<void> {
-    if (!this.logId) {
-      // Try to find existing log by session ID
-      const { data } = await supabase
-        .from('upload_logs')
-        .select('id')
-        .eq('upload_session_id', this.sessionId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (data) {
-        this.logId = data.id;
-      } else {
-        console.warn('[UploadLogger] Cannot update log - no log ID found');
-        return;
-      }
-    }
-
-    try {
-      const errorMessage = error
-        ? typeof error === 'string'
-          ? error
-          : error.message || 'Unknown error'
-        : null;
-
-      const errorDetails: ErrorDetails | null = error && typeof error !== 'string'
-        ? {
-            message: error.message || 'Unknown error',
-            code: (error as any).code,
-            stack: error.stack,
-            networkError: error.message?.toLowerCase().includes('network') || error.message?.toLowerCase().includes('fetch'),
-            timeout: error.message?.toLowerCase().includes('timeout'),
-            statusCode: (error as any).statusCode || (error as any).status,
-            responseText: (error as any).responseText,
-          }
-        : null;
-
-      // Round progress to integer (0-100) as database expects INTEGER
-      const progressInt = Math.round(Math.max(0, Math.min(100, progress || 0)));
-
-      const updateData: Partial<UploadLogData> = {
-        status,
-        progress: progressInt,
-        error_message: errorMessage,
-        error_details: errorDetails,
-        chunk_info: chunkInfo || null,
-        final_url: finalUrl || null,
-        network_info: collectNetworkInfo(), // Update network info on each status change
-      };
-
-      if (status === 'completed' || status === 'failed' || status === 'duplicate') {
-        updateData.completed_at = new Date().toISOString();
-      }
-
-      const { error: updateError } = await supabase
-        .from('upload_logs')
-        .update(updateData)
-        .eq('id', this.logId);
-
-      if (updateError) {
-        console.error('[UploadLogger] Failed to update log:', updateError);
-      }
-    } catch (error) {
-      console.error('[UploadLogger] Exception updating log:', error);
-    }
-  }
-
-  /**
-   * Increment retry count
-   */
-  async incrementRetry(): Promise<void> {
-    if (!this.logId) return;
-
-    try {
-      const { data } = await supabase
-        .from('upload_logs')
-        .select('retry_count')
-        .eq('id', this.logId)
-        .single();
-
-      if (data) {
-        const newRetryCount = (data.retry_count || 0) + 1;
-        await supabase
-          .from('upload_logs')
-          .update({ retry_count: newRetryCount })
-          .eq('id', this.logId);
-      }
-    } catch (error) {
-      console.error('[UploadLogger] Exception incrementing retry:', error);
-    }
-  }
-
-  /**
-   * Get the session ID
-   */
-  getSessionId(): string {
-    return this.sessionId;
-  }
-
-  /**
-   * Get the log ID
-   */
-  getLogId(): string | null {
-    return this.logId;
-  }
-
-  /**
-   * Create a log entry (used for duplicate detection)
-   */
-  private async createLogEntry(
-    status: UploadStatus,
-    progress: number,
-    finalUrl: string | null,
-    errorDetails?: ErrorDetails
-  ): Promise<void> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      const logData: UploadLogData = {
-        upload_session_id: this.sessionId,
-        boulder_id: this.boulderId || null,
-        file_name: this.file.name,
-        file_size: this.file.size,
-        file_type: this.fileType,
-        upload_type: this.uploadType,
-        status,
-        progress,
-        error_message: errorDetails?.message || null,
-        error_details: errorDetails || null,
-        final_url: finalUrl,
-        chunk_info: null,
-        device_info: collectDeviceInfo(),
-        network_info: collectNetworkInfo(),
-        retry_count: 0,
-        file_hash: this.fileHash,
-      };
-
-      if (status === 'completed' || status === 'failed' || status === 'duplicate') {
-        (logData as any).completed_at = new Date().toISOString();
-      }
-
-      const { data, error } = await supabase
-        .from('upload_logs')
-        .insert({
-          ...logData,
-          user_id: user?.id || null,
-        })
-        .select('id')
-        .single();
-
-      if (error) {
-        console.error('[UploadLogger] Failed to create log entry:', error);
-        return;
-      }
-
-      this.logId = data.id;
-    } catch (error) {
-      console.error('[UploadLogger] Exception creating log entry:', error);
-    }
-  }
+    return data;
 }
+
 
