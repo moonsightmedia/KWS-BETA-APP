@@ -230,25 +230,26 @@ export const BoulderManagement = () => {
 
   // Form content direkt inline rendern, um Focus-Probleme zu vermeiden
   const formContent = (
-    <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
+    <form onSubmit={handleSubmit} className="space-y-4 w-full min-w-0">
+              <div className="w-full min-w-0">
                 <Label htmlFor="name">Name *</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
+                  className="w-full min-w-0"
                 />
               </div>
 
-              <div>
+              <div className="w-full min-w-0">
                 <Label htmlFor="sector">Sektor *</Label>
                 <Select
                   value={formData.sector_id}
                   onValueChange={(value) => setFormData({ ...formData, sector_id: value })}
                   required
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Sektor wählen" />
                   </SelectTrigger>
                   <SelectContent>
@@ -261,14 +262,14 @@ export const BoulderManagement = () => {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0">
+                <div className="w-full min-w-0">
                   <Label htmlFor="difficulty">Schwierigkeit *</Label>
                   <Select
                     value={formData.difficulty === null ? '?' : String(formData.difficulty)}
                     onValueChange={(value) => setFormData({ ...formData, difficulty: parseDifficulty(value) })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -284,10 +285,10 @@ export const BoulderManagement = () => {
                   </Select>
                 </div>
 
-                <div>
+                <div className="w-full min-w-0">
                   <Label htmlFor="color">Farbe *</Label>
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-4 gap-2">
+                  <div className="space-y-3 w-full min-w-0">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full min-w-0">
                       {availableColors.map((color) => {
                         const colorInfo = COLOR_MAP[color];
                         const isSelected = formData.color === color;
@@ -296,7 +297,7 @@ export const BoulderManagement = () => {
                             key={color}
                             type="button"
                             onClick={() => setFormData({ ...formData, color })}
-                            className={`relative flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-all ${
+                            className={`relative flex flex-col items-center gap-2 p-2 sm:p-3 rounded-lg border-2 transition-all w-full min-w-0 ${
                               isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
                             }`}
                           >
@@ -325,8 +326,8 @@ export const BoulderManagement = () => {
                         Neue Farbe hinzufügen
                       </Button>
                     ) : (
-                      <div className="border rounded-lg p-4 space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
+                      <div className="border rounded-lg p-4 space-y-3 w-full min-w-0">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full min-w-0">
                           <div>
                             <Label htmlFor="colorName" className="text-xs">Farbname</Label>
                             <Input
@@ -378,7 +379,7 @@ export const BoulderManagement = () => {
                 </div>
               </div>
 
-              <div>
+              <div className="w-full min-w-0">
                 <Label htmlFor="beta_video_url">Beta Video URL</Label>
                 <Input
                   id="beta_video_url"
@@ -386,8 +387,9 @@ export const BoulderManagement = () => {
                   value={formData.beta_video_url}
                   onChange={(e) => setFormData({ ...formData, beta_video_url: e.target.value })}
                   placeholder="https://..."
+                  className="w-full min-w-0"
                 />
-                <div className="mt-2 flex items-center gap-2">
+                <div className="mt-2 flex items-center gap-2 w-full min-w-0">
                   <input
                     id="beta_video_file"
                     type="file"
@@ -407,17 +409,18 @@ export const BoulderManagement = () => {
                         setIsUploading(false);
                       }
                     }}
+                    className="flex-1 min-w-0"
                   />
-                  {isUploading && <span className="text-xs text-muted-foreground">Lade hoch…</span>}
+                  {isUploading && <span className="text-xs text-muted-foreground flex-shrink-0">Lade hoch…</span>}
                 </div>
                 {formData.beta_video_url && (
-                  <div className="mt-2 aspect-[9/16] w-full max-w-xs rounded-lg overflow-hidden border">
+                  <div className="mt-2 aspect-[9/16] w-full max-w-xs mx-auto rounded-lg overflow-hidden border">
                     <video src={formData.beta_video_url} controls className="w-full h-full object-cover" playsInline />
                   </div>
                 )}
               </div>
 
-              <div>
+              <div className="w-full min-w-0">
                 <Label htmlFor="thumbnail_url">Thumbnail URL (optional)</Label>
                 <p className="text-xs text-muted-foreground mb-2">
                   Zeige die Startgriffe des Boulders. Dieses Bild wird in der Boulder-Liste angezeigt.
@@ -428,8 +431,9 @@ export const BoulderManagement = () => {
                   value={formData.thumbnail_url}
                   onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
                   placeholder="https://..."
+                  className="w-full min-w-0"
                 />
-                <div className="mt-2 flex items-center gap-2">
+                <div className="mt-2 flex items-center gap-2 w-full min-w-0">
                   <input
                     id="thumbnail_file"
                     type="file"
@@ -449,31 +453,33 @@ export const BoulderManagement = () => {
                         setIsUploading(false);
                       }
                     }}
+                    className="flex-1 min-w-0"
                   />
-                  {isUploading && <span className="text-xs text-muted-foreground">Lade hoch…</span>}
+                  {isUploading && <span className="text-xs text-muted-foreground flex-shrink-0">Lade hoch…</span>}
                 </div>
                 {formData.thumbnail_url && (
-                  <div className="mt-2 aspect-[9/16] w-full max-w-xs rounded-lg overflow-hidden border">
+                  <div className="mt-2 aspect-[9/16] w-full max-w-xs mx-auto rounded-lg overflow-hidden border">
                     <img src={formData.thumbnail_url} alt="Thumbnail preview" className="w-full h-full object-cover" />
                   </div>
                 )}
               </div>
 
-              <div>
+              <div className="w-full min-w-0">
                 <Label htmlFor="note">Notizen</Label>
                 <Textarea
                   id="note"
                   value={formData.note}
                   onChange={(e) => setFormData({ ...formData, note: e.target.value })}
                   placeholder="Zusätzliche Informationen..."
+                  className="w-full min-w-0"
                 />
               </div>
 
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+        <div className="flex justify-end gap-2 w-full min-w-0">
+          <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-shrink-0">
             Abbrechen
           </Button>
-          <Button type="submit">
+          <Button type="submit" className="flex-shrink-0">
             {editingBoulder ? "Speichern" : "Erstellen"}
           </Button>
         </div>
@@ -689,13 +695,13 @@ export const BoulderManagement = () => {
               <Plus className="w-5 h-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
+          <SheetContent side="bottom" className="h-[90vh] overflow-y-auto overflow-x-hidden w-full max-w-full">
             <SheetHeader>
               <SheetTitle>
                 {editingBoulder ? "Boulder bearbeiten" : "Neuer Boulder"}
               </SheetTitle>
             </SheetHeader>
-            <div className="mt-4">
+            <div className="mt-4 w-full min-w-0 px-1">
               {formContent}
             </div>
           </SheetContent>
