@@ -249,6 +249,7 @@ const getVimeoEmbedUrl = (url: string): string => {
 };
 
 export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDetailDialogProps) => {
+  console.log('[BoulderDetailDialog] Render:', { boulder: boulder?.name, open });
   if (!boulder) return null;
 
   const videoUrl = boulder.betaVideoUrl;

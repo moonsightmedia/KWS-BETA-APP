@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, PlusCircle, Edit3, Calendar, X, Sparkles, ChevronLeft, ChevronRight, Check, Video, Upload, Plus } from 'lucide-react';
+import { Search, PlusCircle, Edit3, Calendar, X, Sparkles, ChevronLeft, ChevronRight, Check, Video, Upload, Plus, CheckCircle, MinusCircle } from 'lucide-react';
 import { MaterialIcon } from '@/components/MaterialIcon';
 import { useMemo as useMemoReact, useRef, useState } from 'react';
 import { useSectorSchedule, useCreateSectorSchedule, useDeleteSectorSchedule } from '@/hooks/useSectorSchedule';
@@ -23,7 +23,6 @@ import { useColors } from '@/hooks/useColors';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BatchUpload } from '@/components/setter/BatchUpload';
-import { BoulderDetailDialog } from '@/components/BoulderDetailDialog';
 import { Boulder } from '@/types/boulder';
 
 const DIFFICULTIES = [null, 1, 2, 3, 4, 5, 6, 7, 8]; // null = "?" (unknown/not rated)
@@ -341,7 +340,6 @@ const Setter = () => {
   const updateBoulder = useUpdateBoulder();
   const deleteBoulder = useDeleteBoulder();
   const updateSector = useUpdateSector();
-  const bulkStatus = useBulkUpdateBoulderStatus();
 
   useEffect(() => {
     // Only redirect if auth is done loading and there's no session
@@ -386,10 +384,10 @@ const Setter = () => {
   }, []);
   
   // Persist view state in sessionStorage to prevent loss on navigation
-  const [view, setView] = useState<'create' | 'edit' | 'schedule' | 'status' | 'batch'>(() => {
+  const [view, setView] = useState<'create' | 'edit' | 'schedule' | 'batch' | 'status'>(() => {
     try {
       const savedView = sessionStorage.getItem('setter-view');
-      if (savedView && ['create', 'edit', 'schedule', 'status', 'batch'].includes(savedView)) {
+      if (savedView && ['create', 'edit', 'schedule', 'batch', 'status'].includes(savedView)) {
         return savedView as typeof view;
       }
     } catch (error) {
@@ -424,11 +422,11 @@ const Setter = () => {
   const { data: schedule } = useSectorSchedule();
   const createSchedule = useCreateSectorSchedule();
   const deleteSchedule = useDeleteSectorSchedule();
-  const [statusFilter, setStatusFilter] = useState<'all' | 'haengt' | 'abgeschraubt'>('all');
-  const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [selectedBoulder, setSelectedBoulder] = useState<Boulder | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedBouldersForDelete, setSelectedBouldersForDelete] = useState<Set<string>>(new Set());
+  // Status management state
+  const [statusSectorFilter, setStatusSectorFilter] = useState<string>('all');
+  const [selectedBouldersForStatus, setSelectedBouldersForStatus] = useState<Set<string>>(new Set());
+  const bulkStatusUpdate = useBulkUpdateBoulderStatus();
   const { data: colorsDb } = useColors();
   const COLORS = useMemo(() => (colorsDb && colorsDb.length>0 ? colorsDb.map(c=>c.name) : DEFAULT_COLORS), [colorsDb]);
   const COLOR_HEX: Record<string, string> = useMemo(() => {
@@ -613,11 +611,6 @@ const Setter = () => {
         return inSector1 || inSector2;
       });
     }
-    // Only apply difficulty, color, status, and search filters when NOT in status view
-    if (view !== 'status') {
-    if (statusFilter !== 'all') {
-      list = list.filter((b:any) => (b as any).status === statusFilter);
-    }
     if (editDifficulty !== 'all') {
       list = list.filter(b => {
         const bDifficulty = b.difficulty === null ? '?' : String(b.difficulty);
@@ -633,10 +626,23 @@ const Setter = () => {
         const sectorText = b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector;
         return b.name.toLowerCase().includes(q) || sectorText.toLowerCase().includes(q);
       });
-      }
     }
     return list.slice(0, 100);
-  }, [boulders, editSector, editDifficulty, editColor, editSearch, sectors, view, statusFilter]);
+  }, [boulders, editSector, editDifficulty, editColor, editSearch, sectors]);
+
+  // Filtered boulders for status management
+  const filteredBouldersForStatus = useMemo(() => {
+    let list = boulders || [];
+    if (statusSectorFilter !== 'all') {
+      const selectedSectorName = sectors?.find(s => s.id === statusSectorFilter)?.name;
+      list = list.filter(b => {
+        const inSector1 = b.sector === selectedSectorName;
+        const inSector2 = b.sector2 === selectedSectorName;
+        return inSector1 || inSector2;
+      });
+    }
+    return list;
+  }, [boulders, statusSectorFilter, sectors]);
 
   const startEdit = (b: any) => {
     console.log('[Setter] startEdit called with boulder:', b.name, 'thumbnailUrl:', b.thumbnailUrl);
@@ -741,25 +747,6 @@ const Setter = () => {
     });
   }, []);
 
-  const toggleSelect = (id: string) => {
-    setSelected(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-  const selectAll = (ids: string[], value: boolean) => {
-    const next: Record<string, boolean> = { ...selected };
-    ids.forEach(id => { next[id] = value; });
-    setSelected(next);
-  };
-
-  const selectedCount = useMemo(() => {
-    return (boulders || []).filter(b => selected[(b as any).id]).length;
-  }, [boulders, selected]);
-
-  // Update sidebar mobile nav visibility
-  // IMPORTANT: This hook must be called BEFORE any early returns to maintain hook order
-  useEffect(() => {
-    setHideMobileNav(view === 'status' && selectedCount > 0);
-    return () => setHideMobileNav(false);
-  }, [view, selectedCount, setHideMobileNav]);
 
   // Warte, bis die Rollen geladen sind, bevor wir "Zugriff verweigert" anzeigen
   if (isLoadingRoles) {
@@ -798,14 +785,13 @@ const Setter = () => {
             <p className="text-muted-foreground">Boulder anlegen und bearbeiten. Nächsten Sektor planen.</p>
           </div>
           {/* Tabs navigation like Admin area */}
-          {!(view==='status' && selectedCount>0) && (
-            <Tabs value={view} onValueChange={(value) => setView(value as typeof view)} className="w-full min-w-0">
-              <TabsList className="grid w-full grid-cols-4 mb-6 h-auto min-w-0">
-                <TabsTrigger value="batch" className="text-xs sm:text-sm min-w-0">Erstellen</TabsTrigger>
-                <TabsTrigger value="edit" className="text-xs sm:text-sm min-w-0">Bearbeiten</TabsTrigger>
-                <TabsTrigger value="status" className="text-xs sm:text-sm min-w-0">Status</TabsTrigger>
-                <TabsTrigger value="schedule" className="text-xs sm:text-sm min-w-0">Termin</TabsTrigger>
-              </TabsList>
+          <Tabs value={view} onValueChange={(value) => setView(value as typeof view)} className="w-full min-w-0">
+            <TabsList className="grid w-full grid-cols-4 mb-6 h-auto min-w-0">
+              <TabsTrigger value="batch" className="text-xs sm:text-sm min-w-0">Erstellen</TabsTrigger>
+              <TabsTrigger value="edit" className="text-xs sm:text-sm min-w-0">Bearbeiten</TabsTrigger>
+              <TabsTrigger value="status" className="text-xs sm:text-sm min-w-0">Status</TabsTrigger>
+              <TabsTrigger value="schedule" className="text-xs sm:text-sm min-w-0">Termin</TabsTrigger>
+            </TabsList>
 
               <TabsContent value="batch" className="mt-0">
                 <BatchUpload />
@@ -1699,103 +1685,162 @@ const Setter = () => {
               </TabsContent>
 
               <TabsContent value="status" className="mt-0">
-                <div className="space-y-4 w-full min-w-0">
-            <div className="flex gap-2 sticky top-[56px] z-10 bg-background py-2 overflow-x-auto w-full min-w-0 -mx-4 px-4">
-              <div className="w-32 sm:w-40 flex-shrink-0">
-                <Select value={editSector} onValueChange={setEditSector}>
-                  <SelectTrigger className="h-11 w-full">
-                    <SelectValue placeholder="Wandbereich" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle</SelectItem>
-                    {sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{filteredBoulders.length} Einträge</span>
-              <div className="text-sm">
-                <button className="underline" onClick={()=>selectAll(filteredBoulders.map(b=>b.id), true)}>Alle auswählen</button>
-                <span className="mx-2">·</span>
-                <button className="underline" onClick={()=>selectAll(filteredBoulders.map(b=>b.id), false)}>Auswahl aufheben</button>
-              </div>
-            </div>
-
-            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-              {filteredBoulders.map(b => {
-                const thumbnailUrl = getThumbnailUrl(b);
-                return (
-                <div key={b.id} className="block">
-                  <Card 
-                    className={`hover:bg-muted/50 cursor-pointer ${selected[b.id] ? 'ring-2 ring-primary' : ''}`}
-                    onClick={(e) => {
-                      // Don't open dialog if clicking on checkbox
-                      if ((e.target as HTMLElement).closest('input[type="checkbox"]')) {
-                        return;
-                      }
-                      setSelectedBoulder(b as Boulder);
-                      setDialogOpen(true);
-                    }}
-                  >
-                    <CardContent className="p-4 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <input 
-                          type="checkbox" 
-                          className="w-5 h-5 flex-shrink-0" 
-                          checked={!!selected[b.id]} 
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            toggleSelect(b.id);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        {thumbnailUrl ? (
-                          <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
-                            <img 
-                              src={thumbnailUrl} 
-                              alt={b.name}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                              decoding="async"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold flex-shrink-0 ${TEXT_ON_COLOR[b.color] || 'text-white'}`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
-                            {formatDifficulty(b.difficulty)}
+                <div className="space-y-4 w-full min-w-0 overflow-x-hidden">
+                  {/* Filter Bar */}
+                  <div className="flex gap-2 items-center flex-wrap">
+                    <div className="w-full sm:w-48 flex-shrink-0">
+                      <Select value={statusSectorFilter} onValueChange={setStatusSectorFilter}>
+                        <SelectTrigger className="h-11 w-full">
+                          <SelectValue placeholder="Sektor wählen" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Alle Sektoren</SelectItem>
+                          {sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {/* Selection Info and Actions - Desktop */}
+                    {selectedBouldersForStatus.size > 0 && (
+                      <div className="hidden md:flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-muted-foreground">
+                          {selectedBouldersForStatus.size} {selectedBouldersForStatus.size === 1 ? 'Boulder' : 'Boulder'} ausgewählt
                         </span>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-base truncate">{b.name}</div>
-                          <div className="text-xs text-muted-foreground truncate">
-                            {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
-                          </div>
-                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedBouldersForStatus(new Set())}
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          Auswahl aufheben
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={async () => {
+                            const ids = Array.from(selectedBouldersForStatus);
+                            if (ids.length === 0) return;
+                            await bulkStatusUpdate.mutateAsync({ ids, status: 'haengt' });
+                            setSelectedBouldersForStatus(new Set());
+                            // Force refetch to update the UI
+                            window.location.reload();
+                          }}
+                          disabled={bulkStatusUpdate.isPending}
+                        >
+                          <MaterialIcon name="input_circle" className="w-4 h-4 mr-1" size={16} />
+                          Reinschrauben
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={async () => {
+                            const ids = Array.from(selectedBouldersForStatus);
+                            if (ids.length === 0) return;
+                            await bulkStatusUpdate.mutateAsync({ ids, status: 'abgeschraubt' });
+                            setSelectedBouldersForStatus(new Set());
+                            // Force refetch to update the UI
+                            window.location.reload();
+                          }}
+                          disabled={bulkStatusUpdate.isPending}
+                        >
+                          <MaterialIcon name="output_circle" className="w-4 h-4 mr-1" size={16} />
+                          Rausschrauben
+                        </Button>
                       </div>
-                      <span className="text-xs px-2 py-1 rounded-full border flex-shrink-0">
-                        {b.status === 'abgeschraubt' ? 'Abgeschraubt' : 'Hängt'}
-                      </span>
-                    </CardContent>
-                  </Card>
-            </div>
-              )})}
-            </div>
-            
-            <BoulderDetailDialog 
-              boulder={selectedBoulder}
-              open={dialogOpen}
-              onOpenChange={(open) => {
-                setDialogOpen(open);
-                if (!open) {
-                  setSelectedBoulder(null);
-                }
-              }}
-            />
-          </div>
+                    )}
+                    
+                    {/* Selection Info - Mobile */}
+                    {selectedBouldersForStatus.size > 0 && (
+                      <div className="md:hidden text-sm text-muted-foreground">
+                        {selectedBouldersForStatus.size} {selectedBouldersForStatus.size === 1 ? 'Boulder' : 'Boulder'} ausgewählt
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Boulder Count */}
+                  <div className="text-sm text-muted-foreground">
+                    {filteredBouldersForStatus.length} {filteredBouldersForStatus.length === 1 ? 'Boulder' : 'Boulder'} gefunden
+                  </div>
+
+                  {/* Boulder Grid */}
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 w-full min-w-0">
+                    {filteredBouldersForStatus.map(b => {
+                      const thumbnailUrl = getThumbnailUrl(b);
+                      const isSelected = selectedBouldersForStatus.has(b.id);
+                      const currentStatus = (b as any).status || 'haengt';
+                      
+                      return (
+                        <div key={b.id} className="relative w-full min-w-0">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => {
+                              setSelectedBouldersForStatus(prev => {
+                                const next = new Set(prev);
+                                if (checked) {
+                                  next.add(b.id);
+                                } else {
+                                  next.delete(b.id);
+                                }
+                                return next;
+                              });
+                            }}
+                            className="absolute top-3 left-3 z-10 bg-background/90 backdrop-blur-sm w-5 h-5 border-2"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <Card className={`w-full min-w-0 transition-all ${isSelected ? 'ring-2 ring-primary shadow-md' : 'hover:bg-muted/50'}`}>
+                            <CardContent className="p-4 flex items-center gap-3 w-full min-w-0">
+                              {/* Thumbnail or Difficulty Badge */}
+                              {thumbnailUrl ? (
+                                <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
+                                  <img 
+                                    src={thumbnailUrl} 
+                                    alt={b.name}
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
+                                    decoding="async"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
+                                  />
+                                </div>
+                              ) : (
+                                <span 
+                                  className={`w-12 h-12 rounded-full border-2 grid place-items-center text-sm font-semibold flex-shrink-0 ${TEXT_ON_COLOR[b.color] || 'text-white'}`} 
+                                  style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}
+                                >
+                                  {formatDifficulty(b.difficulty)}
+                                </span>
+                              )}
+                              
+                              {/* Boulder Info */}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-base truncate">{b.name}</div>
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
+                                </div>
+                                <div className="mt-1">
+                                  <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                                    currentStatus === 'abgeschraubt' 
+                                      ? 'bg-destructive/10 text-destructive border-destructive/20' 
+                                      : 'bg-success/10 text-success border-success/20'
+                                  }`}>
+                                    {currentStatus === 'abgeschraubt' ? 'Abgeschraubt' : 'Hängt'}
+                                  </span>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {filteredBouldersForStatus.length === 0 && (
+                    <div className="text-center py-12 text-muted-foreground">
+                      Keine Boulder gefunden
+                    </div>
+                  )}
+                </div>
               </TabsContent>
 
               <TabsContent value="schedule" className="mt-0">
@@ -1864,88 +1909,54 @@ const Setter = () => {
                 </div>
               </TabsContent>
             </Tabs>
-          )}
         </main>
 
-      {/* Spacer for mobile only global nav */}
-      <div className="h-24 md:h-0" />
-      
-      {/* Selection mode floating buttons without background bar */}
-      {/* Desktop selection toolbar */}
-      {view==='status' && selectedCount > 0 && (
-        <div className="hidden md:flex sticky top-[88px] z-40 justify-end gap-3 px-4 py-2 bg-background/80 backdrop-blur border-b">
-          <button
-            aria-label="Auswahl abbrechen"
-            className="h-9 px-3 rounded-md bg-destructive text-destructive-foreground text-sm shadow"
-            onClick={() => setSelected({})}
-          >
-            Abbrechen
-          </button>
-          <button
-            aria-label="Ausgewählte reinschrauben"
-            className="h-9 px-3 rounded-md bg-success text-success-foreground text-sm shadow flex items-center gap-2"
-            onClick={() => {
-              const ids = filteredBoulders.filter(b => selected[b.id]).map(b => b.id);
-              if (ids.length === 0) return;
-              bulkStatus.mutate({ ids, status: 'haengt' });
-              setSelected({});
-            }}
-          >
-            <MaterialIcon name="input_circle" className="w-4 h-4" size={16} />
-            Reinschrauben
-          </button>
-          <button
-            aria-label="Ausgewählte rausschrauben"
-            className="h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm shadow flex items-center gap-2"
-            onClick={() => {
-              const ids = filteredBoulders.filter(b => selected[b.id]).map(b => b.id);
-              if (ids.length === 0) return;
-              bulkStatus.mutate({ ids, status: 'abgeschraubt' });
-              setSelected({});
-            }}
-          >
-            <MaterialIcon name="output_circle" className="w-4 h-4" size={16} />
-            Rausschrauben
-          </button>
-        </div>
-      )}
-
-      {/* Mobile floating buttons for selection */}
-      {view==='status' && selectedCount > 0 && (
-        <div className="md:hidden fixed z-[80] right-4 bottom-6 flex items-center gap-3">
+      {/* Mobile FABs for Status Management */}
+      {view === 'status' && selectedBouldersForStatus.size > 0 && (
+        <div className="md:hidden fixed right-4 bottom-28 z-[100] flex items-center gap-3">
           <button
             aria-label="Auswahl abbrechen"
             className="w-12 h-12 rounded-full bg-destructive text-destructive-foreground grid place-items-center shadow-xl"
-            onClick={() => setSelected({})}
+            onClick={() => setSelectedBouldersForStatus(new Set())}
           >
             <X className="w-5 h-5" />
           </button>
           <button
             aria-label="Ausgewählte reinschrauben"
             className="w-12 h-12 rounded-full bg-success text-success-foreground grid place-items-center shadow-xl"
-            onClick={() => {
-              const ids = filteredBoulders.filter(b => selected[b.id]).map(b => b.id);
+            onClick={async () => {
+              const ids = Array.from(selectedBouldersForStatus);
               if (ids.length === 0) return;
-              bulkStatus.mutate({ ids, status: 'haengt' });
-              setSelected({});
+              await bulkStatusUpdate.mutateAsync({ ids, status: 'haengt' });
+              setSelectedBouldersForStatus(new Set());
+              // Force refetch to update the UI
+              window.location.reload();
             }}
+            disabled={bulkStatusUpdate.isPending}
           >
-            <MaterialIcon name="input_circle" className="w-5 h-5" size={20} />
+            <CheckCircle className="w-6 h-6" />
           </button>
           <button
             aria-label="Ausgewählte rausschrauben"
             className="w-12 h-12 rounded-full bg-primary text-primary-foreground grid place-items-center shadow-xl"
-            onClick={() => {
-              const ids = filteredBoulders.filter(b => selected[b.id]).map(b => b.id);
+            onClick={async () => {
+              const ids = Array.from(selectedBouldersForStatus);
               if (ids.length === 0) return;
-              bulkStatus.mutate({ ids, status: 'abgeschraubt' });
-              setSelected({});
+              await bulkStatusUpdate.mutateAsync({ ids, status: 'abgeschraubt' });
+              setSelectedBouldersForStatus(new Set());
+              // Force refetch to update the UI
+              window.location.reload();
             }}
+            disabled={bulkStatusUpdate.isPending}
           >
-            <MaterialIcon name="output_circle" className="w-5 h-5" size={20} />
+            <MinusCircle className="w-6 h-6" />
           </button>
         </div>
       )}
+
+      {/* Spacer for mobile only global nav */}
+      <div className="h-24 md:h-0" />
+      
 
       {/* Floating Action Button - Boulder hinzufügen (immer sichtbar) */}
       {/* Removed custom FAB, using BatchUpload internal button or standard flow */}

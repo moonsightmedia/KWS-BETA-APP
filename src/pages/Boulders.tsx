@@ -20,6 +20,7 @@ import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { useColors } from '@/hooks/useColors';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
+import { cn } from '@/lib/utils';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Search, Video, FileText, Calendar, Filter, ArrowUpDown, ArrowUp, ArrowDown, AlertCircle, Palette, Map, Dumbbell, X, CheckCircle2 } from 'lucide-react';
@@ -487,7 +488,7 @@ const Boulders = () => {
 
         {/* Quick Filter Bar (mobile) */}
         {quickFilter && (
-          <div className="sm:hidden fixed left-4 right-4 bottom-24 z-[70] bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
+          <div className="sm:hidden fixed left-4 right-4 bottom-44 z-[100] bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
             <div className="flex items-center justify-between px-3 py-2">
               <span className="text-xs px-2 py-1 rounded-full border bg-card">
                 {quickFilter === 'color' ? 'Farbe' : quickFilter === 'sector' ? 'Sektor' : quickFilter === 'difficulty' ? 'Schwierigkeit' : 'Sortierung'}
@@ -496,8 +497,11 @@ const Boulders = () => {
                 <X className="w-5 h-5" />
               </Button>
             </div>
-            <ScrollArea className="w-full scrollbar-hide">
-              <div className="flex items-center gap-2 px-3 pb-3 min-w-max">
+          <ScrollArea className="w-full scrollbar-hide">
+            <div className={cn(
+              "flex items-center gap-2 px-3 pb-3 min-w-max",
+              quickFilter === 'color' && "py-2"
+            )}>
                 {quickFilter === 'sector' && (
                   <>
                     <Button variant={sectorFilter==='all'?'default':'outline'} size="sm" onClick={()=> setSectorFilter('all')}>Alle</Button>
@@ -525,11 +529,27 @@ const Boulders = () => {
                 {quickFilter === 'color' && (
                   <>
                     <Button variant={colorFilter==='all'?'default':'outline'} size="sm" onClick={()=> setColorFilter('all')}>Alle</Button>
-                    {Object.keys(COLOR_MAP).map(c => (
-                      <Button key={c} variant={colorFilter===c?'default':'outline'} size="sm" onClick={()=> setColorFilter(c)}>
-                        <span className="inline-flex items-center gap-2">
-                          <span className="w-3 h-3 rounded-full border" />
-                          {c}
+                    {colors?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map(c => (
+                      <Button 
+                        key={c.name} 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={()=> setColorFilter(c.name)}
+                        className={cn(
+                          "w-10 h-10 rounded-full p-0 flex items-center justify-center border-2 transition-all",
+                          colorFilter === c.name 
+                            ? "border-primary shadow-lg scale-110" 
+                            : "border-border hover:border-primary/50 hover:scale-105"
+                        )}
+                        title={c.name}
+                      >
+                        <span 
+                          className="w-6 h-6 rounded-full"
+                          style={getColorBackgroundStyle(c.name, colors)}
+                        >
+                          {colorFilter === c.name && (
+                            <div className="w-full h-full rounded-full bg-white/90 shadow-sm" />
+                          )}
                         </span>
                       </Button>
                     ))}
@@ -580,7 +600,7 @@ const Boulders = () => {
         )}
 
         {/* Floating Filter Bar (mobile) */}
-        <nav className="sm:hidden fixed bottom-28 left-4 right-4 z-[70] bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
+        <nav className="sm:hidden fixed bottom-28 left-4 right-4 z-[100] bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
           <div className="flex items-center justify-between px-3 py-2 gap-2">
             <span className="text-xs px-3 py-1 rounded-full border bg-card">{filteredAndSortedBoulders.length} Treffer</span>
             <div className="flex items-center gap-2">
