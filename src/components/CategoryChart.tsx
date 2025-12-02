@@ -139,7 +139,7 @@ export const CategoryChart = () => {
               <div key={index} className="flex items-center justify-between text-sm gap-2">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <div 
-                    className="w-3 h-3 rounded-full flex-shrink-0" 
+                    className="w-3 h-3 rounded-xl flex-shrink-0" 
                     style={{ backgroundColor: item.color }}
                   />
                   <span className="text-muted-foreground truncate" title={item.name}>

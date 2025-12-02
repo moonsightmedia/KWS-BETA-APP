@@ -23,10 +23,9 @@ import { getColorBackgroundStyle } from '@/utils/colorUtils';
 import { cn } from '@/lib/utils';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Search, Video, FileText, Calendar, Filter, ArrowUpDown, ArrowUp, ArrowDown, AlertCircle, Palette, Map, Dumbbell, X, CheckCircle2 } from 'lucide-react';
+import { Search, Video, FileText, Calendar, ArrowUpDown, ArrowUp, ArrowDown, AlertCircle, Palette, Map, BarChart3, Filter, X, CheckCircle2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Boulder } from '@/types/boulder';
 import { useSearchParams } from 'react-router-dom';
 
@@ -145,14 +144,10 @@ const Boulders = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex">
+      <div className="min-h-screen bg-[#F9FAF9] flex">
         <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8">
-            <div className="mb-8">
-              <Skeleton className="h-9 w-48 mb-2" />
-              <Skeleton className="h-5 w-64" />
-            </div>
             <div className="flex gap-3 mb-6">
               <Skeleton className="h-10 flex-1" />
               <Skeleton className="h-10 w-10" />
@@ -179,7 +174,7 @@ const Boulders = () => {
 
   if (bouldersError) {
     return (
-      <div className="min-h-screen bg-background flex">
+      <div className="min-h-screen bg-[#F9FAF9] flex">
         <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8">
@@ -197,19 +192,11 @@ const Boulders = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-[#F9FAF9] flex">
       <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
         <DashboardHeader />
         
         <main className="flex-1 p-4 md:p-8">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2 font-teko tracking-wide">Boulder</h1>
-            <p className="text-muted-foreground">
-              {filteredAndSortedBoulders.length} von {boulders?.length || 0} Bouldern
-            </p>
-          </div>
-
           {/* Search and Filter */}
           <div className="flex gap-3 mb-6">
             <div className="relative flex-1">
@@ -321,7 +308,7 @@ const Boulders = () => {
                               <SelectItem key={color} value={color}>
                                 <div className="flex items-center gap-2">
                                   <div 
-                                    className={`w-4 h-4 rounded-full border ${colorInfo?.bg || ''} ${colorInfo?.border || ''}`}
+                                    className={`w-4 h-4 rounded-xl border ${colorInfo?.bg || ''} ${colorInfo?.border || ''}`}
                                     style={!colorInfo?.bg ? { backgroundColor: '#9ca3af' } : {}}
                                   />
                                   {color}
@@ -395,7 +382,7 @@ const Boulders = () => {
               return (
               <Card 
                 key={boulder.id} 
-                className="hover:bg-muted/50 cursor-pointer transition-colors h-[120px] sm:h-[140px] overflow-hidden"
+                className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:bg-muted/50 cursor-pointer transition-colors group"
                 onClick={() => handleBoulderClick(boulder)}
                 role="button"
                 tabIndex={0}
@@ -406,9 +393,9 @@ const Boulders = () => {
                   }
                 }}
               >
-                <CardContent className="p-0 pointer-events-none flex h-full">
+                <CardContent className="p-4 pointer-events-none flex items-center gap-4">
                   {/* Thumbnail links */}
-                  <div className="w-20 sm:w-24 flex-shrink-0 h-full relative overflow-hidden bg-muted">
+                  <div className="w-16 h-16 flex-shrink-0 rounded-xl bg-gray-100 relative overflow-hidden">
                     <img 
                       className="w-full h-full object-cover pointer-events-none transition-opacity duration-300" 
                       src={getThumbnailUrl(boulder)} 
@@ -441,31 +428,31 @@ const Boulders = () => {
                       }}
                     />
                   </div>
-                  {/* Content rechts */}
-                  <div className="flex-1 p-3 sm:p-4 flex flex-col justify-between min-w-0">
-                    <div>
-                      <div className="font-medium text-sm sm:text-base truncate">{boulder.name}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        <div className="truncate">{boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}</div>
-                      </div>
-                      {boulder.status && (
-                        <Badge 
-                          variant={boulder.status === 'haengt' ? 'default' : 'secondary'} 
-                          className="mt-1 text-[10px] px-1.5 py-0"
-                        >
-                          {boulder.status === 'haengt' ? 'Hängt' : 'Abgeschraubt'}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      <span 
-                        className="w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold flex-shrink-0 text-white" 
-                        style={getColorBackgroundStyle(boulder.color, colors)}
-                      >
-                        {boulder.difficulty === null ? '?' : boulder.difficulty}
+                  {/* Content Mitte */}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-heading text-xl font-medium text-[#13112B] truncate">{boulder.name}</h4>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-[#13112B]/50 font-medium">
+                        {boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}
                       </span>
-                      <span className="text-xs text-muted-foreground truncate">{boulder.color}</span>
+                      <span className="text-xs text-[#13112B]/30">•</span>
+                      <span className="text-xs text-[#13112B]/50">Set by ...</span>
                     </div>
+                  </div>
+                  {/* Content rechts */}
+                  <div className="flex flex-col items-end">
+                    <span 
+                      className={cn(
+                        "text-base px-3 py-1 rounded font-semibold border",
+                        TEXT_ON_COLOR[boulder.color] || 'text-white'
+                      )}
+                      style={{
+                        ...getColorBackgroundStyle(boulder.color, colors),
+                        borderColor: 'rgba(0, 0, 0, 0.1)'
+                      }}
+                    >
+                      {boulder.difficulty === null ? '?' : boulder.difficulty}
+                    </span>
                   </div>
                 </CardContent>
               </Card>
@@ -488,165 +475,208 @@ const Boulders = () => {
 
         {/* Quick Filter Bar (mobile) */}
         {quickFilter && (
-          <div className="sm:hidden fixed left-4 right-4 bottom-44 z-[100] bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
-            <div className="flex items-center justify-between px-3 py-2">
-              <span className="text-xs px-2 py-1 rounded-full border bg-card">
-                {quickFilter === 'color' ? 'Farbe' : quickFilter === 'sector' ? 'Sektor' : quickFilter === 'difficulty' ? 'Schwierigkeit' : 'Sortierung'}
-              </span>
-              <Button variant="ghost" size="icon" onClick={()=> setQuickFilter(null)}>
-                <X className="w-6 h-6" />
-              </Button>
-            </div>
-          <ScrollArea className="w-full scrollbar-hide">
-            <div className={cn(
-              "flex items-center gap-2 px-3 pb-3 min-w-max",
-              quickFilter === 'color' && "py-2"
-            )}>
-                {quickFilter === 'sector' && (
-                  <>
-                    <Button variant={sectorFilter==='all'?'default':'outline'} size="sm" onClick={()=> setSectorFilter('all')}>Alle</Button>
-                    {sectors?.map(s => (
-                      <Button key={s.id} variant={sectorFilter===s.name?'default':'outline'} size="sm" onClick={()=> setSectorFilter(s.name)}>
-                        {s.name}
-                      </Button>
-                    ))}
-                  </>
-                )}
-                {quickFilter === 'difficulty' && (
-                  <>
-                    <Button variant={difficultyFilter==='all'?'default':'outline'} size="sm" onClick={()=> setDifficultyFilter('all')}>Alle</Button>
-                    {[null, 1, 2, 3, 4, 5, 6, 7, 8].map(d => {
-                      const dStr = d === null ? '?' : String(d);
-                      const formatDifficulty = (d: number | null): string => d === null ? '?' : String(d);
-                      return (
-                        <Button key={dStr} variant={difficultyFilter===dStr?'default':'outline'} size="sm" onClick={()=> setDifficultyFilter(dStr)}>
-                          {formatDifficulty(d)}
-                        </Button>
-                      );
-                    })}
-                  </>
-                )}
+          <div className="sm:hidden fixed left-4 right-4 bottom-44 z-[100] pointer-events-none">
+            <div className="pointer-events-auto rounded-2xl bg-[#13112B] text-white shadow-2xl border border-white/10 overflow-hidden">
+              <div className="flex items-center px-3 py-2">
+                <span className="px-3 py-1 bg-white/10 rounded-xl text-xs font-semibold">
+                  {quickFilter === 'color' ? 'Farbe' : quickFilter === 'sector' ? 'Sektor' : quickFilter === 'difficulty' ? 'Schwierigkeit' : 'Sortierung'}
+                </span>
+              </div>
+              <div className="px-3 pb-3">
                 {quickFilter === 'color' && (
                   <>
-                    <Button variant={colorFilter==='all'?'default':'outline'} size="sm" onClick={()=> setColorFilter('all')}>Alle</Button>
-                    {colors?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map(c => (
-                      <Button 
-                        key={c.name} 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={()=> setColorFilter(c.name)}
+                    <div className="flex items-center gap-2 mb-2">
+                      <button 
                         className={cn(
-                          "w-10 h-10 rounded-full p-0 flex items-center justify-center border-2 transition-all",
-                          colorFilter === c.name 
-                            ? "border-primary shadow-lg scale-110" 
-                            : "border-border hover:border-primary/50 hover:scale-105"
+                          "px-3 py-1.5 rounded-xl text-xs font-semibold shadow transition",
+                          colorFilter === 'all' 
+                            ? "bg-[#36B531] text-white" 
+                            : "bg-white/10 text-white/70 hover:text-white"
                         )}
-                        title={c.name}
+                        onClick={() => setColorFilter('all')}
                       >
-                        <span 
-                          className="w-6 h-6 rounded-full"
-                          style={getColorBackgroundStyle(c.name, colors)}
-                        >
-                          {colorFilter === c.name && (
-                            <div className="w-full h-full rounded-full bg-white/90 shadow-sm" />
-                          )}
-                        </span>
-                      </Button>
-                    ))}
+                        Alle
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1 h-10">
+                      {colors?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map(c => {
+                        const colorHex = getColorBackgroundStyle(c.name, colors).backgroundColor || '#000';
+                        const isWhite = colorHex === '#ffffff' || colorHex === 'white' || c.name.toLowerCase() === 'weiß';
+                        return (
+                          <button
+                            key={c.name}
+                            className={cn(
+                              "w-10 h-10 rounded-xl border shadow",
+                              isWhite ? "bg-white border-gray-200" : "border-black/10"
+                            )}
+                            style={!isWhite ? { backgroundColor: colorHex } : undefined}
+                            onClick={() => setColorFilter(c.name)}
+                            aria-label={`Filter Farbe ${c.name}`}
+                          />
+                        );
+                      })}
+                    </div>
                   </>
                 )}
+                {quickFilter === 'sector' && (
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 h-10">
+                    <button 
+                      className={cn(
+                        "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
+                        sectorFilter === 'all' 
+                          ? "bg-[#36B531] text-white" 
+                          : "bg-white/10 text-white/70 hover:text-white"
+                      )}
+                      onClick={() => setSectorFilter('all')}
+                    >
+                      Alle
+                    </button>
+                    {sectors?.map(s => (
+                      <button
+                        key={s.id}
+                        className={cn(
+                          "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
+                          sectorFilter === s.name 
+                            ? "bg-[#36B531] text-white" 
+                            : "bg-white/10 text-white/70 hover:text-white"
+                        )}
+                        onClick={() => setSectorFilter(s.name)}
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {quickFilter === 'difficulty' && (
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 h-10">
+                    <button 
+                      className={cn(
+                        "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
+                        difficultyFilter === 'all' 
+                          ? "bg-[#36B531] text-white" 
+                          : "bg-white/10 text-white/70 hover:text-white"
+                      )}
+                      onClick={() => setDifficultyFilter('all')}
+                    >
+                      Alle
+                    </button>
+                    {[null, 1, 2, 3, 4, 5, 6, 7, 8].map(d => {
+                      const dStr = d === null ? '?' : String(d);
+                      return (
+                        <button
+                          key={dStr}
+                          className={cn(
+                            "w-10 h-10 rounded-xl text-xs font-semibold shadow transition flex items-center justify-center",
+                            difficultyFilter === dStr 
+                              ? "bg-[#36B531] text-white" 
+                              : "bg-white/10 text-white/70 hover:text-white"
+                          )}
+                          onClick={() => setDifficultyFilter(dStr)}
+                        >
+                          {dStr}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 {quickFilter === 'sort' && (
-                  <>
-                    <Button 
-                      variant={sortBy==='date'?'default':'outline'} 
-                      size="sm" 
-                      onClick={()=> setSortBy('date')}
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 h-10">
+                    <button 
+                      className={cn(
+                        "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
+                        sortBy === 'date' 
+                          ? "bg-[#36B531] text-white" 
+                          : "bg-white/10 text-white/70 hover:text-white"
+                      )}
+                      onClick={() => setSortBy('date')}
                     >
                       Datum
-                    </Button>
-                    <Button 
-                      variant={sortBy==='name'?'default':'outline'} 
-                      size="sm" 
-                      onClick={()=> setSortBy('name')}
+                    </button>
+                    <button 
+                      className={cn(
+                        "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
+                        sortBy === 'name' 
+                          ? "bg-[#36B531] text-white" 
+                          : "bg-white/10 text-white/70 hover:text-white"
+                      )}
+                      onClick={() => setSortBy('name')}
                     >
                       Name
-                    </Button>
-                    <Button 
-                      variant={sortBy==='difficulty'?'default':'outline'} 
-                      size="sm" 
-                      onClick={()=> setSortBy('difficulty')}
+                    </button>
+                    <button 
+                      className={cn(
+                        "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
+                        sortBy === 'difficulty' 
+                          ? "bg-[#36B531] text-white" 
+                          : "bg-white/10 text-white/70 hover:text-white"
+                      )}
+                      onClick={() => setSortBy('difficulty')}
                     >
                       Schwierigkeit
-                    </Button>
-                    <div className="h-6 w-px bg-border mx-1" />
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={()=> setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                      className="flex items-center gap-1"
+                    </button>
+                    <div className="h-10 w-px bg-white/20 mx-1" />
+                    <button 
+                      className="h-10 px-3 bg-white/10 text-white/70 hover:text-white rounded-xl text-xs font-semibold shadow transition flex items-center gap-1"
+                      onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
                     >
                       {sortOrder === 'asc' ? (
                         <ArrowUp className="w-3 h-3" />
                       ) : (
                         <ArrowDown className="w-3 h-3" />
                       )}
-                    </Button>
-                  </>
+                    </button>
+                  </div>
                 )}
               </div>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+            </div>
           </div>
         )}
 
         {/* Floating Filter Bar (mobile) */}
-        <nav className="sm:hidden fixed bottom-28 left-4 right-4 z-[100] bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
-          <div className="flex items-center justify-between px-3 py-2 gap-2">
-            <span className="text-xs px-3 py-1 rounded-full border bg-card">{filteredAndSortedBoulders.length} Treffer</span>
+        <nav className="sm:hidden fixed bottom-28 left-4 right-4 z-[100]">
+          <div className="bg-[#13112B] text-white rounded-2xl shadow-2xl border border-white/10 px-2 py-2 flex items-center justify-between">
+            <div>
+              <button className="h-10 px-3 bg-white text-[#13112B] rounded-xl text-xs font-semibold shadow-sm active:scale-95 transition flex items-center">
+                {filteredAndSortedBoulders.length} Treffer
+              </button>
+            </div>
             <div className="flex items-center gap-2">
-              <Button 
-                aria-label="Farben filtern" 
-                variant={quickFilter === 'color' ? 'default' : 'outline'} 
-                size="icon" 
-                onClick={()=> setQuickFilter(prev => prev === 'color' ? null : 'color')}
+              <button
+                onClick={() => setQuickFilter(prev => prev === 'color' ? null : 'color')}
+                className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
+                aria-label="Farbe filtern"
               >
                 {colorFilter !== 'all' ? (
-                  <span className="w-5 h-5 rounded-full border" />
+                  <span className="w-5 h-5 rounded-xl border border-[#13112B]/20" style={getColorBackgroundStyle(colorFilter, colors || [])} />
                 ) : (
-                  <Palette className="w-5 h-5" />
+                  <Palette className="w-5 h-5" strokeWidth={1.5} />
                 )}
-              </Button>
-              <Button 
-                aria-label="Sektor filtern" 
-                variant={quickFilter === 'sector' ? 'default' : 'outline'} 
-                size="icon" 
-                onClick={()=> setQuickFilter(prev => prev === 'sector' ? null : 'sector')}
+              </button>
+              <button
+                onClick={() => setQuickFilter(prev => prev === 'sector' ? null : 'sector')}
+                className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
+                aria-label="Sektionen filtern"
               >
-                <span className="relative inline-flex">
-                  <Map className="w-6 h-6" />
-                  {sectorFilter !== 'all' && <span className="absolute -right-0.5 -bottom-0.5 w-2 h-2 rounded-full bg-primary border border-background" />}
-                </span>
-              </Button>
-              <Button 
-                aria-label="Schwierigkeit filtern" 
-                variant={quickFilter === 'difficulty' ? 'default' : 'outline'} 
-                size="icon" 
-                onClick={()=> setQuickFilter(prev => prev === 'difficulty' ? null : 'difficulty')}
+                <Map className="w-5 h-5" strokeWidth={1.5} />
+              </button>
+              <button
+                onClick={() => setQuickFilter(prev => prev === 'difficulty' ? null : 'difficulty')}
+                className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
+                aria-label="Schwierigkeit filtern"
               >
                 {difficultyFilter !== 'all' ? (
-                  <span className="w-5 h-5 grid place-items-center text-[11px] font-semibold leading-none">{difficultyFilter}</span>
+                  <span className="text-[11px] font-semibold leading-none">{difficultyFilter}</span>
                 ) : (
-                  <Dumbbell className="w-6 h-6" />
+                  <BarChart3 className="w-5 h-5" strokeWidth={1.5} />
                 )}
-              </Button>
-              <Button 
-                variant={quickFilter === 'sort' ? 'default' : 'outline'} 
-                size="icon" 
-                onClick={()=> setQuickFilter(prev => prev === 'sort' ? null : 'sort')}
-                aria-label="Sortierung"
+              </button>
+              <button
+                onClick={() => setQuickFilter(prev => prev === 'sort' ? null : 'sort')}
+                className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
+                aria-label="Sortieren"
               >
-                <Filter className="w-5 h-5" />
-              </Button>
+                <ArrowUpDown className="w-5 h-5" strokeWidth={1.5} />
+              </button>
             </div>
           </div>
         </nav>

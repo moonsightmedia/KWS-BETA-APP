@@ -1,13 +1,10 @@
 import { DashboardHeader } from '@/components/DashboardHeader';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { useBoulders } from '@/hooks/useBoulders';
-import { useSectorSchedule } from '@/hooks/useSectorSchedule';
-import { formatDate } from 'date-fns';
-import { de } from 'date-fns/locale';
-import { Calendar, Box, ArrowRight, AlertCircle, RefreshCw } from 'lucide-react';
+import { Box, AlertCircle, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useQueryClient } from '@tanstack/react-query';
@@ -17,7 +14,6 @@ const Sectors = () => {
   const queryClient = useQueryClient();
   const { data: sectors, isLoading, error } = useSectorsTransformed();
   const { data: boulders } = useBoulders();
-  const { data: schedule } = useSectorSchedule();
 
   const handleViewBoulders = (sectorName: string) => {
     navigate(`/boulders?sector=${encodeURIComponent(sectorName)}`);
@@ -25,7 +21,7 @@ const Sectors = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex">
+      <div className="min-h-screen bg-[#F9FAF9] flex">
         <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8 flex items-center justify-center">
@@ -53,7 +49,7 @@ const Sectors = () => {
                          errorMessage.toLowerCase().includes('permission');
     
     return (
-      <div className="min-h-screen bg-background flex">
+      <div className="min-h-screen bg-[#F9FAF9] flex">
         <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8 flex items-center justify-center">
@@ -99,110 +95,81 @@ const Sectors = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-[#F9FAF9] flex">
       <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
         <DashboardHeader />
         
         <main className="flex-1 p-4 md:p-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2 font-teko tracking-wide">Sektoren</h1>
-            <p className="text-muted-foreground">Übersicht aller Kletterbereiche</p>
-          </div>
-
           {!sectors || sectors.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground">Keine Sektoren gefunden.</p>
             </div>
           ) : (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {sectors.map((sector) => (
-              <Card key={sector.id} className="hover:shadow-lg transition-shadow overflow-hidden">
-                {sector.imageUrl ? (
-                  <div className="aspect-video w-full overflow-hidden bg-muted">
-                    <img 
-                      src={sector.imageUrl} 
-                      alt={sector.name}
-                      className="w-full h-full object-cover"
-                      loading="eager"
-                      decoding="async"
-                      fetchpriority="high"
-                      crossOrigin="anonymous"
-                      onError={(e) => {
-                        const img = e.currentTarget;
-                        // Retry loading the image
-                        const retryCount = parseInt(img.getAttribute('data-retry-count') || '0');
-                        if (retryCount < 2) {
-                          const delay = 1000 * Math.pow(2, retryCount);
-                          img.setAttribute('data-retry-count', String(retryCount + 1));
-                          setTimeout(() => {
-                            const newSrc = img.src;
-                            img.src = '';
-                            img.src = newSrc;
-                          }, delay);
-                        } else {
-                          img.style.display = 'none';
-                        }
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="aspect-video w-full bg-muted flex items-center justify-center">
-                    <Box className="w-12 h-12 text-muted-foreground/50" />
-                  </div>
-                )}
-                
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-xl mb-2">{sector.name}</CardTitle>
-                      <CardDescription>{sector.description}</CardDescription>
-                    </div>
-                    <Badge variant="secondary" className="ml-2">
-                      <Box className="w-3 h-3 mr-1" />
-                      {(() => {
-                        const count = (boulders || [])
-                          .filter(b => b.sector_id === sector.id)
-                          .filter((b: any) => (b as any).status === 'haengt')
-                          .length;
-                        return count;
-                      })()}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="w-5 h-5" />
-                      <span>Letzter Schraubtermin:</span>
-                      <span className="font-medium text-foreground">
-                        {sector.lastSchraubtermin && formatDate(sector.lastSchraubtermin, 'dd. MMM yyyy', { locale: de })}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="w-5 h-5" />
-                      <span>Nächster Schraubtermin:</span>
-                      <span className="font-medium text-primary">
-                        {(() => {
-                          const next = (schedule || [])
-                            .filter(s => s.sector_id === sector.id && new Date(s.scheduled_at) > new Date())
-                            .sort((a,b)=> new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0];
-                          return next ? formatDate(new Date(next.scheduled_at), 'dd. MMM yyyy', { locale: de }) : '';
-                        })()}
-                      </span>
-                    </div>
-                  </div>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {sectors.map((sector) => {
+                const activeBoulderCount = (boulders || [])
+                  .filter(b => b.sector_id === sector.id)
+                  .filter((b: any) => (b as any).status === 'haengt')
+                  .length;
 
-                  <Button 
-                    className="w-full" 
-                    onClick={() => handleViewBoulders(sector.name)}
-                  >
-                    Boulder anzeigen
-                    <ArrowRight className="w-5 h-5 ml-2" />
-                  </Button>
-                </CardContent>
-              </Card>
-              ))}
+                return (
+                <Card 
+                  key={sector.id} 
+                  className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => handleViewBoulders(sector.name)}
+                >
+                  {sector.imageUrl ? (
+                    <div className="aspect-video w-full bg-gray-200 relative overflow-hidden">
+                      <img 
+                        src={sector.imageUrl} 
+                        alt={sector.name}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          const retryCount = parseInt(img.getAttribute('data-retry-count') || '0');
+                          if (retryCount < 2) {
+                            const delay = 1000 * Math.pow(2, retryCount);
+                            img.setAttribute('data-retry-count', String(retryCount + 1));
+                            setTimeout(() => {
+                              const newSrc = img.src;
+                              img.src = '';
+                              img.src = newSrc;
+                            }, delay);
+                          } else {
+                            img.style.display = 'none';
+                          }
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                      <div className="absolute bottom-3 left-4 text-white font-heading text-xl">{sector.name.toUpperCase()}</div>
+                    </div>
+                  ) : (
+                    <div className="aspect-video w-full bg-gray-200 relative flex items-center justify-center">
+                      <Box className="w-12 h-12 text-gray-400" />
+                      <div className="absolute bottom-3 left-4 text-[#13112B] font-heading text-xl">{sector.name.toUpperCase()}</div>
+                    </div>
+                  )}
+                  
+                  <div className="p-3 flex justify-between items-center">
+                    <Badge variant="secondary" className="text-xs">
+                      <Box className="w-3 h-3 mr-1" />
+                      {activeBoulderCount} Boulder aktiv
+                    </Badge>
+                    <button 
+                      className="text-xs bg-[#F9FAF9] border border-[#E7F7E9] px-2 py-1 rounded-md text-[#13112B] hover:bg-[#E7F7E9] transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewBoulders(sector.name);
+                      }}
+                    >
+                      Details
+                    </button>
+                  </div>
+                </Card>
+                );
+              })}
             </div>
           )}
         </main>

@@ -1,13 +1,7 @@
-import { Settings, User, LogOut, HelpCircle, MessageSquare, Info } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { formatDate } from 'date-fns';
-import { de } from 'date-fns/locale';
+import { Settings, User, LogOut, HelpCircle, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { FeedbackDialog } from '@/components/FeedbackDialog';
 import { useOnboarding } from '@/components/Onboarding';
 import { RoleTabs } from '@/components/RoleTabs';
@@ -21,9 +15,8 @@ import {
 
 // Get page title based on current route
 const getPageTitle = (pathname: string): string => {
-  const today = new Date();
   const titleMap: Record<string, string> = {
-    '/': formatDate(today, 'EEEE, dd MMM', { locale: de }),
+    '/': 'DASHBOARD',
     '/boulders': 'BOULDER',
     '/sectors': 'SEKTOREN',
     '/setter': 'SETTER',
@@ -45,84 +38,77 @@ export const DashboardHeader = () => {
   
   return (
     <>
-      <header className="bg-white px-4 md:px-6 py-4">
-        <div className="flex items-center justify-between">
-          {/* Left: Avatar */}
-          <div className="flex items-center">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="cursor-pointer focus:outline-none">
-                  <Avatar className="w-10 h-10 hover:opacity-80 transition-opacity border border-[#d4e8d4]">
-                    <AvatarFallback className="bg-[#e6f2e6] text-[#6cb24a] text-sm font-semibold">
-                      {user ? (
-                        user.email?.substring(0, 2).toUpperCase() || 'KS'
-                      ) : (
-                        <HelpCircle className="w-6 h-6" />
-                      )}
-                    </AvatarFallback>
-                  </Avatar>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56 bg-card z-50">
-                {user ? (
-                  <>
-                    <div className="px-2 py-1.5">
-                      <p className="text-sm font-medium truncate">{user.email}</p>
-                    </div>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate('/profile')}>
-                      <Settings className="w-5 h-5 mr-2" />
-                      Profil Einstellungen
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={signOut} className="text-destructive">
-                      <LogOut className="w-5 h-5 mr-2" />
-                      Abmelden
-                    </DropdownMenuItem>
-                  </>
-                ) : (
-                  <DropdownMenuItem onClick={() => navigate('/auth')}>
-                    <User className="w-5 h-5 mr-2" />
-                    Anmelden
+      <div className="h-14 lg:h-16 flex items-center justify-between px-4 lg:px-8 max-w-7xl mx-auto w-full relative">
+        {/* Mobile Avatar (left) */}
+        <div className="w-10 flex items-center lg:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="cursor-pointer focus:outline-none">
+                <div className="w-8 h-8 rounded-full bg-[#E7F7E9] flex items-center justify-center text-xs font-semibold text-[#36B531]">
+                  {user ? (
+                    user.email?.substring(0, 2).toUpperCase() || 'KS'
+                  ) : (
+                    <HelpCircle className="w-4 h-4" />
+                  )}
+                </div>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56 bg-card z-50">
+              {user ? (
+                <>
+                  <div className="px-2 py-1.5">
+                    <p className="text-sm font-medium truncate">{user.email}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                    <Settings className="w-5 h-5 mr-2" />
+                    Profil Einstellungen
                   </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={signOut} className="text-destructive">
+                    <LogOut className="w-5 h-5 mr-2" />
+                    Abmelden
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <DropdownMenuItem onClick={() => navigate('/auth')}>
+                  <User className="w-5 h-5 mr-2" />
+                  Anmelden
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
-          {/* Center: Page Title */}
-          <div className="flex-1 text-center">
-            <h1 className="text-xl font-bold uppercase tracking-wider text-[#1a1a1a]">
-              {pageTitle}
-            </h1>
-          </div>
+        {/* Center Title */}
+        <div className="absolute left-1/2 -translate-x-1/2 pt-1 flex items-center gap-3">
+          <h1 className="font-heading font-semibold tracking-wide text-2xl text-[#13112B]">
+            {pageTitle}
+          </h1>
+        </div>
 
-          {/* Right: Info and Feedback Buttons */}
-          <div className="flex items-center gap-3">
-            {/* Info/Onboarding Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full h-10 w-10 hover:bg-transparent"
-              onClick={openOnboarding}
-              aria-label="Hilfe & Informationen"
-            >
-              <Info className="w-6 h-6 text-[#4a4a4a]" strokeWidth={2} />
-            </Button>
-
-            {/* Feedback Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full h-10 w-10 hover:bg-transparent"
-              onClick={() => setFeedbackOpen(true)}
-              aria-label="Feedback senden"
-            >
-              <MessageSquare className="w-6 h-6 text-[#4a4a4a]" strokeWidth={2} />
-            </Button>
+        {/* Right Action */}
+        <div className="flex items-center justify-end gap-2 lg:gap-4">
+          <button 
+            className="p-2 text-[#13112B]/70 active:scale-95 transition-transform"
+            onClick={() => openOnboarding()}
+            aria-label="Info"
+          >
+            <HelpCircle className="w-6 h-6" />
+          </button>
+          <button 
+            className="p-2 -mr-2 lg:mr-0 text-[#13112B]/70 active:scale-95 transition-transform"
+            onClick={() => setFeedbackOpen(true)}
+            aria-label="Feedback"
+          >
+            <MessageSquare className="w-6 h-6" />
+          </button>
+          <div className="hidden lg:flex items-center gap-2">
+            <span className="w-2 h-2 bg-[#36B531] rounded-full animate-pulse"></span>
+            <span className="text-[10px] font-mono text-[#13112B]/50">LIVE</span>
           </div>
         </div>
-      </header>
+      </div>
       <RoleTabs />
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </>

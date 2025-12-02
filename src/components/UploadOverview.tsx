@@ -82,7 +82,7 @@ export const UploadOverview = () => {
           variant="default"
           size="lg"
           className={cn(
-            "fixed bottom-32 left-4 md:bottom-8 md:left-8 z-50 rounded-full shadow-2xl transition-all duration-300 flex items-center gap-3 border-2 border-white/20",
+            "fixed bottom-32 left-4 md:bottom-8 md:left-8 z-50 rounded-xl shadow-2xl transition-all duration-300 flex items-center gap-3 border-2 border-white/20",
             hasActiveUploads && (uploadingCount > 0 || restoringCount > 0 || errorCount > 0) ? "px-4 h-14" : "p-3 h-14 w-14",
             "bg-[#2E432D] text-white hover:bg-[#2E432D]/90",
             errorCount > 0 && "bg-destructive hover:bg-destructive/90 border-destructive-foreground/20"
@@ -160,8 +160,8 @@ export const UploadOverview = () => {
                   </div>
                   
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {upload.status === 'completed' && <div className="bg-green-100 text-green-700 p-1 rounded-full"><CheckCircle2 className="w-6 h-6" /></div>}
-                    {upload.status === 'error' && <div className="bg-red-100 text-red-700 p-1 rounded-full"><AlertCircle className="w-6 h-6" /></div>}
+                    {upload.status === 'completed' && <div className="bg-green-100 text-green-700 p-1 rounded-xl"><CheckCircle2 className="w-6 h-6" /></div>}
+                    {upload.status === 'error' && <div className="bg-red-100 text-red-700 p-1 rounded-xl"><AlertCircle className="w-6 h-6" /></div>}
                     
                     {(upload.status === 'uploading' || upload.status === 'pending') && (
                       <Button

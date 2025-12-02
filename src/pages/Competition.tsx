@@ -162,7 +162,7 @@ const CompetitionContent = () => {
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-full flex-shrink-0"
+              className="rounded-xl flex-shrink-0"
               onClick={openCompetitionOnboarding}
               aria-label="Hilfe & Informationen zum Wettkampf"
             >

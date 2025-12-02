@@ -263,7 +263,7 @@ const VideoSelector = ({
                     />
                     {isSelected && (
                       <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center">
                           <Check className="w-6 h-6 text-primary-foreground" />
                         </div>
                       </div>
@@ -1056,7 +1056,7 @@ const Setter = () => {
                             {COLORS.map(c => (
                               <SelectItem key={c} value={c}>
                                 <div className="flex items-center gap-2">
-                                  <span className="w-3 h-3 rounded-full border" style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }} />
+                                  <span className="w-3 h-3 rounded-xl border" style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }} />
                                   <span>{c}</span>
                                 </div>
                               </SelectItem>
@@ -1102,7 +1102,7 @@ const Setter = () => {
                         <div>
                           <Label className="text-muted-foreground">Farbe</Label>
                           <div className="flex items-center gap-2">
-                            <span className="w-4 h-4 rounded-full border" style={{ backgroundColor: COLOR_HEX[form.color] || '#9ca3af' }} />
+                            <span className="w-4 h-4 rounded-xl border" style={{ backgroundColor: COLOR_HEX[form.color] || '#9ca3af' }} />
                             <p className="text-lg font-medium">{form.color}</p>
                           </div>
                         </div>
@@ -1263,7 +1263,7 @@ const Setter = () => {
               <div className="flex items-center gap-3 overflow-x-auto py-2">
                 <div className="flex items-center gap-2">
                   {COLORS.map(c => (
-                    <button key={c} className={`w-7 h-7 rounded-full border ${editColor===c?'ring-2 ring-primary':''}`} style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }}
+                    <button key={c} className={`w-7 h-7 rounded-xl border ${editColor===c?'ring-2 ring-primary':''}`} style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }}
                       onClick={()=>setEditColor(prev=> prev===c ? 'all' : c)}
                       aria-label={`Filter ${c}`}
                     />
@@ -1274,7 +1274,7 @@ const Setter = () => {
                     const dStr = d === null ? '?' : String(d);
                     return (
                       <button key={dStr} onClick={()=>setEditDifficulty(prev=> prev===dStr?'all':dStr)}
-                        className={`w-7 h-7 rounded-full border grid place-items-center text-[11px] font-semibold ${editDifficulty===dStr?'bg-primary text-primary-foreground':'bg-muted text-foreground'}`}>
+                        className={`w-7 h-7 rounded-xl border grid place-items-center text-[11px] font-semibold ${editDifficulty===dStr?'bg-primary text-primary-foreground':'bg-muted text-foreground'}`}>
                         {formatDifficulty(d)}
                       </button>
                     );
@@ -1415,7 +1415,7 @@ const Setter = () => {
                                     />
                                   </div>
                                 )}
-                                <span className={`w-6 h-6 rounded-full border grid place-items-center text-[11px] font-semibold flex-shrink-0 ${TEXT_ON_COLOR[b.color] || 'text-white'}`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
+                                <span className={`w-6 h-6 rounded-xl border grid place-items-center text-[11px] font-semibold flex-shrink-0 ${TEXT_ON_COLOR[b.color] || 'text-white'}`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
                                   {formatDifficulty(b.difficulty)}
                                 </span>
                                 <div className="flex-1 min-w-0">
@@ -1516,7 +1516,7 @@ const Setter = () => {
                             {COLORS.map(c => (
                               <SelectItem key={c} value={c}>
                                 <div className="flex items-center gap-2">
-                                  <span className="w-3 h-3 rounded-full border" style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }} />
+                                  <span className="w-3 h-3 rounded-xl border" style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }} />
                                   <span>{c}</span>
                                 </div>
                               </SelectItem>
@@ -1801,7 +1801,7 @@ const Setter = () => {
                                 </div>
                               ) : (
                                 <span 
-                                  className={`w-12 h-12 rounded-full border-2 grid place-items-center text-sm font-semibold flex-shrink-0 ${TEXT_ON_COLOR[b.color] || 'text-white'}`} 
+                                  className={`w-12 h-12 rounded-xl border-2 grid place-items-center text-sm font-semibold flex-shrink-0 ${TEXT_ON_COLOR[b.color] || 'text-white'}`} 
                                   style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}
                                 >
                                   {formatDifficulty(b.difficulty)}
@@ -1815,7 +1815,7 @@ const Setter = () => {
                                   {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
                                 </div>
                                 <div className="mt-1">
-                                  <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                                  <span className={`text-xs px-2 py-0.5 rounded-xl border ${
                                     currentStatus === 'abgeschraubt' 
                                       ? 'bg-destructive/10 text-destructive border-destructive/20' 
                                       : 'bg-success/10 text-success border-success/20'
@@ -1912,14 +1912,14 @@ const Setter = () => {
         <div className="md:hidden fixed right-4 bottom-28 z-[100] flex items-center gap-3">
           <button
             aria-label="Auswahl abbrechen"
-            className="w-12 h-12 rounded-full bg-destructive text-destructive-foreground grid place-items-center shadow-xl"
+            className="w-12 h-12 rounded-xl bg-destructive text-destructive-foreground grid place-items-center shadow-xl"
             onClick={() => setSelectedBouldersForStatus(new Set())}
           >
             <X className="w-6 h-6" />
           </button>
           <button
             aria-label="Ausgewählte reinschrauben"
-            className="w-12 h-12 rounded-full bg-success text-success-foreground grid place-items-center shadow-xl"
+            className="w-12 h-12 rounded-xl bg-success text-success-foreground grid place-items-center shadow-xl"
             onClick={async () => {
               const ids = Array.from(selectedBouldersForStatus);
               if (ids.length === 0) return;
@@ -1934,7 +1934,7 @@ const Setter = () => {
           </button>
           <button
             aria-label="Ausgewählte rausschrauben"
-            className="w-12 h-12 rounded-full bg-primary text-primary-foreground grid place-items-center shadow-xl"
+            className="w-12 h-12 rounded-xl bg-primary text-primary-foreground grid place-items-center shadow-xl"
             onClick={async () => {
               const ids = Array.from(selectedBouldersForStatus);
               if (ids.length === 0) return;

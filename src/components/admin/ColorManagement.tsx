@@ -76,7 +76,7 @@ export const ColorManagement = () => {
         <form onSubmit={onCreate} className="space-y-3 w-full min-w-0">
           <div className="flex items-center gap-3">
             <div 
-              className="w-12 h-12 rounded-full border-2 flex-shrink-0" 
+              className="w-12 h-12 rounded-xl border-2 flex-shrink-0" 
               style={{ 
                 background: form.secondary_hex 
                   ? `linear-gradient(135deg, ${form.hex} 0%, ${form.hex} 50%, ${form.secondary_hex} 50%, ${form.secondary_hex} 100%)`
@@ -259,7 +259,7 @@ const ColorRow = ({
           <div className="flex items-center gap-3">
             <GripVertical className="w-6 h-6 text-muted-foreground flex-shrink-0" />
             <div 
-              className="w-12 h-12 rounded-full border-2 flex-shrink-0" 
+              className="w-12 h-12 rounded-xl border-2 flex-shrink-0" 
               style={{ 
                 background: secondaryHex 
                   ? `linear-gradient(135deg, ${hex} 0%, ${hex} 50%, ${secondaryHex} 50%, ${secondaryHex} 100%)`
@@ -357,7 +357,7 @@ const ColorRow = ({
         <div className="hidden md:grid md:grid-cols-[24px,40px,1fr,120px,120px,90px,90px,auto] items-center gap-3">
           <GripVertical className="w-5 h-5 text-muted-foreground" />
           <div 
-            className="w-8 h-8 rounded-full border flex-shrink-0" 
+            className="w-8 h-8 rounded-xl border flex-shrink-0" 
             style={{ 
               background: secondaryHex 
                 ? `linear-gradient(135deg, ${hex} 0%, ${hex} 50%, ${secondaryHex} 50%, ${secondaryHex} 100%)`

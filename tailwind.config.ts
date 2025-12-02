@@ -16,6 +16,7 @@ export default {
       fontFamily: {
         sans: ['Poppins', 'system-ui', 'sans-serif'],
         teko: ['Teko', 'sans-serif'],
+        heading: ['Teko', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",

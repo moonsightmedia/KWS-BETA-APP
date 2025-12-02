@@ -131,7 +131,7 @@ const Index = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex bg-background">
+      <div className="min-h-screen flex bg-[#F9FAF9]">
         <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8">
@@ -156,7 +156,7 @@ const Index = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex bg-background">
+      <div className="min-h-screen flex bg-[#F9FAF9]">
         <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8">
@@ -178,7 +178,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="min-h-screen flex bg-[#F9FAF9]">
       <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0 overflow-x-hidden">
         <DashboardHeader />
         
@@ -186,14 +186,14 @@ const Index = () => {
           {/* Welcome Section */}
           <div className="mb-8">
             <div className="mb-2">
-              <h1 className="text-3xl font-bold mb-1 font-teko tracking-wide">
+              <h1 className="text-3xl font-bold mb-1 font-heading tracking-wide text-[#13112B]">
                 {authLoading ? (
                   <span className="opacity-50">Hallo... 👋</span>
                 ) : (
                   <>Hallo, {greetingName || 'Fremder'}! 👋</>
                 )}
               </h1>
-              <p className="text-muted-foreground">Das passiert gerade in deiner Halle.</p>
+              <p className="text-sm text-[#13112B]/60">Das passiert gerade in deiner Halle.</p>
             </div>
           </div>
 

@@ -125,6 +125,17 @@ All colors MUST be HSL.
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
+    height: 100%;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  body {
+    font-family: 'Poppins', sans-serif;
+  }
+  
+  h1, h2, h3, h4, .font-heading {
+    font-family: 'Teko', sans-serif;
   }
   
   /* Ensure root container doesn't overflow */
@@ -193,12 +204,14 @@ All colors MUST be HSL.
   }
   
   /* Hide scrollbar but keep functionality */
-  .scrollbar-hide {
+  .scrollbar-hide,
+  .no-scrollbar {
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
   }
   
-  .scrollbar-hide::-webkit-scrollbar {
+  .scrollbar-hide::-webkit-scrollbar,
+  .no-scrollbar::-webkit-scrollbar {
     display: none;  /* Chrome, Safari and Opera */
   }
 }

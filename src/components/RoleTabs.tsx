@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useHasRole } from '@/hooks/useHasRole';
@@ -30,7 +30,6 @@ const getStoredUserId = (): string | null => {
 
 export const RoleTabs = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   const { hasRole: isSetter, loading: setterLoading } = useHasRole('setter');
@@ -102,11 +101,6 @@ export const RoleTabs = () => {
     }
   }, [user?.id, isAdmin, isSetter, adminLoading, setterLoading, stableIsAdmin, stableIsSetter]);
 
-  // Don't show if user is not logged in
-  if (!user) {
-    return null;
-  }
-
   // Sync activeRole with route changes
   useEffect(() => {
     if (location.pathname === '/setter') {
@@ -118,59 +112,46 @@ export const RoleTabs = () => {
     }
   }, [location.pathname, setActiveRole]);
 
-  const handleTabClick = (role: 'user' | 'setter' | 'admin') => {
-    setActiveRole(role);
-    if (role === 'setter' && stableIsSetter) {
-      navigate('/setter');
-    } else if (role === 'admin' && stableIsAdmin) {
-      navigate('/admin');
-    } else if (role === 'user') {
-      navigate('/');
-    }
+  // Don't show if user is not logged in
+  if (!user) {
+    return null;
+  }
+
+  // Get default path for each group
+  const getDefaultPathForGroup = (group: 'user' | 'setter' | 'admin'): string => {
+    if (group === 'setter' && stableIsSetter) return '/setter';
+    if (group === 'admin' && stableIsAdmin) return '/admin';
+    return '/';
   };
 
+  const tabs = [
+    { key: 'user' as const, label: 'User' },
+    ...(stableIsSetter ? [{ key: 'setter' as const, label: 'Setter' }] : []),
+    ...(stableIsAdmin ? [{ key: 'admin' as const, label: 'Admin' }] : []),
+  ];
+
   return (
-    <div className="bg-[#fafafa] px-4 md:px-6 py-3">
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => handleTabClick('user')}
-          className={cn(
-            "px-4 py-2 rounded-lg text-sm font-semibold transition-colors",
-            activeRole === 'user'
-              ? "bg-[#6cb24a] text-white shadow-sm"
-              : "bg-white text-[#4a4a4a] hover:bg-[#f5f5f5]"
-          )}
-        >
-          User
-        </button>
-        
-        {stableIsSetter && (
-          <button
-            onClick={() => handleTabClick('setter')}
-            className={cn(
-              "px-4 py-2 rounded-lg text-sm font-semibold transition-colors",
-              activeRole === 'setter'
-                ? "bg-[#6cb24a] text-white shadow-sm"
-                : "bg-white text-[#4a4a4a] hover:bg-[#f5f5f5]"
-            )}
-          >
-            Setter
-          </button>
-        )}
-        
-        {stableIsAdmin && (
-          <button
-            onClick={() => handleTabClick('admin')}
-            className={cn(
-              "px-4 py-2 rounded-lg text-sm font-semibold transition-colors",
-              activeRole === 'admin'
-                ? "bg-[#6cb24a] text-white shadow-sm"
-                : "bg-white text-[#4a4a4a] hover:bg-[#f5f5f5]"
-            )}
-          >
-            Admin
-          </button>
-        )}
+    <div className="lg:hidden border-b border-[#E7F7E9] bg-white/50 backdrop-blur-sm">
+      <div className="px-4 py-2 lg:px-8 max-w-7xl mx-auto w-full">
+        <div className="flex bg-[#F9FAF9] p-1 rounded-xl w-full max-w-md mx-auto lg:mx-0 border border-[#E7F7E9]">
+          {tabs.map((t) => {
+            const to = getDefaultPathForGroup(t.key);
+            const isActive = activeRole === t.key;
+            return (
+              <Link
+                key={t.key}
+                to={to}
+                className={cn(
+                  'flex-1 py-2 px-3 rounded-[8px] text-xs font-semibold active:scale-95 transition-all focus:outline-none touch-manipulation text-center no-underline',
+                  isActive ? 'bg-[#36B531] text-white shadow-sm' : 'text-[#13112B]/60 hover:text-[#13112B]'
+                )}
+                style={isActive ? { color: 'white' } : undefined}
+              >
+                {t.label}
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

@@ -285,16 +285,16 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
 
         {/* Compact meta chips */}
         <div className="flex flex-wrap items-center justify-center gap-2 mb-2 sm:mb-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs">
+          <span className="inline-flex items-center gap-1.5 rounded-xl border bg-card px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs">
             <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary flex-shrink-0" />
             <span className="truncate max-w-[8rem] sm:max-w-[10rem]">{boulder.sector}</span>
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs">
+          <span className="inline-flex items-center gap-1.5 rounded-xl border bg-card px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs">
             <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary flex-shrink-0" />
             <span>{formatDate(boulder.createdAt, 'dd. MMM yyyy', { locale: de })}</span>
           </span>
           <span
-            className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 h-7 sm:h-8 px-2 sm:px-3 rounded-full border text-xs ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${TEXT_ON_COLOR[boulder.color] || 'text-white'}`}
+            className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 h-7 sm:h-8 px-2 sm:px-3 rounded-xl border text-xs ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${TEXT_ON_COLOR[boulder.color] || 'text-white'}`}
             title={`${boulder.color} · Grad ${boulder.difficulty === null ? '?' : boulder.difficulty}`}
           >
             <span className="font-semibold text-[10px] sm:text-xs">{boulder.difficulty === null ? '?' : boulder.difficulty}</span>

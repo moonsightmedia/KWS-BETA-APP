@@ -227,7 +227,7 @@ export const CompetitionBoulderManagement = () => {
                     <SelectItem key={c.name} value={c.name}>
                       <div className="flex items-center gap-2">
                         <span
-                          className="w-4 h-4 rounded-full inline-block"
+                          className="w-4 h-4 rounded-xl inline-block"
                           style={getColorBackgroundStyle(c.name, colors)}
                         />
                         {c.name}

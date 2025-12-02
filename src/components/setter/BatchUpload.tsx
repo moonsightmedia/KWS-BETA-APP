@@ -222,7 +222,7 @@ export const BatchUpload = () => {
                                     alt="Thumbnail" 
                                     className="absolute inset-0 w-full h-full object-cover"
                                 />
-                                <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1 z-10">
+                                <div className="absolute top-2 right-2 bg-green-500 rounded-xl p-1 z-10">
                                     <Check className="w-3 h-3 text-white" />
               </div>
                             </>
@@ -249,7 +249,7 @@ export const BatchUpload = () => {
                                     <FileVideo className="w-6 h-6 text-primary mb-1" />
                                     <span className="text-[10px] text-muted-foreground truncate w-full px-1">{currentBoulder.videoFile.name}</span>
                       </div>
-                                <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1 z-10">
+                                <div className="absolute top-2 right-2 bg-green-500 rounded-xl p-1 z-10">
                                     <Check className="w-3 h-3 text-white" />
                         </div>
                             </>
@@ -322,7 +322,7 @@ export const BatchUpload = () => {
                                             updateCurrentBoulder({ colorId: c.id, name: newName });
                                         }}
                                         className={cn(
-                                            "flex-shrink-0 w-10 h-10 rounded-full transition-all border-2 flex items-center justify-center",
+                                            "flex-shrink-0 w-10 h-10 rounded-xl transition-all border-2 flex items-center justify-center",
                                             currentBoulder.colorId === c.id
                                                 ? "border-primary shadow-lg scale-110"
                                                 : "border-border hover:border-primary/50 hover:scale-105"
@@ -331,7 +331,7 @@ export const BatchUpload = () => {
                                         title={c.name}
                                     >
                                         {currentBoulder.colorId === c.id && (
-                                            <div className="w-3 h-3 rounded-full bg-white/90 shadow-sm" />
+                                            <div className="w-3 h-3 rounded-xl bg-white/90 shadow-sm" />
                                         )}
                                     </button>
                                 ))}
@@ -391,14 +391,14 @@ export const BatchUpload = () => {
             onClick={uploadAll} 
             size="icon" 
             disabled={isProcessing || boulders.length === 0}
-            className="h-14 w-14 rounded-full shadow-xl bg-[#2E432D] hover:bg-[#2E432D]/90 transition-all hover:scale-105 disabled:opacity-50 disabled:grayscale"
+            className="h-14 w-14 rounded-xl shadow-xl bg-[#2E432D] hover:bg-[#2E432D]/90 transition-all hover:scale-105 disabled:opacity-50 disabled:grayscale"
         >
             {isProcessing ? <Loader2 className="h-6 w-6 animate-spin" /> : <CloudUpload className="h-8 w-8" />}
               </Button>
             <Button
             onClick={openAddDialog} 
             size="icon" 
-            className="h-14 w-14 rounded-full shadow-xl bg-primary hover:bg-primary/90 transition-all hover:scale-105"
+            className="h-14 w-14 rounded-xl shadow-xl bg-primary hover:bg-primary/90 transition-all hover:scale-105"
         >
             <Plus className="h-8 w-8 text-white" />
             </Button>
@@ -439,7 +439,7 @@ export const BatchUpload = () => {
             <div className="flex-1 min-w-0 cursor-pointer px-1" onClick={() => openEditDialog(boulder)}>
                 <div className="flex items-center gap-2 mb-1.5">
                     <h3 className="font-bold text-base truncate">{boulder.name || 'Unbenannt'}</h3>
-                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex-shrink-0">{boulder.difficulty}</span>
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-xl bg-primary text-[10px] font-bold text-primary-foreground flex-shrink-0">{boulder.difficulty}</span>
                   </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     <span className="truncate max-w-[100px]">{sectors?.find(s => s.id === boulder.sectorId)?.name || 'Sektor?'}</span>

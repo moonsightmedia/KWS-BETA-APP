@@ -12,11 +12,10 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, MoreVertical, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, Palette, Map, Dumbbell, X } from "lucide-react";
+import { Trash2, Plus, MoreVertical, Search, ArrowUpDown, ArrowUp, ArrowDown, Palette, Map, BarChart3, X } from "lucide-react";
 import { useColors } from "@/hooks/useColors";
 import { getColorBackgroundStyle } from "@/utils/colorUtils";
 import { cn } from "@/lib/utils";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -286,7 +285,7 @@ export const BoulderManagement = () => {
                             }`}
                           >
                             <div 
-                              className={`w-8 h-8 rounded-full border-2 ${colorInfo?.bg || ''} ${colorInfo?.border || ''}`}
+                              className={`w-8 h-8 rounded-xl border-2 ${colorInfo?.bg || ''} ${colorInfo?.border || ''}`}
                               style={!colorInfo?.bg ? { backgroundColor: colorInfo?.hex } : {}}
                             />
                             <span className="text-xs font-medium truncate w-full text-center">{color}</span>
@@ -596,7 +595,7 @@ export const BoulderManagement = () => {
                           <SelectItem key={color} value={color}>
                             <div className="flex items-center gap-2">
                               <div 
-                                className={`w-4 h-4 rounded-full border ${colorInfo?.bg || ''} ${colorInfo?.border || ''}`}
+                                className={`w-4 h-4 rounded-xl border ${colorInfo?.bg || ''} ${colorInfo?.border || ''}`}
                                 style={!colorInfo?.bg ? { backgroundColor: colorInfo?.hex || '#9ca3af' } : {}}
                               />
                               {color}
@@ -752,7 +751,7 @@ export const BoulderManagement = () => {
                       <TableCell>{boulder.difficulty}</TableCell>
                       <TableCell>
                         <div 
-                          className={`w-6 h-6 rounded-full border-2 ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${COLOR_MAP[boulder.color]?.border || 'border-gray-500'}`}
+                          className={`w-6 h-6 rounded-xl border-2 ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${COLOR_MAP[boulder.color]?.border || 'border-gray-500'}`}
                           title={boulder.color}
                         />
                       </TableCell>
@@ -826,160 +825,211 @@ export const BoulderManagement = () => {
 
       {/* Quick Filter Bar (mobile) */}
       {quickFilter && (
-        <div className="md:hidden fixed left-4 right-4 bottom-24 z-[100] bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
-          <div className="flex items-center justify-between px-3 py-2">
-            <span className="text-xs px-2 py-1 rounded-full border bg-card">
-              {quickFilter === 'color' ? 'Farbe' : quickFilter === 'sector' ? 'Sektor' : quickFilter === 'difficulty' ? 'Schwierigkeit' : 'Sortierung'}
-            </span>
-            <Button variant="ghost" size="icon" onClick={()=> setQuickFilter(null)}>
-              <X className="w-6 h-6" />
-            </Button>
-          </div>
-          <ScrollArea className="w-full scrollbar-hide">
-            <div className={cn(
-              "flex items-center gap-2 px-3 pb-3 min-w-max",
-              quickFilter === 'color' && "py-2"
-            )}>
-              {quickFilter === 'sector' && (
-                <>
-                  <Button variant={sectorFilter==='all'?'default':'outline'} size="sm" onClick={()=> setSectorFilter('all')}>Alle</Button>
-                  {sectors?.map(s => (
-                    <Button key={s.id} variant={sectors.find(x=>x.name===sectorFilter)?.id===s.id?'default':'outline'} size="sm" onClick={()=> setSectorFilter(s.name)}>
-                      {s.name}
-                    </Button>
-                  ))}
-                </>
-              )}
-              {quickFilter === 'difficulty' && (
-                <>
-                  <Button variant={difficultyFilter==='all'?'default':'outline'} size="sm" onClick={()=> setDifficultyFilter('all')}>Alle</Button>
-                  {DIFFICULTIES.map(d => {
-                    const dStr = d === null ? '?' : String(d);
+        <div className="md:hidden fixed left-4 right-4 bottom-24 z-[100] pointer-events-none">
+          <div className="pointer-events-auto rounded-2xl bg-[#13112B] text-white shadow-2xl border border-white/10 overflow-hidden">
+            <div className="flex items-center px-3 py-2">
+              <span className="px-3 py-1 bg-white/10 rounded-xl text-xs font-semibold">
+                {quickFilter === 'color' ? 'Farbe' : quickFilter === 'sector' ? 'Sektor' : quickFilter === 'difficulty' ? 'Schwierigkeit' : 'Sortierung'}
+              </span>
+            </div>
+          <div className="px-3 pb-3">
+            {quickFilter === 'color' && (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <button 
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl text-xs font-semibold shadow transition",
+                      colorFilter === 'all' 
+                        ? "bg-[#36B531] text-white" 
+                        : "bg-white/10 text-white/70 hover:text-white"
+                    )}
+                    onClick={() => setColorFilter('all')}
+                  >
+                    Alle
+                  </button>
+                </div>
+                <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1 h-10">
+                  {colors?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map(c => {
+                    const colorHex = getColorBackgroundStyle(c.name, colors).backgroundColor || '#000';
+                    const isWhite = colorHex === '#ffffff' || colorHex === 'white' || c.name.toLowerCase() === 'weiß';
                     return (
-                      <Button key={dStr} variant={difficultyFilter===dStr?'default':'outline'} size="sm" onClick={()=> setDifficultyFilter(dStr)}>
-                        {formatDifficulty(d)}
-                      </Button>
+                      <button
+                        key={c.name}
+                        className={cn(
+                          "w-10 h-10 rounded-xl border shadow",
+                          isWhite ? "bg-white border-gray-200" : "border-black/10"
+                        )}
+                        style={!isWhite ? { backgroundColor: colorHex } : undefined}
+                        onClick={() => setColorFilter(c.name)}
+                        aria-label={`Filter Farbe ${c.name}`}
+                      />
                     );
                   })}
-                </>
-              )}
-              {quickFilter === 'color' && (
-                <>
-                  <Button variant={colorFilter==='all'?'default':'outline'} size="sm" onClick={()=> setColorFilter('all')}>Alle</Button>
-                  {colors?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map(c => (
-                    <Button 
-                      key={c.name} 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={()=> setColorFilter(c.name)}
-                      className={cn(
-                        "w-10 h-10 rounded-full p-0 flex items-center justify-center border-2 transition-all",
-                        colorFilter === c.name 
-                          ? "border-primary shadow-lg scale-110" 
-                          : "border-border hover:border-primary/50 hover:scale-105"
-                      )}
-                      title={c.name}
-                    >
-                      <span 
-                        className="w-6 h-6 rounded-full"
-                        style={getColorBackgroundStyle(c.name, colors)}
-                      >
-                        {colorFilter === c.name && (
-                          <div className="w-full h-full rounded-full bg-white/90 shadow-sm" />
-                        )}
-                      </span>
-                    </Button>
-                  ))}
-                </>
-              )}
-              {quickFilter === 'sort' && (
-                <>
-                  <Button 
-                    variant={sortBy==='created_at' || sortBy==='date'?'default':'outline'} 
-                    size="sm" 
-                    onClick={()=> setSortBy('created_at')}
-                  >
-                    Datum
-                  </Button>
-                  <Button 
-                    variant={sortBy==='name'?'default':'outline'} 
-                    size="sm" 
-                    onClick={()=> setSortBy('name')}
-                  >
-                    Name
-                  </Button>
-                  <Button 
-                    variant={sortBy==='difficulty'?'default':'outline'} 
-                    size="sm" 
-                    onClick={()=> setSortBy('difficulty')}
-                  >
-                    Schwierigkeit
-                  </Button>
-                  <Button 
-                    variant={sortBy==='sector'?'default':'outline'} 
-                    size="sm" 
-                    onClick={()=> setSortBy('sector')}
-                  >
-                    Sektor
-                  </Button>
-                  <div className="h-6 w-px bg-border mx-1" />
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={()=> setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                    className="flex items-center gap-1"
-                  >
-                    {sortOrder === 'asc' ? (
-                      <ArrowUp className="w-3 h-3" />
-                    ) : (
-                      <ArrowDown className="w-3 h-3" />
+                </div>
+              </>
+            )}
+            {quickFilter === 'sector' && (
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 h-10">
+                <button 
+                  className={cn(
+                    "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
+                    sectorFilter === 'all' 
+                      ? "bg-[#36B531] text-white" 
+                      : "bg-white/10 text-white/70 hover:text-white"
+                  )}
+                  onClick={() => setSectorFilter('all')}
+                >
+                  Alle
+                </button>
+                {sectors?.map(s => (
+                  <button
+                    key={s.id}
+                    className={cn(
+                      "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
+                      sectors.find(x=>x.name===sectorFilter)?.id===s.id
+                        ? "bg-[#36B531] text-white" 
+                        : "bg-white/10 text-white/70 hover:text-white"
                     )}
-                  </Button>
-                </>
-              )}
-            </div>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+                    onClick={() => setSectorFilter(s.name)}
+                  >
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            {quickFilter === 'difficulty' && (
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 h-10">
+                <button 
+                  className={cn(
+                    "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
+                    difficultyFilter === 'all' 
+                      ? "bg-[#36B531] text-white" 
+                      : "bg-white/10 text-white/70 hover:text-white"
+                  )}
+                  onClick={() => setDifficultyFilter('all')}
+                >
+                  Alle
+                </button>
+                {DIFFICULTIES.map(d => {
+                  const dStr = d === null ? '?' : String(d);
+                  return (
+                    <button
+                      key={dStr}
+                      className={cn(
+                        "w-10 h-10 rounded-xl text-xs font-semibold shadow transition flex items-center justify-center",
+                        difficultyFilter === dStr 
+                          ? "bg-[#36B531] text-white" 
+                          : "bg-white/10 text-white/70 hover:text-white"
+                      )}
+                      onClick={() => setDifficultyFilter(dStr)}
+                    >
+                      {formatDifficulty(d)}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {quickFilter === 'sort' && (
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 h-10">
+                <button 
+                  className={cn(
+                    "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
+                    sortBy === 'created_at' || sortBy === 'date'
+                      ? "bg-[#36B531] text-white" 
+                      : "bg-white/10 text-white/70 hover:text-white"
+                  )}
+                  onClick={() => setSortBy('created_at')}
+                >
+                  Datum
+                </button>
+                <button 
+                  className={cn(
+                    "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
+                    sortBy === 'name' 
+                      ? "bg-[#36B531] text-white" 
+                      : "bg-white/10 text-white/70 hover:text-white"
+                  )}
+                  onClick={() => setSortBy('name')}
+                >
+                  Name
+                </button>
+                <button 
+                  className={cn(
+                    "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
+                    sortBy === 'difficulty' 
+                      ? "bg-[#36B531] text-white" 
+                      : "bg-white/10 text-white/70 hover:text-white"
+                  )}
+                  onClick={() => setSortBy('difficulty')}
+                >
+                  Schwierigkeit
+                </button>
+                <button 
+                  className={cn(
+                    "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
+                    sortBy === 'sector' 
+                      ? "bg-[#36B531] text-white" 
+                      : "bg-white/10 text-white/70 hover:text-white"
+                  )}
+                  onClick={() => setSortBy('sector')}
+                >
+                  Sektor
+                </button>
+                <div className="h-10 w-px bg-white/20 mx-1" />
+                <button 
+                  className="h-10 px-3 bg-white/10 text-white/70 hover:text-white rounded-xl text-xs font-semibold shadow transition flex items-center gap-1"
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                >
+                  {sortOrder === 'asc' ? (
+                    <ArrowUp className="w-3 h-3" />
+                  ) : (
+                    <ArrowDown className="w-3 h-3" />
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+          </div>
         </div>
       )}
 
       {/* Floating Filter Bar (mobile) */}
-      <nav className="md:hidden fixed bottom-28 left-4 right-4 z-[100] bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
-        <div className="flex items-center justify-between px-3 py-2 gap-2">
-          <span className="text-xs px-3 py-1 rounded-full border bg-card">{filteredAndSortedBoulders.length} Treffer</span>
+      <nav className="md:hidden fixed bottom-28 left-4 right-4 z-[100]">
+        <div className="bg-[#13112B] text-white rounded-2xl shadow-2xl border border-white/10 px-2 py-2 flex items-center justify-between">
+          <div>
+            <button className="h-10 px-3 bg-white text-[#13112B] rounded-xl text-xs font-semibold shadow-sm active:scale-95 transition flex items-center">
+              {filteredAndSortedBoulders.length} Treffer
+            </button>
+          </div>
           <div className="flex items-center gap-2">
-            <Button 
-              aria-label="Farben filtern" 
-              variant={quickFilter === 'color' ? 'default' : 'outline'} 
-              size="icon" 
-              onClick={()=> setQuickFilter(prev => prev === 'color' ? null : 'color')}
+            <button
+              onClick={() => setQuickFilter(prev => prev === 'color' ? null : 'color')}
+              className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
+              aria-label="Farbe filtern"
             >
-              <Palette className="w-6 h-6" />
-            </Button>
-            <Button 
-              aria-label="Sektor filtern" 
-              variant={quickFilter === 'sector' ? 'default' : 'outline'} 
-              size="icon" 
-              onClick={()=> setQuickFilter(prev => prev === 'sector' ? null : 'sector')}
+              <Palette className="w-5 h-5" strokeWidth={1.5} />
+            </button>
+            <button
+              onClick={() => setQuickFilter(prev => prev === 'sector' ? null : 'sector')}
+              className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
+              aria-label="Sektionen filtern"
             >
-              <Map className="w-6 h-6" />
-            </Button>
-            <Button 
-              aria-label="Schwierigkeit filtern" 
-              variant={quickFilter === 'difficulty' ? 'default' : 'outline'} 
-              size="icon" 
-              onClick={()=> setQuickFilter(prev => prev === 'difficulty' ? null : 'difficulty')}
+              <Map className="w-5 h-5" strokeWidth={1.5} />
+            </button>
+            <button
+              onClick={() => setQuickFilter(prev => prev === 'difficulty' ? null : 'difficulty')}
+              className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
+              aria-label="Schwierigkeit filtern"
             >
-              <Dumbbell className="w-6 h-6" />
-            </Button>
-            <Button 
-              variant={quickFilter === 'sort' ? 'default' : 'outline'} 
-              size="icon" 
-              onClick={()=> setQuickFilter(prev => prev === 'sort' ? null : 'sort')}
-              aria-label="Sortierung"
+              <BarChart3 className="w-5 h-5" strokeWidth={1.5} />
+            </button>
+            <button
+              onClick={() => setQuickFilter(prev => prev === 'sort' ? null : 'sort')}
+              className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
+              aria-label="Sortieren"
             >
-              <Filter className="w-5 h-5" />
-            </Button>
+              <ArrowUpDown className="w-5 h-5" strokeWidth={1.5} />
+            </button>
           </div>
         </div>
       </nav>
