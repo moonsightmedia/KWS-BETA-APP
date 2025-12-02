@@ -11,6 +11,7 @@ import { ColorManagement } from "@/components/admin/ColorManagement";
 import { SectorManagement } from "@/components/admin/SectorManagement";
 import { BoulderOperationLogs } from "@/components/admin/BoulderOperationLogs";
 import { CompetitionBoulderManagement } from "@/components/competition/CompetitionBoulderManagement";
+import { FeedbackManagement } from "@/components/admin/FeedbackManagement";
 
 const Admin = () => {
   const { user } = useAuth();
@@ -64,9 +65,9 @@ const Admin = () => {
           <Tabs defaultValue="users" className="w-full min-w-0">
             <TabsList className="grid w-full grid-cols-5 mb-6 h-auto min-w-0">
               <TabsTrigger value="users" className="text-xs sm:text-sm min-w-0">Benutzer</TabsTrigger>
-              <TabsTrigger value="colors" className="text-xs sm:text-sm min-w-0">Farben</TabsTrigger>
-              <TabsTrigger value="sectors" className="text-xs sm:text-sm min-w-0">Sektoren</TabsTrigger>
+              <TabsTrigger value="settings" className="text-xs sm:text-sm min-w-0">Einstellungen</TabsTrigger>
               <TabsTrigger value="competition" className="text-xs sm:text-sm min-w-0">Wettkampf</TabsTrigger>
+              <TabsTrigger value="feedback" className="text-xs sm:text-sm min-w-0">Feedback</TabsTrigger>
               <TabsTrigger value="logs" className="text-xs sm:text-sm min-w-0">Logs</TabsTrigger>
             </TabsList>
 
@@ -74,16 +75,27 @@ const Admin = () => {
               <UserManagement />
             </TabsContent>
 
-            <TabsContent value="colors" className="mt-0">
-              <ColorManagement />
-            </TabsContent>
-
-            <TabsContent value="sectors" className="mt-0">
-              <SectorManagement />
+            <TabsContent value="settings" className="mt-0">
+              <Tabs defaultValue="sectors" className="w-full min-w-0">
+                <TabsList className="grid w-full grid-cols-2 mb-6 h-auto min-w-0">
+                  <TabsTrigger value="sectors" className="text-xs sm:text-sm min-w-0">Sektoren</TabsTrigger>
+                  <TabsTrigger value="colors" className="text-xs sm:text-sm min-w-0">Farben</TabsTrigger>
+                </TabsList>
+                <TabsContent value="sectors" className="mt-0">
+                  <SectorManagement />
+                </TabsContent>
+                <TabsContent value="colors" className="mt-0">
+                  <ColorManagement />
+                </TabsContent>
+              </Tabs>
             </TabsContent>
 
             <TabsContent value="competition" className="mt-0">
               <CompetitionBoulderManagement />
+            </TabsContent>
+
+            <TabsContent value="feedback" className="mt-0">
+              <FeedbackManagement />
             </TabsContent>
 
             <TabsContent value="logs" className="mt-0">

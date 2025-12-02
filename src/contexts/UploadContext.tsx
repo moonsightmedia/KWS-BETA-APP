@@ -3,6 +3,7 @@ import { UploadLogger } from '@/utils/uploadLogger';
 import { resumableUpload } from '@/utils/resumableUpload';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { reportError } from '@/utils/feedbackUtils';
 
 export interface ActiveUpload {
   sessionId: string;
@@ -197,6 +198,23 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
              status: 'failed', 
              error: error.message 
         }).eq('session_id', upload.sessionId);
+        
+        // Automatically report upload error to feedback system
+        try {
+            const uploadError = error instanceof Error ? error : new Error(error.message || 'Upload-Fehler');
+            await reportError(
+                uploadError,
+                undefined,
+                `Upload-Fehler beim Hochladen von ${upload.type === 'video' ? 'Video' : 'Thumbnail'}:\n` +
+                `Dateiname: ${upload.fileName}\n` +
+                `Dateigröße: ${(upload.fileSize / 1024 / 1024).toFixed(2)} MB\n` +
+                `Boulder-ID: ${upload.boulderId}\n` +
+                `Session-ID: ${upload.sessionId}`
+            );
+        } catch (reportErr) {
+            // Silently fail - don't let error reporting break upload error handling
+            console.warn('[UploadContext] Failed to report upload error:', reportErr);
+        }
         
         delete abortControllersRef.current[upload.sessionId];
         processingRef.current.delete(upload.sessionId);

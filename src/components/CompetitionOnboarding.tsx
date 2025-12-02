@@ -1,8 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, createContext, useContext } from 'react';
 import { Button } from '@/components/ui/button';
 import { X, ChevronRight, LogIn, Trophy } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
+
+// Context to allow opening competition onboarding from anywhere
+interface CompetitionOnboardingContextType {
+  openCompetitionOnboarding: () => void;
+}
+
+const CompetitionOnboardingContext = createContext<CompetitionOnboardingContextType | undefined>(undefined);
+
+export const useCompetitionOnboarding = () => {
+  const context = useContext(CompetitionOnboardingContext);
+  if (!context) {
+    // Return a no-op function if provider is not available
+    console.warn('[useCompetitionOnboarding] CompetitionOnboardingProvider not found, returning no-op function');
+    return {
+      openCompetitionOnboarding: () => {
+        console.warn('[useCompetitionOnboarding] CompetitionOnboardingProvider not available');
+      },
+    };
+  }
+  return context;
+};
 
 const getCompetitionSteps = (isLoggedIn: boolean) => {
   if (!isLoggedIn) {
@@ -88,7 +109,7 @@ const getCompetitionSteps = (isLoggedIn: boolean) => {
   ];
 };
 
-export const CompetitionOnboarding = () => {
+export const CompetitionOnboardingProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
   const COMPETITION_STEPS = getCompetitionSteps(!!user);
   const [isOpen, setIsOpen] = useState(false);
@@ -100,6 +121,11 @@ export const CompetitionOnboarding = () => {
       setIsOpen(true);
     }
   }, []);
+
+  const openCompetitionOnboarding = () => {
+    setCurrentStep(0);
+    setIsOpen(true);
+  };
 
   const handleNext = () => {
     if (currentStep < COMPETITION_STEPS.length - 1) {
@@ -114,35 +140,61 @@ export const CompetitionOnboarding = () => {
     setIsOpen(false);
   };
 
-  if (!isOpen) return null;
+  return (
+    <CompetitionOnboardingContext.Provider value={{ openCompetitionOnboarding }}>
+      {children}
+      {isOpen && (
+        <CompetitionOnboardingDialog
+          isOpen={isOpen}
+          currentStep={currentStep}
+          steps={COMPETITION_STEPS}
+          onNext={handleNext}
+          onFinish={handleFinish}
+          onOpenChange={setIsOpen}
+        />
+      )}
+    </CompetitionOnboardingContext.Provider>
+  );
+};
+
+interface CompetitionOnboardingDialogProps {
+  isOpen: boolean;
+  currentStep: number;
+  steps: Array<{ title: string; content: string | React.ReactNode }>;
+  onNext: () => void;
+  onFinish: () => void;
+  onOpenChange: (open: boolean) => void;
+}
+
+const CompetitionOnboardingDialog = ({ isOpen, currentStep, steps, onNext, onFinish, onOpenChange }: CompetitionOnboardingDialogProps) => {
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md w-full max-w-[calc(100vw-2rem)] p-0 gap-0 [&>button]:hidden">
         <div className="relative p-6 pb-4">
           <Button
             variant="ghost"
             size="icon"
             className="absolute top-4 right-4 h-8 w-8"
-            onClick={handleFinish}
+            onClick={onFinish}
           >
             <X className="h-4 w-4" />
           </Button>
 
           <div className="space-y-4 mt-8">
-            <h2 className="text-2xl font-bold">{COMPETITION_STEPS[currentStep].title}</h2>
+            <h2 className="text-2xl font-bold">{steps[currentStep].title}</h2>
             <div className="text-muted-foreground">
-              {typeof COMPETITION_STEPS[currentStep].content === 'string' ? (
-                <p>{COMPETITION_STEPS[currentStep].content}</p>
+              {typeof steps[currentStep].content === 'string' ? (
+                <p>{steps[currentStep].content}</p>
               ) : (
-                COMPETITION_STEPS[currentStep].content
+                steps[currentStep].content
               )}
             </div>
           </div>
 
           <div className="flex items-center justify-between mt-8">
             <div className="flex gap-1">
-              {COMPETITION_STEPS.map((_, index) => (
+              {steps.map((_, index) => (
                 <div
                   key={index}
                   className={`h-2 w-2 rounded-full ${
@@ -151,8 +203,8 @@ export const CompetitionOnboarding = () => {
                 />
               ))}
             </div>
-            <Button onClick={handleNext} size="lg" className="min-h-[48px]">
-              {currentStep < COMPETITION_STEPS.length - 1 ? (
+            <Button onClick={onNext} size="lg" className="min-h-[48px]">
+              {currentStep < steps.length - 1 ? (
                 <>
                   Weiter
                   <ChevronRight className="ml-2 h-4 w-4" />
@@ -166,5 +218,10 @@ export const CompetitionOnboarding = () => {
       </DialogContent>
     </Dialog>
   );
+};
+
+// Backward compatibility: Export CompetitionOnboarding component that uses the provider
+export const CompetitionOnboarding = () => {
+  return <CompetitionOnboardingProvider><></></CompetitionOnboardingProvider>;
 };
 

@@ -261,6 +261,8 @@ const PullToRefreshHandler = () => {
 import { SidebarProvider } from '@/components/SidebarContext';
 import { UploadOverview } from '@/components/UploadOverview';
 import { UploadProvider } from '@/contexts/UploadContext';
+import { initializeErrorHandler } from '@/utils/errorHandler';
+import { OnboardingProvider } from '@/components/Onboarding';
 
 // Component to conditionally show Sidebar only for authenticated users
 const ConditionalSidebar = () => {
@@ -279,19 +281,26 @@ const Root = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
+  // Initialize error handler on mount
+  useEffect(() => {
+    initializeErrorHandler();
+  }, []);
+  
   // Don't restore route in Root - let PullToRefreshHandler handle it
   // This prevents conflicts with normal navigation
   
   return (
-    <SidebarProvider>
-      <UploadProvider>
-        <RouteLogger />
-        <PullToRefreshHandler />
-        <ConditionalSidebar />
-        <UploadOverview />
-        <Outlet />
-      </UploadProvider>
-    </SidebarProvider>
+    <OnboardingProvider>
+      <SidebarProvider>
+        <UploadProvider>
+          <RouteLogger />
+          <PullToRefreshHandler />
+          <ConditionalSidebar />
+          <UploadOverview />
+          <Outlet />
+        </UploadProvider>
+      </SidebarProvider>
+    </OnboardingProvider>
   );
 };
 

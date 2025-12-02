@@ -979,6 +979,7 @@ const Setter = () => {
                               <video 
                                 src={videoPreviewUrl} 
                                 controls 
+                                muted
                                 className="w-full h-full object-cover"
                                 playsInline
                               />
@@ -1126,6 +1127,7 @@ const Setter = () => {
                               <video 
                                 src={videoPreviewUrl} 
                                 controls 
+                                muted
                                 className="w-full h-full object-cover"
                                 playsInline
                               />
@@ -1568,7 +1570,7 @@ const Setter = () => {
                         <div className="mt-2">
                           <p className="text-xs text-muted-foreground mb-2">Aktuelles Video:</p>
                           <div className="aspect-[9/16] w-full max-w-xs rounded-lg overflow-hidden border">
-                            <video src={editing.betaVideoUrl} controls className="w-full h-full object-cover" playsInline />
+                            <video src={editing.betaVideoUrl} controls muted className="w-full h-full object-cover" playsInline />
                           </div>
                         </div>
                       )}
@@ -1579,7 +1581,7 @@ const Setter = () => {
                       )}
                       {videoPreviewUrl && form.file && (
                         <div className="aspect-[9/16] w-full max-w-xs mt-2 rounded-lg overflow-hidden border">
-                          <video src={videoPreviewUrl} controls className="w-full h-full object-cover" playsInline />
+                          <video src={videoPreviewUrl} controls muted className="w-full h-full object-cover" playsInline />
                         </div>
                       )}
                     </div>

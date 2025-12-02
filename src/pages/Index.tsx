@@ -17,7 +17,6 @@ import { useSectorSchedule } from '@/hooks/useSectorSchedule';
 import { usePreloadBoulderThumbnails } from '@/hooks/usePreloadBoulderThumbnails';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { Onboarding } from '@/components/Onboarding';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -184,8 +183,6 @@ const Index = () => {
         <DashboardHeader />
         
         <main className="flex-1 p-4 md:p-8 overflow-x-hidden">
-          <Onboarding />
-          
           {/* Welcome Section */}
           <div className="mb-8">
             <div className="mb-2">

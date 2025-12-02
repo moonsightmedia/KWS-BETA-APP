@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCompetitionBoulders } from '@/hooks/useCompetitionBoulders';
 import { useCompetitionParticipant, useCreateCompetitionParticipant } from '@/hooks/useCompetitionParticipant';
 import { useCompetitionResults } from '@/hooks/useCompetitionResults';
-import { CompetitionOnboarding } from '@/components/CompetitionOnboarding';
+import { CompetitionOnboardingProvider, useCompetitionOnboarding } from '@/components/CompetitionOnboarding';
 import { ResultInput } from '@/components/competition/ResultInput';
 import { Leaderboard } from '@/components/competition/Leaderboard';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,13 +15,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, List, Loader2, Home, ArrowLeft } from 'lucide-react';
+import { Trophy, List, Loader2, Home, ArrowLeft, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
 import { useColors } from '@/hooks/useColors';
 import { useNavigate } from 'react-router-dom';
 
-const Competition = () => {
+const CompetitionContent = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: competitionBoulders, isLoading: isLoadingBoulders } = useCompetitionBoulders();
@@ -29,6 +29,7 @@ const Competition = () => {
   const { data: results } = useCompetitionResults(participant?.id || null);
   const { data: colors } = useColors();
   const createParticipant = useCreateCompetitionParticipant();
+  const { openCompetitionOnboarding } = useCompetitionOnboarding();
 
   // For guests, default to leaderboard. For logged-in users, default to boulders
   const [activeTab, setActiveTab] = useState<'boulders' | 'leaderboard'>(user ? 'boulders' : 'leaderboard');
@@ -146,18 +147,28 @@ const Competition = () => {
             </Button>
           </div>
           
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-foreground mb-2 font-teko tracking-wide">
-              Nikolaus Wettkampf
-            </h1>
-            <p className="text-muted-foreground">
-              {user 
-                ? 'Trage deine Ergebnisse ein und verfolge die Live-Rangliste'
-                : 'Verfolge die Live-Rangliste des Wettkampfs'}
-            </p>
+          <div className="mb-6 flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold text-foreground mb-2 font-teko tracking-wide">
+                Nikolaus Wettkampf
+              </h1>
+              <p className="text-muted-foreground">
+                {user 
+                  ? 'Trage deine Ergebnisse ein und verfolge die Live-Rangliste'
+                  : 'Verfolge die Live-Rangliste des Wettkampfs'}
+              </p>
+            </div>
+            {/* Info Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full flex-shrink-0"
+              onClick={openCompetitionOnboarding}
+              aria-label="Hilfe & Informationen zum Wettkampf"
+            >
+              <Info className="w-5 h-5" />
+            </Button>
           </div>
-
-          <CompetitionOnboarding />
 
           {/* For guests: Only show leaderboard tab */}
           {!user ? (
@@ -421,6 +432,14 @@ const Competition = () => {
         />
       )}
     </div>
+  );
+};
+
+const Competition = () => {
+  return (
+    <CompetitionOnboardingProvider>
+      <CompetitionContent />
+    </CompetitionOnboardingProvider>
   );
 };
 

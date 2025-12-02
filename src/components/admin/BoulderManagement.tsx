@@ -398,7 +398,7 @@ export const BoulderManagement = () => {
                 </div>
                 {formData.beta_video_url && (
                   <div className="mt-2 aspect-[9/16] w-full max-w-xs mx-auto rounded-lg overflow-hidden border">
-                    <video src={formData.beta_video_url} controls className="w-full h-full object-cover" playsInline />
+                    <video src={formData.beta_video_url} controls muted className="w-full h-full object-cover" playsInline />
                   </div>
                 )}
               </div>

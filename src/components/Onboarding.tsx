@@ -1,13 +1,44 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, createContext, useContext } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { X, ChevronRight } from 'lucide-react';
+import { X, ChevronRight, MessageSquare, AlertCircle, Heart, LucideIcon } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
-const ONBOARDING_STEPS = [
+// Context to allow opening onboarding from anywhere
+interface OnboardingContextType {
+  openOnboarding: () => void;
+}
+
+const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
+
+export const useOnboarding = () => {
+  const context = useContext(OnboardingContext);
+  if (!context) {
+    // Return a no-op function if provider is not available (shouldn't happen, but prevents crashes)
+    console.warn('[useOnboarding] OnboardingProvider not found, returning no-op function');
+    return {
+      openOnboarding: () => {
+        console.warn('[useOnboarding] OnboardingProvider not available');
+      },
+    };
+  }
+  return context;
+};
+
+interface OnboardingStep {
+  title: string;
+  content: string;
+  icon?: LucideIcon | null;
+  badge?: string;
+  showFeedbackHint?: boolean;
+}
+
+const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     title: 'Willkommen!',
-    content: 'Willkommen in der Kletterwelt Sa Beta App. Hier kannst du Boulder entdecken, Statistiken einsehen und vieles mehr.',
+    content: 'Willkommen in der Kletterwelt Sauerland Beta App! Hier kannst du Boulder entdecken, Statistiken einsehen und vieles mehr.',
   },
   {
     title: 'Boulder durchstöbern',
@@ -17,9 +48,21 @@ const ONBOARDING_STEPS = [
     title: 'Statistiken',
     content: 'Schaue dir Statistiken über die Boulder an und verfolge deine Fortschritte.',
   },
+  {
+    title: 'Beta-Version',
+    content: 'Du nutzt aktuell die Beta-Version der App. Es können noch Fehler auftreten oder Features fehlen. Wir arbeiten kontinuierlich an Verbesserungen!',
+    icon: AlertCircle,
+    badge: 'Beta',
+  },
+  {
+    title: 'Feedback & Support',
+    content: 'Probleme oder Verbesserungsvorschläge? Nutze den Feedback-Button oben rechts neben deinem Profilbild. Wir freuen uns sehr über deine Unterstützung und helfen gerne weiter!',
+    icon: MessageSquare,
+    showFeedbackHint: true,
+  },
 ];
 
-export const Onboarding = () => {
+export const OnboardingProvider = ({ children }: { children: React.ReactNode }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -29,6 +72,11 @@ export const Onboarding = () => {
       setIsOpen(true);
     }
   }, []);
+
+  const openOnboarding = () => {
+    setCurrentStep(0);
+    setIsOpen(true);
+  };
 
   const handleNext = () => {
     if (currentStep < ONBOARDING_STEPS.length - 1) {
@@ -43,24 +91,83 @@ export const Onboarding = () => {
     setIsOpen(false);
   };
 
-  if (!isOpen) return null;
+  return (
+    <OnboardingContext.Provider value={{ openOnboarding }}>
+      {children}
+      {isOpen && (
+        <OnboardingDialog
+          isOpen={isOpen}
+          currentStep={currentStep}
+          onNext={handleNext}
+          onFinish={handleFinish}
+          onOpenChange={setIsOpen}
+        />
+      )}
+    </OnboardingContext.Provider>
+  );
+};
+
+interface OnboardingDialogProps {
+  isOpen: boolean;
+  currentStep: number;
+  onNext: () => void;
+  onFinish: () => void;
+  onOpenChange: (open: boolean) => void;
+}
+
+const OnboardingDialog = ({ isOpen, currentStep, onNext, onFinish, onOpenChange }: OnboardingDialogProps) => {
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md w-full max-w-[calc(100vw-2rem)] p-0 gap-0 [&>button]:hidden">
         <div className="relative p-6 pb-4">
           <Button
             variant="ghost"
             size="icon"
             className="absolute top-4 right-4 h-8 w-8"
-            onClick={handleFinish}
+            onClick={onFinish}
           >
             <X className="h-4 w-4" />
           </Button>
 
           <div className="space-y-4 mt-8">
-            <h2 className="text-2xl font-bold">{ONBOARDING_STEPS[currentStep].title}</h2>
-            <p className="text-muted-foreground">{ONBOARDING_STEPS[currentStep].content}</p>
+            <div className="flex items-center gap-3">
+              {ONBOARDING_STEPS[currentStep].icon && (
+                <div className="flex-shrink-0">
+                  {(() => {
+                    const Icon = ONBOARDING_STEPS[currentStep].icon;
+                    return Icon ? <Icon className="h-6 w-6 text-primary" /> : null;
+                  })()}
+                </div>
+              )}
+              <div className="flex-1 flex items-center gap-2">
+                <h2 className="text-2xl font-bold">{ONBOARDING_STEPS[currentStep].title}</h2>
+                {ONBOARDING_STEPS[currentStep].badge && (
+                  <Badge variant="secondary" className="text-xs">
+                    {ONBOARDING_STEPS[currentStep].badge}
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <p className="text-muted-foreground leading-relaxed">{ONBOARDING_STEPS[currentStep].content}</p>
+            
+            {ONBOARDING_STEPS[currentStep].showFeedbackHint && (
+              <Alert className="mt-4 border-primary/20 bg-primary/5">
+                <MessageSquare className="h-4 w-4 text-primary" />
+                <AlertDescription className="text-sm">
+                  <strong>Tipp:</strong> Der Feedback-Button ist immer oben rechts neben deinem Profilbild verfügbar.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {currentStep === ONBOARDING_STEPS.length - 1 && (
+              <div className="flex items-center gap-2 mt-4 pt-4 border-t">
+                <Heart className="h-4 w-4 text-primary" />
+                <p className="text-sm text-muted-foreground">
+                  Vielen Dank für deine Unterstützung bei der Entwicklung der App!
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between mt-8">
@@ -74,7 +181,7 @@ export const Onboarding = () => {
                 />
               ))}
             </div>
-            <Button onClick={handleNext} size="lg" className="min-h-[48px]">
+            <Button onClick={onNext} size="lg" className="min-h-[48px]">
               {currentStep < ONBOARDING_STEPS.length - 1 ? (
                 <>
                   Weiter
@@ -89,5 +196,10 @@ export const Onboarding = () => {
       </DialogContent>
     </Dialog>
   );
+};
+
+// Backward compatibility: Export Onboarding component that uses the provider
+export const Onboarding = () => {
+  return <OnboardingProvider><></></OnboardingProvider>;
 };
 

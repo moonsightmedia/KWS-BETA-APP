@@ -61,7 +61,7 @@ const getYouTubeEmbedUrl = (url: string): string => {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
   const match = url.match(regExp);
   const videoId = (match && match[2].length === 11) ? match[2] : null;
-  return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
+  return videoId ? `https://www.youtube.com/embed/${videoId}?mute=1` : url;
 };
 
 /**
@@ -196,6 +196,7 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster }: { videoUrl: string; poster?
       <video 
         ref={videoRef}
         controls 
+        muted
         className="w-full h-full object-cover object-center"
         poster={poster || undefined}
         preload="metadata"
@@ -245,7 +246,7 @@ const getVimeoEmbedUrl = (url: string): string => {
   const regExp = /vimeo\.com\/(\d+)/;
   const match = url.match(regExp);
   const videoId = match ? match[1] : null;
-  return videoId ? `https://player.vimeo.com/video/${videoId}` : url;
+  return videoId ? `https://player.vimeo.com/video/${videoId}?muted=1` : url;
 };
 
 export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDetailDialogProps) => {
