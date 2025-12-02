@@ -9,14 +9,18 @@ import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Trophy } from 'lucide-react';
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useSectorSchedule } from '@/hooks/useSectorSchedule';
 import { usePreloadBoulderThumbnails } from '@/hooks/usePreloadBoulderThumbnails';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
+import { Onboarding } from '@/components/Onboarding';
 
 const Index = () => {
+  const navigate = useNavigate();
   const statistics = useStatistics();
   const { user, loading: authLoading } = useAuth();
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors();
@@ -180,6 +184,8 @@ const Index = () => {
         <DashboardHeader />
         
         <main className="flex-1 p-4 md:p-8 overflow-x-hidden">
+          <Onboarding />
+          
           {/* Welcome Section */}
           <div className="mb-8">
             <div className="mb-2">
@@ -192,6 +198,18 @@ const Index = () => {
               </h1>
               <p className="text-muted-foreground">Das passiert gerade in deiner Halle.</p>
             </div>
+          </div>
+
+          {/* Competition Button */}
+          <div className="mb-6">
+            <Button
+              onClick={() => navigate('/competition')}
+              size="lg"
+              className="w-full sm:w-auto min-h-[56px] text-base font-semibold"
+            >
+              <Trophy className="w-5 h-5 mr-2" />
+              Nikolaus Wettkampf
+            </Button>
           </div>
 
           {/* Stats Grid - kompakt nur mobil */}

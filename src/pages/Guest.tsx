@@ -5,12 +5,13 @@ import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { useColors } from '@/hooks/useColors';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Filter, Search, Palette, Map as MapIcon, Dumbbell, X, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Filter, Search, Palette, Map as MapIcon, Dumbbell, X, Loader2, ArrowUp, ArrowDown, Trophy } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { BoulderDetailDialog } from '@/components/BoulderDetailDialog';
@@ -348,6 +349,34 @@ const Guest = () => {
         </header>
 
         <main className="p-4 max-w-4xl mx-auto">
+          {/* Nikolaus Wettkampf Navigation Card */}
+          <Card className="mb-6 bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20 shadow-lg hover:shadow-xl transition-shadow">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-4 flex-1">
+                  <div className="flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-primary/20 flex items-center justify-center">
+                    <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-lg sm:text-xl font-bold text-foreground mb-1 font-teko tracking-wide">
+                      Nikolaus Wettkampf
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Nimm am Wettkampf teil, trage deine Ergebnisse ein und verfolge die Live-Rangliste!
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => navigate('/competition')}
+                  size="lg"
+                  className="w-full sm:w-auto min-w-[140px] h-11 font-semibold shadow-md hover:shadow-lg transition-shadow"
+                >
+                  <Trophy className="w-4 h-4 mr-2" />
+                  Zum Wettkampf
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
       {/* Desktop filter row */}
       <div className="hidden sm:flex flex-row gap-2 mb-4">
@@ -384,8 +413,23 @@ const Guest = () => {
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Alle Farben</SelectItem>
-            {COLORS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            <SelectItem value="all">
+              <div className="flex items-center gap-2">
+                <Palette className="w-4 h-4" />
+                Alle Farben
+              </div>
+            </SelectItem>
+            {colors?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map((c) => (
+              <SelectItem key={c.name} value={c.name}>
+                <div className="flex items-center gap-2">
+                  <span 
+                    className="w-4 h-4 rounded-full border border-border flex-shrink-0"
+                    style={getColorBackgroundStyle(c.name, colors)}
+                  />
+                  {c.name}
+                </div>
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
@@ -642,7 +686,10 @@ const Guest = () => {
               onClick={()=> setQuickFilter(prev => prev === 'color' ? null : 'color')}
             >
               {colorFilter !== 'all' ? (
-                <span className="w-5 h-5 rounded-full border" style={{ backgroundColor: COLOR_HEX[colorFilter] || '#22c55e' }} />
+                <span 
+                  className="w-5 h-5 rounded-full border border-border" 
+                  style={getColorBackgroundStyle(colorFilter, colors || [])}
+                />
               ) : (
                 <Palette className="w-5 h-5" />
               )}

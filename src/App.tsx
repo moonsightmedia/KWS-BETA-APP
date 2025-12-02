@@ -16,6 +16,7 @@ import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import Setter from "./pages/Setter";
 import Guest from "./pages/Guest";
+import Competition from "./pages/Competition";
 import NotFound from "./pages/NotFound";
 import { Sidebar } from "@/components/Sidebar";
 
@@ -266,8 +267,8 @@ const ConditionalSidebar = () => {
   const location = useLocation();
   const { user, loading } = useAuth();
   
-  // Hide sidebar on auth page or if user is not logged in
-  if (location.pathname === '/auth' || (!loading && !user)) {
+  // Hide sidebar on auth page, competition page (for guests), or if user is not logged in
+  if (location.pathname === '/auth' || location.pathname === '/competition' || (!loading && !user)) {
     return null;
   }
   
@@ -355,6 +356,7 @@ const router = createBrowserRouter([
       { path: "admin", element: <Admin /> },
       { path: "setter", element: <Setter /> },
       { path: "guest", element: <Guest /> },
+      { path: "competition", element: <Competition /> },
       { path: "*", element: <NotFound /> },
     ],
   },

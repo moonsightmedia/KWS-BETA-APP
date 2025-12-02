@@ -9,8 +9,8 @@ import { Shield } from "lucide-react";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { ColorManagement } from "@/components/admin/ColorManagement";
 import { SectorManagement } from "@/components/admin/SectorManagement";
-import { BoulderManagement } from "@/components/admin/BoulderManagement";
 import { BoulderOperationLogs } from "@/components/admin/BoulderOperationLogs";
+import { CompetitionBoulderManagement } from "@/components/competition/CompetitionBoulderManagement";
 
 const Admin = () => {
   const { user } = useAuth();
@@ -66,7 +66,7 @@ const Admin = () => {
               <TabsTrigger value="users" className="text-xs sm:text-sm min-w-0">Benutzer</TabsTrigger>
               <TabsTrigger value="colors" className="text-xs sm:text-sm min-w-0">Farben</TabsTrigger>
               <TabsTrigger value="sectors" className="text-xs sm:text-sm min-w-0">Sektoren</TabsTrigger>
-              <TabsTrigger value="boulders" className="text-xs sm:text-sm min-w-0">Boulder</TabsTrigger>
+              <TabsTrigger value="competition" className="text-xs sm:text-sm min-w-0">Wettkampf</TabsTrigger>
               <TabsTrigger value="logs" className="text-xs sm:text-sm min-w-0">Logs</TabsTrigger>
             </TabsList>
 
@@ -82,8 +82,8 @@ const Admin = () => {
               <SectorManagement />
             </TabsContent>
 
-            <TabsContent value="boulders" className="mt-0">
-              <BoulderManagement />
+            <TabsContent value="competition" className="mt-0">
+              <CompetitionBoulderManagement />
             </TabsContent>
 
             <TabsContent value="logs" className="mt-0">
