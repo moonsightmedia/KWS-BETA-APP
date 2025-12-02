@@ -182,6 +182,16 @@ All colors MUST be HSL.
     }
   }
   
+  /* Icon stroke width - Make icons more visible */
+  svg {
+    stroke-width: 2.5;
+  }
+  
+  /* Specifically target Lucide React icons */
+  [class*="lucide"] {
+    stroke-width: 2.5;
+  }
+  
   /* Hide scrollbar but keep functionality */
   .scrollbar-hide {
     -ms-overflow-style: none;  /* IE and Edge */

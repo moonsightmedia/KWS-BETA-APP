@@ -263,6 +263,7 @@ import { UploadOverview } from '@/components/UploadOverview';
 import { UploadProvider } from '@/contexts/UploadContext';
 import { initializeErrorHandler } from '@/utils/errorHandler';
 import { OnboardingProvider } from '@/components/Onboarding';
+import { RoleTabProvider } from '@/contexts/RoleTabContext';
 
 // Component to conditionally show Sidebar only for authenticated users
 const ConditionalSidebar = () => {
@@ -291,15 +292,17 @@ const Root = () => {
   
   return (
     <OnboardingProvider>
-      <SidebarProvider>
-        <UploadProvider>
-          <RouteLogger />
-          <PullToRefreshHandler />
-          <ConditionalSidebar />
-          <UploadOverview />
+      <RoleTabProvider>
+        <SidebarProvider>
+          <UploadProvider>
+            <RouteLogger />
+            <PullToRefreshHandler />
+            <ConditionalSidebar />
+            <UploadOverview />
           <Outlet />
         </UploadProvider>
       </SidebarProvider>
+      </RoleTabProvider>
     </OnboardingProvider>
   );
 };

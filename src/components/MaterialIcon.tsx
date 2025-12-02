@@ -14,13 +14,13 @@ const FALLBACK_ICONS: Record<string, React.ComponentType<{ className?: string; s
   'tool': Wrench,
 };
 
-export const MaterialIcon = ({ name, className, size = 24 }: MaterialIconProps) => {
+export const MaterialIcon = ({ name, className, size = 28 }: MaterialIconProps) => {
   const lowerName = name.toLowerCase();
   
   // Use Lucide React icon as fallback for icons that don't exist in Material Symbols
   if (FALLBACK_ICONS[lowerName]) {
     const IconComponent = FALLBACK_ICONS[lowerName];
-    const iconSize = typeof size === 'number' ? size : (typeof size === 'string' ? parseInt(size) || 24 : 24);
+    const iconSize = typeof size === 'number' ? size : (typeof size === 'string' ? parseInt(size) || 28 : 28);
     return <IconComponent className={cn(className)} size={iconSize} />;
   }
   

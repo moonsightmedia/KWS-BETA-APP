@@ -256,12 +256,12 @@ export const UserManagement = () => {
                     >
                       {user.isAdmin ? (
                         <>
-                          <ShieldOff className="w-4 h-4 mr-2" />
+                          <ShieldOff className="w-5 h-5 mr-2" />
                           Admin entfernen
                         </>
                       ) : (
                         <>
-                          <Shield className="w-4 h-4 mr-2" />
+                          <Shield className="w-5 h-5 mr-2" />
                           Zum Admin machen
                         </>
                       )}
@@ -286,7 +286,7 @@ export const UserManagement = () => {
                       className="ml-2"
                       onClick={() => openEdit(user)}
                     >
-                      <Pencil className="w-4 h-4 mr-2" /> Bearbeiten
+                      <Pencil className="w-5 h-5 mr-2" /> Bearbeiten
                     </Button>
                   </TableCell>
                 </TableRow>

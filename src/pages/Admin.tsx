@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -17,6 +17,7 @@ const Admin = () => {
   const { user } = useAuth();
   const { isAdmin, loading } = useIsAdmin();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     if (!user) {
@@ -62,7 +63,15 @@ const Admin = () => {
             <p className="text-muted-foreground">Verwalte Benutzer, Farben und Sektoren</p>
           </div>
 
-          <Tabs defaultValue="users" className="w-full min-w-0">
+          <Tabs 
+            value={searchParams.get('tab') || 'users'} 
+            onValueChange={(value) => {
+              const newSearchParams = new URLSearchParams(searchParams);
+              newSearchParams.set('tab', value);
+              setSearchParams(newSearchParams, { replace: true });
+            }}
+            className="w-full min-w-0 hidden md:block"
+          >
             <TabsList className="grid w-full grid-cols-5 mb-6 h-auto min-w-0">
               <TabsTrigger value="users" className="text-xs sm:text-sm min-w-0">Benutzer</TabsTrigger>
               <TabsTrigger value="settings" className="text-xs sm:text-sm min-w-0">Einstellungen</TabsTrigger>
@@ -76,7 +85,15 @@ const Admin = () => {
             </TabsContent>
 
             <TabsContent value="settings" className="mt-0">
-              <Tabs defaultValue="sectors" className="w-full min-w-0">
+              <Tabs 
+                value={searchParams.get('settingsTab') || 'sectors'} 
+                onValueChange={(value) => {
+                  const newSearchParams = new URLSearchParams(searchParams);
+                  newSearchParams.set('settingsTab', value);
+                  setSearchParams(newSearchParams, { replace: true });
+                }}
+                className="w-full min-w-0"
+              >
                 <TabsList className="grid w-full grid-cols-2 mb-6 h-auto min-w-0">
                   <TabsTrigger value="sectors" className="text-xs sm:text-sm min-w-0">Sektoren</TabsTrigger>
                   <TabsTrigger value="colors" className="text-xs sm:text-sm min-w-0">Farben</TabsTrigger>
@@ -102,6 +119,54 @@ const Admin = () => {
               <BoulderOperationLogs />
             </TabsContent>
           </Tabs>
+          
+          {/* Mobile: Show content based on URL param without tabs */}
+          <div className="md:hidden">
+            {(!searchParams.get('tab') || searchParams.get('tab') === 'users') && (
+              <div className="mt-0">
+                <UserManagement />
+              </div>
+            )}
+            {searchParams.get('tab') === 'settings' && (
+              <div className="mt-0">
+                <Tabs 
+                  value={searchParams.get('settingsTab') || 'sectors'} 
+                  onValueChange={(value) => {
+                    const newSearchParams = new URLSearchParams(searchParams);
+                    newSearchParams.set('settingsTab', value);
+                    setSearchParams(newSearchParams, { replace: true });
+                  }}
+                  className="w-full min-w-0"
+                >
+                  <TabsList className="grid w-full grid-cols-2 mb-6 h-auto min-w-0">
+                    <TabsTrigger value="sectors" className="text-xs sm:text-sm min-w-0">Sektoren</TabsTrigger>
+                    <TabsTrigger value="colors" className="text-xs sm:text-sm min-w-0">Farben</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="sectors" className="mt-0">
+                    <SectorManagement />
+                  </TabsContent>
+                  <TabsContent value="colors" className="mt-0">
+                    <ColorManagement />
+                  </TabsContent>
+                </Tabs>
+              </div>
+            )}
+            {searchParams.get('tab') === 'competition' && (
+              <div className="mt-0">
+                <CompetitionBoulderManagement />
+              </div>
+            )}
+            {searchParams.get('tab') === 'feedback' && (
+              <div className="mt-0">
+                <FeedbackManagement />
+              </div>
+            )}
+            {searchParams.get('tab') === 'logs' && (
+              <div className="mt-0">
+                <BoulderOperationLogs />
+              </div>
+            )}
+          </div>
         </main>
       </div>
     </div>

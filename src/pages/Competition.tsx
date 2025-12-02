@@ -142,7 +142,7 @@ const CompetitionContent = () => {
               onClick={() => navigate(user ? '/' : '/guest')}
               className="text-muted-foreground hover:text-foreground"
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <ArrowLeft className="w-5 h-5 mr-2" />
               {user ? 'Zurück zum Dashboard' : 'Zurück zur Boulder-Ansicht'}
             </Button>
           </div>
@@ -166,7 +166,7 @@ const CompetitionContent = () => {
               onClick={openCompetitionOnboarding}
               aria-label="Hilfe & Informationen zum Wettkampf"
             >
-              <Info className="w-5 h-5" />
+              <Info className="w-6 h-6" />
             </Button>
           </div>
 
@@ -199,12 +199,12 @@ const CompetitionContent = () => {
             )}>
               {user && (
                 <TabsTrigger value="boulders" className="text-sm">
-                  <List className="w-4 h-4 mr-2" />
+                  <List className="w-5 h-5 mr-2" />
                   Boulder
                 </TabsTrigger>
               )}
               <TabsTrigger value="leaderboard" className="text-sm">
-                <Trophy className="w-4 h-4 mr-2" />
+                <Trophy className="w-5 h-5 mr-2" />
                 Rangliste
               </TabsTrigger>
             </TabsList>
@@ -348,7 +348,7 @@ const CompetitionContent = () => {
               >
                 {createParticipant.isPending ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                     Erstelle...
                   </>
                 ) : (
@@ -406,7 +406,7 @@ const CompetitionContent = () => {
             >
               {createParticipant.isPending ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                   Erstelle...
                 </>
               ) : (

@@ -3,7 +3,7 @@ import { DashboardHeader } from '@/components/DashboardHeader';
 import { useSidebar } from '@/components/SidebarContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useHasRole } from '@/hooks/useHasRole';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useSectorsTransformed, useUpdateSector } from '@/hooks/useSectors';
 import { useBouldersWithSectors, useCreateBoulder, useUpdateBoulder, useBulkUpdateBoulderStatus, useDeleteBoulder, useCdnVideos } from '@/hooks/useBoulders';
 import { toast } from 'sonner';
@@ -264,7 +264,7 @@ const VideoSelector = ({
                     {isSelected && (
                       <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
                         <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                          <Check className="w-5 h-5 text-primary-foreground" />
+                          <Check className="w-6 h-6 text-primary-foreground" />
                         </div>
                       </div>
                     )}
@@ -333,6 +333,8 @@ const Setter = () => {
   const { hasRole: isSetter, loading: loadingSetter } = useHasRole('setter');
   const { hasRole: isAdmin, loading: loadingAdmin } = useHasRole('admin');
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { setHideMobileNav } = useSidebar();
   const { data: sectors } = useSectorsTransformed();
   const { data: boulders } = useBouldersWithSectors();
@@ -383,27 +385,19 @@ const Setter = () => {
     setAddBoulderFn(() => fn);
   }, []);
   
-  // Persist view state in sessionStorage to prevent loss on navigation
-  const [view, setView] = useState<'create' | 'edit' | 'schedule' | 'batch' | 'status'>(() => {
-    try {
-      const savedView = sessionStorage.getItem('setter-view');
-      if (savedView && ['create', 'edit', 'schedule', 'batch', 'status'].includes(savedView)) {
-        return savedView as typeof view;
-      }
-    } catch (error) {
-      console.warn('[Setter] Error reading view from sessionStorage:', error);
-    }
-    return 'batch';
-  });
+  // Get view from URL query parameter, default to 'batch'
+  const viewParam = searchParams.get('view');
+  const view: 'create' | 'edit' | 'schedule' | 'batch' | 'status' = 
+    (viewParam && ['create', 'edit', 'schedule', 'batch', 'status'].includes(viewParam))
+      ? (viewParam as typeof view)
+      : 'batch';
   
-  // Update sessionStorage when view changes
-  useEffect(() => {
-    try {
-      sessionStorage.setItem('setter-view', view);
-    } catch (error) {
-      console.warn('[Setter] Error saving view to sessionStorage:', error);
-    }
-  }, [view]);
+  // Update URL when view changes
+  const setView = (newView: 'create' | 'edit' | 'schedule' | 'batch' | 'status') => {
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set('view', newView);
+    setSearchParams(newSearchParams, { replace: true });
+  };
   // Wizard state for multi-step boulder creation
   const [wizardStep, setWizardStep] = useState(1);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
@@ -784,9 +778,9 @@ const Setter = () => {
             <h1 className="text-3xl font-bold text-foreground mb-2 font-teko tracking-wide">Setter</h1>
             <p className="text-muted-foreground">Boulder anlegen und bearbeiten. Nächsten Sektor planen.</p>
           </div>
-          {/* Tabs navigation like Admin area */}
+          {/* Tabs navigation - hidden on mobile, shown on desktop */}
           <Tabs value={view} onValueChange={(value) => setView(value as typeof view)} className="w-full min-w-0">
-            <TabsList className="grid w-full grid-cols-4 mb-6 h-auto min-w-0">
+            <TabsList className="grid w-full grid-cols-4 mb-6 h-auto min-w-0 hidden md:grid">
               <TabsTrigger value="batch" className="text-xs sm:text-sm min-w-0">Erstellen</TabsTrigger>
               <TabsTrigger value="edit" className="text-xs sm:text-sm min-w-0">Bearbeiten</TabsTrigger>
               <TabsTrigger value="status" className="text-xs sm:text-sm min-w-0">Status</TabsTrigger>
@@ -841,7 +835,7 @@ const Setter = () => {
                           className="h-12 flex-shrink-0" 
                           onClick={() => setForm({ ...form, name: generateBoulderName(form.color, form.difficulty) })}
                         >
-                          <Sparkles className="w-4 h-4 mr-2" />
+                          <Sparkles className="w-5 h-5 mr-2" />
                           <span className="hidden sm:inline">Vorschlagen</span>
                         </Button>
                       </div>
@@ -1169,7 +1163,7 @@ const Setter = () => {
                     disabled={wizardStep === 1}
                     className="flex items-center gap-2"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-5 h-5" />
                     Zurück
                   </Button>
                   {wizardStep < 5 ? (
@@ -1192,7 +1186,7 @@ const Setter = () => {
                       className="flex items-center gap-2"
                     >
                       Weiter
-                      <ChevronRight className="w-4 h-4" />
+                      <ChevronRight className="w-5 h-5" />
                     </Button>
                   ) : (
                     <Button
@@ -1208,7 +1202,7 @@ const Setter = () => {
                         </>
                       ) : (
                         <>
-                          <Check className="w-4 h-4" />
+                          <Check className="w-5 h-5" />
                           Boulder speichern
                         </>
                       )}
@@ -1220,7 +1214,7 @@ const Setter = () => {
                   )}
               <div className="flex gap-2 sticky top-[56px] z-10 bg-background py-2 overflow-x-auto w-full min-w-0 -mx-4 px-4">
                 <div className="relative flex-1 min-w-0">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input placeholder="Boulder suchen" className="pl-9 h-11 w-full min-w-0" value={editSearch} onChange={(e)=>setEditSearch(e.target.value)} />
                 </div>
                 <div className="w-32 sm:w-40 flex-shrink-0">
@@ -1453,7 +1447,7 @@ const Setter = () => {
                       <div className="flex items-center gap-2 w-full min-w-0">
                         <Input value={form.name} onChange={(e)=>setForm({...form, name: e.target.value})} className="h-12 text-base flex-1 min-w-0" />
                         <Button type="button" variant="outline" className="h-12 flex-shrink-0" onClick={() => setForm({ ...form, name: generateBoulderName(form.color, form.difficulty) })}>
-                          <Sparkles className="w-4 h-4 mr-2" />
+                          <Sparkles className="w-5 h-5 mr-2" />
                           <span className="hidden sm:inline">Vorschlagen</span>
                         </Button>
                       </div>
@@ -1713,7 +1707,7 @@ const Setter = () => {
                           size="sm"
                           onClick={() => setSelectedBouldersForStatus(new Set())}
                         >
-                          <X className="w-4 h-4 mr-1" />
+                          <X className="w-5 h-5 mr-1" />
                           Auswahl aufheben
                         </Button>
                         <Button
@@ -1729,7 +1723,7 @@ const Setter = () => {
                           }}
                           disabled={bulkStatusUpdate.isPending}
                         >
-                          <MaterialIcon name="input_circle" className="w-4 h-4 mr-1" size={16} />
+                          <MaterialIcon name="input_circle" className="w-5 h-5 mr-1" size={20} />
                           Reinschrauben
                         </Button>
                         <Button
@@ -1745,7 +1739,7 @@ const Setter = () => {
                           }}
                           disabled={bulkStatusUpdate.isPending}
                         >
-                          <MaterialIcon name="output_circle" className="w-4 h-4 mr-1" size={16} />
+                          <MaterialIcon name="output_circle" className="w-5 h-5 mr-1" size={20} />
                           Rausschrauben
                         </Button>
                       </div>
@@ -1921,7 +1915,7 @@ const Setter = () => {
             className="w-12 h-12 rounded-full bg-destructive text-destructive-foreground grid place-items-center shadow-xl"
             onClick={() => setSelectedBouldersForStatus(new Set())}
           >
-            <X className="w-5 h-5" />
+            <X className="w-6 h-6" />
           </button>
           <button
             aria-label="Ausgewählte reinschrauben"

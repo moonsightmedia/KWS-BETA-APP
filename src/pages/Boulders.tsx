@@ -213,7 +213,7 @@ const Boulders = () => {
           {/* Search and Filter */}
           <div className="flex gap-3 mb-6">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
                 placeholder="Suchen..."
                 value={searchQuery}
@@ -237,7 +237,7 @@ const Boulders = () => {
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="flex-shrink-0">
-                  <Filter className="w-5 h-5" />
+                  <Filter className="w-6 h-6" />
                 </Button>
               </SheetTrigger>
               <SheetContent side="bottom" className="h-[85vh]">
@@ -494,7 +494,7 @@ const Boulders = () => {
                 {quickFilter === 'color' ? 'Farbe' : quickFilter === 'sector' ? 'Sektor' : quickFilter === 'difficulty' ? 'Schwierigkeit' : 'Sortierung'}
               </span>
               <Button variant="ghost" size="icon" onClick={()=> setQuickFilter(null)}>
-                <X className="w-5 h-5" />
+                <X className="w-6 h-6" />
               </Button>
             </div>
           <ScrollArea className="w-full scrollbar-hide">
@@ -623,7 +623,7 @@ const Boulders = () => {
                 onClick={()=> setQuickFilter(prev => prev === 'sector' ? null : 'sector')}
               >
                 <span className="relative inline-flex">
-                  <Map className="w-5 h-5" />
+                  <Map className="w-6 h-6" />
                   {sectorFilter !== 'all' && <span className="absolute -right-0.5 -bottom-0.5 w-2 h-2 rounded-full bg-primary border border-background" />}
                 </span>
               </Button>
@@ -636,7 +636,7 @@ const Boulders = () => {
                 {difficultyFilter !== 'all' ? (
                   <span className="w-5 h-5 grid place-items-center text-[11px] font-semibold leading-none">{difficultyFilter}</span>
                 ) : (
-                  <Dumbbell className="w-5 h-5" />
+                  <Dumbbell className="w-6 h-6" />
                 )}
               </Button>
               <Button 

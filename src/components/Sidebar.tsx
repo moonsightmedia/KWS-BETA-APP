@@ -1,4 +1,4 @@
-import { LayoutDashboard, List, Map, ChevronRight, ChevronLeft, User, LogOut, Settings, HelpCircle, Shield } from 'lucide-react';
+import { LayoutDashboard, List, Map, ChevronRight, ChevronLeft, User, LogOut, Settings, HelpCircle, Shield, Edit3, Upload, CheckCircle, Calendar, Users, Trophy, MessageSquare, FileText } from 'lucide-react';
 import { MaterialIcon } from '@/components/MaterialIcon';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useHasRole } from '@/hooks/useHasRole';
 import { useSidebar } from './SidebarContext';
+import { useRoleTab } from '@/contexts/RoleTabContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,6 +84,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
   const { user, signOut } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   const { hasRole: isSetter, loading: setterLoading } = useHasRole('setter');
+  const { activeRole } = useRoleTab();
 
   // Stable role state - initialized from sessionStorage immediately (even before user loads)
   // This ensures roles persist across page refreshes
@@ -218,8 +220,8 @@ export const Sidebar = ({ className }: SidebarProps) => {
     signOut();
   }, [signOut]);
 
-  // Compute navigation items - always stable, never changes during navigation
-  const navItems = useMemo(() => {
+  // Compute desktop navigation items - always stable, never changes during navigation
+  const desktopNavItems = useMemo(() => {
     const baseItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: List, label: 'Boulder', path: '/boulders' },
@@ -242,6 +244,35 @@ export const Sidebar = ({ className }: SidebarProps) => {
     console.log('[Sidebar] Final nav items count:', baseItems.length);
     return baseItems;
   }, [stableIsAdmin, stableIsSetter]); // Only depend on stable values
+
+  // Compute mobile bottom navigation items based on active role tab
+  const mobileNavItems = useMemo(() => {
+    if (activeRole === 'setter' && stableIsSetter) {
+      return [
+        { icon: Edit3, label: 'Bearbeiten', path: '/setter?view=edit' },
+        { icon: Upload, label: 'Upload', path: '/setter?view=batch' },
+        { icon: CheckCircle, label: 'Status', path: '/setter?view=status' },
+        { icon: Calendar, label: 'Termin', path: '/setter?view=schedule' },
+      ];
+    }
+    
+    if (activeRole === 'admin' && stableIsAdmin) {
+      return [
+        { icon: Users, label: 'Benutzer', path: '/admin?tab=users' },
+        { icon: Settings, label: 'Einstellungen', path: '/admin?tab=settings' },
+        { icon: Trophy, label: 'Wettkampf', path: '/admin?tab=competition' },
+        { icon: MessageSquare, label: 'Feedback', path: '/admin?tab=feedback' },
+        { icon: FileText, label: 'Logs', path: '/admin?tab=logs' },
+      ];
+    }
+    
+    // Default: User role
+    return [
+      { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+      { icon: List, label: 'Boulder', path: '/boulders' },
+      { icon: Map, label: 'Sektoren', path: '/sectors' },
+    ];
+  }, [activeRole, stableIsSetter, stableIsAdmin]);
 
   return (
     <>
@@ -267,12 +298,12 @@ export const Sidebar = ({ className }: SidebarProps) => {
                 </Avatar>
                 {stableIsAdmin && (
                   <Badge variant="default" className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center">
-                    <Shield className="h-3 w-3" />
+                    <Shield className="h-4 w-4" />
                   </Badge>
                 )}
                 {stableIsSetter && !stableIsAdmin && (
                   <Badge variant="default" className="absolute -bottom-1 -right-1 h-5 w-5 p-0 flex items-center justify-center">
-                    <MaterialIcon name="build" className="h-3 w-3" size={12} />
+                    <MaterialIcon name="build" className="h-4 w-4" size={16} />
                   </Badge>
                 )}
               </button>
@@ -285,18 +316,18 @@ export const Sidebar = ({ className }: SidebarProps) => {
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate('/profile')}>
-                    <Settings className="w-4 h-4 mr-2" />
+                    <Settings className="w-5 h-5 mr-2" />
                     Profil Einstellungen
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-                    <LogOut className="w-4 h-4 mr-2" />
+                    <LogOut className="w-5 h-5 mr-2" />
                     Abmelden
                   </DropdownMenuItem>
                 </>
               ) : (
                 <DropdownMenuItem onClick={() => navigate('/auth')}>
-                  <User className="w-4 h-4 mr-2" />
+                  <User className="w-5 h-5 mr-2" />
                   Anmelden
                 </DropdownMenuItem>
               )}
@@ -307,7 +338,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
         {/* Navigation */}
         <TooltipProvider delayDuration={300}>
           <nav className="flex-1 flex flex-col gap-4 w-full">
-            {navItems.map((item) => {
+            {desktopNavItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
                 <Tooltip key={item.label}>
@@ -324,9 +355,9 @@ export const Sidebar = ({ className }: SidebarProps) => {
                       >
                         <div className="grid place-items-center w-8 h-8 flex-shrink-0">
                           {item.isMaterialIcon ? (
-                            <MaterialIcon name={item.icon as string} className="w-5 h-5" size={20} />
+                            <MaterialIcon name={item.icon as string} className="w-6 h-6" size={24} />
                           ) : (
-                            <item.icon className="w-5 h-5" />
+                            <item.icon className="w-6 h-6" />
                           )}
                         </div>
                         <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
@@ -342,9 +373,9 @@ export const Sidebar = ({ className }: SidebarProps) => {
                         )}
                       >
                         {item.isMaterialIcon ? (
-                          <MaterialIcon name={item.icon as string} className="w-5 h-5" size={20} />
+                          <MaterialIcon name={item.icon as string} className="w-6 h-6" size={24} />
                         ) : (
-                          <item.icon className="w-5 h-5" />
+                          <item.icon className="w-6 h-6" />
                         )}
                       </NavLink>
                     )}
@@ -367,7 +398,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
               onClick={() => setIsExpanded(!isExpanded)}
               className="flex flex-row items-center gap-3 px-6 py-3 mx-4 rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 transition-all duration-300"
             >
-              <ChevronLeft className="w-5 h-5 flex-shrink-0" />
+              <ChevronLeft className="w-6 h-6 flex-shrink-0" />
               <span className="text-sm font-medium">Einklappen</span>
             </button>
           ) : (
@@ -375,7 +406,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
               onClick={() => setIsExpanded(!isExpanded)}
               className="grid place-items-center w-12 h-12 mx-auto rounded-xl bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 transition-all duration-300"
             >
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-6 h-6" />
             </button>
           )}
         </div>
@@ -383,24 +414,26 @@ export const Sidebar = ({ className }: SidebarProps) => {
 
       {/* Mobile Bottom Navigation */}
       {!hideMobileNav && (
-        <nav className="md:hidden fixed bottom-4 left-4 right-4 z-50 bg-sidebar-bg rounded-2xl shadow-2xl border border-border">
+        <nav className="md:hidden fixed bottom-4 left-4 right-4 z-50 bg-gray-900 rounded-2xl shadow-2xl" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}>
           <div className="flex items-center justify-around px-4 py-3">
-            {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
+            {mobileNavItems.map((item) => {
+              // Check if active based on pathname and query params
+              const isActive = activeRole === 'setter' 
+                ? location.pathname === '/setter' && new URLSearchParams(location.search).get('view') === item.path.split('?view=')[1]
+                : activeRole === 'admin'
+                ? location.pathname === '/admin' && new URLSearchParams(location.search).get('tab') === item.path.split('?tab=')[1]
+                : location.pathname === item.path;
+              
               return (
                 <NavLink
                   key={item.label}
                   to={item.path}
                   className={cn(
                     "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all duration-300 min-w-0",
-                    isActive ? "text-success" : "text-sidebar-icon"
+                    isActive ? "text-primary" : "text-gray-400"
                   )}
                 >
-                  {item.isMaterialIcon ? (
-                    <MaterialIcon name={item.icon as string} className="w-5 h-5 flex-shrink-0" size={20} />
-                  ) : (
-                    <item.icon className="w-5 h-5 flex-shrink-0" />
-                  )}
+                  <item.icon className="w-6 h-6 flex-shrink-0" />
                   <span className="text-xs font-medium truncate max-w-[60px]">{item.label}</span>
                 </NavLink>
               );

@@ -115,11 +115,11 @@ export const UploadOverview = () => {
       <DialogContent className="sm:max-w-[500px] w-[95vw] bottom-4 right-4 translate-y-0 top-auto left-auto translate-x-0 data-[state=open]:slide-in-from-bottom-10 p-0 gap-0 overflow-hidden border-none shadow-2xl rounded-xl">
         <div className="bg-[#2E432D] p-4 text-white flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
-            <CloudUpload className="w-5 h-5 text-green-400" />
+            <CloudUpload className="w-6 h-6 text-green-400" />
             <DialogTitle className="text-lg font-bold">Upload Zentrale</DialogTitle>
           </div>
           <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/10 rounded-full">
-            <Minimize2 className="w-5 h-5" />
+            <Minimize2 className="w-6 h-6" />
           </Button>
         </div>
         
@@ -142,7 +142,7 @@ export const UploadOverview = () => {
                         "p-2 rounded-lg flex-shrink-0",
                         upload.type === 'video' ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"
                     )}>
-                        {upload.type === 'video' ? <FileVideo className="w-5 h-5" /> : <ImageIcon className="w-5 h-5" />}
+                        {upload.type === 'video' ? <FileVideo className="w-6 h-6" /> : <ImageIcon className="w-6 h-6" />}
                     </div>
                     <div className="min-w-0 flex-1">
                         <h4 className="font-bold text-sm truncate max-w-[180px] sm:max-w-[250px]" title={upload.fileName}>
@@ -160,8 +160,8 @@ export const UploadOverview = () => {
                   </div>
                   
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {upload.status === 'completed' && <div className="bg-green-100 text-green-700 p-1 rounded-full"><CheckCircle2 className="w-5 h-5" /></div>}
-                    {upload.status === 'error' && <div className="bg-red-100 text-red-700 p-1 rounded-full"><AlertCircle className="w-5 h-5" /></div>}
+                    {upload.status === 'completed' && <div className="bg-green-100 text-green-700 p-1 rounded-full"><CheckCircle2 className="w-6 h-6" /></div>}
+                    {upload.status === 'error' && <div className="bg-red-100 text-red-700 p-1 rounded-full"><AlertCircle className="w-6 h-6" /></div>}
                     
                     {(upload.status === 'uploading' || upload.status === 'pending') && (
                       <Button
@@ -171,7 +171,7 @@ export const UploadOverview = () => {
                         className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                         title="Upload abbrechen"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-5 h-5" />
                       </Button>
                     )}
                     
@@ -183,7 +183,7 @@ export const UploadOverview = () => {
                         className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                         title="Upload entfernen"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-5 h-5" />
                       </Button>
                     )}
                   </div>
@@ -216,7 +216,7 @@ export const UploadOverview = () => {
                 {upload.error && (
                   <div className="mt-3 space-y-2">
                     <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100 flex gap-2 items-start">
-                      <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                      <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                       <p>{upload.error}</p>
                     </div>
                     {(upload.status === 'restoring' || upload.status === 'error') && (

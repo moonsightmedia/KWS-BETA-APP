@@ -228,7 +228,7 @@ export const BatchUpload = () => {
                             </>
                         ) : (
                             <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center pointer-events-none">
-                                <ImageIcon className="w-5 h-5 text-muted-foreground mb-1" />
+                                <ImageIcon className="w-6 h-6 text-muted-foreground mb-1" />
                                 <span className="text-[10px] text-muted-foreground">Thumbnail</span>
                             </div>
                         )}
@@ -255,7 +255,7 @@ export const BatchUpload = () => {
                             </>
                         ) : (
                             <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center pointer-events-none">
-                                <FileVideo className="w-5 h-5 text-muted-foreground mb-1" />
+                                <FileVideo className="w-6 h-6 text-muted-foreground mb-1" />
                                 <span className="text-[10px] text-muted-foreground">Video</span>
                     </div>
                   )}
@@ -409,11 +409,11 @@ export const BatchUpload = () => {
         <h2 className="text-2xl font-bold">Batch Upload</h2>
         <div className="flex gap-2">
             <Button onClick={uploadAll} disabled={isProcessing || boulders.length === 0} className="bg-[#2E432D] hover:bg-[#2E432D]/90 text-white">
-                {isProcessing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CloudUpload className="w-4 h-4 mr-2" />}
+                {isProcessing ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CloudUpload className="w-5 h-5 mr-2" />}
                 Alle hochladen ({boulders.length})
               </Button>
             <Button onClick={openAddDialog} variant="outline" size="sm">
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-5 h-5 mr-2" />
               Boulder hinzufügen
                       </Button>
                     </div>
@@ -448,7 +448,7 @@ export const BatchUpload = () => {
                     </div>
                   </div>
             <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-destructive" onClick={() => removeBoulder(boulder.id)} disabled={isProcessing}>
-                <Trash2 className="w-5 h-5" />
+                <Trash2 className="w-6 h-6" />
                         </Button>
                       </div>
         ))}

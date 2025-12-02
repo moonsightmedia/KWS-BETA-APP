@@ -371,7 +371,7 @@ const Guest = () => {
                   size="lg"
                   className="w-full sm:w-auto min-w-[140px] h-11 font-semibold shadow-md hover:shadow-lg transition-shadow"
                 >
-                  <Trophy className="w-4 h-4 mr-2" />
+                  <Trophy className="w-5 h-5 mr-2" />
                   Zum Wettkampf
                 </Button>
               </div>
@@ -381,7 +381,7 @@ const Guest = () => {
       {/* Desktop filter row */}
       <div className="hidden sm:flex flex-row gap-2 mb-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <Input className="pl-9" placeholder="Suchen" value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)} />
         </div>
         <Select value={sectorFilter} onValueChange={setSectorFilter}>
@@ -415,7 +415,7 @@ const Guest = () => {
           <SelectContent>
             <SelectItem value="all">
               <div className="flex items-center gap-2">
-                <Palette className="w-4 h-4" />
+                <Palette className="w-5 h-5" />
                 Alle Farben
               </div>
             </SelectItem>
@@ -451,9 +451,9 @@ const Guest = () => {
           className="w-10"
         >
           {sortOrder === 'asc' ? (
-            <ArrowUp className="w-4 h-4" />
+            <ArrowUp className="w-5 h-5" />
           ) : (
-            <ArrowDown className="w-4 h-4" />
+            <ArrowDown className="w-5 h-5" />
           )}
         </Button>
       </div>
@@ -571,7 +571,7 @@ const Guest = () => {
               {quickFilter === 'color' ? 'Farbe' : quickFilter === 'sector' ? 'Sektor' : quickFilter === 'difficulty' ? 'Schwierigkeit' : 'Sortierung'}
             </span>
             <Button variant="ghost" size="icon" onClick={()=> setQuickFilter(null)}>
-              <X className="w-5 h-5" />
+              <X className="w-6 h-6" />
             </Button>
           </div>
           <ScrollArea className="w-full scrollbar-hide">
@@ -701,7 +701,7 @@ const Guest = () => {
               onClick={()=> setQuickFilter(prev => prev === 'sector' ? null : 'sector')}
             >
               <span className="relative inline-flex">
-                <MapIcon className="w-5 h-5" />
+                <MapIcon className="w-6 h-6" />
                 {sectorFilter !== 'all' && <span className="absolute -right-0.5 -bottom-0.5 w-2 h-2 rounded-full bg-primary border border-background" />}
               </span>
             </Button>
@@ -714,7 +714,7 @@ const Guest = () => {
               {difficultyFilter !== 'all' ? (
                 <span className="w-5 h-5 grid place-items-center text-[11px] font-semibold leading-none">{difficultyFilter}</span>
               ) : (
-                <Dumbbell className="w-5 h-5" />
+                <Dumbbell className="w-6 h-6" />
               )}
             </Button>
             <Button 
@@ -723,7 +723,7 @@ const Guest = () => {
               onClick={()=> setQuickFilter(prev => prev === 'sort' ? null : 'sort')}
               aria-label="Sortierung"
             >
-              <Filter className="w-5 h-5" />
+              <Filter className="w-6 h-6" />
             </Button>
           </div>
         </div>

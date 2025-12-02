@@ -133,12 +133,12 @@ export const BoulderManagement = () => {
 
   const getSortIcon = (column: typeof sortBy) => {
     if (sortBy !== column) {
-      return <ArrowUpDown className="w-4 h-4 ml-1 opacity-50" />;
+      return <ArrowUpDown className="w-5 h-5 ml-1 opacity-50" />;
     }
     return sortOrder === 'asc' ? (
-      <ArrowUp className="w-4 h-4 ml-1" />
+      <ArrowUp className="w-5 h-5 ml-1" />
     ) : (
-      <ArrowDown className="w-4 h-4 ml-1" />
+      <ArrowDown className="w-5 h-5 ml-1" />
     );
   };
 
@@ -306,7 +306,7 @@ export const BoulderManagement = () => {
                         onClick={() => setShowColorPicker(true)}
                         className="w-full"
                       >
-                        <Plus className="w-4 h-4 mr-2" />
+                        <Plus className="w-5 h-5 mr-2" />
                         Neue Farbe hinzufügen
                       </Button>
                     ) : (
@@ -512,7 +512,7 @@ export const BoulderManagement = () => {
       {/* Search and Filter Controls */}
       <div className="flex gap-3 mb-6">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <Input
             placeholder="Boulder suchen..."
             value={searchQuery}
@@ -635,9 +635,9 @@ export const BoulderManagement = () => {
                     onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
                   >
                     {sortOrder === 'asc' ? (
-                      <ArrowUp className="w-4 h-4" />
+                      <ArrowUp className="w-5 h-5" />
                     ) : (
-                      <ArrowDown className="w-4 h-4" />
+                      <ArrowDown className="w-5 h-5" />
                     )}
                   </Button>
                 </div>
@@ -658,7 +658,7 @@ export const BoulderManagement = () => {
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-5 h-5 mr-2" />
               Neuer Boulder
             </Button>
           </DialogTrigger>
@@ -682,7 +682,7 @@ export const BoulderManagement = () => {
               size="icon" 
               className="fixed bottom-[calc(104px+env(safe-area-inset-bottom))] right-6 z-[60] h-12 w-12 rounded-full shadow-lg"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-6 h-6" />
             </Button>
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[90vh] overflow-y-auto overflow-x-hidden w-full max-w-full">
@@ -762,7 +762,7 @@ export const BoulderManagement = () => {
                           size="sm"
                           onClick={() => setDeleteId(boulder.id)}
                         >
-                          <Trash2 className="w-4 h-4 text-destructive" />
+                          <Trash2 className="w-5 h-5 text-destructive" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -796,7 +796,7 @@ export const BoulderManagement = () => {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm">
-                          <MoreVertical className="w-4 h-4" />
+                          <MoreVertical className="w-5 h-5" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -804,7 +804,7 @@ export const BoulderManagement = () => {
                           onClick={() => setDeleteId(boulder.id)}
                           className="text-destructive"
                         >
-                          <Trash2 className="w-4 h-4 mr-2" />
+                          <Trash2 className="w-5 h-5 mr-2" />
                           Löschen
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -832,7 +832,7 @@ export const BoulderManagement = () => {
               {quickFilter === 'color' ? 'Farbe' : quickFilter === 'sector' ? 'Sektor' : quickFilter === 'difficulty' ? 'Schwierigkeit' : 'Sortierung'}
             </span>
             <Button variant="ghost" size="icon" onClick={()=> setQuickFilter(null)}>
-              <X className="w-5 h-5" />
+              <X className="w-6 h-6" />
             </Button>
           </div>
           <ScrollArea className="w-full scrollbar-hide">
@@ -954,7 +954,7 @@ export const BoulderManagement = () => {
               size="icon" 
               onClick={()=> setQuickFilter(prev => prev === 'color' ? null : 'color')}
             >
-              <Palette className="w-5 h-5" />
+              <Palette className="w-6 h-6" />
             </Button>
             <Button 
               aria-label="Sektor filtern" 
@@ -962,7 +962,7 @@ export const BoulderManagement = () => {
               size="icon" 
               onClick={()=> setQuickFilter(prev => prev === 'sector' ? null : 'sector')}
             >
-              <Map className="w-5 h-5" />
+              <Map className="w-6 h-6" />
             </Button>
             <Button 
               aria-label="Schwierigkeit filtern" 
@@ -970,7 +970,7 @@ export const BoulderManagement = () => {
               size="icon" 
               onClick={()=> setQuickFilter(prev => prev === 'difficulty' ? null : 'difficulty')}
             >
-              <Dumbbell className="w-5 h-5" />
+              <Dumbbell className="w-6 h-6" />
             </Button>
             <Button 
               variant={quickFilter === 'sort' ? 'default' : 'outline'} 

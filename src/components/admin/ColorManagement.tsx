@@ -154,7 +154,7 @@ export const ColorManagement = () => {
               className="h-11 px-6 flex-shrink-0 self-end"
               disabled={createColor.isPending}
             >
-              <Plus className="w-5 h-5 mr-2" />
+              <Plus className="w-6 h-6 mr-2" />
               Anlegen
             </Button>
           </div>
@@ -257,7 +257,7 @@ const ColorRow = ({
         {/* Mobile Layout */}
         <div className="md:hidden space-y-4">
           <div className="flex items-center gap-3">
-            <GripVertical className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+            <GripVertical className="w-6 h-6 text-muted-foreground flex-shrink-0" />
             <div 
               className="w-12 h-12 rounded-full border-2 flex-shrink-0" 
               style={{ 
@@ -347,7 +347,7 @@ const ColorRow = ({
                 className="text-destructive h-11 w-11 flex-shrink-0" 
                 onClick={()=>deleteColor.mutate(color.id)}
               >
-                <Trash2 className="w-5 h-5" />
+                <Trash2 className="w-6 h-6" />
               </Button>
             </div>
           </div>
@@ -355,7 +355,7 @@ const ColorRow = ({
 
         {/* Desktop Layout */}
         <div className="hidden md:grid md:grid-cols-[24px,40px,1fr,120px,120px,90px,90px,auto] items-center gap-3">
-          <GripVertical className="w-4 h-4 text-muted-foreground" />
+          <GripVertical className="w-5 h-5 text-muted-foreground" />
           <div 
             className="w-8 h-8 rounded-full border flex-shrink-0" 
             style={{ 
@@ -420,7 +420,7 @@ const ColorRow = ({
             <Switch checked={color.is_active} onCheckedChange={(v)=>updateColor.mutate({ id: color.id, is_active: v })} />
           </div>
           <Button type="button" variant="outline" className="text-destructive justify-self-end flex-shrink-0 h-10" onClick={()=>deleteColor.mutate(color.id)}>
-            <Trash2 className="w-4 h-4 mr-2" />
+            <Trash2 className="w-5 h-5 mr-2" />
             Löschen
           </Button>
         </div>

@@ -79,7 +79,7 @@ const Sectors = () => {
                     }}
                     className="flex-1"
                   >
-                    <RefreshCw className="w-4 h-4 mr-2" />
+                    <RefreshCw className="w-5 h-5 mr-2" />
                     Erneut versuchen
                   </Button>
                   <Button 
@@ -173,14 +173,14 @@ const Sectors = () => {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
+                      <Calendar className="w-5 h-5" />
                       <span>Letzter Schraubtermin:</span>
                       <span className="font-medium text-foreground">
                         {sector.lastSchraubtermin && formatDate(sector.lastSchraubtermin, 'dd. MMM yyyy', { locale: de })}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
+                      <Calendar className="w-5 h-5" />
                       <span>Nächster Schraubtermin:</span>
                       <span className="font-medium text-primary">
                         {(() => {
@@ -198,7 +198,7 @@ const Sectors = () => {
                     onClick={() => handleViewBoulders(sector.name)}
                   >
                     Boulder anzeigen
-                    <ArrowRight className="w-4 h-4 ml-2" />
+                    <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </CardContent>
               </Card>

@@ -39,7 +39,7 @@ const getCompetitionSteps = (isLoggedIn: boolean) => {
           <div className="space-y-3 text-left">
             <p>Um am Wettkampf teilzunehmen und deine Ergebnisse einzutragen, musst du dich anmelden.</p>
             <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-start gap-3">
-              <LogIn className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+              <LogIn className="w-6 h-6 text-primary mt-0.5 flex-shrink-0" />
               <div>
                 <p className="font-semibold text-sm mb-1">Anmeldung erforderlich</p>
                 <p className="text-xs text-muted-foreground">Nach der Anmeldung kannst du deine Ergebnisse eintragen und in der Rangliste erscheinen.</p>
@@ -78,7 +78,7 @@ const getCompetitionSteps = (isLoggedIn: boolean) => {
         <div className="space-y-3 text-left">
           <p>Um teilzunehmen, musst du deine Klasse (M oder W) angeben. Diese wird einmalig beim ersten Teilnehmen abgefragt.</p>
           <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-start gap-3">
-            <Trophy className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+            <Trophy className="w-6 h-6 text-primary mt-0.5 flex-shrink-0" />
             <div>
               <p className="font-semibold text-sm mb-1">Klasse erforderlich</p>
               <p className="text-xs text-muted-foreground">Die Angabe deiner Klasse ist verpflichtend, damit du in der richtigen Kategorie gewertet wirst.</p>

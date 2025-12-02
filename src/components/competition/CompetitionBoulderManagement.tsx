@@ -105,7 +105,7 @@ export const CompetitionBoulderManagement = () => {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Wettkampf-Boulder verwalten</h2>
         <Button onClick={handleCreate} size="lg" className="min-h-[48px]">
-          <Plus className="w-4 h-4 mr-2" />
+          <Plus className="w-5 h-5 mr-2" />
           Boulder hinzufügen
         </Button>
       </div>

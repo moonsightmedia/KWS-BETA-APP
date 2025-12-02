@@ -159,11 +159,11 @@ export const DatabaseTest = () => {
   const getStatusIcon = (status: TestResult['status']) => {
     switch (status) {
       case 'loading':
-        return <Loader2 className="w-4 h-4 animate-spin" />;
+        return <Loader2 className="w-5 h-5 animate-spin" />;
       case 'success':
-        return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+        return <CheckCircle2 className="w-5 h-5 text-green-500" />;
       case 'error':
-        return <XCircle className="w-4 h-4 text-red-500" />;
+        return <XCircle className="w-5 h-5 text-red-500" />;
     }
   };
 
@@ -181,7 +181,7 @@ export const DatabaseTest = () => {
       <CardContent className="space-y-4">
         {results.length === 0 && (
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="w-5 h-5 animate-spin" />
             <span>Starte Tests...</span>
           </div>
         )}

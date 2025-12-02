@@ -204,7 +204,7 @@ const Index = () => {
               size="lg"
               className="w-full sm:w-auto min-h-[56px] text-base font-semibold"
             >
-              <Trophy className="w-5 h-5 mr-2" />
+              <Trophy className="w-6 h-6 mr-2" />
               Nikolaus Wettkampf
             </Button>
           </div>
