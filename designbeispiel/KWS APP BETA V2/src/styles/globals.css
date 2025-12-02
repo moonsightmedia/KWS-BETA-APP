@@ -1,0 +1,43 @@
+/* Global styles mirroring generated-page.html (no visual changes) */
+html, body { height: 100%; overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; }
+body { font-family: 'Poppins', sans-serif; }
+h1, h2, h3, h4, .font-heading { font-family: 'Teko', sans-serif; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Fade In Animation */
+.fade-in { animation: fadeIn 0.3s ease-in-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Modal Animation */
+.modal-enter { animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes modalIn { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
+
+/* Safe area helpers */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.pb-safe-plus { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+
+/* Custom Radio Button Styling for Difficulty */
+.radio-grade:checked + div {
+  background-color: #36B531;
+  color: white;
+  border-color: #36B531;
+  box-shadow: 0 4px 6px -1px rgba(54, 181, 49, 0.3);
+}
+
+/* Custom Radio for Colors */
+.radio-color:checked + div {
+  ring-width: 2px;
+  ring-offset-width: 2px;
+  /* emulate ring color via outline */
+  outline: 2px solid #13112B;
+  transform: scale(1.1);
+}
+
+/* Toggle Switch (legacy helper) */
+.toggle-checkbox:checked { right: 0; border-color: #36B531; }
+.toggle-checkbox:checked + .toggle-label { background-color: #36B531; }
+
+/* Horizontal Scroll Snap */
+.snap-scroll { scroll-snap-type: x mandatory; }
+.snap-child { scroll-snap-align: start; }
