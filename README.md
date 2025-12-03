@@ -1,8 +1,26 @@
-# Welcome to your Lovable project
+# Kletterwelt Sauerland Beta App
 
-## Project info
+## Projekt-Info
 
-**URL**: https://lovable.dev/projects/ed5d82b6-b50a-40cc-893d-87017cd2260a
+**URL**: https://beta.kletterwelt-sauerland.de  
+**Typ**: Progressive Web App (PWA)  
+**Status**: Production Ready für Web & App Stores
+
+## App Store Deployment
+
+Diese App ist als PWA konfiguriert und kann sowohl als Web-App genutzt werden als auch in den App Stores veröffentlicht werden.
+
+📖 **Siehe**: [APP_STORE_DEPLOYMENT.md](APP_STORE_DEPLOYMENT.md) für vollständige Anleitung  
+🎨 **Icon-Anforderungen**: [ICON_REQUIREMENTS.md](ICON_REQUIREMENTS.md)
+
+## Features
+
+- ✅ Boulder-Übersicht mit Beta-Videos
+- ✅ Detaillierte Statistiken und Schwierigkeitsgrade
+- ✅ Wettkampf-Modus mit Live-Rangliste
+- ✅ Admin-Tools für Setter
+- ✅ Offline-Funktionalität (PWA)
+- ✅ Installierbar auf allen Geräten
 
 ## How can I edit this code?
 
