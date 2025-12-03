@@ -12,6 +12,8 @@
     "cap:sync": "npm run build && npx cap sync",
     "cap:open:android": "npx cap open android",
     "cap:open:ios": "npx cap open ios",
+    "cap:build:android": "npm run cap:sync && cd android && gradlew.bat assembleDebug && cd ..",
+    "cap:build:android:release": "npm run cap:sync && cd android && gradlew.bat bundleRelease && cd ..",
     "migrate:videos": "node scripts/migrate-videos-to-allinkl.js",
     "check:video-urls": "node scripts/check-video-urls.js",
     "fix:video-urls": "node scripts/fix-video-urls.js",
