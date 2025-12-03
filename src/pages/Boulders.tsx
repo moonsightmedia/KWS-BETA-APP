@@ -81,7 +81,7 @@ const Boulders = () => {
   const [colorFilter, setColorFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'name' | 'difficulty' | 'date'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [showOnlyHanging, setShowOnlyHanging] = useState(false);
+  const [showOnlyHanging, setShowOnlyHanging] = useState(true);
   const [selectedBoulder, setSelectedBoulder] = useState<Boulder | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [quickFilter, setQuickFilter] = useState<null | 'sector' | 'difficulty' | 'color' | 'sort'>(null);
@@ -108,7 +108,7 @@ const Boulders = () => {
       const matchesSector = sectorFilter === 'all' || boulder.sector === sectorFilter || boulder.sector2 === sectorFilter;
       const matchesDifficulty = difficultyFilter === 'all' || (boulder.difficulty === null ? '?' : String(boulder.difficulty)) === difficultyFilter;
       const matchesColor = colorFilter === 'all' || boulder.color === colorFilter;
-      const matchesStatus = !showOnlyHanging || boulder.status === 'haengt';
+      const matchesStatus = showOnlyHanging ? boulder.status === 'haengt' : true;
       
       return matchesSearch && matchesSector && matchesDifficulty && matchesColor && matchesStatus;
     });

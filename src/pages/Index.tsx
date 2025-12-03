@@ -235,8 +235,8 @@ const Index = () => {
           <div className="grid grid-cols-1 gap-3 mb-6 md:hidden">
             <StatCard
               title="Nächster Schraubtermin"
-              value={nextSchedule?.sectorName || '-'}
-              subtitle={nextSchedule?.when ? formatDate(nextSchedule.when, 'dd. MMM yyyy', { locale: de }) : 'Kein Termin'}
+              value={nextSchedule?.when ? formatDate(nextSchedule.when, 'dd. MMM yyyy', { locale: de }) : 'Kein Termin'}
+              subtitle={nextSchedule?.sectorName || '-'}
             />
           </div>
           {/* Standard-Grid ab md+: wieder alle 4 Karten */}
@@ -261,8 +261,8 @@ const Index = () => {
             />
             <StatCard
               title="Nächster Schraubtermin"
-              value={nextSchedule?.sectorName || '-'}
-              subtitle={nextSchedule?.when ? formatDate(nextSchedule.when, 'dd. MMM yyyy', { locale: de }) : 'Kein Termin'}
+              value={nextSchedule?.when ? formatDate(nextSchedule.when, 'dd. MMM yyyy', { locale: de }) : 'Kein Termin'}
+              subtitle={nextSchedule?.sectorName || '-'}
             />
           </div>
 

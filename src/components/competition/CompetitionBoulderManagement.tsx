@@ -101,10 +101,13 @@ export const CompetitionBoulderManagement = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Wettkampf-Boulder verwalten</h2>
-        <Button onClick={handleCreate} size="lg" className="min-h-[48px]">
+    <div className="space-y-4 w-full min-w-0">
+      <div className="flex items-center justify-between flex-col sm:flex-row gap-4">
+        <h2 className="text-2xl font-heading font-bold text-[#13112B]">Wettkampf-Boulder verwalten</h2>
+        <Button 
+          onClick={handleCreate} 
+          className="h-11 rounded-xl bg-[#36B531] hover:bg-[#2da029] text-white w-full sm:w-auto"
+        >
           <Plus className="w-5 h-5 mr-2" />
           Boulder hinzufügen
         </Button>
@@ -113,12 +116,12 @@ export const CompetitionBoulderManagement = () => {
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 w-full" />
+            <Skeleton key={i} className="h-20 w-full rounded-2xl" />
           ))}
         </div>
       ) : !competitionBoulders || competitionBoulders.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
+        <Card className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
+          <CardContent className="p-8 text-center text-[#13112B]/60">
             <p>Noch keine Wettkampf-Boulder vorhanden.</p>
           </CardContent>
         </Card>
@@ -128,21 +131,21 @@ export const CompetitionBoulderManagement = () => {
             const boulder = allBoulders?.find((b) => b.id === cb.boulder_id);
 
             return (
-              <Card key={cb.id}>
+              <Card key={cb.id} className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:shadow-md transition-all">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div
-                        className="w-12 h-12 flex-shrink-0 rounded-lg flex items-center justify-center text-white font-bold text-lg"
+                        className="w-12 h-12 flex-shrink-0 rounded-xl flex items-center justify-center text-white font-bold text-lg"
                         style={getColorBackgroundStyle(cb.color, colors || [])}
                       >
                         {cb.boulder_number}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold">Boulder {cb.boulder_number}</div>
-                        <div className="text-sm text-muted-foreground">{cb.color}</div>
+                        <div className="font-semibold text-[#13112B]">Boulder {cb.boulder_number}</div>
+                        <div className="text-sm text-[#13112B]/60">{cb.color}</div>
                         {boulder && (
-                          <div className="text-xs text-muted-foreground truncate">
+                          <div className="text-xs text-[#13112B]/60 truncate">
                             {boulder.name}
                           </div>
                         )}
@@ -153,7 +156,7 @@ export const CompetitionBoulderManagement = () => {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleEdit(cb.boulder_number)}
-                        className="h-10 w-10"
+                        className="h-9 w-9 rounded-xl hover:bg-[#E7F7E9]"
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
@@ -161,7 +164,7 @@ export const CompetitionBoulderManagement = () => {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleDelete(cb.id)}
-                        className="h-10 w-10 text-destructive"
+                        className="h-9 w-9 rounded-xl hover:bg-red-50 text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -175,16 +178,16 @@ export const CompetitionBoulderManagement = () => {
       )}
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="sm:max-w-md w-full max-w-[calc(100vw-2rem)] p-6">
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="sm:max-w-[425px] p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-4">
+            <DialogTitle className="text-xl font-heading font-bold text-[#13112B]">
               {editingBoulder ? 'Boulder bearbeiten' : 'Neuen Boulder hinzufügen'}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 mt-4">
+          <div className="space-y-4 px-6 pb-6">
             <div className="space-y-2">
-              <Label htmlFor="boulder-number">
+              <Label htmlFor="boulder-number" className="text-sm font-medium text-[#13112B]">
                 Boulder-Nummer (min. 1) *
               </Label>
               <Input
@@ -193,19 +196,19 @@ export const CompetitionBoulderManagement = () => {
                 min="1"
                 value={boulderNumber}
                 onChange={(e) => setBoulderNumber(e.target.value)}
-                className="h-12"
+                className="h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]"
                 inputMode="numeric"
                 placeholder="z.B. 1, 2, 3..."
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="boulder-select">Boulder auswählen (optional)</Label>
+              <Label htmlFor="boulder-select" className="text-sm font-medium text-[#13112B]">Boulder auswählen (optional)</Label>
               <Select value={selectedBoulderId || "none"} onValueChange={(value) => setSelectedBoulderId(value === "none" ? "" : value)}>
-                <SelectTrigger className="h-12">
+                <SelectTrigger className="h-11 rounded-xl border-[#E7F7E9]">
                   <SelectValue placeholder="Boulder wählen" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-xl border-[#E7F7E9]">
                   <SelectItem value="none">Kein Boulder</SelectItem>
                   {allBoulders?.map((b) => (
                     <SelectItem key={b.id} value={b.id}>
@@ -217,43 +220,46 @@ export const CompetitionBoulderManagement = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="color-select">Farbe *</Label>
-              <Select value={selectedColor} onValueChange={setSelectedColor}>
-                <SelectTrigger className="h-12">
-                  <SelectValue placeholder="Farbe wählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  {colors?.map((c) => (
-                    <SelectItem key={c.name} value={c.name}>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-4 h-4 rounded-xl inline-block"
-                          style={getColorBackgroundStyle(c.name, colors)}
-                        />
-                        {c.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="color-select" className="text-sm font-medium text-[#13112B]">Farbe *</Label>
+              <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                {colors?.map((c) => (
+                  <button
+                    key={c.name}
+                    type="button"
+                    onClick={() => setSelectedColor(c.name)}
+                    className={cn(
+                      "h-11 rounded-xl border-2 transition-all flex items-center justify-center",
+                      selectedColor === c.name
+                        ? "border-[#36B531] shadow-lg scale-110 ring-2 ring-[#36B531] ring-offset-2"
+                        : "border-[#E7F7E9] hover:border-[#36B531]/50 hover:scale-105"
+                    )}
+                    style={getColorBackgroundStyle(c.name, colors)}
+                    title={c.name}
+                  >
+                    {selectedColor === c.name && (
+                      <div className="w-3 h-3 rounded-xl bg-white/90 shadow-sm" />
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
+          </div>
 
-            <div className="flex gap-2 pt-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowDialog(false)}
-                className="flex-1 h-12"
-              >
-                Abbrechen
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={createBoulder.isPending || updateBoulder.isPending}
-                className="flex-1 h-12"
-              >
-                {editingBoulder ? 'Aktualisieren' : 'Hinzufügen'}
-              </Button>
-            </div>
+          <div className="flex gap-3 px-6 pb-6 pt-0 border-t border-[#E7F7E9]">
+            <Button
+              variant="outline"
+              onClick={() => setShowDialog(false)}
+              className="flex-1 h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
+            >
+              Abbrechen
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={createBoulder.isPending || updateBoulder.isPending}
+              className="flex-1 h-11 rounded-xl bg-[#36B531] hover:bg-[#2da029] text-white"
+            >
+              {editingBoulder ? 'Aktualisieren' : 'Hinzufügen'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -1,7 +1,7 @@
 import { Settings, User, LogOut, HelpCircle, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, createContext, useContext } from 'react';
 import { FeedbackDialog } from '@/components/FeedbackDialog';
 import { useOnboarding } from '@/components/Onboarding';
 import { RoleTabs } from '@/components/RoleTabs';
@@ -13,8 +13,40 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+// Context for Setter tab title
+const SetterTabTitleContext = createContext<{ tabTitle?: string }>({});
+
+export const SetterTabTitleProvider = ({ children, tabTitle }: { children: React.ReactNode; tabTitle?: string }) => {
+  return (
+    <SetterTabTitleContext.Provider value={{ tabTitle }}>
+      {children}
+    </SetterTabTitleContext.Provider>
+  );
+};
+
+// Context for Admin tab title
+const AdminTabTitleContext = createContext<{ tabTitle?: string }>({});
+
+export const AdminTabTitleProvider = ({ children, tabTitle }: { children: React.ReactNode; tabTitle?: string }) => {
+  return (
+    <AdminTabTitleContext.Provider value={{ tabTitle }}>
+      {children}
+    </AdminTabTitleContext.Provider>
+  );
+};
+
 // Get page title based on current route
-const getPageTitle = (pathname: string): string => {
+const getPageTitle = (pathname: string, setterTabTitle?: string, adminTabTitle?: string): string => {
+  // If we're on /setter and have a tab title, use it
+  if (pathname === '/setter' && setterTabTitle) {
+    return setterTabTitle;
+  }
+  
+  // If we're on /admin and have a tab title, use it
+  if (pathname === '/admin' && adminTabTitle) {
+    return adminTabTitle;
+  }
+  
   const titleMap: Record<string, string> = {
     '/': 'DASHBOARD',
     '/boulders': 'BOULDER',
@@ -33,18 +65,20 @@ export const DashboardHeader = () => {
   const navigate = useNavigate();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const { openOnboarding } = useOnboarding();
+  const { tabTitle: setterTabTitle } = useContext(SetterTabTitleContext);
+  const { tabTitle: adminTabTitle } = useContext(AdminTabTitleContext);
   
-  const pageTitle = getPageTitle(location.pathname);
+  const pageTitle = getPageTitle(location.pathname, setterTabTitle, adminTabTitle);
   
   return (
     <>
-      <div className="h-14 lg:h-16 flex items-center justify-between px-4 lg:px-8 max-w-7xl mx-auto w-full relative">
+      <div className="h-14 lg:h-16 flex items-center justify-between px-4 lg:px-8 max-w-7xl mx-auto w-full relative bg-white">
         {/* Mobile Avatar (left) */}
         <div className="w-10 flex items-center lg:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="cursor-pointer focus:outline-none">
-                <div className="w-8 h-8 rounded-full bg-[#E7F7E9] flex items-center justify-center text-xs font-semibold text-[#36B531]">
+                <div className="w-8 h-8 rounded bg-[#E7F7E9] flex items-center justify-center text-xs font-semibold text-[#36B531]">
                   {user ? (
                     user.email?.substring(0, 2).toUpperCase() || 'KS'
                   ) : (
@@ -53,26 +87,26 @@ export const DashboardHeader = () => {
                 </div>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 bg-card z-50">
+            <DropdownMenuContent align="start" className="w-56 z-50">
               {user ? (
                 <>
-                  <div className="px-2 py-1.5">
-                    <p className="text-sm font-medium truncate">{user.email}</p>
+                  <div className="px-3 py-2.5">
+                    <p className="text-sm font-medium text-[#13112B] truncate">{user.email}</p>
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate('/profile')}>
-                    <Settings className="w-5 h-5 mr-2" />
+                    <Settings className="w-4 h-4 mr-2 text-[#13112B]/70" />
                     Profil Einstellungen
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={signOut} className="text-destructive">
-                    <LogOut className="w-5 h-5 mr-2" />
+                  <DropdownMenuItem onClick={signOut} className="text-[#E74C3C] data-[highlighted]:bg-red-50 data-[highlighted]:text-[#E74C3C]">
+                    <LogOut className="w-4 h-4 mr-2" />
                     Abmelden
                   </DropdownMenuItem>
                 </>
               ) : (
                 <DropdownMenuItem onClick={() => navigate('/auth')}>
-                  <User className="w-5 h-5 mr-2" />
+                  <User className="w-4 h-4 mr-2" />
                   Anmelden
                 </DropdownMenuItem>
               )}

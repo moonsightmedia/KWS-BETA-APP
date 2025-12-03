@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { useBoulders } from '@/hooks/useBoulders';
-import { Box, AlertCircle, RefreshCw } from 'lucide-react';
+import { Box, AlertCircle, RefreshCw, Mountain } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useQueryClient } from '@tanstack/react-query';
@@ -118,12 +118,13 @@ const Sectors = () => {
                   className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow cursor-pointer"
                   onClick={() => handleViewBoulders(sector.name)}
                 >
-                  {sector.imageUrl ? (
-                    <div className="aspect-video w-full bg-gray-200 relative overflow-hidden">
+                  {/* Bild oben, korrektes Seitenverhältnis */}
+                  <div className="relative w-full aspect-[16/9] bg-gray-200">
+                    {sector.imageUrl ? (
                       <img 
                         src={sector.imageUrl} 
                         alt={sector.name}
-                        className="w-full h-full object-cover"
+                        className="absolute inset-0 w-full h-full object-cover"
                         loading="lazy"
                         decoding="async"
                         onError={(e) => {
@@ -142,30 +143,36 @@ const Sectors = () => {
                           }
                         }}
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                      <div className="absolute bottom-3 left-4 text-white font-heading text-xl">{sector.name.toUpperCase()}</div>
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Box className="w-12 h-12 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Weißer Bereich unten: Titel, Badge, Actions */}
+                  <div className="p-3 flex justify-between items-center gap-3">
+                    <div className="min-w-0">
+                      <div className="mb-1">
+                        <span className="inline-block px-3 py-1 rounded bg-[#36B531] text-white font-heading text-xl tracking-wide truncate">
+                          {sector.name.toUpperCase()}
+                        </span>
+                      </div>
+                      <span className="text-xs bg-white text-[#13112B] px-2 py-0.5 rounded font-semibold border border-[#E7F7E9]">
+                        {activeBoulderCount} Boulder aktiv
+                      </span>
                     </div>
-                  ) : (
-                    <div className="aspect-video w-full bg-gray-200 relative flex items-center justify-center">
-                      <Box className="w-12 h-12 text-gray-400" />
-                      <div className="absolute bottom-3 left-4 text-[#13112B] font-heading text-xl">{sector.name.toUpperCase()}</div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button 
+                        className="text-xs bg-white border border-[#E7F7E9] px-2 py-1 rounded text-[#13112B] hover:bg-[#E7F7E9] transition-colors flex items-center gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewBoulders(sector.name);
+                        }}
+                      >
+                        <Mountain className="w-3.5 h-3.5" strokeWidth={1.5} /> Boulder
+                      </button>
                     </div>
-                  )}
-                  
-                  <div className="p-3 flex justify-between items-center">
-                    <Badge variant="secondary" className="text-xs">
-                      <Box className="w-3 h-3 mr-1" />
-                      {activeBoulderCount} Boulder aktiv
-                    </Badge>
-                    <button 
-                      className="text-xs bg-[#F9FAF9] border border-[#E7F7E9] px-2 py-1 rounded-md text-[#13112B] hover:bg-[#E7F7E9] transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleViewBoulders(sector.name);
-                      }}
-                    >
-                      Details
-                    </button>
                   </div>
                 </Card>
                 );

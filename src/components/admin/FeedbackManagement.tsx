@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -186,32 +187,38 @@ export const FeedbackManagement = () => {
   return (
     <div className="space-y-4 w-full min-w-0">
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="border rounded-lg p-4">
-          <div className="text-sm text-muted-foreground">Gesamt</div>
-          <div className="text-2xl font-bold">{totalFeedbacks}</div>
-        </div>
-        <div className="border rounded-lg p-4">
-          <div className="text-sm text-muted-foreground">Offen</div>
-          <div className="text-2xl font-bold text-blue-500">{openFeedbacks}</div>
-        </div>
-        <div className="border rounded-lg p-4">
-          <div className="text-sm text-muted-foreground">Gelöst</div>
-          <div className="text-2xl font-bold text-green-500">
-            {feedbacks?.filter(f => f.status === 'resolved').length || 0}
-          </div>
-        </div>
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+        <Card className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-xs sm:text-sm text-[#13112B]/60">Gesamt</div>
+            <div className="text-xl sm:text-2xl font-bold text-[#13112B]">{totalFeedbacks}</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-xs sm:text-sm text-[#13112B]/60">Offen</div>
+            <div className="text-xl sm:text-2xl font-bold text-blue-500">{openFeedbacks}</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-xs sm:text-sm text-[#13112B]/60">Gelöst</div>
+            <div className="text-xl sm:text-2xl font-bold text-[#36B531]">
+              {feedbacks?.filter(f => f.status === 'resolved').length || 0}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4 items-center">
-        <div className="space-y-2">
-          <Label>Status</Label>
+      <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-end">
+        <div className="space-y-2 flex-1">
+          <Label className="text-sm font-medium text-[#13112B]">Status</Label>
           <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as FeedbackStatus | 'all')}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full h-11 rounded-xl border-[#E7F7E9]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-xl border-[#E7F7E9]">
               <SelectItem value="all">Alle</SelectItem>
               <SelectItem value="open">Offen</SelectItem>
               <SelectItem value="in_progress">In Bearbeitung</SelectItem>
@@ -221,13 +228,13 @@ export const FeedbackManagement = () => {
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label>Typ</Label>
+        <div className="space-y-2 flex-1">
+          <Label className="text-sm font-medium text-[#13112B]">Typ</Label>
           <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as FeedbackType | 'all')}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full h-11 rounded-xl border-[#E7F7E9]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-xl border-[#E7F7E9]">
               <SelectItem value="all">Alle</SelectItem>
               <SelectItem value="error">Fehler</SelectItem>
               <SelectItem value="bug">Bug</SelectItem>
@@ -238,35 +245,34 @@ export const FeedbackManagement = () => {
           </Select>
         </div>
 
-        <div className="flex-1" />
         <Button
           variant="outline"
-          size="sm"
+          className="h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] w-full sm:w-auto"
           onClick={() => queryClient.invalidateQueries({ queryKey: ['admin-feedback'] })}
         >
           Aktualisieren
         </Button>
       </div>
 
-      {/* Table */}
-      <div className="border rounded-lg overflow-hidden">
+      {/* Desktop Table */}
+      <div className="hidden md:block border border-[#E7F7E9] rounded-xl bg-white overflow-hidden shadow-sm">
         <ScrollArea className="h-[600px]">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Typ</TableHead>
-                <TableHead>Titel</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Priorität</TableHead>
-                <TableHead>Von</TableHead>
-                <TableHead>Erstellt</TableHead>
-                <TableHead className="text-right">Aktionen</TableHead>
+              <TableRow className="border-b border-[#E7F7E9]">
+                <TableHead className="text-[#13112B] font-medium">Typ</TableHead>
+                <TableHead className="text-[#13112B] font-medium">Titel</TableHead>
+                <TableHead className="text-[#13112B] font-medium">Status</TableHead>
+                <TableHead className="text-[#13112B] font-medium">Priorität</TableHead>
+                <TableHead className="text-[#13112B] font-medium">Von</TableHead>
+                <TableHead className="text-[#13112B] font-medium">Erstellt</TableHead>
+                <TableHead className="text-right text-[#13112B] font-medium">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {feedbacks?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-[#13112B]/60 py-8">
                     Kein Feedback gefunden
                   </TableCell>
                 </TableRow>
@@ -274,20 +280,20 @@ export const FeedbackManagement = () => {
                 feedbacks?.map((feedback) => {
                   const TypeIcon = typeIcons[feedback.type];
                   return (
-                    <TableRow key={feedback.id}>
-                      <TableCell>
+                    <TableRow key={feedback.id} className="border-b border-[#E7F7E9]">
+                      <TableCell className="text-[#13112B]">
                         <div className="flex items-center gap-2">
                           <TypeIcon className="h-4 w-4" />
                           <span className="capitalize">{feedback.type}</span>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-[#13112B]">
                         <div className="max-w-[300px] truncate" title={feedback.title}>
                           {feedback.title}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={statusColors[feedback.status]}>
+                        <Badge className={`${statusColors[feedback.status]} rounded-xl text-white`}>
                           {feedback.status === 'open' && 'Offen'}
                           {feedback.status === 'in_progress' && 'In Bearbeitung'}
                           {feedback.status === 'resolved' && 'Gelöst'}
@@ -295,19 +301,19 @@ export const FeedbackManagement = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={priorityColors[feedback.priority]}>
+                        <Badge className={`${priorityColors[feedback.priority]} rounded-xl text-white`}>
                           {feedback.priority === 'low' && 'Niedrig'}
                           {feedback.priority === 'medium' && 'Mittel'}
                           {feedback.priority === 'high' && 'Hoch'}
                           {feedback.priority === 'critical' && 'Kritisch'}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-[#13112B]/60">
                         <div className="text-sm">
                           {feedback.user_email || 'Gast'}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-[#13112B]/60">
                         <div className="text-sm">
                           {format(new Date(feedback.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
                         </div>
@@ -317,6 +323,7 @@ export const FeedbackManagement = () => {
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-9 rounded-xl hover:bg-[#E7F7E9]"
                             onClick={() => setSelectedFeedback(feedback)}
                           >
                             <Eye className="h-4 w-4" />
@@ -324,6 +331,7 @@ export const FeedbackManagement = () => {
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-9 rounded-xl hover:bg-red-50 text-destructive"
                             onClick={() => deleteMutation.mutate(feedback.id)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -339,38 +347,120 @@ export const FeedbackManagement = () => {
         </ScrollArea>
       </div>
 
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3 w-full min-w-0">
+        {feedbacks?.length === 0 ? (
+          <Card className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
+            <CardContent className="p-8 text-center text-[#13112B]/60">
+              Kein Feedback gefunden
+            </CardContent>
+          </Card>
+        ) : (
+          feedbacks?.map((feedback) => {
+            const TypeIcon = typeIcons[feedback.type];
+            return (
+              <Card 
+                key={feedback.id} 
+                className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer"
+                onClick={() => setSelectedFeedback(feedback)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <TypeIcon className="h-5 w-5 text-[#13112B] flex-shrink-0" />
+                      <h3 className="font-semibold text-base text-[#13112B] truncate">{feedback.title}</h3>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Badge className={`${statusColors[feedback.status]} rounded-xl text-white text-xs`}>
+                        {feedback.status === 'open' && 'Offen'}
+                        {feedback.status === 'in_progress' && 'In Bearbeitung'}
+                        {feedback.status === 'resolved' && 'Gelöst'}
+                        {feedback.status === 'closed' && 'Geschlossen'}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
+                    <Badge className={`${priorityColors[feedback.priority]} rounded-xl text-white text-xs`}>
+                      {feedback.priority === 'low' && 'Niedrig'}
+                      {feedback.priority === 'medium' && 'Mittel'}
+                      {feedback.priority === 'high' && 'Hoch'}
+                      {feedback.priority === 'critical' && 'Kritisch'}
+                    </Badge>
+                    <span className="text-xs text-[#13112B]/60 capitalize">{feedback.type}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="text-[#13112B]/60 truncate flex-1 min-w-0">
+                      {feedback.user_email || 'Gast'}
+                    </div>
+                    <div className="text-[#13112B]/60 flex-shrink-0 ml-2">
+                      {format(new Date(feedback.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#E7F7E9]">
+                    <Button
+                      variant="outline"
+                      className="flex-1 h-10 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedFeedback(feedback);
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Details
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-10 w-10 rounded-xl border-[#E7F7E9] hover:bg-red-50 text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteMutation.mutate(feedback.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+
       {/* Detail Dialog */}
       {selectedFeedback && (
         <Dialog open={!!selectedFeedback} onOpenChange={() => setSelectedFeedback(null)}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
+          <DialogContent className="sm:max-w-[700px] p-0 gap-0 max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="px-6 pt-6 pb-4">
+              <DialogTitle className="flex items-center gap-2 text-xl font-heading font-bold text-[#13112B]">
                 {(() => {
                   const TypeIcon = typeIcons[selectedFeedback.type];
                   return <TypeIcon className="h-5 w-5" />;
                 })()}
                 {selectedFeedback.title}
               </DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="text-sm text-[#13112B]/60">
                 Feedback vom {format(new Date(selectedFeedback.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 mt-4">
+            <div className="space-y-4 px-6 pb-6">
               {/* Status and Priority Controls */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Status</Label>
+                  <Label className="text-sm font-medium text-[#13112B]">Status</Label>
                   <Select
                     value={selectedFeedback.status}
                     onValueChange={(value) =>
                       updateStatusMutation.mutate({ id: selectedFeedback.id, status: value as FeedbackStatus })
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11 rounded-xl border-[#E7F7E9]">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-xl border-[#E7F7E9]">
                       <SelectItem value="open">Offen</SelectItem>
                       <SelectItem value="in_progress">In Bearbeitung</SelectItem>
                       <SelectItem value="resolved">Gelöst</SelectItem>
@@ -380,17 +470,17 @@ export const FeedbackManagement = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Priorität</Label>
+                  <Label className="text-sm font-medium text-[#13112B]">Priorität</Label>
                   <Select
                     value={selectedFeedback.priority}
                     onValueChange={(value) =>
                       updatePriorityMutation.mutate({ id: selectedFeedback.id, priority: value as FeedbackPriority })
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11 rounded-xl border-[#E7F7E9]">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-xl border-[#E7F7E9]">
                       <SelectItem value="low">Niedrig</SelectItem>
                       <SelectItem value="medium">Mittel</SelectItem>
                       <SelectItem value="high">Hoch</SelectItem>
@@ -402,8 +492,8 @@ export const FeedbackManagement = () => {
 
               {/* Description */}
               <div className="space-y-2">
-                <Label>Beschreibung</Label>
-                <div className="border rounded-lg p-4 bg-muted whitespace-pre-wrap">
+                <Label className="text-sm font-medium text-[#13112B]">Beschreibung</Label>
+                <div className="border border-[#E7F7E9] rounded-xl p-4 bg-[#F9FAF9] whitespace-pre-wrap text-sm text-[#13112B]">
                   {selectedFeedback.description}
                 </div>
               </div>
@@ -411,8 +501,8 @@ export const FeedbackManagement = () => {
               {/* Screenshot */}
               {selectedFeedback.screenshot_url && (
                 <div className="space-y-2">
-                  <Label>Screenshot</Label>
-                  <div className="border rounded-lg overflow-hidden">
+                  <Label className="text-sm font-medium text-[#13112B]">Screenshot</Label>
+                  <div className="border border-[#E7F7E9] rounded-xl overflow-hidden">
                     <img
                       src={selectedFeedback.screenshot_url}
                       alt="Screenshot"
@@ -425,14 +515,15 @@ export const FeedbackManagement = () => {
               {/* URL */}
               {selectedFeedback.url && (
                 <div className="space-y-2">
-                  <Label>URL</Label>
+                  <Label className="text-sm font-medium text-[#13112B]">URL</Label>
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 border rounded-lg p-2 bg-muted text-sm truncate">
+                    <div className="flex-1 border border-[#E7F7E9] rounded-xl p-2 bg-[#F9FAF9] text-sm text-[#13112B] truncate">
                       {selectedFeedback.url}
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
+                      className="h-9 rounded-xl border-[#E7F7E9] hover:bg-[#E7F7E9]"
                       onClick={() => window.open(selectedFeedback.url!, '_blank')}
                     >
                       <ExternalLink className="h-4 w-4" />
@@ -444,9 +535,9 @@ export const FeedbackManagement = () => {
               {/* Error Details */}
               {selectedFeedback.error_details && (
                 <div className="space-y-2">
-                  <Label>Fehlerdetails</Label>
-                  <ScrollArea className="h-32 border rounded-lg p-4 bg-muted">
-                    <pre className="text-xs whitespace-pre-wrap">
+                  <Label className="text-sm font-medium text-[#13112B]">Fehlerdetails</Label>
+                  <ScrollArea className="h-32 border border-[#E7F7E9] rounded-xl p-4 bg-[#F9FAF9]">
+                    <pre className="text-xs whitespace-pre-wrap text-[#13112B]">
                       {JSON.stringify(selectedFeedback.error_details, null, 2)}
                     </pre>
                   </ScrollArea>
@@ -456,9 +547,9 @@ export const FeedbackManagement = () => {
               {/* Browser Info */}
               {selectedFeedback.browser_info && (
                 <div className="space-y-2">
-                  <Label>Browser-Informationen</Label>
-                  <ScrollArea className="h-32 border rounded-lg p-4 bg-muted">
-                    <pre className="text-xs whitespace-pre-wrap">
+                  <Label className="text-sm font-medium text-[#13112B]">Browser-Informationen</Label>
+                  <ScrollArea className="h-32 border border-[#E7F7E9] rounded-xl p-4 bg-[#F9FAF9]">
+                    <pre className="text-xs whitespace-pre-wrap text-[#13112B]">
                       {JSON.stringify(selectedFeedback.browser_info, null, 2)}
                     </pre>
                   </ScrollArea>
@@ -468,9 +559,9 @@ export const FeedbackManagement = () => {
               {/* Metadata */}
               {selectedFeedback.metadata && Object.keys(selectedFeedback.metadata).length > 0 && (
                 <div className="space-y-2">
-                  <Label>Metadaten</Label>
-                  <ScrollArea className="h-32 border rounded-lg p-4 bg-muted">
-                    <pre className="text-xs whitespace-pre-wrap">
+                  <Label className="text-sm font-medium text-[#13112B]">Metadaten</Label>
+                  <ScrollArea className="h-32 border border-[#E7F7E9] rounded-xl p-4 bg-[#F9FAF9]">
+                    <pre className="text-xs whitespace-pre-wrap text-[#13112B]">
                       {JSON.stringify(selectedFeedback.metadata, null, 2)}
                     </pre>
                   </ScrollArea>
@@ -478,15 +569,15 @@ export const FeedbackManagement = () => {
               )}
 
               {/* User Info */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-4 text-sm pt-4 border-t border-[#E7F7E9]">
                 <div>
-                  <Label className="text-muted-foreground">Von</Label>
-                  <div>{selectedFeedback.user_email || 'Gast'}</div>
+                  <Label className="text-[#13112B]/60">Von</Label>
+                  <div className="text-[#13112B]">{selectedFeedback.user_email || 'Gast'}</div>
                 </div>
                 {selectedFeedback.resolved_at && (
                   <div>
-                    <Label className="text-muted-foreground">Gelöst am</Label>
-                    <div>
+                    <Label className="text-[#13112B]/60">Gelöst am</Label>
+                    <div className="text-[#13112B]">
                       {format(new Date(selectedFeedback.resolved_at), 'dd.MM.yyyy HH:mm', { locale: de })}
                     </div>
                   </div>

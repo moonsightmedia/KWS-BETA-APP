@@ -84,14 +84,14 @@ export const UploadOverview = () => {
           className={cn(
             "fixed bottom-32 left-4 md:bottom-8 md:left-8 z-50 rounded-xl shadow-2xl transition-all duration-300 flex items-center gap-3 border-2 border-white/20",
             hasActiveUploads && (uploadingCount > 0 || restoringCount > 0 || errorCount > 0) ? "px-4 h-14" : "p-3 h-14 w-14",
-            "bg-[#2E432D] text-white hover:bg-[#2E432D]/90",
+            "bg-gray-900 text-white hover:bg-gray-800",
             errorCount > 0 && "bg-destructive hover:bg-destructive/90 border-destructive-foreground/20"
           )}
         >
           {errorCount > 0 ? (
             <div className="relative">
                 <AlertCircle className="w-6 h-6 animate-pulse text-white" />
-                <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-[#2E432D]" />
+                <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-gray-900" />
             </div>
           ) : (
             <div className="relative">
@@ -112,8 +112,8 @@ export const UploadOverview = () => {
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="sm:max-w-[500px] w-[95vw] bottom-4 right-4 translate-y-0 top-auto left-auto translate-x-0 data-[state=open]:slide-in-from-bottom-10 p-0 gap-0 overflow-hidden border-none shadow-2xl rounded-xl">
-        <div className="bg-[#2E432D] p-4 text-white flex flex-row items-center justify-between">
+      <DialogContent className="sm:max-w-[500px] w-full bottom-4 right-0 left-0 translate-y-0 top-auto translate-x-0 data-[state=open]:slide-in-from-bottom-10 p-0 gap-0 overflow-hidden border-none shadow-2xl rounded-xl sm:left-auto sm:right-4 sm:w-[95vw]">
+        <div className="bg-gray-900 p-4 text-white flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
             <CloudUpload className="w-6 h-6 text-green-400" />
             <DialogTitle className="text-lg font-bold">Upload Zentrale</DialogTitle>
@@ -202,7 +202,7 @@ export const UploadOverview = () => {
                         "h-full transition-all duration-500 ease-out rounded-full relative overflow-hidden",
                         upload.status === 'completed' ? "bg-green-500" :
                         upload.status === 'error' ? "bg-red-500" :
-                        "bg-[#2E432D]"
+                        "bg-gray-900"
                       )}
                       style={{ width: `${upload.progress || 0}%` }}
                     >

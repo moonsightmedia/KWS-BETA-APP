@@ -5,7 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { Boulder } from '@/types/boulder';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Calendar, MapPin, Palette, FileText, ExternalLink, Video } from 'lucide-react';
+import { Calendar, MapPin, Palette, FileText, ExternalLink, Video, Maximize2, Minimize2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 interface BoulderDetailDialogProps {
@@ -67,11 +67,30 @@ const getYouTubeEmbedUrl = (url: string): string => {
 /**
  * Video Player Component with improved buffering and preloading
  */
-const VideoPlayerWithBuffer = ({ videoUrl, poster }: { videoUrl: string; poster?: string }) => {
+const VideoPlayerWithBuffer = ({ videoUrl, poster, isVisible }: { videoUrl: string; poster?: string; isVisible?: boolean }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isBuffering, setIsBuffering] = useState(false);
   const [bufferProgress, setBufferProgress] = useState(0);
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Load video only when visible
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !isVisible) return;
+
+    // Set preload to metadata when visible
+    video.preload = 'metadata';
+    
+    return () => {
+      // Pause and reset when not visible
+      if (video) {
+        video.pause();
+        video.currentTime = 0;
+      }
+    };
+  }, [isVisible]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -191,15 +210,68 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster }: { videoUrl: string; poster?
     };
   }, [isBuffering]);
 
+  // Fullscreen handling
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = async () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        if (container.requestFullscreen) {
+          await container.requestFullscreen();
+        } else if ((container as any).webkitRequestFullscreen) {
+          await (container as any).webkitRequestFullscreen();
+        } else if ((container as any).mozRequestFullScreen) {
+          await (container as any).mozRequestFullScreen();
+        } else if ((container as any).msRequestFullscreen) {
+          await (container as any).msRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        } else if ((document as any).mozCancelFullScreen) {
+          await (document as any).mozCancelFullScreen();
+        } else if ((document as any).msExitFullscreen) {
+          await (document as any).msExitFullscreen();
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling fullscreen:', error);
+    }
+  };
+
   return (
-    <div className="relative w-full h-full">
+    <div ref={containerRef} className="relative w-full h-full">
       <video 
         ref={videoRef}
         controls 
         muted
         className="w-full h-full object-cover object-center"
         poster={poster || undefined}
-        preload="metadata"
+        preload="none"
         style={{ objectFit: 'cover', objectPosition: 'center' }}
       >
         {/* Dynamically determine video type based on URL extension */}
@@ -227,6 +299,18 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster }: { videoUrl: string; poster?
           </a>
         </p>
       </video>
+      <button
+        onClick={toggleFullscreen}
+        className="absolute top-2 right-2 z-20 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg transition-all backdrop-blur-sm"
+        aria-label={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
+        title={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
+      >
+        {isFullscreen ? (
+          <Minimize2 className="w-4 h-4" />
+        ) : (
+          <Maximize2 className="w-4 h-4" />
+        )}
+      </button>
       {showLoadingIndicator && (
         <div className="absolute inset-0 bg-black/50 flex items-center justify-center flex-col gap-2 z-10">
           <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -251,12 +335,63 @@ const getVimeoEmbedUrl = (url: string): string => {
 
 export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDetailDialogProps) => {
   console.log('[BoulderDetailDialog] Render:', { boulder: boulder?.name, open });
-  if (!boulder) return null;
-
-  const videoUrl = boulder.betaVideoUrl;
+  
+  const videoUrl = boulder?.betaVideoUrl;
   const isYouTube = videoUrl ? isYouTubeUrl(videoUrl) : false;
   const isVimeo = videoUrl ? isVimeoUrl(videoUrl) : false;
   const isDirectVideo = videoUrl && !isYouTube && !isVimeo;
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Fullscreen handling for iframes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = async () => {
+    const container = iframeRef.current?.parentElement;
+    if (!container) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        if (container.requestFullscreen) {
+          await container.requestFullscreen();
+        } else if ((container as any).webkitRequestFullscreen) {
+          await (container as any).webkitRequestFullscreen();
+        } else if ((container as any).mozRequestFullScreen) {
+          await (container as any).mozRequestFullScreen();
+        } else if ((container as any).msRequestFullscreen) {
+          await (container as any).msRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        } else if ((document as any).mozCancelFullScreen) {
+          await (document as any).mozCancelFullScreen();
+        } else if ((document as any).msExitFullscreen) {
+          await (document as any).msExitFullscreen();
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling fullscreen:', error);
+    }
+  };
 
   // Get thumbnail URL for video poster
   const getThumbnailUrl = (boulder: Boulder): string | undefined => {
@@ -271,100 +406,137 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
     return undefined;
   };
 
+  if (!boulder) {
+    return null;
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-4 md:p-5 w-[95vw] sm:w-full pb-4 sm:pb-6">
-        <DialogHeader className="space-y-2 text-center !text-center">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-[700px] p-0 gap-0 max-h-[90vh] sm:max-h-[85vh] overflow-y-auto !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 !bottom-auto !right-auto !rounded-2xl !border !border-[#E7F7E9]">
+        <DialogHeader className="px-6 pt-6 pb-4">
           <DialogDescription className="sr-only">
             Details für Boulder {boulder.name} - {boulder.color} · Grad {boulder.difficulty === null ? '?' : boulder.difficulty} · {boulder.sector}
           </DialogDescription>
-          <DialogTitle className="text-xl sm:text-2xl md:text-3xl font-teko tracking-wide leading-tight text-center">
+          <DialogTitle className="text-xl sm:text-2xl font-heading font-bold text-[#13112B] text-center">
             {boulder.name}
           </DialogTitle>
         </DialogHeader>
+        
+        <div className="px-6 pb-6">
 
-        {/* Compact meta chips */}
-        <div className="flex flex-wrap items-center justify-center gap-2 mb-2 sm:mb-3">
-          <span className="inline-flex items-center gap-1.5 rounded-xl border bg-card px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs">
-            <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary flex-shrink-0" />
-            <span className="truncate max-w-[8rem] sm:max-w-[10rem]">{boulder.sector}</span>
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-xl border bg-card px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs">
-            <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary flex-shrink-0" />
-            <span>{formatDate(boulder.createdAt, 'dd. MMM yyyy', { locale: de })}</span>
-          </span>
-          <span
-            className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 h-7 sm:h-8 px-2 sm:px-3 rounded-xl border text-xs ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${TEXT_ON_COLOR[boulder.color] || 'text-white'}`}
-            title={`${boulder.color} · Grad ${boulder.difficulty === null ? '?' : boulder.difficulty}`}
-          >
-            <span className="font-semibold text-[10px] sm:text-xs">{boulder.difficulty === null ? '?' : boulder.difficulty}</span>
-            <span className="opacity-90 text-[10px] sm:text-xs hidden sm:inline">{boulder.color}</span>
-          </span>
-        </div>
+          {/* Compact meta chips */}
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
+            <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E7F7E9] bg-[#F9FAF9] px-2.5 py-1 text-xs text-[#13112B]">
+              <MapPin className="w-3.5 h-3.5 text-[#36B531] flex-shrink-0" />
+              <span className="truncate max-w-[10rem]">{boulder.sector}</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E7F7E9] bg-[#F9FAF9] px-2.5 py-1 text-xs text-[#13112B]">
+              <Calendar className="w-3.5 h-3.5 text-[#36B531] flex-shrink-0" />
+              <span>{formatDate(boulder.createdAt, 'dd. MMM yyyy', { locale: de })}</span>
+            </span>
+            <span
+              className={`inline-flex items-center justify-center gap-2 h-8 px-3 rounded-xl border-2 text-xs font-semibold ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${TEXT_ON_COLOR[boulder.color] || 'text-white'}`}
+              title={`${boulder.color} · Grad ${boulder.difficulty === null ? '?' : boulder.difficulty}`}
+            >
+              <span>{boulder.difficulty === null ? '?' : boulder.difficulty}</span>
+            </span>
+          </div>
 
-        <div className="space-y-3 sm:space-y-4">
-          {/* Video Section */}
-          {videoUrl && (
-            <div className="aspect-[9/16] w-full max-w-[200px] sm:max-w-[280px] md:max-w-sm mx-auto overflow-hidden rounded-lg sm:rounded-xl border bg-card/80 backdrop-blur shadow-sm">
-              {isYouTube && (
-                <iframe
-                  src={getYouTubeEmbedUrl(videoUrl)}
-                  className="w-full h-full"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  title="YouTube video player"
-                />
-              )}
-              {isVimeo && (
-                <iframe
-                  src={getVimeoEmbedUrl(videoUrl)}
-                  className="w-full h-full"
-                  frameBorder="0"
-                  allow="autoplay; fullscreen; picture-in-picture"
-                  allowFullScreen
-                  title="Vimeo video player"
-                />
-              )}
-              {isDirectVideo && (
-                <VideoPlayerWithBuffer videoUrl={videoUrl} poster={getThumbnailUrl(boulder)} />
-              )}
-              {!isYouTube && !isVimeo && !isDirectVideo && (
-                <div className="w-full h-full flex items-center justify-center flex-col gap-4 p-4">
-                  <Video className="w-12 h-12 text-muted-foreground" />
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Video kann nicht direkt angezeigt werden
-                    </p>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => window.open(videoUrl, '_blank')}
+          <div className="space-y-4">
+            {/* Video Section */}
+            {videoUrl && (
+              <div className="relative aspect-[9/16] w-full max-w-[200px] sm:max-w-[280px] mx-auto overflow-hidden rounded-xl border-2 border-[#E7F7E9] bg-white shadow-sm">
+                {isYouTube && (
+                  <>
+                    <iframe
+                      ref={iframeRef}
+                      src={open ? getYouTubeEmbedUrl(videoUrl) : undefined}
+                      className="w-full h-full"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                      allowFullScreen
+                      loading="lazy"
+                      title="YouTube video player"
+                    />
+                    <button
+                      onClick={toggleFullscreen}
+                      className="absolute top-2 right-2 z-20 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg transition-all backdrop-blur-sm"
+                      aria-label={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
+                      title={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
                     >
-                      <ExternalLink className="w-5 h-5 mr-2" />
-                      Video öffnen
-                    </Button>
+                      {isFullscreen ? (
+                        <Minimize2 className="w-4 h-4" />
+                      ) : (
+                        <Maximize2 className="w-4 h-4" />
+                      )}
+                    </button>
+                  </>
+                )}
+                {isVimeo && (
+                  <>
+                    <iframe
+                      ref={iframeRef}
+                      src={open ? getVimeoEmbedUrl(videoUrl) : undefined}
+                      className="w-full h-full"
+                      frameBorder="0"
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                      loading="lazy"
+                      title="Vimeo video player"
+                    />
+                    <button
+                      onClick={toggleFullscreen}
+                      className="absolute top-2 right-2 z-20 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg transition-all backdrop-blur-sm"
+                      aria-label={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
+                      title={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
+                    >
+                      {isFullscreen ? (
+                        <Minimize2 className="w-4 h-4" />
+                      ) : (
+                        <Maximize2 className="w-4 h-4" />
+                      )}
+                    </button>
+                  </>
+                )}
+                {isDirectVideo && (
+                  <VideoPlayerWithBuffer videoUrl={videoUrl} poster={getThumbnailUrl(boulder)} isVisible={open} />
+                )}
+                {!isYouTube && !isVimeo && !isDirectVideo && (
+                  <div className="w-full h-full flex items-center justify-center flex-col gap-4 p-4">
+                    <Video className="w-12 h-12 text-[#13112B]/40" />
+                    <div className="text-center">
+                      <p className="text-sm text-[#13112B]/60 mb-2">
+                        Video kann nicht direkt angezeigt werden
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        className="h-9 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
+                        onClick={() => window.open(videoUrl, '_blank')}
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Video öffnen
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Notes Section */}
+            {boulder.note && (
+              <div className="rounded-xl border border-[#E7F7E9] bg-[#F9FAF9] p-3 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <span className="w-7 h-7 rounded-lg grid place-items-center bg-[#E7F7E9] text-[#36B531] flex-shrink-0">
+                    <FileText className="w-3.5 h-3.5" />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[#13112B] mb-1">Notizen</p>
+                    <p className="text-sm text-[#13112B]/60 break-words">{boulder.note}</p>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Info tiles removed for compactness */}
-
-          {/* Notes Section */}
-          {boulder.note && (
-            <div className="rounded-lg sm:rounded-xl border bg-card/80 backdrop-blur p-2.5 sm:p-3 shadow-sm">
-              <div className="flex items-start gap-2 sm:gap-3">
-                <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg grid place-items-center bg-gradient-to-br from-primary/12 to-primary/5 text-primary flex-shrink-0">
-                  <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm font-medium mb-1">Notizen</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground break-words">{boulder.note}</p>
-                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

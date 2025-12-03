@@ -41,64 +41,85 @@ const CompetitionContent = () => {
   const [participantGender, setParticipantGender] = useState<'male' | 'female' | 'other' | null>(null);
 
   // Check if we need to ask user if they want to participate
+  // Only show automatically on initial mount, not when clicking boulders
   useEffect(() => {
-    if (!isLoadingParticipant && !participant && user) {
-      // Check if user has already declined participation
-      const hasDeclined = localStorage.getItem(`competition_declined_${user.id}`);
-      if (!hasDeclined) {
-        // Logged in user without participant - ask if they want to participate
+    if (!isLoadingParticipant && !participant && user && !showParticipateDialog) {
+      // Only show dialog automatically on initial load, not when user clicks boulders
+      // This prevents the dialog from showing every time user clicks a boulder
+      const hasShownBefore = sessionStorage.getItem(`competition_dialog_shown_${user.id}`);
+      if (!hasShownBefore) {
         setShowParticipateDialog(true);
+        sessionStorage.setItem(`competition_dialog_shown_${user.id}`, 'true');
       }
     }
-  }, [participant, isLoadingParticipant, user]);
+  }, [participant, isLoadingParticipant, user, showParticipateDialog]);
 
   const handleParticipateConfirm = async () => {
     // Geschlecht ist verpflichtend
     if (!participantGender) {
       return; // Button sollte disabled sein, aber zur Sicherheit
     }
-    setShowParticipateDialog(false);
-    await createParticipant.mutateAsync({
-      gender: participantGender,
-    });
+    
+    try {
+      // Warte auf die Mutation, bevor der Dialog geschlossen wird
+      await createParticipant.mutateAsync({
+        gender: participantGender,
+      });
+      
+      // Dialog erst schließen, nachdem die Mutation erfolgreich war
+      // Der Participant-State wird durch die Query-Invalidierung aktualisiert
+      setShowParticipateDialog(false);
+      setParticipantGender(null); // Reset für nächstes Mal
+    } catch (error) {
+      // Fehler wird bereits vom Hook behandelt, Dialog bleibt offen
+      console.error('[Competition] Error creating participant:', error);
+    }
   };
 
   const handleParticipateCancel = () => {
     setShowParticipateDialog(false);
-    // Store that user declined participation
-    if (user?.id) {
-      localStorage.setItem(`competition_declined_${user.id}`, 'true');
-    }
+    setSelectedBoulder(null); // Reset selected boulder when canceling
+    // Don't store declined state - allow user to change their mind by clicking a boulder again
   };
 
 
   const handleBoulderClick = (boulderNumber: number) => {
+    console.log('[Competition] Boulder clicked:', boulderNumber, { user, participant, showParticipateDialog, showGuestDialog, isCreating: createParticipant.isPending });
+    
     // Guests cannot enter results - they should only see leaderboard
     if (!user) {
+      console.log('[Competition] No user, ignoring click');
+      return;
+    }
+
+    // Don't show dialog if mutation is in progress or participant is loading
+    if (createParticipant.isPending || isLoadingParticipant) {
+      console.log('[Competition] Participant creation/loading in progress, ignoring click');
       return;
     }
 
     // Always set selectedBoulder first
     setSelectedBoulder(boulderNumber);
+    console.log('[Competition] selectedBoulder set to:', boulderNumber);
 
     if (!participant) {
       // User is logged in but no participant yet - show participation dialog
-      // Don't create participant automatically, user must choose gender first
-      const hasDeclined = localStorage.getItem(`competition_declined_${user.id}`);
-      if (!hasDeclined) {
-        setShowParticipateDialog(true);
-      }
+      // Allow user to participate even if they declined before (they can change their mind)
+      console.log('[Competition] No participant, showing participate dialog');
+      setShowParticipateDialog(true);
       return;
     }
 
     // Verify participant has gender before allowing result entry
     if (!participant.gender) {
       // Participant exists but has no gender - show error or update dialog
+      console.log('[Competition] Participant has no gender');
       alert('Bitte gib deine Klasse (M oder W) an, bevor du Ergebnisse eintragen kannst.');
       return;
     }
 
     // Participant exists and has gender - result input will open automatically via conditional render
+    console.log('[Competition] Opening result input for boulder:', boulderNumber);
   };
 
   const handleGuestSubmit = async () => {
@@ -133,7 +154,15 @@ const CompetitionContent = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="flex-1 flex flex-col mb-20 md:mb-0 overflow-x-hidden w-full min-w-0">
-        <div className="p-4 md:p-8 w-full min-w-0">
+        <div 
+          className="w-full min-w-0 md:px-8" 
+          style={{ 
+            paddingTop: 'max(calc(env(safe-area-inset-top, 0px) + 2rem), 3rem)',
+            paddingLeft: '1rem',
+            paddingRight: '1rem',
+            paddingBottom: '2rem'
+          }}
+        >
           {/* Navigation zurück */}
           <div className="mb-4">
             <Button
@@ -242,6 +271,15 @@ const CompetitionContent = () => {
                           e.stopPropagation();
                           handleBoulderClick(cb.boulder_number);
                         }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleBoulderClick(cb.boulder_number);
+                          }
+                        }}
                       >
                         <CardContent className="p-4">
                           <div className="flex items-center gap-3">
@@ -308,7 +346,7 @@ const CompetitionContent = () => {
 
       {/* Participate Dialog (for logged-in users) */}
       <Dialog open={showParticipateDialog} onOpenChange={setShowParticipateDialog}>
-        <DialogContent className="sm:max-w-md w-full max-w-[calc(100vw-2rem)] p-6">
+        <DialogContent className="sm:max-w-md p-6">
           <DialogHeader>
             <DialogTitle>Am Wettkampf teilnehmen?</DialogTitle>
             <DialogDescription>

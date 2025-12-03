@@ -2,13 +2,14 @@ import { useState, useEffect, createContext, useContext } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { X, ChevronRight, MessageSquare, AlertCircle, Heart, LucideIcon } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // Context to allow opening onboarding from anywhere
 interface OnboardingContextType {
   openOnboarding: () => void;
+  isOpen: boolean;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
@@ -22,6 +23,7 @@ export const useOnboarding = () => {
       openOnboarding: () => {
         console.warn('[useOnboarding] OnboardingProvider not available');
       },
+      isOpen: false,
     };
   }
   return context;
@@ -92,7 +94,7 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
   };
 
   return (
-    <OnboardingContext.Provider value={{ openOnboarding }}>
+    <OnboardingContext.Provider value={{ openOnboarding, isOpen }}>
       {children}
       {isOpen && (
         <OnboardingDialog
@@ -119,18 +121,18 @@ const OnboardingDialog = ({ isOpen, currentStep, onNext, onFinish, onOpenChange 
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md w-full max-w-[calc(100vw-2rem)] p-0 gap-0 [&>button]:hidden">
-        <div className="relative p-6 pb-4">
+      <DialogContent className="w-full sm:max-w-md max-h-[90vh] sm:max-h-[85vh] overflow-y-auto p-0 gap-0 [&>button]:hidden !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 !bottom-auto !right-auto rounded-2xl border border-[#E7F7E9] !data-[state=closed]:zoom-out-95 !data-[state=open]:zoom-in-95 !data-[state=closed]:slide-out-to-bottom-0">
+        <div className="relative p-4 sm:p-6 pb-4">
           <Button
             variant="ghost"
             size="icon"
-            className="absolute top-4 right-4 h-8 w-8"
+            className="absolute top-4 right-4 h-8 w-8 z-10"
             onClick={onFinish}
           >
             <X className="h-4 w-4" />
           </Button>
 
-          <div className="space-y-4 mt-8">
+          <DialogHeader className="mt-8 sm:mt-0">
             <div className="flex items-center gap-3">
               {ONBOARDING_STEPS[currentStep].icon && (
                 <div className="flex-shrink-0">
@@ -140,21 +142,26 @@ const OnboardingDialog = ({ isOpen, currentStep, onNext, onFinish, onOpenChange 
                   })()}
                 </div>
               )}
-              <div className="flex-1 flex items-center gap-2">
-                <h2 className="text-2xl font-bold">{ONBOARDING_STEPS[currentStep].title}</h2>
+              <div className="flex-1 flex items-center gap-2 min-w-0">
+                <DialogTitle className="text-xl sm:text-2xl font-bold truncate">{ONBOARDING_STEPS[currentStep].title}</DialogTitle>
                 {ONBOARDING_STEPS[currentStep].badge && (
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge variant="secondary" className="text-xs shrink-0">
                     {ONBOARDING_STEPS[currentStep].badge}
                   </Badge>
                 )}
               </div>
             </div>
-            <p className="text-muted-foreground leading-relaxed">{ONBOARDING_STEPS[currentStep].content}</p>
+            <DialogDescription className="text-sm sm:text-base text-muted-foreground leading-relaxed mt-4">
+              {ONBOARDING_STEPS[currentStep].content}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
             
             {ONBOARDING_STEPS[currentStep].showFeedbackHint && (
               <Alert className="mt-4 border-primary/20 bg-primary/5">
                 <MessageSquare className="h-4 w-4 text-primary" />
-                <AlertDescription className="text-sm">
+                <AlertDescription className="text-xs sm:text-sm">
                   <strong>Tipp:</strong> Der Feedback-Button ist immer oben rechts neben deinem Profilbild verfügbar.
                 </AlertDescription>
               </Alert>
@@ -162,16 +169,16 @@ const OnboardingDialog = ({ isOpen, currentStep, onNext, onFinish, onOpenChange 
             
             {currentStep === ONBOARDING_STEPS.length - 1 && (
               <div className="flex items-center gap-2 mt-4 pt-4 border-t">
-                <Heart className="h-4 w-4 text-primary" />
-                <p className="text-sm text-muted-foreground">
+                <Heart className="h-4 w-4 text-primary shrink-0" />
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   Vielen Dank für deine Unterstützung bei der Entwicklung der App!
                 </p>
               </div>
             )}
           </div>
 
-          <div className="flex items-center justify-between mt-8">
-            <div className="flex gap-1">
+          <div className="flex items-center justify-between mt-6 sm:mt-8 gap-3">
+            <div className="flex gap-1 shrink-0">
               {ONBOARDING_STEPS.map((_, index) => (
                 <div
                   key={index}
@@ -181,7 +188,7 @@ const OnboardingDialog = ({ isOpen, currentStep, onNext, onFinish, onOpenChange 
                 />
               ))}
             </div>
-            <Button onClick={onNext} size="lg" className="min-h-[48px]">
+            <Button onClick={onNext} size="lg" className="min-h-[48px] shrink-0">
               {currentStep < ONBOARDING_STEPS.length - 1 ? (
                 <>
                   Weiter

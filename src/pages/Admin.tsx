@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { DashboardHeader } from "@/components/DashboardHeader";
+import { DashboardHeader, AdminTabTitleProvider } from "@/components/DashboardHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -31,9 +31,39 @@ const Admin = () => {
     }
   }, [isAdmin, loading, navigate]);
 
+  // Timeout for admin loading - if it takes too long, show error or fallback
+  useEffect(() => {
+    if (!loading) return;
+
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.warn('[Admin] Admin check loading timeout - taking too long');
+        // Don't set loading to false here - let the hook handle it
+        // But log for debugging
+      }
+    }, 5000); // 5 second timeout
+
+    return () => clearTimeout(timeoutId);
+  }, [loading]);
+
+  // Map tab to title
+  const getTabTitle = (tab: string): string => {
+    const titleMap: Record<string, string> = {
+      'users': 'BENUTZER',
+      'settings': 'EINSTELLUNGEN',
+      'competition': 'WETTKAMPF',
+      'feedback': 'FEEDBACK',
+      'logs': 'LOGS',
+    };
+    return titleMap[tab] || 'ADMIN';
+  };
+
+  const currentTab = searchParams.get('tab') || 'users';
+  const tabTitle = getTabTitle(currentTab);
+
   if (loading) {
     return (
-      <div className="min-h-screen flex bg-background overflow-x-hidden">
+      <div className="min-h-screen flex bg-[#F9FAF9] overflow-x-hidden">
         <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0 overflow-x-hidden w-full min-w-0">
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-x-hidden">
@@ -50,18 +80,11 @@ const Admin = () => {
   }
 
   return (
-    <div className="min-h-screen flex bg-background overflow-x-hidden">
-      <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0 overflow-x-hidden w-full min-w-0">
-        <DashboardHeader />
-        
-        <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-x-hidden">
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-2">
-              <Shield className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold font-teko tracking-wide">Admin Panel</h1>
-            </div>
-            <p className="text-muted-foreground">Verwalte Benutzer, Farben und Sektoren</p>
-          </div>
+    <AdminTabTitleProvider tabTitle={tabTitle}>
+      <div className="min-h-screen flex bg-[#F9FAF9] overflow-x-hidden">
+        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0 overflow-x-hidden w-full min-w-0">
+          <DashboardHeader />
+          <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-x-hidden">
 
           <Tabs 
             value={searchParams.get('tab') || 'users'} 
@@ -72,12 +95,12 @@ const Admin = () => {
             }}
             className="w-full min-w-0 hidden md:block"
           >
-            <TabsList className="grid w-full grid-cols-5 mb-6 h-auto min-w-0">
-              <TabsTrigger value="users" className="text-xs sm:text-sm min-w-0">Benutzer</TabsTrigger>
-              <TabsTrigger value="settings" className="text-xs sm:text-sm min-w-0">Einstellungen</TabsTrigger>
-              <TabsTrigger value="competition" className="text-xs sm:text-sm min-w-0">Wettkampf</TabsTrigger>
-              <TabsTrigger value="feedback" className="text-xs sm:text-sm min-w-0">Feedback</TabsTrigger>
-              <TabsTrigger value="logs" className="text-xs sm:text-sm min-w-0">Logs</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-5 mb-6 h-auto min-w-0 bg-[#F9FAF9] p-1 rounded-xl">
+              <TabsTrigger value="users" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Benutzer</TabsTrigger>
+              <TabsTrigger value="settings" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Einstellungen</TabsTrigger>
+              <TabsTrigger value="competition" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Wettkampf</TabsTrigger>
+              <TabsTrigger value="feedback" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Feedback</TabsTrigger>
+              <TabsTrigger value="logs" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Logs</TabsTrigger>
             </TabsList>
 
             <TabsContent value="users" className="mt-0">
@@ -94,9 +117,9 @@ const Admin = () => {
                 }}
                 className="w-full min-w-0"
               >
-                <TabsList className="grid w-full grid-cols-2 mb-6 h-auto min-w-0">
-                  <TabsTrigger value="sectors" className="text-xs sm:text-sm min-w-0">Sektoren</TabsTrigger>
-                  <TabsTrigger value="colors" className="text-xs sm:text-sm min-w-0">Farben</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 mb-6 h-auto min-w-0 bg-[#F9FAF9] p-1 rounded-xl">
+                  <TabsTrigger value="sectors" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Sektoren</TabsTrigger>
+                  <TabsTrigger value="colors" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Farben</TabsTrigger>
                 </TabsList>
                 <TabsContent value="sectors" className="mt-0">
                   <SectorManagement />
@@ -138,9 +161,9 @@ const Admin = () => {
                   }}
                   className="w-full min-w-0"
                 >
-                  <TabsList className="grid w-full grid-cols-2 mb-6 h-auto min-w-0">
-                    <TabsTrigger value="sectors" className="text-xs sm:text-sm min-w-0">Sektoren</TabsTrigger>
-                    <TabsTrigger value="colors" className="text-xs sm:text-sm min-w-0">Farben</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-2 mb-6 h-auto min-w-0 bg-[#F9FAF9] p-1 rounded-xl">
+                    <TabsTrigger value="sectors" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Sektoren</TabsTrigger>
+                    <TabsTrigger value="colors" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Farben</TabsTrigger>
                   </TabsList>
                   <TabsContent value="sectors" className="mt-0">
                     <SectorManagement />
@@ -170,6 +193,7 @@ const Admin = () => {
         </main>
       </div>
     </div>
+    </AdminTabTitleProvider>
   );
 };
 

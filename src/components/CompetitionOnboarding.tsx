@@ -170,20 +170,20 @@ const CompetitionOnboardingDialog = ({ isOpen, currentStep, steps, onNext, onFin
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md w-full max-w-[calc(100vw-2rem)] p-0 gap-0 [&>button]:hidden">
-        <div className="relative p-6 pb-4">
+      <DialogContent className="w-full sm:max-w-md max-h-[90vh] sm:max-h-[85vh] overflow-y-auto p-0 gap-0 [&>button]:hidden">
+        <div className="relative p-4 sm:p-6 pb-4">
           <Button
             variant="ghost"
             size="icon"
-            className="absolute top-4 right-4 h-8 w-8"
+            className="absolute top-4 right-4 h-8 w-8 z-10"
             onClick={onFinish}
           >
             <X className="h-4 w-4" />
           </Button>
 
-          <div className="space-y-4 mt-8">
-            <h2 className="text-2xl font-bold">{steps[currentStep].title}</h2>
-            <div className="text-muted-foreground">
+          <div className="space-y-4 mt-8 sm:mt-0">
+            <h2 className="text-xl sm:text-2xl font-bold">{steps[currentStep].title}</h2>
+            <div className="text-sm sm:text-base text-muted-foreground">
               {typeof steps[currentStep].content === 'string' ? (
                 <p>{steps[currentStep].content}</p>
               ) : (
@@ -192,8 +192,8 @@ const CompetitionOnboardingDialog = ({ isOpen, currentStep, steps, onNext, onFin
             </div>
           </div>
 
-          <div className="flex items-center justify-between mt-8">
-            <div className="flex gap-1">
+          <div className="flex items-center justify-between mt-6 sm:mt-8 gap-3">
+            <div className="flex gap-1 shrink-0">
               {steps.map((_, index) => (
                 <div
                   key={index}
@@ -203,7 +203,7 @@ const CompetitionOnboardingDialog = ({ isOpen, currentStep, steps, onNext, onFin
                 />
               ))}
             </div>
-            <Button onClick={onNext} size="lg" className="min-h-[48px]">
+            <Button onClick={onNext} size="lg" className="min-h-[48px] shrink-0">
               {currentStep < steps.length - 1 ? (
                 <>
                   Weiter

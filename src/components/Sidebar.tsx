@@ -287,8 +287,8 @@ export const Sidebar = ({ className }: SidebarProps) => {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="cursor-pointer focus:outline-none relative">
-                <Avatar className="w-12 h-12 hover:opacity-80 transition-opacity">
-                  <AvatarFallback className="bg-primary text-primary-foreground">
+                <Avatar className="w-12 h-12 rounded hover:opacity-80 transition-opacity">
+                  <AvatarFallback className="bg-primary text-primary-foreground rounded">
                     {user ? (
                       user.email?.substring(0, 2).toUpperCase() || 'KS'
                     ) : (
@@ -308,26 +308,26 @@ export const Sidebar = ({ className }: SidebarProps) => {
                 )}
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 bg-card">
+            <DropdownMenuContent align="start" className="w-56">
               {user ? (
                 <>
-                  <div className="px-2 py-1.5">
-                    <p className="text-sm font-medium">{user.email}</p>
+                  <div className="px-3 py-2.5">
+                    <p className="text-sm font-medium text-[#13112B]">{user.email}</p>
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate('/profile')}>
-                    <Settings className="w-5 h-5 mr-2" />
+                    <Settings className="w-4 h-4 mr-2 text-[#13112B]/70" />
                     Profil Einstellungen
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-                    <LogOut className="w-5 h-5 mr-2" />
+                  <DropdownMenuItem onClick={handleSignOut} className="text-[#E74C3C] data-[highlighted]:bg-red-50 data-[highlighted]:text-[#E74C3C]">
+                    <LogOut className="w-4 h-4 mr-2" />
                     Abmelden
                   </DropdownMenuItem>
                 </>
               ) : (
                 <DropdownMenuItem onClick={() => navigate('/auth')}>
-                  <User className="w-5 h-5 mr-2" />
+                  <User className="w-4 h-4 mr-2" />
                   Anmelden
                 </DropdownMenuItem>
               )}

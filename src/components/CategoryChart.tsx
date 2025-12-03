@@ -5,16 +5,16 @@ import { useSectorsTransformed } from '@/hooks/useSectors';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// Farbpalette für die Sektoren
+// Farbpalette für die Sektoren - poppigere, sattere Farben
 const CHART_COLORS = [
-  'hsl(var(--chart-orange))',
-  'hsl(var(--chart-primary))',
-  'hsl(var(--chart-yellow))',
-  'hsl(var(--chart-red))',
-  'hsl(var(--chart-green))',
-  'hsl(var(--chart-blue))',
-  'hsl(var(--chart-purple))',
-  'hsl(var(--chart-pink))',
+  '#FF6B35', // Lebhaftes Orange
+  '#4A90E2', // Kräftiges Blau
+  '#FFD93D', // Leuchtendes Gelb
+  '#E74C3C', // Kräftiges Rot
+  '#2ECC71', // Frisches Grün
+  '#9B59B6', // Lebhaftes Lila
+  '#1ABC9C', // Türkis
+  '#34495E', // Dunkles Grau/Schwarz
 ];
 
 export const CategoryChart = () => {

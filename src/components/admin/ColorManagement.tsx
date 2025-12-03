@@ -49,9 +49,9 @@ export const ColorManagement = () => {
   }, [colors, query]);
 
   return (
-    <Card className="w-full min-w-0">
-      <CardHeader>
-        <CardTitle>Farben verwalten</CardTitle>
+    <Card className="w-full min-w-0 bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-xl font-heading font-bold text-[#13112B]">Farben verwalten</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 w-full min-w-0">
         {/* Search and Defaults */}
@@ -60,13 +60,13 @@ export const ColorManagement = () => {
             placeholder="Suchen…" 
             value={query} 
             onChange={(e)=>setQuery(e.target.value)} 
-            className="flex-1 min-w-0 h-11" 
+            className="flex-1 min-w-0 h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
           />
           <Button 
             type="button" 
             variant="outline" 
             onClick={seedDefaults} 
-            className="flex-shrink-0 h-11 whitespace-nowrap"
+            className="flex-shrink-0 h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] whitespace-nowrap"
           >
             Standardfarben
           </Button>
@@ -76,35 +76,35 @@ export const ColorManagement = () => {
         <form onSubmit={onCreate} className="space-y-3 w-full min-w-0">
           <div className="flex items-center gap-3">
             <div 
-              className="w-12 h-12 rounded-xl border-2 flex-shrink-0" 
+              className="w-12 h-12 rounded-xl border-2 border-[#E7F7E9] flex-shrink-0" 
               style={{ 
                 background: form.secondary_hex 
                   ? `linear-gradient(135deg, ${form.hex} 0%, ${form.hex} 50%, ${form.secondary_hex} 50%, ${form.secondary_hex} 100%)`
                   : form.hex 
               }} 
             />
-            <div className="flex-1 min-w-0">
-              <Label htmlFor="color-name" className="text-xs text-muted-foreground mb-1 block">Name</Label>
+            <div className="flex-1 min-w-0 space-y-2">
+              <Label htmlFor="color-name" className="text-xs font-medium text-[#13112B]">Name</Label>
               <Input 
                 id="color-name"
                 placeholder="z.B. Grün-Gelb" 
                 value={form.name} 
                 onChange={(e)=>setForm({...form, name: e.target.value})} 
-                className="w-full h-11" 
+                className="w-full h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
                 required 
               />
             </div>
           </div>
           
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="color-hex" className="text-xs text-muted-foreground mb-1 block">HEX 1</Label>
+            <div className="space-y-2">
+              <Label htmlFor="color-hex" className="text-xs font-medium text-[#13112B]">HEX 1</Label>
               <div className="flex gap-2">
                 <Input
                   type="color"
                   value={form.hex}
                   onChange={(e)=>setForm({...form, hex: e.target.value})}
-                  className="w-16 h-11 p-1 cursor-pointer border rounded-md flex-shrink-0"
+                  className="w-16 h-11 p-1 cursor-pointer border border-[#E7F7E9] rounded-xl flex-shrink-0"
                   title="Farbe wählen"
                 />
                 <Input 
@@ -112,18 +112,18 @@ export const ColorManagement = () => {
                   placeholder="#22c55e" 
                   value={form.hex} 
                   onChange={(e)=>setForm({...form, hex: e.target.value})} 
-                  className="flex-1 h-11 font-mono text-sm" 
+                  className="flex-1 h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] font-mono text-sm" 
                 />
               </div>
             </div>
-            <div>
-              <Label htmlFor="color-hex2" className="text-xs text-muted-foreground mb-1 block">HEX 2 (optional)</Label>
+            <div className="space-y-2">
+              <Label htmlFor="color-hex2" className="text-xs font-medium text-[#13112B]">HEX 2 (optional)</Label>
               <div className="flex gap-2">
                 <Input
                   type="color"
                   value={form.secondary_hex || '#ffffff'}
                   onChange={(e)=>setForm({...form, secondary_hex: e.target.value})}
-                  className="w-16 h-11 p-1 cursor-pointer border rounded-md flex-shrink-0"
+                  className="w-16 h-11 p-1 cursor-pointer border border-[#E7F7E9] rounded-xl flex-shrink-0"
                   title="Farbe wählen"
                 />
                 <Input 
@@ -131,30 +131,30 @@ export const ColorManagement = () => {
                   placeholder="#facc15" 
                   value={form.secondary_hex} 
                   onChange={(e)=>setForm({...form, secondary_hex: e.target.value})} 
-                  className="flex-1 h-11 font-mono text-sm" 
+                  className="flex-1 h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] font-mono text-sm" 
                 />
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <Label htmlFor="color-sort" className="text-xs text-muted-foreground mb-1 block">Sortierung</Label>
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="color-sort" className="text-xs font-medium text-[#13112B]">Sortierung</Label>
               <Input 
                 id="color-sort"
                 type="number" 
                 placeholder="0" 
                 value={form.sort_order} 
                 onChange={(e)=>setForm({...form, sort_order: parseInt(e.target.value || '0')})} 
-                className="w-full h-11" 
+                className="w-full h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
               />
             </div>
             <Button 
               type="submit" 
-              className="h-11 px-6 flex-shrink-0 self-end"
+              className="h-11 px-6 rounded-xl bg-[#36B531] hover:bg-[#2da029] text-white flex-shrink-0 self-end"
               disabled={createColor.isPending}
             >
-              <Plus className="w-6 h-6 mr-2" />
+              <Plus className="w-5 h-5 mr-2" />
               Anlegen
             </Button>
           </div>
@@ -162,7 +162,7 @@ export const ColorManagement = () => {
 
         {/* Liste */}
         {(!filtered || filtered.length === 0) ? (
-          <div className="text-sm text-muted-foreground">Keine Einträge gefunden.</div>
+          <div className="text-sm text-[#13112B]/60">Keine Einträge gefunden.</div>
         ) : (
           <div className="space-y-2 w-full min-w-0">
             {filtered.map((c) => (
@@ -252,22 +252,22 @@ const ColorRow = ({
   };
 
   return (
-    <Card className="w-full min-w-0">
+    <Card className="w-full min-w-0 bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
       <CardContent className="p-4 space-y-4">
         {/* Mobile Layout */}
         <div className="md:hidden space-y-4">
           <div className="flex items-center gap-3">
-            <GripVertical className="w-6 h-6 text-muted-foreground flex-shrink-0" />
+            <GripVertical className="w-6 h-6 text-[#13112B]/40 flex-shrink-0" />
             <div 
-              className="w-12 h-12 rounded-xl border-2 flex-shrink-0" 
+              className="w-12 h-12 rounded-xl border-2 border-[#E7F7E9] flex-shrink-0" 
               style={{ 
                 background: secondaryHex 
                   ? `linear-gradient(135deg, ${hex} 0%, ${hex} 50%, ${secondaryHex} 50%, ${secondaryHex} 100%)`
                   : hex 
               }} 
             />
-            <div className="flex-1 min-w-0">
-              <Label className="text-xs text-muted-foreground mb-1 block">Name</Label>
+            <div className="flex-1 min-w-0 space-y-2">
+              <Label className="text-xs font-medium text-[#13112B]">Name</Label>
               <Input 
                 value={name} 
                 onChange={(e) => {
@@ -276,21 +276,21 @@ const ColorRow = ({
                 }}
                 onBlur={handleNameBlur}
                 onFocus={() => console.log('[ColorRow] Name onFocus:', { colorId: color.id, currentValue: name })}
-                className="w-full h-11" 
+                className="w-full h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1 block">HEX 1</Label>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-[#13112B]">HEX 1</Label>
               <div className="flex gap-2">
                 <Input
                   type="color"
                   value={hex}
                   onChange={(e) => setHex(e.target.value)}
                   onBlur={handleHexBlur}
-                  className="w-16 h-11 p-1 cursor-pointer border rounded-md flex-shrink-0"
+                  className="w-16 h-11 p-1 cursor-pointer border border-[#E7F7E9] rounded-xl flex-shrink-0"
                   title="Farbe wählen"
                 />
                 <Input 
@@ -298,19 +298,19 @@ const ColorRow = ({
                   onChange={(e) => setHex(e.target.value)}
                   onBlur={handleHexBlur}
                   placeholder="#HEX 1"
-                  className="flex-1 h-11 font-mono text-sm" 
+                  className="flex-1 h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] font-mono text-sm" 
                 />
               </div>
             </div>
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1 block">HEX 2</Label>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-[#13112B]">HEX 2</Label>
               <div className="flex gap-2">
                 <Input
                   type="color"
                   value={secondaryHex || '#ffffff'}
                   onChange={(e) => setSecondaryHex(e.target.value)}
                   onBlur={handleSecondaryHexBlur}
-                  className="w-16 h-11 p-1 cursor-pointer border rounded-md flex-shrink-0"
+                  className="w-16 h-11 p-1 cursor-pointer border border-[#E7F7E9] rounded-xl flex-shrink-0"
                   title="Farbe wählen"
                 />
                 <Input 
@@ -318,36 +318,36 @@ const ColorRow = ({
                   onChange={(e) => setSecondaryHex(e.target.value)}
                   onBlur={handleSecondaryHexBlur}
                   placeholder="#HEX 2 (optional)"
-                  className="flex-1 h-11 font-mono text-sm" 
+                  className="flex-1 h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] font-mono text-sm" 
                 />
               </div>
             </div>
           </div>
 
           <div className="flex items-center justify-between gap-3">
-            <div className="flex-1">
-              <Label className="text-xs text-muted-foreground mb-1 block">Sortierung</Label>
+            <div className="flex-1 space-y-2">
+              <Label className="text-xs font-medium text-[#13112B]">Sortierung</Label>
               <Input 
                 type="number" 
                 value={sortOrder} 
                 onChange={(e) => setSortOrder(parseInt(e.target.value || '0'))}
                 onBlur={handleSortOrderBlur}
-                className="w-full h-11" 
+                className="w-full h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
               />
             </div>
             <div className="flex items-center gap-3 pt-6">
               <div className="flex items-center gap-2">
-                <Label className="text-sm whitespace-nowrap">Aktiv</Label>
+                <Label className="text-sm whitespace-nowrap text-[#13112B]">Aktiv</Label>
                 <Switch checked={color.is_active} onCheckedChange={(v)=>updateColor.mutate({ id: color.id, is_active: v })} />
               </div>
               <Button 
                 type="button" 
                 variant="outline" 
                 size="icon"
-                className="text-destructive h-11 w-11 flex-shrink-0" 
+                className="text-destructive h-11 w-11 rounded-xl border-[#E7F7E9] hover:bg-red-50 flex-shrink-0" 
                 onClick={()=>deleteColor.mutate(color.id)}
               >
-                <Trash2 className="w-6 h-6" />
+                <Trash2 className="w-5 h-5" />
               </Button>
             </div>
           </div>
@@ -355,9 +355,9 @@ const ColorRow = ({
 
         {/* Desktop Layout */}
         <div className="hidden md:grid md:grid-cols-[24px,40px,1fr,120px,120px,90px,90px,auto] items-center gap-3">
-          <GripVertical className="w-5 h-5 text-muted-foreground" />
+          <GripVertical className="w-5 h-5 text-[#13112B]/40" />
           <div 
-            className="w-8 h-8 rounded-xl border flex-shrink-0" 
+            className="w-8 h-8 rounded-xl border-2 border-[#E7F7E9] flex-shrink-0" 
             style={{ 
               background: secondaryHex 
                 ? `linear-gradient(135deg, ${hex} 0%, ${hex} 50%, ${secondaryHex} 50%, ${secondaryHex} 100%)`
@@ -372,7 +372,7 @@ const ColorRow = ({
             }}
             onBlur={handleNameBlur}
             onFocus={() => console.log('[ColorRow] Name onFocus:', { colorId: color.id, currentValue: name })}
-            className="w-full min-w-0 h-10" 
+            className="w-full min-w-0 h-10 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
           />
           <div className="flex gap-2">
             <Input
@@ -380,7 +380,7 @@ const ColorRow = ({
               value={hex}
               onChange={(e) => setHex(e.target.value)}
               onBlur={handleHexBlur}
-              className="w-12 h-10 p-1 cursor-pointer border rounded-md flex-shrink-0"
+              className="w-12 h-10 p-1 cursor-pointer border border-[#E7F7E9] rounded-xl flex-shrink-0"
               title="Farbe wählen"
             />
             <Input 
@@ -388,7 +388,7 @@ const ColorRow = ({
               onChange={(e) => setHex(e.target.value)}
               onBlur={handleHexBlur}
               placeholder="#HEX 1"
-              className="flex-1 min-w-0 h-10 font-mono text-sm" 
+              className="flex-1 min-w-0 h-10 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] font-mono text-sm" 
             />
           </div>
           <div className="flex gap-2">
@@ -397,7 +397,7 @@ const ColorRow = ({
               value={secondaryHex || '#ffffff'}
               onChange={(e) => setSecondaryHex(e.target.value)}
               onBlur={handleSecondaryHexBlur}
-              className="w-12 h-10 p-1 cursor-pointer border rounded-md flex-shrink-0"
+              className="w-12 h-10 p-1 cursor-pointer border border-[#E7F7E9] rounded-xl flex-shrink-0"
               title="Farbe wählen"
             />
             <Input 
@@ -405,7 +405,7 @@ const ColorRow = ({
               onChange={(e) => setSecondaryHex(e.target.value)}
               onBlur={handleSecondaryHexBlur}
               placeholder="#HEX 2 (optional)"
-              className="flex-1 min-w-0 h-10 font-mono text-sm" 
+              className="flex-1 min-w-0 h-10 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] font-mono text-sm" 
             />
           </div>
           <Input 
@@ -413,14 +413,14 @@ const ColorRow = ({
             value={sortOrder} 
             onChange={(e) => setSortOrder(parseInt(e.target.value || '0'))}
             onBlur={handleSortOrderBlur}
-            className="w-full min-w-0 h-10" 
+            className="w-full min-w-0 h-10 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
           />
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Label className="text-sm whitespace-nowrap">Aktiv</Label>
+            <Label className="text-sm whitespace-nowrap text-[#13112B]">Aktiv</Label>
             <Switch checked={color.is_active} onCheckedChange={(v)=>updateColor.mutate({ id: color.id, is_active: v })} />
           </div>
-          <Button type="button" variant="outline" className="text-destructive justify-self-end flex-shrink-0 h-10" onClick={()=>deleteColor.mutate(color.id)}>
-            <Trash2 className="w-5 h-5 mr-2" />
+          <Button type="button" variant="outline" className="text-destructive justify-self-end flex-shrink-0 h-10 rounded-xl border-[#E7F7E9] hover:bg-red-50" onClick={()=>deleteColor.mutate(color.id)}>
+            <Trash2 className="w-4 h-4 mr-2" />
             Löschen
           </Button>
         </div>

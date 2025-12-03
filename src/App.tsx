@@ -26,8 +26,8 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 5 * 60 * 1000, // Data is fresh for 5 minutes
       gcTime: 10 * 60 * 1000, // Keep data in cache for 10 minutes
-      refetchOnMount: false, // Don't refetch on mount - use cached data
-      refetchOnWindowFocus: false, // Don't refetch on window focus - use cached data
+      refetchOnMount: false, // Use cached data on mount - don't refetch unless stale
+      refetchOnWindowFocus: true, // Refetch stale queries when window regains focus (tab switch back)
       refetchOnReconnect: true, // Refetch when network reconnects
       retry: 1, // Only retry once on failure
     },
@@ -100,12 +100,9 @@ const PullToRefreshHandler = () => {
           sessionStorage.removeItem('preserveRoute');
           sessionStorage.removeItem('isRefreshing');
         }
-      } else if (preserveRoute && !wasRefreshing) {
-        // If preserveRoute exists but isRefreshing is not set, it's from visibility change
-        // Don't restore in this case - it would interfere with normal navigation
-        console.log(`[PullToRefresh] Clearing preserveRoute from visibility change (not a refresh)`);
-        sessionStorage.removeItem('preserveRoute');
       }
+      // Don't clear preserveRoute if isRefreshing is not set - it might be from a legitimate refresh
+      // Only clear it if we're sure it's not needed
     } catch (error) {
       // Ignore storage errors
       console.warn('[PullToRefresh] Error restoring route:', error);
@@ -226,19 +223,33 @@ const PullToRefreshHandler = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('load', handleLoad);
     
-    // Listen for visibility change (when user switches back to tab) to refresh data
+    // Listen for visibility change (when user switches back to tab)
+    // Refetch stale queries to ensure data is fresh
+    // IMPORTANT: Never clear caches on visibility change - only on actual page reload
+    let visibilityTimeout: NodeJS.Timeout | null = null;
     const handleVisibilityChangeRefresh = async () => {
       if (document.visibilityState === 'visible') {
-        // Check if page was just refreshed
-        const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-        if (navigation?.type === 'reload') {
-          console.log('[PullToRefresh] Page reload detected via visibility change');
+        // Debounce: Clear any pending timeout and set a new one
+        if (visibilityTimeout) {
+          clearTimeout(visibilityTimeout);
+        }
+        
+        visibilityTimeout = setTimeout(async () => {
+          // Normal tab switch - refetch only stale queries to avoid unnecessary requests
+          // Don't clear cache - that would cause content to disappear
+          console.log('[Visibility] Tab visible again - refetching stale queries');
           try {
-            await clearAllCaches(queryClient);
-            await refreshAllData(queryClient);
+            await queryClient.refetchQueries({ stale: true });
+            console.log('[Visibility] Stale queries refetched successfully');
           } catch (error) {
-            console.error('[PullToRefresh] Error refreshing data:', error);
+            console.error('[Visibility] Error refetching queries:', error);
           }
+        }, 300); // 300ms debounce to prevent multiple rapid calls
+      } else {
+        // Tab hidden - clear any pending timeout
+        if (visibilityTimeout) {
+          clearTimeout(visibilityTimeout);
+          visibilityTimeout = null;
         }
       }
     };
@@ -252,6 +263,9 @@ const PullToRefreshHandler = () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('load', handleLoad);
       document.removeEventListener('visibilitychange', handleVisibilityChangeRefresh);
+      if (visibilityTimeout) {
+        clearTimeout(visibilityTimeout);
+      }
     };
   }, [queryClient, navigate, location]);
   
@@ -270,8 +284,14 @@ const ConditionalSidebar = () => {
   const location = useLocation();
   const { user, loading } = useAuth();
   
-  // Hide sidebar on auth page, competition page (for guests), or if user is not logged in
-  if (location.pathname === '/auth' || location.pathname === '/competition' || (!loading && !user)) {
+  // Don't render anything while loading - wait for auth to resolve
+  // This prevents flickering and ensures proper state
+  if (loading) {
+    return null;
+  }
+  
+  // Hide sidebar on auth page, competition page, or if user is not logged in
+  if (location.pathname === '/auth' || location.pathname === '/competition' || !user) {
     return null;
   }
   

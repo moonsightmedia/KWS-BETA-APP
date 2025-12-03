@@ -169,24 +169,69 @@ export const useUpdateBoulder = () => {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Boulder> & { id: string }) => {
-      // Get old data for logging
-      const { data: oldData } = await supabase
-        .from('boulders')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
+      console.log('[useUpdateBoulder] Starting mutation for boulder:', id);
+      
+      // Helper function to add timeout to Supabase queries
+      const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
+        return Promise.race([
+          promise,
+          new Promise<T>((_, reject) => {
+            setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+          })
+        ]);
+      };
+      
+      // Get old data for logging (with timeout)
+      console.log('[useUpdateBoulder] Fetching old data...');
+      let oldData = null;
+      try {
+        const oldDataPromise = supabase
+          .from('boulders')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+        
+        const { data: fetchedOldData, error: oldDataError } = await withTimeout(
+          oldDataPromise,
+          10000, // 10 second timeout
+          'Timeout beim Abrufen der alten Daten'
+        );
+        
+        if (oldDataError) {
+          console.error('[useUpdateBoulder] Error fetching old data:', oldDataError);
+          throw oldDataError;
+        }
+        oldData = fetchedOldData;
+        console.log('[useUpdateBoulder] Old data fetched');
+      } catch (error: any) {
+        console.warn('[useUpdateBoulder] Could not fetch old data (non-critical):', error);
+        // Continue without old data - logging is not critical
+      }
 
-      const { data, error } = await supabase
+      // Update boulder (with timeout)
+      console.log('[useUpdateBoulder] Updating boulder with data:', updates);
+      const updatePromise = supabase
         .from('boulders')
         .update(updates)
         .eq('id', id)
         .select()
         .maybeSingle();
+      
+      const { data, error } = await withTimeout(
+        updatePromise,
+        15000, // 15 second timeout
+        'Timeout beim Aktualisieren des Boulders'
+      );
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useUpdateBoulder] Supabase update error:', error);
+        throw error;
+      }
       if (!data) {
+        console.error('[useUpdateBoulder] No data returned from update');
         throw new Error('Boulder konnte nicht aktualisiert werden. Möglicherweise fehlen die Berechtigungen.');
       }
+      console.log('[useUpdateBoulder] Boulder updated successfully');
 
       // Calculate changes
       const changes: Record<string, any> = {};
@@ -200,8 +245,16 @@ export const useUpdateBoulder = () => {
       });
 
       // Log the operation
-      await logBoulderOperation('update', id, data.name, data, changes);
+      console.log('[useUpdateBoulder] Logging operation...');
+      try {
+        await logBoulderOperation('update', id, data.name, data, changes);
+        console.log('[useUpdateBoulder] Operation logged successfully');
+      } catch (logError) {
+        console.warn('[useUpdateBoulder] Error logging operation (non-critical):', logError);
+        // Don't throw - logging is not critical
+      }
 
+      console.log('[useUpdateBoulder] Mutation completed successfully');
       return { data, updates };
     },
     onSuccess: (result) => {

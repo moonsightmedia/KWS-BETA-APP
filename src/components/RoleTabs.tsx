@@ -35,15 +35,28 @@ export const RoleTabs = () => {
   const { hasRole: isSetter, loading: setterLoading } = useHasRole('setter');
   const { activeRole, setActiveRole } = useRoleTab();
 
-  // Stable role state - same logic as Sidebar
-  const [stableIsAdmin, setStableIsAdmin] = useState<boolean>(() => {
+  // Read roles directly from sessionStorage on every render to get latest values
+  const getCurrentRolesFromStorage = () => {
+    if (!user?.id) return { admin: false, setter: false };
+    const storedUserId = getStoredUserId();
+    if (storedUserId !== user.id) return { admin: false, setter: false };
     const storedAdmin = getStoredValue(STORAGE_KEY_ADMIN);
-    return storedAdmin ?? false;
+    const storedSetter = getStoredValue(STORAGE_KEY_SETTER);
+    return {
+      admin: storedAdmin ?? false,
+      setter: storedSetter ?? false,
+    };
+  };
+
+  // Stable role state - read from storage initially and update when storage changes
+  const [stableIsAdmin, setStableIsAdmin] = useState<boolean>(() => {
+    const roles = getCurrentRolesFromStorage();
+    return roles.admin;
   });
 
   const [stableIsSetter, setStableIsSetter] = useState<boolean>(() => {
-    const storedSetter = getStoredValue(STORAGE_KEY_SETTER);
-    return storedSetter ?? false;
+    const roles = getCurrentRolesFromStorage();
+    return roles.setter;
   });
 
   const lastUserIdRef = useRef<string | undefined>(undefined);
@@ -82,7 +95,24 @@ export const RoleTabs = () => {
       }
     }
 
-    // Update stable roles when hooks finish loading
+    // Always check sessionStorage first - it's the source of truth after login
+    // This ensures we pick up roles immediately after they're stored
+    if (currentUserId) {
+      const storedUserId = getStoredUserId();
+      if (storedUserId === currentUserId) {
+        const storedAdmin = getStoredValue(STORAGE_KEY_ADMIN);
+        const storedSetter = getStoredValue(STORAGE_KEY_SETTER);
+        // Update immediately if values are available in storage
+        if (storedAdmin !== null && storedAdmin !== stableIsAdmin) {
+          setStableIsAdmin(storedAdmin);
+        }
+        if (storedSetter !== null && storedSetter !== stableIsSetter) {
+          setStableIsSetter(storedSetter);
+        }
+      }
+    }
+
+    // Update stable roles when hooks finish loading (as fallback/confirmation)
     if (currentUserId && !adminLoading && !setterLoading) {
       const effectiveSetter = isSetter || isAdmin;
       const adminChanged = stableIsAdmin !== isAdmin;
@@ -100,6 +130,42 @@ export const RoleTabs = () => {
       }
     }
   }, [user?.id, isAdmin, isSetter, adminLoading, setterLoading, stableIsAdmin, stableIsSetter]);
+
+  // Poll sessionStorage periodically to catch roles that are stored after component mount
+  // This handles the race condition where checkAndStoreRoles completes after initial render
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const intervalId = setInterval(() => {
+      const storedUserId = getStoredUserId();
+      if (storedUserId === user.id) {
+        const storedAdmin = getStoredValue(STORAGE_KEY_ADMIN);
+        const storedSetter = getStoredValue(STORAGE_KEY_SETTER);
+        
+        if (storedAdmin !== null && storedAdmin !== stableIsAdmin) {
+          setStableIsAdmin(storedAdmin);
+        }
+        if (storedSetter !== null && storedSetter !== stableIsSetter) {
+          setStableIsSetter(storedSetter);
+        }
+        
+        // Stop polling once we have both roles or hooks finish loading
+        if ((storedAdmin !== null && storedSetter !== null) || (!adminLoading && !setterLoading)) {
+          clearInterval(intervalId);
+        }
+      }
+    }, 100); // Check every 100ms
+    
+    // Stop polling after 5 seconds max
+    const timeoutId = setTimeout(() => {
+      clearInterval(intervalId);
+    }, 5000);
+    
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(timeoutId);
+    };
+  }, [user?.id, stableIsAdmin, stableIsSetter, adminLoading, setterLoading]);
 
   // Sync activeRole with route changes
   useEffect(() => {
@@ -119,19 +185,47 @@ export const RoleTabs = () => {
 
   // Get default path for each group
   const getDefaultPathForGroup = (group: 'user' | 'setter' | 'admin'): string => {
-    if (group === 'setter' && stableIsSetter) return '/setter';
-    if (group === 'admin' && stableIsAdmin) return '/admin';
+    // Always return the correct path based on the group, regardless of role loading state
+    // The route guards will handle access control
+    if (group === 'setter') return '/setter';
+    if (group === 'admin') return '/admin';
     return '/';
   };
 
-  const tabs = [
-    { key: 'user' as const, label: 'User' },
-    ...(stableIsSetter ? [{ key: 'setter' as const, label: 'Setter' }] : []),
-    ...(stableIsAdmin ? [{ key: 'admin' as const, label: 'Admin' }] : []),
-  ];
+  // Always read roles directly from sessionStorage on render to get latest values
+  // This ensures we show the tabs immediately after login when roles are stored
+  const currentRoles = getCurrentRolesFromStorage();
+  const effectiveIsAdmin = currentRoles.admin || stableIsAdmin;
+  const effectiveIsSetter = currentRoles.setter || stableIsSetter;
+
+  // Build tabs based on roles:
+  // - If admin: show all three (User, Setter, Admin)
+  // - If setter (but not admin): show only Setter
+  // - If only user: show nothing (return null)
+  const tabs: Array<{ key: 'user' | 'setter' | 'admin'; label: string }> = [];
+  
+  if (effectiveIsAdmin) {
+    // Admin sees all three tabs
+    tabs.push(
+      { key: 'user' as const, label: 'User' },
+      { key: 'setter' as const, label: 'Setter' },
+      { key: 'admin' as const, label: 'Admin' }
+    );
+  } else if (effectiveIsSetter) {
+    // Setter (but not admin) sees only Setter tab
+    tabs.push({ key: 'setter' as const, label: 'Setter' });
+  } else {
+    // Only user role - no tabs to show
+    // But: If hooks are still loading, don't return null yet (wait for them to finish)
+    if (adminLoading || setterLoading) {
+      // Still loading - return empty div to prevent layout shift
+      return <div className="lg:hidden h-0" />;
+    }
+    return null;
+  }
 
   return (
-    <div className="lg:hidden border-b border-[#E7F7E9] bg-white/50 backdrop-blur-sm">
+    <div className="lg:hidden border-b border-[#E7F7E9] bg-white">
       <div className="px-4 py-2 lg:px-8 max-w-7xl mx-auto w-full">
         <div className="flex bg-[#F9FAF9] p-1 rounded-xl w-full max-w-md mx-auto lg:mx-0 border border-[#E7F7E9]">
           {tabs.map((t) => {

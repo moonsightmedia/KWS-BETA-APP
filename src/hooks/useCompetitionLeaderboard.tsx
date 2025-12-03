@@ -118,16 +118,26 @@ export const useCompetitionLeaderboard = (gender?: 'male' | 'female' | null) => 
         .map((p: any) => p.user_id);
       
       let profilesMap = new Map();
+      
       if (userIds.length > 0) {
         const { data: profilesData } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, full_name')
+          .select('id, first_name, last_name, full_name, email')
           .in('id', userIds);
         
         if (profilesData) {
           profilesData.forEach((profile: any) => {
             profilesMap.set(profile.id, profile);
           });
+        }
+        
+        // For participants without profile data, try to get email from auth.users
+        // This is a fallback if the profile wasn't created properly
+        const missingUserIds = userIds.filter((id: string) => !profilesMap.has(id));
+        if (missingUserIds.length > 0) {
+          console.log('[Leaderboard] Missing profiles for users:', missingUserIds);
+          // Note: We can't directly query auth.users from the client, but we can try to sync them
+          // The syncMetadataToProfiles function should handle this, but we'll log it for debugging
         }
       }
 
@@ -158,6 +168,8 @@ export const useCompetitionLeaderboard = (gender?: 'male' | 'female' | null) => 
 
           // Get name from user profile or guest_name
           // Format: "Vorname + erster Buchstabe des Nachnamens" (e.g., "Janosch J.")
+          // Always show names in leaderboard regardless of authentication status
+          // Fallback to email if no profile name is available
           const profile = participant.user_id ? profilesMap.get(participant.user_id) : null;
           let name = 'Unbekannt';
           
@@ -175,9 +187,33 @@ export const useCompetitionLeaderboard = (gender?: 'male' | 'female' | null) => 
                 // Nur Vorname, wenn kein Nachname vorhanden
                 name = firstName;
               }
+            } else if (profile.email) {
+              // Fallback to email if no first name
+              const emailName = profile.email.split('@')[0];
+              // Capitalize first letter
+              name = emailName.charAt(0).toUpperCase() + emailName.slice(1);
             } else {
-              name = 'Unbekannt';
+              // Profile exists but has no name or email - this shouldn't happen, but log it
+              console.warn('[Leaderboard] Profile exists but has no name or email:', {
+                participant_id: participant.id,
+                user_id: participant.user_id,
+                profile_id: profile.id,
+                profile_data: profile
+              });
             }
+          } else if (participant.user_id) {
+            // User ID exists but no profile found - this means the profile wasn't created or wasn't fetched
+            // Log detailed information for debugging
+            console.warn('[Leaderboard] User ID exists but no profile found:', {
+              participant_id: participant.id,
+              user_id: participant.user_id,
+              available_user_ids: Array.from(profilesMap.keys()),
+              total_profiles: profilesMap.size,
+              participant_user_ids: userIds
+            });
+          } else {
+            // No user_id and no guest_name - this is a guest participant without a name
+            console.debug('[Leaderboard] Guest participant without name:', participant.id);
           }
 
           return {

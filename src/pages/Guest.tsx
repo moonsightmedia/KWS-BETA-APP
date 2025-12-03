@@ -16,6 +16,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { BoulderDetailDialog } from '@/components/BoulderDetailDialog';
 import { Boulder } from '@/types/boulder';
 import { Progress } from '@/components/ui/progress';
+import { useOnboarding } from '@/components/Onboarding';
 // Use a data URL for placeholder to ensure it always works
 const placeholder = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';
 
@@ -49,6 +50,7 @@ const Guest = () => {
   const [loadedThumbnails, setLoadedThumbnails] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
   const { data: colors } = useColors();
+  const { isOpen: isOnboardingOpen } = useOnboarding();
   const [searchQuery, setSearchQuery] = useState('');
   const [sectorFilter, setSectorFilter] = useState<string>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
@@ -301,10 +303,10 @@ const Guest = () => {
   // Removed automatic thumbnail generation - now using manually uploaded thumbnails
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#F9FAF9]">
       {/* Full-Screen Loading Overlay - Show until all thumbnails are loaded */}
       {!allThumbnailsLoaded && (
-        <div className="fixed inset-0 z-50 bg-background flex items-center justify-center">
+        <div className="fixed inset-0 z-50 bg-[#F9FAF9] flex items-center justify-center">
           <div className="text-center space-y-4 max-w-sm mx-auto px-4">
             <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
             <div className="space-y-2">
@@ -326,41 +328,45 @@ const Guest = () => {
 
       {/* Main Content - Only visible when all thumbnails are loaded */}
       <div className={allThumbnailsLoaded ? '' : 'opacity-0 pointer-events-none'}>
-        <header className="sticky top-0 z-30 border-b bg-gradient-to-b from-primary/10 to-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+        <header className="sticky top-0 z-30 border-b border-[#E7F7E9] bg-white">
+          <div className="max-w-4xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h1 className="text-2xl font-teko tracking-wide leading-none">Boulder (Gastansicht)</h1>
-              <p className="text-xs text-muted-foreground mt-1">Filtere die Boulder. Für mehr Infos anmelden.</p>
+              <h1 className="text-2xl font-heading font-bold tracking-wide leading-none text-[#13112B]">BOULDER</h1>
+              <p className="text-xs text-[#13112B]/60 mt-1">Filtere die Boulder. Für mehr Infos anmelden.</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="hidden sm:inline-flex items-center gap-2 text-xs px-3 py-1 rounded-xl border bg-card">
-                <span className="inline-block w-2 h-2 rounded-xl bg-primary" />
+              <span className="hidden sm:inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-xl border border-[#E7F7E9] bg-[#F9FAF9] text-[#13112B]">
+                <span className="inline-block w-2 h-2 rounded-xl bg-[#36B531]" />
                 {filtered.length} Treffer
               </span>
-              <Button size="sm" onClick={() => { 
-                console.log('[Guest] CTA clicked → hard redirect to /auth');
-                window.location.href = '/auth';
-              }}>
+              <Button 
+                size="sm" 
+                className="h-9 rounded-xl bg-[#36B531] text-white hover:bg-[#2DA029]"
+                onClick={() => { 
+                  console.log('[Guest] CTA clicked → hard redirect to /auth');
+                  window.location.href = '/auth';
+                }}
+              >
                 Mehr erfahren – Anmelden
               </Button>
             </div>
           </div>
         </header>
 
-        <main className="p-4 max-w-4xl mx-auto">
+        <main className="p-4 md:p-8 max-w-4xl mx-auto">
           {/* Nikolaus Wettkampf Navigation Card */}
-          <Card className="mb-6 bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20 shadow-lg hover:shadow-xl transition-shadow">
+          <Card className="mb-6 bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-start gap-4 flex-1">
-                  <div className="flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-primary/20 flex items-center justify-center">
-                    <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+                  <div className="flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#E7F7E9] flex items-center justify-center">
+                    <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-[#36B531]" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-lg sm:text-xl font-bold text-foreground mb-1 font-teko tracking-wide">
+                    <h2 className="text-lg sm:text-xl font-heading font-bold text-[#13112B] mb-1 tracking-wide">
                       Nikolaus Wettkampf
                     </h2>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-[#13112B]/60">
                       Nimm am Wettkampf teil, trage deine Ergebnisse ein und verfolge die Live-Rangliste!
                     </p>
                   </div>
@@ -368,7 +374,7 @@ const Guest = () => {
                 <Button
                   onClick={() => navigate('/competition')}
                   size="lg"
-                  className="w-full sm:w-auto min-w-[140px] h-11 font-semibold shadow-md hover:shadow-lg transition-shadow"
+                  className="w-full sm:w-auto min-w-[140px] h-11 rounded-xl bg-[#36B531] text-white hover:bg-[#2DA029] font-semibold shadow-sm hover:shadow-md transition-shadow"
                 >
                   <Trophy className="w-5 h-5 mr-2" />
                   Zum Wettkampf
@@ -378,51 +384,56 @@ const Guest = () => {
           </Card>
 
       {/* Desktop filter row */}
-      <div className="hidden sm:flex flex-row gap-2 mb-4">
+      <div className="hidden sm:flex flex-row gap-2 mb-6">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Suchen" value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#13112B]/50" />
+          <Input 
+            className="pl-9 h-11 rounded-xl border border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
+            placeholder="Suchen..." 
+            value={searchQuery} 
+            onChange={(e)=>setSearchQuery(e.target.value)} 
+          />
         </div>
         <Select value={sectorFilter} onValueChange={setSectorFilter}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-44 h-11 rounded-xl border-[#E7F7E9]">
             <SelectValue placeholder="Sektor">
-              {sectorFilter === 'all' ? 'Alle Sektoren' : sectorFilter}
+              {sectorFilter === 'all' ? 'Sektor' : sectorFilter}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Alle Sektoren</SelectItem>
+          <SelectContent className="rounded-xl border-[#E7F7E9]">
+            <SelectItem value="all">Sektor</SelectItem>
             {sectors?.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-          <SelectTrigger className="w-32">
+          <SelectTrigger className="w-32 h-11 rounded-xl border-[#E7F7E9]">
             <SelectValue placeholder="Grad">
-              {difficultyFilter === 'all' ? 'Alle Grade' : formatDifficulty(difficultyFilter === '?' ? null : Number(difficultyFilter))}
+              {difficultyFilter === 'all' ? 'Grad' : formatDifficulty(difficultyFilter === '?' ? null : Number(difficultyFilter))}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Alle Grade</SelectItem>
+          <SelectContent className="rounded-xl border-[#E7F7E9]">
+            <SelectItem value="all">Grad</SelectItem>
             {DIFFICULTIES.map(d => <SelectItem key={d === null ? '?' : String(d)} value={d === null ? '?' : String(d)}>{formatDifficulty(d)}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={colorFilter} onValueChange={setColorFilter}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-40 h-11 rounded-xl border-[#E7F7E9]">
             <SelectValue placeholder="Farbe">
-              {colorFilter === 'all' ? 'Alle Farben' : colorFilter}
+              {colorFilter === 'all' ? 'Farbe' : colorFilter}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="rounded-xl border-[#E7F7E9]">
             <SelectItem value="all">
               <div className="flex items-center gap-2">
                 <Palette className="w-5 h-5" />
-                Alle Farben
+                Farbe
               </div>
             </SelectItem>
             {colors?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map((c) => (
               <SelectItem key={c.name} value={c.name}>
                 <div className="flex items-center gap-2">
                   <span 
-                    className="w-4 h-4 rounded-xl border border-border flex-shrink-0"
+                    className="w-4 h-4 rounded-xl border border-[#E7F7E9] flex-shrink-0"
                     style={getColorBackgroundStyle(c.name, colors)}
                   />
                   {c.name}
@@ -432,12 +443,12 @@ const Guest = () => {
           </SelectContent>
         </Select>
         <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-40 h-11 rounded-xl border-[#E7F7E9]">
             <SelectValue placeholder="Sortieren nach">
               {sortBy === 'date' ? 'Datum' : sortBy === 'name' ? 'Name' : 'Schwierigkeit'}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="rounded-xl border-[#E7F7E9]">
             <SelectItem value="date">Datum</SelectItem>
             <SelectItem value="name">Name</SelectItem>
             <SelectItem value="difficulty">Schwierigkeit</SelectItem>
@@ -447,7 +458,7 @@ const Guest = () => {
           variant="outline"
           size="icon"
           onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-          className="w-10"
+          className="w-11 h-11 rounded-xl border-[#E7F7E9] hover:bg-[#E7F7E9]"
         >
           {sortOrder === 'asc' ? (
             <ArrowUp className="w-5 h-5" />
@@ -459,11 +470,11 @@ const Guest = () => {
 
       {/* Mobile: no top search; use floating filter bar below */}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {filtered.map((b, index) => (
           <Card 
             key={b.id} 
-            className="hover:bg-muted/50 cursor-pointer transition-colors h-[120px] sm:h-[140px] overflow-hidden"
+            className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:shadow-md cursor-pointer transition-all h-[120px] sm:h-[140px] overflow-hidden"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -526,19 +537,19 @@ const Guest = () => {
               {/* Content rechts */}
               <div className="flex-1 p-3 sm:p-4 flex flex-col justify-between min-w-0">
                 <div>
-                  <div className="font-medium text-sm sm:text-base truncate">{b.name}</div>
-                  <div className="text-xs text-muted-foreground mt-1">
+                  <div className="font-heading font-medium text-sm sm:text-base truncate text-[#13112B]">{b.name}</div>
+                  <div className="text-xs text-[#13112B]/50 mt-1">
                     <div className="truncate">{b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}</div>
                   </div>
                 </div>
                 <div className="mt-2 flex items-center gap-2">
                   <span 
-                        className="w-6 h-6 rounded-xl border grid place-items-center text-[11px] font-semibold flex-shrink-0 text-white"
+                    className="w-6 h-6 rounded-xl border border-black/10 grid place-items-center text-[11px] font-semibold flex-shrink-0 text-white"
                     style={getColorBackgroundStyle(b.color, colors)}
                   >
                     {formatDifficulty(b.difficulty)}
                   </span>
-                  <span className="text-xs text-muted-foreground truncate">{b.color}</span>
+                  <span className="text-xs text-[#13112B]/50 truncate">{b.color}</span>
                 </div>
               </div>
             </CardContent>
@@ -564,7 +575,7 @@ const Guest = () => {
 
       {/* Quick Filter Bar (mobile) */}
       {quickFilter && (
-        <div className="sm:hidden fixed left-4 right-4 bottom-36 z-[100] pointer-events-none">
+        <div className="sm:hidden fixed left-4 right-4 bottom-20 z-[100] pointer-events-none">
           <div className="pointer-events-auto rounded-2xl bg-[#13112B] text-white shadow-2xl border border-white/10 overflow-hidden">
             <div className="flex items-center px-3 py-2">
               <span className="px-3 py-1 bg-white/10 rounded-xl text-xs font-semibold">
@@ -721,7 +732,8 @@ const Guest = () => {
         </div>
       )}
       {/* Floating Filter Bar (mobile) */}
-      <nav className="sm:hidden fixed bottom-20 left-4 right-4 z-[100]">
+      {!isOnboardingOpen && (
+      <nav className="sm:hidden fixed bottom-4 left-4 right-4 z-[100]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}>
         <div className="bg-[#13112B] text-white rounded-2xl shadow-2xl border border-white/10 px-2 py-2 flex items-center justify-between">
           <div>
             <button className="h-10 px-3 bg-white text-[#13112B] rounded-xl text-xs font-semibold shadow-sm active:scale-95 transition flex items-center">
@@ -771,6 +783,7 @@ const Guest = () => {
           </div>
         </div>
       </nav>
+      )}
       <div className="h-24 sm:h-0" />
         </main>
       </div>

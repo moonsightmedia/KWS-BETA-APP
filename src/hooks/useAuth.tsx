@@ -28,25 +28,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Sync function to transfer user_metadata to profiles table
   const syncMetadataToProfiles = async (userId: string, metadata: any) => {
-    if (!userId || !metadata) return;
+    if (!userId) return;
     
     const payload: any = {};
-    if (metadata.first_name) payload.first_name = metadata.first_name;
-    if (metadata.last_name) payload.last_name = metadata.last_name;
-    if (metadata.full_name) payload.full_name = metadata.full_name;
-    if (metadata.birth_date) payload.birth_date = metadata.birth_date;
-    
-    if (Object.keys(payload).length === 0) {
-      console.debug('[Profile Sync] Keine Metadaten zum Synchronisieren gefunden');
-      return;
+    // Sync first_name if it exists and is not empty
+    if (metadata?.first_name !== undefined && metadata.first_name !== null && String(metadata.first_name).trim() !== '') {
+      payload.first_name = String(metadata.first_name).trim();
     }
-    
-    console.log('[Profile Sync] Starte Synchronisation:', payload);
+    // Sync last_name if it exists and is not empty
+    if (metadata?.last_name !== undefined && metadata.last_name !== null && String(metadata.last_name).trim() !== '') {
+      payload.last_name = String(metadata.last_name).trim();
+    }
+    // Sync full_name if it exists and is not empty
+    if (metadata?.full_name !== undefined && metadata.full_name !== null && String(metadata.full_name).trim() !== '') {
+      payload.full_name = String(metadata.full_name).trim();
+    }
+    // Sync birth_date if it exists
+    if (metadata?.birth_date !== undefined && metadata.birth_date !== null && String(metadata.birth_date).trim() !== '') {
+      payload.birth_date = metadata.birth_date;
+    }
+    // Always sync email if available
+    if (metadata?.email) {
+      payload.email = metadata.email;
+    }
     
     // First check if profile exists
     const { data: existingProfile, error: checkError } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name')
+      .select('id, first_name, last_name, full_name, email')
       .eq('id', userId)
       .maybeSingle();
     
@@ -55,33 +64,108 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     
+    // Always sync if we have payload data OR if email needs to be updated
+    const needsEmailUpdate = metadata?.email && existingProfile && !existingProfile.email;
+    const shouldSync = Object.keys(payload).length > 0 || needsEmailUpdate;
+    
     if (existingProfile) {
       // Profile exists, update it
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update(payload)
-        .eq('id', userId);
-      
-      if (updateError) {
-        console.error('[Profile Sync] Fehler beim Update:', updateError);
+      if (shouldSync) {
+        console.log('[Profile Sync] Starte Synchronisation:', payload, 'Existing profile:', existingProfile, 'Needs email update:', needsEmailUpdate);
+        
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update(payload)
+          .eq('id', userId);
+        
+        if (updateError) {
+          console.error('[Profile Sync] Fehler beim Update:', updateError);
+        } else {
+          console.log('[Profile Sync] Profildaten erfolgreich aktualisiert:', payload);
+        }
       } else {
-        console.log('[Profile Sync] Profildaten erfolgreich aktualisiert');
+        console.debug('[Profile Sync] Keine Metadaten zum Synchronisieren gefunden');
       }
     } else {
-      // Profile doesn't exist yet, create it (trigger should have done this, but just in case)
-      const { error: insertError } = await supabase
-        .from('profiles')
-        .insert({
-          id: userId,
-          email: metadata.email || null,
-          ...payload
-        });
+      // Profile doesn't exist - trigger should create it automatically
+      // If it doesn't exist after a moment, it might be a timing issue
+      // We'll log it but not try to create it (RLS would block it anyway)
+      console.warn('[Profile Sync] Profil existiert nicht für User:', userId, 'Der Trigger sollte es erstellen. Versuche es erneut in 2 Sekunden...');
       
-      if (insertError) {
-        console.error('[Profile Sync] Fehler beim Erstellen:', insertError);
-      } else {
-        console.log('[Profile Sync] Profil erfolgreich erstellt');
-      }
+      // Wait a bit and check again (trigger might be delayed)
+      setTimeout(async () => {
+        const { data: retryProfile } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, full_name, email')
+          .eq('id', userId)
+          .maybeSingle();
+        
+        if (retryProfile && Object.keys(payload).length > 0) {
+          console.log('[Profile Sync] Profil jetzt vorhanden, aktualisiere:', payload);
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update(payload)
+            .eq('id', userId);
+          
+          if (updateError) {
+            console.error('[Profile Sync] Fehler beim Update nach Retry:', updateError);
+          } else {
+            console.log('[Profile Sync] Profildaten erfolgreich aktualisiert nach Retry:', payload);
+          }
+        } else if (!retryProfile) {
+          // Trigger hat nicht funktioniert - versuche Profil selbst zu erstellen
+          // Versuche zuerst ein Update (falls es zwischenzeitlich erstellt wurde), dann Insert
+          console.warn('[Profile Sync] Profil existiert immer noch nicht nach Retry. Versuche es selbst zu erstellen...');
+          
+          const createPayload: any = {
+            id: userId,
+            email: metadata?.email || null,
+            ...payload
+          };
+          
+          // Versuche zuerst Update (falls Trigger es zwischenzeitlich erstellt hat)
+          const { data: updatedProfile, error: updateError } = await supabase
+            .from('profiles')
+            .update(payload)
+            .eq('id', userId)
+            .select()
+            .single();
+          
+          if (!updateError && updatedProfile) {
+            console.log('[Profile Sync] Profil wurde zwischenzeitlich erstellt (wahrscheinlich durch Trigger). Update erfolgreich:', updatedProfile);
+          } else {
+            // Update hat fehlgeschlagen, versuche Insert
+            const { data: createdProfile, error: createError } = await supabase
+              .from('profiles')
+              .insert(createPayload)
+              .select()
+              .single();
+            
+            if (createError) {
+              // Wenn es ein Duplikat-Fehler ist, wurde es zwischenzeitlich erstellt - versuche nochmal Update
+              if (createError.code === '23505' || createError.message?.includes('duplicate key')) {
+                console.log('[Profile Sync] Profil wurde während Insert erstellt. Versuche Update...');
+                const { data: finalProfile, error: finalError } = await supabase
+                  .from('profiles')
+                  .update(payload)
+                  .eq('id', userId)
+                  .select()
+                  .single();
+                
+                if (finalError) {
+                  console.error('[Profile Sync] Fehler beim finalen Update:', finalError);
+                } else {
+                  console.log('[Profile Sync] Profil erfolgreich aktualisiert:', finalProfile);
+                }
+              } else {
+                console.error('[Profile Sync] Fehler beim Erstellen des Profils:', createError);
+              }
+            } else {
+              console.log('[Profile Sync] Profil erfolgreich erstellt:', createdProfile);
+            }
+          }
+        }
+      }, 2000);
     }
   };
 
@@ -112,10 +196,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             clearTimeout(timeoutId);
             
             // Sync user_metadata to profiles table when session becomes available
+            // This happens on SIGNED_IN, TOKEN_REFRESHED, and INITIAL_SESSION events
             if (session?.user) {
               const meta = session.user.user_metadata as any;
-              if (meta && (meta.first_name || meta.last_name || meta.birth_date)) {
-                await syncMetadataToProfiles(session.user.id, meta);
+              // Always try to sync - even if metadata is empty, we might need to update email
+              // Add email to metadata if not present
+              const metadataWithEmail = {
+                ...meta,
+                email: session.user.email || meta?.email
+              };
+              console.log('[Auth] Syncing profile for user:', session.user.id, 'Event:', event, 'Metadata:', metadataWithEmail);
+              await syncMetadataToProfiles(session.user.id, metadataWithEmail);
+              
+              // Check and store roles when user signs in
+              if (event === 'SIGNED_IN') {
+                await checkAndStoreRoles(session.user.id);
               }
               
               // Prefetch critical data immediately after login for instant navigation
@@ -204,8 +299,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Also sync on initial session load
         if (session?.user) {
           const meta = session.user.user_metadata as any;
-          if (meta && (meta.first_name || meta.last_name || meta.birth_date)) {
-            await syncMetadataToProfiles(session.user.id, meta);
+          // Always try to sync - even if metadata is empty, we might need to update email
+          // Add email to metadata if not present
+          const metadataWithEmail = {
+            ...meta,
+            email: session.user.email || meta?.email
+          };
+          await syncMetadataToProfiles(session.user.id, metadataWithEmail);
+          
+          // Check and store roles if not already in sessionStorage
+          try {
+            const storedUserId = sessionStorage.getItem('nav_userId');
+            if (storedUserId !== session.user.id) {
+              // Different user or no roles stored - check roles
+              await checkAndStoreRoles(session.user.id);
+            }
+          } catch (storageError) {
+            console.warn('[Auth] Error checking stored roles:', storageError);
+            // If storage check fails, still try to check roles
+            await checkAndStoreRoles(session.user.id);
           }
         }
       } catch (error: any) {
@@ -243,8 +355,84 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  // Re-check session when tab becomes visible (after initial mount)
+  // Only check current session, don't refresh it (refreshSession can invalidate valid sessions)
+  useEffect(() => {
+    if (loading) return; // Don't interfere with initial loading
+    
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[Auth] Tab visible - checking session');
+        try {
+          // Just check current session, don't refresh it
+          // refreshSession() can invalidate valid sessions, so we only use it when necessary
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            console.warn('[Auth] Error getting session on visibility change:', error);
+            return;
+          }
+          
+          // Update state with current session if it changed
+          if (session) {
+            if (!user || session.user.id !== user.id) {
+              console.log('[Auth] Session found on visibility change, updating state');
+              setSession(session);
+              setUser(session.user);
+              
+              // Check and store roles if not already stored
+              const storedUserId = sessionStorage.getItem('nav_userId');
+              if (storedUserId !== session.user.id) {
+                await checkAndStoreRoles(session.user.id);
+              }
+            }
+          } else if (user) {
+            // Session is null but we have a user - session expired or logged out
+            console.log('[Auth] Session is null on visibility change, clearing state');
+            setSession(null);
+            setUser(null);
+          }
+        } catch (error) {
+          console.error('[Auth] Error in visibility change handler:', error);
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user, loading]);
+
+  // Check and store roles once after login
+  const checkAndStoreRoles = async (userId: string) => {
+    try {
+      console.log('[Auth] Checking roles for user:', userId);
+      
+      // Check both roles in parallel
+      const [adminResult, setterResult] = await Promise.all([
+        supabase.rpc('has_role', { _user_id: userId, _role: 'admin' }),
+        supabase.rpc('has_role', { _user_id: userId, _role: 'setter' })
+      ]);
+      
+      const isAdmin = !!adminResult.data;
+      const isSetter = !!setterResult.data;
+      
+      // Store in sessionStorage
+      try {
+        sessionStorage.setItem('nav_isAdmin', String(isAdmin));
+        sessionStorage.setItem('nav_isSetter', String(isSetter));
+        sessionStorage.setItem('nav_userId', userId);
+        console.log('[Auth] Roles stored:', { isAdmin, isSetter, userId });
+      } catch (storageError) {
+        console.warn('[Auth] Error storing roles in sessionStorage:', storageError);
+      }
+    } catch (error) {
+      console.error('[Auth] Error checking roles:', error);
+      // Don't throw - roles check failure shouldn't block login
+    }
+  };
+
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -254,23 +442,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw error;
     }
     
+    // After successful login, check and store roles once
+    if (data.session?.user) {
+      await checkAndStoreRoles(data.session.user.id);
+    }
+    
     toast.success('Erfolgreich angemeldet!');
     navigate('/');
   };
 
   const signUp = async (email: string, password: string, meta?: { firstName?: string; lastName?: string; birthDate?: string }) => {
     const redirectUrl = `${window.location.origin}/auth`;
-    const fullName = [meta?.firstName, meta?.lastName].filter(Boolean).join(' ').trim() || undefined;
+    // Clean and validate names - only use non-empty strings
+    const firstName = meta?.firstName?.trim() || undefined;
+    const lastName = meta?.lastName?.trim() || undefined;
+    const fullName = [firstName, lastName].filter(Boolean).join(' ').trim() || undefined;
+    const birthDate = meta?.birthDate?.trim() || undefined;
+    
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl,
         data: {
-          first_name: meta?.firstName || null,
-          last_name: meta?.lastName || null,
+          first_name: firstName || null,
+          last_name: lastName || null,
           full_name: fullName || null,
-          birth_date: meta?.birthDate || null,
+          birth_date: birthDate || null,
         }
       }
     });
@@ -321,6 +519,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.removeItem('greetingName');
     } catch {
       // Ignore localStorage errors
+    }
+    
+    // Clear stored roles from sessionStorage
+    try {
+      sessionStorage.removeItem('nav_isAdmin');
+      sessionStorage.removeItem('nav_isSetter');
+      sessionStorage.removeItem('nav_userId');
+      console.log('[Auth] Roles cleared from sessionStorage');
+    } catch {
+      // Ignore sessionStorage errors
     }
     
     toast.success('Erfolgreich abgemeldet!');

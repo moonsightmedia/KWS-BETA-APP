@@ -92,8 +92,8 @@ export const BoulderOperationLogs = () => {
 
   if (error) {
     return (
-      <Card>
-        <CardContent className="p-8 text-center text-destructive">
+      <Card className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
+        <CardContent className="p-8 text-center text-[#E74C3C]">
           Fehler beim Laden der Logs: {error.message}
         </CardContent>
       </Card>
@@ -101,17 +101,17 @@ export const BoulderOperationLogs = () => {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Boulder-Operationen Logs</CardTitle>
+    <Card className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between flex-col sm:flex-row gap-4">
+          <CardTitle className="text-xl font-heading font-bold text-[#13112B]">Boulder-Operationen Logs</CardTitle>
           <Select value={operationFilter} onValueChange={setOperationFilter}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-full sm:w-48 h-11 rounded-xl border-[#E7F7E9]">
               <SelectValue>
                 {operationFilter === 'all' ? 'Alle Operationen' : getOperationLabel(operationFilter)}
               </SelectValue>
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-xl border-[#E7F7E9]">
               <SelectItem value="all">Alle Operationen</SelectItem>
               <SelectItem value="create">Erstellt</SelectItem>
               <SelectItem value="update">Bearbeitet</SelectItem>
@@ -124,56 +124,118 @@ export const BoulderOperationLogs = () => {
         {isLoading ? (
           <div className="space-y-2">
             {[1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-12 w-full" />
+              <Skeleton key={i} className="h-12 w-full rounded-xl" />
             ))}
           </div>
         ) : logs && logs.length > 0 ? (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Zeitpunkt</TableHead>
-                  <TableHead>Operation</TableHead>
-                  <TableHead>Boulder Name</TableHead>
-                  <TableHead>Benutzer</TableHead>
-                  <TableHead>Details</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {logs.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell className="text-sm">
-                      {formatDate(new Date(log.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getOperationBadgeVariant(log.operation_type)}>
+          <>
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-[#E7F7E9]">
+                    <TableHead className="text-[#13112B] font-medium">Zeitpunkt</TableHead>
+                    <TableHead className="text-[#13112B] font-medium">Operation</TableHead>
+                    <TableHead className="text-[#13112B] font-medium">Boulder Name</TableHead>
+                    <TableHead className="text-[#13112B] font-medium">Benutzer</TableHead>
+                    <TableHead className="text-[#13112B] font-medium">Details</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {logs.map((log) => (
+                    <TableRow key={log.id} className="border-b border-[#E7F7E9]">
+                      <TableCell className="text-sm text-[#13112B]/60">
+                        {formatDate(new Date(log.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          className={`rounded-xl ${
+                            log.operation_type === 'create' ? 'bg-[#36B531] text-white' :
+                            log.operation_type === 'update' ? 'bg-[#E7F7E9] text-[#13112B]' :
+                            'bg-[#E74C3C] text-white'
+                          }`}
+                        >
+                          {getOperationLabel(log.operation_type)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium text-[#13112B]">
+                        {log.boulder_name || (log.boulder_id ? `ID: ${log.boulder_id.substring(0, 8)}...` : '-')}
+                      </TableCell>
+                      <TableCell className="text-sm text-[#13112B]/60">
+                        {log.user_email || 'Unbekannt'}
+                      </TableCell>
+                      <TableCell className="text-xs text-[#13112B]/60 max-w-xs truncate">
+                        {log.operation_type === 'update' && log.changes ? (
+                          <span title={JSON.stringify(log.changes, null, 2)}>
+                            {Object.keys(log.changes).length} Feld(er) geändert
+                          </span>
+                        ) : log.operation_type === 'delete' ? (
+                          'Boulder gelöscht'
+                        ) : (
+                          'Boulder erstellt'
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3">
+              {logs.map((log) => (
+                <Card 
+                  key={log.id}
+                  className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-base text-[#13112B] mb-1">
+                          {log.boulder_name || (log.boulder_id ? `ID: ${log.boulder_id.substring(0, 8)}...` : 'Unbekannter Boulder')}
+                        </h3>
+                        <div className="text-xs text-[#13112B]/60">
+                          {formatDate(new Date(log.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
+                        </div>
+                      </div>
+                      <Badge 
+                        className={`rounded-xl flex-shrink-0 ${
+                          log.operation_type === 'create' ? 'bg-[#36B531] text-white' :
+                          log.operation_type === 'update' ? 'bg-[#E7F7E9] text-[#13112B]' :
+                          'bg-[#E74C3C] text-white'
+                        }`}
+                      >
                         {getOperationLabel(log.operation_type)}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {log.boulder_name || (log.boulder_id ? `ID: ${log.boulder_id.substring(0, 8)}...` : '-')}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {log.user_email || 'Unbekannt'}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-xs truncate">
-                      {log.operation_type === 'update' && log.changes ? (
-                        <span title={JSON.stringify(log.changes, null, 2)}>
-                          {Object.keys(log.changes).length} Feld(er) geändert
+                    </div>
+
+                    <div className="space-y-2 pt-3 border-t border-[#E7F7E9]">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-[#13112B]/60">Benutzer:</span>
+                        <span className="text-[#13112B] font-medium">{log.user_email || 'Unbekannt'}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-[#13112B]/60">Details:</span>
+                        <span className="text-[#13112B] text-xs">
+                          {log.operation_type === 'update' && log.changes ? (
+                            <span title={JSON.stringify(log.changes, null, 2)}>
+                              {Object.keys(log.changes).length} Feld(er) geändert
+                            </span>
+                          ) : log.operation_type === 'delete' ? (
+                            'Boulder gelöscht'
+                          ) : (
+                            'Boulder erstellt'
+                          )}
                         </span>
-                      ) : log.operation_type === 'delete' ? (
-                        'Boulder gelöscht'
-                      ) : (
-                        'Boulder erstellt'
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
         ) : (
-          <div className="p-8 text-center text-muted-foreground">
+          <div className="p-8 text-center text-[#13112B]/60">
             Keine Logs gefunden.
           </div>
         )}

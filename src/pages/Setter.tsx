@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useCallback } from 'react';
-import { DashboardHeader } from '@/components/DashboardHeader';
+import { DashboardHeader, SetterTabTitleProvider } from '@/components/DashboardHeader';
 import { useSidebar } from '@/components/SidebarContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useHasRole } from '@/hooks/useHasRole';
@@ -7,15 +7,23 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useSectorsTransformed, useUpdateSector } from '@/hooks/useSectors';
 import { useBouldersWithSectors, useCreateBoulder, useUpdateBoulder, useBulkUpdateBoulderStatus, useDeleteBoulder, useCdnVideos } from '@/hooks/useBoulders';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, PlusCircle, Edit3, Calendar, X, Sparkles, ChevronLeft, ChevronRight, Check, Video, Upload, Plus, CheckCircle, MinusCircle } from 'lucide-react';
+import { Search, PlusCircle, Edit3, Calendar as CalendarIcon, X, Sparkles, ChevronLeft, ChevronRight, Check, Video, Upload, Plus, CheckCircle, MinusCircle, FileVideo, Image as ImageIcon, Trash2, Clock, MapPin } from 'lucide-react';
 import { MaterialIcon } from '@/components/MaterialIcon';
 import { useMemo as useMemoReact, useRef, useState } from 'react';
 import { useSectorSchedule, useCreateSectorSchedule, useDeleteSectorSchedule } from '@/hooks/useSectorSchedule';
@@ -24,6 +32,12 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BatchUpload } from '@/components/setter/BatchUpload';
 import { Boulder } from '@/types/boulder';
+import { cn } from '@/lib/utils';
+import { getColorBackgroundStyle } from '@/utils/colorUtils';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from 'date-fns';
+import { de } from 'date-fns/locale';
 
 const DIFFICULTIES = [null, 1, 2, 3, 4, 5, 6, 7, 8]; // null = "?" (unknown/not rated)
 
@@ -365,6 +379,21 @@ const Setter = () => {
   const isLoadingRoles = loadingSetter || loadingAdmin;
   const canAccess = isSetter || isAdmin;
 
+  // Timeout for role loading - if it takes too long, show error or fallback
+  useEffect(() => {
+    if (!isLoadingRoles) return;
+
+    const timeoutId = setTimeout(() => {
+      if (isLoadingRoles) {
+        console.warn('[Setter] Role loading timeout - roles taking too long to load');
+        // Don't set loading to false here - let the hooks handle it
+        // But log for debugging
+      }
+    }, 5000); // 5 second timeout
+
+    return () => clearTimeout(timeoutId);
+  }, [isLoadingRoles]);
+
   const [form, setForm] = useState({
     name: '',
     sector_id: '',
@@ -392,6 +421,16 @@ const Setter = () => {
       ? (viewParam as typeof view)
       : 'batch';
   
+  // Ensure URL parameter is set on initial load
+  useEffect(() => {
+    if (!viewParam || !['create', 'edit', 'schedule', 'batch', 'status'].includes(viewParam)) {
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.set('view', 'batch');
+      setSearchParams(newSearchParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
+  
   // Update URL when view changes
   const setView = (newView: 'create' | 'edit' | 'schedule' | 'batch' | 'status') => {
     const newSearchParams = new URLSearchParams(searchParams);
@@ -408,7 +447,9 @@ const Setter = () => {
   const [editColor, setEditColor] = useState<string>('all');
   const [editing, setEditing] = useState<any | null>(null);
   const [scheduleSectorId, setScheduleSectorId] = useState<string>('');
-  const [scheduleDate, setScheduleDate] = useState<string>('');
+  const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
+  const [scheduleTime, setScheduleTime] = useState<string>('');
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const scheduleRef = useRef<HTMLDivElement | null>(null);
   const captureInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
@@ -500,6 +541,13 @@ const Setter = () => {
       setThumbnailPreviewUrl(null);
     }
   }, [view]);
+
+  // Reset isUploading when dialog closes
+  useEffect(() => {
+    if (!editing) {
+      setIsUploading(false);
+    }
+  }, [editing]);
 
   // Wizard submit function (called at step 5)
   const onWizardSubmit = async () => {
@@ -681,9 +729,20 @@ const Setter = () => {
 
   const submitEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editing) return;
+    if (!editing) {
+      console.log('[Setter] submitEdit: No editing boulder');
+      return;
+    }
+    if (isUploading) {
+      console.log('[Setter] submitEdit: Already uploading, preventing double submission');
+      return; // Prevent double submission
+    }
+    
+    console.log('[Setter] submitEdit: Starting update for boulder:', editing.id);
     setIsUploading(true);
+    
     try {
+      
       // Update boulder immediately (without video/thumbnail URLs if new files exist)
       const updateData = {
         id: editing.id,
@@ -697,7 +756,23 @@ const Setter = () => {
         note: form.note,
       };
       
-      await updateBoulder.mutateAsync(updateData as any);
+      console.log('[Setter] submitEdit: Update data prepared:', updateData);
+      
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          console.error('[Setter] submitEdit: Timeout after 30 seconds');
+          reject(new Error('Zeitüberschreitung beim Speichern. Bitte versuche es erneut.'));
+        }, 30000);
+      });
+      
+      console.log('[Setter] submitEdit: Starting mutation...');
+      const result = await Promise.race([
+        updateBoulder.mutateAsync(updateData as any),
+        timeoutPromise
+      ]);
+      
+      console.log('[Setter] submitEdit: Mutation successful:', result);
       
       // Upload functionality removed
       
@@ -707,21 +782,91 @@ const Setter = () => {
     } catch (error: any) {
       // Dismiss any existing upload toast on error
       toast.dismiss();
+      console.error('[Setter] submitEdit: Error updating boulder:', error);
+      console.error('[Setter] submitEdit: Error details:', {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack
+      });
       toast.error('Fehler beim Aktualisieren', {
         description: error.message || 'Unbekannter Fehler',
         duration: 5000, // Auto-dismiss after 5 seconds
       });
     } finally {
+      console.log('[Setter] submitEdit: Finally block - resetting isUploading');
       setIsUploading(false);
     }
   };
 
   const scheduleNextSector = async () => {
-    if (!scheduleSectorId || !scheduleDate) return;
-    await createSchedule.mutateAsync({ sector_id: scheduleSectorId, scheduled_at: scheduleDate, note: null } as any);
+    if (!scheduleSectorId || !scheduleDate || !scheduleTime) return;
+    
+    // Combine date and time into ISO string
+    const dateTime = new Date(scheduleDate);
+    const [hours, minutes] = scheduleTime.split(':');
+    dateTime.setHours(parseInt(hours, 10));
+    dateTime.setMinutes(parseInt(minutes, 10));
+    
+    await createSchedule.mutateAsync({ 
+      sector_id: scheduleSectorId, 
+      scheduled_at: dateTime.toISOString(), 
+      note: null 
+    } as any);
     setScheduleSectorId('');
-    setScheduleDate('');
+    setScheduleDate(undefined);
+    setScheduleTime('');
+    setScheduleDialogOpen(false);
   };
+
+  // Group schedule items by date
+  const groupedSchedule = useMemo(() => {
+    if (!schedule || !sectors) return [];
+    
+    const now = new Date();
+    const grouped: Array<{ date: Date; items: typeof schedule }> = [];
+    const dateMap = new Map<string, typeof schedule>();
+    
+    schedule.forEach(item => {
+      const itemDate = new Date(item.scheduled_at);
+      const dateKey = itemDate.toDateString();
+      
+      if (!dateMap.has(dateKey)) {
+        dateMap.set(dateKey, []);
+      }
+      dateMap.get(dateKey)!.push(item);
+    });
+    
+    // Convert to array and sort by date
+    dateMap.forEach((items, dateKey) => {
+      const date = new Date(dateKey);
+      grouped.push({ date, items: items.sort((a, b) => 
+        new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
+      ) });
+    });
+    
+    // Sort by date: upcoming dates first (ascending), then past dates (descending - newest first)
+    return grouped.sort((a, b) => {
+      const aTime = a.date.getTime();
+      const bTime = b.date.getTime();
+      const nowTime = now.getTime();
+      
+      const aIsPast = aTime < nowTime;
+      const bIsPast = bTime < nowTime;
+      
+      // If both are future dates, sort ascending (earliest first)
+      if (!aIsPast && !bIsPast) {
+        return aTime - bTime;
+      }
+      
+      // If both are past dates, sort descending (newest first)
+      if (aIsPast && bIsPast) {
+        return bTime - aTime;
+      }
+      
+      // Future dates come before past dates
+      return aIsPast ? 1 : -1;
+    });
+  }, [schedule, sectors]);
 
   const weeks = useMemoReact(() => {
     const start = new Date();
@@ -745,10 +890,10 @@ const Setter = () => {
   // Warte, bis die Rollen geladen sind, bevor wir "Zugriff verweigert" anzeigen
   if (isLoadingRoles) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#F9FAF9] flex items-center justify-center p-6">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Lädt...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#36B531] mx-auto mb-4"></div>
+          <p className="text-[#13112B]/60">Lädt...</p>
         </div>
       </div>
     );
@@ -756,30 +901,38 @@ const Setter = () => {
 
   if (!canAccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <Card className="max-w-md w-full">
+      <div className="min-h-screen bg-[#F9FAF9] flex items-center justify-center p-6">
+        <Card className="max-w-md w-full bg-white border border-[#E7F7E9] rounded-2xl">
           <CardHeader>
-            <CardTitle>Zugriff verweigert</CardTitle>
+            <CardTitle className="text-xl font-heading font-bold text-[#13112B]">Zugriff verweigert</CardTitle>
           </CardHeader>
           <CardContent>
-            <p>Du benötigst die Rolle Setter oder Admin.</p>
+            <p className="text-[#13112B]/60">Du benötigst die Rolle Setter oder Admin.</p>
           </CardContent>
         </Card>
       </div>
     );
   }
 
+  // Map view to title
+  const getTabTitle = (view: string): string => {
+    const titleMap: Record<string, string> = {
+      'batch': 'ERSTELLEN',
+      'edit': 'BEARBEITEN',
+      'status': 'STATUS',
+      'schedule': 'SCHRAUBERPLAN',
+    };
+    return titleMap[view] || 'SETTER';
+  };
+
   return (
-    <div className="min-h-screen bg-background flex overflow-x-hidden">
-      <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0 overflow-x-hidden w-full min-w-0">
-        <DashboardHeader />
-        <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-x-hidden">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2 font-teko tracking-wide">Setter</h1>
-            <p className="text-muted-foreground">Boulder anlegen und bearbeiten. Nächsten Sektor planen.</p>
-          </div>
-          {/* Tabs navigation - hidden on mobile, shown on desktop */}
-          <Tabs value={view} onValueChange={(value) => setView(value as typeof view)} className="w-full min-w-0">
+    <SetterTabTitleProvider tabTitle={getTabTitle(view)}>
+      <div className="min-h-screen bg-[#F9FAF9] flex">
+        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0 w-full min-w-0">
+          <DashboardHeader />
+          <main className="flex-1 p-4 md:p-8 w-full min-w-0">
+            {/* Tabs navigation - hidden on mobile, shown on desktop */}
+            <Tabs value={view} onValueChange={(value) => setView(value as typeof view)} className="w-full min-w-0">
             <TabsList className="grid w-full grid-cols-4 mb-6 h-auto min-w-0 hidden md:grid">
               <TabsTrigger value="batch" className="text-xs sm:text-sm min-w-0">Erstellen</TabsTrigger>
               <TabsTrigger value="edit" className="text-xs sm:text-sm min-w-0">Bearbeiten</TabsTrigger>
@@ -791,7 +944,7 @@ const Setter = () => {
                 <BatchUpload />
               </TabsContent>
 
-              <TabsContent value="edit" className="mt-0">
+              <TabsContent value="edit" className="mt-0 w-full min-w-0">
                 <div className="space-y-4 w-full min-w-0">
                   {/* Create wizard - currently disabled */}
                   {false && (
@@ -1212,139 +1365,60 @@ const Setter = () => {
               </CardContent>
                     </Card>
                   )}
-              <div className="flex gap-2 sticky top-[56px] z-10 bg-background py-2 overflow-x-auto w-full min-w-0 -mx-4 px-4">
-                <div className="relative flex-1 min-w-0">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input placeholder="Boulder suchen" className="pl-9 h-11 w-full min-w-0" value={editSearch} onChange={(e)=>setEditSearch(e.target.value)} />
+              <div className="flex flex-col sm:flex-row gap-2 sticky top-[56px] z-10 bg-white py-3 px-4 md:px-8 w-full min-w-0 scrollbar-hide shadow-sm border-b border-[#E7F7E9] rounded-t-xl">
+                <div className="relative flex-1 min-w-0 flex items-center">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#13112B]/40 z-10" />
+                  <Input placeholder="Boulder suchen" className="pl-9 h-11 w-full min-w-0 border border-[#E7F7E9] rounded-xl focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" value={editSearch} onChange={(e)=>setEditSearch(e.target.value)} />
                 </div>
-                <div className="w-32 sm:w-40 flex-shrink-0">
-                  <Select value={editSector} onValueChange={setEditSector}>
-                    <SelectTrigger className="h-11 w-full">
-                      <SelectValue placeholder="Sektor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Alle</SelectItem>
-                      {sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="w-28 sm:w-36 flex-shrink-0">
-                  <Select value={editDifficulty} onValueChange={setEditDifficulty}>
-                    <SelectTrigger className="h-11 w-full">
-                      <SelectValue placeholder="Grad" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Alle</SelectItem>
-                      {DIFFICULTIES.map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="w-32 sm:w-40 flex-shrink-0">
-                  <Select value={editColor} onValueChange={setEditColor}>
-                    <SelectTrigger className="h-11 w-full">
-                      <SelectValue placeholder="Farbe" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Alle</SelectItem>
-                      {COLORS.map(c => (
-                        <SelectItem key={c} value={c}>
-                          <div className="flex items-center gap-2">
-                            <span className="w-3 h-3 rounded-full border" style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }} />
-                            <span>{c}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Quick-Filter wie im Boulderbereich (Farben + Grade) */}
-              <div className="flex items-center gap-3 overflow-x-auto py-2">
-                <div className="flex items-center gap-2">
-                  {COLORS.map(c => (
-                    <button key={c} className={`w-7 h-7 rounded-xl border ${editColor===c?'ring-2 ring-primary':''}`} style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }}
-                      onClick={()=>setEditColor(prev=> prev===c ? 'all' : c)}
-                      aria-label={`Filter ${c}`}
-                    />
-                  ))}
-                </div>
-                <div className="flex items-center gap-2">
-                  {DIFFICULTIES.map(d => {
-                    const dStr = d === null ? '?' : String(d);
-                    return (
-                      <button key={dStr} onClick={()=>setEditDifficulty(prev=> prev===dStr?'all':dStr)}
-                        className={`w-7 h-7 rounded-xl border grid place-items-center text-[11px] font-semibold ${editDifficulty===dStr?'bg-primary text-primary-foreground':'bg-muted text-foreground'}`}>
-                        {formatDifficulty(d)}
-                      </button>
-                    );
-                  })}
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <div className="flex-1 sm:flex-none sm:w-32 md:w-40 min-w-0">
+                    <Select value={editSector} onValueChange={setEditSector}>
+                      <SelectTrigger className="h-11 w-full border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]">
+                        <SelectValue placeholder="Sektor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Sektor</SelectItem>
+                        {sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1 sm:flex-none sm:w-28 md:w-36 min-w-0">
+                    <Select value={editDifficulty} onValueChange={setEditDifficulty}>
+                      <SelectTrigger className="h-11 w-full border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]">
+                        <SelectValue placeholder="Grad" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Grad</SelectItem>
+                        {DIFFICULTIES.map(d => <SelectItem key={d} value={String(d)}>{formatDifficulty(d)}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1 sm:flex-none sm:w-32 md:w-40 min-w-0">
+                    <Select value={editColor} onValueChange={setEditColor}>
+                      <SelectTrigger className="h-11 w-full border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]">
+                        <SelectValue placeholder="Farbe" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Farbe</SelectItem>
+                        {COLORS.map(c => (
+                          <SelectItem key={c} value={c}>
+                            <div className="flex items-center gap-2">
+                              <span className="w-3 h-3 rounded-xl border" style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }} />
+                              <span>{c}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
               {!editing ? (
                 <>
-                  {/* Bulk Delete Button */}
-                  <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-                    {selectedBouldersForDelete.size > 0 ? (
-                      <div className="flex-1 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                        <span className="text-sm font-medium text-center sm:text-left">
-                          {selectedBouldersForDelete.size} {selectedBouldersForDelete.size === 1 ? 'Boulder' : 'Boulder'} ausgewählt
-                        </span>
-                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSelectedBouldersForDelete(new Set())}
-                            className="w-full sm:w-auto"
-                          >
-                            Abbrechen
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            disabled={deleteBoulder.isPending}
-                            onClick={async () => {
-                              const count = selectedBouldersForDelete.size;
-                              if (!confirm(`Wirklich ${count} ${count === 1 ? 'Boulder' : 'Boulder'} löschen? Die Beta-Videos werden ebenfalls gelöscht.`)) {
-                                return;
-                              }
-                              
-                              try {
-                                const ids = Array.from(selectedBouldersForDelete);
-                                let successCount = 0;
-                                let failCount = 0;
-                                
-                                for (const id of ids) {
-                                  try {
-                                    await deleteBoulder.mutateAsync(id);
-                                    successCount++;
-                                  } catch (error) {
-                                    console.error(`[Setter] Failed to delete boulder ${id}:`, error);
-                                    failCount++;
-                                  }
-                                }
-                                
-                                if (successCount > 0) {
-                                  toast.success(`${successCount} ${successCount === 1 ? 'Boulder' : 'Boulder'} erfolgreich gelöscht`);
-                                }
-                                if (failCount > 0) {
-                                  toast.error(`${failCount} ${failCount === 1 ? 'Boulder' : 'Boulder'} konnten nicht gelöscht werden`);
-                                }
-                                
-                                setSelectedBouldersForDelete(new Set());
-                              } catch (error) {
-                                console.error('[Setter] Bulk delete error:', error);
-                                toast.error('Fehler beim Löschen der Boulder');
-                              }
-                            }}
-                            className="w-full sm:w-auto"
-                          >
-                            {deleteBoulder.isPending ? 'Lösche...' : `Löschen (${selectedBouldersForDelete.size})`}
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
+                  {/* Alle auswählen Button - nur wenn keine Auswahl */}
+                  {selectedBouldersForDelete.size === 0 && (
+                    <div className="mb-4 pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -1352,19 +1426,19 @@ const Setter = () => {
                           const allIds = new Set(filteredBoulders.map(b => b.id));
                           setSelectedBouldersForDelete(allIds);
                         }}
-                        className="w-full sm:w-auto"
+                        className="w-full sm:w-auto h-11 border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] rounded-xl"
                       >
                         Alle auswählen
                       </Button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   
-                  <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3 w-full">
                     {filteredBoulders.map(b => {
                       const thumbnailUrl = getThumbnailUrl(b);
                       const isSelected = selectedBouldersForDelete.has(b.id);
                       return (
-                      <div key={b.id} className="relative">
+                      <div key={b.id} className="relative w-full">
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={(checked) => {
@@ -1384,25 +1458,38 @@ const Setter = () => {
                         <button 
                           className="text-left w-full touch-manipulation" 
                           onClick={(e) => {
-                            // On mobile, clicking the card should toggle selection if checkbox is visible
-                            // On desktop, only open edit if not selected
-                            if (isSelected) {
+                            // Wenn bereits ein Boulder ausgewählt ist, nur Auswahl umschalten
+                            if (selectedBouldersForDelete.size > 0) {
                               e.preventDefault();
                               setSelectedBouldersForDelete(prev => {
                                 const next = new Set(prev);
-                                next.delete(b.id);
+                                if (isSelected) {
+                                  next.delete(b.id);
+                                } else {
+                                  next.add(b.id);
+                                }
                                 return next;
                               });
                             } else {
-                              startEdit(b);
+                              // Wenn kein Boulder ausgewählt ist, Edit-Dialog öffnen
+                              if (isSelected) {
+                                e.preventDefault();
+                                setSelectedBouldersForDelete(prev => {
+                                  const next = new Set(prev);
+                                  next.delete(b.id);
+                                  return next;
+                                });
+                              } else {
+                                startEdit(b);
+                              }
                             }
                           }}
                         >
-                          <Card className={`hover:bg-muted/50 ${isSelected ? 'ring-2 ring-primary' : ''}`}>
-                            <CardContent className="p-4 flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <Card className={cn("bg-white border border-[#E7F7E9] hover:shadow-md transition-all w-full", isSelected ? 'ring-2 ring-[#36B531] bg-[#E7F7E9]' : '')}>
+                            <CardContent className="p-4 flex items-center gap-3 w-full min-w-0 overflow-hidden">
+                              <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
                                 {thumbnailUrl && (
-                                  <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
+                                  <div className="w-16 h-16 flex-shrink-0 rounded-xl overflow-hidden bg-[#F9FAF9] border border-[#E7F7E9]">
                                     <img 
                                       src={thumbnailUrl} 
                                       alt={b.name}
@@ -1415,18 +1502,18 @@ const Setter = () => {
                                     />
                                   </div>
                                 )}
-                                <span className={`w-6 h-6 rounded-xl border grid place-items-center text-[11px] font-semibold flex-shrink-0 ${TEXT_ON_COLOR[b.color] || 'text-white'}`} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
+                                <span className={cn("w-7 h-7 rounded-xl border-2 grid place-items-center text-xs font-semibold flex-shrink-0", TEXT_ON_COLOR[b.color] || 'text-white')} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
                                   {formatDifficulty(b.difficulty)}
                                 </span>
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium text-base truncate">{b.name}</div>
-                                  <div className="text-xs text-muted-foreground truncate">
+                                <div className="flex-1 min-w-0 overflow-hidden">
+                                  <div className="font-medium text-base text-[#13112B] truncate">{b.name}</div>
+                                  <div className="text-xs text-[#13112B]/60 truncate">
                                     {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
                                   </div>
                                 </div>
                               </div>
                               {!isSelected && (
-                                <span className="text-primary text-sm flex-shrink-0">Bearbeiten</span>
+                                <span className="text-[#36B531] text-sm flex-shrink-0 font-medium whitespace-nowrap">Bearbeiten</span>
                               )}
                             </CardContent>
                           </Card>
@@ -1436,257 +1523,309 @@ const Setter = () => {
                   </div>
                 </>
               ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Boulder bearbeiten</CardTitle>
-                </CardHeader>
-                <CardContent>
-                <form id="edit-form" onSubmit={submitEdit} className="space-y-4">
-                    <div className="w-full min-w-0">
-                      <Label>Name *</Label>
-                      <div className="flex items-center gap-2 w-full min-w-0">
-                        <Input value={form.name} onChange={(e)=>setForm({...form, name: e.target.value})} className="h-12 text-base flex-1 min-w-0" />
-                        <Button type="button" variant="outline" className="h-12 flex-shrink-0" onClick={() => setForm({ ...form, name: generateBoulderName(form.color, form.difficulty) })}>
-                          <Sparkles className="w-5 h-5 mr-2" />
-                          <span className="hidden sm:inline">Vorschlagen</span>
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="w-full min-w-0">
-                      <Label>Sektor *</Label>
-                      <Select value={form.sector_id} onValueChange={(v)=>setForm({...form, sector_id: v})}>
-                        <SelectTrigger className="h-12 text-base w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="spans-multiple-sectors-edit"
-                        checked={form.spansMultipleSectors}
-                        onChange={(e) => setForm({...form, spansMultipleSectors: e.target.checked, sector_id_2: e.target.checked ? form.sector_id_2 : ''})}
-                        className="h-4 w-4 rounded border-gray-300"
-                      />
-                      <Label htmlFor="spans-multiple-sectors-edit" className="cursor-pointer">
-                        Verläuft über mehrere Sektoren
-                      </Label>
-                    </div>
-                    {form.spansMultipleSectors && (
-                      <div className="w-full min-w-0">
-                        <Label>Endet in Sektor</Label>
-                        <Select 
-                          value={form.sector_id_2} 
-                          onValueChange={(v)=>setForm({...form, sector_id_2: v})}
-                          disabled={!form.sector_id}
-                        >
-                          <SelectTrigger className="h-12 text-base w-full">
-                            <SelectValue placeholder="Sektor wählen" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {sectors?.filter(s => s.id !== form.sector_id).map(s => (
-                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0">
-                      <div className="w-full min-w-0">
-                        <Label>Schwierigkeit *</Label>
-                        <Select value={form.difficulty === null ? '?' : String(form.difficulty)} onValueChange={(v)=>setForm({...form, difficulty: parseDifficulty(v)})}>
-                          <SelectTrigger className="h-12 text-base w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {DIFFICULTIES.map(d => <SelectItem key={d === null ? '?' : String(d)} value={d === null ? '?' : String(d)}>{formatDifficulty(d)}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="w-full min-w-0">
-                        <Label>Farbe *</Label>
-                        <Select value={form.color} onValueChange={(v)=>setForm(prev => ({...prev, color: v, name: adjustNameForColor(prev.name, v)}))}>
-                          <SelectTrigger className="h-12 text-base w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {COLORS.map(c => (
-                              <SelectItem key={c} value={c}>
-                                <div className="flex items-center gap-2">
-                                  <span className="w-3 h-3 rounded-xl border" style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }} />
-                                  <span>{c}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="w-full min-w-0">
-                      <Label>Beta-Video (optional)</Label>
-                      <div className="flex gap-2 w-full min-w-0 mb-2">
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          className="flex-1 h-12 min-w-0 text-sm sm:text-base" 
-                          onClick={()=>captureInputRef.current?.click()}
-                        >
-                          <span className="truncate">Video aufnehmen</span>
-                        </Button>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          className="flex-1 h-12 min-w-0 text-sm sm:text-base" 
-                          onClick={()=>galleryInputRef.current?.click()}
-                        >
-                          <span className="truncate">Aus Galerie</span>
-                        </Button>
-                      </div>
-                      <input 
-                        ref={captureInputRef} 
-                        hidden 
-                        type="file" 
-                        accept="video/*" 
-                        capture="environment" 
-                        onChange={(e)=>setForm({...form, file: e.target.files?.[0]||null})} 
-                      />
-                      <input 
-                        ref={galleryInputRef} 
-                        hidden 
-                        type="file" 
-                        accept="video/*" 
-                        onChange={(e)=>setForm({...form, file: e.target.files?.[0]||null})} 
-                      />
-                      {editing.betaVideoUrl && !form.file && (
-                        <div className="mt-2">
-                          <p className="text-xs text-muted-foreground mb-2">Aktuelles Video:</p>
-                          <div className="aspect-[9/16] w-full max-w-xs rounded-lg overflow-hidden border">
-                            <video src={editing.betaVideoUrl} controls muted className="w-full h-full object-cover" playsInline />
-                          </div>
-                        </div>
-                      )}
-                      {form.file && (
-                        <p className="text-xs text-muted-foreground mt-2 truncate">
-                          Neues Video: {form.file.name} ({(form.file.size / 1024 / 1024).toFixed(2)} MB)
-                        </p>
-                      )}
-                      {videoPreviewUrl && form.file && (
-                        <div className="aspect-[9/16] w-full max-w-xs mt-2 rounded-lg overflow-hidden border">
-                          <video src={videoPreviewUrl} controls muted className="w-full h-full object-cover" playsInline />
-                        </div>
-                      )}
-                    </div>
-                    <div className="w-full min-w-0">
-                      <Label>Thumbnail (optional)</Label>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Zeige die Startgriffe des Boulders. Dieses Bild wird in der Boulder-Liste angezeigt.
-                      </p>
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        className="w-full h-12 mb-2" 
-                        onClick={()=>thumbnailInputRef.current?.click()}
-                      >
-                        {editing.thumbnailUrl && !form.thumbnailFile ? 'Thumbnail ändern' : 'Thumbnail auswählen'}
-                      </Button>
-                      <input 
-                        ref={thumbnailInputRef} 
-                        hidden 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e)=>{
-                          const file = e.target.files?.[0] || null;
-                          setForm({...form, thumbnailFile: file});
-                        }} 
-                      />
-                      {editing?.thumbnailUrl && !form.thumbnailFile && (() => {
-                        // Fix old URLs that incorrectly include /videos/ in the path
-                        let thumbnailUrl = editing.thumbnailUrl;
-                        if (thumbnailUrl.includes('cdn.kletterwelt-sauerland.de/uploads/videos/')) {
-                          thumbnailUrl = thumbnailUrl.replace('/uploads/videos/', '/uploads/');
-                        }
-                        console.log('[Setter] Rendering thumbnail in edit view:', thumbnailUrl);
-                        return (
-                          <div className="mt-2">
-                            <p className="text-xs text-muted-foreground mb-2">Aktuelles Thumbnail:</p>
-                            <div className="aspect-[9/16] w-full max-w-xs rounded-lg overflow-hidden border">
+              <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
+                <DialogContent className="sm:max-w-[450px] max-h-[90vh] sm:max-h-[85vh] overflow-y-auto p-0 gap-0 w-full">
+                  <div className="sticky top-0 z-20 bg-white border-b border-[#E7F7E9] px-4 sm:px-6 py-4 rounded-t-2xl">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl font-heading font-bold text-[#13112B]">Boulder bearbeiten</DialogTitle>
+                      <DialogDescription className="text-sm text-[#13112B]/60">
+                        Bearbeite den Boulder. Lade Video und Thumbnail hoch.
+                      </DialogDescription>
+                    </DialogHeader>
+                  </div>
+                  
+                  <form id="edit-form" onSubmit={submitEdit}>
+                  <div className="px-4 sm:px-6 py-4 space-y-5">
+                  
+                    <div className="grid gap-3 py-2 sm:py-3 w-full box-border min-w-0">
+                      <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full box-border min-w-0">
+                        {/* Thumbnail Upload */}
+                        <div className="relative w-full aspect-[9/16] max-h-[160px] bg-[#F9FAF9] rounded-xl border-2 border-dashed border-[#E7F7E9] hover:border-[#36B531]/50 hover:bg-[#E7F7E9]/50 transition-all overflow-hidden group cursor-pointer">
+                          <input
+                            ref={thumbnailInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20 appearance-none text-[0]"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null;
+                              setForm({...form, thumbnailFile: file});
+                            }}
+                          />
+                          {form.thumbnailFile ? (
+                            <>
                               <img 
-                                src={thumbnailUrl} 
-                                alt="Current thumbnail" 
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  console.error('[Setter] Thumbnail image failed to load:', thumbnailUrl);
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                                onLoad={() => {
-                                  console.log('[Setter] Thumbnail image loaded successfully:', thumbnailUrl);
-                                }}
+                                src={thumbnailPreviewUrl || ''} 
+                                alt="Thumbnail" 
+                                className="absolute inset-0 w-full h-full object-cover"
                               />
-                            </div>
-                          </div>
-                        );
-                      })()}
-                      {form.thumbnailFile && (
-                        <div className="mt-2">
-                          <p className="text-xs text-muted-foreground mb-2">
-                            Neues Thumbnail: {form.thumbnailFile.name} ({(form.thumbnailFile.size / 1024).toFixed(2)} KB)
-                          </p>
-                          {thumbnailPreviewUrl && (
-                            <div className="aspect-[9/16] w-full max-w-xs rounded-lg overflow-hidden border">
-                              <img src={thumbnailPreviewUrl} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                              <div className="absolute top-2 right-2 bg-[#36B531] rounded-xl p-1 z-10">
+                                <Check className="w-3 h-3 text-white" />
+                              </div>
+                            </>
+                          ) : editing?.thumbnailUrl ? (() => {
+                            let thumbnailUrl = editing.thumbnailUrl;
+                            if (thumbnailUrl.includes('cdn.kletterwelt-sauerland.de/uploads/videos/')) {
+                              thumbnailUrl = thumbnailUrl.replace('/uploads/videos/', '/uploads/');
+                            }
+                            return (
+                              <>
+                                <img 
+                                  src={thumbnailUrl} 
+                                  alt="Thumbnail" 
+                                  className="absolute inset-0 w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                                <div className="absolute top-2 right-2 bg-[#36B531] rounded-xl p-1 z-10">
+                                  <Check className="w-3 h-3 text-white" />
+                                </div>
+                              </>
+                            );
+                          })() : (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center pointer-events-none">
+                              <ImageIcon className="w-6 h-6 text-[#13112B]/40 mb-1" />
+                              <span className="text-[10px] text-[#13112B]/60">Thumbnail</span>
                             </div>
                           )}
                         </div>
-                      )}
+
+                        {/* Video Upload */}
+                        <div className="relative w-full aspect-[9/16] max-h-[160px] bg-[#F9FAF9] rounded-xl border-2 border-dashed border-[#E7F7E9] hover:border-[#36B531]/50 hover:bg-[#E7F7E9]/50 transition-all overflow-hidden group cursor-pointer">
+                          <input
+                            ref={captureInputRef}
+                            type="file"
+                            accept="video/*"
+                            capture="environment"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20 appearance-none text-[0]"
+                            onChange={(e) => {
+                              setForm({...form, file: e.target.files?.[0]||null});
+                            }}
+                          />
+                          <input
+                            ref={galleryInputRef}
+                            type="file"
+                            accept="video/*"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20 appearance-none text-[0]"
+                            onChange={(e) => {
+                              setForm({...form, file: e.target.files?.[0]||null});
+                            }}
+                          />
+                          {form.file ? (
+                            <>
+                              <div className="absolute inset-0 w-full h-full bg-black/5 flex flex-col items-center justify-center p-2 text-center">
+                                <FileVideo className="w-6 h-6 text-[#36B531] mb-1" />
+                                <span className="text-[10px] text-[#13112B]/60 truncate w-full px-1">{form.file.name}</span>
+                              </div>
+                              <div className="absolute top-2 right-2 bg-[#36B531] rounded-xl p-1 z-10">
+                                <Check className="w-3 h-3 text-white" />
+                              </div>
+                            </>
+                          ) : editing?.betaVideoUrl ? (
+                            <>
+                              <div className="absolute inset-0 w-full h-full bg-black/5 flex flex-col items-center justify-center p-2 text-center">
+                                <FileVideo className="w-6 h-6 text-[#36B531] mb-1" />
+                                <span className="text-[10px] text-[#13112B]/60 truncate w-full px-1">Video vorhanden</span>
+                              </div>
+                              <div className="absolute top-2 right-2 bg-[#36B531] rounded-xl p-1 z-10">
+                                <Check className="w-3 h-3 text-white" />
+                              </div>
+                            </>
+                          ) : (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center pointer-events-none">
+                              <FileVideo className="w-6 h-6 text-[#13112B]/40 mb-1" />
+                              <span className="text-[10px] text-[#13112B]/60">Video</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-5 w-full box-border min-w-0">
+                        <div className="space-y-2 w-full box-border min-w-0">
+                          <Label className="text-sm font-medium text-[#13112B]">Name</Label>
+                          <div className="flex gap-2 w-full box-border min-w-0">
+                            <Input 
+                              value={form.name} 
+                              onChange={(e) => setForm({...form, name: e.target.value})} 
+                              placeholder="Boulder Name"
+                              className="flex-1 min-w-0 h-11 border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => setForm({ ...form, name: generateBoulderName(form.color, form.difficulty) })}
+                              title="Neuen Namen generieren"
+                              className="h-11 w-11 border-[#E7F7E9] hover:bg-[#E7F7E9] hover:text-[#13112B]"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="space-y-5 w-full box-border">
+                          <div className="space-y-2 w-full box-border min-w-0">
+                            <Label className="text-sm font-medium text-[#13112B]">Sektor</Label>
+                            <div className="w-full overflow-x-auto overflow-y-hidden pb-2 box-border -mx-1 px-1 scrollbar-hide touch-pan-x">
+                              <div className="flex gap-2 min-w-max">
+                                {sectors?.map(s => (
+                                  <button
+                                    key={s.id}
+                                    type="button"
+                                    onClick={() => setForm({...form, sector_id: s.id})}
+                                    className={cn(
+                                      "flex-shrink-0 px-3 py-2 rounded-xl text-sm font-medium transition-all border whitespace-nowrap h-11",
+                                      form.sector_id === s.id
+                                        ? "bg-[#36B531] text-white border-[#36B531] shadow-sm"
+                                        : "bg-white text-[#13112B] border-[#E7F7E9] hover:bg-[#E7F7E9] hover:text-[#13112B]"
+                                    )}
+                                  >
+                                    {s.name}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="spans-multiple-sectors-edit"
+                              checked={form.spansMultipleSectors}
+                              onCheckedChange={(checked) => setForm({...form, spansMultipleSectors: checked === true, sector_id_2: checked ? form.sector_id_2 : ''})}
+                              className="border-[#E7F7E9] data-[state=checked]:bg-[#36B531] data-[state=checked]:text-white"
+                            />
+                            <Label htmlFor="spans-multiple-sectors-edit" className="cursor-pointer text-sm text-[#13112B]">
+                              Verläuft über mehrere Sektoren
+                            </Label>
+                          </div>
+                          {form.spansMultipleSectors && (
+                            <div className="space-y-2 w-full box-border min-w-0">
+                              <Label className="text-sm font-medium text-[#13112B]">Endet in Sektor</Label>
+                              <div className="w-full overflow-x-auto overflow-y-hidden pb-2 box-border -mx-1 px-1 scrollbar-hide touch-pan-x">
+                                <div className="flex gap-2 min-w-max">
+                                  {sectors?.filter(s => s.id !== form.sector_id).map(s => (
+                                    <button
+                                      key={s.id}
+                                      type="button"
+                                      onClick={() => setForm({...form, sector_id_2: s.id})}
+                                      disabled={!form.sector_id}
+                                      className={cn(
+                                        "flex-shrink-0 px-3 py-2 rounded-xl text-sm font-medium transition-all border whitespace-nowrap h-11",
+                                        form.sector_id_2 === s.id
+                                          ? "bg-[#36B531] text-white border-[#36B531] shadow-sm"
+                                          : "bg-white text-[#13112B] border-[#E7F7E9] hover:bg-[#E7F7E9] hover:text-[#13112B]",
+                                        !form.sector_id && "opacity-50 cursor-not-allowed"
+                                      )}
+                                    >
+                                      {s.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          <div className="space-y-2 w-full box-border min-w-0">
+                            <Label className="text-sm font-medium text-[#13112B]">Farbe</Label>
+                            <div className="w-full flex gap-2 flex-wrap">
+                              {colorsDb?.map(c => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => setForm(prev => ({...prev, color: c.name, name: adjustNameForColor(prev.name, c.name)}))}
+                                  className={cn(
+                                    "flex-shrink-0 w-11 h-11 rounded-xl transition-all border-2 flex items-center justify-center",
+                                    form.color === c.name
+                                      ? "border-[#36B531] shadow-lg scale-110 ring-2 ring-[#36B531] ring-offset-2"
+                                      : "border-[#E7F7E9] hover:border-[#36B531]/50 hover:scale-105"
+                                  )}
+                                  style={getColorBackgroundStyle(c.name, colorsDb)}
+                                  title={c.name}
+                                >
+                                  {form.color === c.name && (
+                                    <div className="w-3 h-3 rounded-xl bg-white/90 shadow-sm" />
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-2 w-full box-border min-w-0">
+                          <Label className="text-sm font-medium text-[#13112B]">Schwierigkeit: {form.difficulty || '?'}</Label>
+                          <div className="grid grid-cols-8 gap-1.5 w-full min-w-0">
+                            {[1, 2, 3, 4, 5, 6, 7, 8].map((level) => (
+                              <button
+                                key={level}
+                                type="button"
+                                onClick={() => setForm({...form, difficulty: level, name: generateBoulderName(form.color, level)})}
+                                className={cn(
+                                  "w-full aspect-square rounded-xl flex items-center justify-center text-xs sm:text-sm font-bold transition-all border min-w-0",
+                                  form.difficulty === level 
+                                    ? "bg-[#36B531] text-white border-[#36B531] shadow-sm" 
+                                    : "bg-white text-[#13112B] border-[#E7F7E9] hover:bg-[#E7F7E9] hover:text-[#13112B]"
+                                )}
+                              >
+                                {level}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="space-y-2 w-full box-border min-w-0">
+                          <Label className="text-sm font-medium text-[#13112B]">Notizen</Label>
+                          <Textarea value={form.note} onChange={(e)=>setForm({...form, note: e.target.value})} className="min-h-[100px] w-full min-w-0 border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" />
+                        </div>
+                      </div>
                     </div>
-                    <div className="w-full min-w-0">
-                      <Label>Notizen</Label>
-                      <Textarea value={form.note} onChange={(e)=>setForm({...form, note: e.target.value})} className="min-h-[100px] w-full min-w-0" />
-                    </div>
-                    <div className="h-24" />
+                  </div>
+
+                  <div className="sticky bottom-0 z-20 bg-white border-t border-[#E7F7E9] px-4 sm:px-6 py-4 flex flex-col-reverse sm:flex-row gap-3 rounded-b-2xl">
+                    <Button
+                      variant="outline"
+                      type="button"
+                      onClick={() => setEditing(null)}
+                      className="flex-1 h-11 border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] hover:text-[#13112B] rounded-xl"
+                    >
+                      Abbrechen
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 text-[#E74C3C] border-[#E7F7E9] hover:bg-red-50 hover:text-[#E74C3C] rounded-xl flex-1"
+                      disabled={deleteBoulder.isPending}
+                      onClick={async () => {
+                        if (!editing) return;
+                        if (!confirm('Diesen Boulder wirklich löschen? Das Beta-Video wird ebenfalls gelöscht.')) return;
+                        
+                        try {
+                          await deleteBoulder.mutateAsync(editing.id);
+                          setEditing(null);
+                        } catch (error) {
+                          // Error is already handled by the hook's onError
+                        }
+                      }}
+                    >
+                      {deleteBoulder.isPending ? 'Lösche...' : 'Löschen'}
+                    </Button>
+                    <Button
+                      form="edit-form"
+                      type="submit"
+                      className="flex-1 h-11 bg-[#36B531] text-white hover:bg-[#2da029] rounded-xl"
+                      disabled={!canSubmit || isUploading}
+                    >
+                      {isUploading ? 'Speichere…' : 'Speichern'}
+                    </Button>
+                  </div>
                   </form>
-                </CardContent>
-                <div className="p-4 pt-0 flex gap-2">
-                  <Button form="edit-form" type="submit" className="h-12" disabled={!canSubmit || isUploading}>
-                    {isUploading ? 'Speichere…' : 'Änderungen speichern'}
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    className="h-12 text-destructive"
-                    disabled={deleteBoulder.isPending}
-                    onClick={async () => {
-                      if (!editing) return;
-                      if (!confirm('Diesen Boulder wirklich löschen? Das Beta-Video wird ebenfalls gelöscht.')) return;
-                      
-                      try {
-                        await deleteBoulder.mutateAsync(editing.id);
-                        // Only close dialog after successful deletion
-                        setEditing(null);
-                      } catch (error) {
-                        // Error is already handled by the hook's onError
-                        // Don't close dialog on error
-                      }
-                    }}
-                  >
-                    {deleteBoulder.isPending ? 'Lösche...' : 'Löschen'}
-                  </Button>
-                </div>
-              </Card>
+                </DialogContent>
+              </Dialog>
               )}
                 </div>
               </TabsContent>
 
-              <TabsContent value="status" className="mt-0">
-                <div className="space-y-4 w-full min-w-0 overflow-x-hidden">
+              <TabsContent value="status" className="mt-0 w-full min-w-0">
+                <div className="space-y-4 w-full min-w-0">
                   {/* Filter Bar */}
                   <div className="flex gap-2 items-center flex-wrap">
                     <div className="w-full sm:w-48 flex-shrink-0">
                       <Select value={statusSectorFilter} onValueChange={setStatusSectorFilter}>
-                        <SelectTrigger className="h-11 w-full">
+                        <SelectTrigger className="h-11 w-full border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]">
                           <SelectValue placeholder="Sektor wählen" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1699,13 +1838,14 @@ const Setter = () => {
                     {/* Selection Info and Actions - Desktop */}
                     {selectedBouldersForStatus.size > 0 && (
                       <div className="hidden md:flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-sm text-[#13112B]/60">
                           {selectedBouldersForStatus.size} {selectedBouldersForStatus.size === 1 ? 'Boulder' : 'Boulder'} ausgewählt
                         </span>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setSelectedBouldersForStatus(new Set())}
+                          className="h-11 border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] rounded-xl"
                         >
                           <X className="w-5 h-5 mr-1" />
                           Auswahl aufheben
@@ -1722,6 +1862,7 @@ const Setter = () => {
                             window.location.reload();
                           }}
                           disabled={bulkStatusUpdate.isPending}
+                          className="h-11 bg-[#36B531] hover:bg-[#2da029] text-white rounded-xl"
                         >
                           <MaterialIcon name="input_circle" className="w-5 h-5 mr-1" size={20} />
                           Reinschrauben
@@ -1738,6 +1879,7 @@ const Setter = () => {
                             window.location.reload();
                           }}
                           disabled={bulkStatusUpdate.isPending}
+                          className="h-11 bg-[#36B531] hover:bg-[#2da029] text-white rounded-xl"
                         >
                           <MaterialIcon name="output_circle" className="w-5 h-5 mr-1" size={20} />
                           Rausschrauben
@@ -1747,26 +1889,43 @@ const Setter = () => {
                     
                     {/* Selection Info - Mobile */}
                     {selectedBouldersForStatus.size > 0 && (
-                      <div className="md:hidden text-sm text-muted-foreground">
+                      <div className="md:hidden text-sm text-[#13112B]/60">
                         {selectedBouldersForStatus.size} {selectedBouldersForStatus.size === 1 ? 'Boulder' : 'Boulder'} ausgewählt
                       </div>
                     )}
                   </div>
 
+                  {/* Alle auswählen Button - nur wenn keine Auswahl */}
+                  {selectedBouldersForStatus.size === 0 && (
+                    <div className="mb-4 pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const allIds = new Set(filteredBouldersForStatus.map(b => b.id));
+                          setSelectedBouldersForStatus(allIds);
+                        }}
+                        className="w-full sm:w-auto h-11 border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] rounded-xl"
+                      >
+                        Alle auswählen
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Boulder Count */}
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-[#13112B]/60">
                     {filteredBouldersForStatus.length} {filteredBouldersForStatus.length === 1 ? 'Boulder' : 'Boulder'} gefunden
                   </div>
 
                   {/* Boulder Grid */}
-                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 w-full min-w-0">
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3 w-full">
                     {filteredBouldersForStatus.map(b => {
                       const thumbnailUrl = getThumbnailUrl(b);
                       const isSelected = selectedBouldersForStatus.has(b.id);
                       const currentStatus = (b as any).status || 'haengt';
                       
                       return (
-                        <div key={b.id} className="relative w-full min-w-0">
+                        <div key={b.id} className="relative w-full">
                           <Checkbox
                             checked={isSelected}
                             onCheckedChange={(checked) => {
@@ -1780,146 +1939,471 @@ const Setter = () => {
                                 return next;
                               });
                             }}
-                            className="absolute top-3 left-3 z-10 bg-background/90 backdrop-blur-sm w-5 h-5 border-2"
+                            className="absolute top-2 left-2 z-10 bg-background/80 backdrop-blur-sm w-5 h-5 sm:w-4 sm:h-4"
                             onClick={(e) => e.stopPropagation()}
                           />
-                          <Card className={`w-full min-w-0 transition-all ${isSelected ? 'ring-2 ring-primary shadow-md' : 'hover:bg-muted/50'}`}>
-                            <CardContent className="p-4 flex items-center gap-3 w-full min-w-0">
-                              {/* Thumbnail or Difficulty Badge */}
-                              {thumbnailUrl ? (
-                                <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
-                                  <img 
-                                    src={thumbnailUrl} 
-                                    alt={b.name}
-                                    className="w-full h-full object-cover"
-                                    loading="lazy"
-                                    decoding="async"
-                                    onError={(e) => {
-                                      e.currentTarget.style.display = 'none';
-                                    }}
-                                  />
+                          <button 
+                            className="text-left w-full touch-manipulation" 
+                            onClick={(e) => {
+                              // Wenn bereits ein Boulder ausgewählt ist, nur Auswahl umschalten
+                              if (selectedBouldersForStatus.size > 0) {
+                                e.preventDefault();
+                                setSelectedBouldersForStatus(prev => {
+                                  const next = new Set(prev);
+                                  if (isSelected) {
+                                    next.delete(b.id);
+                                  } else {
+                                    next.add(b.id);
+                                  }
+                                  return next;
+                                });
+                              } else {
+                                // Wenn kein Boulder ausgewählt ist, nichts tun (Status-Bereich hat keine Edit-Funktion)
+                                if (isSelected) {
+                                  e.preventDefault();
+                                  setSelectedBouldersForStatus(prev => {
+                                    const next = new Set(prev);
+                                    next.delete(b.id);
+                                    return next;
+                                  });
+                                }
+                              }
+                            }}
+                          >
+                            <Card className={cn("bg-white border border-[#E7F7E9] hover:shadow-md transition-all w-full", isSelected ? 'ring-2 ring-[#36B531] bg-[#E7F7E9]' : '')}>
+                              <CardContent className="p-4 flex items-center gap-3 w-full min-w-0 overflow-hidden">
+                                <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
+                                  {thumbnailUrl && (
+                                    <div className="w-16 h-16 flex-shrink-0 rounded-xl overflow-hidden bg-[#F9FAF9] border border-[#E7F7E9]">
+                                      <img 
+                                        src={thumbnailUrl} 
+                                        alt={b.name}
+                                        className="w-full h-full object-cover"
+                                        loading="lazy"
+                                        decoding="async"
+                                        onError={(e) => {
+                                          e.currentTarget.style.display = 'none';
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                  <span className={cn("w-7 h-7 rounded-xl border-2 grid place-items-center text-xs font-semibold flex-shrink-0", TEXT_ON_COLOR[b.color] || 'text-white')} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
+                                    {formatDifficulty(b.difficulty)}
+                                  </span>
+                                  <div className="flex-1 min-w-0 overflow-hidden">
+                                    <div className="font-medium text-base text-[#13112B] truncate">{b.name}</div>
+                                    <div className="text-xs text-[#13112B]/60 truncate">
+                                      {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
+                                    </div>
+                                  </div>
                                 </div>
-                              ) : (
-                                <span 
-                                  className={`w-12 h-12 rounded-xl border-2 grid place-items-center text-sm font-semibold flex-shrink-0 ${TEXT_ON_COLOR[b.color] || 'text-white'}`} 
-                                  style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}
-                                >
-                                  {formatDifficulty(b.difficulty)}
-                                </span>
-                              )}
-                              
-                              {/* Boulder Info */}
-                              <div className="flex-1 min-w-0">
-                                <div className="font-medium text-base truncate">{b.name}</div>
-                                <div className="text-xs text-muted-foreground truncate">
-                                  {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
-                                </div>
-                                <div className="mt-1">
-                                  <span className={`text-xs px-2 py-0.5 rounded-xl border ${
+                                {!isSelected && (
+                                  <span className={cn("text-xs px-2 py-0.5 rounded-xl border flex-shrink-0", 
                                     currentStatus === 'abgeschraubt' 
-                                      ? 'bg-destructive/10 text-destructive border-destructive/20' 
-                                      : 'bg-success/10 text-success border-success/20'
-                                  }`}>
+                                      ? 'bg-red-50 text-[#E74C3C] border-red-200' 
+                                      : 'bg-[#E7F7E9] text-[#36B531] border-[#36B531]/20'
+                                  )}>
                                     {currentStatus === 'abgeschraubt' ? 'Abgeschraubt' : 'Hängt'}
                                   </span>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </button>
                         </div>
                       );
                     })}
                   </div>
 
                   {filteredBouldersForStatus.length === 0 && (
-                    <div className="text-center py-12 text-muted-foreground">
+                    <div className="text-center py-12 text-[#13112B]/60">
                       Keine Boulder gefunden
                     </div>
                   )}
                 </div>
               </TabsContent>
 
-              <TabsContent value="schedule" className="mt-0">
-                <div className="space-y-3" ref={scheduleRef}>
-            <Card>
-              <CardHeader>
-                <CardTitle>Schrauberplan</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <Label>Sektor</Label>
-                    <Select value={scheduleSectorId} onValueChange={setScheduleSectorId}>
-                      <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Sektor wählen" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+              <TabsContent value="schedule" className="mt-0 w-full min-w-0">
+                <div className="space-y-4 w-full min-w-0" ref={scheduleRef}>
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-[#13112B]/60">
+                      {schedule?.length || 0} {schedule?.length === 1 ? 'Termin' : 'Termine'} geplant
+                    </p>
+                    <Button
+                      onClick={() => setScheduleDialogOpen(true)}
+                      className="h-11 bg-[#36B531] hover:bg-[#2da029] text-white rounded-xl px-4 gap-2"
+                    >
+                      <Plus className="w-5 h-5" />
+                      <span className="hidden sm:inline">Neuer Termin</span>
+                    </Button>
                   </div>
-                  <div>
-                    <Label>Datum/Zeit</Label>
-                    <Input type="datetime-local" value={scheduleDate} onChange={(e)=>setScheduleDate(e.target.value)} className="h-12" />
-                  </div>
-                  <div className="flex items-end">
-                    <Button onClick={scheduleNextSector} className="w-full h-12">Eintragen</Button>
-                  </div>
+
+                  {/* Schedule List */}
+                  {groupedSchedule.length === 0 ? (
+                    <Card className="bg-white border border-[#E7F7E9] rounded-2xl">
+                      <CardContent className="p-12 text-center">
+                        <CalendarIcon className="w-12 h-12 text-[#13112B]/20 mx-auto mb-4" />
+                        <p className="text-[#13112B]/60 font-medium">Noch keine Termine geplant</p>
+                        <p className="text-sm text-[#13112B]/40 mt-1">Erstelle deinen ersten Schraubtermin</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="space-y-3">
+                      {(() => {
+                        const now = new Date();
+                        const upcomingGroups: typeof groupedSchedule = [];
+                        const pastGroups: typeof groupedSchedule = [];
+                        
+                        groupedSchedule.forEach(group => {
+                          const isToday = group.date.toDateString() === now.toDateString();
+                          const isPast = group.date < now && !isToday;
+                          if (isPast) {
+                            pastGroups.push(group);
+                          } else {
+                            upcomingGroups.push(group);
+                          }
+                        });
+                        
+                        return (
+                          <>
+                            {/* Upcoming Schedule */}
+                            {upcomingGroups.length > 0 && (
+                              <div className="space-y-3">
+                                {upcomingGroups.map(({ date, items }) => {
+                                  const isToday = date.toDateString() === now.toDateString();
+                                  
+                                  return (
+                                    <div key={date.toDateString()} className="space-y-2">
+                                      {/* Compact Date Label */}
+                                      <div className="flex items-center gap-2 px-2">
+                                        <span className={cn(
+                                          "text-xs font-medium uppercase tracking-wide",
+                                          isToday ? "text-[#36B531]" : "text-[#13112B]/60"
+                                        )}>
+                                          {isToday ? 'Heute' : date.toLocaleDateString('de-DE', { 
+                                            weekday: 'short', 
+                                            day: '2-digit', 
+                                            month: 'short'
+                                          })}
+                                        </span>
+                                      </div>
+
+                                      {/* Schedule Items */}
+                                      {items.map(item => {
+                                        const sectorName = sectors?.find(s => s.id === item.sector_id)?.name || 'Unbekannter Sektor';
+                                        const itemDate = new Date(item.scheduled_at);
+                                        const time = itemDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                                        
+                                        return (
+                                          <Card 
+                                            key={item.id} 
+                                            className="bg-white border border-[#E7F7E9] transition-all hover:shadow-md"
+                                          >
+                                            <CardContent className="p-4">
+                                              <div className="flex items-center justify-between gap-3">
+                                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                  <span className="text-sm font-medium flex-shrink-0 w-16 text-[#13112B]">
+                                                    {time}
+                                                  </span>
+                                                  <div className="flex-1 min-w-0">
+                                                    <span className="font-medium text-[#13112B] truncate block">{sectorName}</span>
+                                                  </div>
+                                                </div>
+                                                <Button 
+                                                  type="button" 
+                                                  size="sm" 
+                                                  variant="ghost"
+                                                  onClick={async () => {
+                                                    if (confirm('Möchtest du diesen Termin wirklich löschen?')) {
+                                                      try {
+                                                        await deleteSchedule.mutateAsync(item.id);
+                                                        toast.success('Termin gelöscht');
+                                                      } catch (error) {
+                                                        toast.error('Fehler beim Löschen des Termins');
+                                                        console.error('Delete schedule error:', error);
+                                                      }
+                                                    }
+                                                  }}
+                                                  disabled={deleteSchedule.isPending}
+                                                  className="h-8 w-8 p-0 text-[#E74C3C] hover:bg-red-50 hover:text-[#E74C3C] rounded-xl flex-shrink-0 disabled:opacity-50"
+                                                >
+                                                  <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                              </div>
+                                            </CardContent>
+                                          </Card>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            
+                            {/* Past Schedule */}
+                            {pastGroups.length > 0 && (
+                              <div className="space-y-3 mt-6">
+                                <div className="px-2 pb-2">
+                                  <h3 className="text-sm font-semibold text-[#13112B]/60 uppercase tracking-wide">Vergangene Termine</h3>
+                                </div>
+                                {pastGroups.map(({ date, items }) => {
+                                  return (
+                                    <div key={date.toDateString()} className="space-y-2">
+                                      {/* Compact Date Label */}
+                                      <div className="flex items-center gap-2 px-2">
+                                        <span className="text-xs font-medium uppercase tracking-wide text-[#13112B]/40">
+                                          {date.toLocaleDateString('de-DE', { 
+                                            weekday: 'short', 
+                                            day: '2-digit', 
+                                            month: 'short'
+                                          })}
+                                        </span>
+                                      </div>
+
+                                      {/* Schedule Items */}
+                                      {items.map(item => {
+                                        const sectorName = sectors?.find(s => s.id === item.sector_id)?.name || 'Unbekannter Sektor';
+                                        const itemDate = new Date(item.scheduled_at);
+                                        const time = itemDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                                        
+                                        return (
+                                          <Card 
+                                            key={item.id} 
+                                            className="bg-white border border-[#E7F7E9] transition-all hover:shadow-md opacity-50"
+                                          >
+                                            <CardContent className="p-4">
+                                              <div className="flex items-center justify-between gap-3">
+                                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                  <span className="text-sm font-medium flex-shrink-0 w-16 text-[#13112B]/40">
+                                                    {time}
+                                                  </span>
+                                                  <div className="flex-1 min-w-0">
+                                                    <span className="font-medium text-[#13112B]/40 truncate block">{sectorName}</span>
+                                                  </div>
+                                                </div>
+                                                <Button 
+                                                  type="button" 
+                                                  size="sm" 
+                                                  variant="ghost"
+                                                  onClick={async () => {
+                                                    if (confirm('Möchtest du diesen Termin wirklich löschen?')) {
+                                                      try {
+                                                        await deleteSchedule.mutateAsync(item.id);
+                                                        toast.success('Termin gelöscht');
+                                                      } catch (error) {
+                                                        toast.error('Fehler beim Löschen des Termins');
+                                                        console.error('Delete schedule error:', error);
+                                                      }
+                                                    }
+                                                  }}
+                                                  disabled={deleteSchedule.isPending}
+                                                  className="h-8 w-8 p-0 text-[#E74C3C] hover:bg-red-50 hover:text-[#E74C3C] rounded-xl flex-shrink-0 disabled:opacity-50"
+                                                >
+                                                  <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                              </div>
+                                            </CardContent>
+                                          </Card>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-6">
-                  {weeks.map(({ weekStart, days }, wi) => (
-                    <div key={wi} className="space-y-3">
-                      <div className="text-sm font-medium text-muted-foreground">Woche ab {weekStart.toLocaleDateString()}</div>
-                      <div className="grid grid-cols-1 gap-2">
-                        {days.map((d, di) => {
-                          const items = (schedule || []).filter(s => new Date(s.scheduled_at).toDateString() === d.toDateString());
-                          return (
-                            <div key={di} className="rounded-xl border bg-card p-3">
-                              <div className="text-sm font-medium mb-2">{d.toLocaleDateString(undefined, { weekday: 'long', day: '2-digit', month: '2-digit' })}</div>
-                              {items.length === 0 ? (
-                                <div className="text-xs text-muted-foreground">Keine Einträge</div>
-                              ) : (
-                                <div className="space-y-2">
-                                  {items.map(it => {
-                                    const sectorName = sectors?.find(s => s.id === it.sector_id)?.name || 'Sektor';
-                                    const time = new Date(it.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                                    return (
-                                      <div key={it.id} className="flex items-center justify-between text-sm">
-                                        <div>{time} · {sectorName}</div>
-                                        <Button type="button" size="sm" variant="outline" onClick={()=>deleteSchedule.mutate(it.id)}>Löschen</Button>
-                                      </div>
-                                    );
-                                  })}
+                {/* Schedule Dialog */}
+                <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>
+                  <DialogContent className="sm:max-w-[425px] p-0 gap-0">
+                    <DialogHeader className="px-6 pt-6 pb-4">
+                      <DialogTitle className="text-2xl font-heading font-bold text-[#13112B]">Neuer Schraubtermin</DialogTitle>
+                      <DialogDescription className="text-base text-[#13112B]/60 mt-2">
+                        Plane einen neuen Schraubtermin für einen Sektor
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-6 px-6 pb-6">
+                      <div className="space-y-3">
+                        <Label className="text-base font-semibold text-[#13112B]">Sektor</Label>
+                        <Select value={scheduleSectorId} onValueChange={setScheduleSectorId}>
+                          <SelectTrigger className="h-12 w-full border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] text-base">
+                            <SelectValue placeholder="Sektor wählen" />
+                          </SelectTrigger>
+                          <SelectContent className="z-[90]">
+                            {sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-3">
+                          <Label className="text-base font-semibold text-[#13112B]">Datum</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "h-12 w-full justify-start text-left font-normal border-[#E7F7E9] hover:bg-[#F9FAF9] text-base",
+                                  !scheduleDate && "text-[#13112B]/40"
+                                )}
+                              >
+                                <CalendarIcon className="mr-3 h-5 w-5 text-[#13112B]/60" />
+                                {scheduleDate ? (
+                                  format(scheduleDate, "dd.MM.yyyy", { locale: de })
+                                ) : (
+                                  <span className="text-[#13112B]/40">tt.mm.jjjj</span>
+                                )}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[calc(100vw-2rem)] sm:w-auto p-0 border-[#E7F7E9] rounded-xl z-[100] bg-white" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={scheduleDate}
+                                onSelect={setScheduleDate}
+                                initialFocus
+                                className="rounded-xl"
+                                captionLayout="dropdown-buttons"
+                                fromYear={new Date().getFullYear()}
+                                toYear={new Date().getFullYear() + 10}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="space-y-3">
+                          <Label className="text-base font-semibold text-[#13112B]">Uhrzeit</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "h-12 w-full justify-start text-left font-normal border-[#E7F7E9] hover:bg-[#F9FAF9] text-base",
+                                  !scheduleTime && "text-[#13112B]/40"
+                                )}
+                              >
+                                <Clock className="mr-3 h-5 w-5 text-[#13112B]/60" />
+                                {scheduleTime ? (
+                                  scheduleTime
+                                ) : (
+                                  <span className="text-[#13112B]/40">--:--</span>
+                                )}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-3 pr-5 border-[#E7F7E9] rounded-xl z-[100]" align="start">
+                              <div className="flex items-center gap-3">
+                                {/* Hours */}
+                                <div className="flex flex-col items-center">
+                                  <Label className="text-xs font-semibold text-[#13112B]/60 mb-2 uppercase tracking-wide">Stunden</Label>
+                                  <ScrollArea className="h-36 w-14">
+                                    <div className="space-y-1 pr-2">
+                                      {Array.from({ length: 24 }, (_, i) => {
+                                        const hour = i.toString().padStart(2, '0');
+                                        const [currentHour] = scheduleTime?.split(':') || ['00'];
+                                        const isSelected = currentHour === hour;
+                                        return (
+                                          <button
+                                            key={hour}
+                                            onClick={() => {
+                                              const currentMinutes = scheduleTime?.split(':')[1] || '00';
+                                              setScheduleTime(`${hour}:${currentMinutes}`);
+                                            }}
+                                            className={cn(
+                                              "w-full h-9 rounded-lg text-sm font-medium transition-colors flex items-center justify-center",
+                                              isSelected
+                                                ? "bg-[#36B531] text-white"
+                                                : "hover:bg-[#E7F7E9] text-[#13112B]"
+                                            )}
+                                          >
+                                            {hour}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </ScrollArea>
                                 </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                                
+                                {/* Separator */}
+                                <div className="text-xl font-bold text-[#13112B]/40 pt-7">:</div>
+                                
+                                {/* Minutes */}
+                                <div className="flex flex-col items-center">
+                                  <Label className="text-xs font-semibold text-[#13112B]/60 mb-2 uppercase tracking-wide">Minuten</Label>
+                                  <ScrollArea className="h-36 w-14">
+                                    <div className="space-y-1 pr-2">
+                                      {Array.from({ length: 60 }, (_, i) => {
+                                        const minute = i.toString().padStart(2, '0');
+                                        const [, currentMinute] = scheduleTime?.split(':') || ['00', '00'];
+                                        const isSelected = currentMinute === minute;
+                                        return (
+                                          <button
+                                            key={minute}
+                                            onClick={() => {
+                                              const currentHours = scheduleTime?.split(':')[0] || '00';
+                                              setScheduleTime(`${currentHours}:${minute}`);
+                                            }}
+                                            className={cn(
+                                              "w-full h-9 rounded-lg text-sm font-medium transition-colors flex items-center justify-center",
+                                              isSelected
+                                                ? "bg-[#36B531] text-white"
+                                                : "hover:bg-[#E7F7E9] text-[#13112B]"
+                                            )}
+                                          >
+                                            {minute}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </ScrollArea>
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-                </div>
+                    <div className="flex flex-col-reverse sm:flex-row gap-3 px-6 pb-6 pt-0 border-t border-[#E7F7E9]">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setScheduleDialogOpen(false);
+                          setScheduleSectorId('');
+                          setScheduleDate(undefined);
+                          setScheduleTime('');
+                        }}
+                        className="flex-1 h-12 border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] rounded-xl text-base font-medium"
+                      >
+                        Abbrechen
+                      </Button>
+                      <Button
+                        onClick={scheduleNextSector}
+                        disabled={!scheduleSectorId || !scheduleDate || !scheduleTime}
+                        className="flex-1 h-12 bg-[#36B531] hover:bg-[#2da029] text-white rounded-xl text-base font-medium"
+                      >
+                        Termin erstellen
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </TabsContent>
             </Tabs>
         </main>
 
-      {/* Mobile FABs for Status Management */}
+        {/* Mobile FABs for Status Management */}
       {view === 'status' && selectedBouldersForStatus.size > 0 && (
-        <div className="md:hidden fixed right-4 bottom-28 z-[100] flex items-center gap-3">
+        <div className="md:hidden fixed right-4 bottom-32 z-[100] flex items-center gap-3" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}>
           <button
             aria-label="Auswahl abbrechen"
-            className="w-12 h-12 rounded-xl bg-destructive text-destructive-foreground grid place-items-center shadow-xl"
+            className="w-14 h-14 rounded-xl bg-gray-700 text-white grid place-items-center shadow-xl hover:bg-gray-800 transition-all"
             onClick={() => setSelectedBouldersForStatus(new Set())}
           >
             <X className="w-6 h-6" />
           </button>
           <button
             aria-label="Ausgewählte reinschrauben"
-            className="w-12 h-12 rounded-xl bg-success text-success-foreground grid place-items-center shadow-xl"
+            className="w-14 h-14 rounded-xl bg-[#36B531] text-white grid place-items-center shadow-xl hover:bg-[#2da029] transition-all"
             onClick={async () => {
               const ids = Array.from(selectedBouldersForStatus);
               if (ids.length === 0) return;
@@ -1934,7 +2418,7 @@ const Setter = () => {
           </button>
           <button
             aria-label="Ausgewählte rausschrauben"
-            className="w-12 h-12 rounded-xl bg-primary text-primary-foreground grid place-items-center shadow-xl"
+            className="w-14 h-14 rounded-xl bg-[#36B531] text-white grid place-items-center shadow-xl hover:bg-[#2da029] transition-all"
             onClick={async () => {
               const ids = Array.from(selectedBouldersForStatus);
               if (ids.length === 0) return;
@@ -1950,14 +2434,69 @@ const Setter = () => {
         </div>
       )}
 
-      {/* Spacer for mobile only global nav */}
-      <div className="h-24 md:h-0" />
-      
+      {/* Mobile FABs for Edit/Delete Management */}
+      {view === 'edit' && selectedBouldersForDelete.size > 0 && (
+        <div className="md:hidden fixed right-4 bottom-32 z-[100] flex items-center gap-3" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}>
+          <button
+            aria-label="Auswahl abbrechen"
+            className="w-14 h-14 rounded-xl bg-gray-700 text-white grid place-items-center shadow-xl hover:bg-gray-800 transition-all"
+            onClick={() => setSelectedBouldersForDelete(new Set())}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <button
+            aria-label="Ausgewählte löschen"
+            className="w-14 h-14 rounded-xl bg-[#E74C3C] text-white grid place-items-center shadow-xl hover:bg-[#c0392b] transition-all"
+            disabled={deleteBoulder.isPending}
+            onClick={async () => {
+              const count = selectedBouldersForDelete.size;
+              if (!confirm(`Wirklich ${count} ${count === 1 ? 'Boulder' : 'Boulder'} löschen? Die Beta-Videos werden ebenfalls gelöscht.`)) {
+                return;
+              }
+              
+              try {
+                const ids = Array.from(selectedBouldersForDelete);
+                let successCount = 0;
+                let failCount = 0;
+                
+                for (const id of ids) {
+                  try {
+                    await deleteBoulder.mutateAsync(id);
+                    successCount++;
+                  } catch (error) {
+                    console.error(`[Setter] Failed to delete boulder ${id}:`, error);
+                    failCount++;
+                  }
+                }
+                
+                if (successCount > 0) {
+                  toast.success(`${successCount} ${successCount === 1 ? 'Boulder' : 'Boulder'} erfolgreich gelöscht`);
+                }
+                if (failCount > 0) {
+                  toast.error(`${failCount} ${failCount === 1 ? 'Boulder' : 'Boulder'} konnten nicht gelöscht werden`);
+                }
+                
+                setSelectedBouldersForDelete(new Set());
+              } catch (error) {
+                console.error('[Setter] Bulk delete error:', error);
+                toast.error('Fehler beim Löschen der Boulder');
+              }
+            }}
+          >
+            <Trash2 className="w-6 h-6" />
+          </button>
+        </div>
+      )}
 
-      {/* Floating Action Button - Boulder hinzufügen (immer sichtbar) */}
-      {/* Removed custom FAB, using BatchUpload internal button or standard flow */}
+        {/* Spacer for mobile only global nav */}
+        <div className="h-24 md:h-0" />
+        
+
+        {/* Floating Action Button - Boulder hinzufügen (immer sichtbar) */}
+        {/* Removed custom FAB, using BatchUpload internal button or standard flow */}
+        </div>
       </div>
-    </div>
+    </SetterTabTitleProvider>
   );
 };
 
