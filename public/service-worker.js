@@ -1,7 +1,8 @@
-const CACHE_NAME = 'kws-beta-v2';
+const CACHE_NAME = 'kws-beta-v3';
 const CORE_ASSETS = [
   '/',
-  '/index.html'
+  '/index.html',
+  '/manifest.webmanifest'
 ];
 
 self.addEventListener('install', (event) => {
@@ -19,6 +20,16 @@ self.addEventListener('activate', (event) => {
     )).then(() => {
       // Take control of all clients immediately
       return self.clients.claim();
+    }).then(() => {
+      // Notify all clients about the update
+      return self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({
+            type: 'SW_UPDATED',
+            cacheName: CACHE_NAME
+          });
+        });
+      });
     })
   );
 });

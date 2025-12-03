@@ -1,24 +1,53 @@
 {
-  "name": "KWS Beta App",
+  "name": "Kletterwelt Sauerland Beta App",
   "short_name": "KWS Beta",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0b0f1a",
-  "theme_color": "#0ea5e9",
-  "description": "Boulder-Übersicht mit Beta-Videos, Statistiken und Admin-Tools",
+  "orientation": "portrait-primary",
+  "background_color": "#F9FAF9",
+  "theme_color": "#36B531",
+  "description": "Boulder-Übersicht mit Beta-Videos, Statistiken, Wettkämpfen und Admin-Tools für die Kletterwelt Sauerland",
+  "categories": ["sports", "lifestyle"],
   "icons": [
     {
       "src": "/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
       "src": "/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Boulder",
+      "short_name": "Boulder",
+      "description": "Boulder-Übersicht öffnen",
+      "url": "/boulders",
+      "icons": [
+        {
+          "src": "/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Wettkampf",
+      "short_name": "Wettkampf",
+      "description": "Wettkampf-Rangliste öffnen",
+      "url": "/competition",
+      "icons": [
+        {
+          "src": "/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }
