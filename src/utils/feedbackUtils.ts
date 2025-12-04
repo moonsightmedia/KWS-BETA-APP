@@ -118,8 +118,9 @@ async function uploadScreenshot(screenshotDataUrl: string): Promise<string | nul
  */
 export async function submitFeedback(data: FeedbackData): Promise<{ success: boolean; error?: string }> {
   try {
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
+    // Get current user session
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     
     // Prepare feedback payload
     const feedbackPayload: any = {
@@ -175,8 +176,9 @@ export async function reportError(
     // Capture screenshot
     const screenshot = await captureScreenshot();
     
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
+    // Get current user session
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     
     // Prepare error details
     const errorDetails: ErrorDetails = {

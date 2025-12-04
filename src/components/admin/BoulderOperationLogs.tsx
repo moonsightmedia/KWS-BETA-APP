@@ -5,9 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 interface BoulderOperationLog {
   id: string;
@@ -23,23 +25,29 @@ interface BoulderOperationLog {
 
 export const BoulderOperationLogs = () => {
   const [operationFilter, setOperationFilter] = useState<string>('all');
+  const [selectedLog, setSelectedLog] = useState<BoulderOperationLog | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: logs, isLoading, error } = useQuery({
     queryKey: ['boulder-operation-logs', operationFilter],
     queryFn: async () => {
-      let query = supabase
-        .from('boulder_operation_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
+      try {
+        let query = supabase
+          .from('boulder_operation_logs')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(100);
 
-      if (operationFilter !== 'all') {
-        query = query.eq('operation_type', operationFilter);
-      }
+        if (operationFilter !== 'all') {
+          query = query.eq('operation_type', operationFilter);
+        }
 
-      const { data, error } = await query;
+        const { data, error } = await query;
 
-      if (error) throw error;
+        if (error) {
+          console.error('[BoulderOperationLogs] Error loading logs:', error);
+          throw error;
+        }
 
       // Get user emails separately
       const userIds = [...new Set((data || []).map((log: any) => log.user_id).filter(Boolean))];
@@ -56,12 +64,18 @@ export const BoulderOperationLogs = () => {
         });
       }
 
-      // Transform logs with user emails
-      return (data || []).map((log: any) => ({
-        ...log,
-        user_email: log.user_id ? userEmailsMap[log.user_id] || null : null,
-      })) as BoulderOperationLog[];
+        // Transform logs with user emails
+        return (data || []).map((log: any) => ({
+          ...log,
+          user_email: log.user_id ? userEmailsMap[log.user_id] || null : null,
+        })) as BoulderOperationLog[];
+      } catch (err: any) {
+        console.error('[BoulderOperationLogs] Exception in queryFn:', err);
+        throw err;
+      }
     },
+    retry: 1,
+    retryDelay: 1000,
   });
 
   const getOperationBadgeVariant = (type: string) => {
@@ -143,7 +157,17 @@ export const BoulderOperationLogs = () => {
                 </TableHeader>
                 <TableBody>
                   {logs.map((log) => (
-                    <TableRow key={log.id} className="border-b border-[#E7F7E9]">
+                    <TableRow 
+                      key={log.id} 
+                      className={cn(
+                        "border-b border-[#E7F7E9] cursor-pointer hover:bg-[#F9FAF9] transition-colors",
+                        selectedLog?.id === log.id && "bg-[#E7F7E9]"
+                      )}
+                      onClick={() => {
+                        setSelectedLog(log);
+                        setDialogOpen(true);
+                      }}
+                    >
                       <TableCell className="text-sm text-[#13112B]/60">
                         {formatDate(new Date(log.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
                       </TableCell>
@@ -186,7 +210,11 @@ export const BoulderOperationLogs = () => {
               {logs.map((log) => (
                 <Card 
                   key={log.id}
-                  className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm"
+                  className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition-all"
+                  onClick={() => {
+                    setSelectedLog(log);
+                    setDialogOpen(true);
+                  }}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3 mb-3">
@@ -240,6 +268,78 @@ export const BoulderOperationLogs = () => {
           </div>
         )}
       </CardContent>
+
+      {/* Log Detail Dialog */}
+      {selectedLog && (
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-heading font-bold text-[#13112B]">
+                Log Details
+              </DialogTitle>
+              <DialogDescription className="text-sm text-[#13112B]/60">
+                Details für {selectedLog.boulder_name || 'Unbekannter Boulder'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-[#13112B]/60 mb-1">Zeitpunkt</p>
+                  <p className="text-sm font-medium text-[#13112B]">
+                    {formatDate(new Date(selectedLog.created_at), 'dd.MM.yyyy HH:mm:ss', { locale: de })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-[#13112B]/60 mb-1">Operation</p>
+                  <Badge 
+                    className={`rounded-xl ${
+                      selectedLog.operation_type === 'create' ? 'bg-[#36B531] text-white' :
+                      selectedLog.operation_type === 'update' ? 'bg-[#E7F7E9] text-[#13112B]' :
+                      'bg-[#E74C3C] text-white'
+                    }`}
+                  >
+                    {getOperationLabel(selectedLog.operation_type)}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-[#13112B]/60 mb-1">Boulder Name</p>
+                  <p className="text-sm font-medium text-[#13112B]">
+                    {selectedLog.boulder_name || 'Unbekannt'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-[#13112B]/60 mb-1">Benutzer</p>
+                  <p className="text-sm font-medium text-[#13112B]">
+                    {selectedLog.user_email || 'Unbekannt'}
+                  </p>
+                </div>
+              </div>
+
+              {selectedLog.operation_type === 'update' && selectedLog.changes && (
+                <div className="pt-4 border-t border-[#E7F7E9]">
+                  <p className="text-sm font-medium text-[#13112B] mb-2">Geänderte Felder:</p>
+                  <div className="bg-[#F9FAF9] rounded-xl p-4">
+                    <pre className="text-xs text-[#13112B]/80 overflow-x-auto">
+                      {JSON.stringify(selectedLog.changes, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+
+              {selectedLog.boulder_data && (
+                <div className="pt-4 border-t border-[#E7F7E9]">
+                  <p className="text-sm font-medium text-[#13112B] mb-2">Boulder Daten:</p>
+                  <div className="bg-[#F9FAF9] rounded-xl p-4">
+                    <pre className="text-xs text-[#13112B]/80 overflow-x-auto max-h-64 overflow-y-auto">
+                      {JSON.stringify(selectedLog.boulder_data, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </Card>
   );
 };

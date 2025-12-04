@@ -51,12 +51,17 @@ CREATE OR REPLACE FUNCTION calculate_competition_points(
 BEGIN
   CASE p_result_type
     WHEN 'flash' THEN
-      RETURN 10.0;
+      RETURN 11.0;
     WHEN 'top' THEN
-      -- Top: 10 - (Versuche - 1), Minimum 5
-      RETURN GREATEST(5.0, 10.0 - (COALESCE(p_attempts, 1) - 1));
+      -- Top: 2. Versuch = 10 Punkte, dann -0.5 pro weiterem Versuch, Minimum 5 Punkte
+      -- Formel: 10 - (Versuche - 2) * 0.5
+      -- Sicherstellen, dass attempts >= 2 ist (bei 1 oder NULL wird 2 verwendet)
+      IF p_attempts IS NULL OR p_attempts < 2 THEN
+        RETURN 10.0; -- Default: 2. Versuch = 10 Punkte
+      END IF;
+      RETURN GREATEST(5.0, 10.0 - (p_attempts - 2) * 0.5);
     WHEN 'zone' THEN
-      RETURN 5.0;
+      RETURN 3.0;
     WHEN 'none' THEN
       RETURN 0.0;
     ELSE
@@ -75,6 +80,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_competition_result_points ON public.competition_results;
 CREATE TRIGGER trigger_update_competition_result_points
   BEFORE INSERT OR UPDATE ON public.competition_results
   FOR EACH ROW
@@ -86,6 +92,12 @@ ALTER TABLE public.competition_participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.competition_results ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for competition_boulders
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Anyone can read competition_boulders" ON public.competition_boulders;
+DROP POLICY IF EXISTS "Setters and admins can insert competition_boulders" ON public.competition_boulders;
+DROP POLICY IF EXISTS "Setters and admins can update competition_boulders" ON public.competition_boulders;
+DROP POLICY IF EXISTS "Setters and admins can delete competition_boulders" ON public.competition_boulders;
+
 -- Everyone can read
 CREATE POLICY "Anyone can read competition_boulders"
   ON public.competition_boulders
@@ -109,6 +121,11 @@ CREATE POLICY "Setters and admins can delete competition_boulders"
   USING (public.has_role(auth.uid(), 'setter') OR public.has_role(auth.uid(), 'admin'));
 
 -- RLS Policies for competition_participants
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Anyone can read competition_participants" ON public.competition_participants;
+DROP POLICY IF EXISTS "Users can insert own participant" ON public.competition_participants;
+DROP POLICY IF EXISTS "Users can update own participant" ON public.competition_participants;
+
 -- Everyone can read
 CREATE POLICY "Anyone can read competition_participants"
   ON public.competition_participants
@@ -134,6 +151,12 @@ CREATE POLICY "Users can update own participant"
   );
 
 -- RLS Policies for competition_results
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Anyone can read competition_results" ON public.competition_results;
+DROP POLICY IF EXISTS "Users can insert own results" ON public.competition_results;
+DROP POLICY IF EXISTS "Users can update own results" ON public.competition_results;
+DROP POLICY IF EXISTS "Users can delete own results" ON public.competition_results;
+
 -- Everyone can read
 CREATE POLICY "Anyone can read competition_results"
   ON public.competition_results

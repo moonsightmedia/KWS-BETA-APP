@@ -77,11 +77,12 @@ export function FeedbackDialog({
         setIncludeScreenshot(false);
         onOpenChange(false);
       } else {
+        console.error('[FeedbackDialog] Submit failed:', result.error);
         toast.error(result.error || 'Fehler beim Senden des Feedbacks.');
       }
     } catch (error: any) {
       console.error('[FeedbackDialog] Error submitting feedback:', error);
-      toast.error('Fehler beim Senden des Feedbacks.');
+      toast.error(error?.message || 'Fehler beim Senden des Feedbacks. Bitte versuche es erneut.');
     } finally {
       setIsSubmitting(false);
       setIsCapturingScreenshot(false);

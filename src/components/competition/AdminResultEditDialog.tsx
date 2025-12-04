@@ -45,7 +45,7 @@ export const AdminResultEditDialog = ({ participant, onClose }: AdminResultEditD
   const submitResult = useSubmitCompetitionResult();
   const [editingBoulder, setEditingBoulder] = useState<number | null>(null);
   const [selectedType, setSelectedType] = useState<'flash' | 'top' | 'zone' | 'none'>('none');
-  const [attempts, setAttempts] = useState<string>('1');
+  const [attempts, setAttempts] = useState<string>('2');
 
   const maxBoulderNumber = competitionBoulders?.length
     ? Math.max(...competitionBoulders.map(cb => cb.boulder_number))
@@ -60,10 +60,10 @@ export const AdminResultEditDialog = ({ participant, onClose }: AdminResultEditD
     setEditingBoulder(boulderNum);
     if (existingResult) {
       setSelectedType(existingResult.result_type);
-      setAttempts(existingResult.attempts?.toString() || '1');
+      setAttempts(existingResult.attempts?.toString() || '2');
     } else {
       setSelectedType('none');
-      setAttempts('1');
+      setAttempts('2');
     }
   };
 
@@ -71,11 +71,16 @@ export const AdminResultEditDialog = ({ participant, onClose }: AdminResultEditD
     if (!editingBoulder) return;
 
     try {
+      // Ensure attempts is at least 2 for 'top' results
+      const attemptsValue = selectedType === 'top' 
+        ? Math.max(2, parseInt(attempts) || 2) 
+        : null;
+      
       await submitResult.mutateAsync({
         participant_id: participant.participant_id,
         boulder_number: editingBoulder,
         result_type: selectedType,
-        attempts: selectedType === 'top' ? parseInt(attempts) || 1 : null,
+        attempts: attemptsValue,
       });
       await refetch();
       setEditingBoulder(null);
@@ -119,7 +124,7 @@ export const AdminResultEditDialog = ({ participant, onClose }: AdminResultEditD
                   >
                     <Zap className="h-6 w-6" />
                     <span className="text-sm font-medium">Flash</span>
-                    <span className="text-xs opacity-80">10 Punkte</span>
+                    <span className="text-xs opacity-80">11 Punkte</span>
                   </Button>
 
                   <Button
@@ -133,7 +138,7 @@ export const AdminResultEditDialog = ({ participant, onClose }: AdminResultEditD
                   >
                     <CheckCircle className="h-6 w-6" />
                     <span className="text-sm font-medium">Top</span>
-                    <span className="text-xs opacity-80">10 - Versuche</span>
+                    <span className="text-xs opacity-80">10 - 0.5/Versuch</span>
                   </Button>
 
                   <Button
@@ -147,7 +152,7 @@ export const AdminResultEditDialog = ({ participant, onClose }: AdminResultEditD
                   >
                     <MinusCircle className="h-6 w-6" />
                     <span className="text-sm font-medium">Zone</span>
-                    <span className="text-xs opacity-80">5 Punkte</span>
+                    <span className="text-xs opacity-80">3 Punkte</span>
                   </Button>
 
                   <Button
@@ -174,9 +179,17 @@ export const AdminResultEditDialog = ({ participant, onClose }: AdminResultEditD
                   <Input
                     id="attempts"
                     type="number"
-                    min="1"
+                    min="2"
                     value={attempts}
-                    onChange={(e) => setAttempts(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Ensure minimum is 2
+                      if (value && parseInt(value) < 2) {
+                        setAttempts('2');
+                      } else {
+                        setAttempts(value);
+                      }
+                    }}
                     className="h-12 text-lg"
                     inputMode="numeric"
                     placeholder="1"
