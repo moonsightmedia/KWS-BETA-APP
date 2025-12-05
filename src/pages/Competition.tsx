@@ -42,34 +42,8 @@ const CompetitionContent = () => {
   const [showParticipateDialog, setShowParticipateDialog] = useState(false);
   const [participantGender, setParticipantGender] = useState<'male' | 'female' | 'other' | null>(null);
 
-  // Check if we need to ask user if they want to participate
-  // Only show automatically on initial mount, not when clicking boulders
-  useEffect(() => {
-    // Don't show dialog if:
-    // 1. Participant is loading
-    // 2. Participant already exists
-    // 3. Dialog is already open
-    // 4. User clicked on a boulder (selectedBoulder is set)
-    // 5. Participant creation is in progress
-    // 6. User has already seen the dialog (stored in sessionStorage)
-    if (
-      !isLoadingParticipant && 
-      !participant && 
-      user && 
-      !showParticipateDialog && 
-      !selectedBoulder &&
-      !createParticipant.isPending
-    ) {
-      // Only show dialog automatically on initial load, not when user clicks boulders
-      // This prevents the dialog from showing every time user clicks a boulder
-      const hasShownBefore = sessionStorage.getItem(`competition_dialog_shown_${user.id}`);
-      if (!hasShownBefore) {
-        console.log('[Competition] Showing participate dialog automatically on initial load');
-        setShowParticipateDialog(true);
-        sessionStorage.setItem(`competition_dialog_shown_${user.id}`, 'true');
-      }
-    }
-  }, [participant, isLoadingParticipant, user, showParticipateDialog, selectedBoulder, createParticipant.isPending]);
+  // Dialog wird NICHT automatisch beim Laden gezeigt
+  // Er wird nur gezeigt, wenn User versucht, einen Boulder einzutragen (handleBoulderClick)
 
   const handleParticipateConfirm = async () => {
     // Geschlecht ist verpflichtend
@@ -94,11 +68,6 @@ const CompetitionContent = () => {
       // Wenn ein Boulder ausgewählt wurde, wird der ResultInput-Dialog automatisch geöffnet
       // sobald der participant-State aktualisiert wurde (durch Query-Invalidierung)
       // selectedBoulder bleibt gesetzt, damit ResultInput geöffnet werden kann
-      
-      // Stelle sicher, dass der Dialog-Flag gesetzt bleibt, damit er nicht erneut kommt
-      if (user?.id) {
-        sessionStorage.setItem(`competition_dialog_shown_${user.id}`, 'true');
-      }
     } catch (error) {
       // Fehler wird bereits vom Hook behandelt, Dialog bleibt offen
       console.error('[Competition] Error creating participant:', error);
@@ -384,9 +353,9 @@ const CompetitionContent = () => {
       <Dialog open={showParticipateDialog} onOpenChange={setShowParticipateDialog}>
         <DialogContent className="sm:max-w-md p-6">
           <DialogHeader>
-            <DialogTitle>Am Wettkampf teilnehmen?</DialogTitle>
+            <DialogTitle>In welcher Klasse möchtest du deine Ergebnisse eintragen?</DialogTitle>
             <DialogDescription>
-              Möchtest du am Nikolaus Wettkampf teilnehmen? Du kannst deine Ergebnisse für die {competitionBoulders?.length || 0} Wettkampf-Boulder eintragen und in der Rangliste erscheinen.
+              Wähle deine Klasse, um Ergebnisse für die {competitionBoulders?.length || 0} Wettkampf-Boulder eintragen zu können.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-4">
@@ -413,7 +382,7 @@ const CompetitionContent = () => {
                 onClick={handleParticipateCancel}
                 className="flex-1 h-12"
               >
-                Nein, später
+                Abbrechen
               </Button>
               <Button
                 onClick={handleParticipateConfirm}
@@ -423,10 +392,10 @@ const CompetitionContent = () => {
                 {createParticipant.isPending ? (
                   <>
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Erstelle...
+                    Speichere...
                   </>
                 ) : (
-                  'Ja, teilnehmen!'
+                  'Bestätigen'
                 )}
               </Button>
             </div>
