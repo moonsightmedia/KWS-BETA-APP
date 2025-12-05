@@ -31,19 +31,28 @@ export const useSectors = () => {
           .order('name');
         
         console.log('[useSectors] 🔵 Supabase query created, setting up timeout...');
+        let timeoutId: NodeJS.Timeout | null = null;
+        let isResolved = false;
+        
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => {
-            console.error('[useSectors] ⏱️ TIMEOUT after 10s - request never completed');
-            reject(new Error('Supabase request timeout after 10s'));
+          timeoutId = setTimeout(() => {
+            if (!isResolved) {
+              console.error('[useSectors] ⏱️ TIMEOUT after 10s - request never completed');
+              reject(new Error('Supabase request timeout after 10s'));
+            }
           }, 10000);
         });
         
         console.log('[useSectors] 🔵 Starting Promise.race (fetch vs timeout)...');
         const result = await Promise.race([
           fetchPromise.then((result) => {
+            isResolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
             console.log('[useSectors] ✅ Fetch promise resolved');
             return result;
           }).catch((err) => {
+            isResolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
             console.error('[useSectors] ❌ Fetch promise rejected:', err);
             throw err;
           }),

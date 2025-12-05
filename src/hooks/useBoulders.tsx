@@ -74,19 +74,28 @@ export const useBoulders = () => {
           .order('created_at', { ascending: false });
         
         console.log('[useBoulders] 🔵 Supabase query created, setting up timeout...');
+        let timeoutId: NodeJS.Timeout | null = null;
+        let isResolved = false;
+        
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => {
-            console.error('[useBoulders] ⏱️ TIMEOUT after 10s - request never completed');
-            reject(new Error('Supabase request timeout after 10s'));
+          timeoutId = setTimeout(() => {
+            if (!isResolved) {
+              console.error('[useBoulders] ⏱️ TIMEOUT after 10s - request never completed');
+              reject(new Error('Supabase request timeout after 10s'));
+            }
           }, 10000);
         });
         
         console.log('[useBoulders] 🔵 Starting Promise.race (fetch vs timeout)...');
         const result = await Promise.race([
           fetchPromise.then((result) => {
+            isResolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
             console.log('[useBoulders] ✅ Fetch promise resolved');
             return result;
           }).catch((err) => {
+            isResolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
             console.error('[useBoulders] ❌ Fetch promise rejected:', err);
             throw err;
           }),
