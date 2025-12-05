@@ -22,6 +22,17 @@ import { useColors } from '@/hooks/useColors';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
+const TEXT_ON_COLOR: Record<string, string> = {
+  'Grün': 'text-white',
+  'Gelb': 'text-black',
+  'Blau': 'text-white',
+  'Orange': 'text-black',
+  'Rot': 'text-white',
+  'Schwarz': 'text-white',
+  'Weiß': 'text-black',
+  'Lila': 'text-white',
+};
+
 const CompetitionContent = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -39,8 +50,16 @@ const CompetitionContent = () => {
   }, []);
   
   // Ensure queries are loaded after mount - especially important after reload
+  // But don't refetch if PullToRefreshHandler is handling the reload
   useEffect(() => {
     if (!authLoading && user) {
+      // Check if PullToRefreshHandler is handling the reload
+      const wasRefreshing = sessionStorage.getItem('isRefreshing');
+      if (wasRefreshing === 'true') {
+        console.log('[Competition] PullToRefreshHandler is handling reload, skipping Competition refetch');
+        return;
+      }
+      
       // Small delay to ensure component is fully mounted
       const timer = setTimeout(() => {
         // Check if queries have data or are loading, if not, force refetch
@@ -67,39 +86,52 @@ const CompetitionContent = () => {
         });
         
         // If queries don't exist or are not loading and have no data, force refetch
-        if (!competitionBouldersQuery || (!competitionBouldersQuery.data && competitionBouldersQuery.status !== 'pending')) {
+        // But don't refetch if they're already pending (being fetched)
+        if (!competitionBouldersQuery || (!competitionBouldersQuery.data && competitionBouldersQuery.status !== 'pending' && competitionBouldersQuery.status !== 'error')) {
           console.log('[Competition] Forcing refetch for: [competition_boulders]');
           queryClient.refetchQueries({ queryKey: ['competition_boulders'] })
             .then(() => console.log('[Competition] Refetch result: [competition_boulders] = success'))
             .catch((error) => {
               console.error('[Competition] Refetch result: [competition_boulders] = error', error);
             });
+        } else if (competitionBouldersQuery.status === 'pending') {
+          console.log('[Competition] [competition_boulders] is already being fetched, skipping refetch');
         }
         
-        if (!competitionParticipantQuery || (!competitionParticipantQuery.data && competitionParticipantQuery.status !== 'pending')) {
+        if (!competitionParticipantQuery || (!competitionParticipantQuery.data && competitionParticipantQuery.status !== 'pending' && competitionParticipantQuery.status !== 'error')) {
           console.log('[Competition] Forcing refetch for: [competition_participant]');
           queryClient.refetchQueries({ queryKey: ['competition_participant'] })
             .then(() => console.log('[Competition] Refetch result: [competition_participant] = success'))
             .catch((error) => {
               console.error('[Competition] Refetch result: [competition_participant] = error', error);
             });
+        } else if (competitionParticipantQuery.status === 'pending') {
+          console.log('[Competition] [competition_participant] is already being fetched, skipping refetch');
         }
         
-        // Timeout mechanism: If queries are still loading after 5 seconds, log warning
+        // Timeout mechanism: If queries are still loading after 5 seconds, cancel and retry
         const timeoutTimer = setTimeout(() => {
           const bouldersState = queryClient.getQueryState(['competition_boulders']);
           const participantState = queryClient.getQueryState(['competition_participant']);
           
           if (bouldersState?.status === 'pending') {
-            console.warn('[Competition] Query timeout detected: [competition_boulders]');
+            console.warn('[Competition] Query timeout detected: [competition_boulders] - cancelling and retrying');
+            queryClient.cancelQueries({ queryKey: ['competition_boulders'] });
+            setTimeout(() => {
+              queryClient.refetchQueries({ queryKey: ['competition_boulders'] }).catch(console.error);
+            }, 200);
           }
           if (participantState?.status === 'pending') {
-            console.warn('[Competition] Query timeout detected: [competition_participant]');
+            console.warn('[Competition] Query timeout detected: [competition_participant] - cancelling and retrying');
+            queryClient.cancelQueries({ queryKey: ['competition_participant'] });
+            setTimeout(() => {
+              queryClient.refetchQueries({ queryKey: ['competition_participant'] }).catch(console.error);
+            }, 200);
           }
         }, 5000);
         
         return () => clearTimeout(timeoutTimer);
-      }, 1000);
+      }, 2000); // Increased delay to let PullToRefreshHandler handle it first
       
       return () => clearTimeout(timer);
     }
@@ -371,7 +403,10 @@ const CompetitionContent = () => {
                               </div>
                             ) : (
                               <div
-                                className="w-16 h-16 flex-shrink-0 rounded-lg flex items-center justify-center text-white font-bold text-xl"
+                                className={cn(
+                                  "w-16 h-16 flex-shrink-0 rounded-lg flex items-center justify-center font-bold text-xl",
+                                  TEXT_ON_COLOR[cb.color] || 'text-white'
+                                )}
                                 style={getColorBackgroundStyle(cb.color, colors || [])}
                               >
                                 {cb.boulder_number}

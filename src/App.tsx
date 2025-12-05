@@ -179,7 +179,10 @@ const PullToRefreshHandler = () => {
   
   useEffect(() => {
     const wasRefreshing = sessionStorage.getItem('isRefreshing');
+    console.log('[PullToRefresh] useEffect triggered:', { wasRefreshing, authLoading, isRefetching: isRefetchingRef.current });
+    
     if (wasRefreshing === 'true' && !authLoading && !isRefetchingRef.current) {
+      console.log('[PullToRefresh] ✅ Conditions met, starting refetch process');
       isRefetchingRef.current = true;
       
       // Auth is done, now we can safely refetch queries
@@ -229,12 +232,33 @@ const PullToRefreshHandler = () => {
           console.log('[PullToRefresh] All queries invalidated - components will refetch automatically');
           
           // Wait a bit for components to mount and start their queries naturally
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          // Check query states after waiting
+          const queryStatesAfter: Record<string, any> = {};
+          commonQueryKeys.forEach(queryKey => {
+            const state = queryClient.getQueryState(queryKey);
+            queryStatesAfter[JSON.stringify(queryKey)] = {
+              status: state?.status || 'unknown',
+              hasData: !!state?.data,
+              isLoading: state?.status === 'pending',
+              error: state?.error || null,
+            };
+          });
+          console.log('[PullToRefresh] Query states after waiting:', queryStatesAfter);
           
           // Check which queries still need refetching (those that are still pending or have no data)
           const queriesToRefetch = commonQueryKeys.filter(queryKey => {
             const state = queryClient.getQueryState(queryKey);
-            return !state?.data && (state?.status === 'pending' || !state || state.status === 'error');
+            const needsRefetch = !state?.data && (state?.status === 'pending' || !state || state.status === 'error');
+            if (needsRefetch) {
+              console.log(`[PullToRefresh] Query ${JSON.stringify(queryKey)} needs refetch:`, {
+                hasData: !!state?.data,
+                status: state?.status || 'unknown',
+                error: state?.error || null,
+              });
+            }
+            return needsRefetch;
           });
           
           if (queriesToRefetch.length > 0) {
@@ -249,19 +273,26 @@ const PullToRefreshHandler = () => {
                   await queryClient.cancelQueries({ queryKey });
                   
                   // Wait a bit before refetching to avoid race conditions
-                  await new Promise(resolve => setTimeout(resolve, 100));
+                  await new Promise(resolve => setTimeout(resolve, 200));
                   
-                  const result = await queryClient.refetchQueries({ queryKey });
+                  // Add timeout to refetch
+                  const refetchPromise = queryClient.refetchQueries({ queryKey });
+                  const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Refetch timeout after 10s')), 10000);
+                  });
+                  
+                  await Promise.race([refetchPromise, timeoutPromise]);
+                  
                   const state = queryClient.getQueryState(queryKey);
                   const resultInfo = {
                     status: state?.status || 'unknown',
                     hasData: !!state?.data,
                     error: state?.error || null,
                   };
-                  console.log(`[PullToRefresh] Query refetch result: ${JSON.stringify(queryKey)} =`, resultInfo);
+                  console.log(`[PullToRefresh] ✅ Query refetch result: ${JSON.stringify(queryKey)} =`, resultInfo);
                   return { queryKey, success: true, resultInfo };
                 } catch (error) {
-                  console.warn(`[PullToRefresh] Error refetching query ${JSON.stringify(queryKey)}:`, error);
+                  console.error(`[PullToRefresh] ❌ Error refetching query ${JSON.stringify(queryKey)}:`, error);
                   return { queryKey, success: false, error };
                 }
               })
@@ -288,6 +319,74 @@ const PullToRefreshHandler = () => {
           isRefetchingRef.current = false;
         }
       })();
+    }
+  }, [authLoading, queryClient]);
+  
+  // Additional useEffect to handle reload even if authLoading changes multiple times
+  useEffect(() => {
+    const wasRefreshing = sessionStorage.getItem('isRefreshing');
+    if (wasRefreshing === 'true' && !authLoading && !isRefetchingRef.current) {
+      // Small delay to ensure this runs after the first useEffect
+      const timer = setTimeout(() => {
+        const stillRefreshing = sessionStorage.getItem('isRefreshing');
+        if (stillRefreshing === 'true' && !isRefetchingRef.current) {
+          console.log('[PullToRefresh] Fallback: Triggering refetch after delay');
+          isRefetchingRef.current = true;
+          
+          (async () => {
+            try {
+              console.log('[PullToRefresh] Fallback: Starting query refetch');
+              
+              // Cancel any pending queries first
+              await queryClient.cancelQueries();
+              
+              // Invalidate all queries
+              queryClient.invalidateQueries();
+              
+              // Wait for components to mount
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              
+              // Refetch critical queries
+              const criticalQueries = [
+                ['boulders'],
+                ['sectors'],
+                ['colors'],
+                ['competition_boulders'],
+                ['competition_participant'],
+              ];
+              
+              await Promise.allSettled(
+                criticalQueries.map(async (queryKey) => {
+                  try {
+                    await queryClient.cancelQueries({ queryKey });
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
+                    const refetchPromise = queryClient.refetchQueries({ queryKey });
+                    const timeoutPromise = new Promise((_, reject) => {
+                      setTimeout(() => reject(new Error('Timeout')), 10000);
+                    });
+                    
+                    await Promise.race([refetchPromise, timeoutPromise]);
+                    console.log(`[PullToRefresh] Fallback: Refetched ${JSON.stringify(queryKey)}`);
+                  } catch (error) {
+                    console.error(`[PullToRefresh] Fallback: Error refetching ${JSON.stringify(queryKey)}:`, error);
+                  }
+                })
+              );
+              
+              sessionStorage.removeItem('isRefreshing');
+              isRefetchingRef.current = false;
+              console.log('[PullToRefresh] Fallback: Refetch completed');
+            } catch (error) {
+              console.error('[PullToRefresh] Fallback: Error:', error);
+              sessionStorage.removeItem('isRefreshing');
+              isRefetchingRef.current = false;
+            }
+          })();
+        }
+      }, 3000); // Wait 3 seconds after auth loading ends
+      
+      return () => clearTimeout(timer);
     }
   }, [authLoading, queryClient]);
   
