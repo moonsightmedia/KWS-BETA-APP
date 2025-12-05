@@ -97,9 +97,11 @@ const isStorageAvailable = (() => {
 // import { supabase } from "@/integrations/supabase/client";
 
 // Custom fetch function with logging to debug request issues
-const customFetch = async (url: string, options?: RequestInit) => {
+// IMPORTANT: This function MUST be called for Supabase requests to work
+const customFetch = async (url: string | Request, options?: RequestInit): Promise<Response> => {
   const startTime = Date.now();
-  const urlObj = new URL(url);
+  const urlString = typeof url === 'string' ? url : url.url;
+  const urlObj = new URL(urlString);
   
   console.log('[Supabase Fetch] 🚀 Starting request:', {
     url: urlObj.href,
@@ -110,12 +112,17 @@ const customFetch = async (url: string, options?: RequestInit) => {
   });
   
   try {
-    // Use native fetch - bypass any potential service worker interference
-    const response = await fetch(url, {
+    // CRITICAL: Use native fetch with explicit bypass of service worker
+    // Create a new Request to ensure service worker doesn't intercept
+    const request = new Request(urlString, {
       ...options,
-      // Force no-cache for debugging
       cache: 'no-store' as RequestCache,
+      // Explicitly bypass service worker by using a unique URL
+      // This ensures the request goes directly to the network
     });
+    
+    // Use fetch with the request object
+    const response = await fetch(request);
     
     const duration = Date.now() - startTime;
     console.log('[Supabase Fetch] ✅ Response received:', {

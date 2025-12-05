@@ -75,52 +75,63 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// TEMPORARY FIX: Completely disable service worker - renamed file and unregister all
-// TODO: Re-enable after confirming it's the cause
+// CRITICAL FIX: Completely disable service worker - clear all caches and unregister
+// The service worker is blocking Supabase requests even though it should bypass them
 if ('serviceWorker' in navigator) {
-  // Unregister all service workers first - FORCE unregister
+  // First, clear all caches to remove cached service worker
+  if ('caches' in window) {
+    caches.keys().then(async (cacheNames) => {
+      console.log('[Main] 🗑️ Clearing all caches to remove service worker:', cacheNames);
+      await Promise.all(cacheNames.map(name => caches.delete(name)));
+      console.log('[Main] ✅ All caches cleared');
+    });
+  }
+  
+  // Unregister all service workers - FORCE unregister
   navigator.serviceWorker.getRegistrations().then(async (registrations) => {
-    console.log('[Main] ⚠️ TEMPORARY FIX: Unregistering all service workers to test Supabase requests');
+    console.log('[Main] ⚠️ CRITICAL FIX: Unregistering all service workers to test Supabase requests');
     for (const registration of registrations) {
       try {
+        // Stop the service worker first
+        if (registration.active) {
+          registration.active.postMessage({ type: 'SKIP_WAITING' });
+        }
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+        if (registration.installing) {
+          registration.installing.postMessage({ type: 'SKIP_WAITING' });
+        }
+        
         // Force unregister
         const success = await registration.unregister();
         console.log('[Main] Service Worker unregistered:', success, registration.scope);
-        
-        // Also try to update and then unregister to ensure it's gone
-        try {
-          await registration.update();
-          if (registration.waiting) {
-            await registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-            await registration.waiting.postMessage({ type: 'SKIP_WAITING' }); // Send twice
-          }
-        } catch (updateError) {
-          // Ignore update errors
-        }
       } catch (error) {
         console.error('[Main] Error unregistering service worker:', error);
       }
     }
     
-    // Wait a bit and double-check: Get registrations again and log if any are still there
+    // Wait and double-check: Get registrations again
     setTimeout(async () => {
       const remainingRegistrations = await navigator.serviceWorker.getRegistrations();
       if (remainingRegistrations.length > 0) {
-        console.error('[Main] ⚠️ WARNING: Service Workers still registered after unregister attempt:', remainingRegistrations.length);
-        remainingRegistrations.forEach((reg) => {
+        console.error('[Main] ⚠️ WARNING: Service Workers still registered:', remainingRegistrations.length);
+        for (const reg of remainingRegistrations) {
           console.error('[Main] Still registered:', reg.scope, reg.active?.scriptURL);
-          // Try to unregister again
-          reg.unregister().then((success) => {
-            console.log('[Main] Second unregister attempt:', success);
-          });
-        });
+          try {
+            await reg.unregister();
+            console.log('[Main] Second unregister attempt successful');
+          } catch (e) {
+            console.error('[Main] Second unregister failed:', e);
+          }
+        }
       } else {
         console.log('[Main] ✅ All Service Workers successfully unregistered');
       }
-    }, 1000);
+    }, 500);
   });
   
-  // Don't register service worker for now - file is renamed to .disabled
+  // Don't register service worker - file is renamed to .disabled
   console.log('[Main] ⚠️ Service Worker registration DISABLED - file renamed to .disabled');
   
   // OLD CODE - commented out for testing
