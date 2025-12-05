@@ -763,85 +763,97 @@ const Root = () => {
     if (!authLoading && !rootRefetchDoneRef.current) {
       const wasRefreshing = sessionStorage.getItem('isRefreshing');
       
-      // If PullToRefreshHandler is handling the reload, don't refetch here
-      // But wait a bit to see if PullToRefreshHandler actually starts refetching
+      console.log('[Root] Auth loading ended, checking refetch strategy:', { wasRefreshing });
+      
+      // If PullToRefreshHandler is handling the reload, wait a bit to see if it refetches
+      // But don't wait too long - if it doesn't refetch within 2 seconds, Root will handle it
       if (wasRefreshing === 'true') {
-        console.log('[Root] PullToRefreshHandler is handling reload, waiting to see if it refetches...');
+        console.log('[Root] PullToRefreshHandler flag is set, waiting 2s to see if it refetches...');
         
-        // Wait 4 seconds to see if PullToRefreshHandler refetches
         const checkTimer = setTimeout(() => {
           const stillRefreshing = sessionStorage.getItem('isRefreshing');
-          if (stillRefreshing === 'true') {
-            console.log('[Root] PullToRefreshHandler did not complete refetch, Root will handle it');
-            rootRefetchDoneRef.current = true;
-            handleRootRefetch();
-          }
-        }, 4000);
+          console.log('[Root] After 2s wait, isRefreshing still set?', stillRefreshing);
+          
+          // If flag is still set after 2 seconds, PullToRefreshHandler probably didn't refetch
+          // Root should handle it now
+          rootRefetchDoneRef.current = true;
+          performRootRefetch('PullToRefreshHandler did not refetch within 2s');
+        }, 2000); // Reduced to 2 seconds
         
         return () => clearTimeout(checkTimer);
       }
       
+      // Normal reload (no isRefreshing flag) - Root should handle refetch immediately
       rootRefetchDoneRef.current = true;
-      console.log('[Root] Auth loading changed: true → false (normal reload, not pull-to-refresh)');
-      handleRootRefetch();
+      console.log('[Root] Normal reload detected, Root will handle refetch immediately');
+      performRootRefetch('Normal reload');
     }
     
-    function handleRootRefetch() {
+    function performRootRefetch(reason: string) {
       // Small delay to ensure components are mounted
       const timer = setTimeout(async () => {
-        console.log('[Root] Triggering query refetch after auth');
+        console.log(`[Root] Triggering query refetch after auth (reason: ${reason})`);
         
         try {
-          // Check if important queries have data
-          const bouldersState = queryClient.getQueryState(['boulders']);
-          const sectorsState = queryClient.getQueryState(['sectors']);
+          // ALWAYS invalidate and refetch on reload, regardless of current state
+          // This ensures fresh data after reload
+          console.log('[Root] Invalidating all queries...');
+          queryClient.invalidateQueries();
           
-          // Only refetch if queries don't have data or are in error state
-          // Don't refetch if they're already pending (being fetched)
-          const needsRefetch = 
-            (!bouldersState?.data && bouldersState?.status !== 'pending') || 
-            (!sectorsState?.data && sectorsState?.status !== 'pending') ||
-            bouldersState?.status === 'error' || 
-            sectorsState?.status === 'error';
+          // Cancel any pending queries first
+          console.log('[Root] Cancelling any pending queries...');
+          await queryClient.cancelQueries();
           
-          if (needsRefetch) {
-            console.log('[Root] Queries need refetch, invalidating...');
-            queryClient.invalidateQueries();
-            
-            // Refetch critical queries with timeout
-            const criticalQueries = [
-              ['boulders'],
-              ['sectors'],
-              ['colors'],
-            ];
-            
-            await Promise.allSettled(
-              criticalQueries.map(async (queryKey) => {
-                try {
-                  await queryClient.cancelQueries({ queryKey });
-                  await new Promise(resolve => setTimeout(resolve, 200));
-                  
-                  const refetchPromise = queryClient.refetchQueries({ queryKey });
-                  const timeoutPromise = new Promise((_, reject) => {
-                    setTimeout(() => reject(new Error('Timeout')), 10000);
-                  });
-                  
-                  await Promise.race([refetchPromise, timeoutPromise]);
-                  console.log(`[Root] ✅ Refetched ${JSON.stringify(queryKey)}`);
-                } catch (err) {
-                  console.warn(`[Root] ❌ Error refetching ${JSON.stringify(queryKey)}:`, err);
-                }
-              })
-            );
-            
-            console.log('[Root] Query refetch completed');
-          } else {
-            console.log('[Root] Queries already have data or are loading, skipping refetch');
-          }
+          // Wait a bit before refetching
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          // Refetch critical queries with timeout
+          const criticalQueries = [
+            ['boulders'],
+            ['sectors'],
+            ['colors'],
+            ['competition_boulders'],
+            ['competition_participant'],
+          ];
+          
+          console.log(`[Root] Refetching ${criticalQueries.length} critical queries...`);
+          
+          const refetchStartTime = Date.now();
+          await Promise.allSettled(
+            criticalQueries.map(async (queryKey) => {
+              try {
+                const queryKeyStr = JSON.stringify(queryKey);
+                console.log(`[Root] Refetching ${queryKeyStr}...`);
+                
+                // Cancel any existing fetch for this query
+                await queryClient.cancelQueries({ queryKey });
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Refetch with timeout
+                const refetchPromise = queryClient.refetchQueries({ queryKey });
+                const timeoutPromise = new Promise((_, reject) => {
+                  setTimeout(() => reject(new Error('Refetch timeout after 8s')), 8000);
+                });
+                
+                await Promise.race([refetchPromise, timeoutPromise]);
+                
+                const state = queryClient.getQueryState(queryKey);
+                console.log(`[Root] ✅ Refetched ${queryKeyStr}:`, {
+                  hasData: !!state?.data,
+                  status: state?.status,
+                });
+              } catch (err: any) {
+                console.error(`[Root] ❌ Error refetching ${JSON.stringify(queryKey)}:`, err?.message || err);
+              }
+            })
+          );
+          
+          const duration = Date.now() - refetchStartTime;
+          console.log(`[Root] Query refetch completed in ${duration}ms`);
         } catch (error) {
           console.error('[Root] Error during query refetch:', error);
         }
-      }, 1500); // Wait 1.5 seconds after auth loading ends
+      }, 1000); // Wait 1 second after auth loading ends
       
       return () => clearTimeout(timer);
     }
