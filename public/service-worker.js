@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kws-beta-v4'; // Increment version to force cache refresh
+const CACHE_NAME = 'kws-beta-v5'; // Increment version to force cache refresh
 const CORE_ASSETS = [
   '/',
   '/index.html',
@@ -39,14 +39,12 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   
   // CRITICAL: Never intercept Supabase requests - they cause CORS errors and caching issues
-  // Supabase endpoints (Auth, REST API, Storage) must go directly to network without service worker interference
+  // Supabase endpoints (Auth, REST API, Storage) must go directly to network without ANY service worker interference
+  // Don't even call event.respondWith() - let the browser handle it natively
   if (url.hostname.includes('supabase.co') || url.hostname.includes('supabase.io')) {
-    // Let all Supabase requests pass through without interception or caching
-    // Always fetch from network, never use cache
-    event.respondWith(fetch(request, {
-      cache: 'no-store', // Don't use HTTP cache
-    }));
-    return;
+    // Don't intercept at all - let the request go directly to network
+    // This is the safest way to ensure no interference
+    return; // Exit early, don't call event.respondWith()
   }
   
   // Skip caching for non-GET requests (POST, PUT, DELETE, etc.)
