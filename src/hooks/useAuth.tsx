@@ -470,7 +470,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
     
     if (error) {
-      toast.error('Anmeldung fehlgeschlagen: ' + error.message);
+      // User-friendly German error messages
+      let errorMessage = 'Anmeldung fehlgeschlagen';
+      if (error.message.includes('Invalid login credentials') || error.message.includes('Invalid credentials') || error.message.includes('Wrong password')) {
+        errorMessage = 'Ungültige Anmeldedaten. Bitte überprüfe deine E-Mail-Adresse und dein Passwort.';
+      } else if (error.message.includes('Email not confirmed') || error.message.includes('email not confirmed')) {
+        errorMessage = 'Bitte bestätige zuerst deine E-Mail-Adresse. Wir haben dir eine Bestätigungs-E-Mail gesendet.';
+      } else if (error.message.includes('User not found') || error.message.includes('user not found')) {
+        errorMessage = 'Kein Konto mit dieser E-Mail-Adresse gefunden. Bitte registriere dich zuerst.';
+      } else if (error.message.includes('Too many requests') || error.message.includes('rate limit')) {
+        errorMessage = 'Zu viele Anmeldeversuche. Bitte warte einen Moment und versuche es erneut.';
+      } else {
+        errorMessage = 'Anmeldung fehlgeschlagen. Bitte versuche es erneut.';
+      }
+      toast.error(errorMessage);
       throw error;
     }
     
@@ -542,7 +555,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { error } = await supabase.auth.signOut();
     
     if (error) {
-      toast.error('Abmeldung fehlgeschlagen: ' + error.message);
+      toast.error('Abmeldung fehlgeschlagen. Bitte versuche es erneut.');
       throw error;
     }
     
@@ -575,7 +588,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
     
     if (error) {
-      toast.error('Fehler beim Zurücksetzen: ' + error.message);
+      // User-friendly German error messages
+      let errorMessage = 'Fehler beim Zurücksetzen des Passworts';
+      if (error.message.includes('User not found') || error.message.includes('user not found')) {
+        errorMessage = 'Kein Konto mit dieser E-Mail-Adresse gefunden. Bitte überprüfe deine Eingabe.';
+      } else if (error.message.includes('Too many requests') || error.message.includes('rate limit')) {
+        errorMessage = 'Zu viele Anfragen. Bitte warte einen Moment und versuche es erneut.';
+      } else if (error.message.includes('email')) {
+        errorMessage = 'Ungültige E-Mail-Adresse. Bitte überprüfe deine Eingabe.';
+      } else {
+        errorMessage = 'Fehler beim Senden des Passwort-Links. Bitte versuche es erneut.';
+      }
+      toast.error(errorMessage);
       throw error;
     }
     
