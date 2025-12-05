@@ -67,24 +67,36 @@ export const useBoulders = () => {
       const startTime = Date.now();
       
       try {
-        // Add timeout wrapper
+        console.log('[useBoulders] 🔵 Creating Supabase query...');
         const fetchPromise = supabase
           .from('boulders')
           .select('*')
           .order('created_at', { ascending: false });
         
+        console.log('[useBoulders] 🔵 Supabase query created, setting up timeout...');
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Supabase request timeout after 10s')), 10000);
+          setTimeout(() => {
+            console.error('[useBoulders] ⏱️ TIMEOUT after 10s - request never completed');
+            reject(new Error('Supabase request timeout after 10s'));
+          }, 10000);
         });
         
-        console.log('[useBoulders] 🔵 Supabase query started, waiting for response...');
-        const { data, error } = await Promise.race([
-          fetchPromise,
+        console.log('[useBoulders] 🔵 Starting Promise.race (fetch vs timeout)...');
+        const result = await Promise.race([
+          fetchPromise.then((result) => {
+            console.log('[useBoulders] ✅ Fetch promise resolved');
+            return result;
+          }).catch((err) => {
+            console.error('[useBoulders] ❌ Fetch promise rejected:', err);
+            throw err;
+          }),
           timeoutPromise
         ]) as any;
         
         const duration = Date.now() - startTime;
-        console.log(`[useBoulders] 🔵 Supabase response received after ${duration}ms`);
+        console.log(`[useBoulders] 🔵 Promise.race completed after ${duration}ms`);
+        
+        const { data, error } = result;
 
         if (error) {
           console.error('[useBoulders] ❌ Error fetching boulders:', error);

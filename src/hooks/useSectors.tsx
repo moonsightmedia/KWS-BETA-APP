@@ -24,24 +24,36 @@ export const useSectors = () => {
       const startTime = Date.now();
       
       try {
-        // Add timeout wrapper
+        console.log('[useSectors] 🔵 Creating Supabase query...');
         const fetchPromise = supabase
           .from('sectors')
           .select('*')
           .order('name');
         
+        console.log('[useSectors] 🔵 Supabase query created, setting up timeout...');
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Supabase request timeout after 10s')), 10000);
+          setTimeout(() => {
+            console.error('[useSectors] ⏱️ TIMEOUT after 10s - request never completed');
+            reject(new Error('Supabase request timeout after 10s'));
+          }, 10000);
         });
         
-        console.log('[useSectors] 🔵 Supabase query started, waiting for response...');
-        const { data, error } = await Promise.race([
-          fetchPromise,
+        console.log('[useSectors] 🔵 Starting Promise.race (fetch vs timeout)...');
+        const result = await Promise.race([
+          fetchPromise.then((result) => {
+            console.log('[useSectors] ✅ Fetch promise resolved');
+            return result;
+          }).catch((err) => {
+            console.error('[useSectors] ❌ Fetch promise rejected:', err);
+            throw err;
+          }),
           timeoutPromise
         ]) as any;
         
         const duration = Date.now() - startTime;
-        console.log(`[useSectors] 🔵 Supabase response received after ${duration}ms`);
+        console.log(`[useSectors] 🔵 Promise.race completed after ${duration}ms`);
+        
+        const { data, error } = result;
 
         if (error) {
           console.error('[useSectors] ❌ Error fetching sectors:', error);
