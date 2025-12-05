@@ -62,6 +62,19 @@ if (typeof window !== 'undefined') {
 
 createRoot(document.getElementById("root")!).render(<App />);
 
+// Listen for messages from service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SW_SUPABASE_BYPASS') {
+      console.log('[Main] ✅ Service Worker bypassed Supabase request:', {
+        url: event.data.url,
+        method: event.data.method,
+        timestamp: event.data.timestamp,
+      });
+    }
+  });
+}
+
 // Register service worker (both dev and prod for background uploads)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
