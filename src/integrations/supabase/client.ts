@@ -2,79 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// CRITICAL: Override native fetch to intercept ALL requests, including Supabase
-// This ensures we can log and debug all network requests
-const originalFetch = window.fetch;
-let fetchCallCount = 0;
-
-window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const urlString = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-  const urlObj = new URL(urlString, window.location.origin);
-  
-  // Only intercept Supabase requests
-  const isSupabaseRequest = urlObj.hostname.includes('supabase.co') || 
-                            urlObj.hostname.includes('supabase.io') ||
-                            urlObj.hostname.includes('.supabase.co') ||
-                            urlObj.hostname.includes('.supabase.io');
-  
-  if (isSupabaseRequest) {
-    fetchCallCount++;
-    const callId = fetchCallCount;
-    const startTime = Date.now();
-    
-    // CRITICAL: Preserve all headers from the original request
-    // Convert Headers object to plain object if needed
-    let headers: HeadersInit | undefined = init?.headers;
-    if (headers instanceof Headers) {
-      const headersObj: Record<string, string> = {};
-      headers.forEach((value, key) => {
-        headersObj[key] = value;
-      });
-      headers = headersObj;
-    }
-    
-    console.log(`[Native Fetch Override] 🚀 [${callId}] Starting Supabase request:`, {
-      url: urlObj.href,
-      pathname: urlObj.pathname,
-      method: init?.method || 'GET',
-      hasAuth: !!(headers && (headers as any)['Authorization']),
-      hasApiKey: !!(headers && ((headers as any)['apikey'] || (headers as any)['apiKey'])),
-      headerKeys: headers ? Object.keys(headers) : [],
-      timestamp: new Date().toISOString(),
-    });
-    
-    try {
-      // CRITICAL: Use original fetch with ALL original options, just add no-cache
-      // This preserves headers, method, body, etc.
-      const response = await originalFetch(input, {
-        ...init,
-        headers: headers || init?.headers, // Preserve headers
-        cache: 'no-store' as RequestCache,
-      });
-      
-      const duration = Date.now() - startTime;
-      console.log(`[Native Fetch Override] ✅ [${callId}] Response received:`, {
-        url: urlObj.href,
-        status: response.status,
-        statusText: response.statusText,
-        duration: `${duration}ms`,
-      });
-      
-      return response;
-    } catch (error: any) {
-      const duration = Date.now() - startTime;
-      console.error(`[Native Fetch Override] ❌ [${callId}] Request failed:`, {
-        url: urlObj.href,
-        error: error?.message || error,
-        duration: `${duration}ms`,
-      });
-      throw error;
-    }
-  }
-  
-  // For non-Supabase requests, use original fetch
-  return originalFetch(input, init);
-};
+// NOTE: Native fetch is already overridden in main.tsx BEFORE this file is imported
+// This ensures ALL Supabase requests are intercepted
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;

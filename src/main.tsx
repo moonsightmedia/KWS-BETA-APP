@@ -1,6 +1,80 @@
 // CACHE BUST: Version 2 - Force reload of all JavaScript files
 console.log('[Main] 🚀 Loading application v2 - Cache busted');
 
+// CRITICAL: Override native fetch BEFORE Supabase is imported
+// This ensures ALL Supabase requests are intercepted
+const originalFetch = window.fetch;
+let fetchCallCount = 0;
+
+window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const urlString = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
+  const urlObj = new URL(urlString, window.location.origin);
+  
+  // Only intercept Supabase requests
+  const isSupabaseRequest = urlObj.hostname.includes('supabase.co') || 
+                            urlObj.hostname.includes('supabase.io') ||
+                            urlObj.hostname.includes('.supabase.co') ||
+                            urlObj.hostname.includes('.supabase.io');
+  
+  if (isSupabaseRequest) {
+    fetchCallCount++;
+    const callId = fetchCallCount;
+    const startTime = Date.now();
+    
+    // Preserve all headers
+    let headers: HeadersInit | undefined = init?.headers;
+    if (headers instanceof Headers) {
+      const headersObj: Record<string, string> = {};
+      headers.forEach((value, key) => {
+        headersObj[key] = value;
+      });
+      headers = headersObj;
+    }
+    
+    console.log(`[Main Fetch Override] 🚀 [${callId}] Starting Supabase request:`, {
+      url: urlObj.href,
+      pathname: urlObj.pathname,
+      method: init?.method || 'GET',
+      hasAuth: !!(headers && (headers as any)['Authorization']),
+      hasApiKey: !!(headers && ((headers as any)['apikey'] || (headers as any)['apiKey'])),
+      headerKeys: headers ? Object.keys(headers) : [],
+      timestamp: new Date().toISOString(),
+    });
+    
+    try {
+      // Use original fetch with ALL original options
+      const response = await originalFetch(input, {
+        ...init,
+        headers: headers || init?.headers,
+        cache: 'no-store' as RequestCache,
+      });
+      
+      const duration = Date.now() - startTime;
+      console.log(`[Main Fetch Override] ✅ [${callId}] Response received:`, {
+        url: urlObj.href,
+        status: response.status,
+        statusText: response.statusText,
+        duration: `${duration}ms`,
+      });
+      
+      return response;
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error(`[Main Fetch Override] ❌ [${callId}] Request failed:`, {
+        url: urlObj.href,
+        error: error?.message || error,
+        duration: `${duration}ms`,
+      });
+      throw error;
+    }
+  }
+  
+  // For non-Supabase requests, use original fetch
+  return originalFetch(input, init);
+};
+
+console.log('[Main] ✅ Native fetch overridden BEFORE Supabase import');
+
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
