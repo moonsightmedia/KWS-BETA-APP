@@ -1,3 +1,6 @@
+// CACHE BUST: Version 2 - Force reload of all JavaScript files
+console.log('[Main] 🚀 Loading application v2 - Cache busted');
+
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
