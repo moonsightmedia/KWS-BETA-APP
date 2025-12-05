@@ -8,7 +8,7 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { refreshAllData, clearAllCaches, clearBrowserCaches } from "@/utils/cacheUtils";
-import { PullToRefreshIndicator } from "@/components/PullToRefreshIndicator";
+// PullToRefreshIndicator import entfernt - Animation deaktiviert
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { retryPendingFeedback } from "@/utils/feedbackUtils";
 import Index from "./pages/Index";
@@ -173,222 +173,9 @@ const PullToRefreshHandler = () => {
     return () => clearInterval(monitoringInterval);
   }, [queryClient]);
   
-  // Handle reload: Wait for auth to finish, then refetch queries
-  // Use a ref to prevent multiple simultaneous refetches
-  const isRefetchingRef = useRef(false);
-  
-  useEffect(() => {
-    const wasRefreshing = sessionStorage.getItem('isRefreshing');
-    console.log('[PullToRefresh] useEffect triggered:', { wasRefreshing, authLoading, isRefetching: isRefetchingRef.current });
-    
-    if (wasRefreshing === 'true' && !authLoading && !isRefetchingRef.current) {
-      console.log('[PullToRefresh] ✅ Conditions met, starting refetch process');
-      isRefetchingRef.current = true;
-      
-      // Auth is done, now we can safely refetch queries
-      (async () => {
-        try {
-          console.log('[PullToRefresh] Auth finished after reload, starting query refetch');
-          
-          const preserveRoute = sessionStorage.getItem('preserveRoute');
-          if (preserveRoute) {
-            console.log(`[PullToRefresh] Route ${preserveRoute} will be restored on mount`);
-          }
-          
-          // Cancel any pending queries first to prevent conflicts
-          console.log('[PullToRefresh] Cancelling any pending queries...');
-          await queryClient.cancelQueries();
-          
-          // Log query states before refetch
-          const commonQueryKeys = [
-            ['boulders'],
-            ['sectors'],
-            ['colors'],
-            ['competition_boulders'],
-            ['competition_results'],
-            ['competition_leaderboard'],
-            ['competition_participant'],
-            ['competition_participants'],
-            ['profiles'],
-            ['notifications'],
-            ['notification_preferences'],
-            ['statistics'],
-          ];
-          
-          const queryStatesBefore: Record<string, any> = {};
-          commonQueryKeys.forEach(queryKey => {
-            const state = queryClient.getQueryState(queryKey);
-            queryStatesBefore[JSON.stringify(queryKey)] = {
-              status: state?.status || 'unknown',
-              hasData: !!state?.data,
-              isLoading: state?.status === 'pending',
-              error: state?.error || null,
-            };
-          });
-          console.log('[PullToRefresh] Query states before refetch:', queryStatesBefore);
-          
-          // Invalidate all queries first (marks them as stale)
-          queryClient.invalidateQueries();
-          console.log('[PullToRefresh] All queries invalidated - components will refetch automatically');
-          
-          // Wait a bit for components to mount and start their queries naturally
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          
-          // Check query states after waiting
-          const queryStatesAfter: Record<string, any> = {};
-          commonQueryKeys.forEach(queryKey => {
-            const state = queryClient.getQueryState(queryKey);
-            queryStatesAfter[JSON.stringify(queryKey)] = {
-              status: state?.status || 'unknown',
-              hasData: !!state?.data,
-              isLoading: state?.status === 'pending',
-              error: state?.error || null,
-            };
-          });
-          console.log('[PullToRefresh] Query states after waiting:', queryStatesAfter);
-          
-          // Check which queries still need refetching (those that are still pending or have no data)
-          const queriesToRefetch = commonQueryKeys.filter(queryKey => {
-            const state = queryClient.getQueryState(queryKey);
-            const needsRefetch = !state?.data && (state?.status === 'pending' || !state || state.status === 'error');
-            if (needsRefetch) {
-              console.log(`[PullToRefresh] Query ${JSON.stringify(queryKey)} needs refetch:`, {
-                hasData: !!state?.data,
-                status: state?.status || 'unknown',
-                error: state?.error || null,
-              });
-            }
-            return needsRefetch;
-          });
-          
-          if (queriesToRefetch.length > 0) {
-            console.log(`[PullToRefresh] Explicitly refetching ${queriesToRefetch.length} queries that are still pending...`);
-            const refetchStartTime = Date.now();
-            
-            const refetchResults = await Promise.allSettled(
-              queriesToRefetch.map(async (queryKey) => {
-                console.log(`[PullToRefresh] Refetching query: ${JSON.stringify(queryKey)}`);
-                try {
-                  // Cancel any existing fetch for this query first
-                  await queryClient.cancelQueries({ queryKey });
-                  
-                  // Wait a bit before refetching to avoid race conditions
-                  await new Promise(resolve => setTimeout(resolve, 200));
-                  
-                  // Add timeout to refetch
-                  const refetchPromise = queryClient.refetchQueries({ queryKey });
-                  const timeoutPromise = new Promise((_, reject) => {
-                    setTimeout(() => reject(new Error('Refetch timeout after 10s')), 10000);
-                  });
-                  
-                  await Promise.race([refetchPromise, timeoutPromise]);
-                  
-                  const state = queryClient.getQueryState(queryKey);
-                  const resultInfo = {
-                    status: state?.status || 'unknown',
-                    hasData: !!state?.data,
-                    error: state?.error || null,
-                  };
-                  console.log(`[PullToRefresh] ✅ Query refetch result: ${JSON.stringify(queryKey)} =`, resultInfo);
-                  return { queryKey, success: true, resultInfo };
-                } catch (error) {
-                  console.error(`[PullToRefresh] ❌ Error refetching query ${JSON.stringify(queryKey)}:`, error);
-                  return { queryKey, success: false, error };
-                }
-              })
-            );
-            
-            const refetchDuration = Date.now() - refetchStartTime;
-            const successful = refetchResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
-            const failed = refetchResults.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)).length;
-            
-            console.log(`[PullToRefresh] All queries refetched in ${refetchDuration}ms (${successful} successful, ${failed} failed)`);
-          } else {
-            console.log('[PullToRefresh] All queries already have data or are loading, skipping explicit refetch');
-          }
-          
-          console.log('[PullToRefresh] ✅ Data loading ensured after page reload');
-          
-          // Clear the isRefreshing flag after successful refetch
-          sessionStorage.removeItem('isRefreshing');
-          isRefetchingRef.current = false;
-        } catch (error) {
-          console.error('[PullToRefresh] Error ensuring data loads after reload:', error);
-          // Still clear the flag even on error to prevent infinite loops
-          sessionStorage.removeItem('isRefreshing');
-          isRefetchingRef.current = false;
-        }
-      })();
-    }
-  }, [authLoading, queryClient]);
-  
-  // Additional useEffect to handle reload even if authLoading changes multiple times
-  useEffect(() => {
-    const wasRefreshing = sessionStorage.getItem('isRefreshing');
-    if (wasRefreshing === 'true' && !authLoading && !isRefetchingRef.current) {
-      // Small delay to ensure this runs after the first useEffect
-      const timer = setTimeout(() => {
-        const stillRefreshing = sessionStorage.getItem('isRefreshing');
-        if (stillRefreshing === 'true' && !isRefetchingRef.current) {
-          console.log('[PullToRefresh] Fallback: Triggering refetch after delay');
-          isRefetchingRef.current = true;
-          
-          (async () => {
-            try {
-              console.log('[PullToRefresh] Fallback: Starting query refetch');
-              
-              // Cancel any pending queries first
-              await queryClient.cancelQueries();
-              
-              // Invalidate all queries
-              queryClient.invalidateQueries();
-              
-              // Wait for components to mount
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              
-              // Refetch critical queries
-              const criticalQueries = [
-                ['boulders'],
-                ['sectors'],
-                ['colors'],
-                ['competition_boulders'],
-                ['competition_participant'],
-              ];
-              
-              await Promise.allSettled(
-                criticalQueries.map(async (queryKey) => {
-                  try {
-                    await queryClient.cancelQueries({ queryKey });
-                    await new Promise(resolve => setTimeout(resolve, 300));
-                    
-                    const refetchPromise = queryClient.refetchQueries({ queryKey });
-                    const timeoutPromise = new Promise((_, reject) => {
-                      setTimeout(() => reject(new Error('Timeout')), 10000);
-                    });
-                    
-                    await Promise.race([refetchPromise, timeoutPromise]);
-                    console.log(`[PullToRefresh] Fallback: Refetched ${JSON.stringify(queryKey)}`);
-                  } catch (error) {
-                    console.error(`[PullToRefresh] Fallback: Error refetching ${JSON.stringify(queryKey)}:`, error);
-                  }
-                })
-              );
-              
-              sessionStorage.removeItem('isRefreshing');
-              isRefetchingRef.current = false;
-              console.log('[PullToRefresh] Fallback: Refetch completed');
-            } catch (error) {
-              console.error('[PullToRefresh] Fallback: Error:', error);
-              sessionStorage.removeItem('isRefreshing');
-              isRefetchingRef.current = false;
-            }
-          })();
-        }
-      }, 3000); // Wait 3 seconds after auth loading ends
-      
-      return () => clearTimeout(timer);
-    }
-  }, [authLoading, queryClient]);
+  // VEREINFACHT: PullToRefreshHandler macht nur noch Route-Restoration
+  // Refetch-Logik wurde komplett entfernt - Root-Komponente übernimmt das
+  // Dies verhindert Konflikte zwischen mehreren Refetch-Mechanismen
   
   useEffect(() => {
     console.log('[PullToRefresh] Setting up event listeners');
@@ -408,125 +195,18 @@ const PullToRefreshHandler = () => {
       );
     };
 
-    const handleTouchStart = (e: TouchEvent) => {
-      if (localIsRefreshing || isRefreshing) {
-        return;
-      }
-      
-      const scrollTop = getScrollTop();
-      
-      // Allow pull-to-refresh if at top of page
-      if (scrollTop <= 10) {
-        touchStartY = e.touches[0].clientY;
-        touchStartTime = Date.now();
-        currentPullDistance = 0;
-        setPullDistance(0);
-      } else {
-        touchStartY = 0;
-        currentPullDistance = 0;
-        setPullDistance(0);
-      }
+    // Pull-to-Refresh Gesture Detection DEAKTIVIERT
+    // Touch-Event-Handler werden nicht mehr registriert
+    const handleTouchStart = () => {
+      // Deaktiviert
     };
     
-    const handleTouchMove = (e: TouchEvent) => {
-      if (touchStartY === 0 || localIsRefreshing || isRefreshing) {
-        return;
-      }
-      
-      const currentY = e.touches[0].clientY;
-      const scrollTop = getScrollTop();
-      const distance = currentY - touchStartY;
-      
-      // Only handle if pulling down and at top
-      if (scrollTop <= 10 && distance > 0) {
-        currentPullDistance = distance;
-        setPullDistance(distance);
-        
-        // Prevent default scrolling when pulling down significantly
-        if (distance > 15) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      } else if (scrollTop > 10 || distance < 0) {
-        // Reset if scrolled away or pulling up
-        touchStartY = 0;
-        currentPullDistance = 0;
-        setPullDistance(0);
-      }
+    const handleTouchMove = () => {
+      // Deaktiviert
     };
     
-    const handleTouchEnd = async (e: TouchEvent) => {
-      if (touchStartY === 0 || localIsRefreshing || isRefreshing) {
-        return;
-      }
-      
-      const scrollTop = getScrollTop();
-      const finalDistance = currentPullDistance;
-      
-      // Check if this was a pull-to-refresh gesture
-      if (scrollTop <= 10 && finalDistance > pullThreshold) {
-        localIsRefreshing = true;
-        setIsRefreshing(true);
-        setPullDistance(pullThreshold); // Keep distance visible during refresh
-        console.log('[PullToRefresh] ✅ TRIGGERING REFRESH!');
-        
-        // Save current route
-        const currentRoute = location.pathname || window.location.pathname;
-        sessionStorage.setItem('preserveRoute', currentRoute);
-        
-        // Immediately start hard reload
-        (async () => {
-          try {
-            console.log('[PullToRefresh] 🔄 Starting hard reload...');
-            
-            // Step 1: Clear browser caches first
-            console.log('[PullToRefresh] Step 1: Clearing browser caches...');
-            try {
-              await clearBrowserCaches();
-              console.log('[PullToRefresh] Browser caches cleared');
-            } catch (cacheError) {
-              console.warn('[PullToRefresh] Could not clear browser caches:', cacheError);
-            }
-            
-            // Step 2: Unregister service workers if present
-            if ('serviceWorker' in navigator) {
-              try {
-                const registrations = await navigator.serviceWorker.getRegistrations();
-                await Promise.all(registrations.map(reg => reg.unregister()));
-                console.log('[PullToRefresh] Service workers unregistered');
-              } catch (swError) {
-                console.warn('[PullToRefresh] Could not unregister service workers:', swError);
-              }
-            }
-            
-            // Step 3: Hard reload the page
-            console.log('[PullToRefresh] Step 2: Reloading page...');
-            // Small delay to ensure caches are cleared
-            setTimeout(() => {
-              window.location.reload();
-            }, 100);
-          } catch (error) {
-            console.error('[PullToRefresh] ❌ Error:', error);
-            // Even if there's an error, still reload
-            window.location.reload();
-          }
-        })();
-      } else {
-        // Reset if gesture didn't meet threshold - animate back
-        const resetDistance = finalDistance;
-        let resetCount = 0;
-        const resetInterval = setInterval(() => {
-          resetCount++;
-          const newDistance = resetDistance * (1 - resetCount * 0.1);
-          setPullDistance(Math.max(0, newDistance));
-          if (resetCount >= 10 || newDistance <= 0) {
-            clearInterval(resetInterval);
-            touchStartY = 0;
-            currentPullDistance = 0;
-            setPullDistance(0);
-          }
-        }, 16); // ~60fps animation
-      }
+    const handleTouchEnd = () => {
+      // Deaktiviert
     };
     
     // Also listen for beforeunload to detect page refresh
@@ -559,14 +239,8 @@ const PullToRefreshHandler = () => {
       }
     };
     
-    // Add touch event listeners for mobile pull-to-refresh
-    // Use capture phase and passive: false for touchmove to allow preventDefault
-    const options = { capture: true, passive: false };
-    const startOptions = { capture: true, passive: true };
-    
-    document.addEventListener('touchstart', handleTouchStart, startOptions);
-    document.addEventListener('touchmove', handleTouchMove, options);
-    document.addEventListener('touchend', handleTouchEnd, startOptions);
+    // Touch-Event-Listener DEAKTIVIERT - Pull-to-Refresh-Geste entfernt
+    // Nur noch beforeunload und load für Route-Restoration
     
     console.log('[PullToRefresh] ✅ Event listeners registered');
     
@@ -631,9 +305,7 @@ const PullToRefreshHandler = () => {
     document.addEventListener('visibilitychange', handleVisibilityChangeRefresh);
     
     return () => {
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
+      // Touch-Event-Listener wurden nicht registriert, daher nicht entfernen
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('load', handleLoad);
       document.removeEventListener('visibilitychange', handleVisibilityChangeRefresh);
@@ -643,15 +315,8 @@ const PullToRefreshHandler = () => {
     };
   }, [queryClient, navigate, location.pathname, pullDistance]);
   
-  return (
-    <>
-      <PullToRefreshIndicator 
-        pullDistance={pullDistance} 
-        isRefreshing={isRefreshing} 
-        pullThreshold={pullThreshold}
-      />
-    </>
-  );
+  // Pull-to-Refresh Animation deaktiviert - zu viele Probleme
+  return null;
 };
 
 import { SidebarProvider } from '@/components/SidebarContext';
@@ -765,28 +430,11 @@ const Root = () => {
       
       console.log('[Root] Auth loading ended, checking refetch strategy:', { wasRefreshing });
       
-      // If PullToRefreshHandler is handling the reload, wait a bit to see if it refetches
-      // But don't wait too long - if it doesn't refetch within 2 seconds, Root will handle it
-      if (wasRefreshing === 'true') {
-        console.log('[Root] PullToRefreshHandler flag is set, waiting 2s to see if it refetches...');
-        
-        const checkTimer = setTimeout(() => {
-          const stillRefreshing = sessionStorage.getItem('isRefreshing');
-          console.log('[Root] After 2s wait, isRefreshing still set?', stillRefreshing);
-          
-          // If flag is still set after 2 seconds, PullToRefreshHandler probably didn't refetch
-          // Root should handle it now
-          rootRefetchDoneRef.current = true;
-          performRootRefetch('PullToRefreshHandler did not refetch within 2s');
-        }, 2000); // Reduced to 2 seconds
-        
-        return () => clearTimeout(checkTimer);
-      }
-      
-      // Normal reload (no isRefreshing flag) - Root should handle refetch immediately
+      // VEREINFACHT: Root refetched IMMER, unabhängig von PullToRefreshHandler
+      // PullToRefreshHandler macht nur noch Route-Restoration, kein Refetch mehr
       rootRefetchDoneRef.current = true;
-      console.log('[Root] Normal reload detected, Root will handle refetch immediately');
-      performRootRefetch('Normal reload');
+      console.log('[Root] Auth loading ended, Root will handle refetch immediately');
+      performRootRefetch('Reload detected');
     }
     
     function performRootRefetch(reason: string) {
