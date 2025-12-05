@@ -50,16 +50,26 @@ const CompetitionContent = () => {
     // 2. Participant already exists
     // 3. Dialog is already open
     // 4. User clicked on a boulder (selectedBoulder is set)
-    if (!isLoadingParticipant && !participant && user && !showParticipateDialog && !selectedBoulder) {
+    // 5. Participant creation is in progress
+    // 6. User has already seen the dialog (stored in sessionStorage)
+    if (
+      !isLoadingParticipant && 
+      !participant && 
+      user && 
+      !showParticipateDialog && 
+      !selectedBoulder &&
+      !createParticipant.isPending
+    ) {
       // Only show dialog automatically on initial load, not when user clicks boulders
       // This prevents the dialog from showing every time user clicks a boulder
       const hasShownBefore = sessionStorage.getItem(`competition_dialog_shown_${user.id}`);
       if (!hasShownBefore) {
+        console.log('[Competition] Showing participate dialog automatically on initial load');
         setShowParticipateDialog(true);
         sessionStorage.setItem(`competition_dialog_shown_${user.id}`, 'true');
       }
     }
-  }, [participant, isLoadingParticipant, user, showParticipateDialog, selectedBoulder]);
+  }, [participant, isLoadingParticipant, user, showParticipateDialog, selectedBoulder, createParticipant.isPending]);
 
   const handleParticipateConfirm = async () => {
     // Geschlecht ist verpflichtend
@@ -68,21 +78,31 @@ const CompetitionContent = () => {
     }
     
     try {
+      console.log('[Competition] Creating participant with gender:', participantGender);
       // Warte auf die Mutation, bevor der Dialog geschlossen wird
       await createParticipant.mutateAsync({
         gender: participantGender,
       });
       
+      console.log('[Competition] Participant created successfully');
+      
       // Dialog schließen
       setShowParticipateDialog(false);
       setParticipantGender(null); // Reset für nächstes Mal
       
+      // WICHTIG: selectedBoulder NICHT zurücksetzen!
       // Wenn ein Boulder ausgewählt wurde, wird der ResultInput-Dialog automatisch geöffnet
       // sobald der participant-State aktualisiert wurde (durch Query-Invalidierung)
       // selectedBoulder bleibt gesetzt, damit ResultInput geöffnet werden kann
+      
+      // Stelle sicher, dass der Dialog-Flag gesetzt bleibt, damit er nicht erneut kommt
+      if (user?.id) {
+        sessionStorage.setItem(`competition_dialog_shown_${user.id}`, 'true');
+      }
     } catch (error) {
       // Fehler wird bereits vom Hook behandelt, Dialog bleibt offen
       console.error('[Competition] Error creating participant:', error);
+      // selectedBoulder bleibt gesetzt, damit User es erneut versuchen kann
     }
   };
 
@@ -116,8 +136,13 @@ const CompetitionContent = () => {
     if (!participant) {
       // User is logged in but no participant yet - show participation dialog
       // Allow user to participate even if they declined before (they can change their mind)
-      console.log('[Competition] No participant, showing participate dialog');
-      setShowParticipateDialog(true);
+      // BUT: Don't show if we're already creating a participant
+      if (!createParticipant.isPending && !showParticipateDialog) {
+        console.log('[Competition] No participant, showing participate dialog');
+        setShowParticipateDialog(true);
+      } else {
+        console.log('[Competition] No participant, but dialog already open or creation in progress');
+      }
       return;
     }
 

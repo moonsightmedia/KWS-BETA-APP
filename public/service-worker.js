@@ -36,8 +36,17 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+  const url = new URL(request.url);
   
-  // Skip caching for non-GET requests
+  // CRITICAL: Never intercept Supabase Auth requests - they cause CORS errors
+  // Supabase Auth endpoints must go directly to network without service worker interference
+  if (url.hostname.includes('supabase.co') || url.hostname.includes('supabase.io')) {
+    // Let all Supabase requests pass through without interception
+    event.respondWith(fetch(request));
+    return;
+  }
+  
+  // Skip caching for non-GET requests (POST, PUT, DELETE, etc.)
   if (request.method !== 'GET') {
     event.respondWith(fetch(request));
     return;
@@ -50,7 +59,6 @@ self.addEventListener('fetch', (event) => {
                     (request.mode === 'navigate' && request.cache === 'reload');
 
   // Don't cache videos or large media files (they use Range Requests with 206 status)
-  const url = new URL(request.url);
   const isVideo = /\.(mp4|mov|webm|avi|mkv|m4v)$/i.test(url.pathname);
   const isMedia = /\.(mp4|mov|webm|avi|mkv|m4v|jpg|jpeg|png|gif|webp)$/i.test(url.pathname);
   

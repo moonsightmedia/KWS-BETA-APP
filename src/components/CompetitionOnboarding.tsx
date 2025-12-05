@@ -1,7 +1,7 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { Button } from '@/components/ui/button';
 import { X, ChevronRight, LogIn, Trophy } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
 
 // Context to allow opening competition onboarding from anywhere
@@ -181,16 +181,16 @@ const CompetitionOnboardingDialog = ({ isOpen, currentStep, steps, onNext, onFin
             <X className="h-4 w-4" />
           </Button>
 
-          <div className="space-y-4 mt-8 sm:mt-0">
-            <h2 className="text-xl sm:text-2xl font-bold">{steps[currentStep].title}</h2>
-            <div className="text-sm sm:text-base text-muted-foreground">
+          <DialogHeader className="mt-8 sm:mt-0">
+            <DialogTitle className="text-xl sm:text-2xl font-bold">{steps[currentStep].title}</DialogTitle>
+            <DialogDescription className="text-sm sm:text-base text-muted-foreground">
               {typeof steps[currentStep].content === 'string' ? (
                 <p>{steps[currentStep].content}</p>
               ) : (
                 steps[currentStep].content
               )}
-            </div>
-          </div>
+            </DialogDescription>
+          </DialogHeader>
 
           <div className="flex items-center justify-between mt-6 sm:mt-8 gap-3">
             <div className="flex gap-1 shrink-0">

@@ -39,13 +39,31 @@ export const ResultInput = ({
       ? Math.max(2, parseInt(attempts) || 2) 
       : null;
     
-    await submitResult.mutateAsync({
+    console.log('[ResultInput] Submitting result:', {
       participant_id: participantId,
       boulder_number: boulderNumber,
       result_type: selectedType,
       attempts: attemptsValue,
     });
-    onClose();
+    
+    try {
+      await submitResult.mutateAsync({
+        participant_id: participantId,
+        boulder_number: boulderNumber,
+        result_type: selectedType,
+        attempts: attemptsValue,
+      });
+      
+      console.log('[ResultInput] Result submitted successfully, closing dialog');
+      // Only close dialog on success
+      onClose();
+    } catch (error: any) {
+      // Error is already handled by the mutation's onError callback
+      // But we log it here for debugging
+      console.error('[ResultInput] Error submitting result:', error);
+      // Don't close dialog on error - let user see the error and try again
+      // The toast error message from the mutation will inform the user
+    }
   };
 
   return (

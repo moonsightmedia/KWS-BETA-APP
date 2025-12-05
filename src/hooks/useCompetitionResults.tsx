@@ -42,7 +42,10 @@ export const useSubmitCompetitionResult = () => {
       result_type: 'flash' | 'top' | 'zone' | 'none';
       attempts?: number | null;
     }) => {
+      console.log('[useCompetitionResults] Starting mutation with payload:', payload);
+      
       // First, verify that the participant has a gender
+      console.log('[useCompetitionResults] Verifying participant:', payload.participant_id);
       const { data: participant, error: participantError } = await (supabase as any)
         .from('competition_participants')
         .select('gender')
@@ -50,12 +53,17 @@ export const useSubmitCompetitionResult = () => {
         .single();
 
       if (participantError) {
+        console.error('[useCompetitionResults] Participant not found:', participantError);
         throw new Error('Teilnehmer nicht gefunden');
       }
 
       if (!participant || !participant.gender) {
+        console.error('[useCompetitionResults] Participant has no gender:', participant);
         throw new Error('Teilnehmer hat kein Geschlecht/Klasse angegeben. Bitte aktualisiere dein Profil.');
       }
+
+      console.log('[useCompetitionResults] Participant verified, gender:', participant.gender);
+      console.log('[useCompetitionResults] Upserting result...');
 
       // Use upsert to handle both insert and update
       const { data, error } = await (supabase as any)
@@ -74,7 +82,12 @@ export const useSubmitCompetitionResult = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useCompetitionResults] Upsert error:', error);
+        throw error;
+      }
+      
+      console.log('[useCompetitionResults] Upsert successful, data:', data);
       return data as CompetitionResult;
     },
     onMutate: async (variables) => {
@@ -129,7 +142,8 @@ export const useSubmitCompetitionResult = () => {
       toast.error('Fehler beim Speichern: ' + error.message);
     },
     onSuccess: async (data, variables) => {
-      console.log('[useCompetitionResults] Result saved successfully, refetching to get correct points...');
+      console.log('[useCompetitionResults] ✅ Result saved successfully:', data);
+      console.log('[useCompetitionResults] Refetching to get correct points...');
       
       // Invalidate and refetch to get correct points from database
       queryClient.invalidateQueries({
@@ -139,7 +153,7 @@ export const useSubmitCompetitionResult = () => {
       
       // Refetch immediately to update with correct points
       try {
-        await Promise.all([
+        const [resultsRefetch, leaderboardRefetch] = await Promise.all([
           queryClient.refetchQueries({
             queryKey: ['competition_results', variables.participant_id],
           }),
@@ -147,7 +161,10 @@ export const useSubmitCompetitionResult = () => {
             queryKey: ['competition_leaderboard'],
           }),
         ]);
-        console.log('[useCompetitionResults] ✅ Queries refetched successfully');
+        console.log('[useCompetitionResults] ✅ Queries refetched successfully:', {
+          results: resultsRefetch.length,
+          leaderboard: leaderboardRefetch.length,
+        });
       } catch (error) {
         console.error('[useCompetitionResults] ❌ Error refetching queries:', error);
       }
