@@ -78,14 +78,35 @@ if ('serviceWorker' in navigator) {
 // TEMPORARY FIX: Unregister service worker to test if it's causing the issue
 // TODO: Re-enable after confirming it's the cause
 if ('serviceWorker' in navigator) {
-  // Unregister all service workers first
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
+  // Unregister all service workers first - FORCE unregister
+  navigator.serviceWorker.getRegistrations().then(async (registrations) => {
     console.log('[Main] ⚠️ TEMPORARY FIX: Unregistering all service workers to test Supabase requests');
-    registrations.forEach((registration) => {
-      registration.unregister().then((success) => {
+    for (const registration of registrations) {
+      try {
+        // Force unregister
+        const success = await registration.unregister();
         console.log('[Main] Service Worker unregistered:', success);
+        
+        // Also try to update and then unregister to ensure it's gone
+        await registration.update();
+        if (registration.waiting) {
+          await registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+      } catch (error) {
+        console.error('[Main] Error unregistering service worker:', error);
+      }
+    }
+    
+    // Double-check: Get registrations again and log if any are still there
+    const remainingRegistrations = await navigator.serviceWorker.getRegistrations();
+    if (remainingRegistrations.length > 0) {
+      console.error('[Main] ⚠️ WARNING: Service Workers still registered after unregister attempt:', remainingRegistrations.length);
+      remainingRegistrations.forEach((reg) => {
+        console.error('[Main] Still registered:', reg.scope, reg.active?.scriptURL);
       });
-    });
+    } else {
+      console.log('[Main] ✅ All Service Workers successfully unregistered');
+    }
   });
   
   // Don't register service worker for now - this is a test to see if it's causing the issue
