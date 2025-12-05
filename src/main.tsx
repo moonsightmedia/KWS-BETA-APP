@@ -91,13 +91,49 @@ if ('serviceWorker' in navigator) {
     // Only refresh service worker to get latest version
     console.log('[Main] Page reload detected, refreshing service worker (not clearing caches)');
     
-    // Refresh service worker and force update
+    // Force service worker update on reload to ensure latest version is active
     navigator.serviceWorker.getRegistrations().then((registrations) => {
-      registrations.forEach((registration) => {
-        registration.update(); // Update service worker
-        // Also unregister and re-register to force update if needed
-        if (registration.waiting) {
-          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      registrations.forEach(async (registration) => {
+        try {
+          // First, try to update
+          await registration.update();
+          console.log('[Main] Service Worker update requested');
+          
+          // If there's a waiting service worker, skip waiting immediately
+          if (registration.waiting) {
+            console.log('[Main] Service Worker waiting, sending SKIP_WAITING message');
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            
+            // Also try to claim clients immediately
+            registration.waiting.addEventListener('statechange', (event: any) => {
+              if (event.target?.state === 'activated') {
+                console.log('[Main] Service Worker activated, claiming clients');
+                self.clients?.claim();
+              }
+            });
+          }
+          
+          // If there's an active service worker, check if it's the latest version
+          if (registration.active) {
+            // Force reload of service worker by unregistering and re-registering if needed
+            // But only if we're sure there's a newer version
+            const checkUpdate = setInterval(async () => {
+              try {
+                await registration.update();
+                if (registration.waiting) {
+                  clearInterval(checkUpdate);
+                  registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+              } catch (error) {
+                clearInterval(checkUpdate);
+              }
+            }, 1000);
+            
+            // Stop checking after 5 seconds
+            setTimeout(() => clearInterval(checkUpdate), 5000);
+          }
+        } catch (error) {
+          console.error('[Main] Error updating service worker:', error);
         }
       });
     });

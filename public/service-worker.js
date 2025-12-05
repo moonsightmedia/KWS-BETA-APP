@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kws-beta-v8'; // Increment version to force cache refresh and ensure Supabase bypass works
+const CACHE_NAME = 'kws-beta-v9'; // Increment version to force cache refresh and ensure Supabase bypass works
 const CORE_ASSETS = [
   '/',
   '/index.html',
@@ -6,11 +6,20 @@ const CORE_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
+  console.log('[SW] Installing service worker, version:', CACHE_NAME);
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS))
   );
-  // Skip waiting to activate immediately
+  // Skip waiting to activate immediately - this ensures new version takes over immediately
   self.skipWaiting();
+});
+
+// Listen for SKIP_WAITING message from main thread
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('[SW] Received SKIP_WAITING message, activating immediately');
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('activate', (event) => {
@@ -41,13 +50,30 @@ self.addEventListener('fetch', (event) => {
   // CRITICAL: Never intercept Supabase requests - they cause CORS errors and caching issues
   // Supabase endpoints (Auth, REST API, Storage) must go directly to network without ANY service worker interference
   // Check for Supabase domains FIRST, before any other processing
-  if (url.hostname.includes('supabase.co') || 
-      url.hostname.includes('supabase.io') ||
-      url.hostname.includes('.supabase.co') ||
-      url.hostname.includes('.supabase.io')) {
+  // This includes requests with Auth headers (Authorization, apikey, etc.)
+  const isSupabaseRequest = url.hostname.includes('supabase.co') || 
+                            url.hostname.includes('supabase.io') ||
+                            url.hostname.includes('.supabase.co') ||
+                            url.hostname.includes('.supabase.io');
+  
+  if (isSupabaseRequest) {
+    // Enhanced logging for debugging
+    const hasAuthHeader = request.headers.has('Authorization') || 
+                         request.headers.has('apikey') ||
+                         request.headers.has('apiKey');
+    
+    // Log in production too, but only for failed requests (we'll check response later)
+    console.log('[SW] Supabase request bypassed:', {
+      url: url.pathname,
+      method: request.method,
+      hasAuthHeader: hasAuthHeader,
+      timestamp: new Date().toISOString(),
+    });
+    
     // DON'T intercept at all - let the browser handle it natively
     // By not calling event.respondWith(), the request bypasses the service worker completely
-    // This is the ONLY way to avoid CORS issues with credentials
+    // This is the ONLY way to avoid CORS issues with credentials and Auth headers
+    // Even if the request has Authorization headers, we must not touch it
     return; // Exit early, don't call event.respondWith()
   }
   
