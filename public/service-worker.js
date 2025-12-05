@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kws-beta-v5'; // Increment version to force cache refresh
+const CACHE_NAME = 'kws-beta-v6'; // Increment version to force cache refresh and ensure Supabase bypass works
 const CORE_ASSETS = [
   '/',
   '/index.html',
