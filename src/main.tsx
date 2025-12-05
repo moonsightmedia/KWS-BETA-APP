@@ -81,21 +81,15 @@ if ('serviceWorker' in navigator) {
       });
   });
   
-  // On page reload/refresh, clear all caches and refresh service worker
+  // On page reload/refresh, refresh service worker but DON'T clear caches immediately
+  // Clearing caches too early can interfere with data fetching
+  // Let React Query handle cache invalidation instead
   const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
   if (performance.navigation?.type === 1 || navigation?.type === 'reload') {
-    // Clear all browser caches on refresh
-    if ('caches' in window) {
-      caches.keys().then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => caches.delete(cacheName))
-        );
-      }).then(() => {
-        console.log('[Main] All caches cleared on page reload');
-      }).catch((error) => {
-        console.error('[Main] Error clearing caches on reload:', error);
-      });
-    }
+    // Don't clear caches immediately - this can interfere with data fetching
+    // React Query will handle cache invalidation through its own mechanisms
+    // Only refresh service worker to get latest version
+    console.log('[Main] Page reload detected, refreshing service worker (not clearing caches)');
     
     // Refresh service worker
     navigator.serviceWorker.getRegistrations().then((registrations) => {
@@ -103,5 +97,24 @@ if ('serviceWorker' in navigator) {
         registration.update(); // Update service worker
       });
     });
+    
+    // Only clear old caches after a delay to not interfere with initial data loading
+    setTimeout(() => {
+      if ('caches' in window) {
+        caches.keys().then((cacheNames) => {
+          // Only clear old cache versions, not the current one
+          const oldCaches = cacheNames.filter(name => !name.includes('kws-beta-v5'));
+          if (oldCaches.length > 0) {
+            return Promise.all(
+              oldCaches.map((cacheName) => caches.delete(cacheName))
+            );
+          }
+        }).then(() => {
+          console.log('[Main] Old caches cleared (after data loading)');
+        }).catch((error) => {
+          console.error('[Main] Error clearing old caches:', error);
+        });
+      }
+    }, 5000); // Wait 5 seconds after page load
   }
 }
