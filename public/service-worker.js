@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kws-beta-v7'; // Increment version to force cache refresh and ensure Supabase bypass works
+const CACHE_NAME = 'kws-beta-v8'; // Increment version to force cache refresh and ensure Supabase bypass works
 const CORE_ASSETS = [
   '/',
   '/index.html',
@@ -45,16 +45,10 @@ self.addEventListener('fetch', (event) => {
       url.hostname.includes('supabase.io') ||
       url.hostname.includes('.supabase.co') ||
       url.hostname.includes('.supabase.io')) {
-    // EXPLICITLY pass through to network - don't let service worker interfere at all
-    // Use event.respondWith() with fetch() to ensure request goes directly to network
-    // This is more reliable than just returning early
-    event.respondWith(
-      fetch(request, {
-        cache: 'no-store', // Never cache Supabase requests
-        credentials: 'include', // Include credentials for auth
-      })
-    );
-    return;
+    // DON'T intercept at all - let the browser handle it natively
+    // By not calling event.respondWith(), the request bypasses the service worker completely
+    // This is the ONLY way to avoid CORS issues with credentials
+    return; // Exit early, don't call event.respondWith()
   }
   
   // Skip caching for non-GET requests (POST, PUT, DELETE, etc.)
