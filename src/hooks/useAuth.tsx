@@ -171,15 +171,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let mounted = true;
+    const loadingStartTime = Date.now();
+    
+    // Log loading start
+    console.log('[Auth] Loading started');
     
     // Set a timeout to ensure loading doesn't hang forever
-    // Reduced to 3 seconds for faster feedback
+    // Reduced to 2 seconds for faster feedback
     const timeoutId = setTimeout(() => {
       if (mounted) {
-        console.warn('[Auth] Session loading timeout (3s) - setting loading to false');
+        const duration = Date.now() - loadingStartTime;
+        console.warn(`[Auth] Timeout triggered (2s) - setting loading to false (duration: ${duration}ms)`);
         setLoading(false);
       }
-    }, 3000); // 3 second timeout
+    }, 2000); // 2 second timeout
     
     // Additional safety timeout: If still loading after 10 seconds, force reset
     const safetyTimeoutId = setTimeout(() => {
@@ -207,7 +212,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           // Ignore storage-related errors in the callback
           try {
-            console.log('[Auth] Auth state changed:', event, session?.user?.id);
+            const loadingDuration = Date.now() - loadingStartTime;
+            console.log(`[Auth] State change: ${event}`, session?.user?.id ? `user: ${session.user.id}` : 'no user');
+            console.log(`[Auth] Loading ended (duration: ${loadingDuration}ms)`);
+            
+            // Log session status after reload
+            const hasSession = !!session;
+            const hasUser = !!session?.user;
+            const userId = session?.user?.id || null;
+            console.log(`[Auth] Session status after reload: {hasSession: ${hasSession}, hasUser: ${hasUser}, userId: ${userId}}`);
+            
             setSession(session);
             setUser(session?.user ?? null);
             setLoading(false);
@@ -266,9 +280,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // Ignore storage access errors
             if (error?.message?.includes('storage') || error?.message?.includes('Storage')) {
               console.warn('[Auth] Storage error in auth state change (ignored):', error.message);
+              // Still set loading to false even on storage errors
+              if (mounted) {
+                setLoading(false);
+                clearTimeout(timeoutId);
+              }
               return;
             }
             console.error('[Auth] Error in auth state change:', error);
+            // Ensure loading is set to false on any error
+            if (mounted) {
+              setLoading(false);
+              clearTimeout(timeoutId);
+            }
           }
         }
       );
@@ -308,7 +332,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
         
-        console.log('[Auth] Initial session loaded:', session?.user?.id);
+        const loadingDuration = Date.now() - loadingStartTime;
+        const hasSession = !!session;
+        const hasUser = !!session?.user;
+        const userId = session?.user?.id || null;
+        
+        console.log(`[Auth] Initial session loaded: ${userId || 'no user'}`);
+        console.log(`[Auth] Loading ended (duration: ${loadingDuration}ms)`);
+        console.log(`[Auth] Session status after reload: {hasSession: ${hasSession}, hasUser: ${hasUser}, userId: ${userId}}`);
+        
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);

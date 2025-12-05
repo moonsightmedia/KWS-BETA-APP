@@ -19,6 +19,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { useColors } from '@/hooks/useColors';
+import { useAuth } from '@/hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
 import { cn } from '@/lib/utils';
 import { formatDate } from 'date-fns';
@@ -90,6 +92,80 @@ const Boulders = () => {
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors();
   const { data: sectors, isLoading: isLoadingSectors } = useSectorsTransformed();
   const isLoading = isLoadingBoulders || isLoadingSectors;
+  const { user, loading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
+
+  // Log when component is mounted
+  useEffect(() => {
+    console.log('[Boulders] Component mounted');
+  }, []);
+
+  // Ensure queries are loaded after mount - especially important after reload
+  useEffect(() => {
+    if (!authLoading && user) {
+      // Small delay to ensure component is fully mounted
+      const timer = setTimeout(() => {
+        // Check if queries have data or are loading, if not, force refetch
+        const bouldersQuery = queryClient.getQueryState(['boulders']);
+        const sectorsQuery = queryClient.getQueryState(['sectors']);
+        
+        // Log query states on mount
+        const bouldersIsLoading = bouldersQuery?.status === 'pending';
+        const sectorsIsLoading = sectorsQuery?.status === 'pending';
+        
+        console.log('[Boulders] Query states on mount:', {
+          boulders: {
+            hasData: !!bouldersQuery?.data,
+            isLoading: bouldersIsLoading,
+            status: bouldersQuery?.status || 'unknown',
+            error: bouldersQuery?.error || null,
+          },
+          sectors: {
+            hasData: !!sectorsQuery?.data,
+            isLoading: sectorsIsLoading,
+            status: sectorsQuery?.status || 'unknown',
+            error: sectorsQuery?.error || null,
+          },
+        });
+        
+        // If queries don't exist or are not loading and have no data, force refetch
+        if (!bouldersQuery || (!bouldersQuery.data && bouldersQuery.status !== 'pending')) {
+          console.log('[Boulders] Forcing refetch for: [boulders]');
+          queryClient.refetchQueries({ queryKey: ['boulders'] })
+            .then(() => console.log('[Boulders] Refetch result: [boulders] = success'))
+            .catch((error) => {
+              console.error('[Boulders] Refetch result: [boulders] = error', error);
+            });
+        }
+        
+        if (!sectorsQuery || (!sectorsQuery.data && sectorsQuery.status !== 'pending')) {
+          console.log('[Boulders] Forcing refetch for: [sectors]');
+          queryClient.refetchQueries({ queryKey: ['sectors'] })
+            .then(() => console.log('[Boulders] Refetch result: [sectors] = success'))
+            .catch((error) => {
+              console.error('[Boulders] Refetch result: [sectors] = error', error);
+            });
+        }
+        
+        // Timeout mechanism: If queries are still loading after 5 seconds, log warning
+        const timeoutTimer = setTimeout(() => {
+          const bouldersState = queryClient.getQueryState(['boulders']);
+          const sectorsState = queryClient.getQueryState(['sectors']);
+          
+          if (bouldersState?.status === 'pending') {
+            console.warn('[Boulders] Query timeout detected: [boulders]');
+          }
+          if (sectorsState?.status === 'pending') {
+            console.warn('[Boulders] Query timeout detected: [sectors]');
+          }
+        }, 5000);
+        
+        return () => clearTimeout(timeoutTimer);
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading, user, queryClient]);
 
   // Read sector from URL params on mount
   useEffect(() => {

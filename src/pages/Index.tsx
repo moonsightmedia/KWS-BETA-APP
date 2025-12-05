@@ -32,6 +32,11 @@ const Index = () => {
   // Preload all boulder thumbnails when user is logged in
   usePreloadBoulderThumbnails(!!user && !authLoading);
 
+  // Log when component is mounted
+  useEffect(() => {
+    console.log('[Index] Component mounted');
+  }, []);
+  
   // Ensure queries are loaded after mount - especially important after reload
   useEffect(() => {
     if (!authLoading && user) {
@@ -41,16 +46,58 @@ const Index = () => {
         const bouldersQuery = queryClient.getQueryState(['boulders']);
         const sectorsQuery = queryClient.getQueryState(['sectors']);
         
+        // Log query states on mount
+        const bouldersIsLoading = bouldersQuery?.status === 'pending';
+        const sectorsIsLoading = sectorsQuery?.status === 'pending';
+        
+        console.log('[Index] Query states on mount:', {
+          boulders: {
+            hasData: !!bouldersQuery?.data,
+            isLoading: bouldersIsLoading,
+            status: bouldersQuery?.status || 'unknown',
+            error: bouldersQuery?.error || null,
+          },
+          sectors: {
+            hasData: !!sectorsQuery?.data,
+            isLoading: sectorsIsLoading,
+            status: sectorsQuery?.status || 'unknown',
+            error: sectorsQuery?.error || null,
+          },
+        });
+        
         // If queries don't exist or are not loading and have no data, force refetch
-        if (!bouldersQuery || (!bouldersQuery.data && bouldersQuery.status !== 'loading' && bouldersQuery.status !== 'pending')) {
-          console.log('[Index] Boulders query missing or empty, forcing refetch...');
-          queryClient.refetchQueries({ queryKey: ['boulders'] }).catch(console.error);
+        if (!bouldersQuery || (!bouldersQuery.data && bouldersQuery.status !== 'pending')) {
+          console.log('[Index] Forcing refetch for: [boulders]');
+          queryClient.refetchQueries({ queryKey: ['boulders'] })
+            .then(() => console.log('[Index] Refetch result: [boulders] = success'))
+            .catch((error) => {
+              console.error('[Index] Refetch result: [boulders] = error', error);
+            });
         }
         
-        if (!sectorsQuery || (!sectorsQuery.data && sectorsQuery.status !== 'loading' && sectorsQuery.status !== 'pending')) {
-          console.log('[Index] Sectors query missing or empty, forcing refetch...');
-          queryClient.refetchQueries({ queryKey: ['sectors'] }).catch(console.error);
+        if (!sectorsQuery || (!sectorsQuery.data && sectorsQuery.status !== 'pending')) {
+          console.log('[Index] Forcing refetch for: [sectors]');
+          queryClient.refetchQueries({ queryKey: ['sectors'] })
+            .then(() => console.log('[Index] Refetch result: [sectors] = success'))
+            .catch((error) => {
+              console.error('[Index] Refetch result: [sectors] = error', error);
+            });
         }
+        
+        // Timeout mechanism: If queries are still loading after 5 seconds, log warning
+        const timeoutTimer = setTimeout(() => {
+          const bouldersState = queryClient.getQueryState(['boulders']);
+          const sectorsState = queryClient.getQueryState(['sectors']);
+          
+          if (bouldersState?.status === 'pending') {
+            console.warn('[Index] Query timeout detected: [boulders]');
+          }
+          if (sectorsState?.status === 'pending') {
+            console.warn('[Index] Query timeout detected: [sectors]');
+          }
+        }, 5000);
+        
+        return () => clearTimeout(timeoutTimer);
       }, 1000);
       
       return () => clearTimeout(timer);

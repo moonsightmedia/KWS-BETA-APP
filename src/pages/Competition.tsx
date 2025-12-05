@@ -24,7 +24,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 const CompetitionContent = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const { data: competitionBoulders, isLoading: isLoadingBoulders } = useCompetitionBoulders();
   const { data: participant, isLoading: isLoadingParticipant } = useCompetitionParticipant();
@@ -32,6 +32,78 @@ const CompetitionContent = () => {
   const { data: colors } = useColors();
   const createParticipant = useCreateCompetitionParticipant();
   const { openCompetitionOnboarding } = useCompetitionOnboarding();
+  
+  // Log when component is mounted
+  useEffect(() => {
+    console.log('[Competition] Component mounted');
+  }, []);
+  
+  // Ensure queries are loaded after mount - especially important after reload
+  useEffect(() => {
+    if (!authLoading && user) {
+      // Small delay to ensure component is fully mounted
+      const timer = setTimeout(() => {
+        // Check if queries have data or are loading, if not, force refetch
+        const competitionBouldersQuery = queryClient.getQueryState(['competition_boulders']);
+        const competitionParticipantQuery = queryClient.getQueryState(['competition_participant']);
+        
+        // Log query states on mount
+        const bouldersIsLoading = competitionBouldersQuery?.status === 'pending';
+        const participantIsLoading = competitionParticipantQuery?.status === 'pending';
+        
+        console.log('[Competition] Query states on mount:', {
+          competition_boulders: {
+            hasData: !!competitionBouldersQuery?.data,
+            isLoading: bouldersIsLoading,
+            status: competitionBouldersQuery?.status || 'unknown',
+            error: competitionBouldersQuery?.error || null,
+          },
+          competition_participant: {
+            hasData: !!competitionParticipantQuery?.data,
+            isLoading: participantIsLoading,
+            status: competitionParticipantQuery?.status || 'unknown',
+            error: competitionParticipantQuery?.error || null,
+          },
+        });
+        
+        // If queries don't exist or are not loading and have no data, force refetch
+        if (!competitionBouldersQuery || (!competitionBouldersQuery.data && competitionBouldersQuery.status !== 'pending')) {
+          console.log('[Competition] Forcing refetch for: [competition_boulders]');
+          queryClient.refetchQueries({ queryKey: ['competition_boulders'] })
+            .then(() => console.log('[Competition] Refetch result: [competition_boulders] = success'))
+            .catch((error) => {
+              console.error('[Competition] Refetch result: [competition_boulders] = error', error);
+            });
+        }
+        
+        if (!competitionParticipantQuery || (!competitionParticipantQuery.data && competitionParticipantQuery.status !== 'pending')) {
+          console.log('[Competition] Forcing refetch for: [competition_participant]');
+          queryClient.refetchQueries({ queryKey: ['competition_participant'] })
+            .then(() => console.log('[Competition] Refetch result: [competition_participant] = success'))
+            .catch((error) => {
+              console.error('[Competition] Refetch result: [competition_participant] = error', error);
+            });
+        }
+        
+        // Timeout mechanism: If queries are still loading after 5 seconds, log warning
+        const timeoutTimer = setTimeout(() => {
+          const bouldersState = queryClient.getQueryState(['competition_boulders']);
+          const participantState = queryClient.getQueryState(['competition_participant']);
+          
+          if (bouldersState?.status === 'pending') {
+            console.warn('[Competition] Query timeout detected: [competition_boulders]');
+          }
+          if (participantState?.status === 'pending') {
+            console.warn('[Competition] Query timeout detected: [competition_participant]');
+          }
+        }, 5000);
+        
+        return () => clearTimeout(timeoutTimer);
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading, user, queryClient]);
 
   // For guests, default to leaderboard. For logged-in users, default to boulders
   const [activeTab, setActiveTab] = useState<'boulders' | 'leaderboard'>(user ? 'boulders' : 'leaderboard');
