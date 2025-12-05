@@ -75,7 +75,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// TEMPORARY FIX: Unregister service worker to test if it's causing the issue
+// TEMPORARY FIX: Completely disable service worker - renamed file and unregister all
 // TODO: Re-enable after confirming it's the cause
 if ('serviceWorker' in navigator) {
   // Unregister all service workers first - FORCE unregister
@@ -85,32 +85,43 @@ if ('serviceWorker' in navigator) {
       try {
         // Force unregister
         const success = await registration.unregister();
-        console.log('[Main] Service Worker unregistered:', success);
+        console.log('[Main] Service Worker unregistered:', success, registration.scope);
         
         // Also try to update and then unregister to ensure it's gone
-        await registration.update();
-        if (registration.waiting) {
-          await registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        try {
+          await registration.update();
+          if (registration.waiting) {
+            await registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            await registration.waiting.postMessage({ type: 'SKIP_WAITING' }); // Send twice
+          }
+        } catch (updateError) {
+          // Ignore update errors
         }
       } catch (error) {
         console.error('[Main] Error unregistering service worker:', error);
       }
     }
     
-    // Double-check: Get registrations again and log if any are still there
-    const remainingRegistrations = await navigator.serviceWorker.getRegistrations();
-    if (remainingRegistrations.length > 0) {
-      console.error('[Main] ⚠️ WARNING: Service Workers still registered after unregister attempt:', remainingRegistrations.length);
-      remainingRegistrations.forEach((reg) => {
-        console.error('[Main] Still registered:', reg.scope, reg.active?.scriptURL);
-      });
-    } else {
-      console.log('[Main] ✅ All Service Workers successfully unregistered');
-    }
+    // Wait a bit and double-check: Get registrations again and log if any are still there
+    setTimeout(async () => {
+      const remainingRegistrations = await navigator.serviceWorker.getRegistrations();
+      if (remainingRegistrations.length > 0) {
+        console.error('[Main] ⚠️ WARNING: Service Workers still registered after unregister attempt:', remainingRegistrations.length);
+        remainingRegistrations.forEach((reg) => {
+          console.error('[Main] Still registered:', reg.scope, reg.active?.scriptURL);
+          // Try to unregister again
+          reg.unregister().then((success) => {
+            console.log('[Main] Second unregister attempt:', success);
+          });
+        });
+      } else {
+        console.log('[Main] ✅ All Service Workers successfully unregistered');
+      }
+    }, 1000);
   });
   
-  // Don't register service worker for now - this is a test to see if it's causing the issue
-  console.log('[Main] ⚠️ Service Worker registration DISABLED for testing');
+  // Don't register service worker for now - file is renamed to .disabled
+  console.log('[Main] ⚠️ Service Worker registration DISABLED - file renamed to .disabled');
   
   // OLD CODE - commented out for testing
   /*

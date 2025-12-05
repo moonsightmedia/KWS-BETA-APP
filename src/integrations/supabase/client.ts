@@ -140,6 +140,9 @@ const customFetch = async (url: string, options?: RequestInit) => {
 // Wrap client creation in try-catch to prevent any initialization errors
 let supabaseInstance: ReturnType<typeof createClient<Database>>;
 
+// Log that we're creating the client
+console.log('[Supabase Client] Creating client with custom fetch...');
+
 try {
   supabaseInstance = createClient<Database>(
     SUPABASE_URL || 'https://placeholder.supabase.co',
@@ -156,6 +159,7 @@ try {
       },
     }
   );
+  console.log('[Supabase Client] ✅ Client created successfully with custom fetch');
 } catch (error) {
   // If client creation fails, create a minimal client without auth features
   console.warn('[Supabase] Error creating client, using fallback:', error);
@@ -174,6 +178,7 @@ try {
       },
     }
   );
+  console.log('[Supabase Client] ✅ Fallback client created with custom fetch');
 }
 
 export const supabase = supabaseInstance;
