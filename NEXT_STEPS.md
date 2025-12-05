@@ -103,3 +103,4 @@ Wenn alles funktioniert:
 2. Google Play Console Account erstellen
 3. App hochladen
 
+

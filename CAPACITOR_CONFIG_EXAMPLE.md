@@ -95,3 +95,4 @@ server: {
 
 5. App öffnen → Lädt jetzt vom Dev Server! 🎉
 
+
