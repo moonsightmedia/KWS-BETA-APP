@@ -40,10 +40,14 @@ self.addEventListener('fetch', (event) => {
   
   // CRITICAL: Never intercept Supabase requests - they cause CORS errors and caching issues
   // Supabase endpoints (Auth, REST API, Storage) must go directly to network without ANY service worker interference
-  // Don't even call event.respondWith() - let the browser handle it natively
-  if (url.hostname.includes('supabase.co') || url.hostname.includes('supabase.io')) {
+  // Check for Supabase domains FIRST, before any other processing
+  if (url.hostname.includes('supabase.co') || 
+      url.hostname.includes('supabase.io') ||
+      url.hostname.includes('.supabase.co') ||
+      url.hostname.includes('.supabase.io')) {
     // Don't intercept at all - let the request go directly to network
     // This is the safest way to ensure no interference
+    // By not calling event.respondWith(), the browser handles the request natively
     return; // Exit early, don't call event.respondWith()
   }
   
