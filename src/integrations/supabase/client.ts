@@ -149,6 +149,8 @@ let supabaseInstance: ReturnType<typeof createClient<Database>>;
 
 // Log that we're creating the client
 console.log('[Supabase Client] Creating client with custom fetch...');
+console.log('[Supabase Client] Custom fetch function type:', typeof customFetch);
+console.log('[Supabase Client] Custom fetch function:', customFetch.toString().substring(0, 100));
 
 try {
   supabaseInstance = createClient<Database>(
@@ -162,11 +164,19 @@ try {
         detectSessionInUrl: false, // Disable URL session detection to avoid storage access
       },
       global: {
-        fetch: customFetch, // Use custom fetch with logging
+        fetch: customFetch as any, // Use custom fetch with logging - cast to any to ensure it's used
       },
     }
   );
   console.log('[Supabase Client] ✅ Client created successfully with custom fetch');
+  
+  // Test if custom fetch is actually being used by checking the client internals
+  // @ts-ignore - accessing internal property for debugging
+  if (supabaseInstance.rest && supabaseInstance.rest.fetch) {
+    console.log('[Supabase Client] ✅ Custom fetch is set on client.rest.fetch');
+  } else {
+    console.warn('[Supabase Client] ⚠️ Custom fetch might not be set correctly');
+  }
 } catch (error) {
   // If client creation fails, create a minimal client without auth features
   console.warn('[Supabase] Error creating client, using fallback:', error);
@@ -181,7 +191,7 @@ try {
         detectSessionInUrl: false,
       },
       global: {
-        fetch: customFetch, // Use custom fetch with logging
+        fetch: customFetch as any, // Use custom fetch with logging
       },
     }
   );
