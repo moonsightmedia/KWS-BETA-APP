@@ -231,32 +231,24 @@ if ('serviceWorker' in navigator) {
   });
   */
   
-  // On page reload/refresh, clear old caches but DON'T register service worker
-  // Clearing caches too early can interfere with data fetching
-  // Let React Query handle cache invalidation instead
+  // On page reload/refresh, clear ALL caches immediately in Production
+  // This is critical for Production where Service Worker might still be active
   const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
   if (performance.navigation?.type === 1 || navigation?.type === 'reload') {
-    // Don't clear caches immediately - this can interfere with data fetching
-    // React Query will handle cache invalidation through its own mechanisms
-    console.log('[Main] Page reload detected (service worker disabled for testing)');
+    console.log('[Main] Page reload detected - clearing ALL caches (Production fix)');
     
-    // Only clear old caches after a delay to not interfere with initial data loading
-    setTimeout(() => {
-      if ('caches' in window) {
-        caches.keys().then((cacheNames) => {
-          // Only clear old cache versions, not the current one
-          const oldCaches = cacheNames.filter(name => !name.includes('kws-beta-v5'));
-          if (oldCaches.length > 0) {
-            return Promise.all(
-              oldCaches.map((cacheName) => caches.delete(cacheName))
-            );
-          }
-        }).then(() => {
-          console.log('[Main] Old caches cleared (after data loading)');
-        }).catch((error) => {
-          console.error('[Main] Error clearing old caches:', error);
-        });
-      }
-    }, 5000); // Wait 5 seconds after page load
+    // Clear ALL caches immediately on reload in Production
+    if ('caches' in window) {
+      caches.keys().then(async (cacheNames) => {
+        console.log('[Main] Clearing ALL caches on reload:', cacheNames);
+        await Promise.all(cacheNames.map((cacheName) => {
+          console.log('[Main] Deleting cache on reload:', cacheName);
+          return caches.delete(cacheName);
+        }));
+        console.log('[Main] ✅ All caches cleared on reload');
+      }).catch((error) => {
+        console.error('[Main] Error clearing caches on reload:', error);
+      });
+    }
   }
 }

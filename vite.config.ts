@@ -23,7 +23,10 @@ export default defineConfig(({ mode }) => ({
         manualChunks: undefined,
       },
     },
+    // Exclude service worker from build - it's disabled
+    copyPublicDir: true,
   },
+  publicDir: 'public',
   optimizeDeps: {
     // Exclude FFmpeg from pre-bundling as it uses WebAssembly
     exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
