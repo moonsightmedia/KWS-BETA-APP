@@ -96,6 +96,47 @@ const isStorageAvailable = (() => {
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+// Custom fetch function with logging to debug request issues
+const customFetch = async (url: string, options?: RequestInit) => {
+  const startTime = Date.now();
+  const urlObj = new URL(url);
+  
+  console.log('[Supabase Fetch] 🚀 Starting request:', {
+    url: urlObj.href,
+    pathname: urlObj.pathname,
+    method: options?.method || 'GET',
+    hasAuth: !!(options?.headers && (options.headers as any)['Authorization']),
+    timestamp: new Date().toISOString(),
+  });
+  
+  try {
+    // Use native fetch - bypass any potential service worker interference
+    const response = await fetch(url, {
+      ...options,
+      // Force no-cache for debugging
+      cache: 'no-store' as RequestCache,
+    });
+    
+    const duration = Date.now() - startTime;
+    console.log('[Supabase Fetch] ✅ Response received:', {
+      url: urlObj.href,
+      status: response.status,
+      statusText: response.statusText,
+      duration: `${duration}ms`,
+    });
+    
+    return response;
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('[Supabase Fetch] ❌ Request failed:', {
+      url: urlObj.href,
+      error: error?.message || error,
+      duration: `${duration}ms`,
+    });
+    throw error;
+  }
+};
+
 // Wrap client creation in try-catch to prevent any initialization errors
 let supabaseInstance: ReturnType<typeof createClient<Database>>;
 
@@ -109,7 +150,10 @@ try {
         persistSession: isStorageAvailable,
         autoRefreshToken: isStorageAvailable,
         detectSessionInUrl: false, // Disable URL session detection to avoid storage access
-      }
+      },
+      global: {
+        fetch: customFetch, // Use custom fetch with logging
+      },
     }
   );
 } catch (error) {
@@ -124,7 +168,10 @@ try {
         persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false,
-      }
+      },
+      global: {
+        fetch: customFetch, // Use custom fetch with logging
+      },
     }
   );
 }
