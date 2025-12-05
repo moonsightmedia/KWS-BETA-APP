@@ -22,18 +22,33 @@ window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Pro
     const callId = fetchCallCount;
     const startTime = Date.now();
     
+    // CRITICAL: Preserve all headers from the original request
+    // Convert Headers object to plain object if needed
+    let headers: HeadersInit | undefined = init?.headers;
+    if (headers instanceof Headers) {
+      const headersObj: Record<string, string> = {};
+      headers.forEach((value, key) => {
+        headersObj[key] = value;
+      });
+      headers = headersObj;
+    }
+    
     console.log(`[Native Fetch Override] 🚀 [${callId}] Starting Supabase request:`, {
       url: urlObj.href,
       pathname: urlObj.pathname,
       method: init?.method || 'GET',
-      hasAuth: !!(init?.headers && (init.headers as any)['Authorization']),
+      hasAuth: !!(headers && (headers as any)['Authorization']),
+      hasApiKey: !!(headers && ((headers as any)['apikey'] || (headers as any)['apiKey'])),
+      headerKeys: headers ? Object.keys(headers) : [],
       timestamp: new Date().toISOString(),
     });
     
     try {
-      // Use original fetch but with no-cache to bypass service worker
-      const response = await originalFetch(urlString, {
+      // CRITICAL: Use original fetch with ALL original options, just add no-cache
+      // This preserves headers, method, body, etc.
+      const response = await originalFetch(input, {
         ...init,
+        headers: headers || init?.headers, // Preserve headers
         cache: 'no-store' as RequestCache,
       });
       
