@@ -477,10 +477,10 @@ const Root = () => {
                 await queryClient.cancelQueries({ queryKey });
                 await new Promise(resolve => setTimeout(resolve, 100));
                 
-                // Refetch with timeout
+                // Refetch with timeout (increased to 15s for slow networks)
                 const refetchPromise = queryClient.refetchQueries({ queryKey });
                 const timeoutPromise = new Promise((_, reject) => {
-                  setTimeout(() => reject(new Error('Refetch timeout after 8s')), 8000);
+                  setTimeout(() => reject(new Error('Refetch timeout after 15s')), 15000);
                 });
                 
                 await Promise.race([refetchPromise, timeoutPromise]);

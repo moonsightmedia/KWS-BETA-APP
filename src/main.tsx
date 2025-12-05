@@ -91,10 +91,14 @@ if ('serviceWorker' in navigator) {
     // Only refresh service worker to get latest version
     console.log('[Main] Page reload detected, refreshing service worker (not clearing caches)');
     
-    // Refresh service worker
+    // Refresh service worker and force update
     navigator.serviceWorker.getRegistrations().then((registrations) => {
       registrations.forEach((registration) => {
         registration.update(); // Update service worker
+        // Also unregister and re-register to force update if needed
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
       });
     });
     
