@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { createBrowserRouter, RouterProvider, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -174,9 +174,14 @@ const PullToRefreshHandler = () => {
   }, [queryClient]);
   
   // Handle reload: Wait for auth to finish, then refetch queries
+  // Use a ref to prevent multiple simultaneous refetches
+  const isRefetchingRef = useRef(false);
+  
   useEffect(() => {
     const wasRefreshing = sessionStorage.getItem('isRefreshing');
-    if (wasRefreshing === 'true' && !authLoading) {
+    if (wasRefreshing === 'true' && !authLoading && !isRefetchingRef.current) {
+      isRefetchingRef.current = true;
+      
       // Auth is done, now we can safely refetch queries
       (async () => {
         try {
@@ -186,6 +191,10 @@ const PullToRefreshHandler = () => {
           if (preserveRoute) {
             console.log(`[PullToRefresh] Route ${preserveRoute} will be restored on mount`);
           }
+          
+          // Cancel any pending queries first to prevent conflicts
+          console.log('[PullToRefresh] Cancelling any pending queries...');
+          await queryClient.cancelQueries();
           
           // Log query states before refetch
           const commonQueryKeys = [
@@ -209,56 +218,74 @@ const PullToRefreshHandler = () => {
             queryStatesBefore[JSON.stringify(queryKey)] = {
               status: state?.status || 'unknown',
               hasData: !!state?.data,
-              isLoading: state?.isLoading || false,
+              isLoading: state?.status === 'pending',
               error: state?.error || null,
             };
           });
           console.log('[PullToRefresh] Query states before refetch:', queryStatesBefore);
           
-          // Invalidate all queries first
-          await queryClient.invalidateQueries();
+          // Invalidate all queries first (marks them as stale)
+          queryClient.invalidateQueries();
           console.log('[PullToRefresh] All queries invalidated - components will refetch automatically');
           
-          // Wait a bit for components to mount
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Wait a bit for components to mount and start their queries naturally
+          await new Promise(resolve => setTimeout(resolve, 1000));
           
-          // Explicitly refetch common queries
-          console.log('[PullToRefresh] Explicitly ensuring common queries are loaded...');
-          const refetchStartTime = Date.now();
+          // Check which queries still need refetching (those that are still pending or have no data)
+          const queriesToRefetch = commonQueryKeys.filter(queryKey => {
+            const state = queryClient.getQueryState(queryKey);
+            return !state?.data && (state?.status === 'pending' || !state || state.status === 'error');
+          });
           
-          const refetchResults = await Promise.allSettled(
-            commonQueryKeys.map(async (queryKey) => {
-              console.log(`[PullToRefresh] Refetching query: ${JSON.stringify(queryKey)}`);
-              try {
-                const result = await queryClient.refetchQueries({ queryKey });
-                const state = queryClient.getQueryState(queryKey);
-                const resultInfo = {
-                  status: state?.status || 'unknown',
-                  hasData: !!state?.data,
-                  error: state?.error || null,
-                };
-                console.log(`[PullToRefresh] Query refetch result: ${JSON.stringify(queryKey)} =`, resultInfo);
-                return { queryKey, success: true, resultInfo };
-              } catch (error) {
-                console.warn(`[PullToRefresh] Error refetching query ${JSON.stringify(queryKey)}:`, error);
-                return { queryKey, success: false, error };
-              }
-            })
-          );
+          if (queriesToRefetch.length > 0) {
+            console.log(`[PullToRefresh] Explicitly refetching ${queriesToRefetch.length} queries that are still pending...`);
+            const refetchStartTime = Date.now();
+            
+            const refetchResults = await Promise.allSettled(
+              queriesToRefetch.map(async (queryKey) => {
+                console.log(`[PullToRefresh] Refetching query: ${JSON.stringify(queryKey)}`);
+                try {
+                  // Cancel any existing fetch for this query first
+                  await queryClient.cancelQueries({ queryKey });
+                  
+                  // Wait a bit before refetching to avoid race conditions
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                  
+                  const result = await queryClient.refetchQueries({ queryKey });
+                  const state = queryClient.getQueryState(queryKey);
+                  const resultInfo = {
+                    status: state?.status || 'unknown',
+                    hasData: !!state?.data,
+                    error: state?.error || null,
+                  };
+                  console.log(`[PullToRefresh] Query refetch result: ${JSON.stringify(queryKey)} =`, resultInfo);
+                  return { queryKey, success: true, resultInfo };
+                } catch (error) {
+                  console.warn(`[PullToRefresh] Error refetching query ${JSON.stringify(queryKey)}:`, error);
+                  return { queryKey, success: false, error };
+                }
+              })
+            );
+            
+            const refetchDuration = Date.now() - refetchStartTime;
+            const successful = refetchResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
+            const failed = refetchResults.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)).length;
+            
+            console.log(`[PullToRefresh] All queries refetched in ${refetchDuration}ms (${successful} successful, ${failed} failed)`);
+          } else {
+            console.log('[PullToRefresh] All queries already have data or are loading, skipping explicit refetch');
+          }
           
-          const refetchDuration = Date.now() - refetchStartTime;
-          const successful = refetchResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
-          const failed = refetchResults.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)).length;
-          
-          console.log(`[PullToRefresh] All queries refetched in ${refetchDuration}ms (${successful} successful, ${failed} failed)`);
           console.log('[PullToRefresh] ✅ Data loading ensured after page reload');
           
           // Clear the isRefreshing flag after successful refetch
           sessionStorage.removeItem('isRefreshing');
+          isRefetchingRef.current = false;
         } catch (error) {
           console.error('[PullToRefresh] Error ensuring data loads after reload:', error);
           // Still clear the flag even on error to prevent infinite loops
           sessionStorage.removeItem('isRefreshing');
+          isRefetchingRef.current = false;
         }
       })();
     }
@@ -630,8 +657,20 @@ const Root = () => {
   
   // Explicitly refetch queries after auth loading completes
   // This ensures data is loaded even if components haven't mounted yet
+  // BUT: Only if PullToRefreshHandler hasn't already handled it
+  const rootRefetchDoneRef = useRef(false);
+  
   useEffect(() => {
-    if (!authLoading) {
+    if (!authLoading && !rootRefetchDoneRef.current) {
+      const wasRefreshing = sessionStorage.getItem('isRefreshing');
+      
+      // If PullToRefreshHandler is handling the reload, don't refetch here
+      if (wasRefreshing === 'true') {
+        console.log('[Root] PullToRefreshHandler is handling reload, skipping Root refetch');
+        return;
+      }
+      
+      rootRefetchDoneRef.current = true;
       console.log('[Root] Auth loading changed: true → false');
       
       // Small delay to ensure components are mounted
@@ -644,15 +683,16 @@ const Root = () => {
           const sectorsState = queryClient.getQueryState(['sectors']);
           
           // Only refetch if queries don't have data or are in error state
+          // Don't refetch if they're already pending (being fetched)
           const needsRefetch = 
-            !bouldersState?.data || 
-            !sectorsState?.data || 
+            (!bouldersState?.data && bouldersState?.status !== 'pending') || 
+            (!sectorsState?.data && sectorsState?.status !== 'pending') ||
             bouldersState?.status === 'error' || 
             sectorsState?.status === 'error';
           
           if (needsRefetch) {
             console.log('[Root] Queries need refetch, invalidating...');
-            await queryClient.invalidateQueries();
+            queryClient.invalidateQueries();
             
             // Refetch critical queries
             const criticalQueries = [
@@ -671,12 +711,12 @@ const Root = () => {
             
             console.log('[Root] Query refetch completed');
           } else {
-            console.log('[Root] Queries already have data, skipping refetch');
+            console.log('[Root] Queries already have data or are loading, skipping refetch');
           }
         } catch (error) {
           console.error('[Root] Error during query refetch:', error);
         }
-      }, 1000); // Wait 1 second after auth loading ends
+      }, 1500); // Wait 1.5 seconds after auth loading ends
       
       return () => clearTimeout(timer);
     }

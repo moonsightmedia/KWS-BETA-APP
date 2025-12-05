@@ -153,7 +153,7 @@ export const useSubmitCompetitionResult = () => {
       
       // Refetch immediately to update with correct points
       try {
-        const [resultsRefetch, leaderboardRefetch] = await Promise.all([
+        const [resultsRefetch, leaderboardRefetch] = await Promise.allSettled([
           queryClient.refetchQueries({
             queryKey: ['competition_results', variables.participant_id],
           }),
@@ -161,10 +161,25 @@ export const useSubmitCompetitionResult = () => {
             queryKey: ['competition_leaderboard'],
           }),
         ]);
+        
+        const resultsCount = resultsRefetch.status === 'fulfilled' && Array.isArray(resultsRefetch.value) 
+          ? resultsRefetch.value.length 
+          : 0;
+        const leaderboardCount = leaderboardRefetch.status === 'fulfilled' && Array.isArray(leaderboardRefetch.value)
+          ? leaderboardRefetch.value.length
+          : 0;
+        
         console.log('[useCompetitionResults] ✅ Queries refetched successfully:', {
-          results: resultsRefetch.length,
-          leaderboard: leaderboardRefetch.length,
+          results: resultsCount,
+          leaderboard: leaderboardCount,
         });
+        
+        if (resultsRefetch.status === 'rejected') {
+          console.warn('[useCompetitionResults] Results refetch failed:', resultsRefetch.reason);
+        }
+        if (leaderboardRefetch.status === 'rejected') {
+          console.warn('[useCompetitionResults] Leaderboard refetch failed:', leaderboardRefetch.reason);
+        }
       } catch (error) {
         console.error('[useCompetitionResults] ❌ Error refetching queries:', error);
       }

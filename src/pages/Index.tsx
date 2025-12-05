@@ -38,6 +38,7 @@ const Index = () => {
   }, []);
   
   // Ensure queries are loaded after mount - especially important after reload
+  // But don't refetch if queries are already pending (being fetched by Root or PullToRefreshHandler)
   useEffect(() => {
     if (!authLoading && user) {
       // Small delay to ensure component is fully mounted
@@ -65,23 +66,28 @@ const Index = () => {
           },
         });
         
-        // If queries don't exist or are not loading and have no data, force refetch
-        if (!bouldersQuery || (!bouldersQuery.data && bouldersQuery.status !== 'pending')) {
+        // Only refetch if queries don't exist, have no data, AND are not already pending
+        // This prevents multiple simultaneous refetches
+        if (!bouldersQuery || (!bouldersQuery.data && bouldersQuery.status !== 'pending' && bouldersQuery.status !== 'error')) {
           console.log('[Index] Forcing refetch for: [boulders]');
           queryClient.refetchQueries({ queryKey: ['boulders'] })
             .then(() => console.log('[Index] Refetch result: [boulders] = success'))
             .catch((error) => {
               console.error('[Index] Refetch result: [boulders] = error', error);
             });
+        } else if (bouldersQuery.status === 'pending') {
+          console.log('[Index] [boulders] is already being fetched, skipping refetch');
         }
         
-        if (!sectorsQuery || (!sectorsQuery.data && sectorsQuery.status !== 'pending')) {
+        if (!sectorsQuery || (!sectorsQuery.data && sectorsQuery.status !== 'pending' && sectorsQuery.status !== 'error')) {
           console.log('[Index] Forcing refetch for: [sectors]');
           queryClient.refetchQueries({ queryKey: ['sectors'] })
             .then(() => console.log('[Index] Refetch result: [sectors] = success'))
             .catch((error) => {
               console.error('[Index] Refetch result: [sectors] = error', error);
             });
+        } else if (sectorsQuery.status === 'pending') {
+          console.log('[Index] [sectors] is already being fetched, skipping refetch');
         }
         
         // Timeout mechanism: If queries are still loading after 5 seconds, log warning
@@ -90,15 +96,25 @@ const Index = () => {
           const sectorsState = queryClient.getQueryState(['sectors']);
           
           if (bouldersState?.status === 'pending') {
-            console.warn('[Index] Query timeout detected: [boulders]');
+            console.warn('[Index] Query timeout detected: [boulders] - query has been pending for 5+ seconds');
+            // Cancel and retry
+            queryClient.cancelQueries({ queryKey: ['boulders'] });
+            setTimeout(() => {
+              queryClient.refetchQueries({ queryKey: ['boulders'] }).catch(console.error);
+            }, 100);
           }
           if (sectorsState?.status === 'pending') {
-            console.warn('[Index] Query timeout detected: [sectors]');
+            console.warn('[Index] Query timeout detected: [sectors] - query has been pending for 5+ seconds');
+            // Cancel and retry
+            queryClient.cancelQueries({ queryKey: ['sectors'] });
+            setTimeout(() => {
+              queryClient.refetchQueries({ queryKey: ['sectors'] }).catch(console.error);
+            }, 100);
           }
         }, 5000);
         
         return () => clearTimeout(timeoutTimer);
-      }, 1000);
+      }, 2000); // Increased delay to let Root/PullToRefreshHandler handle it first
       
       return () => clearTimeout(timer);
     }
