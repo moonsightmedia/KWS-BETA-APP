@@ -57,14 +57,16 @@ self.addEventListener('fetch', (event) => {
                             url.hostname.includes('.supabase.io');
   
   if (isSupabaseRequest) {
-    // Enhanced logging for debugging
+    // Enhanced logging for debugging - ALWAYS log to see if service worker is even running
     const hasAuthHeader = request.headers.has('Authorization') || 
                          request.headers.has('apikey') ||
                          request.headers.has('apiKey');
     
-    // Log in production too, but only for failed requests (we'll check response later)
-    console.log('[SW] Supabase request bypassed:', {
-      url: url.pathname,
+    // CRITICAL: Log EVERY Supabase request to verify service worker is running
+    // If we don't see these logs, the service worker isn't intercepting requests
+    console.log('[SW] ⚠️ Supabase request detected - BYPASSING service worker:', {
+      url: url.href,
+      pathname: url.pathname,
       method: request.method,
       hasAuthHeader: hasAuthHeader,
       timestamp: new Date().toISOString(),
