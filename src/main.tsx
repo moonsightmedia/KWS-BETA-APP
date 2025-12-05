@@ -75,8 +75,24 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Register service worker (both dev and prod for background uploads)
+// TEMPORARY FIX: Unregister service worker to test if it's causing the issue
+// TODO: Re-enable after confirming it's the cause
 if ('serviceWorker' in navigator) {
+  // Unregister all service workers first
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    console.log('[Main] ⚠️ TEMPORARY FIX: Unregistering all service workers to test Supabase requests');
+    registrations.forEach((registration) => {
+      registration.unregister().then((success) => {
+        console.log('[Main] Service Worker unregistered:', success);
+      });
+    });
+  });
+  
+  // Don't register service worker for now - this is a test to see if it's causing the issue
+  console.log('[Main] ⚠️ Service Worker registration DISABLED for testing');
+  
+  // OLD CODE - commented out for testing
+  /*
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js')
       .then((registration) => {
@@ -93,6 +109,8 @@ if ('serviceWorker' in navigator) {
         console.error('[Main] Service Worker registration failed:', err);
       });
   });
+  */
+}
   
   // On page reload/refresh, refresh service worker but DON'T clear caches immediately
   // Clearing caches too early can interfere with data fetching
