@@ -57,20 +57,25 @@ self.addEventListener('fetch', (event) => {
                             url.hostname.includes('.supabase.io');
   
   if (isSupabaseRequest) {
-    // Enhanced logging for debugging - ALWAYS log to see if service worker is even running
-    const hasAuthHeader = request.headers.has('Authorization') || 
-                         request.headers.has('apikey') ||
-                         request.headers.has('apiKey');
+    // RADICAL FIX: Don't even register the fetch event for Supabase requests
+    // By returning immediately without calling event.respondWith(), the browser handles it natively
+    // This is the ONLY way to ensure the service worker doesn't interfere at all
     
-    // CRITICAL: Log EVERY Supabase request to verify service worker is running
-    // If we don't see these logs, the service worker isn't intercepting requests
-    console.log('[SW] ⚠️ Supabase request detected - BYPASSING service worker:', {
-      url: url.href,
-      pathname: url.pathname,
-      method: request.method,
-      hasAuthHeader: hasAuthHeader,
-      timestamp: new Date().toISOString(),
-    });
+    // Try to log to main thread via postMessage (service worker console logs might not be visible)
+    try {
+      self.clients.matchAll().then(clients => {
+        clients.forEach(client => {
+          client.postMessage({
+            type: 'SW_SUPABASE_BYPASS',
+            url: url.href,
+            method: request.method,
+            timestamp: new Date().toISOString(),
+          });
+        });
+      });
+    } catch (e) {
+      // Ignore if clients not available
+    }
     
     // DON'T intercept at all - let the browser handle it natively
     // By not calling event.respondWith(), the request bypasses the service worker completely
