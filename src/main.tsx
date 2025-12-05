@@ -110,73 +110,15 @@ if ('serviceWorker' in navigator) {
       });
   });
   */
-}
   
-  // On page reload/refresh, refresh service worker but DON'T clear caches immediately
+  // On page reload/refresh, clear old caches but DON'T register service worker
   // Clearing caches too early can interfere with data fetching
   // Let React Query handle cache invalidation instead
   const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
   if (performance.navigation?.type === 1 || navigation?.type === 'reload') {
     // Don't clear caches immediately - this can interfere with data fetching
     // React Query will handle cache invalidation through its own mechanisms
-    // Only refresh service worker to get latest version
-    console.log('[Main] Page reload detected, refreshing service worker (not clearing caches)');
-    
-    // Force service worker update on reload to ensure latest version is active
-    navigator.serviceWorker.getRegistrations().then(async (registrations) => {
-      for (const registration of registrations) {
-        try {
-          console.log('[Main] ⚠️ Checking Service Worker state:', {
-            active: registration.active?.scriptURL,
-            waiting: registration.waiting?.scriptURL,
-            installing: registration.installing?.scriptURL,
-          });
-          
-          // First, try to update
-          await registration.update();
-          console.log('[Main] Service Worker update requested');
-          
-          // If there's a waiting service worker, skip waiting immediately
-          if (registration.waiting) {
-            console.log('[Main] ⚠️ Service Worker waiting - forcing SKIP_WAITING');
-            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-            
-            // Wait a bit and then unregister/re-register to force update
-            setTimeout(async () => {
-              if (registration.waiting) {
-                console.log('[Main] ⚠️ Service Worker still waiting - unregistering and re-registering');
-                await registration.unregister();
-                // Re-register will happen on next page load
-                window.location.reload();
-              }
-            }, 2000);
-          }
-          
-          // If there's an active service worker, check if it's the latest version
-          if (registration.active) {
-            console.log('[Main] Service Worker active:', registration.active.scriptURL);
-            // Force update check
-            const checkUpdate = setInterval(async () => {
-              try {
-                await registration.update();
-                if (registration.waiting) {
-                  clearInterval(checkUpdate);
-                  console.log('[Main] ⚠️ New Service Worker found - activating');
-                  registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-                }
-              } catch (error) {
-                clearInterval(checkUpdate);
-              }
-            }, 1000);
-            
-            // Stop checking after 5 seconds
-            setTimeout(() => clearInterval(checkUpdate), 5000);
-          }
-        } catch (error) {
-          console.error('[Main] Error updating service worker:', error);
-        }
-      }
-    });
+    console.log('[Main] Page reload detected (service worker disabled for testing)');
     
     // Only clear old caches after a delay to not interfere with initial data loading
     setTimeout(() => {
