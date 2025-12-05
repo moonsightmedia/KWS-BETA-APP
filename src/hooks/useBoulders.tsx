@@ -63,30 +63,43 @@ export const useBoulders = () => {
   return useQuery({
     queryKey: ['boulders'],
     queryFn: async () => {
-      if (import.meta.env.DEV) {
-        console.log('[useBoulders] Fetching boulders from Supabase...');
-      }
+      console.log('[useBoulders] 🔵 STARTING fetch from Supabase...');
+      const startTime = Date.now();
+      
       try {
-        const { data, error } = await supabase
+        // Add timeout wrapper
+        const fetchPromise = supabase
           .from('boulders')
           .select('*')
           .order('created_at', { ascending: false });
+        
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Supabase request timeout after 10s')), 10000);
+        });
+        
+        console.log('[useBoulders] 🔵 Supabase query started, waiting for response...');
+        const { data, error } = await Promise.race([
+          fetchPromise,
+          timeoutPromise
+        ]) as any;
+        
+        const duration = Date.now() - startTime;
+        console.log(`[useBoulders] 🔵 Supabase response received after ${duration}ms`);
 
         if (error) {
-          console.error('[useBoulders] Error fetching boulders:', error);
+          console.error('[useBoulders] ❌ Error fetching boulders:', error);
           throw error;
         }
         
-        if (import.meta.env.DEV) {
-          console.log('[useBoulders] Fetched boulders:', data?.length || 0, 'boulders');
-          if (data && data.length > 0) {
-            console.log('[useBoulders] Sample boulder:', data[0]);
-          }
+        console.log('[useBoulders] ✅ Fetched boulders:', data?.length || 0, 'boulders');
+        if (data && data.length > 0) {
+          console.log('[useBoulders] Sample boulder:', data[0]);
         }
         
         return data as Boulder[];
       } catch (error: any) {
-        console.error('[useBoulders] Exception in queryFn:', error);
+        const duration = Date.now() - startTime;
+        console.error(`[useBoulders] ❌ Exception in queryFn after ${duration}ms:`, error);
         // Return empty array on error to prevent infinite loading
         return [] as Boulder[];
       }

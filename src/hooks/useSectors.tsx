@@ -20,15 +20,31 @@ export const useSectors = () => {
   return useQuery({
     queryKey: ['sectors'],
     queryFn: async () => {
-      console.log('[useSectors] Fetching sectors from Supabase...');
+      console.log('[useSectors] 🔵 STARTING fetch from Supabase...');
+      const startTime = Date.now();
+      
       try {
-        const { data, error } = await supabase
+        // Add timeout wrapper
+        const fetchPromise = supabase
           .from('sectors')
           .select('*')
           .order('name');
+        
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Supabase request timeout after 10s')), 10000);
+        });
+        
+        console.log('[useSectors] 🔵 Supabase query started, waiting for response...');
+        const { data, error } = await Promise.race([
+          fetchPromise,
+          timeoutPromise
+        ]) as any;
+        
+        const duration = Date.now() - startTime;
+        console.log(`[useSectors] 🔵 Supabase response received after ${duration}ms`);
 
         if (error) {
-          console.error('[useSectors] Error fetching sectors:', error);
+          console.error('[useSectors] ❌ Error fetching sectors:', error);
           // Provide more user-friendly error messages
           let errorMessage = error.message || 'Fehler beim Laden der Sektoren';
           
@@ -50,9 +66,11 @@ export const useSectors = () => {
           throw new Error('Keine Daten zurückgegeben');
         }
         
-        console.log('[useSectors] Fetched sectors:', data.length, 'sectors');
+        console.log('[useSectors] ✅ Fetched sectors:', data.length, 'sectors');
         return data as Sector[];
       } catch (error) {
+        const duration = Date.now() - startTime;
+        console.error(`[useSectors] ❌ Exception after ${duration}ms:`, error);
         // Re-throw with better message if it's not already an Error
         if (error instanceof Error) {
           throw error;
