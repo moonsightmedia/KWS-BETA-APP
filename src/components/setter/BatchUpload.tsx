@@ -441,23 +441,23 @@ export const BatchUpload = () => {
       </Dialog>
 
       {/* Mobile Floating Actions */}
-      <div className="fixed bottom-32 right-4 z-40 md:hidden flex items-end gap-3" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}>
-              <Button
-            onClick={uploadAll} 
-            size="icon" 
-            disabled={isProcessing || boulders.length === 0}
-            className="h-14 w-14 rounded-xl shadow-xl bg-gray-700 hover:bg-gray-800 text-white transition-all hover:scale-105 disabled:opacity-50 disabled:grayscale"
+      <div className="fixed bottom-[calc(104px+env(safe-area-inset-bottom,0px))] right-4 z-40 md:hidden flex items-center gap-3">
+        <Button
+          onClick={uploadAll} 
+          size="icon" 
+          disabled={isProcessing || boulders.length === 0}
+          className="h-14 w-14 rounded-xl shadow-xl bg-gray-700 hover:bg-gray-800 text-white transition-all hover:scale-105 disabled:opacity-50 disabled:grayscale"
         >
-            {isProcessing ? <Loader2 className="h-6 w-6 animate-spin" /> : <CloudUpload className="h-8 w-8" />}
-              </Button>
-            <Button
-            onClick={openAddDialog} 
-            size="icon" 
-            className="h-14 w-14 rounded-xl shadow-xl bg-[#36B531] hover:bg-[#2da029] text-white transition-all hover:scale-105"
+          {isProcessing ? <Loader2 className="h-6 w-6 animate-spin" /> : <CloudUpload className="h-8 w-8" />}
+        </Button>
+        <Button
+          onClick={openAddDialog} 
+          size="icon" 
+          className="h-14 w-14 rounded-xl shadow-xl bg-[#36B531] hover:bg-[#2da029] text-white transition-all hover:scale-105"
         >
-            <Plus className="h-8 w-8" />
-            </Button>
-          </div>
+          <Plus className="h-8 w-8" />
+        </Button>
+      </div>
 
       {/* Desktop Header */}
       <div className="hidden md:flex justify-end items-center mb-6">

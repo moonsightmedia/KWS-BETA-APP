@@ -23,6 +23,8 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
+  private autoResetTimer: NodeJS.Timeout | null = null;
+
   constructor(props: Props) {
     super(props);
     this.state = {
@@ -33,7 +35,59 @@ export class ErrorBoundary extends Component<Props, State> {
       userDescription: '',
       isReporting: false,
     };
+    
+    // Set up global unhandled promise rejection handler
+    this.setupPromiseRejectionHandler();
   }
+
+  componentDidMount() {
+    // Set up unhandled promise rejection handler
+    window.addEventListener('unhandledrejection', this.handleUnhandledRejection);
+  }
+
+  componentWillUnmount() {
+    // Clean up
+    window.removeEventListener('unhandledrejection', this.handleUnhandledRejection);
+    if (this.autoResetTimer) {
+      clearTimeout(this.autoResetTimer);
+    }
+  }
+
+  setupPromiseRejectionHandler = () => {
+    // This is handled globally in errorHandler.ts, but we also catch it here
+    // as a fallback
+  };
+
+  handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+    console.error('[ErrorBoundary] Unhandled promise rejection:', event.reason);
+    
+    // Convert promise rejection to error
+    const error = event.reason instanceof Error 
+      ? event.reason 
+      : new Error(String(event.reason || 'Unhandled promise rejection'));
+    
+    // Only handle if we don't already have an error
+    if (!this.state.hasError) {
+      this.setState({
+        hasError: true,
+        error,
+        errorInfo: {
+          componentStack: 'Promise rejection',
+        },
+        showReportDialog: true,
+      });
+      
+      // Report error
+      reportError(error, {
+        componentStack: 'Promise rejection',
+      }).catch(() => {
+        // Silently fail
+      });
+    }
+    
+    // Prevent default browser behavior
+    event.preventDefault();
+  };
 
   static getDerivedStateFromError(error: Error): Partial<State> {
     return {
@@ -58,9 +112,23 @@ export class ErrorBoundary extends Component<Props, State> {
     reportError(error, errorInfo).catch(() => {
       // Silently fail
     });
+    
+    // Auto-reset after 30 seconds if user doesn't interact
+    if (this.autoResetTimer) {
+      clearTimeout(this.autoResetTimer);
+    }
+    this.autoResetTimer = setTimeout(() => {
+      console.log('[ErrorBoundary] Auto-resetting after 30 seconds');
+      this.handleReset();
+    }, 30000);
   }
 
   handleReset = () => {
+    if (this.autoResetTimer) {
+      clearTimeout(this.autoResetTimer);
+      this.autoResetTimer = null;
+    }
+    
     this.setState({
       hasError: false,
       error: null,

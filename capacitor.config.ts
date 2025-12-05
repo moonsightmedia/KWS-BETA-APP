@@ -4,18 +4,19 @@ const config: CapacitorConfig = {
   appId: 'com.kletterwelt.beta',
   appName: 'KWS Beta App',
   webDir: 'dist',
-  server: {
-    // Für Development: lokale URL
-    // url: 'http://localhost:8080',
-    // cleartext: true,
-    
-    // Für Production: Live-URL (optional - kann auch lokal gebaut werden)
-    // url: 'https://beta.kletterwelt-sauerland.de',
-  },
+  // server: {
+  //   url: 'http://192.168.2.80:8080', // Dev Server Port - nur für Development aktivieren!
+  //   cleartext: true,
+  // },
   android: {
     buildOptions: {
       keystorePath: undefined,
       keystoreAlias: undefined,
+    },
+  },
+  plugins: {
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
     },
   },
 };

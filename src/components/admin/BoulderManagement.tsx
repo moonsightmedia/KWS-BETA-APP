@@ -12,7 +12,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, MoreVertical, Search, ArrowUpDown, ArrowUp, ArrowDown, Palette, Map, BarChart3, X } from "lucide-react";
+import { Trash2, Plus, MoreVertical, Search, ArrowUpDown, ArrowUp, ArrowDown, Palette, Map, BarChart3, X, Edit2, Eye, Filter } from "lucide-react";
 import { useColors } from "@/hooks/useColors";
 import { getColorBackgroundStyle } from "@/utils/colorUtils";
 import { cn } from "@/lib/utils";
@@ -792,22 +792,38 @@ export const BoulderManagement = () => {
                       <h3 className="font-semibold text-base mb-1">{boulder.name}</h3>
                       <p className="text-sm text-muted-foreground">{sector?.name || "Unbekannt"}</p>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreVertical className="w-5 h-5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem 
-                          onClick={() => setDeleteId(boulder.id)}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="w-5 h-5 mr-2" />
-                          Löschen
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="flex items-center gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => {
+                          // Edit functionality - could open edit dialog
+                          console.log('Edit boulder:', boulder.id);
+                        }}
+                        className="h-8 w-8 rounded-lg hover:bg-[#E7F7E9]"
+                      >
+                        <Edit2 className="w-4 h-4 text-[#13112B]" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => {
+                          // View/Details functionality
+                          console.log('View boulder:', boulder.id);
+                        }}
+                        className="h-8 w-8 rounded-lg hover:bg-[#E7F7E9]"
+                      >
+                        <Eye className="w-4 h-4 text-[#13112B]" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => setDeleteId(boulder.id)}
+                        className="h-8 w-8 rounded-lg hover:bg-red-50 text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="flex gap-2 items-center">
                     <Badge variant="secondary">Schwierigkeit {boulder.difficulty}</Badge>
@@ -825,8 +841,17 @@ export const BoulderManagement = () => {
 
       {/* Quick Filter Bar (mobile) */}
       {quickFilter && (
-        <div className="md:hidden fixed left-4 right-4 bottom-24 z-[100] pointer-events-none">
-          <div className="pointer-events-auto rounded-2xl bg-[#13112B] text-white shadow-2xl border border-white/10 overflow-hidden">
+        <div 
+          className="md:hidden fixed z-[100] pointer-events-none"
+          style={{ 
+            bottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))',
+            left: '1rem',
+            right: '1rem',
+            width: 'calc(100% - 2rem)',
+            maxWidth: '100%'
+          }}
+        >
+          <div className="pointer-events-auto rounded-2xl bg-[#13112B] text-white shadow-2xl border border-white/10 overflow-hidden w-full">
             <div className="flex items-center px-3 py-2">
               <span className="px-3 py-1 bg-white/10 rounded-xl text-xs font-semibold">
                 {quickFilter === 'color' ? 'Farbe' : quickFilter === 'sector' ? 'Sektor' : quickFilter === 'difficulty' ? 'Schwierigkeit' : 'Sortierung'}
@@ -848,7 +873,7 @@ export const BoulderManagement = () => {
                     Alle
                   </button>
                 </div>
-                <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1 h-10">
+                <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1 h-10 min-w-0 flex-nowrap">
                   {colors?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map(c => {
                     const colorHex = getColorBackgroundStyle(c.name, colors).backgroundColor || '#000';
                     const isWhite = colorHex === '#ffffff' || colorHex === 'white' || c.name.toLowerCase() === 'weiß';
@@ -856,7 +881,7 @@ export const BoulderManagement = () => {
                       <button
                         key={c.name}
                         className={cn(
-                          "w-10 h-10 rounded-xl border shadow",
+                          "w-10 h-10 rounded-xl border shadow flex-shrink-0",
                           isWhite ? "bg-white border-gray-200" : "border-black/10"
                         )}
                         style={!isWhite ? { backgroundColor: colorHex } : undefined}
@@ -898,10 +923,10 @@ export const BoulderManagement = () => {
               </div>
             )}
             {quickFilter === 'difficulty' && (
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 h-10">
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 h-10 min-w-0 flex-nowrap">
                 <button 
                   className={cn(
-                    "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
+                    "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center flex-shrink-0",
                     difficultyFilter === 'all' 
                       ? "bg-[#36B531] text-white" 
                       : "bg-white/10 text-white/70 hover:text-white"
@@ -916,7 +941,7 @@ export const BoulderManagement = () => {
                     <button
                       key={dStr}
                       className={cn(
-                        "w-10 h-10 rounded-xl text-xs font-semibold shadow transition flex items-center justify-center",
+                        "w-10 h-10 rounded-xl text-xs font-semibold shadow transition flex items-center justify-center flex-shrink-0",
                         difficultyFilter === dStr 
                           ? "bg-[#36B531] text-white" 
                           : "bg-white/10 text-white/70 hover:text-white"
@@ -994,7 +1019,10 @@ export const BoulderManagement = () => {
       )}
 
       {/* Floating Filter Bar (mobile) */}
-      <nav className="md:hidden fixed bottom-28 left-4 right-4 z-[100]">
+      <nav 
+        className="md:hidden fixed left-4 right-4 z-[100]"
+        style={{ bottom: 'calc(7rem + env(safe-area-inset-bottom, 0px))' }}
+      >
         <div className="bg-[#13112B] text-white rounded-2xl shadow-2xl border border-white/10 px-2 py-2 flex items-center justify-between">
           <div>
             <button className="h-10 px-3 bg-white text-[#13112B] rounded-xl text-xs font-semibold shadow-sm active:scale-95 transition flex items-center">

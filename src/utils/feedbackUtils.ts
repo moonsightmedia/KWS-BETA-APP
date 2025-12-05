@@ -114,53 +114,169 @@ async function uploadScreenshot(screenshotDataUrl: string): Promise<string | nul
 }
 
 /**
+ * Stores feedback in localStorage as fallback when API call fails
+ */
+function storeFeedbackInLocalStorage(data: FeedbackData): void {
+  try {
+    const pendingFeedback = JSON.parse(localStorage.getItem('pendingFeedback') || '[]');
+    pendingFeedback.push({
+      ...data,
+      timestamp: new Date().toISOString(),
+      retryCount: 0,
+    });
+    localStorage.setItem('pendingFeedback', JSON.stringify(pendingFeedback));
+    console.log('[Feedback] Stored feedback in localStorage as fallback');
+  } catch (e) {
+    console.error('[Feedback] Could not store feedback in localStorage:', e);
+  }
+}
+
+/**
+ * Retries sending pending feedback from localStorage
+ */
+export async function retryPendingFeedback(): Promise<void> {
+  try {
+    const pendingFeedback = JSON.parse(localStorage.getItem('pendingFeedback') || '[]');
+    if (pendingFeedback.length === 0) return;
+
+    const successful: number[] = [];
+    
+    for (let i = 0; i < pendingFeedback.length; i++) {
+      const item = pendingFeedback[i];
+      // Skip if retry count is too high (max 3 retries)
+      if (item.retryCount >= 3) {
+        console.warn(`[Feedback] Skipping feedback ${i} - too many retries`);
+        continue;
+      }
+
+      try {
+        // Create a timeout promise (10 seconds)
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Timeout')), 10000);
+        });
+
+        // Race between feedback submission and timeout
+        const result = await Promise.race([
+          submitFeedback(item),
+          timeoutPromise,
+        ]);
+
+        if (result.success) {
+          successful.push(i);
+        } else {
+          // Increment retry count
+          item.retryCount = (item.retryCount || 0) + 1;
+        }
+      } catch (error) {
+        console.error(`[Feedback] Error retrying feedback ${i}:`, error);
+        item.retryCount = (item.retryCount || 0) + 1;
+      }
+    }
+
+    // Remove successfully sent feedback
+    const remaining = pendingFeedback.filter((_: any, i: number) => !successful.includes(i));
+    if (remaining.length > 0) {
+      localStorage.setItem('pendingFeedback', JSON.stringify(remaining));
+    } else {
+      localStorage.removeItem('pendingFeedback');
+    }
+
+    if (successful.length > 0) {
+      console.log(`[Feedback] Successfully retried ${successful.length} pending feedback items`);
+    }
+  } catch (e) {
+    console.error('[Feedback] Error retrying pending feedback:', e);
+  }
+}
+
+/**
  * Submits feedback to the database
+ * Includes timeout protection and localStorage fallback
  */
 export async function submitFeedback(data: FeedbackData): Promise<{ success: boolean; error?: string }> {
   try {
-    // Get current user session
-    const { data: { session } } = await supabase.auth.getSession();
-    const user = session?.user;
-    
-    // Prepare feedback payload
-    const feedbackPayload: any = {
-      type: data.type,
-      title: data.title,
-      description: data.description,
-      user_id: user?.id || null,
-      user_email: data.user_email || user?.email || null,
-      priority: data.priority || 'medium',
-      browser_info: data.browser_info || getBrowserInfo(),
-      url: data.url || window.location.href,
-      error_details: data.error_details || null,
-      metadata: data.metadata || {},
-    };
-    
-    // Handle screenshot
-    if (data.screenshot_url) {
-      // If it's a data URL, try to upload it
-      if (data.screenshot_url.startsWith('data:')) {
-        const uploadedUrl = await uploadScreenshot(data.screenshot_url);
-        feedbackPayload.screenshot_url = uploadedUrl;
-      } else {
-        feedbackPayload.screenshot_url = data.screenshot_url;
-      }
-    }
-    
-    // Insert feedback
-    const { error } = await supabase
-      .from('feedback')
-      .insert([feedbackPayload]);
-    
-    if (error) {
-      console.error('[Feedback] Error submitting feedback:', error);
-      return { success: false, error: error.message };
-    }
-    
-    return { success: true };
+    // Create a timeout promise (15 seconds)
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Feedback submission timeout after 15 seconds')), 15000);
+    });
+
+    // Race between feedback submission and timeout
+    const result = await Promise.race([
+      (async () => {
+        // Get current user session
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        
+        // Prepare feedback payload
+        const feedbackPayload: any = {
+          type: data.type,
+          title: data.title,
+          description: data.description,
+          user_id: user?.id || null,
+          user_email: data.user_email || user?.email || null,
+          priority: data.priority || 'medium',
+          browser_info: data.browser_info || getBrowserInfo(),
+          url: data.url || window.location.href,
+          error_details: data.error_details || null,
+          metadata: data.metadata || {},
+        };
+        
+        // Handle screenshot (with timeout protection)
+        if (data.screenshot_url) {
+          // If it's a data URL, try to upload it
+          if (data.screenshot_url.startsWith('data:')) {
+            try {
+              const uploadTimeout = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error('Screenshot upload timeout')), 10000);
+              });
+              const uploadedUrl = await Promise.race([
+                uploadScreenshot(data.screenshot_url),
+                uploadTimeout,
+              ]);
+              feedbackPayload.screenshot_url = uploadedUrl;
+            } catch (uploadError) {
+              console.warn('[Feedback] Screenshot upload failed or timed out, continuing without screenshot');
+              // Continue without screenshot
+            }
+          } else {
+            feedbackPayload.screenshot_url = data.screenshot_url;
+          }
+        }
+        
+        // Insert feedback
+        const { error } = await supabase
+          .from('feedback')
+          .insert([feedbackPayload]);
+        
+        if (error) {
+          console.error('[Feedback] Error submitting feedback:', error);
+          return { success: false, error: error.message };
+        }
+        
+        return { success: true };
+      })(),
+      timeoutPromise,
+    ]);
+
+    return result;
   } catch (error: any) {
     console.error('[Feedback] Exception submitting feedback:', error);
-    return { success: false, error: error.message || 'Unknown error' };
+    
+    // Store in localStorage as fallback
+    storeFeedbackInLocalStorage(data);
+    
+    // If it's a timeout, return a specific error message
+    if (error.message?.includes('timeout')) {
+      return { 
+        success: false, 
+        error: 'Die Verbindung dauert zu lange. Das Feedback wurde gespeichert und wird später automatisch gesendet.' 
+      };
+    }
+    
+    return { 
+      success: false, 
+      error: error.message || 'Unknown error. Das Feedback wurde gespeichert und wird später automatisch gesendet.' 
+    };
   }
 }
 

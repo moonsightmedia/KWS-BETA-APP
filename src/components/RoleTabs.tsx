@@ -200,7 +200,7 @@ export const RoleTabs = () => {
 
   // Build tabs based on roles:
   // - If admin: show all three (User, Setter, Admin)
-  // - If setter (but not admin): show only Setter
+  // - If setter (but not admin): show User and Setter tabs
   // - If only user: show nothing (return null)
   const tabs: Array<{ key: 'user' | 'setter' | 'admin'; label: string }> = [];
   
@@ -212,8 +212,11 @@ export const RoleTabs = () => {
       { key: 'admin' as const, label: 'Admin' }
     );
   } else if (effectiveIsSetter) {
-    // Setter (but not admin) sees only Setter tab
-    tabs.push({ key: 'setter' as const, label: 'Setter' });
+    // Setter (but not admin) sees User and Setter tabs
+    tabs.push(
+      { key: 'user' as const, label: 'User' },
+      { key: 'setter' as const, label: 'Setter' }
+    );
   } else {
     // Only user role - no tabs to show
     // But: If hooks are still loading, don't return null yet (wait for them to finish)

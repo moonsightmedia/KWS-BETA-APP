@@ -19,13 +19,19 @@ export interface Notification {
 
 export const useNotifications = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const query = useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
       // Use getSession instead of useAuth to ensure we have the session
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return [];
+      if (!session?.user) {
+        console.warn('[useNotifications] No session found');
+        return [];
+      }
+      
+      console.log('[useNotifications] Fetching notifications for user:', session.user.id);
       
       const { data, error } = await supabase
         .from('notifications')
@@ -39,17 +45,28 @@ export const useNotifications = () => {
         throw error;
       }
 
+      console.log('[useNotifications] Loaded notifications:', data?.length || 0);
       return (data || []) as Notification[];
     },
+    enabled: !!user, // Only run query if user is logged in
+    retry: 2,
+    retryDelay: 1000,
   });
 
   // Realtime subscription for new notifications
   useEffect(() => {
+    if (!user) return; // Don't subscribe if no user
+    
     let channel: any = null;
     
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
+      if (!session?.user) {
+        console.warn('[useNotifications] No session for Realtime subscription');
+        return;
+      }
+
+      console.log('[useNotifications] Setting up Realtime subscription for user:', session.user.id);
 
       channel = supabase
         .channel('notifications')
@@ -83,29 +100,40 @@ export const useNotifications = () => {
             filter: `user_id=eq.${session.user.id}`,
           },
           () => {
+            console.log('[useNotifications] Notification updated, invalidating queries');
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
             queryClient.invalidateQueries({ queryKey: ['unread_count'] });
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('[useNotifications] Realtime subscription status:', status);
+        });
     })();
 
     return () => {
       if (channel) {
+        console.log('[useNotifications] Cleaning up Realtime subscription');
         supabase.removeChannel(channel);
       }
     };
-  }, [queryClient]);
+  }, [queryClient, user]);
 
   return query;
 };
 
 export const useUnreadCount = () => {
+  const { user } = useAuth();
+  
   return useQuery({
     queryKey: ['unread_count'],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return 0;
+      if (!session?.user) {
+        console.warn('[useUnreadCount] No session found');
+        return 0;
+      }
+      
+      console.log('[useUnreadCount] Fetching unread count for user:', session.user.id);
       
       const { data, error } = await supabase.rpc('get_unread_count');
 
@@ -114,9 +142,13 @@ export const useUnreadCount = () => {
         return 0;
       }
 
+      console.log('[useUnreadCount] Unread count:', data || 0);
       return data || 0;
     },
+    enabled: !!user, // Only run query if user is logged in
     refetchInterval: 30000, // Refetch every 30 seconds
+    retry: 2,
+    retryDelay: 1000,
   });
 };
 

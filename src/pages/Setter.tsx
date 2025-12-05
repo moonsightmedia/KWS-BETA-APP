@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, PlusCircle, Edit3, Calendar as CalendarIcon, X, Sparkles, ChevronLeft, ChevronRight, Check, Video, Upload, Plus, CheckCircle, MinusCircle, FileVideo, Image as ImageIcon, Trash2, Clock, MapPin } from 'lucide-react';
+import { Search, PlusCircle, Edit3, Edit2, Eye, Calendar as CalendarIcon, X, Sparkles, ChevronLeft, ChevronRight, Check, Video, Upload, Plus, CheckCircle, MinusCircle, FileVideo, Image as ImageIcon, Trash2, Clock, MapPin, Loader2 } from 'lucide-react';
 import { MaterialIcon } from '@/components/MaterialIcon';
 import { useMemo as useMemoReact, useRef, useState } from 'react';
 import { useSectorSchedule, useCreateSectorSchedule, useDeleteSectorSchedule } from '@/hooks/useSectorSchedule';
@@ -342,6 +342,148 @@ const VideoSelector = ({
   );
 };
 
+// DatePickerPopover component with local state and confirm button
+const DatePickerPopover = ({ 
+  selected, 
+  onSelect, 
+  fromYear, 
+  toYear 
+}: { 
+  selected: Date | undefined; 
+  onSelect: (date: Date | undefined) => void; 
+  fromYear: number; 
+  toYear: number;
+}) => {
+  const [tempDate, setTempDate] = useState<Date | undefined>(selected || new Date());
+  const [open, setOpen] = useState(false);
+
+  // Update tempDate when selected changes externally
+  useEffect(() => {
+    if (selected) {
+      setTempDate(selected);
+    } else {
+      setTempDate(new Date());
+    }
+  }, [selected]);
+
+  const handleDayChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newDay = Number(e.target.value);
+    const newDate = new Date(tempDate);
+    newDate.setDate(newDay);
+    setTempDate(newDate);
+  };
+
+  const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedMonth = Number(e.target.value);
+    const newDate = new Date(tempDate);
+    newDate.setMonth(selectedMonth);
+    // Adjust day if it exceeds days in new month
+    const daysInNewMonth = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0).getDate();
+    if (newDate.getDate() > daysInNewMonth) {
+      newDate.setDate(daysInNewMonth);
+    }
+    setTempDate(newDate);
+  };
+
+  const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedYear = Number(e.target.value);
+    const newDate = new Date(tempDate);
+    newDate.setFullYear(selectedYear);
+    // Adjust day if it exceeds days in new month (e.g., Feb 29 -> Feb 28)
+    const daysInNewMonth = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0).getDate();
+    if (newDate.getDate() > daysInNewMonth) {
+      newDate.setDate(daysInNewMonth);
+    }
+    setTempDate(newDate);
+  };
+
+  const handleConfirm = () => {
+    onSelect(tempDate);
+    setOpen(false);
+  };
+
+  const daysInMonth = new Date(tempDate.getFullYear(), tempDate.getMonth() + 1, 0).getDate();
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const months = Array.from({ length: 12 }, (_, i) => ({
+    value: i,
+    label: format(new Date(2000, i, 1), "MMMM", { locale: de }),
+  }));
+  const years = Array.from({ length: toYear - fromYear + 1 }, (_, i) => fromYear + i);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={cn(
+            "h-12 w-full justify-start text-left font-normal border-[#E7F7E9] hover:bg-[#F9FAF9] text-base",
+            !selected && "text-[#13112B]/40"
+          )}
+        >
+          <CalendarIcon className="mr-3 h-5 w-5 text-[#13112B]/60" />
+          {selected ? (
+            format(selected, "dd.MM.yyyy", { locale: de })
+          ) : (
+            <span className="text-[#13112B]/40">tt.mm.jjjj</span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[calc(100vw-2rem)] sm:w-auto p-4 border-[#E7F7E9] rounded-xl z-[200] bg-white" align="start">
+        <div className="flex items-center gap-2 justify-center w-full py-2">
+          <select
+            value={tempDate.getDate()}
+            onChange={handleDayChange}
+            className="h-11 px-3 rounded-xl border border-[#E7F7E9] bg-white text-sm text-[#13112B] focus:outline-none focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] hover:bg-[#F9FAF9] transition-colors appearance-none cursor-pointer flex-1 sm:flex-none sm:min-w-[70px] shadow-sm"
+          >
+            {days.map((day) => (
+              <option key={day} value={day}>
+                {day}
+              </option>
+            ))}
+          </select>
+          <select
+            value={tempDate.getMonth()}
+            onChange={handleMonthChange}
+            className="h-11 px-3 rounded-xl border border-[#E7F7E9] bg-white text-sm text-[#13112B] focus:outline-none focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] hover:bg-[#F9FAF9] transition-colors appearance-none cursor-pointer flex-1 sm:flex-none sm:min-w-[120px] shadow-sm"
+          >
+            {months.map((month) => (
+              <option key={month.value} value={month.value}>
+                {month.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={tempDate.getFullYear()}
+            onChange={handleYearChange}
+            className="h-11 px-3 rounded-xl border border-[#E7F7E9] bg-white text-sm text-[#13112B] focus:outline-none focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] hover:bg-[#F9FAF9] transition-colors appearance-none cursor-pointer flex-1 sm:flex-none sm:min-w-[80px] shadow-sm"
+          >
+            {years.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="pt-3 border-t border-[#E7F7E9] flex gap-2 mt-3">
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            className="flex-1 border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
+          >
+            Abbrechen
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            className="flex-1 bg-[#36B531] hover:bg-[#2da029] text-white"
+          >
+            Bestätigen
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 const Setter = () => {
   const { session, loading: authLoading } = useAuth();
   const { hasRole: isSetter, loading: loadingSetter } = useHasRole('setter');
@@ -460,7 +602,8 @@ const Setter = () => {
   const [selectedBouldersForDelete, setSelectedBouldersForDelete] = useState<Set<string>>(new Set());
   // Status management state
   const [statusSectorFilter, setStatusSectorFilter] = useState<string>('all');
-  const [selectedBouldersForStatus, setSelectedBouldersForStatus] = useState<Set<string>>(new Set());
+  const [statusChangeDialogOpen, setStatusChangeDialogOpen] = useState(false);
+  const [boulderForStatusChange, setBoulderForStatusChange] = useState<Boulder | null>(null);
   const bulkStatusUpdate = useBulkUpdateBoulderStatus();
   const { data: colorsDb } = useColors();
   const COLORS = useMemo(() => (colorsDb && colorsDb.length>0 ? colorsDb.map(c=>c.name) : DEFAULT_COLORS), [colorsDb]);
@@ -930,7 +1073,12 @@ const Setter = () => {
       <div className="min-h-screen bg-[#F9FAF9] flex">
         <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0 w-full min-w-0">
           <DashboardHeader />
-          <main className="flex-1 p-4 md:p-8 w-full min-w-0">
+          <main 
+            className="flex-1 p-4 md:p-8 w-full min-w-0"
+            style={{
+              paddingTop: 'max(calc(1rem + env(safe-area-inset-top, 0px)), 1rem)'
+            }}
+          >
             {/* Tabs navigation - hidden on mobile, shown on desktop */}
             <Tabs value={view} onValueChange={(value) => setView(value as typeof view)} className="w-full min-w-0">
             <TabsList className="grid w-full grid-cols-4 mb-6 h-auto min-w-0 hidden md:grid">
@@ -1513,7 +1661,49 @@ const Setter = () => {
                                 </div>
                               </div>
                               {!isSelected && (
-                                <span className="text-[#36B531] text-sm flex-shrink-0 font-medium whitespace-nowrap">Bearbeiten</span>
+                                <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      startEdit(b);
+                                    }}
+                                    className="h-8 w-8 rounded-lg hover:bg-[#E7F7E9]"
+                                  >
+                                    <Edit2 className="w-4 h-4 text-[#13112B]" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      // View details - could open detail dialog
+                                      console.log('View boulder:', b.id);
+                                    }}
+                                    className="h-8 w-8 rounded-lg hover:bg-[#E7F7E9]"
+                                  >
+                                    <Eye className="w-4 h-4 text-[#13112B]" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setSelectedBouldersForDelete(prev => {
+                                        const next = new Set(prev);
+                                        next.add(b.id);
+                                        return next;
+                                      });
+                                    }}
+                                    className="h-8 w-8 rounded-lg hover:bg-red-50 text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
                               )}
                             </CardContent>
                           </Card>
@@ -1775,19 +1965,20 @@ const Setter = () => {
                     </div>
                   </div>
 
-                  <div className="sticky bottom-0 z-20 bg-white border-t border-[#E7F7E9] px-4 sm:px-6 py-4 flex flex-col-reverse sm:flex-row gap-3 rounded-b-2xl">
+                  <div className="sticky bottom-0 z-20 bg-white border-t border-[#E7F7E9] px-4 sm:px-6 py-4 flex items-center justify-end gap-3 rounded-b-2xl">
                     <Button
                       variant="outline"
                       type="button"
                       onClick={() => setEditing(null)}
-                      className="flex-1 h-11 border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] hover:text-[#13112B] rounded-xl"
+                      className="h-11 w-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] hover:text-[#13112B] flex items-center justify-center"
+                      title="Abbrechen"
                     >
-                      Abbrechen
+                      <X className="w-5 h-5" />
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
-                      className="h-11 text-[#E74C3C] border-[#E7F7E9] hover:bg-red-50 hover:text-[#E74C3C] rounded-xl flex-1"
+                      className="h-11 w-11 text-[#E74C3C] border-[#E7F7E9] hover:bg-red-50 hover:text-[#E74C3C] rounded-xl flex items-center justify-center"
                       disabled={deleteBoulder.isPending}
                       onClick={async () => {
                         if (!editing) return;
@@ -1800,16 +1991,18 @@ const Setter = () => {
                           // Error is already handled by the hook's onError
                         }
                       }}
+                      title="Boulder löschen"
                     >
-                      {deleteBoulder.isPending ? 'Lösche...' : 'Löschen'}
+                      {deleteBoulder.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
                     </Button>
                     <Button
                       form="edit-form"
                       type="submit"
-                      className="flex-1 h-11 bg-[#36B531] text-white hover:bg-[#2da029] rounded-xl"
+                      className="h-11 w-11 bg-[#36B531] text-white hover:bg-[#2da029] rounded-xl flex items-center justify-center"
                       disabled={!canSubmit || isUploading}
+                      title="Speichern"
                     >
-                      {isUploading ? 'Speichere…' : 'Speichern'}
+                      {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
                     </Button>
                   </div>
                   </form>
@@ -1835,82 +2028,7 @@ const Setter = () => {
                       </Select>
                     </div>
                     
-                    {/* Selection Info and Actions - Desktop */}
-                    {selectedBouldersForStatus.size > 0 && (
-                      <div className="hidden md:flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-[#13112B]/60">
-                          {selectedBouldersForStatus.size} {selectedBouldersForStatus.size === 1 ? 'Boulder' : 'Boulder'} ausgewählt
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedBouldersForStatus(new Set())}
-                          className="h-11 border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] rounded-xl"
-                        >
-                          <X className="w-5 h-5 mr-1" />
-                          Auswahl aufheben
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={async () => {
-                            const ids = Array.from(selectedBouldersForStatus);
-                            if (ids.length === 0) return;
-                            await bulkStatusUpdate.mutateAsync({ ids, status: 'haengt' });
-                            setSelectedBouldersForStatus(new Set());
-                            // Force refetch to update the UI
-                            window.location.reload();
-                          }}
-                          disabled={bulkStatusUpdate.isPending}
-                          className="h-11 bg-[#36B531] hover:bg-[#2da029] text-white rounded-xl"
-                        >
-                          <MaterialIcon name="input_circle" className="w-5 h-5 mr-1" size={20} />
-                          Reinschrauben
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={async () => {
-                            const ids = Array.from(selectedBouldersForStatus);
-                            if (ids.length === 0) return;
-                            await bulkStatusUpdate.mutateAsync({ ids, status: 'abgeschraubt' });
-                            setSelectedBouldersForStatus(new Set());
-                            // Force refetch to update the UI
-                            window.location.reload();
-                          }}
-                          disabled={bulkStatusUpdate.isPending}
-                          className="h-11 bg-[#36B531] hover:bg-[#2da029] text-white rounded-xl"
-                        >
-                          <MaterialIcon name="output_circle" className="w-5 h-5 mr-1" size={20} />
-                          Rausschrauben
-                        </Button>
-                      </div>
-                    )}
-                    
-                    {/* Selection Info - Mobile */}
-                    {selectedBouldersForStatus.size > 0 && (
-                      <div className="md:hidden text-sm text-[#13112B]/60">
-                        {selectedBouldersForStatus.size} {selectedBouldersForStatus.size === 1 ? 'Boulder' : 'Boulder'} ausgewählt
-                      </div>
-                    )}
                   </div>
-
-                  {/* Alle auswählen Button - nur wenn keine Auswahl */}
-                  {selectedBouldersForStatus.size === 0 && (
-                    <div className="mb-4 pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const allIds = new Set(filteredBouldersForStatus.map(b => b.id));
-                          setSelectedBouldersForStatus(allIds);
-                        }}
-                        className="w-full sm:w-auto h-11 border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] rounded-xl"
-                      >
-                        Alle auswählen
-                      </Button>
-                    </div>
-                  )}
 
                   {/* Boulder Count */}
                   <div className="text-sm text-[#13112B]/60">
@@ -1918,101 +2036,136 @@ const Setter = () => {
                   </div>
 
                   {/* Boulder Grid */}
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3 w-full">
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3 w-full" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
                     {filteredBouldersForStatus.map(b => {
                       const thumbnailUrl = getThumbnailUrl(b);
-                      const isSelected = selectedBouldersForStatus.has(b.id);
                       const currentStatus = (b as any).status || 'haengt';
                       
                       return (
-                        <div key={b.id} className="relative w-full">
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={(checked) => {
-                              setSelectedBouldersForStatus(prev => {
-                                const next = new Set(prev);
-                                if (checked) {
-                                  next.add(b.id);
-                                } else {
-                                  next.delete(b.id);
-                                }
-                                return next;
-                              });
-                            }}
-                            className="absolute top-2 left-2 z-10 bg-background/80 backdrop-blur-sm w-5 h-5 sm:w-4 sm:h-4"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <button 
-                            className="text-left w-full touch-manipulation" 
-                            onClick={(e) => {
-                              // Wenn bereits ein Boulder ausgewählt ist, nur Auswahl umschalten
-                              if (selectedBouldersForStatus.size > 0) {
-                                e.preventDefault();
-                                setSelectedBouldersForStatus(prev => {
-                                  const next = new Set(prev);
-                                  if (isSelected) {
-                                    next.delete(b.id);
-                                  } else {
-                                    next.add(b.id);
-                                  }
-                                  return next;
-                                });
-                              } else {
-                                // Wenn kein Boulder ausgewählt ist, nichts tun (Status-Bereich hat keine Edit-Funktion)
-                                if (isSelected) {
-                                  e.preventDefault();
-                                  setSelectedBouldersForStatus(prev => {
-                                    const next = new Set(prev);
-                                    next.delete(b.id);
-                                    return next;
-                                  });
-                                }
-                              }
-                            }}
-                          >
-                            <Card className={cn("bg-white border border-[#E7F7E9] hover:shadow-md transition-all w-full", isSelected ? 'ring-2 ring-[#36B531] bg-[#E7F7E9]' : '')}>
-                              <CardContent className="p-4 flex items-center gap-3 w-full min-w-0 overflow-hidden">
-                                <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
-                                  {thumbnailUrl && (
-                                    <div className="w-16 h-16 flex-shrink-0 rounded-xl overflow-hidden bg-[#F9FAF9] border border-[#E7F7E9]">
-                                      <img 
-                                        src={thumbnailUrl} 
-                                        alt={b.name}
-                                        className="w-full h-full object-cover"
-                                        loading="lazy"
-                                        decoding="async"
-                                        onError={(e) => {
-                                          e.currentTarget.style.display = 'none';
-                                        }}
-                                      />
-                                    </div>
-                                  )}
-                                  <span className={cn("w-7 h-7 rounded-xl border-2 grid place-items-center text-xs font-semibold flex-shrink-0", TEXT_ON_COLOR[b.color] || 'text-white')} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
-                                    {formatDifficulty(b.difficulty)}
-                                  </span>
-                                  <div className="flex-1 min-w-0 overflow-hidden">
-                                    <div className="font-medium text-base text-[#13112B] truncate">{b.name}</div>
-                                    <div className="text-xs text-[#13112B]/60 truncate">
-                                      {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
-                                    </div>
+                        <button
+                          key={b.id}
+                          className="text-left w-full touch-manipulation transition-all"
+                          onClick={() => {
+                            setBoulderForStatusChange(b);
+                            setStatusChangeDialogOpen(true);
+                          }}
+                        >
+                          <Card className="bg-white border border-[#E7F7E9] hover:shadow-md transition-all w-full">
+                            <CardContent className="p-4 flex items-center gap-3 w-full min-w-0 overflow-hidden">
+                              <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
+                                {thumbnailUrl && (
+                                  <div className="w-16 h-16 flex-shrink-0 rounded-xl overflow-hidden bg-[#F9FAF9] border border-[#E7F7E9]">
+                                    <img 
+                                      src={thumbnailUrl} 
+                                      alt={b.name}
+                                      className="w-full h-full object-cover"
+                                      loading="lazy"
+                                      decoding="async"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                                <span className={cn("w-7 h-7 rounded-xl border-2 grid place-items-center text-xs font-semibold flex-shrink-0", TEXT_ON_COLOR[b.color] || 'text-white')} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
+                                  {formatDifficulty(b.difficulty)}
+                                </span>
+                                <div className="flex-1 min-w-0 overflow-hidden">
+                                  <div className="font-medium text-base text-[#13112B] truncate">{b.name}</div>
+                                  <div className="text-xs text-[#13112B]/60 truncate">
+                                    {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
                                   </div>
                                 </div>
-                                {!isSelected && (
-                                  <span className={cn("text-xs px-2 py-0.5 rounded-xl border flex-shrink-0", 
-                                    currentStatus === 'abgeschraubt' 
-                                      ? 'bg-red-50 text-[#E74C3C] border-red-200' 
-                                      : 'bg-[#E7F7E9] text-[#36B531] border-[#36B531]/20'
-                                  )}>
-                                    {currentStatus === 'abgeschraubt' ? 'Abgeschraubt' : 'Hängt'}
-                                  </span>
-                                )}
-                              </CardContent>
-                            </Card>
-                          </button>
-                        </div>
+                              </div>
+                              <span className={cn("text-xs px-2 py-0.5 rounded-xl border flex-shrink-0", 
+                                currentStatus === 'abgeschraubt' 
+                                  ? 'bg-red-50 text-[#E74C3C] border-red-200' 
+                                  : 'bg-[#E7F7E9] text-[#36B531] border-[#36B531]/20'
+                              )}>
+                                {currentStatus === 'abgeschraubt' ? 'Abgeschraubt' : 'Hängt'}
+                              </span>
+                            </CardContent>
+                          </Card>
+                        </button>
                       );
                     })}
                   </div>
+
+                  {/* Status Change Dialog */}
+                  <Dialog open={statusChangeDialogOpen} onOpenChange={setStatusChangeDialogOpen}>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle className="text-xl font-heading font-bold text-[#13112B]">
+                          Status ändern
+                        </DialogTitle>
+                        <DialogDescription className="text-sm text-[#13112B]/60">
+                          {boulderForStatusChange && (
+                            <>Status für <strong>{boulderForStatusChange.name}</strong> ändern</>
+                          )}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 mt-4">
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "h-12 justify-start text-left",
+                              boulderForStatusChange && (boulderForStatusChange as any).status === 'haengt' && "bg-[#E7F7E9] border-[#36B531]"
+                            )}
+                            onClick={async () => {
+                              if (!boulderForStatusChange) return;
+                              try {
+                                await bulkStatusUpdate.mutateAsync({ 
+                                  ids: [boulderForStatusChange.id], 
+                                  status: 'haengt' 
+                                });
+                                setStatusChangeDialogOpen(false);
+                                setBoulderForStatusChange(null);
+                                toast.success('Status geändert');
+                              } catch (error) {
+                                toast.error('Fehler beim Ändern des Status');
+                              }
+                            }}
+                            disabled={bulkStatusUpdate.isPending}
+                          >
+                            <MaterialIcon name="input_circle" className="w-5 h-5 mr-2" size={20} />
+                            <div className="flex-1 text-left">
+                              <div className="font-medium">Reinschrauben</div>
+                              <div className="text-xs text-[#13112B]/60">Boulder hängt</div>
+                            </div>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "h-12 justify-start text-left",
+                              boulderForStatusChange && (boulderForStatusChange as any).status === 'abgeschraubt' && "bg-red-50 border-red-200"
+                            )}
+                            onClick={async () => {
+                              if (!boulderForStatusChange) return;
+                              try {
+                                await bulkStatusUpdate.mutateAsync({ 
+                                  ids: [boulderForStatusChange.id], 
+                                  status: 'abgeschraubt' 
+                                });
+                                setStatusChangeDialogOpen(false);
+                                setBoulderForStatusChange(null);
+                                toast.success('Status geändert');
+                              } catch (error) {
+                                toast.error('Fehler beim Ändern des Status');
+                              }
+                            }}
+                            disabled={bulkStatusUpdate.isPending}
+                          >
+                            <MaterialIcon name="output_circle" className="w-5 h-5 mr-2" size={20} />
+                            <div className="flex-1 text-left">
+                              <div className="font-medium">Rausschrauben</div>
+                              <div className="text-xs text-[#13112B]/60">Boulder abgeschraubt</div>
+                            </div>
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
 
                   {filteredBouldersForStatus.length === 0 && (
                     <div className="text-center py-12 text-[#13112B]/60">
@@ -2220,7 +2373,13 @@ const Setter = () => {
 
                 {/* Schedule Dialog */}
                 <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>
-                  <DialogContent className="sm:max-w-[425px] p-0 gap-0">
+                  <DialogContent className="sm:max-w-[425px] p-0 gap-0" onInteractOutside={(e) => {
+                    // Prevent closing when clicking on popovers
+                    const target = e.target as HTMLElement;
+                    if (target.closest('[data-radix-popper-content-wrapper]')) {
+                      e.preventDefault();
+                    }
+                  }}>
                     <DialogHeader className="px-6 pt-6 pb-4">
                       <DialogTitle className="text-2xl font-heading font-bold text-[#13112B]">Neuer Schraubtermin</DialogTitle>
                       <DialogDescription className="text-base text-[#13112B]/60 mt-2">
@@ -2234,7 +2393,7 @@ const Setter = () => {
                           <SelectTrigger className="h-12 w-full border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] text-base">
                             <SelectValue placeholder="Sektor wählen" />
                           </SelectTrigger>
-                          <SelectContent className="z-[90]">
+                          <SelectContent className="z-[150]">
                             {sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
@@ -2242,36 +2401,12 @@ const Setter = () => {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-3">
                           <Label className="text-base font-semibold text-[#13112B]">Datum</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className={cn(
-                                  "h-12 w-full justify-start text-left font-normal border-[#E7F7E9] hover:bg-[#F9FAF9] text-base",
-                                  !scheduleDate && "text-[#13112B]/40"
-                                )}
-                              >
-                                <CalendarIcon className="mr-3 h-5 w-5 text-[#13112B]/60" />
-                                {scheduleDate ? (
-                                  format(scheduleDate, "dd.MM.yyyy", { locale: de })
-                                ) : (
-                                  <span className="text-[#13112B]/40">tt.mm.jjjj</span>
-                                )}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[calc(100vw-2rem)] sm:w-auto p-0 border-[#E7F7E9] rounded-xl z-[100] bg-white" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={scheduleDate}
-                                onSelect={setScheduleDate}
-                                initialFocus
-                                className="rounded-xl"
-                                captionLayout="dropdown-buttons"
-                                fromYear={new Date().getFullYear()}
-                                toYear={new Date().getFullYear() + 10}
-                              />
-                            </PopoverContent>
-                          </Popover>
+                          <DatePickerPopover
+                            selected={scheduleDate}
+                            onSelect={setScheduleDate}
+                            fromYear={new Date().getFullYear()}
+                            toYear={new Date().getFullYear() + 10}
+                          />
                         </div>
                         <div className="space-y-3">
                           <Label className="text-base font-semibold text-[#13112B]">Uhrzeit</Label>
@@ -2292,7 +2427,7 @@ const Setter = () => {
                                 )}
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-3 pr-5 border-[#E7F7E9] rounded-xl z-[100]" align="start">
+                            <PopoverContent className="w-auto p-3 pr-5 border-[#E7F7E9] rounded-xl z-[200]" align="start">
                               <div className="flex items-center gap-3">
                                 {/* Hours */}
                                 <div className="flex flex-col items-center">
@@ -2393,7 +2528,7 @@ const Setter = () => {
 
         {/* Mobile FABs for Status Management */}
       {view === 'status' && selectedBouldersForStatus.size > 0 && (
-        <div className="md:hidden fixed right-4 bottom-32 z-[100] flex items-center gap-3" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}>
+        <div className="md:hidden fixed right-4 bottom-[calc(104px+env(safe-area-inset-bottom,0px))] z-[100] flex items-center gap-3">
           <button
             aria-label="Auswahl abbrechen"
             className="w-14 h-14 rounded-xl bg-gray-700 text-white grid place-items-center shadow-xl hover:bg-gray-800 transition-all"
@@ -2436,7 +2571,7 @@ const Setter = () => {
 
       {/* Mobile FABs for Edit/Delete Management */}
       {view === 'edit' && selectedBouldersForDelete.size > 0 && (
-        <div className="md:hidden fixed right-4 bottom-32 z-[100] flex items-center gap-3" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}>
+        <div className="md:hidden fixed right-4 bottom-[calc(104px+env(safe-area-inset-bottom,0px))] z-[100] flex items-center gap-3">
           <button
             aria-label="Auswahl abbrechen"
             className="w-14 h-14 rounded-xl bg-gray-700 text-white grid place-items-center shadow-xl hover:bg-gray-800 transition-all"

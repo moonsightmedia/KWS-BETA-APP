@@ -129,6 +129,10 @@ All colors MUST be HSL.
     /* Allow pull-to-refresh - overscroll-behavior-y: none blocks it */
     /* overscroll-behavior-y: none; */
     -webkit-tap-highlight-color: transparent;
+    /* Safe area insets handled by individual components (headers, navbars) */
+    /* padding-top removed - handled by sticky headers */
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
   }
   
   body {
@@ -154,8 +158,8 @@ All colors MUST be HSL.
   
   body {
     min-height: 100vh;
-    /* Prevent double-tap zoom on iOS */
-    touch-action: manipulation;
+    /* Allow scrolling - manipulation was blocking scroll on Android */
+    /* Double-tap zoom prevention is handled in main.tsx */
   }
   
   /* Prevent zoom on double tap for buttons and interactive elements */

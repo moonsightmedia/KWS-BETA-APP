@@ -16,78 +16,76 @@ import { Input } from "@/components/ui/input";
 export const UserManagement = () => {
   const queryClient = useQueryClient();
 
-  const { data: users, isLoading, error } = useQuery({
+  const { data: users, isLoading, error, isError } = useQuery({
     queryKey: ["admin-users"],
     queryFn: async () => {
       console.log('[UserManagement] Loading profiles...');
-      // First check if we're admin
-      const { data: currentUser } = await supabase.auth.getUser();
-      console.log('[UserManagement] Current user:', currentUser?.user?.id);
       
-      // Test has_role function
-      if (currentUser?.user?.id) {
-        const { data: isAdminTest, error: roleTestError } = await supabase.rpc('has_role', {
-          _user_id: currentUser.user.id,
-          _role: 'admin'
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Query timeout after 10 seconds')), 10000);
+      });
+
+      // Create the actual query promise
+      const queryPromise = (async () => {
+        // First check if we're admin
+        const { data: currentUser } = await supabase.auth.getUser();
+        console.log('[UserManagement] Current user:', currentUser?.user?.id);
+        
+        // Try to get all profiles - first without any filter
+        const { data: profiles, error: profileError, count } = await supabase
+          .from("profiles")
+          .select("*", { count: 'exact' })
+          .order("created_at", { ascending: false });
+        
+        console.log('[UserManagement] Query result with count:', {
+          profiles,
+          count,
+          error: profileError
         });
-        console.log('[UserManagement] Admin check:', {
-          isAdmin: isAdminTest,
-          error: roleTestError
+
+        if (profileError) {
+          console.error('[UserManagement] Profile error:', profileError);
+          throw profileError;
+        }
+
+        console.log('[UserManagement] Loading user roles...');
+        const { data: roles, error: rolesError } = await supabase
+          .from("user_roles")
+          .select("*");
+
+        console.log('[UserManagement] Roles result:', {
+          count: roles?.length || 0,
+          roles,
+          error: rolesError
         });
-      }
-      
-      // Try to get all profiles - first without any filter
-      const { data: profiles, error: profileError, count } = await supabase
-        .from("profiles")
-        .select("*", { count: 'exact' })
-        .order("created_at", { ascending: false });
-      
-      console.log('[UserManagement] Query result with count:', {
-        profiles,
-        count,
-        error: profileError
-      });
 
-      console.log('[UserManagement] Profiles result:', {
-        count: profiles?.length || 0,
-        profiles: profiles?.map(p => ({ id: p.id, email: p.email, first_name: p.first_name, last_name: p.last_name })),
-        error: profileError
-      });
+        if (rolesError) {
+          console.error('[UserManagement] Roles error:', rolesError);
+          throw rolesError;
+        }
 
-      if (profileError) {
-        console.error('[UserManagement] Profile error:', profileError);
-        throw profileError;
-      }
+        const mapped = profiles?.map(profile => ({
+          ...profile,
+          isAdmin: roles?.some(r => r.user_id === profile.id && r.role === 'admin') || false,
+          isSetter: roles?.some(r => r.user_id === profile.id && r.role === 'setter') || false
+        }));
 
-      console.log('[UserManagement] Loading user roles...');
-      const { data: roles, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("*");
+        console.log('[UserManagement] Mapped users:', {
+          count: mapped?.length || 0,
+          users: mapped
+        });
 
-      console.log('[UserManagement] Roles result:', {
-        count: roles?.length || 0,
-        roles,
-        error: rolesError
-      });
+        return mapped;
+      })();
 
-      if (rolesError) {
-        console.error('[UserManagement] Roles error:', rolesError);
-        throw rolesError;
-      }
-
-      const mapped = profiles?.map(profile => ({
-        ...profile,
-        isAdmin: roles?.some(r => r.user_id === profile.id && r.role === 'admin') || false,
-        isSetter: roles?.some(r => r.user_id === profile.id && r.role === 'setter') || false
-      }));
-
-      console.log('[UserManagement] Mapped users:', {
-        count: mapped?.length || 0,
-        users: mapped
-      });
-
-      return mapped;
+      // Race between query and timeout
+      return Promise.race([queryPromise, timeoutPromise]) as Promise<any>;
     },
+    retry: 2,
+    retryDelay: 1000,
+    staleTime: 30000, // Consider data fresh for 30 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 
   const toggleAdminMutation = useMutation({
@@ -195,7 +193,38 @@ export const UserManagement = () => {
   });
 
   if (isLoading) {
-    return <div>Lädt...</div>;
+    return (
+      <div className="space-y-4 w-full min-w-0">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center space-y-3">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#36B531] mx-auto"></div>
+            <p className="text-[#13112B]/60">Lädt Benutzer...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || error) {
+    return (
+      <div className="space-y-4 w-full min-w-0">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center space-y-4 max-w-md">
+            <p className="text-red-600 font-medium">Fehler beim Laden der Benutzer</p>
+            <p className="text-[#13112B]/60 text-sm">
+              {error instanceof Error ? error.message : 'Ein unbekannter Fehler ist aufgetreten'}
+            </p>
+            <Button 
+              variant="outline" 
+              className="h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]" 
+              onClick={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}
+            >
+              Erneut versuchen
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

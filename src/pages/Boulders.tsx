@@ -196,7 +196,12 @@ const Boulders = () => {
       <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
         <DashboardHeader />
         
-        <main className="flex-1 p-4 md:p-8">
+        <main 
+          className="flex-1 p-4 md:p-8"
+          style={{
+            paddingTop: 'max(calc(1rem + env(safe-area-inset-top, 0px)), 1rem)'
+          }}
+        >
           {/* Search and Filter */}
           <div className="flex gap-3 mb-6">
             <div className="relative flex-1">
@@ -220,150 +225,10 @@ const Boulders = () => {
                 Nur hängende
               </Label>
             </div>
-
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="icon" className="flex-shrink-0">
-                  <Filter className="w-6 h-6" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="bottom" className="h-[85vh]">
-                <SheetHeader>
-                  <SheetTitle className="font-teko text-2xl tracking-wide">Filter</SheetTitle>
-                  <SheetDescription>
-                    Filtere nach Sektor, Schwierigkeit und sortiere die Boulder
-                  </SheetDescription>
-                </SheetHeader>
-                
-                <div className="mt-6 space-y-4">
-                  {/* Toggle for only hanging boulders */}
-                  <div className="flex items-center justify-between p-3 border rounded-md bg-card">
-                    <Label htmlFor="show-only-hanging-filter" className="text-sm font-medium cursor-pointer">
-                      Nur hängende Boulder anzeigen
-                    </Label>
-                    <Switch
-                      id="show-only-hanging-filter"
-                      checked={showOnlyHanging}
-                      onCheckedChange={setShowOnlyHanging}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Sektor</label>
-                    <Select value={sectorFilter} onValueChange={setSectorFilter}>
-                      <SelectTrigger>
-                        <SelectValue>
-                          {sectorFilter === 'all' ? 'Alle Sektoren' : sectorFilter}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="bg-card z-50">
-                        <SelectItem value="all">Alle Sektoren</SelectItem>
-                        {sectors?.map((sector) => (
-                          <SelectItem key={sector.id} value={sector.name}>
-                            {sector.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Schwierigkeit</label>
-                    <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-                      <SelectTrigger>
-                        <SelectValue>
-                          {difficultyFilter === 'all' ? 'Alle Schwierigkeiten' : `Schwierigkeit ${difficultyFilter}`}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="bg-card z-50">
-                        <SelectItem value="all">Alle Schwierigkeiten</SelectItem>
-                        {[1, 2, 3, 4, 5, 6, 7, 8].map((diff) => (
-                          <SelectItem key={diff} value={diff.toString()}>
-                            Schwierigkeit {diff}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Farbe</label>
-                    <Select value={colorFilter} onValueChange={setColorFilter}>
-                      <SelectTrigger>
-                        <SelectValue>
-                          {colorFilter === 'all' ? 'Alle Farben' : colorFilter}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="bg-card z-50">
-                        <SelectItem value="all">Alle Farben</SelectItem>
-                        {(() => {
-                          // Sammle alle einzigartigen Farben aus den Bouldern
-                          const uniqueColors = new Set<string>();
-                          boulders?.forEach(b => uniqueColors.add(b.color));
-                          const sortedColors = Array.from(uniqueColors).sort();
-                          
-                          return sortedColors.map((color) => {
-                            const colorInfo = COLOR_MAP[color];
-                            return (
-                              <SelectItem key={color} value={color}>
-                                <div className="flex items-center gap-2">
-                                  <div 
-                                    className={`w-4 h-4 rounded-xl border ${colorInfo?.bg || ''} ${colorInfo?.border || ''}`}
-                                    style={!colorInfo?.bg ? { backgroundColor: '#9ca3af' } : {}}
-                                  />
-                                  {color}
-                                </div>
-                              </SelectItem>
-                            );
-                          });
-                        })()}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Sortierung</label>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-                          <SelectTrigger>
-                            <SelectValue>
-                              {sortBy === 'date' ? 'Datum' : sortBy === 'name' ? 'Name' : 'Schwierigkeit'}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent className="bg-card z-50">
-                            <SelectItem value="date">Datum</SelectItem>
-                            <SelectItem value="difficulty">Schwierigkeit</SelectItem>
-                            <SelectItem value="name">Name</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                      >
-                        {sortOrder === 'asc' ? (
-                          <ArrowUp className="w-4 h-4" />
-                        ) : (
-                          <ArrowDown className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t">
-                    <p className="text-sm text-muted-foreground">
-                      {filteredAndSortedBoulders.length} von {boulders?.length || 0} Bouldern gefunden
-                    </p>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
           </div>
 
           {/* Boulder Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pb-24 md:pb-4" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
             {filteredAndSortedBoulders.map((boulder) => {
               // Get thumbnail URL for boulder
               const getThumbnailUrl = (b: Boulder): string => {
@@ -382,7 +247,7 @@ const Boulders = () => {
               return (
               <Card 
                 key={boulder.id} 
-                className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:bg-muted/50 cursor-pointer transition-colors group"
+                className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:bg-muted/50 cursor-pointer transition-colors group h-[100px] sm:h-[112px] overflow-hidden"
                 onClick={() => handleBoulderClick(boulder)}
                 role="button"
                 tabIndex={0}
@@ -393,9 +258,9 @@ const Boulders = () => {
                   }
                 }}
               >
-                <CardContent className="p-4 pointer-events-none flex items-center gap-4">
-                  {/* Thumbnail links */}
-                  <div className="w-16 h-16 flex-shrink-0 rounded-xl bg-gray-100 relative overflow-hidden">
+                <CardContent className="p-0 pointer-events-none flex h-full items-center gap-3 px-4">
+                  {/* Thumbnail links - quadratisch */}
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0 rounded-xl overflow-hidden bg-muted">
                     <img 
                       className="w-full h-full object-cover pointer-events-none transition-opacity duration-300" 
                       src={getThumbnailUrl(boulder)} 
@@ -429,27 +294,20 @@ const Boulders = () => {
                     />
                   </div>
                   {/* Content Mitte */}
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-heading text-xl font-medium text-[#13112B] truncate">{boulder.name}</h4>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-[#13112B]/50 font-medium">
-                        {boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}
-                      </span>
-                      <span className="text-xs text-[#13112B]/30">•</span>
-                      <span className="text-xs text-[#13112B]/50">Set by ...</span>
-                    </div>
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <h4 className="font-heading text-base sm:text-lg font-semibold text-[#13112B] truncate mb-0.5">{boulder.name}</h4>
+                    <span className="text-xs sm:text-sm text-[#13112B]/60 truncate">
+                      {boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}
+                    </span>
                   </div>
-                  {/* Content rechts */}
-                  <div className="flex flex-col items-end">
+                  {/* Difficulty Badge rechts - quadratisch */}
+                  <div className="flex-shrink-0">
                     <span 
                       className={cn(
-                        "text-base px-3 py-1 rounded font-semibold border",
+                        "w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-xl text-base sm:text-lg font-semibold",
                         TEXT_ON_COLOR[boulder.color] || 'text-white'
                       )}
-                      style={{
-                        ...getColorBackgroundStyle(boulder.color, colors),
-                        borderColor: 'rgba(0, 0, 0, 0.1)'
-                      }}
+                      style={getColorBackgroundStyle(boulder.color, colors)}
                     >
                       {boulder.difficulty === null ? '?' : boulder.difficulty}
                     </span>
@@ -475,8 +333,17 @@ const Boulders = () => {
 
         {/* Quick Filter Bar (mobile) */}
         {quickFilter && (
-          <div className="sm:hidden fixed left-4 right-4 bottom-44 z-[100] pointer-events-none">
-            <div className="pointer-events-auto rounded-2xl bg-[#13112B] text-white shadow-2xl border border-white/10 overflow-hidden">
+          <div 
+            className="sm:hidden fixed z-[100] pointer-events-none"
+            style={{ 
+              bottom: 'calc(11rem + env(safe-area-inset-bottom, 0px))',
+              left: '1rem',
+              right: '1rem',
+              width: 'calc(100% - 2rem)',
+              maxWidth: '100%'
+            }}
+          >
+            <div className="pointer-events-auto rounded-2xl bg-[#13112B] text-white shadow-2xl border border-white/10 overflow-hidden w-full">
               <div className="flex items-center px-3 py-2">
                 <span className="px-3 py-1 bg-white/10 rounded-xl text-xs font-semibold">
                   {quickFilter === 'color' ? 'Farbe' : quickFilter === 'sector' ? 'Sektor' : quickFilter === 'difficulty' ? 'Schwierigkeit' : 'Sortierung'}
@@ -498,7 +365,7 @@ const Boulders = () => {
                         Alle
                       </button>
                     </div>
-                    <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1 h-10">
+                    <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1 h-10 min-w-0 flex-nowrap">
                       {colors?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map(c => {
                         const colorHex = getColorBackgroundStyle(c.name, colors).backgroundColor || '#000';
                         const isWhite = colorHex === '#ffffff' || colorHex === 'white' || c.name.toLowerCase() === 'weiß';
@@ -506,7 +373,7 @@ const Boulders = () => {
                           <button
                             key={c.name}
                             className={cn(
-                              "w-10 h-10 rounded-xl border shadow",
+                              "w-10 h-10 rounded-xl border shadow flex-shrink-0",
                               isWhite ? "bg-white border-gray-200" : "border-black/10"
                             )}
                             style={!isWhite ? { backgroundColor: colorHex } : undefined}
@@ -548,10 +415,10 @@ const Boulders = () => {
                   </div>
                 )}
                 {quickFilter === 'difficulty' && (
-                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 h-10">
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 h-10 min-w-0 flex-nowrap">
                     <button 
                       className={cn(
-                        "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
+                        "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center flex-shrink-0",
                         difficultyFilter === 'all' 
                           ? "bg-[#36B531] text-white" 
                           : "bg-white/10 text-white/70 hover:text-white"
@@ -566,7 +433,7 @@ const Boulders = () => {
                         <button
                           key={dStr}
                           className={cn(
-                            "w-10 h-10 rounded-xl text-xs font-semibold shadow transition flex items-center justify-center",
+                            "w-10 h-10 rounded-xl text-xs font-semibold shadow transition flex items-center justify-center flex-shrink-0",
                             difficultyFilter === dStr 
                               ? "bg-[#36B531] text-white" 
                               : "bg-white/10 text-white/70 hover:text-white"
@@ -633,7 +500,10 @@ const Boulders = () => {
         )}
 
         {/* Floating Filter Bar (mobile) */}
-        <nav className="sm:hidden fixed bottom-28 left-4 right-4 z-[100]">
+        <nav 
+          className="sm:hidden fixed left-4 right-4 z-[100]"
+          style={{ bottom: 'calc(7rem + env(safe-area-inset-bottom, 0px))' }}
+        >
           <div className="bg-[#13112B] text-white rounded-2xl shadow-2xl border border-white/10 px-2 py-2 flex items-center justify-between">
             <div>
               <button className="h-10 px-3 bg-white text-[#13112B] rounded-xl text-xs font-semibold shadow-sm active:scale-95 transition flex items-center">

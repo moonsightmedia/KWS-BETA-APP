@@ -52,9 +52,9 @@ const getCompetitionSteps = (isLoggedIn: boolean) => {
         title: 'Wertungssystem',
         content: (
           <div className="space-y-2 text-left">
-            <p><strong>Flash:</strong> 10 Punkte (perfekte Ausführung)</p>
-            <p><strong>Top:</strong> 10 - (Versuche - 1) Punkte (z.B. Top mit 1 Versuch = 10, mit 2 = 9, Minimum 5)</p>
-            <p><strong>Zone:</strong> 5 Punkte</p>
+            <p><strong>Flash:</strong> 11 Punkte (perfekte Ausführung)</p>
+            <p><strong>Top:</strong> 2. Versuch = 10 Punkte, dann -0.5 pro weiterem Versuch, Minimum 5 Punkte (z.B. Top mit 2 Versuchen = 10, mit 3 = 9.5, mit 4 = 9)</p>
+            <p><strong>Zone:</strong> 3 Punkte</p>
             <p><strong>Nicht geschafft:</strong> 0 Punkte</p>
           </div>
         ),
@@ -91,9 +91,9 @@ const getCompetitionSteps = (isLoggedIn: boolean) => {
       title: 'Wertungssystem',
       content: (
         <div className="space-y-2 text-left">
-          <p><strong>Flash:</strong> 10 Punkte (perfekte Ausführung)</p>
-          <p><strong>Top:</strong> 10 - (Versuche - 1) Punkte (z.B. Top mit 1 Versuch = 10, mit 2 = 9, Minimum 5)</p>
-          <p><strong>Zone:</strong> 5 Punkte</p>
+          <p><strong>Flash:</strong> 11 Punkte (perfekte Ausführung)</p>
+          <p><strong>Top:</strong> 2. Versuch = 10 Punkte, dann -0.5 pro weiterem Versuch, Minimum 5 Punkte (z.B. Top mit 2 Versuchen = 10, mit 3 = 9.5, mit 4 = 9)</p>
+          <p><strong>Zone:</strong> 3 Punkte</p>
           <p><strong>Nicht geschafft:</strong> 0 Punkte</p>
         </div>
       ),

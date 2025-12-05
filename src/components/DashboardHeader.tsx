@@ -1,4 +1,5 @@
 import { Settings, User, LogOut, HelpCircle, MessageSquare } from 'lucide-react';
+import { NotificationCenter } from '@/components/NotificationCenter';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useState, createContext, useContext } from 'react';
@@ -72,7 +73,13 @@ export const DashboardHeader = () => {
   
   return (
     <>
-      <div className="h-14 lg:h-16 flex items-center justify-between px-4 lg:px-8 max-w-7xl mx-auto w-full relative bg-white">
+      <div 
+        className="h-14 lg:h-16 flex items-center justify-between px-4 lg:px-8 max-w-7xl mx-auto w-full relative bg-white"
+        style={{ 
+          paddingTop: 'max(env(safe-area-inset-top, 0px), 0px)',
+          minHeight: 'calc(3.5rem + env(safe-area-inset-top, 0px))'
+        }}
+      >
         {/* Mobile Avatar (left) */}
         <div className="w-10 flex items-center lg:hidden">
           <DropdownMenu>
@@ -122,22 +129,27 @@ export const DashboardHeader = () => {
         </div>
 
         {/* Right Action */}
-        <div className="flex items-center justify-end gap-2 lg:gap-4">
+        <div className="flex items-center justify-end gap-1 lg:gap-4">
           <button 
-            className="p-2 text-[#13112B]/70 active:scale-95 transition-transform"
+            className="p-1.5 text-[#13112B]/70 active:scale-95 transition-transform flex-shrink-0"
             onClick={() => openOnboarding()}
             aria-label="Info"
           >
-            <HelpCircle className="w-6 h-6" />
+            <HelpCircle className="w-5 h-5" />
           </button>
+          {user && (
+            <div className="flex-shrink-0">
+              <NotificationCenter />
+            </div>
+          )}
           <button 
-            className="p-2 -mr-2 lg:mr-0 text-[#13112B]/70 active:scale-95 transition-transform"
+            className="p-1.5 -mr-1.5 lg:mr-0 text-[#13112B]/70 active:scale-95 transition-transform flex-shrink-0"
             onClick={() => setFeedbackOpen(true)}
             aria-label="Feedback"
           >
-            <MessageSquare className="w-6 h-6" />
+            <MessageSquare className="w-5 h-5" />
           </button>
-          <div className="hidden lg:flex items-center gap-2">
+          <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
             <span className="w-2 h-2 bg-[#36B531] rounded-full animate-pulse"></span>
             <span className="text-[10px] font-mono text-[#13112B]/50">LIVE</span>
           </div>

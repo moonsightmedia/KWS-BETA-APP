@@ -77,15 +77,82 @@ export const useSubmitCompetitionResult = () => {
       if (error) throw error;
       return data as CompetitionResult;
     },
-    onSuccess: (_, variables) => {
+    onMutate: async (variables) => {
+      console.log('[useCompetitionResults] Optimistic update for boulder', variables.boulder_number);
+      
+      // Cancel outgoing refetches to avoid overwriting optimistic update
+      await queryClient.cancelQueries({ queryKey: ['competition_results', variables.participant_id] });
+      await queryClient.cancelQueries({ queryKey: ['competition_leaderboard'] });
+      
+      // Snapshot previous values
+      const previousResults = queryClient.getQueryData<CompetitionResult[]>(['competition_results', variables.participant_id]);
+      const previousLeaderboard = queryClient.getQueryData(['competition_leaderboard']);
+      
+      // Optimistically update results
+      if (previousResults) {
+        const updatedResults = [...previousResults];
+        const existingIndex = updatedResults.findIndex(r => r.boulder_number === variables.boulder_number);
+        
+        const optimisticResult: CompetitionResult = {
+          id: existingIndex >= 0 ? updatedResults[existingIndex].id : 'temp-' + Date.now(),
+          participant_id: variables.participant_id,
+          boulder_number: variables.boulder_number,
+          result_type: variables.result_type,
+          attempts: variables.attempts || null,
+          points: 0, // Will be calculated by database trigger
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        if (existingIndex >= 0) {
+          updatedResults[existingIndex] = optimisticResult;
+        } else {
+          updatedResults.push(optimisticResult);
+        }
+        
+        queryClient.setQueryData(['competition_results', variables.participant_id], updatedResults);
+      }
+      
+      return { previousResults, previousLeaderboard };
+    },
+    onError: (error, variables, context) => {
+      console.error('[useCompetitionResults] Error saving result:', error);
+      
+      // Rollback optimistic update
+      if (context?.previousResults) {
+        queryClient.setQueryData(['competition_results', variables.participant_id], context.previousResults);
+      }
+      if (context?.previousLeaderboard) {
+        queryClient.setQueryData(['competition_leaderboard'], context.previousLeaderboard);
+      }
+      
+      toast.error('Fehler beim Speichern: ' + error.message);
+    },
+    onSuccess: async (data, variables) => {
+      console.log('[useCompetitionResults] Result saved successfully, refetching to get correct points...');
+      
+      // Invalidate and refetch to get correct points from database
       queryClient.invalidateQueries({
         queryKey: ['competition_results', variables.participant_id],
       });
       queryClient.invalidateQueries({ queryKey: ['competition_leaderboard'] });
+      
+      // Refetch immediately to update with correct points
+      try {
+        await Promise.all([
+          queryClient.refetchQueries({
+            queryKey: ['competition_results', variables.participant_id],
+          }),
+          queryClient.refetchQueries({ 
+            queryKey: ['competition_leaderboard'],
+          }),
+        ]);
+        console.log('[useCompetitionResults] ✅ Queries refetched successfully');
+      } catch (error) {
+        console.error('[useCompetitionResults] ❌ Error refetching queries:', error);
+      }
+      
       toast.success('Ergebnis gespeichert');
-    },
-    onError: (error) => {
-      toast.error('Fehler beim Speichern: ' + error.message);
     },
   });
 };

@@ -20,10 +20,12 @@ import { cn } from '@/lib/utils';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
 import { useColors } from '@/hooks/useColors';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 
 const CompetitionContent = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data: competitionBoulders, isLoading: isLoadingBoulders } = useCompetitionBoulders();
   const { data: participant, isLoading: isLoadingParticipant } = useCompetitionParticipant();
   const { data: results } = useCompetitionResults(participant?.id || null);
@@ -43,7 +45,12 @@ const CompetitionContent = () => {
   // Check if we need to ask user if they want to participate
   // Only show automatically on initial mount, not when clicking boulders
   useEffect(() => {
-    if (!isLoadingParticipant && !participant && user && !showParticipateDialog) {
+    // Don't show dialog if:
+    // 1. Participant is loading
+    // 2. Participant already exists
+    // 3. Dialog is already open
+    // 4. User clicked on a boulder (selectedBoulder is set)
+    if (!isLoadingParticipant && !participant && user && !showParticipateDialog && !selectedBoulder) {
       // Only show dialog automatically on initial load, not when user clicks boulders
       // This prevents the dialog from showing every time user clicks a boulder
       const hasShownBefore = sessionStorage.getItem(`competition_dialog_shown_${user.id}`);
@@ -52,7 +59,7 @@ const CompetitionContent = () => {
         sessionStorage.setItem(`competition_dialog_shown_${user.id}`, 'true');
       }
     }
-  }, [participant, isLoadingParticipant, user, showParticipateDialog]);
+  }, [participant, isLoadingParticipant, user, showParticipateDialog, selectedBoulder]);
 
   const handleParticipateConfirm = async () => {
     // Geschlecht ist verpflichtend
@@ -66,10 +73,13 @@ const CompetitionContent = () => {
         gender: participantGender,
       });
       
-      // Dialog erst schließen, nachdem die Mutation erfolgreich war
-      // Der Participant-State wird durch die Query-Invalidierung aktualisiert
+      // Dialog schließen
       setShowParticipateDialog(false);
       setParticipantGender(null); // Reset für nächstes Mal
+      
+      // Wenn ein Boulder ausgewählt wurde, wird der ResultInput-Dialog automatisch geöffnet
+      // sobald der participant-State aktualisiert wurde (durch Query-Invalidierung)
+      // selectedBoulder bleibt gesetzt, damit ResultInput geöffnet werden kann
     } catch (error) {
       // Fehler wird bereits vom Hook behandelt, Dialog bleibt offen
       console.error('[Competition] Error creating participant:', error);
@@ -79,6 +89,7 @@ const CompetitionContent = () => {
   const handleParticipateCancel = () => {
     setShowParticipateDialog(false);
     setSelectedBoulder(null); // Reset selected boulder when canceling
+    setParticipantGender(null); // Reset gender selection
     // Don't store declined state - allow user to change their mind by clicking a boulder again
   };
 
@@ -254,7 +265,7 @@ const CompetitionContent = () => {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
                   {competitionBoulders.map((cb) => {
                     const result = resultsMap.get(cb.boulder_number);
                     const thumbnailUrl = getThumbnailUrl(cb);
@@ -455,8 +466,8 @@ const CompetitionContent = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Result Input Dialog - Only show if participant has gender */}
-      {selectedBoulder && participant && participant.gender && !showGuestDialog && (
+      {/* Result Input Dialog - Only show if participant has gender and participate dialog is closed */}
+      {selectedBoulder && participant && participant.gender && !showGuestDialog && !showParticipateDialog && (
         <ResultInput
           boulderNumber={selectedBoulder}
           boulderColor={
@@ -464,7 +475,16 @@ const CompetitionContent = () => {
           }
           participantId={participant.id}
           currentResult={resultsMap.get(selectedBoulder) || null}
-          onClose={() => {
+          onClose={async () => {
+            // Refetch results after closing to ensure UI is updated
+            if (participant?.id) {
+              await queryClient.refetchQueries({
+                queryKey: ['competition_results', participant.id],
+              });
+              await queryClient.refetchQueries({
+                queryKey: ['competition_leaderboard'],
+              });
+            }
             setSelectedBoulder(null);
           }}
         />

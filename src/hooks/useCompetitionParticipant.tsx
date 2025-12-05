@@ -277,16 +277,25 @@ export const useDeleteCompetitionParticipant = () => {
 
       console.log('[useDeleteCompetitionParticipant] Deleted participant:', participantData);
     },
-    onSuccess: async () => {
+    onSuccess: async (_, participantId) => {
       console.log('[useDeleteCompetitionParticipant] Success, invalidating queries...');
       
-      // Invalidate all related queries
+      // Invalidate all related queries - use prefix matching to catch all variations
       await queryClient.invalidateQueries({ queryKey: ['competition_participant'] });
+      await queryClient.invalidateQueries({ queryKey: ['competition_participants'] });
       await queryClient.invalidateQueries({ queryKey: ['competition_leaderboard'] });
       await queryClient.invalidateQueries({ queryKey: ['competition_results'] });
       
+      // Also invalidate queries with specific participant_id
+      await queryClient.invalidateQueries({ 
+        queryKey: ['competition_results', participantId] 
+      });
+      
       // Explicitly refetch all leaderboard queries to ensure immediate update
       await queryClient.refetchQueries({ queryKey: ['competition_leaderboard'] });
+      
+      // Refetch competition_results queries to ensure UI updates
+      await queryClient.refetchQueries({ queryKey: ['competition_results'] });
       
       console.log('[useDeleteCompetitionParticipant] Queries invalidated and refetched');
     },

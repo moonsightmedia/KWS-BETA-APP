@@ -173,12 +173,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let mounted = true;
     
     // Set a timeout to ensure loading doesn't hang forever
+    // Reduced to 3 seconds for faster feedback
     const timeoutId = setTimeout(() => {
       if (mounted) {
-        console.warn('[Auth] Session loading timeout - setting loading to false');
+        console.warn('[Auth] Session loading timeout (3s) - setting loading to false');
         setLoading(false);
       }
-    }, 5000); // 5 second timeout
+    }, 3000); // 3 second timeout
+    
+    // Additional safety timeout: If still loading after 10 seconds, force reset
+    const safetyTimeoutId = setTimeout(() => {
+      if (mounted && loading) {
+        console.error('[Auth] CRITICAL: Auth still loading after 10s - forcing reset');
+        setLoading(false);
+        setSession(null);
+        setUser(null);
+        // Clear potentially corrupted session storage
+        try {
+          sessionStorage.removeItem('preserveRoute');
+          sessionStorage.removeItem('isRefreshing');
+        } catch (e) {
+          // Ignore storage errors
+        }
+      }
+    }, 10000); // 10 second safety timeout
 
     let subscription: { unsubscribe: () => void } | null = null;
     
@@ -330,6 +348,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(null);
           setLoading(false);
           clearTimeout(timeoutId);
+          clearTimeout(safetyTimeoutId);
+          return;
+        }
+        
+        // Check if it's a timeout error
+        if (error?.message?.includes('timeout')) {
+          console.warn('[Auth] getSession timeout - continuing without session');
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+          clearTimeout(timeoutId);
+          clearTimeout(safetyTimeoutId);
           return;
         }
         
@@ -338,12 +368,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(null);
         setLoading(false);
         clearTimeout(timeoutId);
+        clearTimeout(safetyTimeoutId);
       }
     })();
 
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
+      clearTimeout(safetyTimeoutId);
       if (subscription) {
         try {
           subscription.unsubscribe();
@@ -353,7 +385,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     };
-  }, []);
+  }, [loading]);
 
   // Re-check session when tab becomes visible (after initial mount)
   // Only check current session, don't refresh it (refreshSession can invalidate valid sessions)
@@ -570,3 +602,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,9 +7,20 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { submitFeedback, captureScreenshot, FeedbackType, FeedbackPriority } from '@/utils/feedbackUtils';
+import { performEmergencyReset } from '@/utils/resetUtils';
 import { toast } from 'sonner';
-import { Loader2, Camera, X } from 'lucide-react';
+import { Loader2, Camera, X, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +40,7 @@ export function FeedbackDialog({
   initialDescription = '',
 }: FeedbackDialogProps) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [type, setType] = useState<FeedbackType>(initialType);
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription);
@@ -35,6 +48,8 @@ export function FeedbackDialog({
   const [includeScreenshot, setIncludeScreenshot] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,14 +93,50 @@ export function FeedbackDialog({
         onOpenChange(false);
       } else {
         console.error('[FeedbackDialog] Submit failed:', result.error);
-        toast.error(result.error || 'Fehler beim Senden des Feedbacks.');
+        // Check if it's a timeout or connection error - show reset dialog
+        const isTimeoutOrConnectionError = 
+          result.error?.toLowerCase().includes('timeout') ||
+          result.error?.toLowerCase().includes('verbindung') ||
+          result.error?.toLowerCase().includes('connection') ||
+          result.error?.toLowerCase().includes('network');
+        
+        if (isTimeoutOrConnectionError) {
+          // Show reset dialog instead of just error toast
+          setShowResetDialog(true);
+        } else {
+          toast.error(result.error || 'Fehler beim Senden des Feedbacks.');
+        }
       }
     } catch (error: any) {
       console.error('[FeedbackDialog] Error submitting feedback:', error);
-      toast.error(error?.message || 'Fehler beim Senden des Feedbacks. Bitte versuche es erneut.');
+      const errorMessage = error?.message || '';
+      const isTimeoutOrConnectionError = 
+        errorMessage.toLowerCase().includes('timeout') ||
+        errorMessage.toLowerCase().includes('verbindung') ||
+        errorMessage.toLowerCase().includes('connection') ||
+        errorMessage.toLowerCase().includes('network');
+      
+      if (isTimeoutOrConnectionError) {
+        // Show reset dialog instead of just error toast
+        setShowResetDialog(true);
+      } else {
+        toast.error(errorMessage || 'Fehler beim Senden des Feedbacks. Bitte versuche es erneut.');
+      }
     } finally {
       setIsSubmitting(false);
       setIsCapturingScreenshot(false);
+    }
+  };
+
+  const handleResetConfirm = async () => {
+    setIsResetting(true);
+    try {
+      await performEmergencyReset(queryClient);
+      // Note: performEmergencyReset will reload the page, so setIsResetting(false) won't be reached
+    } catch (error) {
+      console.error('[FeedbackDialog] Error during reset:', error);
+      setIsResetting(false);
+      setShowResetDialog(false);
     }
   };
 
@@ -259,6 +310,43 @@ export function FeedbackDialog({
           </form>
         </div>
       </DialogContent>
+
+      {/* Reset Dialog */}
+      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>App neustarten?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Das Feedback konnte nicht gesendet werden. Dies kann ein Zeichen dafür sein, dass die App hängt oder nicht mehr richtig reagiert.
+              <br />
+              <br />
+              Möchtest du die App neustarten? Dies wird alle Caches löschen und die App neu laden. Deine Anmeldung bleibt erhalten.
+              <br />
+              <br />
+              <strong>Verwende dies nur, wenn die App hängt oder nicht mehr reagiert.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isResetting} onClick={() => setShowResetDialog(false)}>
+              Abbrechen
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResetConfirm}
+              disabled={isResetting}
+              className="bg-[#E74C3C] hover:bg-[#C0392B]"
+            >
+              {isResetting ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Neustarten...
+                </>
+              ) : (
+                'Neustarten'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

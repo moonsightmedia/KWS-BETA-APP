@@ -3,11 +3,14 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { createBrowserRouter, RouterProvider, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { refreshAllData, clearAllCaches } from "@/utils/cacheUtils";
+import { refreshAllData, clearAllCaches, clearBrowserCaches } from "@/utils/cacheUtils";
+import { PullToRefreshIndicator } from "@/components/PullToRefreshIndicator";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { retryPendingFeedback } from "@/utils/feedbackUtils";
 import Index from "./pages/Index";
 import Sectors from "./pages/Sectors";
 import Boulders from "./pages/Boulders";
@@ -26,10 +29,24 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 5 * 60 * 1000, // Data is fresh for 5 minutes
       gcTime: 10 * 60 * 1000, // Keep data in cache for 10 minutes
-      refetchOnMount: false, // Use cached data on mount - don't refetch unless stale
+      refetchOnMount: true, // Always refetch on mount to ensure data is loaded after reload
       refetchOnWindowFocus: true, // Refetch stale queries when window regains focus (tab switch back)
       refetchOnReconnect: true, // Refetch when network reconnects
       retry: 1, // Only retry once on failure
+      networkMode: 'online', // Only run queries when online to avoid hanging
+      // Global error handler for all queries
+      onError: (error: any) => {
+        console.error('[QueryClient] Query error:', error);
+        // Don't throw - let individual queries handle their errors
+        // This prevents the entire app from crashing
+      },
+    },
+    mutations: {
+      retry: 1,
+      networkMode: 'online',
+      onError: (error: any) => {
+        console.error('[QueryClient] Mutation error:', error);
+      },
     },
   },
 });
@@ -53,6 +70,9 @@ const PullToRefreshHandler = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const pullThreshold = 60; // Reduced threshold for easier triggering
   
   // Restore route immediately on mount if it was preserved
   // Only restore if this was actually a page refresh (not a normal navigation)
@@ -110,58 +130,184 @@ const PullToRefreshHandler = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
   
+  // Query State Monitoring - detects hanging queries
   useEffect(() => {
-    // Detect pull-to-refresh on mobile devices
-    let touchStartY = 0;
-    let touchEndY = 0;
-    let isRefreshing = false;
+    const monitoringInterval = setInterval(() => {
+      const allQueries = queryClient.getQueryCache().getAll();
+      const hangingQueries: string[] = [];
+      
+      allQueries.forEach((query) => {
+        const state = query.state;
+        const queryKey = JSON.stringify(query.queryKey);
+        
+        // Check if query has been loading for more than 15 seconds
+        if (state.status === 'loading' || state.status === 'pending') {
+          const fetchStartTime = (state as any).fetchStartTime || query.state.dataUpdatedAt;
+          const now = Date.now();
+          const loadingDuration = now - (fetchStartTime || now);
+          
+          if (loadingDuration > 15000) {
+            hangingQueries.push(queryKey);
+            console.warn(`[QueryMonitoring] Hanging query detected: ${queryKey} (loading for ${Math.round(loadingDuration / 1000)}s)`);
+          }
+        }
+      });
+      
+      // If we found hanging queries, invalidate and refetch them
+      if (hangingQueries.length > 0) {
+        console.warn(`[QueryMonitoring] Found ${hangingQueries.length} hanging queries, invalidating...`);
+        hangingQueries.forEach((queryKeyStr) => {
+          try {
+            const queryKey = JSON.parse(queryKeyStr);
+            queryClient.invalidateQueries({ queryKey }).catch((error) => {
+              console.error(`[QueryMonitoring] Error invalidating query ${queryKeyStr}:`, error);
+            });
+          } catch (e) {
+            console.error(`[QueryMonitoring] Error parsing query key ${queryKeyStr}:`, e);
+          }
+        });
+      }
+    }, 5000); // Check every 5 seconds
     
+    return () => clearInterval(monitoringInterval);
+  }, [queryClient]);
+  
+  useEffect(() => {
+    console.log('[PullToRefresh] Setting up event listeners');
+    
+    // Detect pull-to-refresh on mobile devices (works in both web and native apps)
+    let touchStartY = 0;
+    let touchStartTime = 0;
+    let localIsRefreshing = false;
+    let currentPullDistance = 0;
+    
+    const getScrollTop = () => {
+      // Check multiple scroll containers
+      return Math.max(
+        window.pageYOffset || 0,
+        document.documentElement.scrollTop || 0,
+        document.body.scrollTop || 0
+      );
+    };
+
     const handleTouchStart = (e: TouchEvent) => {
-      touchStartY = e.touches[0].clientY;
+      if (localIsRefreshing || isRefreshing) {
+        return;
+      }
+      
+      const scrollTop = getScrollTop();
+      
+      // Allow pull-to-refresh if at top of page
+      if (scrollTop <= 10) {
+        touchStartY = e.touches[0].clientY;
+        touchStartTime = Date.now();
+        currentPullDistance = 0;
+        setPullDistance(0);
+      } else {
+        touchStartY = 0;
+        currentPullDistance = 0;
+        setPullDistance(0);
+      }
     };
     
     const handleTouchMove = (e: TouchEvent) => {
-      // Check if user is pulling down from the top
-      const currentY = e.touches[0].clientY;
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      if (touchStartY === 0 || localIsRefreshing || isRefreshing) {
+        return;
+      }
       
-      // If at top of page and pulling down, prepare for refresh
-      if (scrollTop === 0 && currentY > touchStartY && currentY - touchStartY > 50) {
-        // User is pulling down from top
+      const currentY = e.touches[0].clientY;
+      const scrollTop = getScrollTop();
+      const distance = currentY - touchStartY;
+      
+      // Only handle if pulling down and at top
+      if (scrollTop <= 10 && distance > 0) {
+        currentPullDistance = distance;
+        setPullDistance(distance);
+        
+        // Prevent default scrolling when pulling down significantly
+        if (distance > 15) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      } else if (scrollTop > 10 || distance < 0) {
+        // Reset if scrolled away or pulling up
+        touchStartY = 0;
+        currentPullDistance = 0;
+        setPullDistance(0);
       }
     };
     
     const handleTouchEnd = async (e: TouchEvent) => {
-      touchEndY = e.changedTouches[0].clientY;
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      if (touchStartY === 0 || localIsRefreshing || isRefreshing) {
+        return;
+      }
+      
+      const scrollTop = getScrollTop();
+      const finalDistance = currentPullDistance;
       
       // Check if this was a pull-to-refresh gesture
-      // User pulled down more than 80px from the top
-      if (scrollTop === 0 && touchEndY - touchStartY > 80 && !isRefreshing) {
-        isRefreshing = true;
-        console.log('[PullToRefresh] Detected pull-to-refresh gesture');
+      if (scrollTop <= 10 && finalDistance > pullThreshold) {
+        localIsRefreshing = true;
+        setIsRefreshing(true);
+        setPullDistance(pullThreshold); // Keep distance visible during refresh
+        console.log('[PullToRefresh] ✅ TRIGGERING REFRESH!');
         
-        // Save current route before refreshing
+        // Save current route
         const currentRoute = location.pathname || window.location.pathname;
         sessionStorage.setItem('preserveRoute', currentRoute);
-        console.log(`[PullToRefresh] Saving route for pull-to-refresh: ${currentRoute}`);
         
-        try {
-          // Clear all caches
-          await clearAllCaches(queryClient);
-          
-          // Refresh all data
-          await refreshAllData(queryClient);
-          
-          console.log('[PullToRefresh] All data refreshed successfully');
-        } catch (error) {
-          console.error('[PullToRefresh] Error refreshing data:', error);
-        } finally {
-          // Reset after a short delay
-          setTimeout(() => {
-            isRefreshing = false;
-          }, 1000);
-        }
+        // Immediately start hard reload
+        (async () => {
+          try {
+            console.log('[PullToRefresh] 🔄 Starting hard reload...');
+            
+            // Step 1: Clear browser caches first
+            console.log('[PullToRefresh] Step 1: Clearing browser caches...');
+            try {
+              await clearBrowserCaches();
+              console.log('[PullToRefresh] Browser caches cleared');
+            } catch (cacheError) {
+              console.warn('[PullToRefresh] Could not clear browser caches:', cacheError);
+            }
+            
+            // Step 2: Unregister service workers if present
+            if ('serviceWorker' in navigator) {
+              try {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(registrations.map(reg => reg.unregister()));
+                console.log('[PullToRefresh] Service workers unregistered');
+              } catch (swError) {
+                console.warn('[PullToRefresh] Could not unregister service workers:', swError);
+              }
+            }
+            
+            // Step 3: Hard reload the page
+            console.log('[PullToRefresh] Step 2: Reloading page...');
+            // Small delay to ensure caches are cleared
+            setTimeout(() => {
+              window.location.reload();
+            }, 100);
+          } catch (error) {
+            console.error('[PullToRefresh] ❌ Error:', error);
+            // Even if there's an error, still reload
+            window.location.reload();
+          }
+        })();
+      } else {
+        // Reset if gesture didn't meet threshold - animate back
+        const resetDistance = finalDistance;
+        let resetCount = 0;
+        const resetInterval = setInterval(() => {
+          resetCount++;
+          const newDistance = resetDistance * (1 - resetCount * 0.1);
+          setPullDistance(Math.max(0, newDistance));
+          if (resetCount >= 10 || newDistance <= 0) {
+            clearInterval(resetInterval);
+            touchStartY = 0;
+            currentPullDistance = 0;
+            setPullDistance(0);
+          }
+        }, 16); // ~60fps animation
       }
     };
     
@@ -191,33 +337,66 @@ const PullToRefreshHandler = () => {
       
       if (wasRefreshing === 'true') {
         sessionStorage.removeItem('isRefreshing');
-        console.log('[PullToRefresh] Page was refreshed, clearing caches and refreshing data');
+        console.log('[PullToRefresh] Page was refreshed, ensuring data loads');
         
         try {
           // Route restoration is handled in the mount effect above
-          // Just clean up the storage here
           if (preserveRoute) {
-            // Route will be restored by the mount effect
             console.log(`[PullToRefresh] Route ${preserveRoute} will be restored on mount`);
           }
           
-          // Clear all caches
-          await clearAllCaches(queryClient);
+          // After reload, queries will be automatically refetched because refetchOnMount: true
+          // But we also explicitly invalidate to ensure they're marked as stale
+          await queryClient.invalidateQueries();
+          console.log('[PullToRefresh] All queries invalidated - components will refetch automatically');
           
-          // Refresh all data
-          await refreshAllData(queryClient);
+          // Wait for components to mount and start their queries
+          // Then explicitly trigger refetch for common queries as a safety net
+          await new Promise(resolve => setTimeout(resolve, 1500));
           
-          console.log('[PullToRefresh] All data refreshed after page reload');
+          // Explicitly refetch common query keys to ensure they're loaded
+          // This is a safety net in case some queries didn't start automatically
+          const commonQueryKeys = [
+            ['boulders'],
+            ['sectors'],
+            ['colors'],
+            ['competition_boulders'],
+            ['competition_results'],
+            ['competition_leaderboard'],
+            ['competition_participant'],
+            ['competition_participants'],
+            ['profiles'],
+            ['notifications'],
+            ['notification_preferences'],
+            ['statistics'],
+          ];
+          
+          console.log('[PullToRefresh] Explicitly ensuring common queries are loaded...');
+          await Promise.all(
+            commonQueryKeys.map(queryKey =>
+              queryClient.refetchQueries({ queryKey }).catch((error) => {
+                console.warn(`[PullToRefresh] Error refetching query ${JSON.stringify(queryKey)}:`, error);
+              })
+            )
+          );
+          
+          console.log('[PullToRefresh] ✅ Data loading ensured after page reload');
         } catch (error) {
-          console.error('[PullToRefresh] Error refreshing data after reload:', error);
+          console.error('[PullToRefresh] Error ensuring data loads after reload:', error);
         }
       }
     };
     
     // Add touch event listeners for mobile pull-to-refresh
-    document.addEventListener('touchstart', handleTouchStart, { passive: true });
-    document.addEventListener('touchmove', handleTouchMove, { passive: true });
-    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+    // Use capture phase and passive: false for touchmove to allow preventDefault
+    const options = { capture: true, passive: false };
+    const startOptions = { capture: true, passive: true };
+    
+    document.addEventListener('touchstart', handleTouchStart, startOptions);
+    document.addEventListener('touchmove', handleTouchMove, options);
+    document.addEventListener('touchend', handleTouchEnd, startOptions);
+    
+    console.log('[PullToRefresh] ✅ Event listeners registered');
     
     // Listen for page refresh
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -227,6 +406,7 @@ const PullToRefreshHandler = () => {
     // Refetch stale queries to ensure data is fresh
     // IMPORTANT: Never clear caches on visibility change - only on actual page reload
     let visibilityTimeout: NodeJS.Timeout | null = null;
+    let isVisibilityRefreshing = false;
     const handleVisibilityChangeRefresh = async () => {
       if (document.visibilityState === 'visible') {
         // Debounce: Clear any pending timeout and set a new one
@@ -234,23 +414,45 @@ const PullToRefreshHandler = () => {
           clearTimeout(visibilityTimeout);
         }
         
+        // Prevent multiple simultaneous refreshes
+        if (isVisibilityRefreshing) {
+          console.log('[Visibility] Refresh already in progress, skipping');
+          return;
+        }
+        
         visibilityTimeout = setTimeout(async () => {
           // Normal tab switch - refetch only stale queries to avoid unnecessary requests
           // Don't clear cache - that would cause content to disappear
           console.log('[Visibility] Tab visible again - refetching stale queries');
+          isVisibilityRefreshing = true;
           try {
-            await queryClient.refetchQueries({ stale: true });
-            console.log('[Visibility] Stale queries refetched successfully');
+            // Only refetch if queries are actually stale (older than staleTime)
+            // This prevents unnecessary network requests
+            const staleQueries = queryClient.getQueryCache().getAll().filter(
+              query => query.isStale() && query.state.status === 'success'
+            );
+            
+            if (staleQueries.length > 0) {
+              console.log(`[Visibility] Refetching ${staleQueries.length} stale queries`);
+              await queryClient.refetchQueries({ stale: true });
+              console.log('[Visibility] Stale queries refetched successfully');
+            } else {
+              console.log('[Visibility] No stale queries to refetch');
+            }
           } catch (error) {
             console.error('[Visibility] Error refetching queries:', error);
+            // Don't throw - just log the error to prevent app freezing
+          } finally {
+            isVisibilityRefreshing = false;
           }
-        }, 300); // 300ms debounce to prevent multiple rapid calls
+        }, 1000); // Increased debounce to 1s to prevent rapid calls in native apps
       } else {
         // Tab hidden - clear any pending timeout
         if (visibilityTimeout) {
           clearTimeout(visibilityTimeout);
           visibilityTimeout = null;
         }
+        isVisibilityRefreshing = false;
       }
     };
     
@@ -267,9 +469,17 @@ const PullToRefreshHandler = () => {
         clearTimeout(visibilityTimeout);
       }
     };
-  }, [queryClient, navigate, location]);
+  }, [queryClient, navigate, location.pathname, pullDistance]);
   
-  return null;
+  return (
+    <>
+      <PullToRefreshIndicator 
+        pullDistance={pullDistance} 
+        isRefreshing={isRefreshing} 
+        pullThreshold={pullThreshold}
+      />
+    </>
+  );
 };
 
 import { SidebarProvider } from '@/components/SidebarContext';
@@ -278,6 +488,8 @@ import { UploadProvider } from '@/contexts/UploadContext';
 import { initializeErrorHandler } from '@/utils/errorHandler';
 import { OnboardingProvider } from '@/components/Onboarding';
 import { RoleTabProvider } from '@/contexts/RoleTabContext';
+import { initializePushNotifications } from '@/utils/pushNotifications';
+import { EmergencyReset } from '@/components/EmergencyReset';
 
 // Component to conditionally show Sidebar only for authenticated users
 const ConditionalSidebar = () => {
@@ -301,14 +513,105 @@ const ConditionalSidebar = () => {
 const Root = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { loading: authLoading, user } = useAuth();
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [authTimeout, setAuthTimeout] = useState(false);
   
   // Initialize error handler on mount
   useEffect(() => {
     initializeErrorHandler();
   }, []);
+
+  // Timeout for auth loading - if it takes too long, show fallback
+  useEffect(() => {
+    if (authLoading) {
+      const timeoutId = setTimeout(() => {
+        console.warn('[Root] Auth loading timeout (10s) - showing fallback');
+        setAuthTimeout(true);
+      }, 10000); // 10 second timeout
+      
+      return () => clearTimeout(timeoutId);
+    } else {
+      setAuthTimeout(false);
+    }
+  }, [authLoading]);
+
+  // Initialize push notifications when user is authenticated
+  // Delay initialization to avoid crashes on app start
+  useEffect(() => {
+    if (user && !authLoading) {
+      // Wait a bit before initializing to ensure app is fully loaded
+      const timer = setTimeout(() => {
+        initializePushNotifications().catch((error) => {
+          console.error('[App] Error initializing push notifications:', error);
+          // Don't crash the app - push notifications are optional
+        });
+      }, 2000); // Wait 2 seconds after app start
+      
+      return () => clearTimeout(timer);
+    }
+  }, [user, authLoading]);
+  
+  // Show loading screen during initial auth check
+  useEffect(() => {
+    if (!authLoading && isInitialLoad) {
+      // Small delay to show loading screen briefly
+      const timer = setTimeout(() => {
+        setIsInitialLoad(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading, isInitialLoad]);
+
+  // Retry pending feedback when user is logged in
+  useEffect(() => {
+    if (user && !authLoading) {
+      // Wait a bit for the app to stabilize, then retry pending feedback
+      const timer = setTimeout(() => {
+        retryPendingFeedback().catch((error) => {
+          console.error('[App] Error retrying pending feedback:', error);
+        });
+      }, 2000); // Wait 2 seconds after login
+      return () => clearTimeout(timer);
+    }
+  }, [user, authLoading]);
   
   // Don't restore route in Root - let PullToRefreshHandler handle it
   // This prevents conflicts with normal navigation
+  
+  // Show fallback UI if auth is hanging
+  if (authTimeout && authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F9FAF9] p-4">
+        <div className="max-w-md w-full text-center space-y-4">
+          <h2 className="text-xl font-semibold text-[#13112B]">App lädt zu lange</h2>
+          <p className="text-sm text-[#13112B]/60">
+            Die App scheint hängen zu bleiben. Du kannst versuchen, sie zurückzusetzen.
+          </p>
+          <Button
+            onClick={() => {
+              // Clear everything and redirect to auth
+              try {
+                sessionStorage.clear();
+                localStorage.clear();
+              } catch (e) {
+                // Ignore
+              }
+              window.location.href = '/auth';
+            }}
+            className="bg-[#36B531] hover:bg-[#2da029] text-white"
+          >
+            App neustarten
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  
+  // Show loading screen during initial load
+  if (authLoading || isInitialLoad) {
+    return <LoadingScreen />;
+  }
   
   return (
     <OnboardingProvider>
@@ -319,6 +622,7 @@ const Root = () => {
             <PullToRefreshHandler />
             <ConditionalSidebar />
             <UploadOverview />
+            <EmergencyReset />
           <Outlet />
         </UploadProvider>
       </SidebarProvider>

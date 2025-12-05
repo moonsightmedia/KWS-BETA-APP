@@ -88,13 +88,55 @@ export const clearAllCachesAndReload = async (queryClient: QueryClient) => {
 export const refreshAllData = async (queryClient: QueryClient) => {
   console.log('[CacheUtils] Refreshing all data (pull-to-refresh)...');
   
-  // Invalidate all queries
-  queryClient.invalidateQueries();
-  
-  // Refetch all active queries
-  await queryClient.refetchQueries();
-  
-  console.log('[CacheUtils] All data refreshed');
+  try {
+    // Step 1: Invalidate ALL queries first (marks them as stale)
+    console.log('[CacheUtils] Step 1: Invalidating all queries...');
+    await queryClient.invalidateQueries();
+    
+    // Step 2: Refetch ALL queries (both active and inactive) to ensure everything is fresh
+    // This is important after a hard reload when components might not be mounted yet
+    console.log('[CacheUtils] Step 2: Refetching all queries (active and inactive)...');
+    const allRefetchResult = await queryClient.refetchQueries();
+    console.log(`[CacheUtils] Refetched ${allRefetchResult.length} queries`);
+    
+    // Step 3: Also explicitly refetch common query keys to ensure they're loaded
+    // This is a safety net for queries that might not be refetched otherwise
+    const commonQueryKeys = [
+      ['boulders'],
+      ['sectors'],
+      ['colors'],
+      ['competition_boulders'],
+      ['competition_results'],
+      ['competition_leaderboard'],
+      ['competition_participant'],
+      ['competition_participants'],
+      ['profiles'],
+      ['boulder-operation-logs'],
+      ['notifications'],
+      ['notification_preferences'],
+    ];
+    
+    console.log('[CacheUtils] Step 3: Explicitly refetching common query keys...');
+    const commonRefetchPromises = commonQueryKeys.map(queryKey =>
+      queryClient.refetchQueries({ queryKey }).catch((error) => {
+        console.warn(`[CacheUtils] Error refetching query ${JSON.stringify(queryKey)}:`, error);
+      })
+    );
+    await Promise.all(commonRefetchPromises);
+    
+    // Step 4: Clear browser caches after refetch to ensure fresh data on next load
+    try {
+      await clearBrowserCaches();
+      console.log('[CacheUtils] Browser caches cleared');
+    } catch (cacheError) {
+      console.warn('[CacheUtils] Could not clear browser caches:', cacheError);
+    }
+    
+    console.log('[CacheUtils] ✅ All data refreshed successfully');
+  } catch (error) {
+    console.error('[CacheUtils] ❌ Error refreshing all data:', error);
+    // Don't throw - allow app to continue functioning even if refresh fails
+  }
 };
 
 /**
@@ -108,13 +150,18 @@ export const clearAllCaches = async (queryClient: QueryClient) => {
     // Clear React Query cache
     clearReactQueryCache(queryClient);
     
-    // Clear browser caches
-    await clearBrowserCaches();
+    // Clear browser caches (may fail in some contexts, that's okay)
+    try {
+      await clearBrowserCaches();
+    } catch (cacheError) {
+      console.warn('[CacheUtils] Could not clear browser caches (may be expected):', cacheError);
+      // Don't throw - browser cache clearing may not be available in all contexts
+    }
     
     console.log('[CacheUtils] All caches cleared');
   } catch (error) {
     console.error('[CacheUtils] Error clearing caches:', error);
-    throw error;
+    // Don't throw - allow app to continue functioning even if cache clearing fails
   }
 };
 

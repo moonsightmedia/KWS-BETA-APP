@@ -7,35 +7,15 @@ import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Calendar, MapPin, Palette, FileText, ExternalLink, Video, Maximize2, Minimize2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { useColors } from '@/hooks/useColors';
+import { getColorBackgroundStyle } from '@/utils/colorUtils';
+import { cn } from '@/lib/utils';
 
 interface BoulderDetailDialogProps {
   boulder: Boulder | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-const difficultyColors: Partial<Record<number | null, string>> & { null: string } = {
-  null: 'bg-gray-500',
-  1: 'bg-green-500',
-  2: 'bg-green-600',
-  3: 'bg-yellow-500',
-  4: 'bg-yellow-600',
-  5: 'bg-orange-500',
-  6: 'bg-orange-600',
-  7: 'bg-red-500',
-  8: 'bg-red-700',
-};
-
-const COLOR_MAP: Record<string, { bg: string; border: string }> = {
-  'Grün': { bg: 'bg-green-500', border: 'border-green-600' },
-  'Gelb': { bg: 'bg-yellow-400', border: 'border-yellow-500' },
-  'Blau': { bg: 'bg-blue-500', border: 'border-blue-600' },
-  'Orange': { bg: 'bg-orange-500', border: 'border-orange-600' },
-  'Rot': { bg: 'bg-red-500', border: 'border-red-600' },
-  'Schwarz': { bg: 'bg-gray-900', border: 'border-gray-950' },
-  'Weiß': { bg: 'bg-white', border: 'border-gray-300' },
-  'Lila': { bg: 'bg-purple-500', border: 'border-purple-600' },
-};
 
 const TEXT_ON_COLOR: Record<string, string> = {
   'Grün': 'text-white',
@@ -336,6 +316,7 @@ const getVimeoEmbedUrl = (url: string): string => {
 export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDetailDialogProps) => {
   console.log('[BoulderDetailDialog] Render:', { boulder: boulder?.name, open });
   
+  const { data: colors } = useColors();
   const videoUrl = boulder?.betaVideoUrl;
   const isYouTube = videoUrl ? isYouTubeUrl(videoUrl) : false;
   const isVimeo = videoUrl ? isVimeoUrl(videoUrl) : false;
@@ -435,7 +416,14 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
               <span>{formatDate(boulder.createdAt, 'dd. MMM yyyy', { locale: de })}</span>
             </span>
             <span
-              className={`inline-flex items-center justify-center gap-2 h-8 px-3 rounded-xl border-2 text-xs font-semibold ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${TEXT_ON_COLOR[boulder.color] || 'text-white'}`}
+              className={cn(
+                "inline-flex items-center justify-center gap-2 h-8 px-3 rounded-xl border-2 text-xs font-semibold",
+                TEXT_ON_COLOR[boulder.color] || 'text-white'
+              )}
+              style={{
+                ...getColorBackgroundStyle(boulder.color, colors || []),
+                borderColor: 'rgba(0, 0, 0, 0.1)'
+              }}
               title={`${boulder.color} · Grad ${boulder.difficulty === null ? '?' : boulder.difficulty}`}
             >
               <span>{boulder.difficulty === null ? '?' : boulder.difficulty}</span>

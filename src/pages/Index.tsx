@@ -9,7 +9,7 @@ import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { AlertCircle, Trophy } from 'lucide-react';
+import { AlertCircle, Trophy, RefreshCw } from 'lucide-react';
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,9 +17,11 @@ import { useSectorSchedule } from '@/hooks/useSectorSchedule';
 import { usePreloadBoulderThumbnails } from '@/hooks/usePreloadBoulderThumbnails';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 
 const Index = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const statistics = useStatistics();
   const { user, loading: authLoading } = useAuth();
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors();
@@ -29,6 +31,31 @@ const Index = () => {
   
   // Preload all boulder thumbnails when user is logged in
   usePreloadBoulderThumbnails(!!user && !authLoading);
+
+  // Ensure queries are loaded after mount - especially important after reload
+  useEffect(() => {
+    if (!authLoading && user) {
+      // Small delay to ensure component is fully mounted
+      const timer = setTimeout(() => {
+        // Check if queries have data or are loading, if not, force refetch
+        const bouldersQuery = queryClient.getQueryState(['boulders']);
+        const sectorsQuery = queryClient.getQueryState(['sectors']);
+        
+        // If queries don't exist or are not loading and have no data, force refetch
+        if (!bouldersQuery || (!bouldersQuery.data && bouldersQuery.status !== 'loading' && bouldersQuery.status !== 'pending')) {
+          console.log('[Index] Boulders query missing or empty, forcing refetch...');
+          queryClient.refetchQueries({ queryKey: ['boulders'] }).catch(console.error);
+        }
+        
+        if (!sectorsQuery || (!sectorsQuery.data && sectorsQuery.status !== 'loading' && sectorsQuery.status !== 'pending')) {
+          console.log('[Index] Sectors query missing or empty, forcing refetch...');
+          queryClient.refetchQueries({ queryKey: ['sectors'] }).catch(console.error);
+        }
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading, user, queryClient]);
 
   // Greeting state must be declared before any conditional returns to keep hook order stable
   // Load persisted name from localStorage to avoid "Fremder" flash on remount
@@ -163,10 +190,51 @@ const Index = () => {
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
-              <AlertDescription>
+              <AlertDescription className="mb-4">
                 {error instanceof Error ? error.message : 'Ein unbekannter Fehler ist aufgetreten.'}
               </AlertDescription>
+              <Button
+                onClick={async () => {
+                  await Promise.all([
+                    queryClient.refetchQueries({ queryKey: ['boulders'] }),
+                    queryClient.refetchQueries({ queryKey: ['sectors'] }),
+                  ]);
+                }}
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Erneut versuchen
+              </Button>
             </Alert>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // If no data and not loading, show a message with refresh button
+  if (!statistics && !isLoading && !error && (!boulders || boulders.length === 0) && (!sectors || sectors.length === 0)) {
+    return (
+      <div className="min-h-screen flex bg-[#F9FAF9]">
+        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+          <DashboardHeader />
+          <main className="flex-1 p-4 md:p-8 flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <p className="text-[#13112B]/60">Keine Daten geladen</p>
+              <Button
+                onClick={async () => {
+                  await Promise.all([
+                    queryClient.refetchQueries({ queryKey: ['boulders'] }),
+                    queryClient.refetchQueries({ queryKey: ['sectors'] }),
+                  ]);
+                }}
+                variant="default"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Daten laden
+              </Button>
+            </div>
           </main>
         </div>
       </div>

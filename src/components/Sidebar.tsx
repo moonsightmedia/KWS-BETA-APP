@@ -414,14 +414,22 @@ export const Sidebar = ({ className }: SidebarProps) => {
 
       {/* Mobile Bottom Navigation */}
       {!hideMobileNav && (
-        <nav className="md:hidden fixed bottom-4 left-4 right-4 z-50 bg-gray-900 rounded-2xl shadow-2xl" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}>
+        <nav 
+          className="md:hidden fixed left-4 right-4 z-50 bg-gray-900 rounded-2xl shadow-2xl" 
+          style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+        >
           <div className="flex items-center justify-around px-4 py-3">
             {mobileNavItems.map((item) => {
               // Check if active based on pathname and query params
+              const searchParams = new URLSearchParams(location.search);
               const isActive = activeRole === 'setter' 
-                ? location.pathname === '/setter' && new URLSearchParams(location.search).get('view') === item.path.split('?view=')[1]
+                ? location.pathname === '/setter' && searchParams.get('view') === item.path.split('?view=')[1]
                 : activeRole === 'admin'
-                ? location.pathname === '/admin' && new URLSearchParams(location.search).get('tab') === item.path.split('?tab=')[1]
+                ? location.pathname === '/admin' && (() => {
+                    const itemTab = item.path.split('?tab=')[1];
+                    const currentTab = searchParams.get('tab') || 'users'; // Default to 'users' if no tab param
+                    return itemTab === currentTab;
+                  })()
                 : location.pathname === item.path;
               
               return (
@@ -430,11 +438,11 @@ export const Sidebar = ({ className }: SidebarProps) => {
                   to={item.path}
                   className={cn(
                     "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all duration-300 min-w-0",
-                    isActive ? "text-primary" : "text-gray-400"
+                    isActive ? "text-[#36B531]" : "text-gray-400"
                   )}
                 >
-                  <item.icon className="w-6 h-6 flex-shrink-0" />
-                  <span className="text-xs font-medium truncate max-w-[60px]">{item.label}</span>
+                  <item.icon className={cn("w-6 h-6 flex-shrink-0", isActive && "text-[#36B531]")} />
+                  <span className={cn("text-xs font-medium truncate max-w-[60px]", isActive && "text-[#36B531]")}>{item.label}</span>
                 </NavLink>
               );
             })}

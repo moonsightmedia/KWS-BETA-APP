@@ -328,7 +328,12 @@ const Guest = () => {
 
       {/* Main Content - Only visible when all thumbnails are loaded */}
       <div className={allThumbnailsLoaded ? '' : 'opacity-0 pointer-events-none'}>
-        <header className="sticky top-0 z-30 border-b border-[#E7F7E9] bg-white">
+        <header 
+          className="sticky top-0 z-30 border-b border-[#E7F7E9] bg-white"
+          style={{ 
+            paddingTop: 'max(env(safe-area-inset-top, 0px), 0px)',
+          }}
+        >
           <div className="max-w-4xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-2xl font-heading font-bold tracking-wide leading-none text-[#13112B]">BOULDER</h1>
@@ -470,11 +475,11 @@ const Guest = () => {
 
       {/* Mobile: no top search; use floating filter bar below */}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
         {filtered.map((b, index) => (
           <Card 
             key={b.id} 
-            className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:shadow-md cursor-pointer transition-all h-[120px] sm:h-[140px] overflow-hidden"
+            className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:bg-muted/50 cursor-pointer transition-colors group h-[100px] sm:h-[112px] overflow-hidden"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -492,11 +497,11 @@ const Guest = () => {
               }
             }}
           >
-            <CardContent className="p-0 pointer-events-none flex h-full">
-              {/* Thumbnail links - Portrait aspect ratio for vertical images */}
-              <div className="w-20 sm:w-24 flex-shrink-0 h-full relative overflow-hidden bg-muted">
+            <CardContent className="p-0 pointer-events-none flex h-full items-center gap-3 px-4">
+              {/* Thumbnail links - quadratisch */}
+              <div className="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0 rounded-xl overflow-hidden bg-muted">
                 <img 
-                  className="w-full h-full object-cover pointer-events-none transition-opacity duration-200" 
+                  className="w-full h-full object-cover pointer-events-none transition-opacity duration-300" 
                   src={getThumbnailUrl(b)} 
                   alt={b.name}
                   loading={index < 18 ? "eager" : "lazy"}
@@ -505,6 +510,7 @@ const Guest = () => {
                   style={{ 
                     objectFit: 'cover',
                     objectPosition: 'center',
+                    opacity: 0
                   }}
                   onLoad={(e) => {
                     const img = e.currentTarget;
@@ -516,6 +522,8 @@ const Guest = () => {
                       img.style.transform = 'rotate(90deg)';
                       console.log(`[Guest] Rotating landscape thumbnail to portrait: ${img.naturalWidth}x${img.naturalHeight}`);
                     }
+                    
+                    img.style.opacity = '1';
                     
                     // Track loaded thumbnail (skip placeholder)
                     if (thumbnailUrl !== placeholder) {
@@ -530,27 +538,29 @@ const Guest = () => {
                     // Fallback to placeholder if image fails to load
                     if (e.currentTarget.src !== placeholder) {
                       e.currentTarget.src = placeholder;
+                      e.currentTarget.style.opacity = '1';
                     }
                   }}
                 />
               </div>
-              {/* Content rechts */}
-              <div className="flex-1 p-3 sm:p-4 flex flex-col justify-between min-w-0">
-                <div>
-                  <div className="font-heading font-medium text-sm sm:text-base truncate text-[#13112B]">{b.name}</div>
-                  <div className="text-xs text-[#13112B]/50 mt-1">
-                    <div className="truncate">{b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}</div>
-                  </div>
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <span 
-                    className="w-6 h-6 rounded-xl border border-black/10 grid place-items-center text-[11px] font-semibold flex-shrink-0 text-white"
-                    style={getColorBackgroundStyle(b.color, colors)}
-                  >
-                    {formatDifficulty(b.difficulty)}
-                  </span>
-                  <span className="text-xs text-[#13112B]/50 truncate">{b.color}</span>
-                </div>
+              {/* Content Mitte */}
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <h4 className="font-heading text-base sm:text-lg font-semibold text-[#13112B] truncate mb-0.5">{b.name}</h4>
+                <span className="text-xs sm:text-sm text-[#13112B]/60 truncate">
+                  {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
+                </span>
+              </div>
+              {/* Difficulty Badge rechts - quadratisch */}
+              <div className="flex-shrink-0">
+                <span 
+                  className={cn(
+                    "w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-xl text-base sm:text-lg font-semibold",
+                    TEXT_ON_COLOR[b.color] || 'text-white'
+                  )}
+                  style={getColorBackgroundStyle(b.color, colors)}
+                >
+                  {formatDifficulty(b.difficulty)}
+                </span>
               </div>
             </CardContent>
           </Card>

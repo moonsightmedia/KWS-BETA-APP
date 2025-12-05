@@ -8,11 +8,17 @@ import { buttonVariants } from "@/components/ui/button";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
+// Context to pass onSelect to CustomCaptionDropdowns
+const CalendarContext = React.createContext<{
+  onSelect?: (date: Date | undefined) => void;
+}>({});
+
 // Custom Caption Component with Day, Month, and Year dropdowns
 function CustomCaptionDropdowns(props: CaptionProps) {
   const { classNames, styles, locale, formatters, fromDate, toDate } = useDayPicker();
   const { goToMonth } = useNavigation();
   const { displayMonth } = props;
+  const { onSelect } = React.useContext(CalendarContext);
 
   // Get days in current month
   const daysInMonth = getDaysInMonth(displayMonth);
@@ -37,6 +43,13 @@ function CustomCaptionDropdowns(props: CaptionProps) {
     const newDay = Number(e.target.value);
     const newDate = setDate(displayMonth, newDay);
     goToMonth(newDate);
+    // Also call onSelect to actually select the date
+    if (onSelect) {
+      // Use setTimeout to ensure state updates properly
+      setTimeout(() => {
+        onSelect(newDate);
+      }, 0);
+    }
   };
 
   // Handle month change
@@ -48,6 +61,13 @@ function CustomCaptionDropdowns(props: CaptionProps) {
     const adjustedDay = Math.min(displayMonth.getDate(), daysInNewMonth);
     const finalDate = setDate(newMonth, adjustedDay);
     goToMonth(finalDate);
+    // Also call onSelect to actually select the date
+    if (onSelect) {
+      // Use setTimeout to ensure state updates properly
+      setTimeout(() => {
+        onSelect(finalDate);
+      }, 0);
+    }
   };
 
   // Handle year change
@@ -59,6 +79,13 @@ function CustomCaptionDropdowns(props: CaptionProps) {
     const adjustedDay = Math.min(displayMonth.getDate(), daysInNewMonth);
     const finalDate = setDate(newMonth, adjustedDay);
     goToMonth(finalDate);
+    // Also call onSelect to actually select the date
+    if (onSelect) {
+      // Use setTimeout to ensure state updates properly
+      setTimeout(() => {
+        onSelect(finalDate);
+      }, 0);
+    }
   };
 
   return (
@@ -105,48 +132,51 @@ function CustomCaptionDropdowns(props: CaptionProps) {
   );
 }
 
-function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
+function Calendar({ className, classNames, showOutsideDays = true, onSelect, ...props }: CalendarProps) {
   return (
-    <DayPicker
-      showOutsideDays={showOutsideDays}
-      className={cn("p-2 sm:p-4 bg-white", className)}
-      captionLayout="dropdown-buttons"
-      classNames={{
-        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-        month: "space-y-4",
-        caption: "flex justify-center pt-1 relative items-center gap-2 w-full",
-        caption_label: "hidden",
-        caption_dropdowns: "flex items-center gap-2 w-full",
-        dropdown: "hidden",
-        dropdown_month: "hidden",
-        dropdown_year: "hidden",
-        dropdown_icon: "hidden",
-        nav: "hidden",
-        nav_button: "hidden",
-        nav_button_previous: "hidden",
-        nav_button_next: "hidden",
-        table: "hidden",
-        head_row: "hidden",
-        head_cell: "hidden",
-        row: "hidden",
-        cell: "hidden",
-        day: "hidden",
-        day_range_end: "hidden",
-        day_selected: "hidden",
-        day_today: "hidden",
-        day_outside: "hidden",
-        day_disabled: "hidden",
-        day_range_middle: "hidden",
-        day_hidden: "hidden",
-        ...classNames,
-      }}
-      components={{
-        IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
-        IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
-        CaptionDropdowns: CustomCaptionDropdowns,
-      }}
-      {...props}
-    />
+    <CalendarContext.Provider value={{ onSelect }}>
+      <DayPicker
+        showOutsideDays={showOutsideDays}
+        className={cn("p-2 sm:p-4 bg-white", className)}
+        captionLayout="dropdown-buttons"
+        classNames={{
+          months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+          month: "space-y-4",
+          caption: "flex justify-center pt-1 relative items-center gap-2 w-full",
+          caption_label: "hidden",
+          caption_dropdowns: "flex items-center gap-2 w-full",
+          dropdown: "hidden",
+          dropdown_month: "hidden",
+          dropdown_year: "hidden",
+          dropdown_icon: "hidden",
+          nav: "hidden",
+          nav_button: "hidden",
+          nav_button_previous: "hidden",
+          nav_button_next: "hidden",
+          table: "hidden",
+          head_row: "hidden",
+          head_cell: "hidden",
+          row: "hidden",
+          cell: "hidden",
+          day: "hidden",
+          day_range_end: "hidden",
+          day_selected: "hidden",
+          day_today: "hidden",
+          day_outside: "hidden",
+          day_disabled: "hidden",
+          day_range_middle: "hidden",
+          day_hidden: "hidden",
+          ...classNames,
+        }}
+        components={{
+          IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
+          IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
+          CaptionDropdowns: CustomCaptionDropdowns,
+        }}
+        onSelect={onSelect}
+        {...props}
+      />
+    </CalendarContext.Provider>
   );
 }
 Calendar.displayName = "Calendar";
