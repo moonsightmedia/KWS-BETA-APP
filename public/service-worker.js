@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kws-beta-v3';
+const CACHE_NAME = 'kws-beta-v4'; // Increment version to force cache refresh
 const CORE_ASSETS = [
   '/',
   '/index.html',
@@ -38,11 +38,14 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
   
-  // CRITICAL: Never intercept Supabase Auth requests - they cause CORS errors
-  // Supabase Auth endpoints must go directly to network without service worker interference
+  // CRITICAL: Never intercept Supabase requests - they cause CORS errors and caching issues
+  // Supabase endpoints (Auth, REST API, Storage) must go directly to network without service worker interference
   if (url.hostname.includes('supabase.co') || url.hostname.includes('supabase.io')) {
-    // Let all Supabase requests pass through without interception
-    event.respondWith(fetch(request));
+    // Let all Supabase requests pass through without interception or caching
+    // Always fetch from network, never use cache
+    event.respondWith(fetch(request, {
+      cache: 'no-store', // Don't use HTTP cache
+    }));
     return;
   }
   
@@ -108,7 +111,45 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For other requests, use cache-first strategy
+  // For API/data requests (JSON, or requests to our domain), use network-first strategy
+  // This ensures fresh data on reload
+  const isApiRequest = url.pathname.endsWith('.json') || 
+                       url.pathname.includes('/api/') ||
+                       (url.origin === self.location.origin && request.headers.get('accept')?.includes('application/json'));
+  
+  // For page reloads, always use network-first to get fresh data
+  const isPageReload = request.mode === 'navigate' || 
+                       request.headers.get('cache-control') === 'no-cache' ||
+                       request.headers.get('pragma') === 'no-cache';
+  
+  if (isApiRequest || isPageReload) {
+    // Network-first strategy: Try network first, fallback to cache
+    event.respondWith(
+      fetch(request, {
+        cache: 'no-store', // Always fetch from network, don't use HTTP cache
+      }).then((response) => {
+        // Only cache successful responses
+        if (response.ok) {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, responseToCache);
+          });
+        }
+        return response;
+      }).catch(() => {
+        // If network fails, try cache as fallback
+        return caches.match(request).then((cached) => {
+          if (cached) {
+            return cached;
+          }
+          throw new Error('Network request failed and no cache available');
+        });
+      })
+    );
+    return;
+  }
+
+  // For other requests (static assets), use cache-first strategy
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) {
