@@ -113,13 +113,25 @@ const isStorageAvailable = (() => {
 // Supabase might cache the fetch function, so we create a wrapper that always uses current window.fetch
 const customFetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   // Always use current window.fetch to ensure we get the overridden version
-  console.log('[Supabase Client] 📞 customFetch called, using window.fetch:', {
-    url: typeof input === 'string' ? input : input instanceof URL ? input.href : input.url,
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input instanceof Request ? input.url : String(input));
+  
+  console.log('[Supabase Client] 📞 customFetch CALLED:', {
+    url: url,
+    method: init?.method || 'GET',
     windowFetchType: typeof window.fetch,
     isOverridden: window.fetch.toString().includes('Index HTML Fetch Override'),
+    windowFetchString: window.fetch.toString().substring(0, 200),
   });
   
-  return window.fetch(input, init);
+  // CRITICAL: Call window.fetch directly - it should trigger the index.html override
+  const result = window.fetch(input, init);
+  
+  console.log('[Supabase Client] 📞 customFetch returning promise:', {
+    url: url,
+    isPromise: result instanceof Promise,
+  });
+  
+  return result;
 };
 
 // Wrap client creation in try-catch to prevent any initialization errors
