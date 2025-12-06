@@ -24,8 +24,9 @@ const Index = () => {
   const queryClient = useQueryClient();
   const statistics = useStatistics();
   const { user, loading: authLoading } = useAuth();
-  const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors();
-  const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed();
+  // CRITICAL: Only run queries after auth loading is complete
+  const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(!authLoading);
+  const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed(!authLoading);
   const isLoading = isLoadingBoulders || isLoadingSectors;
   const error = bouldersError || sectorsError;
   

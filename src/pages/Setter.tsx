@@ -492,8 +492,9 @@ const Setter = () => {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { setHideMobileNav } = useSidebar();
-  const { data: sectors } = useSectorsTransformed();
-  const { data: boulders } = useBouldersWithSectors();
+  // CRITICAL: Only run queries after auth loading is complete
+  const { data: sectors } = useSectorsTransformed(!authLoading);
+  const { data: boulders } = useBouldersWithSectors(!authLoading);
   const createBoulder = useCreateBoulder();
   const updateBoulder = useUpdateBoulder();
   const deleteBoulder = useDeleteBoulder();

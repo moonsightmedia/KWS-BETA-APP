@@ -8,12 +8,15 @@ import { Box, AlertCircle, RefreshCw, Mountain } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
 
 const Sectors = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: sectors, isLoading, error } = useSectorsTransformed();
-  const { data: boulders } = useBoulders();
+  const { loading: authLoading } = useAuth();
+  // CRITICAL: Only run queries after auth loading is complete
+  const { data: sectors, isLoading, error } = useSectorsTransformed(!authLoading);
+  const { data: boulders } = useBoulders(!authLoading);
 
   const handleViewBoulders = (sectorName: string) => {
     navigate(`/boulders?sector=${encodeURIComponent(sectorName)}`);

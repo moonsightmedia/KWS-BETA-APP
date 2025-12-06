@@ -57,8 +57,10 @@ const Guest = () => {
   const [colorFilter, setColorFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'name' | 'difficulty' | 'date'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors();
-  const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed();
+  // Guest area doesn't need auth, but we still wait for auth to finish loading to avoid race conditions
+  const { loading: authLoading } = useAuth();
+  const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(!authLoading);
+  const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed(!authLoading);
   
   // Note: Hooks already have refetchOnMount: true, so data will be reloaded automatically
   const [selectedBoulder, setSelectedBoulder] = useState<Boulder | null>(null);

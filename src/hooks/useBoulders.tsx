@@ -59,9 +59,10 @@ export interface Boulder {
   updated_at: string;
 }
 
-export const useBoulders = () => {
+export const useBoulders = (enabled: boolean = true) => {
   return useQuery({
     queryKey: ['boulders'],
+    enabled: enabled, // Only run query if enabled (e.g., after auth loading is complete)
     queryFn: async () => {
       console.log('[useBoulders] 🔵 STARTING fetch from Supabase...');
       const startTime = Date.now();
@@ -138,9 +139,9 @@ export const useBoulders = () => {
 /**
  * Hook der Boulders mit Sektor-Informationen zurückgibt (transformiert zu Frontend Types)
  */
-export const useBouldersWithSectors = () => {
-  const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBoulders();
-  const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectors();
+export const useBouldersWithSectors = (enabled: boolean = true) => {
+  const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBoulders(enabled);
+  const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectors(enabled);
 
   // Only log in development to reduce console noise
   if (import.meta.env.DEV) {

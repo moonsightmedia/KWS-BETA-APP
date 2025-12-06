@@ -16,9 +16,10 @@ export interface Sector {
   updated_at: string;
 }
 
-export const useSectors = () => {
+export const useSectors = (enabled: boolean = true) => {
   return useQuery({
     queryKey: ['sectors'],
+    enabled: enabled, // Only run query if enabled (e.g., after auth loading is complete)
     queryFn: async () => {
       console.log('[useSectors] 🔵 STARTING fetch from Supabase...');
       const startTime = Date.now();

@@ -89,10 +89,11 @@ const Boulders = () => {
   const [quickFilter, setQuickFilter] = useState<null | 'sector' | 'difficulty' | 'color' | 'sort'>(null);
   const { data: colors } = useColors();
 
-  const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors();
-  const { data: sectors, isLoading: isLoadingSectors } = useSectorsTransformed();
-  const isLoading = isLoadingBoulders || isLoadingSectors;
   const { user, loading: authLoading } = useAuth();
+  // CRITICAL: Only run queries after auth loading is complete
+  const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(!authLoading);
+  const { data: sectors, isLoading: isLoadingSectors } = useSectorsTransformed(!authLoading);
+  const isLoading = isLoadingBoulders || isLoadingSectors;
   const queryClient = useQueryClient();
 
   // Log when component is mounted
