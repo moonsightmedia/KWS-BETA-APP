@@ -80,6 +80,7 @@ export const useSectors = () => {
           
           const enhancedError = new Error(errorMessage);
           (enhancedError as any).originalError = error;
+          // CRITICAL: Throw error to mark query as error state
           throw enhancedError;
         }
         
@@ -92,7 +93,8 @@ export const useSectors = () => {
       } catch (error) {
         const duration = Date.now() - startTime;
         console.error(`[useSectors] ❌ Exception after ${duration}ms:`, error);
-        // Re-throw with better message if it's not already an Error
+        // CRITICAL: Re-throw error to mark query as error state, not return empty array
+        // This ensures React Query shows error state instead of hanging in loading state
         if (error instanceof Error) {
           throw error;
         }
@@ -101,7 +103,9 @@ export const useSectors = () => {
     },
     retry: 1, // Only retry once to prevent infinite loading
     retryDelay: 1000, // Wait 1 second between retries
-    // Use default query options from QueryClient (staleTime: 30s, refetchOnMount: false)
+    // CRITICAL: Set staleTime to 0 to ensure data is always refetched after reload
+    staleTime: 0,
+    // Use default query options from QueryClient (refetchOnMount: true)
   });
 };
 

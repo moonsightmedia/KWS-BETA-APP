@@ -37,7 +37,31 @@ const Index = () => {
     console.log('[Index] Component mounted');
   }, []);
   
-  // Refetch-Logik entfernt - React Query macht das automatisch mit refetchOnMount: true
+  // CRITICAL FIX: Monitor queries for hanging and cancel/refetch if needed
+  useEffect(() => {
+    if (!authLoading && user) {
+      // Monitor queries for 15 seconds - if still loading, cancel and refetch
+      const timeoutId = setTimeout(() => {
+        const bouldersQuery = queryClient.getQueryState(['boulders']);
+        const sectorsQuery = queryClient.getQueryState(['sectors']);
+        
+        // If queries are still pending after 15s, cancel and refetch
+        if (bouldersQuery?.status === 'pending') {
+          console.warn('[Index] Query [boulders] still pending after 15s - canceling and refetching');
+          queryClient.cancelQueries({ queryKey: ['boulders'] });
+          queryClient.refetchQueries({ queryKey: ['boulders'] });
+        }
+        
+        if (sectorsQuery?.status === 'pending') {
+          console.warn('[Index] Query [sectors] still pending after 15s - canceling and refetching');
+          queryClient.cancelQueries({ queryKey: ['sectors'] });
+          queryClient.refetchQueries({ queryKey: ['sectors'] });
+        }
+      }, 15000); // 15 second timeout
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [authLoading, user, queryClient]);
 
   // Greeting state must be declared before any conditional returns to keep hook order stable
   // Load persisted name from localStorage to avoid "Fremder" flash on remount
@@ -223,8 +247,33 @@ const Index = () => {
     );
   }
 
+  // CRITICAL FIX: Don't return null - show fallback UI instead
+  // Returning null causes empty screen when statistics haven't loaded yet
   if (!statistics) {
-    return null;
+    return (
+      <div className="min-h-screen flex bg-[#F9FAF9]">
+        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+          <DashboardHeader />
+          <main className="flex-1 p-4 md:p-8 flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <p className="text-[#13112B]/60">Statistiken werden geladen...</p>
+              <Button
+                onClick={async () => {
+                  await Promise.all([
+                    queryClient.refetchQueries({ queryKey: ['boulders'] }),
+                    queryClient.refetchQueries({ queryKey: ['sectors'] }),
+                  ]);
+                }}
+                variant="default"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Daten laden
+              </Button>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
   }
 
   return (

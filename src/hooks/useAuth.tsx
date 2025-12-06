@@ -177,14 +177,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log('[Auth] Loading started');
     
     // Set a timeout to ensure loading doesn't hang forever
-    // Reduced to 2 seconds for faster feedback
+    // Increased to 5 seconds to allow Supabase requests to complete
     const timeoutId = setTimeout(() => {
       if (mounted) {
         const duration = Date.now() - loadingStartTime;
-        console.warn(`[Auth] Timeout triggered (2s) - setting loading to false (duration: ${duration}ms)`);
+        console.warn(`[Auth] Timeout triggered (5s) - setting loading to false (duration: ${duration}ms)`);
         setLoading(false);
       }
-    }, 2000); // 2 second timeout
+    }, 5000); // 5 second timeout
     
     // Additional safety timeout: If still loading after 10 seconds, force reset
     const safetyTimeoutId = setTimeout(() => {

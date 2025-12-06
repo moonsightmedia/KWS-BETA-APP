@@ -109,6 +109,7 @@ export const useBoulders = () => {
 
         if (error) {
           console.error('[useBoulders] ❌ Error fetching boulders:', error);
+          // CRITICAL: Throw error instead of returning empty array to mark query as error
           throw error;
         }
         
@@ -121,13 +122,16 @@ export const useBoulders = () => {
       } catch (error: any) {
         const duration = Date.now() - startTime;
         console.error(`[useBoulders] ❌ Exception in queryFn after ${duration}ms:`, error);
-        // Return empty array on error to prevent infinite loading
-        return [] as Boulder[];
+        // CRITICAL: Throw error to mark query as error state, not return empty array
+        // This ensures React Query shows error state instead of hanging in loading state
+        throw error;
       }
     },
     retry: 1, // Only retry once
     retryDelay: 1000, // Wait 1 second before retry
-    // Use default query options from QueryClient (staleTime: 30s, refetchOnMount: false)
+    // CRITICAL: Set staleTime to 0 to ensure data is always refetched after reload
+    staleTime: 0,
+    // Use default query options from QueryClient (refetchOnMount: true)
   });
 };
 

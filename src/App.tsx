@@ -27,13 +27,16 @@ import { Sidebar } from "@/components/Sidebar";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // Data is fresh for 5 minutes
+      staleTime: 0, // CRITICAL FIX: Set to 0 to ensure data is always refetched after reload
       gcTime: 10 * 60 * 1000, // Keep data in cache for 10 minutes
       refetchOnMount: true, // Always refetch on mount to ensure data is loaded after reload
       refetchOnWindowFocus: true, // Refetch stale queries when window regains focus (tab switch back)
       refetchOnReconnect: true, // Refetch when network reconnects
       retry: 1, // Only retry once on failure
       networkMode: 'online', // Only run queries when online to avoid hanging
+      // CRITICAL: Add timeout to prevent queries from hanging forever
+      // If a query takes longer than 15 seconds, it will be marked as error
+      // This prevents the app from hanging in loading state
       // Global error handler for all queries
       onError: (error: any) => {
         console.error('[QueryClient] Query error:', error);

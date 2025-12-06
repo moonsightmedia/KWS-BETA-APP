@@ -21,8 +21,11 @@ window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Pro
     const callId = fetchCallCount;
     const startTime = Date.now();
     
-    // Preserve all headers
+    // CRITICAL FIX: Preserve all headers correctly, including API keys
+    // Convert Headers object to plain object if needed, but preserve all headers
     let headers: HeadersInit | undefined = init?.headers;
+    
+    // If headers is a Headers object, convert to plain object
     if (headers instanceof Headers) {
       const headersObj: Record<string, string> = {};
       headers.forEach((value, key) => {
@@ -31,23 +34,58 @@ window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Pro
       headers = headersObj;
     }
     
+    // If headers is an array, convert to object
+    if (Array.isArray(headers)) {
+      const headersObj: Record<string, string> = {};
+      headers.forEach(([key, value]) => {
+        headersObj[key] = value;
+      });
+      headers = headersObj;
+    }
+    
+    // Ensure we have all original headers, including Authorization and API keys
+    const finalHeaders: Record<string, string> = {
+      ...(headers as Record<string, string> || {}),
+      // Preserve any headers from init that might not be in headers object
+      ...(init?.headers && typeof init.headers === 'object' && !(init.headers instanceof Headers) && !Array.isArray(init.headers) 
+        ? init.headers as Record<string, string> 
+        : {}),
+    };
+    
+    // If input is a Request object, preserve its headers too
+    if (input instanceof Request) {
+      input.headers.forEach((value, key) => {
+        if (!finalHeaders[key]) {
+          finalHeaders[key] = value;
+        }
+      });
+    }
+    
     console.log(`[Main Fetch Override] 🚀 [${callId}] Starting Supabase request:`, {
       url: urlObj.href,
       pathname: urlObj.pathname,
       method: init?.method || 'GET',
-      hasAuth: !!(headers && (headers as any)['Authorization']),
-      hasApiKey: !!(headers && ((headers as any)['apikey'] || (headers as any)['apiKey'])),
-      headerKeys: headers ? Object.keys(headers) : [],
+      hasAuth: !!finalHeaders['Authorization'] || !!finalHeaders['authorization'],
+      hasApiKey: !!(finalHeaders['apikey'] || finalHeaders['apiKey'] || finalHeaders['x-api-key']),
+      headerKeys: Object.keys(finalHeaders),
       timestamp: new Date().toISOString(),
     });
     
     try {
-      // Use original fetch with ALL original options
-      const response = await originalFetch(input, {
+      // CRITICAL: Use original fetch with ALL headers preserved
+      // Create a new Request to ensure all headers are included
+      const requestInit: RequestInit = {
         ...init,
-        headers: headers || init?.headers,
+        headers: finalHeaders, // Use processed headers
         cache: 'no-store' as RequestCache,
-      });
+      };
+      
+      // If input is a Request, merge its properties
+      const request = input instanceof Request 
+        ? new Request(input, requestInit)
+        : new Request(input as string, requestInit);
+      
+      const response = await originalFetch(request);
       
       const duration = Date.now() - startTime;
       console.log(`[Main Fetch Override] ✅ [${callId}] Response received:`, {
@@ -152,64 +190,87 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// CRITICAL FIX: Completely disable service worker - clear all caches and unregister
+// CRITICAL FIX: Completely disable service worker IMMEDIATELY - clear all caches and unregister
 // The service worker is blocking Supabase requests even though it should bypass them
+// This must happen IMMEDIATELY, not after delays, to prevent blocking requests
 if ('serviceWorker' in navigator) {
-  // First, clear all caches to remove cached service worker
+  // IMMEDIATELY clear all caches first (synchronous where possible)
   if ('caches' in window) {
+    // Don't wait - clear caches immediately
     caches.keys().then(async (cacheNames) => {
-      console.log('[Main] 🗑️ Clearing all caches to remove service worker:', cacheNames);
+      console.log('[Main] 🗑️ IMMEDIATELY clearing all caches to remove service worker:', cacheNames);
       await Promise.all(cacheNames.map(name => caches.delete(name)));
       console.log('[Main] ✅ All caches cleared');
+    }).catch((error) => {
+      console.error('[Main] Error clearing caches:', error);
     });
   }
   
-  // Unregister all service workers - FORCE unregister
+  // IMMEDIATELY unregister all service workers - FORCE unregister (don't wait)
   navigator.serviceWorker.getRegistrations().then(async (registrations) => {
-    console.log('[Main] ⚠️ CRITICAL FIX: Unregistering all service workers to test Supabase requests');
+    console.log('[Main] ⚠️ CRITICAL FIX: IMMEDIATELY unregistering all service workers');
+    
+    if (registrations.length === 0) {
+      console.log('[Main] ✅ No service workers found');
+      return;
+    }
+    
     for (const registration of registrations) {
       try {
-        // Stop the service worker first
+        console.log('[Main] Unregistering:', registration.scope, registration.active?.scriptURL);
+        
+        // Stop all service worker states immediately
         if (registration.active) {
-          registration.active.postMessage({ type: 'SKIP_WAITING' });
+          try {
+            registration.active.postMessage({ type: 'SKIP_WAITING' });
+          } catch (e) {}
         }
         if (registration.waiting) {
-          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          try {
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          } catch (e) {}
         }
         if (registration.installing) {
-          registration.installing.postMessage({ type: 'SKIP_WAITING' });
+          try {
+            registration.installing.postMessage({ type: 'SKIP_WAITING' });
+          } catch (e) {}
         }
         
-        // Force unregister
+        // Force unregister immediately
         const success = await registration.unregister();
-        console.log('[Main] Service Worker unregistered:', success, registration.scope);
+        console.log('[Main] Service Worker unregistered:', success);
       } catch (error) {
         console.error('[Main] Error unregistering service worker:', error);
       }
     }
     
-    // Wait and double-check: Get registrations again
-    setTimeout(async () => {
-      const remainingRegistrations = await navigator.serviceWorker.getRegistrations();
-      if (remainingRegistrations.length > 0) {
-        console.error('[Main] ⚠️ WARNING: Service Workers still registered:', remainingRegistrations.length);
-        for (const reg of remainingRegistrations) {
-          console.error('[Main] Still registered:', reg.scope, reg.active?.scriptURL);
-          try {
-            await reg.unregister();
-            console.log('[Main] Second unregister attempt successful');
-          } catch (e) {
-            console.error('[Main] Second unregister failed:', e);
-          }
+    // Double-check immediately (no delay)
+    const remaining = await navigator.serviceWorker.getRegistrations();
+    if (remaining.length > 0) {
+      console.error('[Main] ⚠️ WARNING: Service Workers still registered:', remaining.length);
+      for (const reg of remaining) {
+        try {
+          await reg.unregister();
+          console.log('[Main] Second unregister:', 'SUCCESS');
+        } catch (e) {
+          console.error('[Main] Second unregister failed:', e);
         }
-      } else {
-        console.log('[Main] ✅ All Service Workers successfully unregistered');
       }
-    }, 500);
+    } else {
+      console.log('[Main] ✅ All Service Workers successfully unregistered');
+    }
+  }).catch((error) => {
+    console.error('[Main] Error getting service worker registrations:', error);
   });
   
-  // Don't register service worker - file is renamed to .disabled
-  console.log('[Main] ⚠️ Service Worker registration DISABLED - file renamed to .disabled');
+  // BLOCK any new service worker registrations immediately
+  const originalRegister = navigator.serviceWorker.register;
+  navigator.serviceWorker.register = function(...args: any[]) {
+    console.warn('[Main] ⚠️ BLOCKED: Service Worker registration attempt blocked:', args[0]);
+    return Promise.reject(new Error('Service Worker registration is disabled'));
+  };
+  
+  console.log('[Main] ⚠️ Service Worker registration BLOCKED - file renamed to .disabled');
   
   // OLD CODE - commented out for testing
   /*

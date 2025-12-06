@@ -32,9 +32,18 @@ export const RequireAuth = ({ children }: { children: ReactNode }) => {
     );
   }
 
-  // If no session, return null (redirect will happen in useEffect)
+  // CRITICAL FIX: Don't return null - show fallback UI instead
+  // Returning null causes empty screen when redirect is pending
   if (!session) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-full max-w-md p-6 space-y-4">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;
