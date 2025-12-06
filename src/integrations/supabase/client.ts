@@ -106,53 +106,10 @@ const isStorageAvailable = (() => {
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-// Custom fetch function with logging to debug request issues
-// IMPORTANT: This function MUST be called for Supabase requests to work
-const customFetch = async (url: string | Request, options?: RequestInit): Promise<Response> => {
-  const startTime = Date.now();
-  const urlString = typeof url === 'string' ? url : url.url;
-  const urlObj = new URL(urlString);
-  
-  console.log('[Supabase Fetch] 🚀 Starting request:', {
-    url: urlObj.href,
-    pathname: urlObj.pathname,
-    method: options?.method || 'GET',
-    hasAuth: !!(options?.headers && (options.headers as any)['Authorization']),
-    timestamp: new Date().toISOString(),
-  });
-  
-  try {
-    // CRITICAL: Use native fetch with explicit bypass of service worker
-    // Create a new Request to ensure service worker doesn't intercept
-    const request = new Request(urlString, {
-      ...options,
-      cache: 'no-store' as RequestCache,
-      // Explicitly bypass service worker by using a unique URL
-      // This ensures the request goes directly to the network
-    });
-    
-    // Use fetch with the request object
-    const response = await fetch(request);
-    
-    const duration = Date.now() - startTime;
-    console.log('[Supabase Fetch] ✅ Response received:', {
-      url: urlObj.href,
-      status: response.status,
-      statusText: response.statusText,
-      duration: `${duration}ms`,
-    });
-    
-    return response;
-  } catch (error: any) {
-    const duration = Date.now() - startTime;
-    console.error('[Supabase Fetch] ❌ Request failed:', {
-      url: urlObj.href,
-      error: error?.message || error,
-      duration: `${duration}ms`,
-    });
-    throw error;
-  }
-};
+// CRITICAL: Use window.fetch directly - it's already overridden in index.html
+// Don't create a custom fetch wrapper, just use window.fetch which is already intercepted
+// This ensures the index.html override catches all requests
+const customFetch = window.fetch;
 
 // Wrap client creation in try-catch to prevent any initialization errors
 let supabaseInstance: ReturnType<typeof createClient<Database>>;

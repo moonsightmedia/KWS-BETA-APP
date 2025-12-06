@@ -179,6 +179,7 @@
                 });
               }
               
+              // CRITICAL: Log EVERYTHING to debug why requests aren't being intercepted
               console.log('[Index HTML Fetch Override] 🚀 [' + callId + '] Starting Supabase request:', {
                 url: urlObj.href,
                 pathname: urlObj.pathname,
@@ -186,7 +187,15 @@
                 hasAuth: !!(finalHeaders['Authorization'] || finalHeaders['authorization']),
                 hasApiKey: !!(finalHeaders['apikey'] || finalHeaders['apiKey'] || finalHeaders['x-api-key']),
                 headerKeys: Object.keys(finalHeaders),
+                allHeaders: finalHeaders, // Log ALL headers to see what's being sent
                 timestamp: new Date().toISOString(),
+              });
+              
+              // CRITICAL: Also log the actual fetch call
+              console.log('[Index HTML Fetch Override] 📞 About to call originalFetch with:', {
+                url: urlObj.href,
+                method: init?.method || 'GET',
+                headers: finalHeaders,
               });
               
               try {
