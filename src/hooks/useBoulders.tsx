@@ -72,10 +72,26 @@ export const useBoulders = (enabled: boolean = true) => {
       
       try {
         console.log('[useBoulders] 🔵 Creating Supabase query...');
+        console.log('[useBoulders] 🔵 Supabase client:', typeof supabase, 'has from:', typeof supabase.from);
+        
         const fetchPromise = supabase
           .from('boulders')
           .select('*')
           .order('created_at', { ascending: false });
+        
+        console.log('[useBoulders] 🔵 Supabase query created, fetchPromise type:', typeof fetchPromise, 'is Promise:', fetchPromise instanceof Promise);
+        
+        // CRITICAL: Wrap the promise to see if it's ever resolved/rejected
+        const wrappedPromise = fetchPromise.then(
+          (result) => {
+            console.log('[useBoulders] ✅ FetchPromise RESOLVED:', result);
+            return result;
+          },
+          (error) => {
+            console.error('[useBoulders] ❌ FetchPromise REJECTED:', error);
+            throw error;
+          }
+        );
         
         console.log('[useBoulders] 🔵 Supabase query created, setting up timeout...');
         let timeoutId: NodeJS.Timeout | null = null;
@@ -92,7 +108,7 @@ export const useBoulders = (enabled: boolean = true) => {
         
         console.log('[useBoulders] 🔵 Starting Promise.race (fetch vs timeout)...');
         const result = await Promise.race([
-          fetchPromise.then((result) => {
+          wrappedPromise.then((result) => {
             isResolved = true;
             if (timeoutId) clearTimeout(timeoutId);
             console.log('[useBoulders] ✅ Fetch promise resolved');

@@ -29,10 +29,26 @@ export const useSectors = (enabled: boolean = true) => {
       
       try {
         console.log('[useSectors] 🔵 Creating Supabase query...');
+        console.log('[useSectors] 🔵 Supabase client:', typeof supabase, 'has from:', typeof supabase.from);
+        
         const fetchPromise = supabase
           .from('sectors')
           .select('*')
           .order('name');
+        
+        console.log('[useSectors] 🔵 Supabase query created, fetchPromise type:', typeof fetchPromise, 'is Promise:', fetchPromise instanceof Promise);
+        
+        // CRITICAL: Wrap the promise to see if it's ever resolved/rejected
+        const wrappedPromise = fetchPromise.then(
+          (result) => {
+            console.log('[useSectors] ✅ FetchPromise RESOLVED:', result);
+            return result;
+          },
+          (error) => {
+            console.error('[useSectors] ❌ FetchPromise REJECTED:', error);
+            throw error;
+          }
+        );
         
         console.log('[useSectors] 🔵 Supabase query created, setting up timeout...');
         let timeoutId: NodeJS.Timeout | null = null;
@@ -49,7 +65,7 @@ export const useSectors = (enabled: boolean = true) => {
         
         console.log('[useSectors] 🔵 Starting Promise.race (fetch vs timeout)...');
         const result = await Promise.race([
-          fetchPromise.then((result) => {
+          wrappedPromise.then((result) => {
             isResolved = true;
             if (timeoutId) clearTimeout(timeoutId);
             console.log('[useSectors] ✅ Fetch promise resolved');
