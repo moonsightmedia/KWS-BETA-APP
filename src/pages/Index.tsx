@@ -24,9 +24,18 @@ const Index = () => {
   const queryClient = useQueryClient();
   const statistics = useStatistics();
   const { user, loading: authLoading } = useAuth();
+  
+  // CRITICAL: Log authLoading state to debug
+  useEffect(() => {
+    console.log('[Index] authLoading state:', authLoading, 'user:', !!user);
+  }, [authLoading, user]);
+  
   // CRITICAL: Only run queries after auth loading is complete
-  const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(!authLoading);
-  const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed(!authLoading);
+  const queriesEnabled = !authLoading;
+  console.log('[Index] Queries enabled:', queriesEnabled, 'authLoading:', authLoading);
+  
+  const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(queriesEnabled);
+  const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed(queriesEnabled);
   const isLoading = isLoadingBoulders || isLoadingSectors;
   const error = bouldersError || sectorsError;
   

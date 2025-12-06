@@ -17,11 +17,14 @@ export interface Sector {
 }
 
 export const useSectors = (enabled: boolean = true) => {
+  // CRITICAL: Log enabled state
+  console.log('[useSectors] Hook called with enabled:', enabled);
+  
   return useQuery({
     queryKey: ['sectors'],
     enabled: enabled, // Only run query if enabled (e.g., after auth loading is complete)
     queryFn: async () => {
-      console.log('[useSectors] 🔵 STARTING fetch from Supabase...');
+      console.log('[useSectors] 🔵 STARTING fetch from Supabase... (enabled:', enabled, ')');
       const startTime = Date.now();
       
       try {

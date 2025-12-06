@@ -181,7 +181,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const timeoutId = setTimeout(() => {
       if (mounted) {
         const duration = Date.now() - loadingStartTime;
-        console.warn(`[Auth] Timeout triggered (5s) - setting loading to false (duration: ${duration}ms)`);
+        console.warn(`[Auth] ⚠️ Timeout triggered (5s) - setting loading to false (duration: ${duration}ms)`);
+        console.warn(`[Auth] ⚠️ Current state: user=${!!user}, session=${!!session}, loading=${loading}`);
         setLoading(false);
       }
     }, 5000); // 5 second timeout
@@ -222,10 +223,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const userId = session?.user?.id || null;
             console.log(`[Auth] Session status after reload: {hasSession: ${hasSession}, hasUser: ${hasUser}, userId: ${userId}}`);
             
+            console.log(`[Auth] ✅ Setting loading to false NOW (event: ${event})`);
             setSession(session);
             setUser(session?.user ?? null);
             setLoading(false);
             clearTimeout(timeoutId);
+            console.log(`[Auth] ✅ State updated: loading=false, user=${!!session?.user}, session=${!!session}`);
             
             // Sync user_metadata to profiles table when session becomes available
             // This happens on SIGNED_IN, TOKEN_REFRESHED, and INITIAL_SESSION events

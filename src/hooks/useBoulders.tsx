@@ -60,11 +60,14 @@ export interface Boulder {
 }
 
 export const useBoulders = (enabled: boolean = true) => {
+  // CRITICAL: Log enabled state
+  console.log('[useBoulders] Hook called with enabled:', enabled);
+  
   return useQuery({
     queryKey: ['boulders'],
     enabled: enabled, // Only run query if enabled (e.g., after auth loading is complete)
     queryFn: async () => {
-      console.log('[useBoulders] 🔵 STARTING fetch from Supabase...');
+      console.log('[useBoulders] 🔵 STARTING fetch from Supabase... (enabled:', enabled, ')');
       const startTime = Date.now();
       
       try {
