@@ -31,8 +31,7 @@ export const useSectors = (enabled: boolean = true) => {
         console.log('[useSectors] 🔵 Creating Supabase query...');
         console.log('[useSectors] 🔵 Supabase client:', typeof supabase, 'has from:', typeof supabase.from);
         
-        // CRITICAL: Supabase returns a QueryBuilder, not a Promise directly
-        // We need to call it to get the actual Promise
+        // CRITICAL: Supabase QueryBuilder is a thenable, convert to Promise explicitly
         const queryBuilder = supabase
           .from('sectors')
           .select('*')
@@ -40,29 +39,23 @@ export const useSectors = (enabled: boolean = true) => {
         
         console.log('[useSectors] 🔵 QueryBuilder created, type:', typeof queryBuilder, 'is Promise:', queryBuilder instanceof Promise);
         
-        // CRITICAL: Convert QueryBuilder to Promise by calling it
-        // In Supabase, the QueryBuilder is a thenable, so we can use Promise.resolve() or just await it
-        const fetchPromise = Promise.resolve(queryBuilder).then((qb: any) => {
-          console.log('[useSectors] 🔵 QueryBuilder converted to Promise, executing query...');
-          // The QueryBuilder should be a thenable, so we can await it directly
-          return qb;
+        // CRITICAL: Convert QueryBuilder (thenable) to native Promise
+        // This ensures Promise.race works correctly
+        const fetchPromise = new Promise(async (resolve, reject) => {
+          try {
+            console.log('[useSectors] 🔵 Executing QueryBuilder (awaiting)...');
+            const result = await queryBuilder;
+            console.log('[useSectors] ✅ QueryBuilder resolved:', result);
+            resolve(result);
+          } catch (error) {
+            console.error('[useSectors] ❌ QueryBuilder rejected:', error);
+            reject(error);
+          }
         });
         
         console.log('[useSectors] 🔵 FetchPromise created, type:', typeof fetchPromise, 'is Promise:', fetchPromise instanceof Promise);
         
-        // CRITICAL: Wrap the promise to see if it's ever resolved/rejected
-        const wrappedPromise = fetchPromise.then(
-          (result) => {
-            console.log('[useSectors] ✅ FetchPromise RESOLVED:', result);
-            return result;
-          },
-          (error) => {
-            console.error('[useSectors] ❌ FetchPromise REJECTED:', error);
-            throw error;
-          }
-        );
-        
-        console.log('[useSectors] 🔵 Supabase query created, setting up timeout...');
+        // Set up timeout
         let timeoutId: NodeJS.Timeout | null = null;
         let isResolved = false;
         
@@ -77,7 +70,7 @@ export const useSectors = (enabled: boolean = true) => {
         
         console.log('[useSectors] 🔵 Starting Promise.race (fetch vs timeout)...');
         const result = await Promise.race([
-          wrappedPromise.then((result) => {
+          fetchPromise.then((result) => {
             isResolved = true;
             if (timeoutId) clearTimeout(timeoutId);
             console.log('[useSectors] ✅ Fetch promise resolved');
