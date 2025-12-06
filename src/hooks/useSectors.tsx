@@ -39,19 +39,24 @@ export const useSectors = (enabled: boolean = true) => {
         
         console.log('[useSectors] 🔵 QueryBuilder created, type:', typeof queryBuilder, 'is Promise:', queryBuilder instanceof Promise);
         
-        // CRITICAL: Convert QueryBuilder (thenable) to native Promise
-        // This ensures Promise.race works correctly
-        const fetchPromise = new Promise(async (resolve, reject) => {
+        // CRITICAL: Supabase QueryBuilder is already a thenable Promise
+        // We can use it directly, but let's ensure it's executed
+        console.log('[useSectors] 🔵 QueryBuilder is thenable:', typeof queryBuilder.then === 'function');
+        
+        // CRITICAL: Execute the QueryBuilder by calling .then() or using it as Promise
+        // Supabase QueryBuilder executes the query when awaited or .then() is called
+        const fetchPromise = (async () => {
           try {
             console.log('[useSectors] 🔵 Executing QueryBuilder (awaiting)...');
+            console.log('[useSectors] 🔵 QueryBuilder before await:', queryBuilder);
             const result = await queryBuilder;
             console.log('[useSectors] ✅ QueryBuilder resolved:', result);
-            resolve(result);
+            return result;
           } catch (error) {
             console.error('[useSectors] ❌ QueryBuilder rejected:', error);
-            reject(error);
+            throw error;
           }
-        });
+        })();
         
         console.log('[useSectors] 🔵 FetchPromise created, type:', typeof fetchPromise, 'is Promise:', fetchPromise instanceof Promise);
         
