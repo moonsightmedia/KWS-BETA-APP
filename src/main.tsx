@@ -112,6 +112,12 @@ window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Pro
 };
 
 console.log('[Main] ✅ Native fetch overridden BEFORE Supabase import');
+console.log('[Main] 🔍 Fetch override check:', {
+  originalFetch: typeof originalFetch,
+  windowFetch: typeof window.fetch,
+  isOverridden: window.fetch !== originalFetch,
+  fetchToString: window.fetch.toString().substring(0, 100),
+});
 
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";

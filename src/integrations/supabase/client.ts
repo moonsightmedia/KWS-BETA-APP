@@ -5,6 +5,13 @@ import type { Database } from './types';
 // NOTE: Native fetch is already overridden in main.tsx BEFORE this file is imported
 // This ensures ALL Supabase requests are intercepted
 
+// CRITICAL: Verify fetch override is active
+console.log('[Supabase Client] 🔍 Checking fetch override:', {
+  windowFetch: typeof window.fetch,
+  fetchToString: window.fetch.toString().substring(0, 150),
+  hasMainOverride: window.fetch.toString().includes('Main Fetch Override'),
+});
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
