@@ -344,10 +344,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log(`[Auth] Loading ended (duration: ${loadingDuration}ms)`);
         console.log(`[Auth] Session status after reload: {hasSession: ${hasSession}, hasUser: ${hasUser}, userId: ${userId}}`);
         
+        console.log(`[Auth] ✅ Setting loading to false NOW (getSession)`);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
         clearTimeout(timeoutId);
+        console.log(`[Auth] ✅ State updated: loading=false, user=${!!session?.user}, session=${!!session}`);
         
         // Also sync on initial session load
         if (session?.user) {
