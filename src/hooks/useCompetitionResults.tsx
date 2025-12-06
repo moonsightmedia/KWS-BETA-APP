@@ -19,16 +19,62 @@ export const useCompetitionResults = (participantId: string | null) => {
     queryFn: async () => {
       if (!participantId) return [];
 
-      const { data, error } = await (supabase as any)
-        .from('competition_results')
-        .select('*')
-        .eq('participant_id', participantId)
-        .order('boulder_number', { ascending: true });
+      const startTime = Date.now();
+      
+      try {
+        const queryPromise = (supabase as any)
+          .from('competition_results')
+          .select('*')
+          .eq('participant_id', participantId)
+          .order('boulder_number', { ascending: true });
 
-      if (error) throw error;
-      return data as CompetitionResult[];
+        // Set up timeout
+        let timeoutId: NodeJS.Timeout | null = null;
+        let isResolved = false;
+
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            if (!isResolved) {
+              console.error('[useCompetitionResults] ⏱️ TIMEOUT after 10s');
+              reject(new Error('Supabase request timeout after 10s'));
+            }
+          }, 10000);
+        });
+
+        // Race between query and timeout
+        const result = await Promise.race([
+          queryPromise.then((result) => {
+            isResolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
+            return result;
+          }).catch((err) => {
+            isResolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
+            throw err;
+          }),
+          timeoutPromise
+        ]);
+
+        const duration = Date.now() - startTime;
+        const { data, error } = result;
+
+        if (error) {
+          console.error(`[useCompetitionResults] ❌ Error after ${duration}ms:`, error);
+          throw error;
+        }
+
+        console.log(`[useCompetitionResults] ✅ Fetched ${data?.length || 0} results after ${duration}ms`);
+        return data as CompetitionResult[];
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        console.error(`[useCompetitionResults] ❌ Exception after ${duration}ms:`, error);
+        throw error;
+      }
     },
     enabled: !!participantId,
+    retry: 1,
+    retryDelay: 1000,
+    staleTime: 0,
   });
 };
 

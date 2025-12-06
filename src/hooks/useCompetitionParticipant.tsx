@@ -18,36 +18,111 @@ export const useCompetitionParticipant = () => {
     queryKey: ['competition_participant', user?.id],
     enabled: !authLoading,
     queryFn: async () => {
-      if (!user) {
-        // For guests, try to get participant from localStorage (guest_id)
-        try {
-          const guestId = localStorage.getItem('competition_guest_id');
-          if (guestId) {
-            const { data, error } = await (supabase as any)
-              .from('competition_participants')
-              .select('*')
-              .eq('id', guestId)
-              .eq('is_guest', true)
-              .maybeSingle();
-            
-            if (error) throw error;
-            return data as CompetitionParticipant | null;
+      const startTime = Date.now();
+      
+      try {
+        if (!user) {
+          // For guests, try to get participant from localStorage (guest_id)
+          try {
+            const guestId = localStorage.getItem('competition_guest_id');
+            if (guestId) {
+              const queryPromise = (supabase as any)
+                .from('competition_participants')
+                .select('*')
+                .eq('id', guestId)
+                .eq('is_guest', true)
+                .maybeSingle();
+
+              // Set up timeout
+              let timeoutId: NodeJS.Timeout | null = null;
+              let isResolved = false;
+
+              const timeoutPromise = new Promise<never>((_, reject) => {
+                timeoutId = setTimeout(() => {
+                  if (!isResolved) {
+                    console.error('[useCompetitionParticipant] ⏱️ TIMEOUT after 10s (guest)');
+                    reject(new Error('Supabase request timeout after 10s'));
+                  }
+                }, 10000);
+              });
+
+              const result = await Promise.race([
+                queryPromise.then((result) => {
+                  isResolved = true;
+                  if (timeoutId) clearTimeout(timeoutId);
+                  return result;
+                }).catch((err) => {
+                  isResolved = true;
+                  if (timeoutId) clearTimeout(timeoutId);
+                  throw err;
+                }),
+                timeoutPromise
+              ]);
+
+              const { data, error } = result;
+              if (error) throw error;
+              
+              const duration = Date.now() - startTime;
+              console.log(`[useCompetitionParticipant] ✅ Guest participant fetched after ${duration}ms`);
+              return data as CompetitionParticipant | null;
+            }
+          } catch (error) {
+            // Ignore localStorage errors, but log Supabase errors
+            if (error instanceof Error && !error.message.includes('localStorage')) {
+              console.error('[useCompetitionParticipant] ❌ Error fetching guest participant:', error);
+            }
           }
-        } catch {
-          // Ignore localStorage errors
+          return null;
         }
-        return null;
+
+        // For logged-in users
+        const queryPromise = (supabase as any)
+          .from('competition_participants')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        // Set up timeout
+        let timeoutId: NodeJS.Timeout | null = null;
+        let isResolved = false;
+
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            if (!isResolved) {
+              console.error('[useCompetitionParticipant] ⏱️ TIMEOUT after 10s (user)');
+              reject(new Error('Supabase request timeout after 10s'));
+            }
+          }, 10000);
+        });
+
+        const result = await Promise.race([
+          queryPromise.then((result) => {
+            isResolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
+            return result;
+          }).catch((err) => {
+            isResolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
+            throw err;
+          }),
+          timeoutPromise
+        ]);
+
+        const { data, error } = result;
+        if (error) throw error;
+        
+        const duration = Date.now() - startTime;
+        console.log(`[useCompetitionParticipant] ✅ User participant fetched after ${duration}ms`);
+        return data as CompetitionParticipant | null;
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        console.error(`[useCompetitionParticipant] ❌ Exception after ${duration}ms:`, error);
+        throw error;
       }
-
-      const { data, error } = await (supabase as any)
-        .from('competition_participants')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error) throw error;
-      return data as CompetitionParticipant | null;
     },
+    retry: 1,
+    retryDelay: 1000,
+    staleTime: 0,
   });
 };
 
