@@ -12,10 +12,11 @@ export interface CompetitionParticipant {
 }
 
 export const useCompetitionParticipant = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   return useQuery({
     queryKey: ['competition_participant', user?.id],
+    enabled: !authLoading,
     queryFn: async () => {
       if (!user) {
         // For guests, try to get participant from localStorage (guest_id)

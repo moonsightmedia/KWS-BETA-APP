@@ -37,7 +37,7 @@ const CompetitionContent = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
-  const { data: competitionBoulders, isLoading: isLoadingBoulders } = useCompetitionBoulders();
+  const { data: competitionBoulders, isLoading: isLoadingBoulders } = useCompetitionBoulders(!authLoading);
   const { data: participant, isLoading: isLoadingParticipant } = useCompetitionParticipant();
   const { data: results } = useCompetitionResults(participant?.id || null);
   const { data: colors } = useColors();

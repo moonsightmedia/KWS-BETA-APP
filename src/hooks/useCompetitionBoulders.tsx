@@ -17,9 +17,10 @@ export interface CompetitionBoulder {
   };
 }
 
-export const useCompetitionBoulders = () => {
+export const useCompetitionBoulders = (enabled: boolean = true) => {
   return useQuery({
     queryKey: ['competition_boulders'],
+    enabled: enabled,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('competition_boulders')

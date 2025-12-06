@@ -177,13 +177,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log('[Auth] Loading started');
     
     // Set a timeout to ensure loading doesn't hang forever
-    // Increased to 5 seconds to allow Supabase requests to complete
+    // Only trigger if there's really no session - if user/session exists, give more time
     const timeoutId = setTimeout(() => {
       if (mounted) {
         const duration = Date.now() - loadingStartTime;
-        console.warn(`[Auth] ⚠️ Timeout triggered (5s) - setting loading to false (duration: ${duration}ms)`);
-        console.warn(`[Auth] ⚠️ Current state: user=${!!user}, session=${!!session}, loading=${loading}`);
-        setLoading(false);
+        // Only trigger timeout if there's no user or session
+        // If user/session exists, auth is still initializing and we should wait
+        if (!user && !session) {
+          console.warn(`[Auth] ⚠️ Timeout triggered (5s) - no session found, setting loading to false (duration: ${duration}ms)`);
+          setLoading(false);
+        } else {
+          // User/session exists but still loading - give more time (will be cleared by auth state change)
+          console.log(`[Auth] Timeout reached but user/session exists - waiting for auth state change (duration: ${duration}ms)`);
+        }
       }
     }, 5000); // 5 second timeout
     
