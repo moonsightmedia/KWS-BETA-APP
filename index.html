@@ -262,6 +262,47 @@
           isOverridden: window.fetch !== originalFetch,
           fetchToString: window.fetch.toString().substring(0, 100),
         });
+        
+        // CRITICAL: Also override XMLHttpRequest in case Supabase uses it
+        const originalXHR = window.XMLHttpRequest;
+        const XHROverride = function() {
+          const xhr = new originalXHR();
+          const originalOpen = xhr.open;
+          const originalSend = xhr.send;
+          
+          xhr.open = function(method, url, async, user, password) {
+            console.log('[Index HTML XHR Override] 📞 XHR.open called:', {
+              method: method,
+              url: url,
+              isSupabase: url && (url.includes('supabase.co') || url.includes('supabase.io')),
+            });
+            
+            if (url && (url.includes('supabase.co') || url.includes('supabase.io'))) {
+              console.log('[Index HTML XHR Override] 🚀 Supabase XHR request detected:', url);
+            }
+            
+            return originalOpen.apply(this, arguments);
+          };
+          
+          xhr.send = function(data) {
+            console.log('[Index HTML XHR Override] 📤 XHR.send called:', {
+              url: this._url || 'unknown',
+              method: this._method || 'unknown',
+            });
+            
+            return originalSend.apply(this, arguments);
+          };
+          
+          return xhr;
+        };
+        
+        // Copy prototype
+        XHROverride.prototype = originalXHR.prototype;
+        // Copy static properties
+        Object.setPrototypeOf(XHROverride, originalXHR);
+        
+        window.XMLHttpRequest = XHROverride;
+        console.log('[Index HTML] ✅ XMLHttpRequest also overridden');
       })();
     </script>
     <script type="module" src="/src/main.tsx?v=3"></script>
