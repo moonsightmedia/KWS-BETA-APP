@@ -74,12 +74,24 @@ export const useBoulders = (enabled: boolean = true) => {
         console.log('[useBoulders] 🔵 Creating Supabase query...');
         console.log('[useBoulders] 🔵 Supabase client:', typeof supabase, 'has from:', typeof supabase.from);
         
-        const fetchPromise = supabase
+        // CRITICAL: Supabase returns a QueryBuilder, not a Promise directly
+        // We need to call it to get the actual Promise
+        const queryBuilder = supabase
           .from('boulders')
           .select('*')
           .order('created_at', { ascending: false });
         
-        console.log('[useBoulders] 🔵 Supabase query created, fetchPromise type:', typeof fetchPromise, 'is Promise:', fetchPromise instanceof Promise);
+        console.log('[useBoulders] 🔵 QueryBuilder created, type:', typeof queryBuilder, 'is Promise:', queryBuilder instanceof Promise);
+        
+        // CRITICAL: Convert QueryBuilder to Promise by calling it
+        // In Supabase, the QueryBuilder is a thenable, so we can use Promise.resolve() or just await it
+        const fetchPromise = Promise.resolve(queryBuilder).then((qb: any) => {
+          console.log('[useBoulders] 🔵 QueryBuilder converted to Promise, executing query...');
+          // The QueryBuilder should be a thenable, so we can await it directly
+          return qb;
+        });
+        
+        console.log('[useBoulders] 🔵 FetchPromise created, type:', typeof fetchPromise, 'is Promise:', fetchPromise instanceof Promise);
         
         // CRITICAL: Wrap the promise to see if it's ever resolved/rejected
         const wrappedPromise = fetchPromise.then(
