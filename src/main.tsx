@@ -1,8 +1,15 @@
-// CACHE BUST: Version 2 - Force reload of all JavaScript files
-console.log('[Main] 🚀 Loading application v2 - Cache busted');
+// CACHE BUST: Version 3 - Force reload of all JavaScript files
+console.log('[Main] 🚀 Loading application v3 - Cache busted');
 
-// CRITICAL: Override native fetch BEFORE Supabase is imported
-// This ensures ALL Supabase requests are intercepted
+// NOTE: Fetch is already overridden in index.html BEFORE this module loads
+// This ensures Supabase requests are intercepted even before module imports
+console.log('[Main] 🔍 Checking if fetch was already overridden in index.html:', {
+  windowFetch: typeof window.fetch,
+  fetchToString: window.fetch.toString().substring(0, 150),
+  hasIndexOverride: window.fetch.toString().includes('Index HTML Fetch Override'),
+});
+
+// Keep the override in main.tsx as a backup, but index.html should have already done it
 const originalFetch = window.fetch;
 let fetchCallCount = 0;
 
