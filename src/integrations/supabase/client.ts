@@ -131,10 +131,15 @@ const customFetch = function(input: RequestInfo | URL, init?: RequestInit): Prom
     method: init?.method || 'GET',
     windowFetchType: typeof window.fetch,
     isOverridden: window.fetch.toString().includes('Index HTML Fetch Override'),
+    timestamp: new Date().toISOString(),
   });
   
+  // CRITICAL: Ensure we're using the overridden fetch from index.html
+  // Get a fresh reference to window.fetch each time to avoid caching issues
+  const currentFetch = window.fetch;
+  
   // CRITICAL: Call window.fetch directly - it should trigger the index.html override
-  const result = window.fetch(input, init);
+  const result = currentFetch(input, init);
   
   // Add timeout detection and better error logging
   result.then((response) => {
@@ -166,55 +171,172 @@ const customFetch = function(input: RequestInfo | URL, init?: RequestInit): Prom
 // Wrap client creation in try-catch to prevent any initialization errors
 let supabaseInstance: ReturnType<typeof createClient<Database>>;
 
-// Log that we're creating the client
-console.log('[Supabase Client] Creating client with custom fetch...');
-console.log('[Supabase Client] Custom fetch function type:', typeof customFetch);
-console.log('[Supabase Client] Custom fetch function:', customFetch.toString().substring(0, 100));
-
-try {
-  supabaseInstance = createClient<Database>(
-    SUPABASE_URL || 'https://placeholder.supabase.co',
-    SUPABASE_PUBLISHABLE_KEY || 'placeholder-key',
-    {
-      auth: {
-        storage: createSafeStorage(),
-        persistSession: isStorageAvailable,
-        autoRefreshToken: isStorageAvailable,
-        detectSessionInUrl: false, // Disable URL session detection to avoid storage access
-      },
-      global: {
-        fetch: customFetch as any, // Use custom fetch with logging - cast to any to ensure it's used
-      },
-    }
-  );
-  console.log('[Supabase Client] ✅ Client created successfully with custom fetch');
+// CRITICAL: Create a function to initialize/reinitialize the client
+// This allows us to recreate the client after reload if needed
+function createSupabaseClient() {
+  console.log('[Supabase Client] Creating client with custom fetch...');
+  console.log('[Supabase Client] Custom fetch function type:', typeof customFetch);
+  console.log('[Supabase Client] Custom fetch function:', customFetch.toString().substring(0, 100));
   
-  // Test if custom fetch is actually being used by checking the client internals
-  // @ts-ignore - accessing internal property for debugging
-  if (supabaseInstance.rest && supabaseInstance.rest.fetch) {
-    console.log('[Supabase Client] ✅ Custom fetch is set on client.rest.fetch');
-  } else {
-    console.warn('[Supabase Client] ⚠️ Custom fetch might not be set correctly');
+  try {
+    const client = createClient<Database>(
+      SUPABASE_URL || 'https://placeholder.supabase.co',
+      SUPABASE_PUBLISHABLE_KEY || 'placeholder-key',
+      {
+        auth: {
+          storage: createSafeStorage(),
+          persistSession: isStorageAvailable,
+          autoRefreshToken: isStorageAvailable,
+          detectSessionInUrl: false,
+        },
+        global: {
+          fetch: customFetch as any,
+        },
+      }
+    );
+    console.log('[Supabase Client] ✅ Client created successfully with custom fetch');
+    return client;
+  } catch (error) {
+    console.warn('[Supabase] Error creating client, using fallback:', error);
+    return createClient<Database>(
+      SUPABASE_URL || 'https://placeholder.supabase.co',
+      SUPABASE_PUBLISHABLE_KEY || 'placeholder-key',
+      {
+        auth: {
+          storage: createSafeStorage(),
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
+        global: {
+          fetch: customFetch as any,
+          headers: {
+            'X-Client-Info': 'kws-beta-app',
+          },
+        },
+      }
+    );
   }
-} catch (error) {
-  // If client creation fails, create a minimal client without auth features
-  console.warn('[Supabase] Error creating client, using fallback:', error);
-  supabaseInstance = createClient<Database>(
-    SUPABASE_URL || 'https://placeholder.supabase.co',
-    SUPABASE_PUBLISHABLE_KEY || 'placeholder-key',
-    {
-      auth: {
-        storage: createSafeStorage(),
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-      global: {
-        fetch: customFetch as any, // Use custom fetch with logging
-      },
-    }
-  );
-  console.log('[Supabase Client] ✅ Fallback client created with custom fetch');
 }
 
+// CRITICAL: Check if this is a reload and recreate client if needed
+const isReload = typeof window !== 'undefined' && 
+                 (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type === 'reload';
+
+if (isReload) {
+  console.log('[Supabase Client] 🔄 Reload detected - recreating client');
+  // On reload, recreate the client to ensure fresh initialization
+  supabaseInstance = createSupabaseClient();
+} else {
+  // Initial load - create client normally
+  supabaseInstance = createSupabaseClient();
+}
+
+// Test if custom fetch is actually being used by checking the client internals
+// @ts-ignore - accessing internal property for debugging
+if (supabaseInstance.rest && supabaseInstance.rest.fetch) {
+  console.log('[Supabase Client] ✅ Custom fetch is set on client.rest.fetch');
+  console.log('[Supabase Client] 🔍 Fetch function:', supabaseInstance.rest.fetch.toString().substring(0, 200));
+  // Check if it's our custom fetch
+  const fetchStr = supabaseInstance.rest.fetch.toString();
+  if (fetchStr.includes('customFetch') || fetchStr.includes('Index HTML Fetch Override')) {
+    console.log('[Supabase Client] ✅ Custom fetch is being used');
+  } else {
+    console.warn('[Supabase Client] ⚠️ Custom fetch might not be used - using default fetch');
+  }
+} else {
+  console.warn('[Supabase Client] ⚠️ Custom fetch might not be set correctly');
+}
+
+// Also check postgrest client
+// @ts-ignore
+if (supabaseInstance.rest && supabaseInstance.rest.postgrest) {
+  // @ts-ignore
+  const postgrest = supabaseInstance.rest.postgrest;
+  console.log('[Supabase Client] 🔍 Postgrest client found:', typeof postgrest);
+  // @ts-ignore
+  if (postgrest.fetch) {
+    // @ts-ignore
+    console.log('[Supabase Client] 🔍 Postgrest fetch:', postgrest.fetch.toString().substring(0, 200));
+  }
+}
+
+// CRITICAL: Export a function to explicitly recreate the client
+// This can be called from hooks to ensure a fresh client after reload
+export const recreateSupabaseClient = () => {
+  console.log('[Supabase Client] 🔄 Explicitly recreating client...');
+  supabaseInstance = createSupabaseClient();
+  return supabaseInstance;
+};
+
+// CRITICAL: Export a getter function that always returns the current instance
+// This ensures we always get the latest client, especially after reload
+export const getSupabase = () => {
+  // On reload, check if we need to recreate the client
+  const isReload = typeof window !== 'undefined' && 
+                   (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type === 'reload';
+  
+  if (isReload && (!supabaseInstance || !supabaseInstance.from)) {
+    console.log('[Supabase Client] 🔄 Reload detected in getSupabase - recreating client');
+    supabaseInstance = createSupabaseClient();
+  }
+  
+  return supabaseInstance;
+};
+
+// Export the instance directly for backward compatibility
 export const supabase = supabaseInstance;
+
+// Helper function to ensure Supabase client is ready
+let clientReadyPromise: Promise<void> | null = null;
+export const ensureSupabaseReady = async (): Promise<void> => {
+  // CRITICAL: Reset promise on reload to ensure fresh initialization
+  // Check if this is a reload by checking if the client was already initialized
+  const isReload = typeof window !== 'undefined' && 
+                   (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type === 'reload';
+  
+  if (isReload) {
+    console.log('[Supabase Client] 🔄 Reload detected - resetting client ready promise');
+    clientReadyPromise = null;
+  }
+  
+  if (clientReadyPromise) {
+    return clientReadyPromise;
+  }
+  
+  clientReadyPromise = new Promise<void>((resolve) => {
+    // CRITICAL: On reload, wait longer to ensure client is fully reinitialized
+    const delay = isReload ? 200 : 50;
+    
+    setTimeout(() => {
+      // Verify client is ready by checking if it has the necessary methods
+      if (supabaseInstance && typeof supabaseInstance.from === 'function') {
+        console.log('[Supabase Client] ✅ Client verified ready');
+        
+        // CRITICAL: On reload, verify that the client can actually make requests
+        // by checking if the fetch function is properly set
+        if (isReload) {
+          // @ts-ignore
+          const restFetch = supabaseInstance.rest?.fetch;
+          if (restFetch) {
+            const fetchStr = restFetch.toString();
+            console.log('[Supabase Client] 🔍 Verifying fetch on reload:', fetchStr.substring(0, 100));
+          } else {
+            console.warn('[Supabase Client] ⚠️ No fetch function found on reload!');
+          }
+        }
+        
+        resolve();
+      } else {
+        console.warn('[Supabase Client] ⚠️ Client not ready, waiting...');
+        // Retry after a short delay
+        setTimeout(() => {
+          console.log('[Supabase Client] ✅ Client ready after retry');
+          resolve();
+        }, 100);
+      }
+    }, delay);
+  });
+  
+  return clientReadyPromise;
+};

@@ -54,7 +54,7 @@ const getPageTitle = (pathname: string, setterTabTitle?: string, adminTabTitle?:
     '/sectors': 'SEKTOREN',
     '/setter': 'SETTER',
     '/admin': 'ADMIN',
-    '/competition': 'WETTKAMPF',
+    // '/competition': 'WETTKAMPF', // Temporarily hidden
     '/profile': 'PROFIL',
   };
   return titleMap[pathname] || 'DASHBOARD';

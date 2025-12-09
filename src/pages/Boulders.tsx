@@ -90,9 +90,11 @@ const Boulders = () => {
   const { data: colors } = useColors();
 
   const { user, loading: authLoading } = useAuth();
-  // CRITICAL: Only run queries after auth loading is complete
-  const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(!authLoading);
-  const { data: sectors, isLoading: isLoadingSectors } = useSectorsTransformed(!authLoading);
+  // CRITICAL: Only run queries after auth loading is complete AND user is available
+  // This prevents race conditions where queries start before auth is ready
+  const queriesEnabled = !authLoading && !!user;
+  const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(queriesEnabled);
+  const { data: sectors, isLoading: isLoadingSectors } = useSectorsTransformed(queriesEnabled);
   const isLoading = isLoadingBoulders || isLoadingSectors;
   const queryClient = useQueryClient();
 

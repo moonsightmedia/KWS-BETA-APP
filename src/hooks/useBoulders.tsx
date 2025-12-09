@@ -68,25 +68,41 @@ export const useBoulders = (enabled: boolean = true) => {
     enabled: enabled, // Only run query if enabled (e.g., after auth loading is complete)
     queryFn: async () => {
       console.log('[useBoulders] 🔵 STARTING fetch from Supabase... (enabled:', enabled, ')');
+      
+      // CRITICAL: Ensure Supabase client is fully initialized before making requests
+      // This prevents race conditions where queries start before the client is ready after reload
+      try {
+        const { ensureSupabaseReady } = await import('@/integrations/supabase/client');
+        await ensureSupabaseReady();
+        console.log('[useBoulders] ✅ Supabase client ready');
+      } catch (error) {
+        console.error('[useBoulders] ⚠️ Error ensuring Supabase ready:', error);
+        // Continue anyway - client might still work
+      }
+      
       const startTime = Date.now();
       
       console.log('[useBoulders] 🔵 Creating Supabase query...');
       console.log('[useBoulders] 🔵 Supabase client:', typeof supabase, 'has from:', typeof supabase.from);
       
-      // CRITICAL: Supabase QueryBuilder is a thenable, convert to Promise explicitly
-      const queryBuilder = supabase
-        .from('boulders')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // CRITICAL: Get fresh Supabase client instance (especially important after reload)
+      const { getSupabase, recreateSupabaseClient } = await import('@/integrations/supabase/client');
       
-      console.log('[useBoulders] 🔵 QueryBuilder created, type:', typeof queryBuilder, 'is Promise:', queryBuilder instanceof Promise);
+      // CRITICAL: On reload, recreate the client to ensure it's fresh
+      const isReload = typeof window !== 'undefined' &&
+                       (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type === 'reload';
       
-      // CRITICAL: Supabase QueryBuilder is already a thenable Promise
-      // We can use it directly, but let's ensure it's executed
-      console.log('[useBoulders] 🔵 QueryBuilder is thenable:', typeof queryBuilder.then === 'function');
+      if (isReload) {
+        console.log('[useBoulders] 🔄 Reload detected - recreating Supabase client...');
+        recreateSupabaseClient();
+      }
       
-      // CRITICAL: Execute the QueryBuilder directly
-      // Wrap in Promise.resolve to ensure it's executed in production builds
+      const currentSupabase = getSupabase();
+      
+      console.log('[useBoulders] 🔵 Using Supabase client:', typeof currentSupabase, 'has from:', typeof currentSupabase.from);
+      
+      // CRITICAL: Execute query directly - simplest possible approach
+      // No QueryBuilder wrapper, no Promise.resolve, just direct execution
       let timeoutId: NodeJS.Timeout | null = null;
       let isResolved = false;
       
@@ -100,26 +116,21 @@ export const useBoulders = (enabled: boolean = true) => {
       });
       
       try {
-        console.log('[useBoulders] 🔵 Executing QueryBuilder (awaiting)...');
-        console.log('[useBoulders] 🔵 QueryBuilder before await:', queryBuilder);
+        console.log('[useBoulders] 🔵 Executing query directly...');
         
-        // CRITICAL: Directly await the QueryBuilder - it's already a thenable Promise
-        // The QueryBuilder will execute the fetch when awaited
-        const queryPromise = queryBuilder.then ? queryBuilder : Promise.resolve(queryBuilder);
-        
-        // Race between query and timeout
+        // CRITICAL: Execute query directly without any wrappers
+        // This is the simplest possible approach - just await the query
         const result = await Promise.race([
-          queryPromise.then((res) => {
-            isResolved = true;
-            if (timeoutId) clearTimeout(timeoutId);
-            return res;
-          }).catch((err) => {
-            isResolved = true;
-            if (timeoutId) clearTimeout(timeoutId);
-            throw err;
-          }),
+          currentSupabase
+            .from('boulders')
+            .select('*')
+            .order('created_at', { ascending: false }),
           timeoutPromise
         ]);
+        
+        console.log('[useBoulders] 🔵 Query resolved:', result);
+        isResolved = true;
+        if (timeoutId) clearTimeout(timeoutId);
         
         clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
@@ -147,6 +158,14 @@ export const useBoulders = (enabled: boolean = true) => {
         if (error?.name === 'AbortError' || error?.message?.includes('timeout')) {
           console.error(`[useBoulders] ⏱️ TIMEOUT after ${duration}ms:`, error);
           throw new Error('Supabase request timeout after 10s');
+        }
+        
+        // Check for rate limiting errors
+        if (error?.message?.includes('rate limit') || 
+            error?.message?.includes('429') || 
+            error?.message?.includes('Too many requests')) {
+          console.error(`[useBoulders] ⚠️ RATE LIMIT after ${duration}ms:`, error);
+          throw new Error('Rate limit erreicht. Bitte warte einen Moment und versuche es erneut.');
         }
         
         console.error(`[useBoulders] ❌ Exception in queryFn after ${duration}ms:`, error);

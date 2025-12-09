@@ -25,25 +25,41 @@ export const useSectors = (enabled: boolean = true) => {
     enabled: enabled, // Only run query if enabled (e.g., after auth loading is complete)
     queryFn: async () => {
       console.log('[useSectors] 🔵 STARTING fetch from Supabase... (enabled:', enabled, ')');
+      
+      // CRITICAL: Ensure Supabase client is fully initialized before making requests
+      // This prevents race conditions where queries start before the client is ready after reload
+      try {
+        const { ensureSupabaseReady } = await import('@/integrations/supabase/client');
+        await ensureSupabaseReady();
+        console.log('[useSectors] ✅ Supabase client ready');
+      } catch (error) {
+        console.error('[useSectors] ⚠️ Error ensuring Supabase ready:', error);
+        // Continue anyway - client might still work
+      }
+      
       const startTime = Date.now();
       
       console.log('[useSectors] 🔵 Creating Supabase query...');
       console.log('[useSectors] 🔵 Supabase client:', typeof supabase, 'has from:', typeof supabase.from);
       
-      // CRITICAL: Supabase QueryBuilder is a thenable, convert to Promise explicitly
-      const queryBuilder = supabase
-        .from('sectors')
-        .select('*')
-        .order('name');
+      // CRITICAL: Get fresh Supabase client instance (especially important after reload)
+      const { getSupabase, recreateSupabaseClient } = await import('@/integrations/supabase/client');
       
-      console.log('[useSectors] 🔵 QueryBuilder created, type:', typeof queryBuilder, 'is Promise:', queryBuilder instanceof Promise);
+      // CRITICAL: On reload, recreate the client to ensure it's fresh
+      const isReload = typeof window !== 'undefined' &&
+                       (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type === 'reload';
       
-      // CRITICAL: Supabase QueryBuilder is already a thenable Promise
-      // We can use it directly, but let's ensure it's executed
-      console.log('[useSectors] 🔵 QueryBuilder is thenable:', typeof queryBuilder.then === 'function');
+      if (isReload) {
+        console.log('[useSectors] 🔄 Reload detected - recreating Supabase client...');
+        recreateSupabaseClient();
+      }
       
-      // CRITICAL: Execute the QueryBuilder directly
-      // Wrap in Promise.resolve to ensure it's executed in production builds
+      const currentSupabase = getSupabase();
+      
+      console.log('[useSectors] 🔵 Using Supabase client:', typeof currentSupabase, 'has from:', typeof currentSupabase.from);
+      
+      // CRITICAL: Execute query directly - simplest possible approach
+      // No QueryBuilder wrapper, no Promise.resolve, just direct execution
       let timeoutId: NodeJS.Timeout | null = null;
       let isResolved = false;
       
@@ -57,26 +73,21 @@ export const useSectors = (enabled: boolean = true) => {
       });
       
       try {
-        console.log('[useSectors] 🔵 Executing QueryBuilder (awaiting)...');
-        console.log('[useSectors] 🔵 QueryBuilder before await:', queryBuilder);
+        console.log('[useSectors] 🔵 Executing query directly...');
         
-        // CRITICAL: Directly await the QueryBuilder - it's already a thenable Promise
-        // The QueryBuilder will execute the fetch when awaited
-        const queryPromise = queryBuilder.then ? queryBuilder : Promise.resolve(queryBuilder);
-        
-        // Race between query and timeout
+        // CRITICAL: Execute query directly without any wrappers
+        // This is the simplest possible approach - just await the query
         const result = await Promise.race([
-          queryPromise.then((res) => {
-            isResolved = true;
-            if (timeoutId) clearTimeout(timeoutId);
-            return res;
-          }).catch((err) => {
-            isResolved = true;
-            if (timeoutId) clearTimeout(timeoutId);
-            throw err;
-          }),
+          currentSupabase
+            .from('sectors')
+            .select('*')
+            .order('name'),
           timeoutPromise
         ]);
+        
+        console.log('[useSectors] 🔵 Query resolved:', result);
+        isResolved = true;
+        if (timeoutId) clearTimeout(timeoutId);
         
         clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
@@ -120,6 +131,14 @@ export const useSectors = (enabled: boolean = true) => {
           throw new Error('Supabase request timeout after 10s');
         }
         
+        // Check for rate limiting errors
+        if (error?.message?.includes('rate limit') || 
+            error?.message?.includes('429') || 
+            error?.message?.includes('Too many requests')) {
+          console.error(`[useSectors] ⚠️ RATE LIMIT after ${duration}ms:`, error);
+          throw new Error('Rate limit erreicht. Bitte warte einen Moment und versuche es erneut.');
+        }
+        
         console.error(`[useSectors] ❌ Exception after ${duration}ms:`, error);
         // CRITICAL: Re-throw error to mark query as error state, not return empty array
         // This ensures React Query shows error state instead of hanging in loading state
@@ -140,8 +159,8 @@ export const useSectors = (enabled: boolean = true) => {
 /**
  * Hook der Sektoren transformiert zu Frontend Types zurückgibt
  */
-export const useSectorsTransformed = () => {
-  const { data: sectors, isLoading, error } = useSectors();
+export const useSectorsTransformed = (enabled: boolean = true) => {
+  const { data: sectors, isLoading, error } = useSectors(enabled);
 
   const transformedSectors: FrontendSector[] | undefined = sectors
     ? sectors.map(s => transformSector(s))

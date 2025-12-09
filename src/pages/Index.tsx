@@ -30,9 +30,10 @@ const Index = () => {
     console.log('[Index] authLoading state:', authLoading, 'user:', !!user);
   }, [authLoading, user]);
   
-  // CRITICAL: Only run queries after auth loading is complete
-  const queriesEnabled = !authLoading;
-  console.log('[Index] Queries enabled:', queriesEnabled, 'authLoading:', authLoading);
+  // CRITICAL: Only run queries after auth loading is complete AND user is available
+  // This prevents race conditions where queries start before auth is ready
+  const queriesEnabled = !authLoading && !!user;
+  console.log('[Index] Queries enabled:', queriesEnabled, 'authLoading:', authLoading, 'user:', !!user);
   
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(queriesEnabled);
   const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed(queriesEnabled);
@@ -306,17 +307,19 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Competition Button */}
-          <div className="mb-6">
-            <Button
-              onClick={() => navigate('/competition')}
-              size="lg"
-              className="w-full sm:w-auto min-h-[56px] text-base font-semibold"
-            >
-              <Trophy className="w-6 h-6 mr-2" />
-              Nikolaus Wettkampf
-            </Button>
-          </div>
+          {/* Competition Button - Temporarily hidden */}
+          {false && (
+            <div className="mb-6">
+              <Button
+                onClick={() => navigate('/competition')}
+                size="lg"
+                className="w-full sm:w-auto min-h-[56px] text-base font-semibold"
+              >
+                <Trophy className="w-6 h-6 mr-2" />
+                Nikolaus Wettkampf
+              </Button>
+            </div>
+          )}
 
           {/* Stats Grid - kompakt nur mobil */}
           <div className="grid grid-cols-3 gap-3 mb-3 md:hidden overflow-x-hidden">

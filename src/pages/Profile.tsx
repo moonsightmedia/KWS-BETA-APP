@@ -337,8 +337,8 @@ const Profile = () => {
                 </CardContent>
               </Card>
 
-              {/* Teilgenommene Wettkämpfe */}
-              {participant && (
+              {/* Teilgenommene Wettkämpfe - Temporarily hidden */}
+              {false && participant && (
                 <Card className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
                   <CardHeader className="pb-4">
                     <div className="flex items-center gap-2">
@@ -495,22 +495,24 @@ const Profile = () => {
                         />
                       </div>
 
-                      {/* Wettkampf-Updates */}
-                      <div className="flex items-center justify-between p-3 rounded-xl border border-[#E7F7E9] bg-[#F9FAF9]">
-                        <div className="flex items-center gap-3">
-                          <Trophy className="w-5 h-5 text-[#13112B]/60" />
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium text-[#13112B]">Wettkampf-Updates</span>
-                            <span className="text-xs text-[#13112B]/60">Neue Ergebnisse und Ranglistenänderungen</span>
+                      {/* Wettkampf-Updates - Temporarily hidden */}
+                      {false && (
+                        <div className="flex items-center justify-between p-3 rounded-xl border border-[#E7F7E9] bg-[#F9FAF9]">
+                          <div className="flex items-center gap-3">
+                            <Trophy className="w-5 h-5 text-[#13112B]/60" />
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-[#13112B]">Wettkampf-Updates</span>
+                              <span className="text-xs text-[#13112B]/60">Neue Ergebnisse und Ranglistenänderungen</span>
+                            </div>
                           </div>
+                          <Switch
+                            checked={notificationPreferences?.competition_update ?? true}
+                            onCheckedChange={(checked) => {
+                              updateNotificationPreferences.mutate({ competition_update: checked });
+                            }}
+                          />
                         </div>
-                        <Switch
-                          checked={notificationPreferences?.competition_update ?? true}
-                          onCheckedChange={(checked) => {
-                            updateNotificationPreferences.mutate({ competition_update: checked });
-                          }}
-                        />
-                      </div>
+                      )}
 
                       {/* Feedback-Antworten */}
                       <div className="flex items-center justify-between p-3 rounded-xl border border-[#E7F7E9] bg-[#F9FAF9]">

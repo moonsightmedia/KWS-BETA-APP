@@ -65,10 +65,7 @@ const RouteLogger = () => {
   return null;
 };
 
-// PullToRefreshHandler komplett entfernt - zu komplex und verursacht Probleme
-const PullToRefreshHandler = () => {
-  return null;
-};
+import { PullToRefreshHandler } from '@/components/PullToRefreshHandler';
 
 import { SidebarProvider } from '@/components/SidebarContext';
 import { UploadOverview } from '@/components/UploadOverview';
@@ -290,6 +287,11 @@ const router = createBrowserRouter([
     ],
   },
 ]);
+
+// CRITICAL: Expose queryClient on window for reload handling
+if (typeof window !== 'undefined') {
+  (window as any).__queryClient = queryClient;
+}
 
 const App = () => (
   <ErrorBoundary>

@@ -305,24 +305,56 @@ if ('serviceWorker' in navigator) {
   });
   */
   
-  // On page reload/refresh, clear ALL caches immediately in Production
-  // This is critical for Production where Service Worker might still be active
+  // On page reload/refresh, clear browser caches (but NOT React Query cache)
+  // React Query cache should persist to allow queries to use cached data during reload
+  // Only clear browser/service worker caches to ensure fresh assets
   const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
   if (performance.navigation?.type === 1 || navigation?.type === 'reload') {
-    console.log('[Main] Page reload detected - clearing ALL caches (Production fix)');
+    const reloadStartTime = Date.now();
+    console.log('[Main] 🔄 Page reload detected - clearing React Query cache and forcing refetch...');
+    console.log('[Main] 📊 Debugging info:', {
+      timestamp: new Date().toISOString(),
+      navigationType: navigation?.type || performance.navigation?.type,
+    });
     
-    // Clear ALL caches immediately on reload in Production
-    if ('caches' in window) {
-      caches.keys().then(async (cacheNames) => {
-        console.log('[Main] Clearing ALL caches on reload:', cacheNames);
-        await Promise.all(cacheNames.map((cacheName) => {
-          console.log('[Main] Deleting cache on reload:', cacheName);
-          return caches.delete(cacheName);
-        }));
-        console.log('[Main] ✅ All caches cleared on reload');
+    // CRITICAL FIX: Clear React Query cache on reload to force fresh queries
+    // This ensures queries are re-executed after reload
+    setTimeout(() => {
+      // Import QueryClient dynamically to avoid circular dependencies
+      import('@tanstack/react-query').then(({ QueryClient }) => {
+        // Get the query client instance from the app
+        // We need to access it through the window object or a global
+        const queryClient = (window as any).__queryClient;
+        if (queryClient) {
+          console.log('[Main] 🗑️ Clearing React Query cache on reload...');
+          queryClient.clear();
+          console.log('[Main] ✅ React Query cache cleared - queries will refetch');
+        } else {
+          console.warn('[Main] ⚠️ QueryClient not found on window object');
+        }
       }).catch((error) => {
-        console.error('[Main] Error clearing caches on reload:', error);
+        console.error('[Main] Error importing QueryClient:', error);
       });
+    }, 100);
+    
+    // Clear browser caches (service worker caches)
+    if ('caches' in window) {
+      setTimeout(() => {
+        caches.keys().then(async (cacheNames) => {
+          console.log('[Main] Clearing browser caches on reload:', cacheNames);
+          const cleared = await Promise.allSettled(
+            cacheNames.map((cacheName) => {
+              console.log('[Main] Deleting cache on reload:', cacheName);
+              return caches.delete(cacheName);
+            })
+          );
+          const successCount = cleared.filter(r => r.status === 'fulfilled').length;
+          const duration = Date.now() - reloadStartTime;
+          console.log(`[Main] ✅ Cleared ${successCount}/${cacheNames.length} browser caches in ${duration}ms`);
+        }).catch((error) => {
+          console.error('[Main] Error clearing browser caches on reload:', error);
+        });
+      }, 200);
     }
   }
 }

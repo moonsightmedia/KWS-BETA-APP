@@ -51,7 +51,7 @@ const Admin = () => {
     const titleMap: Record<string, string> = {
       'users': 'BENUTZER',
       'settings': 'EINSTELLUNGEN',
-      'competition': 'WETTKAMPF',
+      // 'competition': 'WETTKAMPF', // Temporarily hidden
       'feedback': 'FEEDBACK',
       'logs': 'LOGS',
     };
@@ -95,10 +95,10 @@ const Admin = () => {
             }}
             className="w-full min-w-0 hidden md:block"
           >
-            <TabsList className="grid w-full grid-cols-5 mb-6 h-auto min-w-0 bg-[#F9FAF9] p-1 rounded-xl">
+            <TabsList className="grid w-full grid-cols-4 mb-6 h-auto min-w-0 bg-[#F9FAF9] p-1 rounded-xl">
               <TabsTrigger value="users" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Benutzer</TabsTrigger>
               <TabsTrigger value="settings" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Einstellungen</TabsTrigger>
-              <TabsTrigger value="competition" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Wettkampf</TabsTrigger>
+              {/* <TabsTrigger value="competition" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Wettkampf</TabsTrigger> */}
               <TabsTrigger value="feedback" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Feedback</TabsTrigger>
               <TabsTrigger value="logs" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Logs</TabsTrigger>
             </TabsList>
@@ -130,9 +130,12 @@ const Admin = () => {
               </Tabs>
             </TabsContent>
 
-            <TabsContent value="competition" className="mt-0">
-              <CompetitionBoulderManagement />
-            </TabsContent>
+            {/* Temporarily hidden */}
+            {false && (
+              <TabsContent value="competition" className="mt-0">
+                <CompetitionBoulderManagement />
+              </TabsContent>
+            )}
 
             <TabsContent value="feedback" className="mt-0">
               <FeedbackManagement />
@@ -174,7 +177,8 @@ const Admin = () => {
                 </Tabs>
               </div>
             )}
-            {searchParams.get('tab') === 'competition' && (
+            {/* Temporarily hidden */}
+            {false && searchParams.get('tab') === 'competition' && (
               <div className="mt-0">
                 <CompetitionBoulderManagement />
               </div>

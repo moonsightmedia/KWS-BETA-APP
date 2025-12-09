@@ -602,6 +602,7 @@ const Setter = () => {
   const deleteSchedule = useDeleteSectorSchedule();
   const [selectedBouldersForDelete, setSelectedBouldersForDelete] = useState<Set<string>>(new Set());
   // Status management state
+  const [selectedBouldersForStatus, setSelectedBouldersForStatus] = useState<Set<string>>(new Set());
   const [statusSectorFilter, setStatusSectorFilter] = useState<string>('all');
   const [statusChangeDialogOpen, setStatusChangeDialogOpen] = useState(false);
   const [boulderForStatusChange, setBoulderForStatusChange] = useState<Boulder | null>(null);

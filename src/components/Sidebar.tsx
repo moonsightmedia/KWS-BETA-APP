@@ -260,7 +260,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
       return [
         { icon: Users, label: 'Benutzer', path: '/admin?tab=users' },
         { icon: Settings, label: 'Einstellungen', path: '/admin?tab=settings' },
-        { icon: Trophy, label: 'Wettkampf', path: '/admin?tab=competition' },
+        // { icon: Trophy, label: 'Wettkampf', path: '/admin?tab=competition' }, // Temporarily hidden
         { icon: MessageSquare, label: 'Feedback', path: '/admin?tab=feedback' },
         { icon: FileText, label: 'Logs', path: '/admin?tab=logs' },
       ];

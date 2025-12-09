@@ -362,34 +362,36 @@ const Guest = () => {
         </header>
 
         <main className="p-4 md:p-8 max-w-4xl mx-auto">
-          {/* Nikolaus Wettkampf Navigation Card */}
-          <Card className="mb-6 bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-start gap-4 flex-1">
-                  <div className="flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#E7F7E9] flex items-center justify-center">
-                    <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-[#36B531]" />
+          {/* Nikolaus Wettkampf Navigation Card - Temporarily hidden */}
+          {false && (
+            <Card className="mb-6 bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-4 flex-1">
+                    <div className="flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#E7F7E9] flex items-center justify-center">
+                      <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-[#36B531]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-lg sm:text-xl font-heading font-bold text-[#13112B] mb-1 tracking-wide">
+                        Nikolaus Wettkampf
+                      </h2>
+                      <p className="text-sm text-[#13112B]/60">
+                        Nimm am Wettkampf teil, trage deine Ergebnisse ein und verfolge die Live-Rangliste!
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-lg sm:text-xl font-heading font-bold text-[#13112B] mb-1 tracking-wide">
-                      Nikolaus Wettkampf
-                    </h2>
-                    <p className="text-sm text-[#13112B]/60">
-                      Nimm am Wettkampf teil, trage deine Ergebnisse ein und verfolge die Live-Rangliste!
-                    </p>
-                  </div>
+                  <Button
+                    onClick={() => navigate('/competition')}
+                    size="lg"
+                    className="w-full sm:w-auto min-w-[140px] h-11 rounded-xl bg-[#36B531] text-white hover:bg-[#2DA029] font-semibold shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <Trophy className="w-5 h-5 mr-2" />
+                    Zum Wettkampf
+                  </Button>
                 </div>
-                <Button
-                  onClick={() => navigate('/competition')}
-                  size="lg"
-                  className="w-full sm:w-auto min-w-[140px] h-11 rounded-xl bg-[#36B531] text-white hover:bg-[#2DA029] font-semibold shadow-sm hover:shadow-md transition-shadow"
-                >
-                  <Trophy className="w-5 h-5 mr-2" />
-                  Zum Wettkampf
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
       {/* Desktop filter row */}
       <div className="hidden sm:flex flex-row gap-2 mb-6">
