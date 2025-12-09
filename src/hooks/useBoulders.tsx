@@ -474,9 +474,15 @@ export const useCreateBoulder = () => {
   return useMutation({
     mutationFn: async (newBoulder: Omit<Boulder, 'id' | 'created_at' | 'updated_at'>) => {
       // Erstelle den Boulder
+      // Ensure status is set (default to 'haengt' if not provided)
+      const boulderData = {
+        ...newBoulder,
+        status: newBoulder.status || 'haengt',
+      };
+      
       const { data, error } = await supabase
         .from('boulders')
-        .insert(newBoulder)
+        .insert(boulderData)
         .select()
         .single();
 

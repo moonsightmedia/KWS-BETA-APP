@@ -19,40 +19,47 @@ export interface Notification {
 
 export const useNotifications = () => {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
 
-  console.log('[useNotifications] Hook called with user:', !!user, 'userId:', user?.id);
+  const enabled = !authLoading && !!user && !!session;
 
   const query = useQuery({
     queryKey: ['notifications'],
+    enabled: enabled, // Only run query if auth is complete AND user is logged in AND session exists
     queryFn: async () => {
-      // Use getSession instead of useAuth to ensure we have the session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        console.warn('[useNotifications] No session found');
-        return [];
-      }
+      const startTime = Date.now();
       
-      console.log('[useNotifications] Fetching notifications for user:', session.user.id);
+      try {
+        // CRITICAL: Use session from useAuth hook instead of supabase.auth.getSession()
+        // supabase.auth.getSession() hangs on localhost after reload
+        if (!session?.user) {
+          return [];
+        }
       
       // CRITICAL: Use window.fetch directly instead of QueryBuilder
       // QueryBuilder doesn't work reliably on localhost after reload
-      const { getSupabase } = await import('@/integrations/supabase/client');
-      const currentSupabase = getSupabase();
+      // IMPORTANT: RLS uses auth.uid(), so we need the session access token, not just the API key
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
       const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       
-      if (!SUPABASE_PUBLISHABLE_KEY) {
-        throw new Error('Supabase API key not found');
+      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+        throw new Error('Supabase URL or API key not found');
       }
       
-      const queryUrl = `${currentSupabase.supabaseUrl}/rest/v1/notifications?select=*&user_id=eq.${session.user.id}&order=created_at.desc&limit=50`;
-      console.log('[useNotifications] 🔵 Query URL:', queryUrl);
+      // Get the access token from the session for RLS
+      const accessToken = session.access_token;
+      if (!accessToken) {
+        console.warn('[useNotifications] No access token in session');
+        return [];
+      }
+      
+      const queryUrl = `${SUPABASE_URL}/rest/v1/notifications?select=*&order=created_at.desc&limit=50`;
       
       const response = await window.fetch(queryUrl, {
         method: 'GET',
         headers: {
           'apikey': SUPABASE_PUBLISHABLE_KEY,
-          'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${accessToken}`, // Use session token for RLS
           'Content-Type': 'application/json',
         },
       });
@@ -63,11 +70,13 @@ export const useNotifications = () => {
         throw new Error(`Failed to load notifications: ${response.status} ${errorText}`);
       }
       
-      const data = await response.json();
-      console.log('[useNotifications] ✅ Loaded notifications:', data?.length || 0);
-      return (data || []) as Notification[];
+        const data = await response.json();
+        return (data || []) as Notification[];
+      } catch (error: any) {
+        console.error('[useNotifications] Error loading notifications:', error);
+        throw error;
+      }
     },
-    enabled: !!user, // Only run query if user is logged in
     retry: 2,
     retryDelay: 1000,
   });
@@ -141,39 +150,47 @@ export const useNotifications = () => {
 };
 
 export const useUnreadCount = () => {
-  const { user } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   
-  console.log('[useUnreadCount] Hook called with user:', !!user, 'userId:', user?.id);
+  const enabled = !authLoading && !!user && !!session;
   
   return useQuery({
     queryKey: ['unread_count'],
+    enabled: enabled, // Only run query if auth is complete AND user is logged in AND session exists
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        console.warn('[useUnreadCount] No session found');
-        return 0;
-      }
+      const startTime = Date.now();
       
-      console.log('[useUnreadCount] Fetching unread count for user:', session.user.id);
+      try {
+        // CRITICAL: Use session from useAuth hook instead of supabase.auth.getSession()
+        // supabase.auth.getSession() hangs on localhost after reload
+        if (!session?.user) {
+          return 0;
+        }
       
       // CRITICAL: Use window.fetch directly instead of RPC
       // RPC might not work reliably on localhost after reload
-      const { getSupabase } = await import('@/integrations/supabase/client');
-      const currentSupabase = getSupabase();
+      // IMPORTANT: RPC uses auth.uid(), so we need the session access token, not just the API key
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
       const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       
-      if (!SUPABASE_PUBLISHABLE_KEY) {
-        throw new Error('Supabase API key not found');
+      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+        throw new Error('Supabase URL or API key not found');
       }
       
-      const rpcUrl = `${currentSupabase.supabaseUrl}/rest/v1/rpc/get_unread_count`;
-      console.log('[useUnreadCount] 🔵 RPC URL:', rpcUrl);
+      // Get the access token from the session for RPC calls
+      const accessToken = session.access_token;
+      if (!accessToken) {
+        console.warn('[useUnreadCount] No access token in session');
+        return 0;
+      }
+      
+      const rpcUrl = `${SUPABASE_URL}/rest/v1/rpc/get_unread_count`;
       
       const response = await window.fetch(rpcUrl, {
         method: 'POST',
         headers: {
           'apikey': SUPABASE_PUBLISHABLE_KEY,
-          'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${accessToken}`, // Use session token for RPC that uses auth.uid()
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({}),
@@ -185,11 +202,13 @@ export const useUnreadCount = () => {
         return 0;
       }
       
-      const data = await response.json();
-      console.log('[useUnreadCount] ✅ Unread count:', data || 0);
-      return data || 0;
+        const data = await response.json();
+        return data || 0;
+      } catch (error: any) {
+        console.error('[useUnreadCount] Error getting unread count:', error);
+        return 0; // Return 0 on error instead of throwing
+      }
     },
-    enabled: !!user, // Only run query if user is logged in
     refetchInterval: 30000, // Refetch every 30 seconds
     retry: 2,
     retryDelay: 1000,
@@ -201,7 +220,7 @@ export const useMarkAsRead = () => {
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
-      const { error } = await supabase.rpc('mark_notification_read', {
+      const { error } = await (supabase.rpc as any)('mark_notification_read', {
         p_notification_id: notificationId,
       });
 
@@ -219,7 +238,7 @@ export const useMarkAllAsRead = () => {
 
   return useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc('mark_all_notifications_read');
+      const { error } = await (supabase.rpc as any)('mark_all_notifications_read');
 
       if (error) throw error;
     },

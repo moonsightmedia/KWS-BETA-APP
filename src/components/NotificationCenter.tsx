@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, Check } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useUnreadCount } from '@/hooks/useNotifications';
+import { useUnreadCount, useMarkAllAsRead } from '@/hooks/useNotifications';
 import { NotificationList } from './NotificationList';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -9,9 +9,8 @@ import { Button } from '@/components/ui/button';
 
 export const NotificationCenter = () => {
   const [open, setOpen] = useState(false);
-  console.log('[NotificationCenter] Component rendered, open:', open);
   const { data: unreadCount = 0, isLoading, error } = useUnreadCount();
-  console.log('[NotificationCenter] useUnreadCount result:', { unreadCount, isLoading, error: error?.message });
+  const markAllAsRead = useMarkAllAsRead();
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -39,21 +38,41 @@ export const NotificationCenter = () => {
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[calc(100vw-2rem)] sm:w-[400px] p-0 border-[#E7F7E9] rounded-xl z-[150] bg-white"
-        align="end"
+        className="w-[calc(100vw-1rem)] sm:w-[400px] p-0 border-[#E7F7E9] rounded-xl z-[150] bg-white mx-auto flex flex-col overflow-hidden"
+        align="center"
+        side="bottom"
         sideOffset={8}
+        style={{
+          height: 'calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 12rem)',
+          maxHeight: '600px',
+          marginBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+        }}
       >
-        <div className="flex flex-col h-[500px] max-h-[80vh]">
-          <div className="p-4 border-b border-[#E7F7E9]">
-            <h3 className="text-lg font-semibold text-[#13112B]">Benachrichtigungen</h3>
+        <div className="p-4 border-b border-[#E7F7E9] flex-shrink-0">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-[#13112B]">Benachrichtigungen</h3>
+              {unreadCount > 0 && (
+                <p className="text-xs text-[#13112B]/60 mt-1">
+                  {unreadCount} ungelesen{unreadCount !== 1 ? 'e' : ''}
+                </p>
+              )}
+            </div>
             {unreadCount > 0 && (
-              <p className="text-xs text-[#13112B]/60 mt-1">
-                {unreadCount} ungelesen{unreadCount !== 1 ? 'e' : ''}
-              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => markAllAsRead.mutate()}
+                disabled={markAllAsRead.isPending}
+                className="h-10 text-xs px-3 touch-manipulation flex-shrink-0"
+              >
+                <Check className="w-4 h-4 mr-1.5" />
+                <span className="text-xs">Alle gelesen</span>
+              </Button>
             )}
           </div>
-          <NotificationList onNotificationClick={() => setOpen(false)} />
         </div>
+        <NotificationList onNotificationClick={() => setOpen(false)} />
       </PopoverContent>
     </Popover>
   );

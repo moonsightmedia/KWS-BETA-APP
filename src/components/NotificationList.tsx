@@ -55,41 +55,28 @@ export const NotificationList = ({ onNotificationClick }: NotificationListProps)
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header with filter and mark all as read */}
-      <div className="flex items-center justify-between p-4 border-b border-[#E7F7E9]">
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* Header with filter */}
+      <div className="flex items-center justify-center p-3 border-b border-[#E7F7E9] flex-shrink-0">
         <Select value={filter} onValueChange={(value) => setFilter(value as typeof filter)}>
-          <SelectTrigger className="w-32 h-9 text-xs">
+          <SelectTrigger className="w-full max-w-[200px] h-10 text-xs touch-manipulation">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Alle</SelectItem>
-            <SelectItem value="unread">Ungelesen ({unreadCount})</SelectItem>
-            <SelectItem value="boulder_new">Neue Boulder</SelectItem>
+          <SelectContent className="max-h-[50vh]">
+            <SelectItem value="all" className="text-xs">Alle</SelectItem>
+            <SelectItem value="unread" className="text-xs">Ungelesen ({unreadCount})</SelectItem>
+            <SelectItem value="boulder_new" className="text-xs">Neue Boulder</SelectItem>
             {/* <SelectItem value="competition_update">Wettkampf</SelectItem> */}
-            <SelectItem value="feedback_reply">Feedback</SelectItem>
-            <SelectItem value="admin_announcement">Admin</SelectItem>
-            <SelectItem value="schedule_reminder">Termine</SelectItem>
+            <SelectItem value="feedback_reply" className="text-xs">Feedback</SelectItem>
+            <SelectItem value="admin_announcement" className="text-xs">Admin</SelectItem>
+            <SelectItem value="schedule_reminder" className="text-xs">Termine</SelectItem>
           </SelectContent>
         </Select>
-        
-        {unreadCount > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => markAllAsRead.mutate()}
-            disabled={markAllAsRead.isPending}
-            className="h-9 text-xs"
-          >
-            <Check className="w-4 h-4 mr-1" />
-            Alle gelesen
-          </Button>
-        )}
       </div>
 
-      {/* Notification list */}
+      {/* Notification list - scrollable area */}
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-2">
+        <div className="p-3 space-y-3">
           {filteredNotifications.map((notification) => (
             <NotificationItem
               key={notification.id}

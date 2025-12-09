@@ -83,20 +83,21 @@ export const NotificationItem = ({ notification, onClick }: NotificationItemProp
   return (
     <Card
       className={cn(
-        "p-4 cursor-pointer transition-all hover:bg-[#F9FAF9] border-l-4",
+        "p-4 cursor-pointer transition-all hover:bg-[#F9FAF9] active:bg-[#F0F9FF] border-l-4 touch-manipulation",
+        "min-h-[72px] w-full", // Ensure minimum touch target size and full width
         !notification.read && "bg-[#F0F9FF] border-l-[#36B531] border-l-4",
         notification.read && "border-l-transparent"
       )}
       onClick={handleClick}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3 w-full">
         <div className={cn("p-2 rounded-lg flex-shrink-0", iconColor)}>
           <Icon className="w-5 h-5" />
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0 flex flex-col">
+          <div className="flex items-start justify-between gap-2 w-full">
             <h4 className={cn(
-              "text-sm font-semibold text-[#13112B]",
+              "text-sm font-semibold text-[#13112B] leading-tight flex-1",
               !notification.read && "font-bold"
             )}>
               {notification.title}
@@ -105,7 +106,7 @@ export const NotificationItem = ({ notification, onClick }: NotificationItemProp
               <div className="w-2 h-2 bg-[#36B531] rounded-full flex-shrink-0 mt-1.5" />
             )}
           </div>
-          <p className="text-sm text-[#13112B]/70 mt-1 line-clamp-2">
+          <p className="text-sm text-[#13112B]/70 mt-1.5 line-clamp-2 sm:line-clamp-3 leading-relaxed">
             {notification.message}
           </p>
           <p className="text-xs text-[#13112B]/50 mt-2">
