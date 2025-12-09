@@ -140,8 +140,11 @@
           // This MUST be the first thing to see if fetch is called at all
           const urlString = typeof input === 'string' ? input : input instanceof URL ? input.href : (input instanceof Request ? input.url : String(input));
           
+          const hostname = window.location.hostname;
           console.log('[Index HTML Fetch Override] 📞📞📞 FETCH CALLED:', {
             url: urlString,
+            hostname: hostname,
+            isLocalhost: hostname === 'localhost' || hostname === '127.0.0.1',
             inputType: typeof input,
             isString: typeof input === 'string',
             isURL: input instanceof URL,

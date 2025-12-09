@@ -511,7 +511,7 @@ const Guest = () => {
                   alt={b.name}
                   loading={index < 18 ? "eager" : "lazy"}
                   decoding="async"
-                  fetchPriority={index < 6 ? "high" : index < 18 ? "auto" : "low"}
+                  fetchpriority={index < 6 ? "high" : index < 18 ? "auto" : "low"}
                   style={{ 
                     objectFit: 'cover',
                     objectPosition: 'center',

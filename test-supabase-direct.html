@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Direct Test</title>
+</head>
+<body>
+    <h1>Supabase Direct Test</h1>
+    <p>Hostname: <span id="hostname"></span></p>
+    <p>Is Localhost: <span id="isLocalhost"></span></p>
+    <button onclick="testSupabase()">Test Supabase Connection</button>
+    <pre id="result"></pre>
+
+    <script>
+        const SUPABASE_URL = 'https://pkzzxtsyxwxoraytyjau.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBrenp4dHN5eHd4b3JheXR5amF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3MzEyMjMsImV4cCI6MjA3NzMwNzIyM30.vU4gx9od-Llf6nnNmx19AgS_ejymEKLiaa2eODjoy4I';
+
+        const hostname = window.location.hostname;
+        document.getElementById('hostname').textContent = hostname;
+        document.getElementById('isLocalhost').textContent = (hostname === 'localhost' || hostname === '127.0.0.1') ? 'Yes' : 'No';
+
+        async function testSupabase() {
+            const resultEl = document.getElementById('result');
+            resultEl.textContent = 'Testing...\n';
+            
+            try {
+                console.log('[Test] Starting Supabase test...');
+                console.log('[Test] Hostname:', hostname);
+                console.log('[Test] Is Localhost:', hostname === 'localhost' || hostname === '127.0.0.1');
+                
+                const url = `${SUPABASE_URL}/rest/v1/boulders?select=*&limit=1`;
+                console.log('[Test] Fetching:', url);
+                
+                const startTime = Date.now();
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                const duration = Date.now() - startTime;
+                console.log('[Test] Response received after', duration, 'ms');
+                console.log('[Test] Status:', response.status, response.statusText);
+                console.log('[Test] Headers:', Object.fromEntries(response.headers.entries()));
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    resultEl.textContent = `❌ Error: ${response.status} ${response.statusText}\n${errorText}`;
+                    console.error('[Test] Error response:', errorText);
+                } else {
+                    const data = await response.json();
+                    resultEl.textContent = `✅ Success!\nDuration: ${duration}ms\nData: ${JSON.stringify(data, null, 2)}`;
+                    console.log('[Test] Success! Data:', data);
+                }
+            } catch (error) {
+                resultEl.textContent = `❌ Exception: ${error.message}\n${error.stack}`;
+                console.error('[Test] Exception:', error);
+            }
+        }
+    </script>
+</body>
+</html>
+

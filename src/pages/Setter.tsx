@@ -1605,8 +1605,10 @@ const Setter = () => {
                           className="absolute top-2 left-2 z-10 bg-background/80 backdrop-blur-sm w-5 h-5 sm:w-4 sm:h-4"
                           onClick={(e) => e.stopPropagation()}
                         />
-                        <button 
-                          className="text-left w-full touch-manipulation" 
+                        <div 
+                          className="text-left w-full touch-manipulation cursor-pointer" 
+                          role="button"
+                          tabIndex={0}
                           onClick={(e) => {
                             // Wenn bereits ein Boulder ausgewählt ist, nur Auswahl umschalten
                             if (selectedBouldersForDelete.size > 0) {
@@ -1631,6 +1633,26 @@ const Setter = () => {
                                 });
                               } else {
                                 startEdit(b);
+                              }
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              if (selectedBouldersForDelete.size > 0) {
+                                setSelectedBouldersForDelete(prev => {
+                                  const next = new Set(prev);
+                                  if (isSelected) {
+                                    next.delete(b.id);
+                                  } else {
+                                    next.add(b.id);
+                                  }
+                                  return next;
+                                });
+                              } else {
+                                if (!isSelected) {
+                                  startEdit(b);
+                                }
                               }
                             }
                           }}
@@ -1709,7 +1731,7 @@ const Setter = () => {
                               )}
                             </CardContent>
                           </Card>
-                        </button>
+                        </div>
                       </div>
                     )})}
                   </div>

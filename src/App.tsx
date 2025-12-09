@@ -54,6 +54,11 @@ const queryClient = new QueryClient({
   },
 });
 
+// CRITICAL: Expose queryClient to window for main.tsx to access it
+if (typeof window !== 'undefined') {
+  (window as any).__queryClient = queryClient;
+}
+
 const RouteLogger = () => {
   const location = useLocation();
   useEffect(() => {

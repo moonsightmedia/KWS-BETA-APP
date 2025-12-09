@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/button';
 
 export const NotificationCenter = () => {
   const [open, setOpen] = useState(false);
-  const { data: unreadCount = 0 } = useUnreadCount();
+  console.log('[NotificationCenter] Component rendered, open:', open);
+  const { data: unreadCount = 0, isLoading, error } = useUnreadCount();
+  console.log('[NotificationCenter] useUnreadCount result:', { unreadCount, isLoading, error: error?.message });
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

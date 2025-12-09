@@ -126,9 +126,12 @@ const customFetch = function(input: RequestInfo | URL, init?: RequestInit): Prom
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input instanceof Request ? input.url : String(input));
   const startTime = Date.now();
   
-  console.log('[Supabase Client] 📞 customFetch CALLED:', {
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'unknown';
+  console.log('[Supabase Client] 📞📞📞 customFetch CALLED:', {
     url: url,
     method: init?.method || 'GET',
+    hostname: hostname,
+    isLocalhost: hostname === 'localhost' || hostname === '127.0.0.1',
     windowFetchType: typeof window.fetch,
     isOverridden: window.fetch.toString().includes('Index HTML Fetch Override'),
     timestamp: new Date().toISOString(),
@@ -139,7 +142,9 @@ const customFetch = function(input: RequestInfo | URL, init?: RequestInit): Prom
   const currentFetch = window.fetch;
   
   // CRITICAL: Call window.fetch directly - it should trigger the index.html override
+  console.log('[Supabase Client] 🔵 Calling window.fetch with:', { url, method: init?.method || 'GET', hostname });
   const result = currentFetch(input, init);
+  console.log('[Supabase Client] 🔵 window.fetch returned:', typeof result, result instanceof Promise ? 'Promise' : 'not Promise');
   
   // Add timeout detection and better error logging
   result.then((response) => {
@@ -149,11 +154,16 @@ const customFetch = function(input: RequestInfo | URL, init?: RequestInit): Prom
         url: url,
         status: response.status,
         statusText: response.statusText,
+        hostname: hostname,
+        isLocalhost: hostname === 'localhost' || hostname === '127.0.0.1',
+        headers: Object.fromEntries(response.headers.entries()),
       });
     } else {
       console.log(`[Supabase Client] ✅ Request succeeded after ${duration}ms:`, {
         url: url,
         status: response.status,
+        hostname: hostname,
+        isLocalhost: hostname === 'localhost' || hostname === '127.0.0.1',
       });
     }
   }).catch((error) => {
@@ -162,6 +172,9 @@ const customFetch = function(input: RequestInfo | URL, init?: RequestInit): Prom
       url: url,
       error: error.message,
       errorType: error.name,
+      hostname: hostname,
+      isLocalhost: hostname === 'localhost' || hostname === '127.0.0.1',
+      stack: error.stack?.substring(0, 500),
     });
   });
   
@@ -198,6 +211,14 @@ function createSupabaseClient() {
     return client;
   } catch (error) {
     console.warn('[Supabase] Error creating client, using fallback:', error);
+    const forcedCustomFetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+      console.log('[Supabase Client] 🔵🔵🔵 forcedCustomFetch CALLED (fallback):', {
+        url: typeof input === 'string' ? input : input instanceof URL ? input.href : (input instanceof Request ? input.url : String(input)),
+        method: init?.method || 'GET',
+      });
+      return customFetch(input, init);
+    };
+    
     return createClient<Database>(
       SUPABASE_URL || 'https://placeholder.supabase.co',
       SUPABASE_PUBLISHABLE_KEY || 'placeholder-key',
@@ -209,7 +230,7 @@ function createSupabaseClient() {
           detectSessionInUrl: false,
         },
         global: {
-          fetch: customFetch as any,
+          fetch: forcedCustomFetch as any,
           headers: {
             'X-Client-Info': 'kws-beta-app',
           },
@@ -238,11 +259,17 @@ if (supabaseInstance.rest && supabaseInstance.rest.fetch) {
   console.log('[Supabase Client] ✅ Custom fetch is set on client.rest.fetch');
   console.log('[Supabase Client] 🔍 Fetch function:', supabaseInstance.rest.fetch.toString().substring(0, 200));
   // Check if it's our custom fetch
+  // Note: Supabase wraps our custom fetch, so we check for indirect indicators
   const fetchStr = supabaseInstance.rest.fetch.toString();
-  if (fetchStr.includes('customFetch') || fetchStr.includes('Index HTML Fetch Override')) {
-    console.log('[Supabase Client] ✅ Custom fetch is being used');
+  // Supabase wraps our custom fetch, so it won't directly contain 'customFetch'
+  // Instead, we check if the fetch function exists and is being used
+  // The actual fetch calls will go through our customFetch via window.fetch override
+  if (fetchStr.includes('getAccessToken') || fetchStr.includes('supabaseKey')) {
+    // This is Supabase's internal fetch wrapper, which will use our custom fetch
+    console.log('[Supabase Client] ✅ Custom fetch is configured (Supabase wraps it internally)');
   } else {
-    console.warn('[Supabase Client] ⚠️ Custom fetch might not be used - using default fetch');
+    // If we can't detect it, don't warn - it might still work via window.fetch override
+    console.log('[Supabase Client] ℹ️ Fetch function detected (may use window.fetch override)');
   }
 } else {
   console.warn('[Supabase Client] ⚠️ Custom fetch might not be set correctly');

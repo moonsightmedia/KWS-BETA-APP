@@ -25,6 +25,7 @@ export const useSectors = (enabled: boolean = true) => {
     enabled: enabled, // Only run query if enabled (e.g., after auth loading is complete)
     queryFn: async () => {
       console.log('[useSectors] 🔵 STARTING fetch from Supabase... (enabled:', enabled, ')');
+      console.log('[useSectors] 🔍 Query function called - this means enabled=true and React Query is executing the query');
       
       // CRITICAL: Ensure Supabase client is fully initialized before making requests
       // This prevents race conditions where queries start before the client is ready after reload
@@ -43,17 +44,10 @@ export const useSectors = (enabled: boolean = true) => {
       console.log('[useSectors] 🔵 Supabase client:', typeof supabase, 'has from:', typeof supabase.from);
       
       // CRITICAL: Get fresh Supabase client instance (especially important after reload)
-      const { getSupabase, recreateSupabaseClient } = await import('@/integrations/supabase/client');
+      const { getSupabase } = await import('@/integrations/supabase/client');
       
-      // CRITICAL: On reload, recreate the client to ensure it's fresh
-      const isReload = typeof window !== 'undefined' &&
-                       (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type === 'reload';
-      
-      if (isReload) {
-        console.log('[useSectors] 🔄 Reload detected - recreating Supabase client...');
-        recreateSupabaseClient();
-      }
-      
+      // CRITICAL: Don't recreate the client on every query - only get the existing instance
+      // Recreating causes "Multiple GoTrueClient instances" warnings
       const currentSupabase = getSupabase();
       
       console.log('[useSectors] 🔵 Using Supabase client:', typeof currentSupabase, 'has from:', typeof currentSupabase.from);
@@ -73,17 +67,82 @@ export const useSectors = (enabled: boolean = true) => {
       });
       
       try {
-        console.log('[useSectors] 🔵 Executing query directly...');
+        const hostname = typeof window !== 'undefined' ? window.location.hostname : 'unknown';
+        const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
         
-        // CRITICAL: Execute query directly without any wrappers
-        // This is the simplest possible approach - just await the query
-        const result = await Promise.race([
-          currentSupabase
-            .from('sectors')
-            .select('*')
-            .order('name'),
-          timeoutPromise
-        ]);
+        console.log('[useSectors] 🔵 Executing query directly...');
+        console.log('[useSectors] 🔍 Hostname:', hostname, 'isLocalhost:', isLocalhost);
+        console.log('[useSectors] 🔍 Current Supabase client:', currentSupabase);
+        console.log('[useSectors] 🔍 Client has from:', typeof currentSupabase.from);
+        console.log('[useSectors] 🔍 Supabase URL:', currentSupabase.supabaseUrl);
+        
+        // CRITICAL: Since direct fetch() works, but QueryBuilder doesn't, 
+        // let's try using the REST client directly instead of QueryBuilder
+        console.log('[useSectors] 🔍 Direct fetch works, but QueryBuilder doesn\'t - trying REST client directly...');
+        
+        // CRITICAL: Always use REST client fetch directly for localhost
+        // QueryBuilder doesn't work reliably on localhost, so we bypass it
+        // @ts-ignore - accessing internal property
+        const restClient = currentSupabase.rest;
+        const restFetch = restClient?.fetch;
+        
+        // Always use REST client if available (which it should be)
+        if (restFetch) {
+          console.log('[useSectors] 🔵 Using REST client fetch directly...');
+          
+          // Build the query URL manually
+          const queryUrl = `${currentSupabase.supabaseUrl}/rest/v1/sectors?select=*&order=name.asc`;
+          console.log('[useSectors] 🔵 Query URL:', queryUrl);
+          
+          // Use REST client fetch directly
+          // Get the API key from environment
+          const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          if (!SUPABASE_PUBLISHABLE_KEY) {
+            throw new Error('Supabase API key not found');
+          }
+          
+          console.log('[useSectors] 🔵 Calling REST fetch with:', { queryUrl, apiKey: SUPABASE_PUBLISHABLE_KEY.substring(0, 20) + '...' });
+          
+          // CRITICAL: Use window.fetch directly instead of restFetch
+          // restFetch might not trigger our custom fetch override
+          // Use window.fetch which is guaranteed to use our override
+          const restPromise = window.fetch(queryUrl, {
+            method: 'GET',
+            headers: {
+              'apikey': SUPABASE_PUBLISHABLE_KEY,
+              'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+              'Content-Type': 'application/json',
+            },
+          }).then(async (response: Response) => {
+            console.log('[useSectors] 🔵 REST fetch response:', response.status, response.statusText);
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(`REST fetch failed: ${response.status} ${response.statusText} - ${errorText}`);
+            }
+            const data = await response.json();
+            console.log('[useSectors] ✅ REST fetch data:', data);
+            return { data, error: null };
+          });
+          
+          const result = await Promise.race([
+            restPromise,
+            timeoutPromise
+          ]);
+          
+          console.log('[useSectors] 🔵 REST fetch result:', result);
+          const { data, error } = result as { data: any, error: any };
+          
+          if (error) {
+            throw error;
+          }
+          
+          isResolved = true;
+          if (timeoutId) clearTimeout(timeoutId);
+          return data as Sector[];
+        } else {
+          console.error('[useSectors] ❌ REST client not available - this should not happen!');
+          throw new Error('REST client not available');
+        }
         
         console.log('[useSectors] 🔵 Query resolved:', result);
         isResolved = true;

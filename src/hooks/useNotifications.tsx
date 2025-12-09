@@ -21,6 +21,8 @@ export const useNotifications = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
+  console.log('[useNotifications] Hook called with user:', !!user, 'userId:', user?.id);
+
   const query = useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
@@ -33,19 +35,36 @@ export const useNotifications = () => {
       
       console.log('[useNotifications] Fetching notifications for user:', session.user.id);
       
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) {
-        console.error('[useNotifications] Error loading notifications:', error);
-        throw error;
+      // CRITICAL: Use window.fetch directly instead of QueryBuilder
+      // QueryBuilder doesn't work reliably on localhost after reload
+      const { getSupabase } = await import('@/integrations/supabase/client');
+      const currentSupabase = getSupabase();
+      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      if (!SUPABASE_PUBLISHABLE_KEY) {
+        throw new Error('Supabase API key not found');
       }
-
-      console.log('[useNotifications] Loaded notifications:', data?.length || 0);
+      
+      const queryUrl = `${currentSupabase.supabaseUrl}/rest/v1/notifications?select=*&user_id=eq.${session.user.id}&order=created_at.desc&limit=50`;
+      console.log('[useNotifications] 🔵 Query URL:', queryUrl);
+      
+      const response = await window.fetch(queryUrl, {
+        method: 'GET',
+        headers: {
+          'apikey': SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[useNotifications] Error loading notifications:', response.status, errorText);
+        throw new Error(`Failed to load notifications: ${response.status} ${errorText}`);
+      }
+      
+      const data = await response.json();
+      console.log('[useNotifications] ✅ Loaded notifications:', data?.length || 0);
       return (data || []) as Notification[];
     },
     enabled: !!user, // Only run query if user is logged in
@@ -124,6 +143,8 @@ export const useNotifications = () => {
 export const useUnreadCount = () => {
   const { user } = useAuth();
   
+  console.log('[useUnreadCount] Hook called with user:', !!user, 'userId:', user?.id);
+  
   return useQuery({
     queryKey: ['unread_count'],
     queryFn: async () => {
@@ -135,14 +156,37 @@ export const useUnreadCount = () => {
       
       console.log('[useUnreadCount] Fetching unread count for user:', session.user.id);
       
-      const { data, error } = await supabase.rpc('get_unread_count');
-
-      if (error) {
-        console.error('[useUnreadCount] Error getting unread count:', error);
+      // CRITICAL: Use window.fetch directly instead of RPC
+      // RPC might not work reliably on localhost after reload
+      const { getSupabase } = await import('@/integrations/supabase/client');
+      const currentSupabase = getSupabase();
+      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      if (!SUPABASE_PUBLISHABLE_KEY) {
+        throw new Error('Supabase API key not found');
+      }
+      
+      const rpcUrl = `${currentSupabase.supabaseUrl}/rest/v1/rpc/get_unread_count`;
+      console.log('[useUnreadCount] 🔵 RPC URL:', rpcUrl);
+      
+      const response = await window.fetch(rpcUrl, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[useUnreadCount] Error getting unread count:', response.status, errorText);
         return 0;
       }
-
-      console.log('[useUnreadCount] Unread count:', data || 0);
+      
+      const data = await response.json();
+      console.log('[useUnreadCount] ✅ Unread count:', data || 0);
       return data || 0;
     },
     enabled: !!user, // Only run query if user is logged in
