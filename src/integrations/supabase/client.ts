@@ -17,9 +17,19 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 // Validate environment variables
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  console.error('Missing Supabase environment variables:', {
+  console.error('❌ CRITICAL: Missing Supabase environment variables:', {
     hasUrl: !!SUPABASE_URL,
-    hasKey: !!SUPABASE_PUBLISHABLE_KEY
+    hasKey: !!SUPABASE_PUBLISHABLE_KEY,
+    urlValue: SUPABASE_URL ? `${SUPABASE_URL.substring(0, 30)}...` : 'MISSING',
+    keyValue: SUPABASE_PUBLISHABLE_KEY ? `${SUPABASE_PUBLISHABLE_KEY.substring(0, 20)}...` : 'MISSING',
+    envMode: import.meta.env.MODE,
+    allEnvKeys: Object.keys(import.meta.env).filter(k => k.startsWith('VITE_'))
+  });
+} else {
+  console.log('✅ Supabase environment variables loaded:', {
+    url: `${SUPABASE_URL.substring(0, 30)}...`,
+    key: `${SUPABASE_PUBLISHABLE_KEY.substring(0, 20)}...`,
+    envMode: import.meta.env.MODE
   });
 }
 
@@ -114,21 +124,40 @@ const isStorageAvailable = (() => {
 const customFetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   // Always use current window.fetch to ensure we get the overridden version
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input instanceof Request ? input.url : String(input));
+  const startTime = Date.now();
   
   console.log('[Supabase Client] 📞 customFetch CALLED:', {
     url: url,
     method: init?.method || 'GET',
     windowFetchType: typeof window.fetch,
     isOverridden: window.fetch.toString().includes('Index HTML Fetch Override'),
-    windowFetchString: window.fetch.toString().substring(0, 200),
   });
   
   // CRITICAL: Call window.fetch directly - it should trigger the index.html override
   const result = window.fetch(input, init);
   
-  console.log('[Supabase Client] 📞 customFetch returning promise:', {
-    url: url,
-    isPromise: result instanceof Promise,
+  // Add timeout detection and better error logging
+  result.then((response) => {
+    const duration = Date.now() - startTime;
+    if (!response.ok) {
+      console.error(`[Supabase Client] ❌ Request failed after ${duration}ms:`, {
+        url: url,
+        status: response.status,
+        statusText: response.statusText,
+      });
+    } else {
+      console.log(`[Supabase Client] ✅ Request succeeded after ${duration}ms:`, {
+        url: url,
+        status: response.status,
+      });
+    }
+  }).catch((error) => {
+    const duration = Date.now() - startTime;
+    console.error(`[Supabase Client] ❌ Request error after ${duration}ms:`, {
+      url: url,
+      error: error.message,
+      errorType: error.name,
+    });
   });
   
   return result;

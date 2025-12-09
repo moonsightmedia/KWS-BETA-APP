@@ -90,3 +90,4 @@ APK liegt in: `android/app/build/outputs/apk/release/app-release.apk`
 - **Nicht in Git**: Keystore und Passwort niemals ins Repository committen!
 
 
+

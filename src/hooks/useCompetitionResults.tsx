@@ -22,16 +22,16 @@ export const useCompetitionResults = (participantId: string | null) => {
       const startTime = Date.now();
       
       try {
-        const queryPromise = (supabase as any)
+        const queryBuilder = (supabase as any)
           .from('competition_results')
           .select('*')
           .eq('participant_id', participantId)
           .order('boulder_number', { ascending: true });
 
-        // Set up timeout
+        // Use Promise.race for timeout
         let timeoutId: NodeJS.Timeout | null = null;
         let isResolved = false;
-
+        
         const timeoutPromise = new Promise<never>((_, reject) => {
           timeoutId = setTimeout(() => {
             if (!isResolved) {
@@ -41,12 +41,16 @@ export const useCompetitionResults = (participantId: string | null) => {
           }, 10000);
         });
 
+        // CRITICAL: Directly await the QueryBuilder - it's already a thenable Promise
+        // The QueryBuilder will execute the fetch when awaited
+        const queryPromise = queryBuilder.then ? queryBuilder : Promise.resolve(queryBuilder);
+        
         // Race between query and timeout
         const result = await Promise.race([
-          queryPromise.then((result) => {
+          queryPromise.then((res) => {
             isResolved = true;
             if (timeoutId) clearTimeout(timeoutId);
-            return result;
+            return res;
           }).catch((err) => {
             isResolved = true;
             if (timeoutId) clearTimeout(timeoutId);
@@ -54,7 +58,8 @@ export const useCompetitionResults = (participantId: string | null) => {
           }),
           timeoutPromise
         ]);
-
+        
+        clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
         const { data, error } = result;
 
@@ -67,6 +72,12 @@ export const useCompetitionResults = (participantId: string | null) => {
         return data as CompetitionResult[];
       } catch (error: any) {
         const duration = Date.now() - startTime;
+        
+        if (error?.name === 'AbortError' || error?.message?.includes('timeout')) {
+          console.error(`[useCompetitionResults] ⏱️ TIMEOUT after ${duration}ms:`, error);
+          throw new Error('Supabase request timeout after 10s');
+        }
+        
         console.error(`[useCompetitionResults] ❌ Exception after ${duration}ms:`, error);
         throw error;
       }

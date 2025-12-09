@@ -24,35 +24,39 @@ export const useCompetitionBoulders = (enabled: boolean = true) => {
     queryFn: async () => {
       const startTime = Date.now();
       
+      // Create the query
+      const queryBuilder = supabase
+        .from('competition_boulders')
+        .select(`
+          *,
+          boulder:boulders(id, name, thumbnail_url, color, difficulty)
+        `)
+        .order('boulder_number', { ascending: true });
+
+      // Use Promise.race for timeout
+      let timeoutId: NodeJS.Timeout | null = null;
+      let isResolved = false;
+      
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          if (!isResolved) {
+            console.error('[useCompetitionBoulders] ⏱️ TIMEOUT after 10s - request never completed');
+            reject(new Error('Supabase request timeout after 10s'));
+          }
+        }, 10000);
+      });
+
       try {
-        // Create the query
-        const queryPromise = supabase
-          .from('competition_boulders')
-          .select(`
-            *,
-            boulder:boulders(id, name, thumbnail_url, color, difficulty)
-          `)
-          .order('boulder_number', { ascending: true });
-
-        // Set up timeout
-        let timeoutId: NodeJS.Timeout | null = null;
-        let isResolved = false;
-
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(() => {
-            if (!isResolved) {
-              console.error('[useCompetitionBoulders] ⏱️ TIMEOUT after 10s - request never completed');
-              reject(new Error('Supabase request timeout after 10s'));
-            }
-          }, 10000);
-        });
-
+        // CRITICAL: Directly await the QueryBuilder - it's already a thenable Promise
+        // The QueryBuilder will execute the fetch when awaited
+        const queryPromise = queryBuilder.then ? queryBuilder : Promise.resolve(queryBuilder);
+        
         // Race between query and timeout
         const result = await Promise.race([
-          queryPromise.then((result) => {
+          queryPromise.then((res) => {
             isResolved = true;
             if (timeoutId) clearTimeout(timeoutId);
-            return result;
+            return res;
           }).catch((err) => {
             isResolved = true;
             if (timeoutId) clearTimeout(timeoutId);
@@ -60,7 +64,8 @@ export const useCompetitionBoulders = (enabled: boolean = true) => {
           }),
           timeoutPromise
         ]);
-
+        
+        clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
         const { data, error } = result;
 
@@ -72,7 +77,15 @@ export const useCompetitionBoulders = (enabled: boolean = true) => {
         console.log(`[useCompetitionBoulders] ✅ Fetched ${data?.length || 0} competition boulders after ${duration}ms`);
         return data as CompetitionBoulder[];
       } catch (error: any) {
+        clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
+        
+        // Check if it's a timeout/abort error
+        if (error?.name === 'AbortError' || error?.message?.includes('timeout')) {
+          console.error(`[useCompetitionBoulders] ⏱️ TIMEOUT after ${duration}ms:`, error);
+          throw new Error('Supabase request timeout after 10s');
+        }
+        
         console.error(`[useCompetitionBoulders] ❌ Exception after ${duration}ms:`, error);
         throw error;
       }

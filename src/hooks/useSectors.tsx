@@ -27,70 +27,60 @@ export const useSectors = (enabled: boolean = true) => {
       console.log('[useSectors] 🔵 STARTING fetch from Supabase... (enabled:', enabled, ')');
       const startTime = Date.now();
       
-      try {
-        console.log('[useSectors] 🔵 Creating Supabase query...');
-        console.log('[useSectors] 🔵 Supabase client:', typeof supabase, 'has from:', typeof supabase.from);
-        
-        // CRITICAL: Supabase QueryBuilder is a thenable, convert to Promise explicitly
-        const queryBuilder = supabase
-          .from('sectors')
-          .select('*')
-          .order('name');
-        
-        console.log('[useSectors] 🔵 QueryBuilder created, type:', typeof queryBuilder, 'is Promise:', queryBuilder instanceof Promise);
-        
-        // CRITICAL: Supabase QueryBuilder is already a thenable Promise
-        // We can use it directly, but let's ensure it's executed
-        console.log('[useSectors] 🔵 QueryBuilder is thenable:', typeof queryBuilder.then === 'function');
-        
-        // CRITICAL: Execute the QueryBuilder by calling .then() or using it as Promise
-        // Supabase QueryBuilder executes the query when awaited or .then() is called
-        const fetchPromise = (async () => {
-          try {
-            console.log('[useSectors] 🔵 Executing QueryBuilder (awaiting)...');
-            console.log('[useSectors] 🔵 QueryBuilder before await:', queryBuilder);
-            const result = await queryBuilder;
-            console.log('[useSectors] ✅ QueryBuilder resolved:', result);
-            return result;
-          } catch (error) {
-            console.error('[useSectors] ❌ QueryBuilder rejected:', error);
-            throw error;
+      console.log('[useSectors] 🔵 Creating Supabase query...');
+      console.log('[useSectors] 🔵 Supabase client:', typeof supabase, 'has from:', typeof supabase.from);
+      
+      // CRITICAL: Supabase QueryBuilder is a thenable, convert to Promise explicitly
+      const queryBuilder = supabase
+        .from('sectors')
+        .select('*')
+        .order('name');
+      
+      console.log('[useSectors] 🔵 QueryBuilder created, type:', typeof queryBuilder, 'is Promise:', queryBuilder instanceof Promise);
+      
+      // CRITICAL: Supabase QueryBuilder is already a thenable Promise
+      // We can use it directly, but let's ensure it's executed
+      console.log('[useSectors] 🔵 QueryBuilder is thenable:', typeof queryBuilder.then === 'function');
+      
+      // CRITICAL: Execute the QueryBuilder directly
+      // Wrap in Promise.resolve to ensure it's executed in production builds
+      let timeoutId: NodeJS.Timeout | null = null;
+      let isResolved = false;
+      
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          if (!isResolved) {
+            console.error('[useSectors] ⏱️ TIMEOUT after 10s - request never completed');
+            reject(new Error('Supabase request timeout after 10s'));
           }
-        })();
+        }, 10000);
+      });
+      
+      try {
+        console.log('[useSectors] 🔵 Executing QueryBuilder (awaiting)...');
+        console.log('[useSectors] 🔵 QueryBuilder before await:', queryBuilder);
         
-        console.log('[useSectors] 🔵 FetchPromise created, type:', typeof fetchPromise, 'is Promise:', fetchPromise instanceof Promise);
+        // CRITICAL: Directly await the QueryBuilder - it's already a thenable Promise
+        // The QueryBuilder will execute the fetch when awaited
+        const queryPromise = queryBuilder.then ? queryBuilder : Promise.resolve(queryBuilder);
         
-        // Set up timeout
-        let timeoutId: NodeJS.Timeout | null = null;
-        let isResolved = false;
-        
-        const timeoutPromise = new Promise((_, reject) => {
-          timeoutId = setTimeout(() => {
-            if (!isResolved) {
-              console.error('[useSectors] ⏱️ TIMEOUT after 10s - request never completed');
-              reject(new Error('Supabase request timeout after 10s'));
-            }
-          }, 10000);
-        });
-        
-        console.log('[useSectors] 🔵 Starting Promise.race (fetch vs timeout)...');
+        // Race between query and timeout
         const result = await Promise.race([
-          fetchPromise.then((result) => {
+          queryPromise.then((res) => {
             isResolved = true;
             if (timeoutId) clearTimeout(timeoutId);
-            console.log('[useSectors] ✅ Fetch promise resolved');
-            return result;
+            return res;
           }).catch((err) => {
             isResolved = true;
             if (timeoutId) clearTimeout(timeoutId);
-            console.error('[useSectors] ❌ Fetch promise rejected:', err);
             throw err;
           }),
           timeoutPromise
-        ]) as any;
+        ]);
         
+        clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
-        console.log(`[useSectors] 🔵 Promise.race completed after ${duration}ms`);
+        console.log(`[useSectors] ✅ QueryBuilder resolved after ${duration}ms:`, result);
         
         const { data, error } = result;
 
@@ -104,7 +94,7 @@ export const useSectors = (enabled: boolean = true) => {
             errorMessage = 'Keine Berechtigung zum Laden der Sektoren. Bitte melde dich an.';
           } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
             errorMessage = 'Netzwerkfehler. Bitte überprüfe deine Internetverbindung.';
-          } else if (error.message?.includes('timeout')) {
+          } else if (error.message?.includes('timeout') || error.name === 'AbortError') {
             errorMessage = 'Zeitüberschreitung beim Laden. Bitte versuche es erneut.';
           }
           
@@ -120,8 +110,16 @@ export const useSectors = (enabled: boolean = true) => {
         
         console.log('[useSectors] ✅ Fetched sectors:', data.length, 'sectors');
         return data as Sector[];
-      } catch (error) {
+      } catch (error: any) {
+        clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
+        
+        // Check if it's a timeout/abort error
+        if (error?.name === 'AbortError' || error?.message?.includes('timeout')) {
+          console.error(`[useSectors] ⏱️ TIMEOUT after ${duration}ms:`, error);
+          throw new Error('Supabase request timeout after 10s');
+        }
+        
         console.error(`[useSectors] ❌ Exception after ${duration}ms:`, error);
         // CRITICAL: Re-throw error to mark query as error state, not return empty array
         // This ensures React Query shows error state instead of hanging in loading state

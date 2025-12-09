@@ -172,9 +172,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
     const loadingStartTime = Date.now();
+    let sessionLoaded = false; // Track if session has been loaded
     
     // Log loading start
-    console.log('[Auth] Loading started');
+    console.log('[Auth] Loading started (reload check)');
     
     // Set a timeout to ensure loading doesn't hang forever
     // Only trigger if there's really no session - if user/session exists, give more time
@@ -195,7 +196,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     // Additional safety timeout: If still loading after 10 seconds, force reset
     const safetyTimeoutId = setTimeout(() => {
-      if (mounted && loading) {
+      if (mounted && loading && !sessionLoaded) {
         console.error('[Auth] CRITICAL: Auth still loading after 10s - forcing reset');
         setLoading(false);
         setSession(null);
@@ -207,6 +208,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } catch (e) {
           // Ignore storage errors
         }
+      } else if (mounted && sessionLoaded) {
+        // Session already loaded, just ensure loading is false
+        console.log('[Auth] Safety timeout reached but session already loaded, ensuring loading=false');
+        setLoading(false);
+        clearTimeout(safetyTimeoutId);
       }
     }, 10000); // 10 second safety timeout
 
@@ -229,12 +235,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const userId = session?.user?.id || null;
             console.log(`[Auth] Session status after reload: {hasSession: ${hasSession}, hasUser: ${hasUser}, userId: ${userId}}`);
             
-            console.log(`[Auth] ✅ Setting loading to false NOW (event: ${event})`);
-            setSession(session);
-            setUser(session?.user ?? null);
-            setLoading(false);
-            clearTimeout(timeoutId);
-            console.log(`[Auth] ✅ State updated: loading=false, user=${!!session?.user}, session=${!!session}`);
+            // Only set loading to false if we haven't already loaded the session
+            // This prevents race conditions between getSession() and onAuthStateChange
+            if (!sessionLoaded) {
+              sessionLoaded = true;
+              console.log(`[Auth] ✅ Setting loading to false NOW (event: ${event})`);
+              setSession(session);
+              setUser(session?.user ?? null);
+              setLoading(false);
+              clearTimeout(timeoutId);
+              clearTimeout(safetyTimeoutId);
+              console.log(`[Auth] ✅ State updated: loading=false, user=${!!session?.user}, session=${!!session}`);
+            } else {
+              // Session already loaded, just update state without changing loading
+              console.log(`[Auth] Session already loaded, updating state only (event: ${event})`);
+              setSession(session);
+              setUser(session?.user ?? null);
+            }
             
             // Sync user_metadata to profiles table when session becomes available
             // This happens on SIGNED_IN, TOKEN_REFRESHED, and INITIAL_SESSION events
@@ -350,12 +367,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log(`[Auth] Loading ended (duration: ${loadingDuration}ms)`);
         console.log(`[Auth] Session status after reload: {hasSession: ${hasSession}, hasUser: ${hasUser}, userId: ${userId}}`);
         
-        console.log(`[Auth] ✅ Setting loading to false NOW (getSession)`);
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-        clearTimeout(timeoutId);
-        console.log(`[Auth] ✅ State updated: loading=false, user=${!!session?.user}, session=${!!session}`);
+        // Only set loading to false if we haven't already loaded the session
+        // This prevents race conditions between getSession() and onAuthStateChange
+        if (!sessionLoaded) {
+          sessionLoaded = true;
+          console.log(`[Auth] ✅ Setting loading to false NOW (getSession)`);
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+          clearTimeout(timeoutId);
+          clearTimeout(safetyTimeoutId);
+          console.log(`[Auth] ✅ State updated: loading=false, user=${!!session?.user}, session=${!!session}`);
+        } else {
+          // Session already loaded via onAuthStateChange, just update state
+          console.log(`[Auth] Session already loaded via onAuthStateChange, updating state only`);
+          setSession(session);
+          setUser(session?.user ?? null);
+        }
         
         // Also sync on initial session load
         if (session?.user) {
@@ -428,7 +456,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     };
-  }, [loading]);
+  }, []); // Remove loading dependency to prevent infinite loops - only run once on mount
 
   // Re-check session when tab becomes visible (after initial mount)
   // Only check current session, don't refresh it (refreshSession can invalidate valid sessions)

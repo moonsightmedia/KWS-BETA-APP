@@ -47,6 +47,19 @@ const CompetitionContent = () => {
   // Log when component is mounted
   useEffect(() => {
     console.log('[Competition] Component mounted');
+    
+    // Debug: Check environment variables in production
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    console.log('[Competition] Environment check:', {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!supabaseKey,
+      urlPreview: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'MISSING',
+      keyPreview: supabaseKey ? `${supabaseKey.substring(0, 20)}...` : 'MISSING',
+      mode: import.meta.env.MODE,
+      prod: import.meta.env.PROD,
+      dev: import.meta.env.DEV,
+    });
   }, []);
   
   // Refetch-Logik entfernt - React Query macht das automatisch mit refetchOnMount: true

@@ -70,70 +70,60 @@ export const useBoulders = (enabled: boolean = true) => {
       console.log('[useBoulders] 🔵 STARTING fetch from Supabase... (enabled:', enabled, ')');
       const startTime = Date.now();
       
-      try {
-        console.log('[useBoulders] 🔵 Creating Supabase query...');
-        console.log('[useBoulders] 🔵 Supabase client:', typeof supabase, 'has from:', typeof supabase.from);
-        
-        // CRITICAL: Supabase QueryBuilder is a thenable, convert to Promise explicitly
-        const queryBuilder = supabase
-          .from('boulders')
-          .select('*')
-          .order('created_at', { ascending: false });
-        
-        console.log('[useBoulders] 🔵 QueryBuilder created, type:', typeof queryBuilder, 'is Promise:', queryBuilder instanceof Promise);
-        
-        // CRITICAL: Supabase QueryBuilder is already a thenable Promise
-        // We can use it directly, but let's ensure it's executed
-        console.log('[useBoulders] 🔵 QueryBuilder is thenable:', typeof queryBuilder.then === 'function');
-        
-        // CRITICAL: Execute the QueryBuilder by calling .then() or using it as Promise
-        // Supabase QueryBuilder executes the query when awaited or .then() is called
-        const fetchPromise = (async () => {
-          try {
-            console.log('[useBoulders] 🔵 Executing QueryBuilder (awaiting)...');
-            console.log('[useBoulders] 🔵 QueryBuilder before await:', queryBuilder);
-            const result = await queryBuilder;
-            console.log('[useBoulders] ✅ QueryBuilder resolved:', result);
-            return result;
-          } catch (error) {
-            console.error('[useBoulders] ❌ QueryBuilder rejected:', error);
-            throw error;
+      console.log('[useBoulders] 🔵 Creating Supabase query...');
+      console.log('[useBoulders] 🔵 Supabase client:', typeof supabase, 'has from:', typeof supabase.from);
+      
+      // CRITICAL: Supabase QueryBuilder is a thenable, convert to Promise explicitly
+      const queryBuilder = supabase
+        .from('boulders')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      console.log('[useBoulders] 🔵 QueryBuilder created, type:', typeof queryBuilder, 'is Promise:', queryBuilder instanceof Promise);
+      
+      // CRITICAL: Supabase QueryBuilder is already a thenable Promise
+      // We can use it directly, but let's ensure it's executed
+      console.log('[useBoulders] 🔵 QueryBuilder is thenable:', typeof queryBuilder.then === 'function');
+      
+      // CRITICAL: Execute the QueryBuilder directly
+      // Wrap in Promise.resolve to ensure it's executed in production builds
+      let timeoutId: NodeJS.Timeout | null = null;
+      let isResolved = false;
+      
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          if (!isResolved) {
+            console.error('[useBoulders] ⏱️ TIMEOUT after 10s - request never completed');
+            reject(new Error('Supabase request timeout after 10s'));
           }
-        })();
+        }, 10000);
+      });
+      
+      try {
+        console.log('[useBoulders] 🔵 Executing QueryBuilder (awaiting)...');
+        console.log('[useBoulders] 🔵 QueryBuilder before await:', queryBuilder);
         
-        console.log('[useBoulders] 🔵 FetchPromise created, type:', typeof fetchPromise, 'is Promise:', fetchPromise instanceof Promise);
+        // CRITICAL: Directly await the QueryBuilder - it's already a thenable Promise
+        // The QueryBuilder will execute the fetch when awaited
+        const queryPromise = queryBuilder.then ? queryBuilder : Promise.resolve(queryBuilder);
         
-        // Set up timeout
-        let timeoutId: NodeJS.Timeout | null = null;
-        let isResolved = false;
-        
-        const timeoutPromise = new Promise((_, reject) => {
-          timeoutId = setTimeout(() => {
-            if (!isResolved) {
-              console.error('[useBoulders] ⏱️ TIMEOUT after 10s - request never completed');
-              reject(new Error('Supabase request timeout after 10s'));
-            }
-          }, 10000);
-        });
-        
-        console.log('[useBoulders] 🔵 Starting Promise.race (fetch vs timeout)...');
+        // Race between query and timeout
         const result = await Promise.race([
-          fetchPromise.then((result) => {
+          queryPromise.then((res) => {
             isResolved = true;
             if (timeoutId) clearTimeout(timeoutId);
-            console.log('[useBoulders] ✅ Fetch promise resolved');
-            return result;
+            return res;
           }).catch((err) => {
             isResolved = true;
             if (timeoutId) clearTimeout(timeoutId);
-            console.error('[useBoulders] ❌ Fetch promise rejected:', err);
             throw err;
           }),
           timeoutPromise
-        ]) as any;
+        ]);
         
+        clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
-        console.log(`[useBoulders] 🔵 Promise.race completed after ${duration}ms`);
+        console.log(`[useBoulders] ✅ QueryBuilder resolved after ${duration}ms:`, result);
         
         const { data, error } = result;
 
@@ -150,7 +140,15 @@ export const useBoulders = (enabled: boolean = true) => {
         
         return data as Boulder[];
       } catch (error: any) {
+        clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
+        
+        // Check if it's a timeout/abort error
+        if (error?.name === 'AbortError' || error?.message?.includes('timeout')) {
+          console.error(`[useBoulders] ⏱️ TIMEOUT after ${duration}ms:`, error);
+          throw new Error('Supabase request timeout after 10s');
+        }
+        
         console.error(`[useBoulders] ❌ Exception in queryFn after ${duration}ms:`, error);
         // CRITICAL: Throw error to mark query as error state, not return empty array
         // This ensures React Query shows error state instead of hanging in loading state

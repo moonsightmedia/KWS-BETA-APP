@@ -26,17 +26,17 @@ export const useCompetitionParticipant = () => {
           try {
             const guestId = localStorage.getItem('competition_guest_id');
             if (guestId) {
-              const queryPromise = (supabase as any)
+              const queryBuilder = (supabase as any)
                 .from('competition_participants')
                 .select('*')
                 .eq('id', guestId)
                 .eq('is_guest', true)
                 .maybeSingle();
 
-              // Set up timeout
+              // Use Promise.race for timeout
               let timeoutId: NodeJS.Timeout | null = null;
               let isResolved = false;
-
+              
               const timeoutPromise = new Promise<never>((_, reject) => {
                 timeoutId = setTimeout(() => {
                   if (!isResolved) {
@@ -46,25 +46,37 @@ export const useCompetitionParticipant = () => {
                 }, 10000);
               });
 
-              const result = await Promise.race([
-                queryPromise.then((result) => {
-                  isResolved = true;
-                  if (timeoutId) clearTimeout(timeoutId);
-                  return result;
-                }).catch((err) => {
-                  isResolved = true;
-                  if (timeoutId) clearTimeout(timeoutId);
-                  throw err;
-                }),
-                timeoutPromise
-              ]);
-
-              const { data, error } = result;
-              if (error) throw error;
-              
-              const duration = Date.now() - startTime;
-              console.log(`[useCompetitionParticipant] ✅ Guest participant fetched after ${duration}ms`);
-              return data as CompetitionParticipant | null;
+              try {
+                // CRITICAL: Directly await the QueryBuilder - it's already a thenable Promise
+                const queryPromise = queryBuilder.then ? queryBuilder : Promise.resolve(queryBuilder);
+                
+                // Race between query and timeout
+                const result = await Promise.race([
+                  queryPromise.then((res) => {
+                    isResolved = true;
+                    if (timeoutId) clearTimeout(timeoutId);
+                    return res;
+                  }).catch((err) => {
+                    isResolved = true;
+                    if (timeoutId) clearTimeout(timeoutId);
+                    throw err;
+                  }),
+                  timeoutPromise
+                ]);
+                clearTimeout(timeoutId);
+                const { data, error } = result;
+                if (error) throw error;
+                
+                const duration = Date.now() - startTime;
+                console.log(`[useCompetitionParticipant] ✅ Guest participant fetched after ${duration}ms`);
+                return data as CompetitionParticipant | null;
+              } catch (error: any) {
+                clearTimeout(timeoutId);
+                if (error?.name === 'AbortError' || error?.message?.includes('timeout')) {
+                  throw new Error('Supabase request timeout after 10s');
+                }
+                throw error;
+              }
             }
           } catch (error) {
             // Ignore localStorage errors, but log Supabase errors
@@ -76,16 +88,16 @@ export const useCompetitionParticipant = () => {
         }
 
         // For logged-in users
-        const queryPromise = (supabase as any)
+        const queryBuilder = (supabase as any)
           .from('competition_participants')
           .select('*')
           .eq('user_id', user.id)
           .maybeSingle();
 
-        // Set up timeout
+        // Use Promise.race for timeout
         let timeoutId: NodeJS.Timeout | null = null;
         let isResolved = false;
-
+        
         const timeoutPromise = new Promise<never>((_, reject) => {
           timeoutId = setTimeout(() => {
             if (!isResolved) {
@@ -95,25 +107,42 @@ export const useCompetitionParticipant = () => {
           }, 10000);
         });
 
-        const result = await Promise.race([
-          queryPromise.then((result) => {
-            isResolved = true;
-            if (timeoutId) clearTimeout(timeoutId);
-            return result;
-          }).catch((err) => {
-            isResolved = true;
-            if (timeoutId) clearTimeout(timeoutId);
-            throw err;
-          }),
-          timeoutPromise
-        ]);
-
-        const { data, error } = result;
-        if (error) throw error;
-        
-        const duration = Date.now() - startTime;
-        console.log(`[useCompetitionParticipant] ✅ User participant fetched after ${duration}ms`);
-        return data as CompetitionParticipant | null;
+        try {
+          // CRITICAL: Directly await the QueryBuilder - it's already a thenable Promise
+          const queryPromise = queryBuilder.then ? queryBuilder : Promise.resolve(queryBuilder);
+          
+          // Race between query and timeout
+          const result = await Promise.race([
+            queryPromise.then((res) => {
+              isResolved = true;
+              if (timeoutId) clearTimeout(timeoutId);
+              return res;
+            }).catch((err) => {
+              isResolved = true;
+              if (timeoutId) clearTimeout(timeoutId);
+              throw err;
+            }),
+            timeoutPromise
+          ]);
+          clearTimeout(timeoutId);
+          const { data, error } = result;
+          if (error) throw error;
+          
+          const duration = Date.now() - startTime;
+          console.log(`[useCompetitionParticipant] ✅ User participant fetched after ${duration}ms`);
+          return data as CompetitionParticipant | null;
+        } catch (error: any) {
+          clearTimeout(timeoutId);
+          const duration = Date.now() - startTime;
+          
+          if (error?.name === 'AbortError' || error?.message?.includes('timeout')) {
+            console.error(`[useCompetitionParticipant] ⏱️ TIMEOUT after ${duration}ms:`, error);
+            throw new Error('Supabase request timeout after 10s');
+          }
+          
+          console.error(`[useCompetitionParticipant] ❌ Exception after ${duration}ms:`, error);
+          throw error;
+        }
       } catch (error: any) {
         const duration = Date.now() - startTime;
         console.error(`[useCompetitionParticipant] ❌ Exception after ${duration}ms:`, error);

@@ -30,7 +30,7 @@ const queryClient = new QueryClient({
       staleTime: 0, // CRITICAL FIX: Set to 0 to ensure data is always refetched after reload
       gcTime: 10 * 60 * 1000, // Keep data in cache for 10 minutes
       refetchOnMount: true, // Always refetch on mount to ensure data is loaded after reload
-      refetchOnWindowFocus: true, // Refetch stale queries when window regains focus (tab switch back)
+      refetchOnWindowFocus: false, // DISABLED: Causes hanging queries in production build when triggered during mutations
       refetchOnReconnect: true, // Refetch when network reconnects
       retry: 1, // Only retry once on failure
       networkMode: 'online', // Only run queries when online to avoid hanging
