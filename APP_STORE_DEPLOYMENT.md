@@ -15,109 +15,15 @@ Diese App ist als PWA (Progressive Web App) konfiguriert und kann sowohl als Web
 
 Für die App Stores werden verschiedene Icon-Größen benötigt:
 
-### Android (Play Store)
-- **App Icon**: 512x512px (PNG, 32-bit)
-- **Feature Graphic**: 1024x500px (PNG)
-- **Screenshots**: Mindestens 2, verschiedene Gerätegrößen
-
-### iOS (App Store)
-- **App Icon**: 1024x1024px (PNG, ohne Transparenz)
-- **Screenshots**: 
-  - iPhone: 6.7", 6.5", 5.5" Display
-  - iPad: 12.9", 11" Display
-
 ### PWA Icons (bereits im Manifest)
 - 192x192px
 - 512x512px
 
 **Aktuelles Logo**: `/public/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png`
 
-## Schritt 2: PWA zu Native App konvertieren
+## Schritt 2: PWA Deployment
 
-### Option A: PWABuilder (Microsoft) - Empfohlen für Anfänger
-
-1. **Installation**:
-   ```bash
-   npm install -g @pwabuilder/cli
-   ```
-
-2. **App analysieren**:
-   ```bash
-   pwabuilder https://beta.kletterwelt-sauerland.de
-   ```
-
-3. **Native Apps generieren**:
-   - PWABuilder erstellt automatisch Android (APK/AAB) und iOS (Xcode-Projekt)
-   - Folgen Sie den Anweisungen im PWABuilder Dashboard
-
-### Option B: Bubblewrap (Google) - Für Android
-
-1. **Installation**:
-   ```bash
-   npm install -g @bubblewrap/cli
-   ```
-
-2. **Projekt initialisieren**:
-   ```bash
-   bubblewrap init --manifest https://beta.kletterwelt-sauerland.de/manifest.webmanifest
-   ```
-
-3. **Android App erstellen**:
-   ```bash
-   bubblewrap build
-   ```
-
-### Option C: Capacitor (Ionic) - Für iOS und Android
-
-1. **Installation**:
-   ```bash
-   npm install @capacitor/core @capacitor/cli
-   npm install @capacitor/android @capacitor/ios
-   ```
-
-2. **Capacitor initialisieren**:
-   ```bash
-   npx cap init "KWS Beta App" "com.kletterwelt.beta"
-   ```
-
-3. **Plattformen hinzufügen**:
-   ```bash
-   npx cap add android
-   npx cap add ios
-   ```
-
-4. **App bauen**:
-   ```bash
-   npm run build
-   npx cap sync
-   ```
-
-5. **In IDE öffnen**:
-   ```bash
-   npx cap open android  # Android Studio
-   npx cap open ios      # Xcode
-   ```
-
-## Schritt 3: App Store Metadaten vorbereiten
-
-### Play Store (Android)
-
-**App-Informationen**:
-- **App-Name**: Kletterwelt Sauerland Beta App
-- **Kurzbeschreibung**: Boulder-Übersicht mit Beta-Videos, Statistiken und Wettkämpfen
-- **Vollständige Beschreibung**: 
-  ```
-  Die offizielle Beta-App der Kletterwelt Sauerland. 
-  
-  Features:
-  - Aktuelle Boulder-Übersicht mit Beta-Videos
-  - Detaillierte Statistiken und Schwierigkeitsgrade
-  - Wettkampf-Modus mit Live-Rangliste
-  - Admin-Tools für Setter
-  - Offline-Funktionalität
-  
-  Für Kletterer, die immer auf dem neuesten Stand sein wollen!
-  ```
+Die App kann als PWA installiert werden, wenn sie auf einem Server mit HTTPS gehostet wird.
 
 **Kategorien**: Sport, Lifestyle
 

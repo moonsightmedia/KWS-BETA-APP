@@ -2,7 +2,7 @@
 
 ## Übersicht
 
-Das Benachrichtigungssystem unterstützt sowohl In-App- als auch Push-Benachrichtigungen. Push-Benachrichtigungen erfordern zusätzliche Konfiguration für native Apps (Android/iOS).
+Das Benachrichtigungssystem unterstützt sowohl In-App- als auch Push-Benachrichtigungen. Push-Benachrichtigungen erfordern zusätzliche Konfiguration für native Apps.
 
 ## Aktueller Status
 
@@ -33,8 +33,7 @@ serve(async (req) => {
 })
 ```
 
-2. Konfiguriere Firebase Cloud Messaging (FCM) für Android
-3. Konfiguriere Apple Push Notification Service (APNs) für iOS
+2. Konfiguriere Firebase Cloud Messaging (FCM) oder Apple Push Notification Service (APNs)
 
 ### Option 2: Firebase Admin SDK
 
@@ -48,37 +47,6 @@ serve(async (req) => {
 2. Integriere SDK in `src/services/pushNotifications.ts`
 3. Aktualisiere Token-Registrierung entsprechend
 
-## Android Setup
-
-### Firebase Cloud Messaging (FCM)
-
-1. Erstelle ein Firebase-Projekt unter https://console.firebase.google.com
-2. Füge Android-App zum Projekt hinzu
-3. Lade `google-services.json` nach `android/app/`
-4. Konfiguriere `android/build.gradle`:
-
-```gradle
-buildscript {
-    dependencies {
-        classpath 'com.google.gms:google-services:4.3.15'
-    }
-}
-```
-
-5. Konfiguriere `android/app/build.gradle`:
-
-```gradle
-apply plugin: 'com.google.gms.google-services'
-```
-
-## iOS Setup
-
-### Apple Push Notification Service (APNs)
-
-1. Erstelle App ID in Apple Developer Portal
-2. Aktiviere Push Notifications Capability
-3. Generiere APNs Auth Key oder Certificate
-4. Konfiguriere `ios/App/App.xcodeproj` mit Push Notifications Capability
 
 ## Datenbank-Webhook für Push-Versand
 
@@ -100,7 +68,7 @@ Optional: Erstelle einen Database Webhook, der automatisch Push-Benachrichtigung
 
 1. Wähle Push-Notification-Service (FCM, OneSignal, etc.)
 2. Implementiere Versand-Logik in Edge Function oder Backend
-3. Konfiguriere Android/iOS Credentials
+3. Konfiguriere Credentials für den gewählten Service
 4. Teste auf echten Geräten
 5. Aktiviere Push-Benachrichtigungen für Benutzer
 

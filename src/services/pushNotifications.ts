@@ -4,14 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
  * Service for sending push notifications
  * 
  * This service handles the delivery of push notifications to devices.
- * For native apps, this requires:
- * - Firebase Cloud Messaging (FCM) for Android
- * - Apple Push Notification Service (APNs) for iOS
  * 
  * Implementation options:
  * 1. Supabase Edge Function (recommended)
  * 2. External service (OneSignal, Firebase Admin SDK)
- * 3. Direct FCM/APNs integration
+ * 3. Browser Notification API for web
  */
 
 export interface PushNotificationPayload {

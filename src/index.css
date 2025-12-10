@@ -158,7 +158,7 @@ All colors MUST be HSL.
   
   body {
     min-height: 100vh;
-    /* Allow scrolling - manipulation was blocking scroll on Android */
+    /* Allow scrolling */
     /* Double-tap zoom prevention is handled in main.tsx */
   }
   

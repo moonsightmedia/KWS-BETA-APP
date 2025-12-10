@@ -10,52 +10,6 @@
 - ✅ 192x192px
 - ✅ 512x512px
 
-### Android (Play Store)
-
-#### App Icon
-- **Größe**: 512x512px
-- **Format**: PNG (32-bit)
-- **Hintergrund**: Kann transparent sein, wird aber auf weißem Hintergrund angezeigt
-- **Dateiname**: `icon-512.png`
-
-#### Feature Graphic
-- **Größe**: 1024x500px
-- **Format**: PNG oder JPG
-- **Verwendung**: Wird im Play Store oben angezeigt
-- **Dateiname**: `feature-graphic.png`
-
-#### Screenshots
-- **Mindestens**: 2 Screenshots
-- **Empfohlene Größen**:
-  - Phone: 1080x1920px (Portrait) oder 1920x1080px (Landscape)
-  - 7" Tablet: 1200x1920px
-  - 10" Tablet: 1600x2560px
-- **Format**: PNG oder JPG
-
-### iOS (App Store)
-
-#### App Icon
-- **Größe**: 1024x1024px
-- **Format**: PNG (keine Transparenz!)
-- **Hintergrund**: Muss sichtbar sein (kein transparenter Hintergrund)
-- **Dateiname**: `AppIcon-1024.png`
-
-#### Screenshots
-- **iPhone 6.7" Display (iPhone 14 Pro Max)**:
-  - Portrait: 1290x2796px
-  - Landscape: 2796x1290px
-- **iPhone 6.5" Display (iPhone 11 Pro Max)**:
-  - Portrait: 1242x2688px
-  - Landscape: 2688x1242px
-- **iPhone 5.5" Display (iPhone 8 Plus)**:
-  - Portrait: 1242x2208px
-  - Landscape: 2208x1242px
-- **iPad Pro 12.9"**:
-  - Portrait: 2048x2732px
-  - Landscape: 2732x2048px
-- **iPad Pro 11"**:
-  - Portrait: 1668x2388px
-  - Landscape: 2388x1668px
 
 ## Icon-Generierung
 
@@ -87,41 +41,20 @@ convert 080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png \
 ```
 public/
 ├── icons/
-│   ├── android/
-│   │   ├── icon-512.png
-│   │   └── feature-graphic.png
-│   ├── ios/
-│   │   └── AppIcon-1024.png
 │   └── pwa/
 │       ├── icon-192.png
 │       └── icon-512.png
-└── screenshots/
-    ├── android/
-    │   ├── screenshot-1.png
-    │   ├── screenshot-2.png
-    │   └── ...
-    └── ios/
-        ├── screenshot-1.png
-        ├── screenshot-2.png
-        └── ...
 ```
 
 ## Design-Richtlinien
 
-### Android
-- **Abgerundete Ecken**: Play Store rundet Icons automatisch ab
+### PWA Icons
+- **Abgerundete Ecken**: Browser können Icons automatisch abrunden
 - **Sicherheitsbereich**: Wichtige Inhalte sollten im inneren 80% des Icons bleiben
 - **Kein Text**: Vermeiden Sie Text im Icon (wird zu klein)
-
-### iOS
-- **Keine Transparenz**: iOS Icons müssen einen sichtbaren Hintergrund haben
-- **Abgerundete Ecken**: iOS rundet Icons automatisch ab
-- **Sicherheitsbereich**: Wichtige Inhalte sollten im inneren 80% des Icons bleiben
 
 ## Nächste Schritte
 
 1. Icons in den benötigten Größen generieren
 2. Icons im Manifest aktualisieren (falls nötig)
-3. Icons für PWABuilder/Capacitor vorbereiten
-4. Screenshots der App erstellen
 

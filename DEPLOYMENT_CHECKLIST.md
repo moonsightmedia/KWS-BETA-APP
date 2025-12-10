@@ -60,25 +60,14 @@
 
 #### Icons generieren
 - [ ] PWA Icons (192x192, 512x512)
-- [ ] Android App Icon (512x512)
-- [ ] Android Feature Graphic (1024x500)
-- [ ] iOS App Icon (1024x1024)
-- [ ] Screenshots für beide Stores
 
-#### PWA zu Native App konvertieren
-- [ ] PWABuilder oder Capacitor einrichten
-- [ ] Android App generieren
-- [ ] iOS App generieren (falls gewünscht)
-
-#### App Store Metadaten
-- [ ] App-Beschreibung schreiben
-- [ ] Screenshots erstellen
-- [ ] Privacy Policy erstellen
-- [ ] Kontaktinformationen vorbereiten
+#### PWA Deployment
+- [ ] HTTPS aktiviert
+- [ ] Service Worker funktioniert
+- [ ] Manifest korrekt konfiguriert
 
 #### Testing
-- [ ] Native App auf Android testen
-- [ ] Native App auf iOS testen (falls gewünscht)
+- [ ] PWA-Installation testen
 - [ ] Performance testen
 - [ ] Offline-Funktionalität testen
 
@@ -110,27 +99,18 @@
    pwabuilder https://beta.kletterwelt-sauerland.de
    ```
 
-3. **Oder Capacitor einrichten**:
-   ```bash
-   npm install @capacitor/core @capacitor/cli
-   npm install @capacitor/android @capacitor/ios
-   npx cap init
-   ```
+3. **PWA testen**:
+   - Öffnen Sie die App im Browser
+   - Prüfen Sie, ob "Zum Startbildschirm hinzufügen" verfügbar ist
 
 4. **Testing durchführen**:
    - PWA-Installation testen
    - Offline-Funktionalität testen
    - Verschiedene Browser testen
 
-5. **App Stores vorbereiten**:
-   - Google Play Console Account erstellen
-   - Apple Developer Account erstellen (falls iOS)
-   - Apps hochladen und veröffentlichen
-
 ## 📚 Weitere Ressourcen
 
 - [APP_STORE_DEPLOYMENT.md](APP_STORE_DEPLOYMENT.md) - Vollständige Anleitung
 - [ICON_REQUIREMENTS.md](ICON_REQUIREMENTS.md) - Icon-Anforderungen
 - [PWABuilder Dokumentation](https://docs.pwabuilder.com/)
-- [Capacitor Dokumentation](https://capacitorjs.com/docs)
 

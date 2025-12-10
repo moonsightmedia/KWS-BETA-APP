@@ -1,14 +1,12 @@
-import { PushNotifications } from '@capacitor/push-notifications';
-import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 let isInitialized = false;
 
 export const initializePushNotifications = async () => {
-  // Only initialize on native platforms
-  if (!Capacitor.isNativePlatform()) {
-    console.log('[PushNotifications] Not a native platform, skipping initialization');
+  // Only initialize on web platforms with Notification API support
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+    console.log('[PushNotifications] Not supported on this platform, skipping initialization');
     return;
   }
 
@@ -18,16 +16,10 @@ export const initializePushNotifications = async () => {
   }
 
   try {
-    // Check if PushNotifications plugin is available
-    if (!PushNotifications) {
-      console.warn('[PushNotifications] Plugin not available');
-      return;
-    }
-
     // Check current permission status (don't request yet)
     let permStatus;
     try {
-      permStatus = await PushNotifications.checkPermissions();
+      permStatus = Notification.permission;
     } catch (error) {
       console.error('[PushNotifications] Error checking permissions:', error);
       return;
@@ -35,56 +27,28 @@ export const initializePushNotifications = async () => {
     
     // Only request permission if not already granted/denied
     // Don't auto-request on app start - let user enable it manually in settings
-    if (permStatus.receive === 'prompt') {
+    if (permStatus === 'default') {
       console.log('[PushNotifications] Permission prompt available, but not requesting automatically');
       // Don't request permission automatically - user can enable in settings
       return;
     }
 
-    if (permStatus.receive !== 'granted') {
-      console.warn('[PushNotifications] Permission not granted:', permStatus.receive);
+    if (permStatus !== 'granted') {
+      console.warn('[PushNotifications] Permission not granted:', permStatus);
       return;
     }
 
-    // Register for push notifications only if permission is granted
+    // Register service worker for push notifications
     try {
-      await PushNotifications.register();
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.ready;
+        console.log('[PushNotifications] Service worker ready');
+        // Push notifications would be handled here if service worker is configured
+      }
     } catch (error) {
       console.error('[PushNotifications] Error registering:', error);
       return;
     }
-
-    // Listen for registration
-    PushNotifications.addListener('registration', async (token) => {
-      console.log('[PushNotifications] Registration token:', token.value);
-      await registerPushToken(token.value);
-    });
-
-    // Listen for registration errors
-    PushNotifications.addListener('registrationError', (error) => {
-      console.error('[PushNotifications] Registration error:', error);
-      toast.error('Fehler bei Push-Benachrichtigungen', {
-        description: error.error,
-      });
-    });
-
-    // Listen for push notifications received while app is in foreground
-    PushNotifications.addListener('pushNotificationReceived', (notification) => {
-      console.log('[PushNotifications] Push notification received:', notification);
-      toast.info(notification.title || 'Neue Benachrichtigung', {
-        description: notification.body,
-        duration: 5000,
-      });
-    });
-
-    // Listen for push notification actions
-    PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-      console.log('[PushNotifications] Push notification action performed:', action);
-      // Handle navigation if needed
-      if (action.notification.data?.action_url) {
-        window.location.href = action.notification.data.action_url;
-      }
-    });
 
     isInitialized = true;
     console.log('[PushNotifications] Initialized successfully');
@@ -103,7 +67,7 @@ export const registerPushToken = async (token: string) => {
       return;
     }
 
-    const platform = Capacitor.getPlatform() === 'ios' ? 'ios' : 'android';
+    const platform = 'web';
     const deviceId = await getDeviceId();
 
     // Check if token already exists
@@ -167,7 +131,7 @@ const getDeviceId = async (): Promise<string> => {
   let deviceId = localStorage.getItem(storageKey);
   
   if (!deviceId) {
-    deviceId = `${Capacitor.getPlatform()}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    deviceId = `web_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     localStorage.setItem(storageKey, deviceId);
   }
   
@@ -175,21 +139,11 @@ const getDeviceId = async (): Promise<string> => {
 };
 
 export const requestPermission = async (): Promise<boolean> => {
-  if (!Capacitor.isNativePlatform()) {
-    // For web, use browser Notification API
-    if ('Notification' in window) {
-      const permission = await Notification.requestPermission();
-      return permission === 'granted';
-    }
-    return false;
+  // For web, use browser Notification API
+  if ('Notification' in window) {
+    const permission = await Notification.requestPermission();
+    return permission === 'granted';
   }
-
-  try {
-    const permStatus = await PushNotifications.requestPermissions();
-    return permStatus.receive === 'granted';
-  } catch (error) {
-    console.error('[PushNotifications] Error requesting permission:', error);
-    return false;
-  }
+  return false;
 };
 
