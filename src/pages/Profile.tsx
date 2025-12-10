@@ -12,6 +12,7 @@ import { DashboardHeader } from '@/components/DashboardHeader';
 import { Trophy, Calendar, Award, Trash2, Info, RefreshCw, Bell, BellOff, Mountain, MessageSquare, Megaphone } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useNotificationPreferences, useUpdateNotificationPreferences } from '@/hooks/useNotificationPreferences';
+import { Capacitor } from '@capacitor/core';
 import { requestPermission, initializePushNotifications } from '@/utils/pushNotifications';
 import { useCompetitionParticipant } from '@/hooks/useCompetitionParticipant';
 import { useCompetitionResults } from '@/hooks/useCompetitionResults';
@@ -441,13 +442,15 @@ const Profile = () => {
                         onCheckedChange={async (checked) => {
                           if (checked) {
                             try {
-                              // Use browser Notification API
+                              // Use Capacitor API on native platforms, browser API on web
                               const granted = await requestPermission();
                               if (granted) {
                                 updateNotificationPreferences.mutate({ push_enabled: true });
                                 toast.success('Push-Benachrichtigungen aktiviert');
                                 // Re-initialize push notifications after permission granted
-                                initializePushNotifications().catch(console.error);
+                                if (Capacitor.isNativePlatform()) {
+                                  initializePushNotifications().catch(console.error);
+                                }
                               } else {
                                 toast.error('Push-Benachrichtigungen wurden nicht erlaubt');
                               }
@@ -460,7 +463,7 @@ const Profile = () => {
                             toast.success('Push-Benachrichtigungen deaktiviert');
                           }
                         }}
-                        disabled={!('Notification' in window)}
+                        disabled={!Capacitor.isNativePlatform() && !('Notification' in window)}
                       />
                     </div>
                     

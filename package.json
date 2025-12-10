@@ -9,6 +9,11 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:open:android": "npx cap open android",
+    "cap:open:ios": "npx cap open ios",
+    "cap:build:android": "npm run cap:sync && cd android && gradlew.bat assembleDebug && cd ..",
+    "cap:build:android:release": "npm run cap:sync && cd android && gradlew.bat bundleRelease && cd ..",
     "migrate:videos": "node scripts/migrate-videos-to-allinkl.js",
     "check:video-urls": "node scripts/check-video-urls.js",
     "fix:video-urls": "node scripts/fix-video-urls.js",
@@ -20,6 +25,11 @@
     "compress:sector-images:dry-run": "node scripts/compress-sector-images.js --dry-run"
   },
   "dependencies": {
+    "@capacitor/android": "^7.4.4",
+    "@capacitor/cli": "^7.4.4",
+    "@capacitor/core": "^7.4.4",
+    "@capacitor/ios": "^7.4.4",
+    "@capacitor/push-notifications": "^7.0.4",
     "@ffmpeg/ffmpeg": "^0.12.10",
     "@ffmpeg/util": "^0.12.1",
     "@hookform/resolvers": "^3.10.0",

@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+import { removeCrossorigin } from "./vite-plugin-remove-crossorigin";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -11,7 +12,11 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [
+    react(), 
+    mode === "development" && componentTagger(),
+    removeCrossorigin(), // Remove crossorigin for Capacitor compatibility
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -27,6 +32,8 @@ export default defineConfig(({ mode }) => ({
     },
     // Exclude service worker from build - it's disabled
     copyPublicDir: true,
+    // Disable crossorigin attribute for Capacitor compatibility
+    assetsInlineLimit: 0,
   },
   publicDir: 'public',
   optimizeDeps: {
