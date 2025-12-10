@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -24,45 +25,77 @@ interface BoulderOperationLog {
 }
 
 export const BoulderOperationLogs = () => {
+  const { user, session, loading: authLoading } = useAuth();
   const [operationFilter, setOperationFilter] = useState<string>('all');
   const [selectedLog, setSelectedLog] = useState<BoulderOperationLog | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  const queriesEnabled = !authLoading && !!user && !!session;
+
   const { data: logs, isLoading, error } = useQuery({
     queryKey: ['boulder-operation-logs', operationFilter],
+    enabled: queriesEnabled,
     queryFn: async () => {
       try {
-        let query = supabase
-          .from('boulder_operation_logs')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(100);
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+        const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        
+        if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+          throw new Error('Supabase URL or API key not found');
+        }
 
+        // Get the access token from the session for RLS
+        const accessToken = session?.access_token;
+        if (!accessToken) {
+          throw new Error('No access token available');
+        }
+
+        // Build query URL with filters
+        let queryUrl = `${SUPABASE_URL}/rest/v1/boulder_operation_logs?select=*&order=created_at.desc&limit=100`;
+        
         if (operationFilter !== 'all') {
-          query = query.eq('operation_type', operationFilter);
+          queryUrl += `&operation_type=eq.${operationFilter}`;
         }
 
-        const { data, error } = await query;
-
-        if (error) {
-          console.error('[BoulderOperationLogs] Error loading logs:', error);
-          throw error;
-        }
-
-      // Get user emails separately
-      const userIds = [...new Set((data || []).map((log: any) => log.user_id).filter(Boolean))];
-      const userEmailsMap: Record<string, string> = {};
-
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, email')
-          .in('id', userIds);
-
-        profiles?.forEach((profile: any) => {
-          userEmailsMap[profile.id] = profile.email;
+        const response = await window.fetch(queryUrl, {
+          method: 'GET',
+          headers: {
+            'apikey': SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
         });
-      }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to load logs: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+
+        // Get user emails separately
+        const userIds = [...new Set((data || []).map((log: any) => log.user_id).filter(Boolean))];
+        const userEmailsMap: Record<string, string> = {};
+
+        if (userIds.length > 0) {
+          // Use proper PostgREST syntax for 'in' filter
+          const profilesUrl = `${SUPABASE_URL}/rest/v1/profiles?select=id,email&id=in.(${userIds.map(id => `"${id}"`).join(',')})`;
+          const profilesResponse = await window.fetch(profilesUrl, {
+            method: 'GET',
+            headers: {
+              'apikey': SUPABASE_PUBLISHABLE_KEY,
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (profilesResponse.ok) {
+            const profiles = await profilesResponse.json();
+            profiles?.forEach((profile: any) => {
+              userEmailsMap[profile.id] = profile.email;
+            });
+          }
+        }
 
         // Transform logs with user emails
         return (data || []).map((log: any) => ({

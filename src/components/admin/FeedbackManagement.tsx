@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -74,33 +75,56 @@ const typeIcons: Record<FeedbackType, typeof MessageSquare> = {
 
 export const FeedbackManagement = () => {
   const queryClient = useQueryClient();
+  const { user, session, loading: authLoading } = useAuth();
   const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null);
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<FeedbackType | 'all'>('all');
 
+  const queriesEnabled = !authLoading && !!user && !!session;
+
   const { data: feedbacks, isLoading } = useQuery({
     queryKey: ['admin-feedback', statusFilter, typeFilter],
+    enabled: queriesEnabled,
     queryFn: async () => {
-      let query = supabase
-        .from('feedback')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+        throw new Error('Supabase URL or API key not found');
+      }
 
+      // Get the access token from the session for RLS
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        throw new Error('No access token available');
+      }
+
+      // Build query URL with filters
+      let queryUrl = `${SUPABASE_URL}/rest/v1/feedback?select=*&order=created_at.desc`;
+      
       if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
+        queryUrl += `&status=eq.${statusFilter}`;
       }
 
       if (typeFilter !== 'all') {
-        query = query.eq('type', typeFilter);
+        queryUrl += `&type=eq.${typeFilter}`;
       }
 
-      const { data, error } = await query;
+      const response = await window.fetch(queryUrl, {
+        method: 'GET',
+        headers: {
+          'apikey': SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-      if (error) {
-        console.error('[FeedbackManagement] Error loading feedback:', error);
-        throw error;
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to load feedback: ${response.status} ${errorText}`);
       }
 
+      const data = await response.json();
       return data as Feedback[];
     },
   });

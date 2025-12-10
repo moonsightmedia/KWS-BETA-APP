@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -15,76 +16,79 @@ import { Input } from "@/components/ui/input";
 
 export const UserManagement = () => {
   const queryClient = useQueryClient();
+  const { user, session, loading: authLoading } = useAuth();
+
+  const queriesEnabled = !authLoading && !!user && !!session;
 
   const { data: users, isLoading, error, isError } = useQuery({
     queryKey: ["admin-users"],
+    enabled: queriesEnabled,
     queryFn: async () => {
       console.log('[UserManagement] Loading profiles...');
       
-      // Create a timeout promise
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Query timeout after 10 seconds')), 10000);
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+        throw new Error('Supabase URL or API key not found');
+      }
+
+      // Get the access token from the session for RLS
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        throw new Error('No access token available');
+      }
+
+      // Use direct fetch instead of QueryBuilder
+      const profilesUrl = `${SUPABASE_URL}/rest/v1/profiles?select=*&order=created_at.desc`;
+      const profilesResponse = await window.fetch(profilesUrl, {
+        method: 'GET',
+        headers: {
+          'apikey': SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
       });
 
-      // Create the actual query promise
-      const queryPromise = (async () => {
-        // First check if we're admin
-        const { data: currentUser } = await supabase.auth.getUser();
-        console.log('[UserManagement] Current user:', currentUser?.user?.id);
-        
-        // Try to get all profiles - first without any filter
-        const { data: profiles, error: profileError, count } = await supabase
-          .from("profiles")
-          .select("*", { count: 'exact' })
-          .order("created_at", { ascending: false });
-        
-        console.log('[UserManagement] Query result with count:', {
-          profiles,
-          count,
-          error: profileError
-        });
+      if (!profilesResponse.ok) {
+        const errorText = await profilesResponse.text();
+        throw new Error(`Failed to load profiles: ${profilesResponse.status} ${errorText}`);
+      }
 
-        if (profileError) {
-          console.error('[UserManagement] Profile error:', profileError);
-          throw profileError;
-        }
+      const profiles = await profilesResponse.json();
+      console.log('[UserManagement] Profiles loaded:', profiles?.length || 0);
 
-        console.log('[UserManagement] Loading user roles...');
-        const { data: roles, error: rolesError } = await supabase
-          .from("user_roles")
-          .select("*");
+      // Load user roles
+      const rolesUrl = `${SUPABASE_URL}/rest/v1/user_roles?select=*`;
+      const rolesResponse = await window.fetch(rolesUrl, {
+        method: 'GET',
+        headers: {
+          'apikey': SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-        console.log('[UserManagement] Roles result:', {
-          count: roles?.length || 0,
-          roles,
-          error: rolesError
-        });
+      if (!rolesResponse.ok) {
+        const errorText = await rolesResponse.text();
+        throw new Error(`Failed to load roles: ${rolesResponse.status} ${errorText}`);
+      }
 
-        if (rolesError) {
-          console.error('[UserManagement] Roles error:', rolesError);
-          throw rolesError;
-        }
+      const roles = await rolesResponse.json();
+      console.log('[UserManagement] Roles loaded:', roles?.length || 0);
 
-        const mapped = profiles?.map(profile => ({
-          ...profile,
-          isAdmin: roles?.some(r => r.user_id === profile.id && r.role === 'admin') || false,
-          isSetter: roles?.some(r => r.user_id === profile.id && r.role === 'setter') || false
-        }));
+      const mapped = profiles?.map((profile: any) => ({
+        ...profile,
+        isAdmin: roles?.some((r: any) => r.user_id === profile.id && r.role === 'admin') || false,
+        isSetter: roles?.some((r: any) => r.user_id === profile.id && r.role === 'setter') || false
+      }));
 
-        console.log('[UserManagement] Mapped users:', {
-          count: mapped?.length || 0,
-          users: mapped
-        });
-
-        return mapped;
-      })();
-
-      // Race between query and timeout
-      return Promise.race([queryPromise, timeoutPromise]) as Promise<any>;
+      console.log('[UserManagement] Mapped users:', mapped?.length || 0);
+      return mapped;
     },
     retry: 2,
     retryDelay: 1000,
-    staleTime: 30000, // Consider data fresh for 30 seconds
+    staleTime: 0, // Always refetch
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 
