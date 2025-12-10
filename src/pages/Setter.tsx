@@ -33,6 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BatchUpload } from '@/components/setter/BatchUpload';
 import { Boulder } from '@/types/boulder';
 import { cn } from '@/lib/utils';
+import { useUpload } from '@/contexts/UploadContext';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -753,21 +754,28 @@ const Setter = () => {
       
       // If there's a file, upload it in the background and update the boulder
       if (form.file && createdBoulder?.id) {
-        // Show upload progress toast with custom progress bar
-        let currentProgress = 0;
-        const toastId = toast.custom((t) => (
-          <div className="w-full max-w-sm">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Video wird hochgeladen...</span>
-              <span className="text-xs text-muted-foreground">{Math.round(currentProgress)}%</span>
-            </div>
-            <Progress value={currentProgress} className="h-2" />
-          </div>
-        ), {
-          duration: Infinity, // Keep toast open until we dismiss it
-        });
-        
-        // Upload functionality removed
+        try {
+          await startUpload(createdBoulder.id, form.file, 'video', form.sector_id);
+          toast.success('Video-Upload gestartet');
+        } catch (error: any) {
+          console.error('[Setter] Error starting video upload:', error);
+          toast.error('Fehler beim Starten des Video-Uploads', {
+            description: error.message || 'Unbekannter Fehler',
+          });
+        }
+      }
+      
+      // If there's a thumbnail file, upload it
+      if (form.thumbnailFile && createdBoulder?.id) {
+        try {
+          await startUpload(createdBoulder.id, form.thumbnailFile, 'thumbnail', form.sector_id);
+          toast.success('Thumbnail-Upload gestartet');
+        } catch (error: any) {
+          console.error('[Setter] Error starting thumbnail upload:', error);
+          toast.error('Fehler beim Starten des Thumbnail-Uploads', {
+            description: error.message || 'Unbekannter Fehler',
+          });
+        }
       }
       
       setForm({ name: '', sector_id: '', spansMultipleSectors: false, sector_id_2: '', difficulty: 1, color: 'Grün', note: '', file: null, thumbnailFile: null, videoUrl: '' });
