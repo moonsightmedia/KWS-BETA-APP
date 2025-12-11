@@ -6,8 +6,6 @@ workflows:
     integrations:
       app_store_connect: codemagic
     environment:
-      groups:
-        - app_store_credentials
       vars:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
@@ -47,10 +45,7 @@ workflows:
           success: true
           failure: true
       app_store_connect:
-        # Verwende API Key aus Environment Variables
-        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        auth: integration
         
         # Automatisches Upload zu TestFlight
         submit_to_testflight: true
