@@ -1,0 +1,15 @@
+-- Note: Push notifications are sent via Supabase Edge Function
+-- The Edge Function is called from the application code (sendPushNotification)
+-- or can be triggered via a Database Webhook in Supabase Dashboard
+--
+-- To set up automatic push notifications via webhook:
+-- 1. Go to Supabase Dashboard > Database > Webhooks
+-- 2. Create a new webhook on the 'notifications' table
+-- 3. Trigger: INSERT
+-- 4. HTTP Request: POST to your Edge Function URL
+-- 5. HTTP Headers: Authorization: Bearer <anon_key>
+-- 6. HTTP Body: { "notification_id": "<id>" }
+--
+-- Alternatively, the application code will call sendPushNotificationForNotification
+-- after creating a notification, which will trigger the Edge Function
+

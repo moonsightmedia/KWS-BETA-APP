@@ -246,6 +246,48 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               clearTimeout(timeoutId);
               clearTimeout(safetyTimeoutId);
               console.log(`[Auth] ✅ State updated: loading=false, user=${!!session?.user}, session=${!!session}`);
+              
+              // CRITICAL: After reload, check if roles are missing and refresh them
+              if (session?.user) {
+                // Check localStorage first (persists), then sessionStorage (backward compatibility)
+                let storedUserId = localStorage.getItem('nav_userId');
+                if (storedUserId === null) {
+                  storedUserId = sessionStorage.getItem('nav_userId');
+                }
+                let storedAdmin = localStorage.getItem('nav_isAdmin');
+                if (storedAdmin === null) {
+                  storedAdmin = sessionStorage.getItem('nav_isAdmin');
+                }
+                let storedSetter = localStorage.getItem('nav_isSetter');
+                if (storedSetter === null) {
+                  storedSetter = sessionStorage.getItem('nav_isSetter');
+                }
+                
+                // If roles are missing or user ID doesn't match, refresh roles
+                if (storedUserId !== session.user.id || storedAdmin === null || storedSetter === null) {
+                  console.log('[Auth] Roles missing or user changed after reload, refreshing roles');
+                  // Use setTimeout to avoid blocking the initial load
+                  setTimeout(() => {
+                    checkAndStoreRoles(session.user.id).catch(err => {
+                      console.error('[Auth] Error refreshing roles after reload:', err);
+                    });
+                  }, 500);
+                }
+                
+                // CRITICAL: Also trigger a refetch of queries after reload
+                // This ensures data is fresh after page reload
+                setTimeout(async () => {
+                  try {
+                    const { refetchOnVisibilityChange } = await import('@/utils/cacheUtils');
+                    const queryClient = (window as any).__queryClient;
+                    if (queryClient) {
+                      await refetchOnVisibilityChange(queryClient);
+                    }
+                  } catch (refetchError) {
+                    console.error('[Auth] Error refetching queries after reload:', refetchError);
+                  }
+                }, 1000);
+              }
             } else {
               // Session already loaded, just update state without changing loading
               console.log(`[Auth] Session already loaded, updating state only (event: ${event})`);
@@ -396,12 +438,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           };
           await syncMetadataToProfiles(session.user.id, metadataWithEmail);
           
-          // Check and store roles if not already in sessionStorage
+          // Check and store roles if not already in localStorage
           try {
-            const storedUserId = sessionStorage.getItem('nav_userId');
+            // Check localStorage first (persists), then sessionStorage (backward compatibility)
+            let storedUserId = localStorage.getItem('nav_userId');
+            if (storedUserId === null) {
+              storedUserId = sessionStorage.getItem('nav_userId');
+            }
             if (storedUserId !== session.user.id) {
               // Different user or no roles stored - check roles
               await checkAndStoreRoles(session.user.id);
+            } else {
+              // Same user - check if roles exist, if not refresh them
+              let storedAdmin = localStorage.getItem('nav_isAdmin');
+              let storedSetter = localStorage.getItem('nav_isSetter');
+              if (storedAdmin === null) {
+                storedAdmin = sessionStorage.getItem('nav_isAdmin');
+              }
+              if (storedSetter === null) {
+                storedSetter = sessionStorage.getItem('nav_isSetter');
+              }
+              if (storedAdmin === null || storedSetter === null) {
+                console.log('[Auth] Roles missing in storage, refreshing roles');
+                await checkAndStoreRoles(session.user.id);
+              }
             }
           } catch (storageError) {
             console.warn('[Auth] Error checking stored roles:', storageError);
@@ -465,7 +525,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
-        console.log('[Auth] Tab visible - checking session');
+        console.log('[Auth] Tab visible - checking session and refreshing data');
         try {
           // Just check current session, don't refresh it
           // refreshSession() can invalidate valid sessions, so we only use it when necessary
@@ -478,17 +538,86 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           // Update state with current session if it changed
           if (session) {
+            let rolesRefreshed = false;
+            
             if (!user || session.user.id !== user.id) {
               console.log('[Auth] Session found on visibility change, updating state');
               setSession(session);
               setUser(session.user);
               
-              // Check and store roles if not already stored
-              const storedUserId = sessionStorage.getItem('nav_userId');
+              // CRITICAL: Always check and store roles when coming back to app
+              // This ensures roles are refreshed after reload or when app comes back from background
+              // Check localStorage first (persists), then sessionStorage (backward compatibility)
+              let storedUserId = localStorage.getItem('nav_userId');
+              if (storedUserId === null) {
+                storedUserId = sessionStorage.getItem('nav_userId');
+              }
+              
               if (storedUserId !== session.user.id) {
+                console.log('[Auth] User ID changed or not stored, checking roles');
                 await checkAndStoreRoles(session.user.id);
+                rolesRefreshed = true;
+              } else {
+                // Same user, but check if roles are missing and refresh them
+                let storedAdmin = localStorage.getItem('nav_isAdmin');
+                let storedSetter = localStorage.getItem('nav_isSetter');
+                if (storedAdmin === null) {
+                  storedAdmin = sessionStorage.getItem('nav_isAdmin');
+                }
+                if (storedSetter === null) {
+                  storedSetter = sessionStorage.getItem('nav_isSetter');
+                }
+                if (storedAdmin === null || storedSetter === null) {
+                  console.log('[Auth] Roles missing in storage, refreshing roles');
+                  await checkAndStoreRoles(session.user.id);
+                  rolesRefreshed = true;
+                }
+              }
+            } else {
+              // Same user - check if roles exist, if not refresh them
+              let storedAdmin = localStorage.getItem('nav_isAdmin');
+              let storedSetter = localStorage.getItem('nav_isSetter');
+              if (storedAdmin === null) {
+                storedAdmin = sessionStorage.getItem('nav_isAdmin');
+              }
+              if (storedSetter === null) {
+                storedSetter = sessionStorage.getItem('nav_isSetter');
+              }
+              
+              if (storedAdmin === null || storedSetter === null) {
+                console.log('[Auth] Same user - roles missing, refreshing roles');
+                await checkAndStoreRoles(session.user.id);
+                rolesRefreshed = true;
+              } else {
+                // Roles exist, but refresh them anyway to ensure they're current
+                console.log('[Auth] Same user - refreshing roles to ensure they are current');
+                await checkAndStoreRoles(session.user.id);
+                rolesRefreshed = true;
               }
             }
+            
+            // CRITICAL: Force a re-render of components that use roles
+            // This ensures RoleTabs and Sidebar update when roles are refreshed
+            // We do this by triggering a small state update
+            if (rolesRefreshed) {
+              // Force React to re-render components that depend on roles
+              // This is done by updating the user state slightly
+              setUser(prevUser => prevUser ? { ...prevUser } : null);
+            }
+            
+            // CRITICAL: Refetch React Query queries when app becomes visible
+            // This ensures data is fresh when user comes back to the app
+            setTimeout(async () => {
+              try {
+                const { refetchOnVisibilityChange } = await import('@/utils/cacheUtils');
+                const queryClient = (window as any).__queryClient;
+                if (queryClient) {
+                  await refetchOnVisibilityChange(queryClient);
+                }
+              } catch (refetchError) {
+                console.error('[Auth] Error refetching queries on visibility change:', refetchError);
+              }
+            }, 500);
           } else if (user) {
             // Session is null but we have a user - session expired or logged out
             console.log('[Auth] Session is null on visibility change, clearing state');
@@ -519,14 +648,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const isAdmin = !!adminResult.data;
       const isSetter = !!setterResult.data;
       
-      // Store in sessionStorage
+      // Store in localStorage (persists across app restarts)
+      // CRITICAL: Use localStorage instead of sessionStorage for native apps
+      // sessionStorage is cleared when app is closed, localStorage persists
       try {
+        localStorage.setItem('nav_isAdmin', String(isAdmin));
+        localStorage.setItem('nav_isSetter', String(isSetter));
+        localStorage.setItem('nav_userId', userId);
+        // Also set in sessionStorage for backward compatibility
         sessionStorage.setItem('nav_isAdmin', String(isAdmin));
         sessionStorage.setItem('nav_isSetter', String(isSetter));
         sessionStorage.setItem('nav_userId', userId);
         console.log('[Auth] Roles stored:', { isAdmin, isSetter, userId });
       } catch (storageError) {
-        console.warn('[Auth] Error storing roles in sessionStorage:', storageError);
+        console.warn('[Auth] Error storing roles:', storageError);
       }
     } catch (error) {
       console.error('[Auth] Error checking roles:', error);
@@ -623,28 +758,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    
-    if (error) {
-      toast.error('Abmeldung fehlgeschlagen. Bitte versuche es erneut.');
-      throw error;
+    try {
+      // Add timeout to prevent hanging
+      const signOutPromise = supabase.auth.signOut();
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Sign out timeout')), 5000);
+      });
+      
+      const { error } = await Promise.race([signOutPromise, timeoutPromise]);
+      
+      if (error) {
+        console.error('[Auth] Sign out error:', error);
+        toast.error('Abmeldung fehlgeschlagen. Bitte versuche es erneut.');
+        throw error;
+      }
+    } catch (error: any) {
+      // If signOut hangs or fails, still clear local state
+      console.warn('[Auth] Sign out failed or timed out, clearing local state anyway:', error);
+      
+      // Clear user state locally even if signOut failed
+      setUser(null);
+      setSession(null);
+      
+      // Clear React Query cache
+      queryClient.clear();
     }
     
-    // Clear persisted greeting name from localStorage
+    // Always clear persisted data, even if signOut failed
     try {
       localStorage.removeItem('greetingName');
     } catch {
       // Ignore localStorage errors
     }
     
-    // Clear stored roles from sessionStorage
+    // Clear stored roles from localStorage and sessionStorage
     try {
+      localStorage.removeItem('nav_isAdmin');
+      localStorage.removeItem('nav_isSetter');
+      localStorage.removeItem('nav_userId');
       sessionStorage.removeItem('nav_isAdmin');
       sessionStorage.removeItem('nav_isSetter');
       sessionStorage.removeItem('nav_userId');
-      console.log('[Auth] Roles cleared from sessionStorage');
+      console.log('[Auth] Roles cleared from storage');
     } catch {
-      // Ignore sessionStorage errors
+      // Ignore storage errors
     }
     
     toast.success('Erfolgreich abgemeldet!');

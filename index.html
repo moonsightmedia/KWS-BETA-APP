@@ -173,6 +173,13 @@
               const callId = fetchCallCount;
               const startTime = Date.now();
               
+              // Extract method from input or init
+              let method = init?.method;
+              if (input instanceof Request && !method) {
+                method = input.method;
+              }
+              method = method || 'GET';
+              
               // Preserve all headers
               let headers = init?.headers;
               if (headers instanceof Headers) {
@@ -205,7 +212,7 @@
               console.log('[Index HTML Fetch Override] 🚀 [' + callId + '] Starting Supabase request:', {
                 url: urlObj.href,
                 pathname: urlObj.pathname,
-                method: init?.method || 'GET',
+                method: method,
                 hasAuth: !!(finalHeaders['Authorization'] || finalHeaders['authorization']),
                 hasApiKey: !!(finalHeaders['apikey'] || finalHeaders['apiKey'] || finalHeaders['x-api-key']),
                 headerKeys: Object.keys(finalHeaders),
@@ -216,19 +223,43 @@
               // CRITICAL: Also log the actual fetch call
               console.log('[Index HTML Fetch Override] 📞 About to call originalFetch with:', {
                 url: urlObj.href,
-                method: init?.method || 'GET',
+                method: method,
                 headers: finalHeaders,
               });
               
               try {
                 const requestInit = Object.assign({}, init || {}, {
+                  method: method,
                   headers: finalHeaders,
                   cache: 'no-store'
                 });
                 
-                const request = input instanceof Request 
-                  ? new Request(input, requestInit)
-                  : new Request(input, requestInit);
+                // Handle Request objects properly - don't try to clone if already used
+                let request;
+                if (input instanceof Request) {
+                  // If input is already a Request, we need to extract the URL and create a new one
+                  // But we can't clone a used Request, so we extract the URL and create fresh
+                  // Get body if it exists (but only if not already consumed)
+                  let body = null;
+                  if (input.body && !input.bodyUsed) {
+                    body = await input.clone().arrayBuffer().catch(() => null);
+                  }
+                  
+                  request = new Request(input.url, {
+                    method: method,
+                    headers: finalHeaders,
+                    body: body || requestInit.body,
+                    cache: requestInit.cache || input.cache,
+                    credentials: requestInit.credentials || input.credentials,
+                    mode: requestInit.mode || input.mode,
+                    redirect: requestInit.redirect || input.redirect,
+                    referrer: requestInit.referrer || input.referrer,
+                    referrerPolicy: requestInit.referrerPolicy || input.referrerPolicy,
+                    integrity: requestInit.integrity || input.integrity,
+                  });
+                } else {
+                  request = new Request(input, requestInit);
+                }
                 
                 const response = await originalFetch(request);
                 

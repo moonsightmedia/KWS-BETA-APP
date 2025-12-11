@@ -1,4 +1,4 @@
-import { Settings, User, LogOut, HelpCircle, MessageSquare } from 'lucide-react';
+import { Settings, User, LogOut, HelpCircle, MessageSquare, RefreshCw, Bell } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -6,6 +6,13 @@ import { useState, createContext, useContext } from 'react';
 import { FeedbackDialog } from '@/components/FeedbackDialog';
 import { useOnboarding } from '@/components/Onboarding';
 import { RoleTabs } from '@/components/RoleTabs';
+import { useQueryClient } from '@tanstack/react-query';
+import { refreshAllData } from '@/utils/cacheUtils';
+import { toast } from 'sonner';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { sendPushNotification } from '@/services/pushNotifications';
+import { Capacitor } from '@capacitor/core';
+import { useNotifications } from '@/hooks/useNotifications';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,14 +69,85 @@ const getPageTitle = (pathname: string, setterTabTitle?: string, adminTabTitle?:
 
 export const DashboardHeader = () => {
   const location = useLocation();
-  const { user, signOut } = useAuth();
+  const { user, session, signOut } = useAuth();
   const navigate = useNavigate();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSendingTest, setIsSendingTest] = useState(false);
   const { openOnboarding } = useOnboarding();
   const { tabTitle: setterTabTitle } = useContext(SetterTabTitleContext);
   const { tabTitle: adminTabTitle } = useContext(AdminTabTitleContext);
+  const queryClient = useQueryClient();
+  const { isAdmin } = useIsAdmin();
+  
+  // CRITICAL: Use useNotifications here to ensure Realtime subscription is always active
+  // This ensures push notifications are sent when new notifications are created
+  // even if the NotificationCenter popover is not open
+  useNotifications();
   
   const pageTitle = getPageTitle(location.pathname, setterTabTitle, adminTabTitle);
+  
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      await refreshAllData(queryClient);
+      toast.success('Daten aktualisiert');
+    } catch (error) {
+      console.error('[DashboardHeader] Refresh error:', error);
+      toast.error('Fehler beim Aktualisieren');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleSendTestPush = async () => {
+    if (!user || isSendingTest) return;
+    
+    setIsSendingTest(true);
+    try {
+      console.log('[DashboardHeader] 🚀 Starting test push notification...');
+      // Sendet Push-Benachrichtigung über FCM an alle registrierten Geräte (Handys)
+      // Funktioniert sowohl vom Browser als auch von nativen Apps
+      await sendPushNotification(user.id, {
+        title: 'Test-Benachrichtigung',
+        body: 'Dies ist eine Test-Push-Benachrichtigung vom Dashboard',
+        data: {
+          test: true,
+          timestamp: new Date().toISOString(),
+        },
+        action_url: '/',
+      }, session);
+      console.log('[DashboardHeader] ✅ Test push notification sent successfully');
+      
+      // Note: Invalid tokens are automatically deleted by sendPushNotification
+      // If no error was thrown, the notification was sent (even if some tokens were invalid)
+      toast.success('Test-Benachrichtigung gesendet!', {
+        description: 'Die Benachrichtigung wurde an alle registrierten Geräte (Handys) gesendet. Ungültige Tokens wurden automatisch gelöscht.',
+      });
+    } catch (error: any) {
+      console.error('[DashboardHeader] ❌ Test push error:', error);
+      console.error('[DashboardHeader] ❌ Error details:', {
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name,
+      });
+      
+      const errorMessage = error?.message || '';
+      if (errorMessage.includes('UNREGISTERED') || errorMessage.includes('INVALID_ARGUMENT')) {
+        toast.warning('Ungültiges Token', {
+          description: 'Das Token wurde automatisch gelöscht. Bitte öffne die App auf dem Handy und aktiviere Push-Benachrichtigungen erneut.',
+        });
+      } else {
+        toast.error('Fehler beim Senden', {
+          description: error?.message || 'Unbekannter Fehler. Bitte Console-Logs prüfen.',
+        });
+      }
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
   
   return (
     <>
@@ -130,6 +208,28 @@ export const DashboardHeader = () => {
 
         {/* Right Action */}
         <div className="flex items-center justify-end gap-1 lg:gap-4">
+          {/* Test Push Button - only visible for admins, sends to registered devices (phones) */}
+          {isAdmin && (
+            <button 
+              className="p-1.5 text-[#13112B]/70 active:scale-95 transition-transform flex-shrink-0"
+              onClick={handleSendTestPush}
+              disabled={isSendingTest}
+              aria-label="Test-Push senden"
+              title="Test-Push-Benachrichtigung an registrierte Geräte (Handys) senden"
+            >
+              <Bell className={`w-5 h-5 ${isSendingTest ? 'animate-pulse' : ''}`} />
+            </button>
+          )}
+          {/* Refresh button - only visible on desktop (mobile has pull-to-refresh) */}
+          <button 
+            className="hidden lg:flex p-1.5 text-[#13112B]/70 active:scale-95 transition-transform flex-shrink-0"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            aria-label="Aktualisieren"
+            title="Aktualisieren"
+          >
+            <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
           <button 
             className="p-1.5 text-[#13112B]/70 active:scale-95 transition-transform flex-shrink-0"
             onClick={() => openOnboarding()}

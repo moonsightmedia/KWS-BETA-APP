@@ -63,10 +63,21 @@ export async function resumableUpload(
   apiUrl: string,
   options: UploadOptions
 ): Promise<string> {
+  console.log('[resumableUpload] 🚀 Starting resumable upload:', {
+    fileName: file.name,
+    fileSize: file.size,
+    sessionId: options.sessionId,
+    sectorId: options.sectorId,
+    apiUrl
+  });
+  
   const { sessionId, sectorId, onProgress, abortSignal } = options;
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+  console.log('[resumableUpload] 📊 Total chunks:', totalChunks);
   
+  console.log('[resumableUpload] 🔒 Requesting wake lock...');
   await requestWakeLock();
+  console.log('[resumableUpload] ✅ Wake lock acquired');
 
   try {
     // Check if aborted before starting
@@ -139,18 +150,47 @@ export async function resumableUpload(
           const formData = new FormData();
           formData.append('chunk', chunk);
 
-          const response = await fetch(`${apiUrl}/upload.php`, {
+          console.log(`[resumableUpload] 📤 Uploading chunk ${chunkIndex + 1}/${totalChunks} (${chunk.size} bytes) for session ${sessionId}...`);
+          console.log(`[resumableUpload] 📤 Upload URL: ${apiUrl}/upload.php`);
+          console.log(`[resumableUpload] 📤 Headers:`, headers);
+          
+          const uploadStartTime = Date.now();
+          
+          // Create a timeout promise
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error(`Upload timeout after 60s for chunk ${chunkIndex}`)), 60000);
+          });
+          
+          // Race between upload and timeout
+          const fetchPromise = fetch(`${apiUrl}/upload.php`, {
             method: 'POST',
             headers: headers, // Note: Content-Type is set automatically by browser for FormData
             body: formData,
             signal: abortSignal
           });
-
-          if (!response.ok) {
-            throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+          
+          let response: Response;
+          try {
+            response = await Promise.race([fetchPromise, timeoutPromise]);
+            const uploadDuration = Date.now() - uploadStartTime;
+            console.log(`[resumableUpload] ✅ Chunk ${chunkIndex + 1} upload completed in ${uploadDuration}ms`);
+          } catch (error: any) {
+            const uploadDuration = Date.now() - uploadStartTime;
+            console.error(`[resumableUpload] ❌ Chunk ${chunkIndex + 1} upload failed after ${uploadDuration}ms:`, error);
+            throw error;
           }
 
+          console.log(`[resumableUpload] 📥 Response status: ${response.status} ${response.statusText}`);
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[resumableUpload] ❌ Upload failed: ${response.status} ${response.statusText}`, errorText);
+            throw new Error(`Upload failed: ${response.status} ${response.statusText} - ${errorText}`);
+          }
+
+          console.log(`[resumableUpload] 📥 Parsing response JSON...`);
           const result = await response.json();
+          console.log(`[resumableUpload] 📥 Response data:`, result);
           
           // If this was the last chunk, we might get the final URL
           if (result.url) {

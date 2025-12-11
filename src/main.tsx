@@ -136,8 +136,21 @@ import "./index.css";
 // Prevent zoom gestures on mobile
 if (typeof window !== 'undefined') {
   // Prevent double-tap zoom
+  // CRITICAL: Don't interfere with pull-to-refresh gestures
   let lastTouchEnd = 0;
+  let pullToRefreshActive = false;
+  
+  // Check if pull-to-refresh is active by checking for a marker on the window
+  const checkPullToRefreshActive = () => {
+    return (window as any).__pullToRefreshActive === true;
+  };
+  
   const handleTouchEnd = (event: TouchEvent) => {
+    // Don't prevent default if pull-to-refresh is active
+    if (checkPullToRefreshActive()) {
+      return;
+    }
+    
     const now = Date.now();
     if (now - lastTouchEnd <= 300) {
       event.preventDefault();

@@ -4,6 +4,7 @@ import { resumableUpload } from '@/utils/resumableUpload';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { reportError } from '@/utils/feedbackUtils';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface ActiveUpload {
   sessionId: string;
@@ -39,6 +40,7 @@ export const useUpload = () => {
 };
 
 export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { session } = useAuth(); // CRITICAL: Get session from useAuth for RLS after reload
   const [uploads, setUploads] = useState<ActiveUpload[]>([]);
   const abortControllersRef = useRef<Record<string, AbortController>>({});
   const MAX_CONCURRENT_UPLOADS = 4; // Maximum number of simultaneous uploads
@@ -51,7 +53,16 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         (u.status === 'uploading' || u.status === 'pending') && processingRef.current.has(u.sessionId)
       ).length;
       
+      console.log('[UploadContext] 🔄 processQueue called:', { 
+        totalUploads: prev.length, 
+        activeCount, 
+        maxConcurrent: MAX_CONCURRENT_UPLOADS,
+        pendingUploads: prev.filter(u => u.status === 'pending').length,
+        pendingWithFile: prev.filter(u => u.status === 'pending' && u.file).length
+      });
+      
       if (activeCount >= MAX_CONCURRENT_UPLOADS) {
+        console.log('[UploadContext] ⏸️ Already at max concurrent uploads, waiting...');
         return prev; // Already at max concurrent uploads
       }
 
@@ -61,13 +72,24 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       );
 
       if (nextUpload) {
+        console.log('[UploadContext] ✅ Found pending upload to process:', { 
+          sessionId: nextUpload.sessionId, 
+          fileName: nextUpload.fileName, 
+          type: nextUpload.type,
+          hasFile: !!nextUpload.file
+        });
         // Mark as being processed
         processingRef.current.add(nextUpload.sessionId);
         // Start the upload asynchronously
         processUpload(nextUpload).catch(err => {
-          console.error('Error processing upload:', err);
+          console.error('[UploadContext] ❌ Error processing upload:', err);
           processingRef.current.delete(nextUpload.sessionId);
         });
+      } else {
+        const pendingWithoutFile = prev.filter(u => u.status === 'pending' && !u.file);
+        if (pendingWithoutFile.length > 0) {
+          console.warn('[UploadContext] ⚠️ Found pending uploads without file:', pendingWithoutFile.map(u => ({ sessionId: u.sessionId, fileName: u.fileName })));
+        }
       }
       
       return prev;
@@ -83,34 +105,153 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   }, [processQueue]);
 
+  // Helper function to update upload log using direct fetch
+  const updateUploadLog = useCallback(async (sessionId: string, updates: { status?: string; error?: string | null; progress?: number }) => {
+    if (!session?.access_token) {
+      console.warn('[UploadContext] ⚠️ Cannot update log - no session');
+      return;
+    }
+
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+      console.warn('[UploadContext] ⚠️ Cannot update log - missing config');
+      return;
+    }
+
+    try {
+      const updateData: any = { updated_at: new Date().toISOString() };
+      if (updates.status !== undefined) updateData.status = updates.status;
+      if (updates.error !== undefined) updateData.error = updates.error;
+      if (updates.progress !== undefined) updateData.progress = updates.progress;
+
+      await window.fetch(
+        `${SUPABASE_URL}/rest/v1/upload_logs?session_id=eq.${sessionId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify(updateData),
+        }
+      );
+    } catch (logError) {
+      console.warn('[UploadContext] ⚠️ Failed to update upload log (non-critical):', logError);
+    }
+  }, [session]);
+
   const processUpload = async (upload: ActiveUpload, abortSignal?: AbortSignal) => {
+    console.log('[UploadContext] 🔵 processUpload called:', { 
+      sessionId: upload.sessionId, 
+      fileName: upload.fileName, 
+      type: upload.type,
+      hasFile: !!upload.file,
+      status: upload.status
+    });
+    
     if (!upload.file) {
+      console.error('[UploadContext] ❌ No file in upload, cannot process:', upload.sessionId);
       processingRef.current.delete(upload.sessionId);
       return;
     }
 
     // Check if cancelled
     if (upload.status === 'cancelled') {
+      console.log('[UploadContext] ⏸️ Upload was cancelled, skipping:', upload.sessionId);
       processingRef.current.delete(upload.sessionId);
       return;
     }
 
+    console.log('[UploadContext] 🚀 Starting upload:', upload.sessionId);
     // Update status to uploading
+    console.log('[UploadContext] 📝 Updating upload status to "uploading"...');
     updateUpload(upload.sessionId, { status: 'uploading', progress: 0, error: undefined });
+    console.log('[UploadContext] ✅ Upload status updated');
 
     try {
+        // CRITICAL: Get session at runtime (not from render-time) to avoid stale session
+        // This session will be used throughout the entire upload process
+        console.log('[UploadContext] 🔍 Getting session for upload process...');
+        let currentSession = session;
+        
+        // If session is not available, try to get it with timeout
+        if (!currentSession?.access_token) {
+            console.log('[UploadContext] ⚠️ Session not available from useAuth, fetching...');
+            const sessionPromise = supabase.auth.getSession();
+            const timeoutPromise = new Promise<never>((_, reject) => 
+                setTimeout(() => reject(new Error('Session timeout after 5s')), 5000)
+            );
+            
+            try {
+                const sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
+                const { data: { session: fetchedSession }, error: sessionError } = sessionResult as any;
+                
+                if (sessionError) {
+                    console.error('[UploadContext] ❌ Error getting session:', sessionError);
+                    throw new Error(`Session error: ${sessionError.message}`);
+                }
+                
+                if (!fetchedSession?.access_token) {
+                    console.error('[UploadContext] ❌ No session available after fetch');
+                    throw new Error('Keine aktive Session. Bitte melde dich an.');
+                }
+                
+                currentSession = fetchedSession;
+                console.log('[UploadContext] ✅ Session fetched successfully');
+            } catch (timeoutError: any) {
+                console.error('[UploadContext] ❌ Session timeout or error:', timeoutError);
+                throw new Error('Keine aktive Session. Bitte melde dich an.');
+            }
+        }
+        
+        console.log('[UploadContext] ✅ Session available for upload process');
+        
         // Helper to update DB logs
         const updateLog = async (status: string, progress?: number, error?: string) => {
-             const updates: any = { status, updated_at: new Date().toISOString() };
-             if (progress !== undefined) updates.progress = progress;
-             if (error !== undefined) updates.error = error || null;
+             if (!currentSession?.access_token) {
+                 console.warn('[UploadContext] ⚠️ No session for updateLog, skipping');
+                 return;
+             }
              
-             await supabase.from('upload_logs')
-                .update(updates)
-                .eq('session_id', upload.sessionId);
+             const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+             const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+             if (!SUPABASE_URL || !SUPABASE_KEY) {
+                 console.warn('[UploadContext] ⚠️ Cannot update log - missing config');
+                 return;
+             }
+
+             try {
+                 const updateData: any = { updated_at: new Date().toISOString() };
+                 if (status !== undefined) updateData.status = status;
+                 if (error !== undefined) updateData.error = error;
+                 if (progress !== undefined) updateData.progress = progress;
+
+                 await window.fetch(
+                     `${SUPABASE_URL}/rest/v1/upload_logs?session_id=eq.${upload.sessionId}`,
+                     {
+                         method: 'PATCH',
+                         headers: {
+                             'apikey': SUPABASE_KEY,
+                             'Authorization': `Bearer ${currentSession.access_token}`,
+                             'Content-Type': 'application/json',
+                             'Prefer': 'return=minimal',
+                         },
+                         body: JSON.stringify(updateData),
+                     }
+                 );
+             } catch (logError) {
+                 console.warn('[UploadContext] ⚠️ Failed to update upload log (non-critical):', logError);
+             }
         };
 
         if (upload.status === 'pending') {
+             console.log('[UploadContext] 📝 Creating upload log in database...');
+             
              try {
                  await UploadLogger.create(
                     upload.sessionId,
@@ -118,49 +259,119 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     upload.type,
                     upload.fileName,
                     upload.fileSize,
-                    Math.ceil(upload.fileSize / (5 * 1024 * 1024))
+                    Math.ceil(upload.fileSize / (5 * 1024 * 1024)),
+                    currentSession // CRITICAL: Pass current session for RLS
                 );
-             } catch (e) {
-                 // Ignore if already exists
+                console.log('[UploadContext] ✅ Upload log created in database');
+             } catch (e: any) {
+                 // Check if error is due to duplicate (already exists)
+                 if (e?.message?.includes('duplicate') || e?.message?.includes('already exists')) {
+                     console.warn('[UploadContext] ⚠️ Upload log already exists, continuing...');
+                 } else {
+                     console.error('[UploadContext] ❌ Upload log creation failed:', e);
+                     throw e; // Re-throw if it's not a duplicate error
+                 }
              }
+        } else {
+            console.log('[UploadContext] ⏭️ Skipping upload log creation (status is not "pending"):', upload.status);
         }
 
         const API_URL = import.meta.env.VITE_ALLINKL_API_URL || 'https://cdn.kletterwelt-sauerland.de/upload-api';
+        console.log('[UploadContext] 🌐 API URL:', API_URL);
         
         // Create abort controller if not provided
         const controller = abortSignal ? undefined : new AbortController();
         if (controller) {
+            console.log('[UploadContext] 🎛️ Creating abort controller');
             abortControllersRef.current[upload.sessionId] = controller;
             updateUpload(upload.sessionId, { abortController: controller });
         }
         
-        const url = await resumableUpload(
-            upload.file,
-            API_URL,
-            {
-                sessionId: upload.sessionId,
-                sectorId: upload.sectorId,
-                onProgress: (p) => {
-                    // Check if cancelled by checking current state
-                    setUploads(prev => {
-                        const current = prev.find(u => u.sessionId === upload.sessionId);
-                        if (current?.status === 'cancelled') return prev;
-                        return prev.map(u => u.sessionId === upload.sessionId ? { ...u, progress: p } : u);
-                    });
-                    updateLog('uploading', p);
-                },
-                abortSignal: abortSignal || controller?.signal
-            }
-        );
+        console.log('[UploadContext] 📤 Calling resumableUpload...', {
+            fileName: upload.fileName,
+            fileSize: upload.fileSize,
+            fileType: upload.file.type,
+            sessionId: upload.sessionId,
+            sectorId: upload.sectorId,
+            apiUrl: API_URL
+        });
+        
+        let url: string;
+        try {
+            url = await resumableUpload(
+                upload.file,
+                API_URL,
+                {
+                    sessionId: upload.sessionId,
+                    sectorId: upload.sectorId,
+                    onProgress: (p) => {
+                        // Check if cancelled by checking current state
+                        setUploads(prev => {
+                            const current = prev.find(u => u.sessionId === upload.sessionId);
+                            if (current?.status === 'cancelled') return prev;
+                            return prev.map(u => u.sessionId === upload.sessionId ? { ...u, progress: p } : u);
+                        });
+                        updateLog('uploading', p);
+                    },
+                    abortSignal: abortSignal || controller?.signal
+                }
+            );
+            console.log('[UploadContext] ✅ resumableUpload completed, URL:', url);
+        } catch (uploadError: any) {
+            console.error('[UploadContext] ❌ resumableUpload failed:', uploadError);
+            console.error('[UploadContext] ❌ Error details:', {
+                name: uploadError?.name,
+                message: uploadError?.message,
+                stack: uploadError?.stack,
+                cause: uploadError?.cause
+            });
+            throw uploadError; // Re-throw to be caught by outer catch
+        }
 
         await updateLog('completed', 100);
         
-        // Update Boulder Record
-        if (upload.type === 'video') {
-            await supabase.from('boulders').update({ beta_video_url: url }).eq('id', upload.boulderId);
-        } else {
-            await supabase.from('boulders').update({ thumbnail_url: url }).eq('id', upload.boulderId);
+        // Update Boulder Record using direct fetch (QueryBuilder hangs after reload)
+        console.log('[UploadContext] 📝 Updating boulder record in database...');
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+        const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+        if (!SUPABASE_URL || !SUPABASE_KEY) {
+            throw new Error('Supabase-Konfiguration fehlt');
         }
+
+        // Use currentSession (already fetched at the start of processUpload)
+        if (!currentSession?.access_token) {
+            console.error('[UploadContext] ❌ No session available for boulder update');
+            throw new Error('Keine aktive Session. Bitte melde dich an.');
+        }
+
+        const updateData = upload.type === 'video' 
+            ? { beta_video_url: url }
+            : { thumbnail_url: url };
+
+        console.log('[UploadContext] 📝 Updating boulder:', upload.boulderId, 'with:', updateData);
+
+        const updateResponse = await window.fetch(
+            `${SUPABASE_URL}/rest/v1/boulders?id=eq.${upload.boulderId}`,
+            {
+                method: 'PATCH',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${currentSession.access_token}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal',
+                },
+                body: JSON.stringify(updateData),
+            }
+        );
+
+        if (!updateResponse.ok) {
+            const errorText = await updateResponse.text();
+            console.error('[UploadContext] ❌ Error updating boulder:', updateResponse.status, errorText);
+            throw new Error(`HTTP ${updateResponse.status}: ${errorText}`);
+        }
+
+        console.log('[UploadContext] ✅ Boulder record updated successfully');
 
         updateUpload(upload.sessionId, { status: 'completed', progress: 100 });
         toast.success(`${upload.type === 'video' ? 'Video' : 'Thumbnail'} hochgeladen!`);
@@ -178,26 +389,39 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }, 5000);
 
     } catch (error: any) {
+        console.error('[UploadContext] ❌ Upload failed in processUpload:', error);
+        console.error('[UploadContext] ❌ Error details:', {
+            name: error?.name,
+            message: error?.message,
+            stack: error?.stack,
+            cause: error?.cause,
+            uploadSessionId: upload.sessionId,
+            uploadFileName: upload.fileName,
+            uploadType: upload.type
+        });
+        
         // Check if it was cancelled
         if (error.name === 'AbortError' || upload.status === 'cancelled') {
+            console.log('[UploadContext] ⏸️ Upload was explicitly cancelled:', upload.sessionId);
             updateUpload(upload.sessionId, { status: 'cancelled' });
-            await supabase.from('upload_logs').update({ 
-                 status: 'failed', 
-                 error: 'Upload abgebrochen' 
-            }).eq('session_id', upload.sessionId);
+            await updateUploadLog(upload.sessionId, { 
+                status: 'failed', 
+                error: 'Upload abgebrochen' 
+            });
             delete abortControllersRef.current[upload.sessionId];
             processingRef.current.delete(upload.sessionId);
             processQueue(); // Start next upload
             return;
         }
         
-        console.error('Upload failed:', error);
-        updateUpload(upload.sessionId, { status: 'error', error: error.message });
+        const errorMessage = error?.message || 'Unbekannter Upload-Fehler';
+        console.error('[UploadContext] ❌ Setting upload status to error:', errorMessage);
+        updateUpload(upload.sessionId, { status: 'error', error: errorMessage });
         
-        await supabase.from('upload_logs').update({ 
-             status: 'failed', 
-             error: error.message 
-        }).eq('session_id', upload.sessionId);
+        await updateUploadLog(upload.sessionId, { 
+            status: 'failed', 
+            error: errorMessage 
+        });
         
         // Automatically report upload error to feedback system
         try {
@@ -225,6 +449,13 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const startUpload = useCallback(async (boulderId: string, file: File, type: 'video' | 'thumbnail', sectorId?: string) => {
+    console.log('[UploadContext] 🚀 startUpload called:', { boulderId, fileName: file.name, fileSize: file.size, type, sectorId });
+    
+    if (!file) {
+      console.error('[UploadContext] ❌ No file provided to startUpload');
+      throw new Error('No file provided');
+    }
+    
     const sessionId = type === 'video' 
         ? Math.random().toString(36).substring(2) + Date.now().toString(36)
         : `thumb_${Math.random().toString(36).substring(2) + Date.now().toString(36)}`;
@@ -241,9 +472,59 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         sectorId
     };
 
-    setUploads(prev => [...prev, newUpload]);
-    // Check if we can start this upload immediately
-    setTimeout(() => processQueue(), 0);
+    console.log('[UploadContext] ✅ Adding upload to queue:', { sessionId, boulderId, fileName: file.name, type, status: 'pending' });
+    
+    // CRITICAL: Add upload and immediately check if we can process it
+    setUploads(prev => {
+      const updated = [...prev, newUpload];
+      console.log('[UploadContext] 📊 Total uploads in queue:', updated.length);
+      return updated;
+    });
+    
+    // CRITICAL: Process queue after state update
+    // Use setTimeout to ensure state is updated before processing
+    setTimeout(() => {
+      console.log('[UploadContext] 🔄 Processing queue after adding upload:', sessionId);
+      
+      // Check if we can start this upload immediately
+      setUploads(currentUploads => {
+        const uploadToProcess = currentUploads.find(u => u.sessionId === sessionId);
+        
+        if (!uploadToProcess) {
+          console.warn('[UploadContext] ⚠️ Upload not found in queue:', sessionId);
+          return currentUploads;
+        }
+        
+        const activeCount = currentUploads.filter(u => 
+          (u.status === 'uploading' || u.status === 'pending') && processingRef.current.has(u.sessionId)
+        ).length;
+        
+        console.log('[UploadContext] 🔍 Queue check:', {
+          activeCount,
+          maxConcurrent: MAX_CONCURRENT_UPLOADS,
+          canStart: activeCount < MAX_CONCURRENT_UPLOADS,
+          hasFile: !!uploadToProcess.file,
+          status: uploadToProcess.status,
+          isProcessing: processingRef.current.has(uploadToProcess.sessionId)
+        });
+        
+        if (activeCount < MAX_CONCURRENT_UPLOADS && uploadToProcess.file && uploadToProcess.status === 'pending' && !processingRef.current.has(uploadToProcess.sessionId)) {
+          console.log('[UploadContext] ✅ Can start upload immediately:', uploadToProcess.sessionId);
+          processingRef.current.add(uploadToProcess.sessionId);
+          processUpload(uploadToProcess).catch(err => {
+            console.error('[UploadContext] ❌ Error processing upload:', err);
+            processingRef.current.delete(uploadToProcess.sessionId);
+          });
+        } else {
+          console.log('[UploadContext] ⏸️ Cannot start upload immediately, will be processed by queue');
+        }
+        
+        return currentUploads;
+      });
+      
+      // Also call processQueue to handle other uploads
+      processQueue();
+    }, 0);
     
     return sessionId;
   }, [processQueue]);
@@ -284,10 +565,10 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         // Update DB log
-        supabase.from('upload_logs').update({ 
-             status: 'failed', 
-             error: 'Upload abgebrochen' 
-        }).eq('session_id', sessionId);
+        updateUploadLog(sessionId, { 
+            status: 'failed', 
+            error: 'Upload abgebrochen' 
+        });
 
         // Remove from list after short delay
         setTimeout(() => {
@@ -387,28 +668,38 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     return !shouldExclude;
                 })
                 .map(log => {
-                    console.log('[UploadContext] Restoring upload log:', log.session_id);
+                    console.log('[UploadContext] Restoring upload log:', {
+                        session_id: log.session_id,
+                        file_name: log.file_name,
+                        db_status: log.status,
+                        progress: log.progress
+                    });
+                    
+                    // CRITICAL: Always set status to 'restoring' for restored uploads
+                    // because File objects cannot be serialized and are lost after reload
+                    // The user must re-select the file to continue the upload
                     return {
                         sessionId: log.session_id,
                         boulderId: log.boulder_id || '',
-                        file: null,
+                        file: null, // File objects are lost after reload
                         fileName: log.file_name,
                         fileSize: log.file_size,
                         type: log.file_type as 'video' | 'thumbnail',
-                        progress: log.progress,
-                        status: 'restoring',
-                        error: 'Upload unterbrochen. Datei neu wählen.'
+                        progress: log.progress || 0,
+                        status: 'restoring' as const, // Always 'restoring' - user must re-select file
+                        error: 'Upload unterbrochen. Datei neu wählen.',
+                        sectorId: log.sector_id
                     };
                 });
             
-            console.log('[UploadContext] Restoring', restored.length, 'uploads');
+            console.log('[UploadContext] Restoring', restored.length, 'uploads with status "restoring" (files need to be re-selected)');
             
             setUploads(prev => {
                 const existingIds = new Set(prev.map(u => u.sessionId));
                 const newUploads = restored.filter(r => !existingIds.has(r.sessionId));
                 const updated = [...prev, ...newUploads];
-                // Process queue after restore
-                setTimeout(() => processQueue(), 100);
+                console.log('[UploadContext] Total uploads after restore:', updated.length);
+                // DON'T process queue - these uploads need files to be re-selected first
                 return updated;
             });
         } else {

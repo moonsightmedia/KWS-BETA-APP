@@ -20,9 +20,10 @@ import { useCompetitionLeaderboard } from '@/hooks/useCompetitionLeaderboard';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { clearAllCaches } from '@/utils/cacheUtils';
+import { getVersionInfo, checkForUpdates } from '@/utils/version';
 
 const Profile = () => {
-  const { user, signOut, loading } = useAuth();
+  const { user, session, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [firstName, setFirstName] = useState('');
@@ -32,6 +33,9 @@ const Profile = () => {
   const [clearingCache, setClearingCache] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [hasUpdate, setHasUpdate] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const versionInfo = getVersionInfo();
   
   // Notification preferences
   const { data: notificationPreferences } = useNotificationPreferences();
@@ -40,7 +44,29 @@ const Profile = () => {
   // Competition data
   const { data: participant } = useCompetitionParticipant();
   const { data: competitionResults } = useCompetitionResults(participant?.id || null);
-  const { data: leaderboard } = useCompetitionLeaderboard(participant?.gender || null);
+  const { data: leaderboard } = useCompetitionLeaderboard(
+    participant?.gender === 'male' || participant?.gender === 'female' ? participant.gender : null
+  );
+
+  // Check for updates on mount
+  useEffect(() => {
+    const checkUpdate = async () => {
+      setCheckingUpdate(true);
+      try {
+        const updateInfo = await checkForUpdates();
+        setHasUpdate(updateInfo.hasUpdate);
+      } catch (error) {
+        console.error('[Profile] Error checking for updates:', error);
+      } finally {
+        setCheckingUpdate(false);
+      }
+    };
+    
+    // Only check in production
+    if (import.meta.env.PROD) {
+      checkUpdate();
+    }
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -64,27 +90,68 @@ const Profile = () => {
     
     (async () => {
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('first_name, last_name, full_name, birth_date, email')
-          .eq('id', user.id)
-          .maybeSingle();
+        // Use direct fetch instead of Supabase QueryBuilder to avoid hanging issues after reload
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+        const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        
+        if (!SUPABASE_URL || !SUPABASE_KEY) {
+          throw new Error('Supabase-Konfiguration fehlt');
+        }
+        
+        // Use session from useAuth hook instead of getSession() to avoid hanging
+        // Wait a bit if session is not yet available
+        let currentSession = session;
+        if (!currentSession) {
+          // Try to get session with timeout
+          const sessionPromise = supabase.auth.getSession();
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Session timeout')), 3000);
+          });
+          
+          try {
+            const { data } = await Promise.race([sessionPromise, timeoutPromise]);
+            currentSession = data?.session || null;
+          } catch (error) {
+            console.warn('[Profile] Could not get session, using hook session:', error);
+            // Fallback: use session from hook (might be null, but better than hanging)
+            currentSession = session;
+          }
+        }
+        
+        if (!currentSession) {
+          throw new Error('Keine aktive Session');
+        }
+        
+        const response = await fetch(
+          `${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=first_name,last_name,full_name,birth_date,email`,
+          {
+            method: 'GET',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${currentSession.access_token}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=representation',
+            },
+          }
+        );
+        
+        if (cancelled) return;
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const data = await response.json();
         
         if (cancelled) return;
         
         clearTimeout(timeoutId);
         
-        if (error) {
-          console.error('[Profile] Fehler beim Laden:', error);
-          setProfileError(error.message || 'Fehler beim Laden der Profildaten');
-          setLoadingProfile(false);
-          return;
-        }
-        
-        if (data) {
-          console.log('[Profile] Profildaten geladen:', data);
+        if (data && data.length > 0) {
+          const profile = data[0];
+          console.log('[Profile] Profildaten geladen:', profile);
           // Use first_name/last_name if available, otherwise try to parse from full_name
-          const profile = data as any;
           setFirstName(profile.first_name || (profile.full_name ? profile.full_name.split(' ')[0] : '') || '');
           setLastName(profile.last_name || (profile.full_name ? profile.full_name.split(' ').slice(1).join(' ') : '') || '');
           
@@ -123,7 +190,21 @@ const Profile = () => {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [user]);
+  }, [user, session]);
+  
+  // Retry function for loading profile
+  const retryLoadProfile = () => {
+    setProfileError(null);
+    // Trigger reload by updating a dependency
+    // The useEffect will run again when user or session changes
+    if (user) {
+      // Force reload by clearing state and letting useEffect run again
+      setLoadingProfile(true);
+      setFirstName('');
+      setLastName('');
+      setBirthDate('');
+    }
+  };
 
   const saveProfile = async () => {
     if (!user) {
@@ -262,14 +343,7 @@ const Profile = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          setProfileError(null);
-                          setLoadingProfile(true);
-                          // Force re-run useEffect by updating user dependency
-                          if (user) {
-                            // This will trigger the useEffect
-                          }
-                        }}
+                        onClick={retryLoadProfile}
                         className="mt-2"
                       >
                         Erneut versuchen
@@ -440,30 +514,94 @@ const Profile = () => {
                       <Switch
                         checked={notificationPreferences?.push_enabled ?? false}
                         onCheckedChange={async (checked) => {
+                          console.log('[Profile] Push notification switch clicked:', checked);
+                          
+                          // Prevent multiple simultaneous calls
+                          if (updateNotificationPreferences.isPending) {
+                            console.log('[Profile] Push notification update already in progress, skipping');
+                            return;
+                          }
+
                           if (checked) {
                             try {
+                              console.log('[Profile] Requesting push permission...');
                               // Use Capacitor API on native platforms, browser API on web
                               const granted = await requestPermission();
+                              console.log('[Profile] Permission granted:', granted);
                               if (granted) {
-                                updateNotificationPreferences.mutate({ push_enabled: true });
-                                toast.success('Push-Benachrichtigungen aktiviert');
-                                // Re-initialize push notifications after permission granted
-                                if (Capacitor.isNativePlatform()) {
-                                  initializePushNotifications().catch(console.error);
+                                console.log('[Profile] Permission granted, updating preferences...');
+                                // Update preferences and wait for it to complete
+                                try {
+                                  await updateNotificationPreferences.mutateAsync({ push_enabled: true });
+                                  console.log('[Profile] Preferences updated successfully');
+                                  toast.success('Push-Benachrichtigungen aktiviert');
+                                  
+                                  // Re-initialize push notifications after permission granted
+                                  if (Capacitor.isNativePlatform()) {
+                                    console.log('[Profile] Initializing push notifications...');
+                                    try {
+                                      await initializePushNotifications();
+                                      console.log('[Profile] Push notifications initialized successfully');
+                                    } catch (initError) {
+                                      console.error('[Profile] Error initializing push notifications:', initError);
+                                      // Don't show error toast - initialization might fail silently
+                                    }
+                                  }
+                                } catch (updateError) {
+                                  console.error('[Profile] Error updating preferences:', updateError);
+                                  toast.error('Fehler beim Speichern der Einstellungen', {
+                                    description: updateError instanceof Error ? updateError.message : String(updateError),
+                                  });
                                 }
                               } else {
+                                console.log('[Profile] Permission not granted');
                                 toast.error('Push-Benachrichtigungen wurden nicht erlaubt');
                               }
                             } catch (error) {
                               console.error('[Profile] Error requesting push permission:', error);
-                              toast.error('Fehler beim Aktivieren der Push-Benachrichtigungen');
+                              toast.error('Fehler beim Aktivieren der Push-Benachrichtigungen', {
+                                description: error instanceof Error ? error.message : String(error),
+                              });
                             }
                           } else {
-                            updateNotificationPreferences.mutate({ push_enabled: false });
+                            console.log('[Profile] Disabling push notifications...');
+                            await updateNotificationPreferences.mutateAsync({ push_enabled: false });
                             toast.success('Push-Benachrichtigungen deaktiviert');
                           }
                         }}
-                        disabled={!Capacitor.isNativePlatform() && !('Notification' in window)}
+                        disabled={(!Capacitor.isNativePlatform() && !('Notification' in window)) || updateNotificationPreferences.isPending}
+                        onClick={(e) => {
+                          console.log('[Profile] Switch onClick event:', e);
+                          e.stopPropagation();
+                          // Don't prevent default - let the switch handle it
+                        }}
+                        onPointerDown={(e) => {
+                          console.log('[Profile] Switch onPointerDown event:', e);
+                          e.stopPropagation();
+                          // Don't prevent default - let the switch handle it
+                          // Mark that this is a switch interaction to prevent pull-to-refresh
+                          (window as any).__switchInteraction = true;
+                        }}
+                        onPointerUp={(e) => {
+                          console.log('[Profile] Switch onPointerUp event:', e);
+                          e.stopPropagation();
+                          setTimeout(() => {
+                            (window as any).__switchInteraction = false;
+                          }, 100);
+                        }}
+                        onTouchStart={(e) => {
+                          console.log('[Profile] Switch onTouchStart event:', e);
+                          e.stopPropagation();
+                          // Mark that this is a switch interaction to prevent pull-to-refresh
+                          (window as any).__switchInteraction = true;
+                        }}
+                        onTouchEnd={(e) => {
+                          console.log('[Profile] Switch onTouchEnd event:', e);
+                          e.stopPropagation();
+                          setTimeout(() => {
+                            (window as any).__switchInteraction = false;
+                          }, 100);
+                        }}
                       />
                     </div>
                     
@@ -614,12 +752,56 @@ const Profile = () => {
                     <div className="space-y-2 text-sm text-[#13112B]/60">
                       <div className="flex items-center justify-between">
                         <span>Version:</span>
-                        <span className="font-medium">1.0.0</span>
+                        <span className="font-medium">{versionInfo.version}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span>Build:</span>
-                        <span className="font-medium">{new Date().toLocaleDateString('de-DE')}</span>
+                        <span className="font-medium">{versionInfo.buildDate} {versionInfo.buildTime}</span>
                       </div>
+                      {versionInfo.isDevelopment && (
+                        <div className="flex items-center justify-between">
+                          <span>Modus:</span>
+                          <span className="font-medium text-orange-600">Entwicklung</span>
+                        </div>
+                      )}
+                      {hasUpdate && (
+                        <div className="flex items-center justify-between pt-2">
+                          <span className="text-[#36B531] font-medium">Neue Version verfügbar!</span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              // For native apps, we can't reload to get a new APK version
+                              // But we can clear cache and reload to get new web assets
+                              const { Capacitor } = await import('@capacitor/core');
+                              
+                              if (Capacitor.isNativePlatform()) {
+                                // Native app - inform user they need to update manually
+                                toast.info('App-Update verfügbar', {
+                                  description: 'Bitte installiere die neue Version der App manuell. Die APK muss neu installiert werden.',
+                                  duration: 5000,
+                                });
+                                // Still clear cache and reload to get any web asset updates
+                                await clearAllCaches(queryClient);
+                                window.location.reload();
+                              } else {
+                                // Web app - can reload to get new version
+                                await clearAllCaches(queryClient);
+                                window.location.reload();
+                              }
+                            }}
+                            className="h-8 text-xs"
+                          >
+                            Aktualisieren
+                          </Button>
+                        </div>
+                      )}
+                      {checkingUpdate && (
+                        <div className="flex items-center justify-between pt-2">
+                          <span className="text-[#13112B]/40">Prüfe auf Updates...</span>
+                          <RefreshCw className="w-4 h-4 animate-spin text-[#13112B]/40" />
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 pt-2">
                       <Info className="w-4 h-4 text-[#13112B]/60" />

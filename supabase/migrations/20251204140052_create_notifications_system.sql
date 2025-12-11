@@ -158,10 +158,11 @@ BEGIN
   VALUES (p_user_id, p_type, p_title, p_message, p_data, p_action_url)
   RETURNING id INTO v_notification_id;
   
-  -- Note: Push notification sending should be handled by:
-  -- 1. Supabase Edge Function triggered by database webhook
-  -- 2. Application code calling sendPushNotification after notification creation
-  -- 3. Database trigger calling external service
+  -- Note: Push notification sending is handled by:
+  -- 1. Database trigger (trigger_send_push_notification) which calls send_push_notification_for_notification()
+  -- 2. The trigger checks if push is enabled and if user has tokens
+  -- 3. Actual sending is done via Supabase Edge Function (send-push-notification)
+  -- 4. Edge Function can be triggered via database webhook or application code
   
   RETURN v_notification_id;
 END;

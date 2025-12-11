@@ -12,10 +12,7 @@ export const initializePushNotifications = async () => {
     return;
   }
 
-  if (isInitialized) {
-    console.log('[PushNotifications] Already initialized');
-    return;
-  }
+  console.log('[PushNotifications] Starting initialization...');
 
   try {
     // Check if PushNotifications plugin is available
@@ -24,31 +21,34 @@ export const initializePushNotifications = async () => {
       return;
     }
 
-    // Check current permission status (don't request yet)
+    // Check current permission status
     let permStatus;
     try {
       permStatus = await PushNotifications.checkPermissions();
+      console.log('[PushNotifications] Permission status:', permStatus);
     } catch (error) {
       console.error('[PushNotifications] Error checking permissions:', error);
       return;
     }
     
-    // Only request permission if not already granted/denied
-    // Don't auto-request on app start - let user enable it manually in settings
-    if (permStatus.receive === 'prompt') {
-      console.log('[PushNotifications] Permission prompt available, but not requesting automatically');
-      // Don't request permission automatically - user can enable in settings
-      return;
-    }
-
+    // If permission is not granted, don't initialize
     if (permStatus.receive !== 'granted') {
       console.warn('[PushNotifications] Permission not granted:', permStatus.receive);
       return;
     }
 
+    // Reset initialization flag if permission was just granted
+    // This allows re-initialization after user grants permission
+    if (isInitialized) {
+      console.log('[PushNotifications] Already initialized, but re-initializing due to permission grant');
+      isInitialized = false;
+    }
+
     // Register for push notifications only if permission is granted
+    console.log('[PushNotifications] Registering for push notifications...');
     try {
       await PushNotifications.register();
+      console.log('[PushNotifications] Registration call completed');
     } catch (error) {
       console.error('[PushNotifications] Error registering:', error);
       return;
@@ -97,48 +97,132 @@ export const initializePushNotifications = async () => {
 
 export const registerPushToken = async (token: string) => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      console.warn('[PushNotifications] No user logged in, skipping token registration');
+    console.log('[PushNotifications] 🔑 registerPushToken called with token:', token.substring(0, 20) + '...');
+    
+    // CRITICAL: Get session for RLS with timeout to avoid hanging after reload
+    console.log('[PushNotifications] 🔍 Getting session for token registration...');
+    const sessionPromise = supabase.auth.getSession();
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('Session timeout after 5s')), 5000)
+    );
+    
+    let sessionResult;
+    try {
+      sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
+    } catch (timeoutError) {
+      console.error('[PushNotifications] ❌ Session timeout during token registration:', timeoutError);
+      throw new Error('Session timeout - please try again');
+    }
+    
+    const { data: { session }, error: sessionError } = sessionResult as any;
+    
+    if (sessionError) {
+      console.error('[PushNotifications] ❌ Error getting session:', sessionError);
+      throw new Error(`Session error: ${sessionError.message}`);
+    }
+    
+    if (!session?.user) {
+      console.warn('[PushNotifications] ⚠️ No user logged in, skipping token registration');
       return;
     }
+    
+    console.log('[PushNotifications] ✅ Session found for user:', session.user.id);
 
     const platform = Capacitor.getPlatform() === 'ios' ? 'ios' : 'android';
     const deviceId = await getDeviceId();
 
-    // Check if token already exists
-    const { data: existingToken } = await supabase
-      .from('push_tokens')
-      .select('id')
-      .eq('token', token)
-      .maybeSingle();
+    // Use direct fetch instead of QueryBuilder to avoid hanging issues after reload
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-    if (existingToken) {
-      // Update last_used_at
-      await supabase
-        .from('push_tokens')
-        .update({ last_used_at: new Date().toISOString() })
-        .eq('id', existingToken.id);
-    } else {
-      // Insert new token
-      const { error } = await supabase
-        .from('push_tokens')
-        .insert({
-          user_id: user.id,
-          token,
-          platform,
-          device_id: deviceId,
-        });
-
-      if (error) {
-        console.error('[PushNotifications] Error registering token:', error);
-        throw error;
-      }
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+      throw new Error('Supabase-Konfiguration fehlt');
     }
 
-    console.log('[PushNotifications] Token registered successfully');
-  } catch (error) {
-    console.error('[PushNotifications] Error registering push token:', error);
+    // Check if token already exists
+    const checkResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/push_tokens?token=eq.${encodeURIComponent(token)}&select=id`,
+      {
+        method: 'GET',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (checkResponse.ok) {
+      const existingTokens = await checkResponse.json();
+      const existingToken = Array.isArray(existingTokens) && existingTokens.length > 0 ? existingTokens[0] : null;
+
+      if (existingToken) {
+        // Update last_used_at
+        const updateResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/push_tokens?id=eq.${existingToken.id}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal',
+            },
+            body: JSON.stringify({ last_used_at: new Date().toISOString() }),
+          }
+        );
+
+        if (!updateResponse.ok) {
+          const errorText = await updateResponse.text();
+          throw new Error(`HTTP ${updateResponse.status}: ${errorText}`);
+        }
+      } else {
+        // Insert new token
+        const insertResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/push_tokens`,
+          {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal',
+            },
+            body: JSON.stringify({
+              user_id: session.user.id,
+              token,
+              platform,
+              device_id: deviceId,
+            }),
+          }
+        );
+
+        if (!insertResponse.ok) {
+          const errorText = await insertResponse.text();
+          throw new Error(`HTTP ${insertResponse.status}: ${errorText}`);
+        }
+      }
+
+      console.log('[PushNotifications] ✅ Token registered successfully');
+      console.log('[PushNotifications] 📋 Token details:', {
+        platform,
+        deviceId,
+        tokenPrefix: token.substring(0, 20) + '...',
+        userId: session.user.id
+      });
+    } else {
+      const errorText = await checkResponse.text();
+      console.error('[PushNotifications] ❌ Error checking token:', checkResponse.status, errorText);
+      throw new Error(`HTTP ${checkResponse.status}: ${errorText}`);
+    }
+  } catch (error: any) {
+    console.error('[PushNotifications] ❌ Error registering push token:', error);
+    console.error('[PushNotifications] ❌ Error details:', {
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack
+    });
+    // Don't throw - token registration failure shouldn't crash the app
   }
 };
 

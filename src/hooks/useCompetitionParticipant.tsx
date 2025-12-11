@@ -26,57 +26,36 @@ export const useCompetitionParticipant = () => {
           try {
             const guestId = localStorage.getItem('competition_guest_id');
             if (guestId) {
-              const queryBuilder = (supabase as any)
-                .from('competition_participants')
-                .select('*')
-                .eq('id', guestId)
-                .eq('is_guest', true)
-                .maybeSingle();
+              // Use direct fetch instead of QueryBuilder to avoid hanging issues after reload
+              const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+              const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-              // Use Promise.race for timeout
-              let timeoutId: NodeJS.Timeout | null = null;
-              let isResolved = false;
-              
-              const timeoutPromise = new Promise<never>((_, reject) => {
-                timeoutId = setTimeout(() => {
-                  if (!isResolved) {
-                    console.error('[useCompetitionParticipant] ⏱️ TIMEOUT after 10s (guest)');
-                    reject(new Error('Supabase request timeout after 10s'));
-                  }
-                }, 10000);
-              });
-
-              try {
-                // CRITICAL: Directly await the QueryBuilder - it's already a thenable Promise
-                const queryPromise = queryBuilder.then ? queryBuilder : Promise.resolve(queryBuilder);
-                
-                // Race between query and timeout
-                const result = await Promise.race([
-                  queryPromise.then((res) => {
-                    isResolved = true;
-                    if (timeoutId) clearTimeout(timeoutId);
-                    return res;
-                  }).catch((err) => {
-                    isResolved = true;
-                    if (timeoutId) clearTimeout(timeoutId);
-                    throw err;
-                  }),
-                  timeoutPromise
-                ]);
-                clearTimeout(timeoutId);
-                const { data, error } = result;
-                if (error) throw error;
-                
-                const duration = Date.now() - startTime;
-                console.log(`[useCompetitionParticipant] ✅ Guest participant fetched after ${duration}ms`);
-                return data as CompetitionParticipant | null;
-              } catch (error: any) {
-                clearTimeout(timeoutId);
-                if (error?.name === 'AbortError' || error?.message?.includes('timeout')) {
-                  throw new Error('Supabase request timeout after 10s');
-                }
-                throw error;
+              if (!SUPABASE_URL || !SUPABASE_KEY) {
+                throw new Error('Supabase-Konfiguration fehlt');
               }
+
+              const response = await fetch(
+                `${SUPABASE_URL}/rest/v1/competition_participants?id=eq.${guestId}&is_guest=eq.true&select=*`,
+                {
+                  method: 'GET',
+                  headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Content-Type': 'application/json',
+                  },
+                }
+              );
+
+              if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+              }
+
+              const dataArray = await response.json();
+              const data = Array.isArray(dataArray) && dataArray.length > 0 ? dataArray[0] : null;
+              
+              const duration = Date.now() - startTime;
+              console.log(`[useCompetitionParticipant] ✅ Guest participant fetched after ${duration}ms`);
+              return data as CompetitionParticipant | null;
             }
           } catch (error) {
             // Ignore localStorage errors, but log Supabase errors
@@ -87,62 +66,43 @@ export const useCompetitionParticipant = () => {
           return null;
         }
 
-        // For logged-in users
-        const queryBuilder = (supabase as any)
-          .from('competition_participants')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        // Use Promise.race for timeout
-        let timeoutId: NodeJS.Timeout | null = null;
-        let isResolved = false;
-        
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(() => {
-            if (!isResolved) {
-              console.error('[useCompetitionParticipant] ⏱️ TIMEOUT after 10s (user)');
-              reject(new Error('Supabase request timeout after 10s'));
-            }
-          }, 10000);
-        });
-
-        try {
-          // CRITICAL: Directly await the QueryBuilder - it's already a thenable Promise
-          const queryPromise = queryBuilder.then ? queryBuilder : Promise.resolve(queryBuilder);
-          
-          // Race between query and timeout
-          const result = await Promise.race([
-            queryPromise.then((res) => {
-              isResolved = true;
-              if (timeoutId) clearTimeout(timeoutId);
-              return res;
-            }).catch((err) => {
-              isResolved = true;
-              if (timeoutId) clearTimeout(timeoutId);
-              throw err;
-            }),
-            timeoutPromise
-          ]);
-          clearTimeout(timeoutId);
-          const { data, error } = result;
-          if (error) throw error;
-          
-          const duration = Date.now() - startTime;
-          console.log(`[useCompetitionParticipant] ✅ User participant fetched after ${duration}ms`);
-          return data as CompetitionParticipant | null;
-        } catch (error: any) {
-          clearTimeout(timeoutId);
-          const duration = Date.now() - startTime;
-          
-          if (error?.name === 'AbortError' || error?.message?.includes('timeout')) {
-            console.error(`[useCompetitionParticipant] ⏱️ TIMEOUT after ${duration}ms:`, error);
-            throw new Error('Supabase request timeout after 10s');
-          }
-          
-          console.error(`[useCompetitionParticipant] ❌ Exception after ${duration}ms:`, error);
-          throw error;
+        // For logged-in users - use direct fetch instead of QueryBuilder
+        const { session } = await supabase.auth.getSession();
+        if (!session) {
+          console.warn('[useCompetitionParticipant] No session, returning null');
+          return null;
         }
+
+        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+        const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+        if (!SUPABASE_URL || !SUPABASE_KEY) {
+          throw new Error('Supabase-Konfiguration fehlt');
+        }
+
+        const response = await fetch(
+          `${SUPABASE_URL}/rest/v1/competition_participants?user_id=eq.${user.id}&select=*`,
+          {
+            method: 'GET',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const dataArray = await response.json();
+        const data = Array.isArray(dataArray) && dataArray.length > 0 ? dataArray[0] : null;
+        
+        const duration = Date.now() - startTime;
+        console.log(`[useCompetitionParticipant] ✅ User participant fetched after ${duration}ms`);
+        return data as CompetitionParticipant | null;
       } catch (error: any) {
         const duration = Date.now() - startTime;
         console.error(`[useCompetitionParticipant] ❌ Exception after ${duration}ms:`, error);

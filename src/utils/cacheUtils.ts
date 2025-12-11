@@ -262,3 +262,70 @@ export const clearAllCaches = async (queryClient: QueryClient) => {
   }
 };
 
+/**
+ * Refetch stale queries when app becomes visible again
+ * Use this for visibilitychange events to refresh data when app comes back from background
+ */
+export const refetchOnVisibilityChange = async (queryClient: QueryClient) => {
+  const visibilityStartTime = Date.now();
+  console.log('[CacheUtils] 🔄 App became visible - refetching stale queries...');
+  
+  try {
+    // Get all active queries
+    const activeQueries = getActiveQueries(queryClient);
+    console.log(`[CacheUtils] 📋 Found ${activeQueries.length} active queries to check`);
+    
+    if (activeQueries.length === 0) {
+      console.log('[CacheUtils] ⚠️  No active queries found, skipping refetch');
+      return;
+    }
+    
+    // Only refetch queries that are stale (older than staleTime)
+    // Since staleTime is 0, all queries are considered stale
+    // But we'll only refetch if they exist and have data (to avoid unnecessary requests)
+    const staleQueries = activeQueries.filter(queryKey => {
+      const queryState = queryClient.getQueryState(queryKey);
+      if (!queryState) return false;
+      
+      // Refetch if query is stale or has an error
+      return queryState.isStale || queryState.status === 'error';
+    });
+    
+    if (staleQueries.length === 0) {
+      console.log('[CacheUtils] ✅ No stale queries found, skipping refetch');
+      return;
+    }
+    
+    console.log(`[CacheUtils] 🔄 Refetching ${staleQueries.length} stale queries...`);
+    
+    // Refetch stale queries in batches (same as refreshAllData)
+    const batch1Keys = staleQueries.filter(key => 
+      key[0] === 'boulders' || key[0] === 'sectors'
+    );
+    if (batch1Keys.length > 0) {
+      await refetchBatch(queryClient, batch1Keys, 'Critical (boulders, sectors)', 15000);
+    }
+    
+    const batch2Keys = staleQueries.filter(key => 
+      key[0] === 'colors' || key[0] === 'profiles'
+    );
+    if (batch2Keys.length > 0) {
+      await refetchBatch(queryClient, batch2Keys, 'Important (colors, profiles)', 15000);
+    }
+    
+    const batch3Keys = staleQueries.filter(key => 
+      !batch1Keys.includes(key) && !batch2Keys.includes(key)
+    );
+    if (batch3Keys.length > 0) {
+      await refetchBatch(queryClient, batch3Keys, 'Other queries', 15000);
+    }
+    
+    const totalDuration = Date.now() - visibilityStartTime;
+    console.log(`[CacheUtils] ✅ Stale queries refetched successfully in ${totalDuration}ms`);
+  } catch (error) {
+    const totalDuration = Date.now() - visibilityStartTime;
+    console.error(`[CacheUtils] ❌ Error refetching stale queries after ${totalDuration}ms:`, error);
+    // Don't throw - allow app to continue functioning even if refetch fails
+  }
+};
+

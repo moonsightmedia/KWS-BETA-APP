@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { useColors } from '@/hooks/useColors';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { useUpload } from '@/contexts/UploadContext';
 import { generateBoulderName } from '@/utils/nameGenerator';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
+import { sendPushNotificationForNotification } from '@/services/pushNotifications';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +39,7 @@ interface BatchBoulder {
 export const BatchUpload = () => {
   const { data: sectors } = useSectorsTransformed();
   const { data: colors } = useColors();
+  const { session } = useAuth();
   const { startUpload } = useUpload();
   
   const [boulders, setBoulders] = useState<BatchBoulder[]>([]);
@@ -132,13 +135,29 @@ export const BatchUpload = () => {
     toast.info('Bereite Uploads vor...', { duration: 1000 });
     
     const successfulIds: string[] = [];
+    const successfulBoulderIds: string[] = []; // Database IDs of successfully created boulders
     const failedBoulders: Array<{ name: string; error: string }> = [];
     const bouldersToProcess = [...boulders];
 
     // Process boulders sequentially to avoid overwhelming the system
+    if (!session) {
+        toast.error('Nicht angemeldet. Bitte melde dich an.');
+        setIsProcessing(false);
+        return;
+    }
+
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+        toast.error('Supabase-Konfiguration fehlt');
+        setIsProcessing(false);
+        return;
+    }
+
     for (const boulder of bouldersToProcess) {
         try {
-            // Create boulder in database first
+            // Create boulder in database first using direct fetch
             const insertData: any = {
                 name: boulder.name,
                 sector_id: boulder.sectorId,
@@ -152,28 +171,65 @@ export const BatchUpload = () => {
                 insertData.sector_id_2 = boulder.sectorId2;
             }
             
-            const { data: dbBoulder, error: dbError } = await supabase
-                .from('boulders')
-                .insert(insertData)
-                .select()
-                .single();
+            console.log('[BatchUpload] 🔵 Creating boulder:', insertData.name);
+            
+            const response = await fetch(
+                `${SUPABASE_URL}/rest/v1/boulders`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation',
+                    },
+                    body: JSON.stringify(insertData),
+                }
+            );
 
-            if (dbError || !dbBoulder) {
-                throw new Error('DB Error: ' + (dbError?.message || 'Unknown'));
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
+
+            const data = await response.json();
+            const dbBoulder = Array.isArray(data) ? data[0] : data;
+
+            if (!dbBoulder) {
+                throw new Error('Boulder wurde nicht erstellt');
+            }
+            
+            console.log('[BatchUpload] ✅ Boulder created:', dbBoulder.id);
+            successfulBoulderIds.push(dbBoulder.id);
 
             // Start uploads (they will be queued by UploadContext)
             // Add small delay between boulders to avoid overwhelming the system
             if (boulder.thumbFile) {
-                await startUpload(dbBoulder.id, boulder.thumbFile, 'thumbnail', boulder.sectorId);
+                console.log('[BatchUpload] 🚀 Starting thumbnail upload for boulder:', dbBoulder.id, 'file:', boulder.thumbFile.name, 'size:', boulder.thumbFile.size);
+                try {
+                    const sessionId = await startUpload(dbBoulder.id, boulder.thumbFile, 'thumbnail', boulder.sectorId);
+                    console.log('[BatchUpload] ✅ Thumbnail upload started, sessionId:', sessionId);
+                } catch (error) {
+                    console.error('[BatchUpload] ❌ Error starting thumbnail upload:', error);
+                }
                 // Small delay to prevent too many simultaneous uploads
                 await new Promise(resolve => setTimeout(resolve, 100));
+            } else {
+                console.warn('[BatchUpload] ⚠️ No thumbnail file for boulder:', dbBoulder.id);
             }
             
             if (boulder.videoFile) {
-                await startUpload(dbBoulder.id, boulder.videoFile, 'video', boulder.sectorId);
+                console.log('[BatchUpload] 🚀 Starting video upload for boulder:', dbBoulder.id, 'file:', boulder.videoFile.name, 'size:', boulder.videoFile.size);
+                try {
+                    const sessionId = await startUpload(dbBoulder.id, boulder.videoFile, 'video', boulder.sectorId);
+                    console.log('[BatchUpload] ✅ Video upload started, sessionId:', sessionId);
+                } catch (error) {
+                    console.error('[BatchUpload] ❌ Error starting video upload:', error);
+                }
                 // Small delay to prevent too many simultaneous uploads
                 await new Promise(resolve => setTimeout(resolve, 100));
+            } else {
+                console.warn('[BatchUpload] ⚠️ No video file for boulder:', dbBoulder.id);
             }
 
             successfulIds.push(boulder.id);
@@ -192,6 +248,119 @@ export const BatchUpload = () => {
     if (successfulIds.length > 0) {
         const totalFiles = successfulIds.length * 2; // Each boulder has video + thumbnail
         toast.success(`${successfulIds.length} Boulder (${totalFiles} Dateien) in die Upload-Warteschlange gestellt.`, { duration: 3000 });
+        
+        // CRITICAL: Create batch notification manually after all boulders are created
+        // This is much more reliable than relying on trigger timing
+        if (successfulBoulderIds.length > 0) {
+          try {
+            console.log(`[BatchUpload] 🔔 Creating batch notification for ${successfulBoulderIds.length} boulders...`);
+            
+            // Get all users who have boulder_new enabled
+            const usersResponse = await fetch(
+              `${SUPABASE_URL}/rest/v1/notification_preferences?boulder_new=eq.true&select=user_id`,
+              {
+                method: 'GET',
+                headers: {
+                  'apikey': SUPABASE_KEY,
+                  'Authorization': `Bearer ${session.access_token}`,
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+            
+            if (usersResponse.ok) {
+              const users = await usersResponse.json();
+              console.log(`[BatchUpload] Found ${users.length} users with boulder_new enabled`);
+              
+              // Get boulder details for the notification message
+              const bouldersResponse = await fetch(
+                `${SUPABASE_URL}/rest/v1/boulders?id=in.(${successfulBoulderIds.join(',')})&select=id,name,sector_id`,
+                {
+                  method: 'GET',
+                  headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json',
+                  },
+                }
+              );
+              
+              let boulderDetails: any[] = [];
+              if (bouldersResponse.ok) {
+                boulderDetails = await bouldersResponse.json();
+              }
+              
+              // Get unique sector IDs
+              const sectorIds = [...new Set(boulderDetails.map((b: any) => b.sector_id).filter(Boolean))];
+              
+              // Create notification for each user
+              const notificationPromises = users.map(async (user: { user_id: string }) => {
+                try {
+                  // Determine message based on count
+                  const message = successfulBoulderIds.length === 1
+                    ? `Ein neuer Boulder wurde hinzugefügt: ${boulderDetails[0]?.name || 'Unbenannt'}`
+                    : `${successfulBoulderIds.length} neue Boulder wurden hinzugefügt`;
+                  
+                  // Call create_notification RPC function
+                  const createNotificationResponse = await fetch(
+                    `${SUPABASE_URL}/rest/v1/rpc/create_notification`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        p_user_id: user.user_id,
+                        p_type: 'boulder_new',
+                        p_title: 'Neuer Boulder verfügbar',
+                        p_message: message,
+                        p_data: {
+                          boulder_count: successfulBoulderIds.length,
+                          boulder_ids: successfulBoulderIds,
+                          sector_ids: sectorIds,
+                          latest_boulder_id: successfulBoulderIds[successfulBoulderIds.length - 1],
+                          latest_sector_id: sectorIds[0] || null,
+                        },
+                        p_action_url: '/boulders',
+                      }),
+                    }
+                  );
+                  
+                  if (createNotificationResponse.ok) {
+                    const notificationId = await createNotificationResponse.json();
+                    console.log(`[BatchUpload] ✅ Created notification ${notificationId} for user ${user.user_id}`);
+                    
+                    // Send push notification for this notification
+                    if (notificationId) {
+                      await sendPushNotificationForNotification(notificationId, session);
+                      console.log(`[BatchUpload] ✅ Sent push notification for notification ${notificationId}`);
+                    }
+                    
+                    return notificationId;
+                  } else {
+                    const errorText = await createNotificationResponse.text();
+                    console.error(`[BatchUpload] ❌ Error creating notification for user ${user.user_id}:`, errorText);
+                    return null;
+                  }
+                } catch (error) {
+                  console.error(`[BatchUpload] ❌ Error creating notification for user ${user.user_id}:`, error);
+                  return null;
+                }
+              });
+              
+              await Promise.all(notificationPromises);
+              console.log(`[BatchUpload] ✅ Batch notifications created and push notifications sent for ${successfulBoulderIds.length} boulders`);
+            } else {
+              const errorText = await usersResponse.text();
+              console.error('[BatchUpload] ❌ Error fetching users with boulder_new enabled:', errorText);
+            }
+          } catch (error) {
+            console.error('[BatchUpload] ❌ Error creating batch notifications:', error);
+            // Don't show error to user - notifications are optional
+          }
+        }
     }
     
     if (failedBoulders.length > 0) {
@@ -367,29 +536,33 @@ export const BatchUpload = () => {
                         )}
                         <div className="space-y-2 w-full box-border min-w-0">
                             <Label className="text-sm font-medium text-[#13112B]">Farbe</Label>
-                            <div className="w-full flex gap-2 flex-wrap">
-                                {colors?.map(c => (
-                                    <button
-                                        key={c.id}
-                                        onClick={() => {
-                                            const newName = adjustNameForColor(c.id);
-                                            updateCurrentBoulder({ colorId: c.id, name: newName });
-                                        }}
-                                        className={cn(
-                                            "flex-shrink-0 w-11 h-11 rounded-xl transition-all border-2 flex items-center justify-center",
-                                            currentBoulder.colorId === c.id
-                                                ? "border-[#36B531] shadow-lg scale-110 ring-2 ring-[#36B531] ring-offset-2"
-                                                : "border-[#E7F7E9] hover:border-[#36B531]/50 hover:scale-105"
-                                        )}
-                                        style={getColorBackgroundStyle(c.name, colors)}
-                                        title={c.name}
-                                    >
-                                        {currentBoulder.colorId === c.id && (
-                                            <div className="w-3 h-3 rounded-xl bg-white/90 shadow-sm" />
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
+                            {colors && colors.length > 0 ? (
+                                <div className="w-full flex gap-2 flex-wrap">
+                                    {colors.map(c => (
+                                        <button
+                                            key={c.id}
+                                            onClick={() => {
+                                                const newName = adjustNameForColor(c.id);
+                                                updateCurrentBoulder({ colorId: c.id, name: newName });
+                                            }}
+                                            className={cn(
+                                                "flex-shrink-0 w-11 h-11 rounded-xl transition-all border-2 flex items-center justify-center",
+                                                currentBoulder.colorId === c.id
+                                                    ? "border-[#36B531] shadow-lg scale-110 ring-2 ring-[#36B531] ring-offset-2"
+                                                    : "border-[#E7F7E9] hover:border-[#36B531]/50 hover:scale-105"
+                                            )}
+                                            style={getColorBackgroundStyle(c.name, colors)}
+                                            title={c.name}
+                                        >
+                                            {currentBoulder.colorId === c.id && (
+                                                <div className="w-3 h-3 rounded-xl bg-white/90 shadow-sm" />
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-sm text-[#13112B]/60">Farben werden geladen...</div>
+                            )}
                         </div>
                     </div>
                     <div className="space-y-2 w-full box-border min-w-0">

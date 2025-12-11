@@ -7,14 +7,27 @@ import { useState, useEffect, useRef } from 'react';
 import { useRoleTab } from '@/contexts/RoleTabContext';
 
 // Simple storage helpers (same as in Sidebar)
+// CRITICAL: Use localStorage instead of sessionStorage for native apps
+// sessionStorage is cleared when app is closed, localStorage persists
 const STORAGE_KEY_ADMIN = 'nav_isAdmin';
 const STORAGE_KEY_SETTER = 'nav_isSetter';
 const STORAGE_KEY_USER_ID = 'nav_userId';
 
 const getStoredValue = (key: string): boolean | null => {
   try {
-    const stored = sessionStorage.getItem(key);
-    return stored === null ? null : stored === 'true';
+    // Try localStorage first (persists across app restarts)
+    const stored = localStorage.getItem(key);
+    if (stored !== null) {
+      return stored === 'true';
+    }
+    // Fallback to sessionStorage for backward compatibility
+    const sessionStored = sessionStorage.getItem(key);
+    if (sessionStored !== null) {
+      // Migrate to localStorage
+      localStorage.setItem(key, sessionStored);
+      return sessionStored === 'true';
+    }
+    return null;
   } catch {
     return null;
   }
@@ -22,9 +35,41 @@ const getStoredValue = (key: string): boolean | null => {
 
 const getStoredUserId = (): string | null => {
   try {
-    return sessionStorage.getItem(STORAGE_KEY_USER_ID);
+    // Try localStorage first (persists across app restarts)
+    const stored = localStorage.getItem(STORAGE_KEY_USER_ID);
+    if (stored !== null) {
+      return stored;
+    }
+    // Fallback to sessionStorage for backward compatibility
+    const sessionStored = sessionStorage.getItem(STORAGE_KEY_USER_ID);
+    if (sessionStored !== null) {
+      // Migrate to localStorage
+      localStorage.setItem(STORAGE_KEY_USER_ID, sessionStored);
+      return sessionStored;
+    }
+    return null;
   } catch {
     return null;
+  }
+};
+
+const setStoredValue = (key: string, value: boolean): void => {
+  try {
+    localStorage.setItem(key, String(value));
+    // Also set in sessionStorage for backward compatibility
+    sessionStorage.setItem(key, String(value));
+  } catch {
+    // Ignore
+  }
+};
+
+const setStoredUserId = (userId: string): void => {
+  try {
+    localStorage.setItem(STORAGE_KEY_USER_ID, userId);
+    // Also set in sessionStorage for backward compatibility
+    sessionStorage.setItem(STORAGE_KEY_USER_ID, userId);
+  } catch {
+    // Ignore
   }
 };
 
@@ -85,7 +130,7 @@ export const RoleTabs = () => {
         } else {
           if (storedAdmin !== null) setStableIsAdmin(storedAdmin);
           if (storedSetter !== null) setStableIsSetter(storedSetter);
-          sessionStorage.setItem(STORAGE_KEY_USER_ID, currentUserId);
+          setStoredUserId(currentUserId);
         }
       } else {
         if (previousUserId !== undefined) {
@@ -112,24 +157,64 @@ export const RoleTabs = () => {
       }
     }
 
-    // Update stable roles when hooks finish loading (as fallback/confirmation)
+    // CRITICAL: Update stable roles when hooks finish loading
+    // This ensures roles are always synced with the database, even after reload
     if (currentUserId && !adminLoading && !setterLoading) {
       const effectiveSetter = isSetter || isAdmin;
       const adminChanged = stableIsAdmin !== isAdmin;
       const setterChanged = stableIsSetter !== effectiveSetter;
       
+      // Always update if hooks have finished loading, even if values haven't changed
+      // This ensures roles are properly set after reload
       if (adminChanged || setterChanged || !rolesInitializedRef.current) {
+        console.log('[RoleTabs] Updating roles from hooks:', { 
+          isAdmin, 
+          effectiveSetter, 
+          adminChanged, 
+          setterChanged,
+          firstInit: !rolesInitializedRef.current
+        });
+        
         setStableIsAdmin(isAdmin);
-        sessionStorage.setItem(STORAGE_KEY_ADMIN, String(isAdmin));
+        setStoredValue(STORAGE_KEY_ADMIN, isAdmin);
         setStableIsSetter(effectiveSetter);
-        sessionStorage.setItem(STORAGE_KEY_SETTER, String(effectiveSetter));
+        setStoredValue(STORAGE_KEY_SETTER, effectiveSetter);
         if (currentUserId) {
-          sessionStorage.setItem(STORAGE_KEY_USER_ID, currentUserId);
+          setStoredUserId(currentUserId);
         }
         rolesInitializedRef.current = true;
       }
     }
   }, [user?.id, isAdmin, isSetter, adminLoading, setterLoading, stableIsAdmin, stableIsSetter]);
+
+  // CRITICAL: Listen for visibility changes to refresh roles when app becomes visible
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[RoleTabs] App visible - refreshing roles from sessionStorage');
+        // Read roles directly from sessionStorage when app becomes visible
+        const storedUserId = getStoredUserId();
+        if (storedUserId === user.id) {
+          const storedAdmin = getStoredValue(STORAGE_KEY_ADMIN);
+          const storedSetter = getStoredValue(STORAGE_KEY_SETTER);
+          
+          if (storedAdmin !== null && storedAdmin !== stableIsAdmin) {
+            console.log('[RoleTabs] Updating admin role from storage:', storedAdmin);
+            setStableIsAdmin(storedAdmin);
+          }
+          if (storedSetter !== null && storedSetter !== stableIsSetter) {
+            console.log('[RoleTabs] Updating setter role from storage:', storedSetter);
+            setStableIsSetter(storedSetter);
+          }
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user?.id, stableIsAdmin, stableIsSetter]);
 
   // Poll sessionStorage periodically to catch roles that are stored after component mount
   // This handles the race condition where checkAndStoreRoles completes after initial render

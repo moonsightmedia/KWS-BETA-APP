@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 
 // Get Supabase API key from environment
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -352,67 +353,100 @@ export const useBouldersWithSectors = (enabled: boolean = true) => {
 
 export const useUpdateBoulder = () => {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Boulder> & { id: string }) => {
-      console.log('[useUpdateBoulder] Starting mutation for boulder:', id);
+      console.log('[useUpdateBoulder] 🔵 Starting mutation for boulder:', id);
       
-      // Helper function to add timeout to Supabase queries
-      const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
-        return Promise.race([
-          promise,
-          new Promise<T>((_, reject) => {
-            setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
-          })
-        ]);
-      };
+      // CRITICAL: Use session from useAuth hook instead of supabase.auth.getSession()
+      // supabase.auth.getSession() hangs on localhost after reload
+      let currentSession = session;
       
-      // Get old data for logging (with timeout)
+      if (!currentSession?.access_token) {
+        // Try to get session with timeout as fallback
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Session timeout after 5s')), 5000)
+        );
+        
+        try {
+          const sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
+          const { data: { session: fetchedSession } } = sessionResult as any;
+          if (!fetchedSession?.access_token) {
+            throw new Error('Nicht angemeldet. Bitte melde dich an.');
+          }
+          currentSession = fetchedSession;
+        } catch (timeoutError) {
+          console.error('[useUpdateBoulder] ❌ Session timeout:', timeoutError);
+          throw new Error('Session timeout - bitte Seite neu laden');
+        }
+      }
+      
+      if (!currentSession?.access_token) {
+        throw new Error('Nicht angemeldet. Bitte melde dich an.');
+      }
+      
+      console.log('[useUpdateBoulder] ✅ Session obtained');
+
+      // Use direct fetch instead of QueryBuilder to avoid hanging issues after reload
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      if (!SUPABASE_URL || !SUPABASE_KEY) {
+        throw new Error('Supabase-Konfiguration fehlt');
+      }
+
+      // Get old data for logging
       console.log('[useUpdateBoulder] Fetching old data...');
       let oldData = null;
       try {
-        const oldDataPromise = supabase
-          .from('boulders')
-          .select('*')
-          .eq('id', id)
-          .maybeSingle();
-        
-        const { data: fetchedOldData, error: oldDataError } = await withTimeout(
-          oldDataPromise,
-          10000, // 10 second timeout
-          'Timeout beim Abrufen der alten Daten'
+        const oldDataResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/boulders?id=eq.${id}&select=*`,
+          {
+            method: 'GET',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${currentSession.access_token}`,
+              'Content-Type': 'application/json',
+            },
+          }
         );
-        
-        if (oldDataError) {
-          console.error('[useUpdateBoulder] Error fetching old data:', oldDataError);
-          throw oldDataError;
+
+        if (oldDataResponse.ok) {
+          const oldDataArray = await oldDataResponse.json();
+          oldData = Array.isArray(oldDataArray) && oldDataArray.length > 0 ? oldDataArray[0] : null;
+          console.log('[useUpdateBoulder] Old data fetched');
         }
-        oldData = fetchedOldData;
-        console.log('[useUpdateBoulder] Old data fetched');
       } catch (error: any) {
         console.warn('[useUpdateBoulder] Could not fetch old data (non-critical):', error);
         // Continue without old data - logging is not critical
       }
 
-      // Update boulder (with timeout)
+      // Update boulder
       console.log('[useUpdateBoulder] Updating boulder with data:', updates);
-      const updatePromise = supabase
-        .from('boulders')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .maybeSingle();
-      
-      const { data, error } = await withTimeout(
-        updatePromise,
-        15000, // 15 second timeout
-        'Timeout beim Aktualisieren des Boulders'
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/boulders?id=eq.${id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${currentSession.access_token}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify(updates),
+        }
       );
 
-      if (error) {
-        console.error('[useUpdateBoulder] Supabase update error:', error);
-        throw error;
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
+
+      const dataArray = await response.json();
+      const data = Array.isArray(dataArray) && dataArray.length > 0 ? dataArray[0] : null;
+
       if (!data) {
         console.error('[useUpdateBoulder] No data returned from update');
         throw new Error('Boulder konnte nicht aktualisiert werden. Möglicherweise fehlen die Berechtigungen.');
@@ -473,6 +507,29 @@ export const useCreateBoulder = () => {
 
   return useMutation({
     mutationFn: async (newBoulder: Omit<Boulder, 'id' | 'created_at' | 'updated_at'>) => {
+      console.log('[useCreateBoulder] 🔵 Starting mutation...');
+      
+      // CRITICAL: Get session for RLS with timeout to avoid hanging after reload
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Session timeout after 5s')), 5000)
+      );
+      
+      let sessionResult;
+      try {
+        sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
+      } catch (timeoutError) {
+        console.error('[useCreateBoulder] ❌ Session timeout:', timeoutError);
+        throw new Error('Session timeout - bitte Seite neu laden');
+      }
+      
+      const { data: { session } } = sessionResult as any;
+      if (!session) {
+        throw new Error('Nicht angemeldet. Bitte melde dich an.');
+      }
+      
+      console.log('[useCreateBoulder] ✅ Session obtained');
+
       // Erstelle den Boulder
       // Ensure status is set (default to 'haengt' if not provided)
       const boulderData = {
@@ -480,31 +537,67 @@ export const useCreateBoulder = () => {
         status: newBoulder.status || 'haengt',
       };
       
-      const { data, error } = await supabase
-        .from('boulders')
-        .insert(boulderData)
-        .select()
-        .single();
+      // Use direct fetch instead of QueryBuilder to avoid hanging issues after reload
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-      if (error) throw error;
+      if (!SUPABASE_URL || !SUPABASE_KEY) {
+        throw new Error('Supabase-Konfiguration fehlt');
+      }
+
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/boulders`,
+        {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify(boulderData),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      const createdBoulder = Array.isArray(data) ? data[0] : data;
 
       // Aktualisiere automatisch den last_schraubtermin des Sektors
-      const { error: sectorError } = await supabase
-        .from('sectors')
-        .update({ 
-          last_schraubtermin: new Date().toISOString() 
-        })
-        .eq('id', newBoulder.sector_id);
+      try {
+        const sectorResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/sectors?id=eq.${newBoulder.sector_id}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal',
+            },
+            body: JSON.stringify({ 
+              last_schraubtermin: new Date().toISOString() 
+            }),
+          }
+        );
 
-      if (sectorError) {
+        if (!sectorResponse.ok) {
+          console.error('Fehler beim Aktualisieren des Sektor-Schraubtermins:', await sectorResponse.text());
+          // Wir werfen den Fehler nicht, da der Boulder bereits erstellt wurde
+        }
+      } catch (sectorError) {
         console.error('Fehler beim Aktualisieren des Sektor-Schraubtermins:', sectorError);
         // Wir werfen den Fehler nicht, da der Boulder bereits erstellt wurde
       }
 
       // Log the operation
-      await logBoulderOperation('create', data.id, data.name, data);
+      await logBoulderOperation('create', createdBoulder.id, createdBoulder.name, createdBoulder);
 
-      return data;
+      return createdBoulder;
     },
     onSuccess: () => {
       // Invalidate and immediately refetch to show new boulder
@@ -522,38 +615,101 @@ export const useCreateBoulder = () => {
 
 export const useDeleteBoulder = () => {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      console.log('[useDeleteBoulder] Starting deletion for boulder ID:', id);
+      console.log('[useDeleteBoulder] 🔵 Starting deletion for boulder ID:', id);
+      
+      // CRITICAL: Use session from useAuth hook instead of supabase.auth.getSession()
+      // supabase.auth.getSession() hangs on localhost after reload
+      let currentSession = session;
+      
+      if (!currentSession?.access_token) {
+        // Try to get session with timeout as fallback
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Session timeout after 5s')), 5000)
+        );
+        
+        try {
+          const sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
+          const { data: { session: fetchedSession } } = sessionResult as any;
+          if (!fetchedSession?.access_token) {
+            throw new Error('Nicht angemeldet. Bitte melde dich an.');
+          }
+          currentSession = fetchedSession;
+        } catch (timeoutError) {
+          console.error('[useDeleteBoulder] ❌ Session timeout:', timeoutError);
+          throw new Error('Session timeout - bitte Seite neu laden');
+        }
+      }
+      
+      if (!currentSession?.access_token) {
+        throw new Error('Nicht angemeldet. Bitte melde dich an.');
+      }
+      
+      console.log('[useDeleteBoulder] ✅ Session obtained');
+      
+      // Use direct fetch instead of QueryBuilder to avoid hanging issues after reload
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      if (!SUPABASE_URL || !SUPABASE_KEY) {
+        throw new Error('Supabase-Konfiguration fehlt');
+      }
       
       // First, get the boulder to check if it has a beta video or thumbnail
-      const { data: boulder, error: fetchError } = await supabase
-        .from('boulders')
-        .select('beta_video_url, thumbnail_url, name')
-        .eq('id', id)
-        .maybeSingle();
+      console.log('[useDeleteBoulder] 🔍 Fetching boulder data...');
+      const boulderResponse = await fetch(
+        `${SUPABASE_URL}/rest/v1/boulders?id=eq.${id}&select=beta_video_url,thumbnail_url,name`,
+        {
+          method: 'GET',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${currentSession.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-      if (fetchError) {
-        console.error('[useDeleteBoulder] Error fetching boulder:', fetchError);
-        throw fetchError;
+      if (!boulderResponse.ok) {
+        const errorText = await boulderResponse.text();
+        console.error('[useDeleteBoulder] Error fetching boulder:', boulderResponse.status, errorText);
+        throw new Error(`HTTP ${boulderResponse.status}: ${errorText}`);
       }
 
-      if (!boulder || 'error' in boulder) {
+      const boulderArray = await boulderResponse.json();
+      const boulder = Array.isArray(boulderArray) && boulderArray.length > 0 ? boulderArray[0] : null;
+
+      if (!boulder) {
         console.warn('[useDeleteBoulder] Boulder not found:', id);
         throw new Error('Boulder nicht gefunden');
       }
 
       // Type guard: ensure boulder has the expected structure
-      const boulderData = boulder as unknown as { name: string; beta_video_url: string | null; thumbnail_url: string | null };
-      console.log('[useDeleteBoulder] Boulder found:', boulderData.name, 'Video URL:', boulderData.beta_video_url, 'Thumbnail URL:', boulderData.thumbnail_url);
+      const boulderData = boulder as { name: string; beta_video_url: string | null; thumbnail_url: string | null };
+      console.log('[useDeleteBoulder] ✅ Boulder found:', boulderData.name, 'Video URL:', boulderData.beta_video_url, 'Thumbnail URL:', boulderData.thumbnail_url);
 
       // Get full boulder data for logging
-      const { data: fullBoulderData } = await supabase
-        .from('boulders')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
+      console.log('[useDeleteBoulder] 🔍 Fetching full boulder data for logging...');
+      const fullBoulderResponse = await fetch(
+        `${SUPABASE_URL}/rest/v1/boulders?id=eq.${id}&select=*`,
+        {
+          method: 'GET',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${currentSession.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      
+      let fullBoulderData = null;
+      if (fullBoulderResponse.ok) {
+        const fullBoulderArray = await fullBoulderResponse.json();
+        fullBoulderData = Array.isArray(fullBoulderArray) && fullBoulderArray.length > 0 ? fullBoulderArray[0] : null;
+      }
 
       // Delete the beta video if it exists
       if (boulderData.beta_video_url) {
@@ -580,63 +736,180 @@ export const useDeleteBoulder = () => {
       }
 
       // Delete upload_logs entries for this boulder first (to avoid foreign key constraint violation)
-      console.log('[useDeleteBoulder] Deleting upload_logs for boulder:', id);
-      const { error: uploadLogsError } = await supabase
-        .from('upload_logs')
-        .delete()
-        .eq('boulder_id', id);
+      console.log('[useDeleteBoulder] 🗑️ Deleting upload_logs for boulder:', id);
+      try {
+        const uploadLogsResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/upload_logs?boulder_id=eq.${id}`,
+          {
+            method: 'DELETE',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${currentSession.access_token}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal',
+            },
+          }
+        );
 
-      if (uploadLogsError) {
+        if (!uploadLogsResponse.ok) {
+          const errorText = await uploadLogsResponse.text();
+          console.error('[useDeleteBoulder] Error deleting upload_logs (continuing anyway):', uploadLogsResponse.status, errorText);
+        } else {
+          console.log('[useDeleteBoulder] ✅ Upload logs deleted successfully');
+        }
+      } catch (uploadLogsError) {
         console.error('[useDeleteBoulder] Error deleting upload_logs (continuing anyway):', uploadLogsError);
         // Continue with boulder deletion even if upload_logs deletion fails
-      } else {
-        console.log('[useDeleteBoulder] Upload logs deleted successfully');
       }
 
       // Then delete the boulder
-      console.log('[useDeleteBoulder] Deleting boulder from database:', id);
-      const { data: deleteData, error } = await supabase
-        .from('boulders')
-        .delete()
-        .eq('id', id)
-        .select();
+      console.log('[useDeleteBoulder] 🗑️ Deleting boulder from database:', id);
+      const deleteResponse = await fetch(
+        `${SUPABASE_URL}/rest/v1/boulders?id=eq.${id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${currentSession.access_token}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation',
+          },
+        }
+      );
 
-      if (error) {
-        console.error('[useDeleteBoulder] Error deleting boulder:', error);
-        throw error;
+      if (!deleteResponse.ok) {
+        const errorText = await deleteResponse.text();
+        console.error('[useDeleteBoulder] ❌ Error deleting boulder:', deleteResponse.status, errorText);
+        throw new Error(`HTTP ${deleteResponse.status}: ${errorText}`);
       }
 
-      console.log('[useDeleteBoulder] Boulder deleted successfully. Response:', deleteData);
+      const deleteDataArray = await deleteResponse.json();
+      const deleteData = Array.isArray(deleteDataArray) ? deleteDataArray : [];
+
+      console.log('[useDeleteBoulder] ✅ Boulder deleted successfully. Response:', deleteData);
 
       // Log the operation (before checking if deletion was successful)
+      // CRITICAL: Wrap in Promise.resolve to ensure it doesn't block
       if (fullBoulderData) {
-        await logBoulderOperation('delete', id, fullBoulderData.name, fullBoulderData);
+        Promise.resolve().then(async () => {
+          try {
+            await logBoulderOperation('delete', id, fullBoulderData.name, fullBoulderData);
+            console.log('[useDeleteBoulder] ✅ Operation logged successfully');
+          } catch (logError) {
+            console.warn('[useDeleteBoulder] Error logging operation (non-critical):', logError);
+            // Don't throw - logging is not critical
+          }
+        }).catch(() => {
+          // Ignore errors - logging is not critical
+        });
       }
       
       // Check if anything was actually deleted
       if (!deleteData || deleteData.length === 0) {
-        console.error('[useDeleteBoulder] No rows deleted! This might be due to RLS policies.');
+        console.error('[useDeleteBoulder] ⚠️ No rows deleted! This might be due to RLS policies.');
         // Try to fetch the boulder again to confirm it still exists
-        const { data: stillExists } = await supabase
-          .from('boulders')
-          .select('id, name')
-          .eq('id', id)
-          .maybeSingle();
+        const stillExistsResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/boulders?id=eq.${id}&select=id,name`,
+          {
+            method: 'GET',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${currentSession.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
         
-        if (stillExists) {
-          throw new Error('Boulder konnte nicht gelöscht werden. Möglicherweise fehlen die Berechtigungen (RLS Policy).');
+        if (stillExistsResponse.ok) {
+          const stillExistsArray = await stillExistsResponse.json();
+          const stillExists = Array.isArray(stillExistsArray) && stillExistsArray.length > 0 ? stillExistsArray[0] : null;
+          
+          if (stillExists) {
+            throw new Error('Boulder konnte nicht gelöscht werden. Möglicherweise fehlen die Berechtigungen (RLS Policy).');
+          }
         }
       }
+      
+      console.log('[useDeleteBoulder] ✅✅✅ Mutation function completed successfully, returning ID:', id);
+      
+      // CRITICAL: Update cache immediately in mutation function as well
+      // This ensures the UI updates even if onSuccess has issues
+      console.log('[useDeleteBoulder] 🔄 Attempting to update cache in mutation function...');
+      try {
+        const currentCacheData = queryClient.getQueryData<Boulder[]>(['boulders']);
+        console.log('[useDeleteBoulder] Current cache data:', currentCacheData ? `${currentCacheData.length} boulders` : 'null/undefined');
+        
+        queryClient.setQueryData(['boulders'], (oldData: Boulder[] | undefined) => {
+          console.log('[useDeleteBoulder] setQueryData callback called with:', oldData ? `${oldData.length} boulders` : 'null/undefined');
+          if (!oldData) {
+            console.log('[useDeleteBoulder] ⚠️ No old data in cache during mutation - cache might be empty');
+            return oldData;
+          }
+          const beforeCount = oldData.length;
+          const filtered = oldData.filter(b => b.id !== id);
+          const afterCount = filtered.length;
+          console.log('[useDeleteBoulder] ✅✅✅ Removed boulder from cache in mutation:', id, `Before: ${beforeCount}, After: ${afterCount}`);
+          if (beforeCount === afterCount) {
+            console.warn('[useDeleteBoulder] ⚠️ Boulder was not found in cache! ID:', id);
+          }
+          return filtered;
+        });
+        
+        // Verify the update worked
+        const updatedCacheData = queryClient.getQueryData<Boulder[]>(['boulders']);
+        console.log('[useDeleteBoulder] ✅ Cache after update:', updatedCacheData ? `${updatedCacheData.length} boulders` : 'null/undefined');
+      } catch (cacheError) {
+        console.error('[useDeleteBoulder] ❌ Error updating cache in mutation:', cacheError);
+        // Don't throw - cache update failure shouldn't break deletion
+      }
+      
+      console.log('[useDeleteBoulder] ✅✅✅ About to return ID from mutation function:', id);
+      // Return the deleted ID so onSuccess can use it
+      return id;
     },
-    onSuccess: () => {
-      console.log('[useDeleteBoulder] Deletion successful, invalidating cache...');
-      // Invalidate both boulders and sectors (deletion affects sector boulder_count)
+    onSuccess: (deletedId: string) => {
+      console.log('[useDeleteBoulder] ✅✅✅✅✅ onSuccess CALLED! Deletion successful, updating cache...', deletedId);
+      
+      // CRITICAL: Remove the deleted boulder from cache immediately
+      // This ensures the UI updates instantly without waiting for refetch
+      const currentCacheBefore = queryClient.getQueryData<Boulder[]>(['boulders']);
+      console.log('[useDeleteBoulder] Cache before onSuccess update:', currentCacheBefore ? `${currentCacheBefore.length} boulders` : 'null/undefined');
+      
+      queryClient.setQueryData(['boulders'], (oldData: Boulder[] | undefined) => {
+        console.log('[useDeleteBoulder] onSuccess setQueryData callback called with:', oldData ? `${oldData.length} boulders` : 'null/undefined');
+        if (!oldData) {
+          console.log('[useDeleteBoulder] ⚠️ No old data in cache in onSuccess, skipping immediate update');
+          return oldData;
+        }
+        const beforeCount = oldData.length;
+        const filtered = oldData.filter(b => b.id !== deletedId);
+        const afterCount = filtered.length;
+        console.log('[useDeleteBoulder] ✅✅✅ Removed boulder from cache in onSuccess:', deletedId, `Before: ${beforeCount}, After: ${afterCount}`);
+        if (beforeCount === afterCount) {
+          console.warn('[useDeleteBoulder] ⚠️ Boulder was not found in cache in onSuccess! ID:', deletedId);
+        }
+        return filtered;
+      });
+      
+      const currentCacheAfter = queryClient.getQueryData<Boulder[]>(['boulders']);
+      console.log('[useDeleteBoulder] Cache after onSuccess update:', currentCacheAfter ? `${currentCacheAfter.length} boulders` : 'null/undefined');
+      
+      // Also invalidate to ensure all dependent queries are updated
       queryClient.invalidateQueries({ queryKey: ['boulders'] });
       queryClient.invalidateQueries({ queryKey: ['sectors'] });
-      // Force refetch immediately
-      queryClient.refetchQueries({ queryKey: ['boulders'] });
-      queryClient.refetchQueries({ queryKey: ['sectors'] });
-      console.log('[useDeleteBoulder] Cache invalidated and refetched');
+      
+      // Force refetch immediately to ensure consistency with server
+      // Use await to ensure refetch completes before showing success message
+      Promise.all([
+        queryClient.refetchQueries({ queryKey: ['boulders'] }),
+        queryClient.refetchQueries({ queryKey: ['sectors'] })
+      ]).then(() => {
+        console.log('[useDeleteBoulder] ✅ Cache refetched successfully');
+      }).catch((error) => {
+        console.error('[useDeleteBoulder] ⚠️ Error refetching cache:', error);
+      });
+      
+      console.log('[useDeleteBoulder] ✅ Cache update initiated');
       toast.success('Boulder erfolgreich gelöscht!');
     },
     onError: (error) => {
@@ -647,13 +920,73 @@ export const useDeleteBoulder = () => {
 
 export const useBulkUpdateBoulderStatus = () => {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
+  
   return useMutation({
     mutationFn: async (payload: { ids: string[]; status: 'haengt' | 'abgeschraubt' }) => {
-      const { error } = await supabase
-        .from('boulders')
-        .update({ status: payload.status })
-        .in('id', payload.ids);
-      if (error) throw error;
+      console.log('[useBulkUpdateBoulderStatus] 🔵 Starting bulk update for', payload.ids.length, 'boulders');
+      
+      // CRITICAL: Use session from useAuth hook instead of supabase.auth.getSession()
+      // supabase.auth.getSession() hangs on localhost after reload
+      let currentSession = session;
+      
+      if (!currentSession?.access_token) {
+        // Try to get session with timeout as fallback
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Session timeout after 5s')), 5000)
+        );
+        
+        try {
+          const sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
+          const { data: { session: fetchedSession } } = sessionResult as any;
+          if (!fetchedSession?.access_token) {
+            throw new Error('Nicht angemeldet. Bitte melde dich an.');
+          }
+          currentSession = fetchedSession;
+        } catch (timeoutError) {
+          console.error('[useBulkUpdateBoulderStatus] ❌ Session timeout:', timeoutError);
+          throw new Error('Session timeout - bitte Seite neu laden');
+        }
+      }
+      
+      if (!currentSession?.access_token) {
+        throw new Error('Nicht angemeldet. Bitte melde dich an.');
+      }
+      
+      console.log('[useBulkUpdateBoulderStatus] ✅ Session obtained');
+      
+      // Use direct fetch instead of QueryBuilder to avoid hanging issues after reload
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      if (!SUPABASE_URL || !SUPABASE_KEY) {
+        throw new Error('Supabase-Konfiguration fehlt');
+      }
+      
+      // Build filter for multiple IDs: id=in.(id1,id2,id3)
+      const idsFilter = payload.ids.join(',');
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/boulders?id=in.(${idsFilter})`,
+        {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${currentSession.access_token}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify({ status: payload.status }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[useBulkUpdateBoulderStatus] ❌ Error updating boulders:', response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+      
+      console.log('[useBulkUpdateBoulderStatus] ✅ Bulk update completed successfully');
     },
     onSuccess: () => {
       // Invalidate and refetch both boulders and sectors (status changes affect sector boulder_count)

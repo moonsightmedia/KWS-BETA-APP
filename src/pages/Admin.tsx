@@ -12,6 +12,7 @@ import { SectorManagement } from "@/components/admin/SectorManagement";
 import { BoulderOperationLogs } from "@/components/admin/BoulderOperationLogs";
 import { CompetitionBoulderManagement } from "@/components/competition/CompetitionBoulderManagement";
 import { FeedbackManagement } from "@/components/admin/FeedbackManagement";
+import { PushNotificationTest } from "@/components/admin/PushNotificationTest";
 
 const Admin = () => {
   const { user } = useAuth();
@@ -54,6 +55,7 @@ const Admin = () => {
       // 'competition': 'WETTKAMPF', // Temporarily hidden
       'feedback': 'FEEDBACK',
       'logs': 'LOGS',
+      'tests': 'TESTS',
     };
     return titleMap[tab] || 'ADMIN';
   };
@@ -95,12 +97,13 @@ const Admin = () => {
             }}
             className="w-full min-w-0 hidden md:block"
           >
-            <TabsList className="grid w-full grid-cols-4 mb-6 h-auto min-w-0 bg-[#F9FAF9] p-1 rounded-xl">
+            <TabsList className="grid w-full grid-cols-6 mb-6 h-auto min-w-0 bg-[#F9FAF9] p-1 rounded-xl">
               <TabsTrigger value="users" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Benutzer</TabsTrigger>
               <TabsTrigger value="settings" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Einstellungen</TabsTrigger>
               {/* <TabsTrigger value="competition" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Wettkampf</TabsTrigger> */}
               <TabsTrigger value="feedback" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Feedback</TabsTrigger>
               <TabsTrigger value="logs" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Logs</TabsTrigger>
+              <TabsTrigger value="tests" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Tests</TabsTrigger>
             </TabsList>
 
             <TabsContent value="users" className="mt-0">
@@ -143,6 +146,12 @@ const Admin = () => {
 
             <TabsContent value="logs" className="mt-0">
               <BoulderOperationLogs />
+            </TabsContent>
+
+            <TabsContent value="tests" className="mt-0">
+              <div className="space-y-6">
+                <PushNotificationTest />
+              </div>
             </TabsContent>
           </Tabs>
           
@@ -191,6 +200,11 @@ const Admin = () => {
             {searchParams.get('tab') === 'logs' && (
               <div className="mt-0">
                 <BoulderOperationLogs />
+              </div>
+            )}
+            {searchParams.get('tab') === 'tests' && (
+              <div className="mt-0">
+                <PushNotificationTest />
               </div>
             )}
           </div>

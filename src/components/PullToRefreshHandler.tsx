@@ -25,14 +25,59 @@ export const PullToRefreshHandler = () => {
   });
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+  // Helper function to check if we're truly at the top and cannot scroll up
+  const isAtTopAndCannotScrollUp = (): boolean => {
+    // Check both window.scrollY and document.documentElement.scrollTop
+    // Some browsers use one, others use the other
+    const scrollTop = Math.max(
+      window.scrollY || 0,
+      document.documentElement.scrollTop || 0,
+      document.body.scrollTop || 0
+    );
+    
+    // Must be at top (scrollTop <= 1px tolerance for rounding errors)
+    // If scrollTop is 0 or very close to 0, we cannot scroll up further
+    return scrollTop <= 1;
+  };
 
+  useEffect(() => {
+    // CRITICAL: Use capture phase to intercept events before other handlers
+    // This ensures pull-to-refresh works even with other touch handlers
     const handleTouchStart = (e: TouchEvent) => {
-      // Only allow pull-to-refresh if we're at the top of the page
-      const scrollTop = window.scrollY || document.documentElement.scrollTop;
-      if (scrollTop > 10) {
+      // CRITICAL: Check if there's an active switch interaction
+      if ((window as any).__switchInteraction) {
+        console.log('[PullToRefresh] TouchStart - cancelled, switch interaction active');
+        touchStateRef.current.isPulling = false;
+        return;
+      }
+      
+      // CRITICAL: Don't interfere with interactive elements (buttons, switches, inputs)
+      const target = e.target as HTMLElement;
+      if (target && (
+        target.tagName === 'BUTTON' ||
+        target.tagName === 'INPUT' ||
+        target.tagName === 'SELECT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.closest('button') ||
+        target.closest('[role="button"]') ||
+        target.closest('[role="switch"]') ||
+        target.closest('label') ||
+        target.closest('.switch') ||
+        target.closest('[data-radix-switch]') ||
+        target.closest('[data-state]') || // Radix UI switches have data-state attribute
+        target.closest('[class*="switch"]') || // Any element with "switch" in class name
+        target.closest('[data-radix-switch-root]') // Radix UI switch root element
+      )) {
+        // Don't interfere with button/switch clicks
+        console.log('[PullToRefresh] TouchStart - cancelled, interactive element:', target.tagName, target.closest('[role="switch"]') ? 'switch' : 'other');
+        touchStateRef.current.isPulling = false;
+        return;
+      }
+
+      // STRICT CHECK: Only allow pull-to-refresh if we're EXACTLY at the top
+      if (!isAtTopAndCannotScrollUp()) {
+        // Reset state if not at top - user can still scroll up
+        touchStateRef.current.isPulling = false;
         return; // Don't trigger if not at top
       }
 
@@ -41,46 +86,126 @@ export const PullToRefreshHandler = () => {
         return;
       }
 
+      // Mark pull-to-refresh as active to prevent other handlers from interfering
+      (window as any).__pullToRefreshActive = true;
+
       touchStateRef.current = {
         startY: e.touches[0].clientY,
         currentY: e.touches[0].clientY,
         isPulling: true,
         hasTriggered: false,
       };
+      
+      console.log('[PullToRefresh] TouchStart - isPulling:', true);
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       const state = touchStateRef.current;
       if (!state.isPulling) return;
 
+      // CRITICAL: Check if there's an active switch interaction
+      if ((window as any).__switchInteraction) {
+        console.log('[PullToRefresh] TouchMove - cancelled, switch interaction active');
+        setPullDistance(0);
+        state.isPulling = false;
+        (window as any).__pullToRefreshActive = false;
+        return;
+      }
+
+      // CRITICAL: Check if target is an interactive element BEFORE preventing default
+      const target = e.target as HTMLElement;
+      if (target && (
+        target.tagName === 'BUTTON' ||
+        target.tagName === 'INPUT' ||
+        target.tagName === 'SELECT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.closest('button') ||
+        target.closest('[role="button"]') ||
+        target.closest('[role="switch"]') ||
+        target.closest('label') ||
+        target.closest('.switch') ||
+        target.closest('[data-radix-switch]') ||
+        target.closest('[data-state]') || // Radix UI switches have data-state attribute
+        target.closest('[data-radix-switch-root]') // Radix UI switch root element
+      )) {
+        // Don't prevent default on interactive elements
+        console.log('[PullToRefresh] TouchMove - cancelled, interactive element');
+        setPullDistance(0);
+        state.isPulling = false;
+        (window as any).__pullToRefreshActive = false;
+        return;
+      }
+
+      // STRICT CHECK: Cancel immediately if we're no longer at the top
+      if (!isAtTopAndCannotScrollUp()) {
+        // User scrolled away from top - cancel pull-to-refresh immediately
+        console.log('[PullToRefresh] TouchMove - cancelled, not at top');
+        setPullDistance(0);
+        state.isPulling = false;
+        (window as any).__pullToRefreshActive = false;
+        return;
+      }
+
       // Prevent default scrolling if we're pulling down
       const currentY = e.touches[0].clientY;
       const deltaY = currentY - state.startY;
 
-      if (deltaY > 0) {
-        // Pulling down - prevent default scroll
-        e.preventDefault();
-        
-        state.currentY = currentY;
-        const distance = Math.min(deltaY, MAX_PULL_DISTANCE);
-        setPullDistance(distance);
+      // Only activate if pulling down (more than 5px)
+      // This prevents accidental activation when scrolling up
+      if (deltaY > 5) {
+        // Pulling down - prevent default scroll ONLY if we're still at top
+        if (isAtTopAndCannotScrollUp()) {
+          e.preventDefault();
+          e.stopPropagation(); // Prevent other handlers from interfering
+          
+          state.currentY = currentY;
+          const distance = Math.min(deltaY, MAX_PULL_DISTANCE);
+          setPullDistance(distance);
 
-        // Trigger refresh if threshold reached and not already triggered
-        if (distance >= PULL_THRESHOLD && !state.hasTriggered) {
-          state.hasTriggered = true;
+          // Trigger refresh if threshold reached and not already triggered
+          if (distance >= PULL_THRESHOLD && !state.hasTriggered) {
+            state.hasTriggered = true;
+            console.log('[PullToRefresh] TouchMove - threshold reached, will refresh');
+          }
+        } else {
+          // No longer at top - cancel immediately
+          console.log('[PullToRefresh] TouchMove - cancelled, no longer at top');
+          setPullDistance(0);
+          state.isPulling = false;
+          (window as any).__pullToRefreshActive = false;
         }
-      } else {
-        // Pulling up - reset
+      } else if (deltaY < -2) {
+        // Pulling up even slightly (more than 2px) - cancel pull-to-refresh immediately
+        console.log('[PullToRefresh] TouchMove - cancelled, pulling up');
         setPullDistance(0);
         state.isPulling = false;
+        (window as any).__pullToRefreshActive = false;
+        // Don't prevent default - allow normal scrolling
       }
     };
 
     const handleTouchEnd = async () => {
       const state = touchStateRef.current;
+      
+      // Always clear the marker
+      (window as any).__pullToRefreshActive = false;
+      
       if (!state.isPulling) return;
 
-      const shouldRefresh = state.hasTriggered && pullDistance >= PULL_THRESHOLD;
+      // FINAL CHECK: Only refresh if we're still at the top
+      if (!isAtTopAndCannotScrollUp()) {
+        // User scrolled away - cancel refresh
+        state.isPulling = false;
+        state.hasTriggered = false;
+        setPullDistance(0);
+        return;
+      }
+
+      // Get current pullDistance from state (use ref to avoid stale closure)
+      const currentPullDistance = pullDistance;
+      const shouldRefresh = state.hasTriggered && currentPullDistance >= PULL_THRESHOLD;
+
+      console.log('[PullToRefresh] TouchEnd - shouldRefresh:', shouldRefresh, 'pullDistance:', currentPullDistance, 'hasTriggered:', state.hasTriggered);
 
       // Reset pull state
       state.isPulling = false;
@@ -95,43 +220,50 @@ export const PullToRefreshHandler = () => {
           // Use optimized refresh function that refetches sequentially
           await refreshAllData(queryClient);
           console.log('[PullToRefresh] ✅ Refresh completed');
+          
+          // Show success feedback
+          const { toast } = await import('sonner');
+          toast.success('Daten aktualisiert', {
+            duration: 2000,
+          });
         } catch (error) {
           console.error('[PullToRefresh] ❌ Refresh failed:', error);
+          // Show error feedback
+          const { toast } = await import('sonner');
+          toast.error('Fehler beim Aktualisieren', {
+            duration: 3000,
+          });
         } finally {
           // Small delay before hiding indicator for better UX
           setTimeout(() => {
             setIsRefreshing(false);
-          }, 300);
+          }, 500);
         }
       }
     };
 
-    // Add touch event listeners
-    container.addEventListener('touchstart', handleTouchStart, { passive: false });
-    container.addEventListener('touchmove', handleTouchMove, { passive: false });
-    container.addEventListener('touchend', handleTouchEnd);
+    // CRITICAL: Use capture phase (true) to intercept events before other handlers
+    // This ensures pull-to-refresh works even with other touch handlers
+    document.body.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
+    document.body.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
+    document.body.addEventListener('touchend', handleTouchEnd, { capture: true });
 
     return () => {
-      container.removeEventListener('touchstart', handleTouchStart);
-      container.removeEventListener('touchmove', handleTouchMove);
-      container.removeEventListener('touchend', handleTouchEnd);
+      document.body.removeEventListener('touchstart', handleTouchStart, { capture: true } as any);
+      document.body.removeEventListener('touchmove', handleTouchMove, { capture: true } as any);
+      document.body.removeEventListener('touchend', handleTouchEnd, { capture: true } as any);
+      // Clean up marker
+      (window as any).__pullToRefreshActive = false;
     };
-  }, [queryClient, pullDistance, isRefreshing]);
+  }, [queryClient, isRefreshing, pullDistance]); // Added pullDistance back but use ref in handler to avoid stale closure
 
-  // Invisible container that captures touch events
+  // No container needed - events are attached to document.body
   return (
-    <>
-      <div
-        ref={containerRef}
-        className="fixed inset-0 pointer-events-none z-[9998]"
-        style={{ touchAction: 'pan-y' }}
-      />
-      <PullToRefreshIndicator
-        pullDistance={pullDistance}
-        isRefreshing={isRefreshing}
-        pullThreshold={PULL_THRESHOLD}
-      />
-    </>
+    <PullToRefreshIndicator
+      pullDistance={pullDistance}
+      isRefreshing={isRefreshing}
+      pullThreshold={PULL_THRESHOLD}
+    />
   );
 };
 

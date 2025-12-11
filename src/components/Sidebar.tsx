@@ -29,9 +29,20 @@ const STORAGE_KEY_SETTER = 'nav_isSetter';
 const STORAGE_KEY_USER_ID = 'nav_userId';
 
 // Simple storage helpers
+// CRITICAL: Use localStorage instead of sessionStorage for native apps
+// sessionStorage is cleared when app is closed, localStorage persists
 const getStoredValue = (key: string): boolean | null => {
   try {
-    const stored = sessionStorage.getItem(key);
+    // Try localStorage first (persists across app restarts)
+    let stored = localStorage.getItem(key);
+    if (stored === null) {
+      // Fallback to sessionStorage for backward compatibility
+      stored = sessionStorage.getItem(key);
+      if (stored !== null) {
+        // Migrate to localStorage
+        localStorage.setItem(key, stored);
+      }
+    }
     return stored === null ? null : stored === 'true';
   } catch {
     return null;
@@ -40,6 +51,8 @@ const getStoredValue = (key: string): boolean | null => {
 
 const setStoredValue = (key: string, value: boolean): void => {
   try {
+    localStorage.setItem(key, String(value));
+    // Also set in sessionStorage for backward compatibility
     sessionStorage.setItem(key, String(value));
   } catch {
     // Ignore
@@ -48,7 +61,17 @@ const setStoredValue = (key: string, value: boolean): void => {
 
 const getStoredUserId = (): string | null => {
   try {
-    return sessionStorage.getItem(STORAGE_KEY_USER_ID);
+    // Try localStorage first (persists across app restarts)
+    let stored = localStorage.getItem(STORAGE_KEY_USER_ID);
+    if (stored === null) {
+      // Fallback to sessionStorage for backward compatibility
+      stored = sessionStorage.getItem(STORAGE_KEY_USER_ID);
+      if (stored !== null) {
+        // Migrate to localStorage
+        localStorage.setItem(STORAGE_KEY_USER_ID, stored);
+      }
+    }
+    return stored;
   } catch {
     return null;
   }
