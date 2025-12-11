@@ -28,7 +28,10 @@ workflows:
           cd ../..
       - name: Set up code signing settings on Xcode project
         script: |
-          xcode-project use-profiles
+          xcode-project use-profiles \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME" \
+            --bundle-id "$APP_ID"
       - name: Build IPA
         script: |
           xcode-project build-ipa \
