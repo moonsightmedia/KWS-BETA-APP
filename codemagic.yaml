@@ -6,6 +6,8 @@ workflows:
     integrations:
       app_store_connect: codemagic
     environment:
+      groups:
+        - app_store_credentials
       vars:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
@@ -29,14 +31,12 @@ workflows:
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles
-          # Prüfen ob Profile gefunden wurden
-          echo "Checking for provisioning profiles..."
-          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/ || echo "No profiles directory found"
       - name: Build IPA
         script: |
           xcode-project build-ipa \
             --workspace "$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME"
+            --scheme "$XCODE_SCHEME" \
+            --export-options-plist ios/App/exportOptions.plist
     artifacts:
       - build/ipa/*.ipa
     publishing:
@@ -47,7 +47,10 @@ workflows:
           success: true
           failure: true
       app_store_connect:
-        auth: integration
+        # Verwende API Key aus Environment Variables
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         
         # Automatisches Upload zu TestFlight
         submit_to_testflight: true
