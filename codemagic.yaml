@@ -8,6 +8,7 @@ workflows:
     environment:
       groups:
         - app_store_credentials
+      xcode: latest
       vars:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
@@ -28,15 +29,11 @@ workflows:
           cd ios/App
           pod install
           cd ../..
-      - name: Set up code signing settings on Xcode project
-        script: |
-          xcode-project use-profiles
       - name: Build IPA
         script: |
           xcode-project build-ipa \
             --workspace "$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME" \
-            --export-options-plist ios/App/exportOptions.plist
+            --scheme "$XCODE_SCHEME"
     artifacts:
       - build/ipa/*.ipa
     publishing:
