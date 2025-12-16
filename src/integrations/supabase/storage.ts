@@ -197,7 +197,7 @@ function applyExifOrientation(ctx: CanvasRenderingContext2D, orientation: number
  * Compresses to JPEG with 75% quality for smaller file sizes (10-30 KB instead of 50-200 KB)
  * Automatically corrects EXIF orientation so portrait images are saved as portrait
  */
-async function compressThumbnail(file: File, onProgress?: (progress: number) => void): Promise<File> {
+export async function compressThumbnail(file: File, onProgress?: (progress: number) => void): Promise<File> {
   return new Promise(async (resolve, reject) => {
     // Read EXIF orientation first
     const orientation = await getExifOrientation(file);

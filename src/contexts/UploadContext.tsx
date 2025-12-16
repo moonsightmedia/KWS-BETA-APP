@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { reportError } from '@/utils/feedbackUtils';
 import { useAuth } from '@/hooks/useAuth';
+import { compressThumbnail } from '@/integrations/supabase/storage';
 
 export interface ActiveUpload {
   sessionId: string;
@@ -287,10 +288,37 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             updateUpload(upload.sessionId, { abortController: controller });
         }
         
+        // CRITICAL: Compress thumbnails before uploading to reduce file size
+        let fileToUpload = upload.file;
+        if (upload.type === 'thumbnail') {
+            console.log('[UploadContext] 🗜️ Compressing thumbnail before upload...', {
+                originalSize: upload.file.size,
+                fileName: upload.fileName
+            });
+            try {
+                fileToUpload = await compressThumbnail(upload.file, (progress) => {
+                    // Update progress during compression (0-40% for compression, 40-100% for upload)
+                    const compressionProgress = Math.floor(progress * 0.4); // Compression takes first 40%
+                    updateUpload(upload.sessionId, { progress: compressionProgress });
+                    updateLog('uploading', compressionProgress);
+                });
+                console.log('[UploadContext] ✅ Thumbnail compressed:', {
+                    originalSize: upload.file.size,
+                    compressedSize: fileToUpload.size,
+                    reduction: `${((1 - fileToUpload.size / upload.file.size) * 100).toFixed(1)}%`
+                });
+            } catch (compressError: any) {
+                console.error('[UploadContext] ⚠️ Thumbnail compression failed, using original file:', compressError);
+                // Continue with original file if compression fails
+                fileToUpload = upload.file;
+            }
+        }
+
         console.log('[UploadContext] 📤 Calling resumableUpload...', {
             fileName: upload.fileName,
-            fileSize: upload.fileSize,
-            fileType: upload.file.type,
+            fileSize: fileToUpload.size,
+            originalSize: upload.file.size,
+            fileType: fileToUpload.type,
             sessionId: upload.sessionId,
             sectorId: upload.sectorId,
             apiUrl: API_URL
@@ -298,14 +326,27 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         
         let url: string;
         try {
+            // Adjust progress callback to account for compression (40-100% for upload)
+            const uploadProgressCallback = (p: number) => {
+                // Map upload progress (0-100%) to overall progress (40-100%)
+                const overallProgress = 40 + Math.floor(p * 0.6);
+                // Check if cancelled by checking current state
+                setUploads(prev => {
+                    const current = prev.find(u => u.sessionId === upload.sessionId);
+                    if (current?.status === 'cancelled') return prev;
+                    return prev.map(u => u.sessionId === upload.sessionId ? { ...u, progress: overallProgress } : u);
+                });
+                updateLog('uploading', overallProgress);
+            };
+
             url = await resumableUpload(
-                upload.file,
+                fileToUpload,
                 API_URL,
                 {
                     sessionId: upload.sessionId,
                     sectorId: upload.sectorId,
-                    onProgress: (p) => {
-                        // Check if cancelled by checking current state
+                    onProgress: upload.type === 'thumbnail' ? uploadProgressCallback : (p) => {
+                        // For videos, use normal progress (0-100%)
                         setUploads(prev => {
                             const current = prev.find(u => u.sessionId === upload.sessionId);
                             if (current?.status === 'cancelled') return prev;
