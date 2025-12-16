@@ -193,7 +193,8 @@ function applyExifOrientation(ctx: CanvasRenderingContext2D, orientation: number
 
 /**
  * Compress and resize thumbnail image for optimal performance
- * Resizes to max 800px width/height and compresses to JPEG with 85% quality
+ * Resizes to max 200px width/height (optimized for 80-96px display size with 2x Retina)
+ * Compresses to JPEG with 75% quality for smaller file sizes (10-30 KB instead of 50-200 KB)
  * Automatically corrects EXIF orientation so portrait images are saved as portrait
  */
 async function compressThumbnail(file: File, onProgress?: (progress: number) => void): Promise<File> {
@@ -229,10 +230,10 @@ async function compressThumbnail(file: File, onProgress?: (progress: number) => 
         }
         // If already portrait, keep dimensions as-is
 
-        // Calculate optimal dimensions (max 800px, maintain aspect ratio)
-        // If original file is very large (>10MB), use smaller max dimension
-        const fileSizeMB = file.size / (1024 * 1024);
-        const maxDimension = fileSizeMB > 10 ? 600 : 800; // Smaller dimension for very large files
+        // Calculate optimal dimensions (max 200px for thumbnails - 2x for Retina displays)
+        // Thumbnails are displayed as 80-96px, so 200px is perfect for Retina (2x)
+        // This is much smaller than before (800px) for better performance
+        const maxDimension = 200;
         let width = canvasWidth;
         let height = canvasHeight;
 
@@ -325,9 +326,10 @@ async function compressThumbnail(file: File, onProgress?: (progress: number) => 
         if (onProgress) onProgress(50);
 
         // Convert to JPEG with adaptive quality to ensure file is under 5MB
+        // For thumbnails, we use lower quality (75%) for smaller file sizes
         const maxSize = 5 * 1024 * 1024; // 5MB
-        const qualityLevels = [0.85, 0.70, 0.55, 0.40, 0.25, 0.15, 0.10]; // Extended quality levels
-        const dimensionLevels = [maxDimension, 600, 500, 400, 300]; // Progressive dimension reduction
+        const qualityLevels = [0.75, 0.65, 0.55, 0.45, 0.35, 0.25, 0.15]; // Start at 75% for thumbnails
+        const dimensionLevels = [maxDimension, 150, 120, 100]; // Progressive dimension reduction (smaller steps for thumbnails)
         
         let currentQualityIndex = 0;
         let currentDimensionIndex = 0;

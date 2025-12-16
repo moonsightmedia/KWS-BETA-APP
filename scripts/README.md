@@ -163,9 +163,12 @@ node scripts/compress-thumbnails.js
 
 ### Komprimierungseinstellungen
 
-- **Maximale Größe:** 800px (Breite oder Höhe, Seitenverhältnis bleibt erhalten)
-- **Format:** JPEG mit 85% Qualität
-- **Nur wenn kleiner:** Komprimierte Version wird nur verwendet, wenn sie kleiner ist als das Original
+- **Maximale Größe:** 200px (Breite oder Höhe, Seitenverhältnis bleibt erhalten)
+  - Optimiert für Thumbnails, die als 80-96px angezeigt werden (2x für Retina-Displays)
+  - **Viel kleiner als vorher (800px)** für bessere Performance!
+- **Format:** JPEG mit 75% Qualität (progressive JPEG)
+  - Reduziert von 85% für kleinere Dateien bei immer noch guter Qualität
+- **Erwartete Dateigröße:** 10-30 KB pro Thumbnail (statt 50-200 KB)
 
 ### Hinweise
 

@@ -12,11 +12,10 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search, Palette, Map as MapIcon, BarChart3, ArrowUpDown, X, Loader2, ArrowUp, ArrowDown, Trophy } from 'lucide-react';
+import { Search, Palette, Map as MapIcon, BarChart3, ArrowUpDown, X, ArrowUp, ArrowDown, Trophy } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { BoulderDetailDialog } from '@/components/BoulderDetailDialog';
 import { Boulder } from '@/types/boulder';
-import { Progress } from '@/components/ui/progress';
 import { useOnboarding } from '@/components/Onboarding';
 // Use a data URL for placeholder to ensure it always works
 const placeholder = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';
@@ -215,122 +214,11 @@ const Guest = () => {
     return thumbnailUrlMap.get(boulder.id) || placeholder;
   };
 
-  // Preload ALL thumbnails before showing the page
-  useEffect(() => {
-    if (!filtered || filtered.length === 0) {
-      // No thumbnails to load, page can be shown
-      return;
-    }
-    
-    // Get all thumbnail URLs that need to be loaded (exclude placeholders)
-    const allThumbnailUrls = filtered
-      .map(b => thumbnailUrlMap.get(b.id) || placeholder)
-      .filter(url => url !== placeholder);
-    
-    if (allThumbnailUrls.length === 0) {
-      // No real thumbnails to load, page can be shown
-      return;
-    }
-    
-    // Filter out already loaded thumbnails
-    const thumbnailsToLoad = allThumbnailUrls.filter(url => !loadedThumbnails.has(url));
-    
-    if (thumbnailsToLoad.length === 0) {
-      // All thumbnails already loaded
-      return;
-    }
-    
-    console.log(`[Guest] Preloading ${thumbnailsToLoad.length} thumbnails before showing page...`);
-    
-    // Load all thumbnails with staggered timing to avoid overwhelming the browser
-    thumbnailsToLoad.forEach((url, index) => {
-      const delay = index < 6 ? 0 : (index - 6) * 10; // First 6 immediate, rest with 10ms delay
-      
-      setTimeout(() => {
-        const img = new Image();
-        img.onload = () => {
-          setLoadedThumbnails(prev => {
-            const next = new Set(prev);
-            next.add(url);
-            return next;
-          });
-        };
-        img.onerror = () => {
-          // Mark as loaded even on error (will show placeholder)
-          setLoadedThumbnails(prev => {
-            const next = new Set(prev);
-            next.add(url);
-            return next;
-          });
-        };
-        // Set src immediately to start loading
-        img.src = url;
-        // Use decode() for better performance if available
-        if (img.decode) {
-          img.decode().catch(() => {});
-        }
-      }, delay);
-    });
-  }, [filtered, thumbnailUrlMap, loadedThumbnails]);
-
-  // Check if all thumbnails are loaded
-  const allThumbnailsLoaded = useMemo(() => {
-    if (!filtered || filtered.length === 0) return true;
-    
-    // Get all thumbnail URLs that need to be loaded (exclude placeholders)
-    const allThumbnailUrls = filtered
-      .map(b => thumbnailUrlMap.get(b.id) || placeholder)
-      .filter(url => url !== placeholder);
-    
-    if (allThumbnailUrls.length === 0) return true;
-    
-    // Check if all thumbnails are loaded
-    const allLoaded = allThumbnailUrls.every(url => loadedThumbnails.has(url));
-    return allLoaded;
-  }, [filtered, thumbnailUrlMap, loadedThumbnails]);
-
-  // Calculate loading progress
-  const loadingProgress = useMemo(() => {
-    if (!filtered || filtered.length === 0) return 100;
-    
-    const allThumbnailUrls = filtered
-      .map(b => thumbnailUrlMap.get(b.id) || placeholder)
-      .filter(url => url !== placeholder);
-    
-    if (allThumbnailUrls.length === 0) return 100;
-    
-    const loadedCount = allThumbnailUrls.filter(url => loadedThumbnails.has(url)).length;
-    return Math.round((loadedCount / allThumbnailUrls.length) * 100);
-  }, [filtered, thumbnailUrlMap, loadedThumbnails]);
-
-  // Removed automatic thumbnail generation - now using manually uploaded thumbnails
+  // Thumbnails are loaded lazily using native browser lazy loading
+  // No blocking preloading - page shows immediately
 
   return (
     <div className="min-h-screen bg-[#F9FAF9]">
-      {/* Full-Screen Loading Overlay - Show until all thumbnails are loaded */}
-      {!allThumbnailsLoaded && (
-        <div className="fixed inset-0 z-50 bg-[#F9FAF9] flex items-center justify-center">
-          <div className="text-center space-y-4 max-w-sm mx-auto px-4">
-            <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold">Thumbnails werden geladen...</h2>
-              <p className="text-sm text-muted-foreground">
-                Bitte warten, während die Bilder vorbereitet werden
-              </p>
-              <div className="space-y-1 pt-2">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Fortschritt</span>
-                  <span>{loadingProgress}%</span>
-                </div>
-                <Progress value={loadingProgress} className="h-2" />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content - Only visible when all thumbnails are loaded */}
-      <div className={allThumbnailsLoaded ? '' : 'opacity-0 pointer-events-none'}>
         <header 
           className="sticky top-0 z-30 border-b border-[#E7F7E9] bg-white"
           style={{ 
@@ -509,13 +397,12 @@ const Guest = () => {
                   className="w-full h-full object-cover pointer-events-none transition-opacity duration-300" 
                   src={getThumbnailUrl(b)} 
                   alt={b.name}
-                  loading={index < 18 ? "eager" : "lazy"}
+                  loading={index < 12 ? "eager" : "lazy"}
                   decoding="async"
-                  fetchpriority={index < 6 ? "high" : index < 18 ? "auto" : "low"}
+                  fetchpriority={index < 6 ? "high" : index < 12 ? "auto" : "low"}
                   style={{ 
                     objectFit: 'cover',
-                    objectPosition: 'center',
-                    opacity: 0
+                    objectPosition: 'center'
                   }}
                   onLoad={(e) => {
                     const img = e.currentTarget;
@@ -527,8 +414,6 @@ const Guest = () => {
                       img.style.transform = 'rotate(90deg)';
                       console.log(`[Guest] Rotating landscape thumbnail to portrait: ${img.naturalWidth}x${img.naturalHeight}`);
                     }
-                    
-                    img.style.opacity = '1';
                     
                     // Track loaded thumbnail (skip placeholder)
                     if (thumbnailUrl !== placeholder) {
@@ -801,7 +686,6 @@ const Guest = () => {
       )}
       <div className="h-24 sm:h-0" />
         </main>
-      </div>
     </div>
   );
 };

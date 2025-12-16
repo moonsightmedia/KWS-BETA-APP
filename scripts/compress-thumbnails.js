@@ -18,6 +18,7 @@ import { createClient } from '@supabase/supabase-js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { config } from 'dotenv';
+import { randomUUID } from 'crypto';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
 import sharp from 'sharp';
@@ -102,8 +103,9 @@ async function compressThumbnail(imageBuffer) {
       console.log(`  🔄 Rotating landscape image to portrait: ${width}x${height} → ${newWidth}x${newHeight}`);
     }
     
-    // Calculate optimal dimensions (max 800px, maintain aspect ratio)
-    const maxDimension = 800;
+    // Calculate optimal dimensions (max 200px for thumbnails - 2x for Retina displays)
+    // Thumbnails are displayed as 80-96px, so 200px is perfect for Retina (2x)
+    const maxDimension = 200;
     let finalWidth = newWidth;
     let finalHeight = newHeight;
     
@@ -137,8 +139,9 @@ async function compressThumbnail(imageBuffer) {
         withoutEnlargement: true,
       })
       .jpeg({
-        quality: 85,
+        quality: 75, // Reduced from 85% - still good quality but much smaller files
         mozjpeg: true, // Better compression
+        progressive: true, // Progressive JPEG for better perceived performance
       })
       .toBuffer();
     
@@ -167,18 +170,24 @@ async function uploadThumbnailToAllInkl(imageBuffer, originalUrl) {
     const originalFileName = urlParts[urlParts.length - 1];
     const fileName = originalFileName.replace(/\.[^/.]+$/, '.jpg'); // Always use .jpg for compressed
     
+    // Generate a unique session ID for this upload
+    const uploadSessionId = randomUUID();
+    
+    // For small thumbnails, we use single chunk upload (chunk 0 of 1)
     const formData = new FormData();
-    formData.append('file', imageBuffer, {
+    formData.append('chunk', imageBuffer, {
       filename: fileName,
       contentType: 'image/jpeg',
     });
     
-    const headers = {
-      'X-File-Name': fileName,
-      'X-File-Size': imageBuffer.length.toString(),
-      'X-File-Type': 'image/jpeg',
-      ...formData.getHeaders(),
-    };
+    // Get headers from FormData (form-data package provides getHeaders())
+    const headers = formData.getHeaders();
+    headers['X-File-Name'] = fileName;
+    headers['X-File-Size'] = imageBuffer.length.toString();
+    headers['X-File-Type'] = 'image/jpeg';
+    headers['X-Chunk-Number'] = '0';
+    headers['X-Total-Chunks'] = '1';
+    headers['X-Upload-Session-Id'] = uploadSessionId;
     
     const response = await fetch(`${ALLINKL_API_URL}/upload.php`, {
       method: 'POST',
@@ -193,7 +202,8 @@ async function uploadThumbnailToAllInkl(imageBuffer, originalUrl) {
     
     const result = await response.json();
     
-    if (!result.success || !result.url) {
+    // The API returns 'status' and 'url' for completed uploads
+    if (result.status !== 'completed' || !result.url) {
       throw new Error(`Upload failed: ${JSON.stringify(result)}`);
     }
     

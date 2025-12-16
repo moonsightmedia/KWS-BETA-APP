@@ -42,23 +42,32 @@ if (!$fileUrl) {
 }
 
 // Extract file path from URL
-// Expected format: https://cdn.kletterwelt-sauerland.de/uploads/filename.ext (videos)
-// or: https://cdn.kletterwelt-sauerland.de/uploads/sectors/sectorId/filename.ext (images)
-// or: https://cdn.kletterwelt-sauerland.de/uploads/videos/filename.ext (legacy format)
-$baseUrl = 'https://cdn.kletterwelt-sauerland.de/uploads/';
-if (strpos($fileUrl, $baseUrl) !== 0) {
+// Expected formats:
+// - https://cdn.kletterwelt-sauerland.de/uploads/filename.ext (videos)
+// - https://cdn.kletterwelt-sauerland.de/uploads/sectors/sectorId/filename.ext (images)
+// - https://cdn.kletterwelt-sauerland.de/uploads/videos/filename.ext (legacy format)
+// - https://cdn.kletterwelt-sauerland.de/upload-api/uploads/final/sectorId/filename.ext (thumbnails)
+// - https://cdn.kletterwelt-sauerland.de/upload-api/uploads/final/filename.ext (thumbnails)
+
+// Check for upload-api format first (newer format)
+if (strpos($fileUrl, 'https://cdn.kletterwelt-sauerland.de/upload-api/uploads/') === 0) {
+    // Extract path after /upload-api/uploads/
+    $relativePath = substr($fileUrl, strlen('https://cdn.kletterwelt-sauerland.de/upload-api/uploads/'));
+    // Remove 'final/' prefix if present
+    if (strpos($relativePath, 'final/') === 0) {
+        $relativePath = substr($relativePath, 6); // Remove "final/" prefix
+    }
+} else if (strpos($fileUrl, 'https://cdn.kletterwelt-sauerland.de/uploads/') === 0) {
+    // Legacy format: direct uploads/
+    $relativePath = substr($fileUrl, strlen('https://cdn.kletterwelt-sauerland.de/uploads/'));
+    // Remove /videos/ prefix if present (legacy format)
+    if (strpos($relativePath, 'videos/') === 0) {
+        $relativePath = substr($relativePath, 7); // Remove "videos/" prefix
+    }
+} else {
     http_response_code(400);
-    echo json_encode(['error' => 'Invalid file URL']);
+    echo json_encode(['error' => 'Invalid file URL', 'debug' => 'URL must start with https://cdn.kletterwelt-sauerland.de/uploads/ or https://cdn.kletterwelt-sauerland.de/upload-api/uploads/']);
     exit;
-}
-
-$relativePath = substr($fileUrl, strlen($baseUrl));
-// Handle both formats: direct in uploads/ or in uploads/videos/ (legacy)
-// Videos are directly in uploads/, sector images in uploads/sectors/{sectorId}/
-
-// Remove /videos/ prefix if present (legacy format)
-if (strpos($relativePath, 'videos/') === 0) {
-    $relativePath = substr($relativePath, 7); // Remove "videos/" prefix
 }
 
 // Construct file path - use absolute path to avoid issues
