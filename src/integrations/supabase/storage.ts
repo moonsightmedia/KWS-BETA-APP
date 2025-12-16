@@ -1371,12 +1371,19 @@ async function uploadToAllInkl(
     // Single file upload for small files with retry mechanism
     return retryWithBackoff(async () => {
       const formData = new FormData();
-      formData.append('file', file);
+      // Use 'chunk' field name for consistency with chunked uploads (required by PHP API)
+      formData.append('chunk', file);
+
+      // Generate a session ID even for single-file uploads (required by PHP API)
+      const singleFileSessionId = randomId();
 
       const headers: Record<string, string> = {
         'X-File-Name': file.name,
         'X-File-Size': file.size.toString(),
         'X-File-Type': mimeType,
+        'X-Upload-Session-Id': singleFileSessionId,
+        'X-Chunk-Number': '0', // Single file = chunk 0
+        'X-Total-Chunks': '1', // Single file = 1 chunk
       };
 
       if (sectorId) {
@@ -1507,7 +1514,8 @@ async function uploadToAllInkl(
           if (xhr.status === 200) {
             try {
               const result = JSON.parse(xhr.responseText);
-              if (result.success && result.url) {
+              // PHP API returns either result.success OR result.status === 'completed'
+              if ((result.success || result.status === 'completed') && result.url) {
                 isResolved = true;
                 resolve(result.url);
               } else {
