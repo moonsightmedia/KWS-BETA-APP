@@ -1971,10 +1971,10 @@ const Setter = () => {
                         </div>
                         <div className="space-y-2 w-full box-border min-w-0">
                           <Label className="text-sm font-medium text-[#13112B]">Schwierigkeit: {form.difficulty || '?'}</Label>
-                          <div className="grid grid-cols-8 gap-1.5 w-full min-w-0">
-                            {[1, 2, 3, 4, 5, 6, 7, 8].map((level) => (
+                          <div className="grid grid-cols-9 gap-1.5 w-full min-w-0">
+                            {[null, 1, 2, 3, 4, 5, 6, 7, 8].map((level) => (
                               <button
-                                key={level}
+                                key={level === null ? '?' : level}
                                 type="button"
                                 onClick={() => setForm({...form, difficulty: level, name: generateBoulderName(form.color, level)})}
                                 className={cn(
@@ -1984,7 +1984,7 @@ const Setter = () => {
                                     : "bg-white text-[#13112B] border-[#E7F7E9] hover:bg-[#E7F7E9] hover:text-[#13112B]"
                                 )}
                               >
-                                {level}
+                                {level === null ? '?' : level}
                               </button>
                             ))}
                           </div>

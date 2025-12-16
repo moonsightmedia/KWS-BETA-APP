@@ -30,7 +30,7 @@ interface BatchBoulder {
   sectorId2?: string;
   spansMultipleSectors?: boolean;
   colorId: string;
-  difficulty: number;
+  difficulty: number | null;
   videoFile: File | null;
   thumbFile: File | null;
   status: 'draft';
@@ -566,11 +566,11 @@ export const BatchUpload = () => {
                         </div>
                     </div>
                     <div className="space-y-2 w-full box-border min-w-0">
-                        <Label className="text-sm font-medium text-[#13112B]">Schwierigkeit: {currentBoulder.difficulty}</Label>
-                        <div className="grid grid-cols-8 gap-1.5 w-full min-w-0">
-                            {[1, 2, 3, 4, 5, 6, 7, 8].map((level) => (
+                        <Label className="text-sm font-medium text-[#13112B]">Schwierigkeit: {currentBoulder.difficulty || '?'}</Label>
+                        <div className="grid grid-cols-9 gap-1.5 w-full min-w-0">
+                            {[null, 1, 2, 3, 4, 5, 6, 7, 8].map((level) => (
                                 <button
-                                    key={level}
+                                    key={level === null ? '?' : level}
                                     type="button"
                                     onClick={() => {
                                         const color = colors?.find(c => c.id === currentBoulder.colorId);
@@ -586,7 +586,7 @@ export const BatchUpload = () => {
                                             : "bg-white text-[#13112B] border-[#E7F7E9] hover:bg-[#E7F7E9] hover:text-[#13112B]"
                                     )}
                                 >
-                                    {level}
+                                    {level === null ? '?' : level}
                                 </button>
                             ))}
                         </div>
@@ -666,7 +666,7 @@ export const BatchUpload = () => {
             <div className="flex-1 min-w-0 cursor-pointer px-1" onClick={() => openEditDialog(boulder)}>
                 <div className="flex items-center gap-2 mb-1.5">
                     <h3 className="font-bold text-base text-[#13112B] truncate">{boulder.name || 'Unbenannt'}</h3>
-                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-xl bg-[#36B531] text-[10px] font-bold text-white flex-shrink-0">{boulder.difficulty}</span>
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-xl bg-[#36B531] text-[10px] font-bold text-white flex-shrink-0">{boulder.difficulty || '?'}</span>
                   </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-[#13112B]/60">
                     <span className="truncate max-w-[100px]">{sectors?.find(s => s.id === boulder.sectorId)?.name || 'Sektor?'}</span>
