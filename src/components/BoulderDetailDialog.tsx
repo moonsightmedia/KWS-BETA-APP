@@ -54,20 +54,53 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster, isVisible }: { videoUrl: stri
   const [bufferProgress, setBufferProgress] = useState(0);
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const bufferingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasStartedPlayingRef = useRef(false); // Track if video has started playing
+  const playStartTimeRef = useRef<number | null>(null); // Track when video started playing
 
-  // Load video only when visible
+  // Load video metadata when dialog opens and auto-play when ready
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isVisible) return;
 
-    // Set preload to metadata when visible
+    // Set preload to metadata when visible - this loads video metadata immediately
     video.preload = 'metadata';
     
+    // Load metadata immediately when dialog opens
+    video.load();
+    
+    // Auto-play when video is ready to play through
+    const handleAutoPlay = () => {
+      if (video.readyState >= 3) { // HAVE_FUTURE_DATA or higher
+        video.play().catch((error) => {
+          // Auto-play might be blocked by browser - that's okay, user can click play
+          console.log('[VideoPlayer] Auto-play blocked or failed:', error);
+        });
+      }
+    };
+    
+    // Try to play when video can play through
+    video.addEventListener('canplaythrough', handleAutoPlay, { once: true });
+    
+    // Also try immediately if video is already ready
+    if (video.readyState >= 3) {
+      handleAutoPlay();
+    }
+    
     return () => {
+      // Cleanup timeout on unmount
+      if (bufferingTimeoutRef.current) {
+        clearTimeout(bufferingTimeoutRef.current);
+        bufferingTimeoutRef.current = null;
+      }
+      // Remove event listener
+      video.removeEventListener('canplaythrough', handleAutoPlay);
       // Pause and reset when not visible
       if (video) {
         video.pause();
         video.currentTime = 0;
+        hasStartedPlayingRef.current = false; // Reset play state
+        playStartTimeRef.current = null; // Reset play start time
       }
     };
   }, [isVisible]);
@@ -100,22 +133,54 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster, isVisible }: { videoUrl: stri
         const isNearEnd = video.duration > 0 && (timeFromEnd <= 5 || percentRemaining <= 10);
         
         // Only show loading indicator if buffer is low AND not near the end
+        // Increased threshold from 2s to 5s for better UX
         if (isNearEnd) {
           // Near the end - hide loading indicator completely
+          if (bufferingTimeoutRef.current) {
+            clearTimeout(bufferingTimeoutRef.current);
+            bufferingTimeoutRef.current = null;
+          }
           setShowLoadingIndicator(false);
           setIsBuffering(false);
         } else {
-          // Not near the end - show loading indicator if buffer is low
-          setShowLoadingIndicator(bufferAhead < 2);
+          // Not near the end - only show loading indicator if buffer is critically low (< 1s)
+          // AND video is actually paused/waiting, not during normal playback
+          // This prevents the overlay from appearing during normal playback
+          if (bufferAhead < 1 && (video.paused || video.readyState < 3)) {
+            // Buffer is critically low AND video is paused/waiting - set timeout to show indicator after 500ms
+            if (!bufferingTimeoutRef.current) {
+              bufferingTimeoutRef.current = setTimeout(() => {
+                setShowLoadingIndicator(true);
+                bufferingTimeoutRef.current = null;
+              }, 500);
+            }
+          } else {
+            // Buffer is sufficient OR video is playing normally - clear timeout and hide indicator immediately
+            if (bufferingTimeoutRef.current) {
+              clearTimeout(bufferingTimeoutRef.current);
+              bufferingTimeoutRef.current = null;
+            }
+            // Only hide if buffer is actually sufficient (> 2s) or video is playing smoothly
+            if (bufferAhead > 2 || (!video.paused && video.readyState >= 3)) {
+              setShowLoadingIndicator(false);
+            }
+          }
         }
         
-        // Auto-pause if buffer is too low (but not if near end)
-        if (bufferAhead < 1 && !video.paused && !isNearEnd) {
+        // Auto-pause if buffer is critically low (but not if near end)
+        // Only auto-pause if video has already started playing AND has been playing for at least 5 seconds
+        // AND buffer is critically low (< 0.5s) - be less aggressive to avoid interrupting playback
+        const timeSincePlayStart = playStartTimeRef.current ? Date.now() - playStartTimeRef.current : Infinity;
+        const GRACE_PERIOD_MS = 5000; // 5 seconds grace period after play starts
+        
+        // Only pause if buffer is critically low (< 0.5s) to avoid interrupting normal playback
+        if (bufferAhead < 0.5 && !video.paused && !isNearEnd && hasStartedPlayingRef.current && timeSincePlayStart > GRACE_PERIOD_MS) {
           video.pause();
           setIsBuffering(true);
         }
         
         // Resume if buffer is sufficient
+        // Lower threshold (3s) for faster resume after buffering
         if (bufferAhead > 3 && video.paused && isBuffering && !isNearEnd) {
           video.play().catch(() => {
             // Ignore play errors
@@ -140,6 +205,10 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster, isVisible }: { videoUrl: stri
       // Don't show loading indicator if video has ended or is near the end
       if (video.ended) {
         setIsBuffering(false);
+        if (bufferingTimeoutRef.current) {
+          clearTimeout(bufferingTimeoutRef.current);
+          bufferingTimeoutRef.current = null;
+        }
         setShowLoadingIndicator(false);
         return;
       }
@@ -150,32 +219,68 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster, isVisible }: { videoUrl: stri
       const isNearEnd = video.duration > 0 && (timeFromEnd <= 5 || percentRemaining <= 10);
       if (isNearEnd) {
         setIsBuffering(false);
+        if (bufferingTimeoutRef.current) {
+          clearTimeout(bufferingTimeoutRef.current);
+          bufferingTimeoutRef.current = null;
+        }
         setShowLoadingIndicator(false);
         return;
       }
       
       setIsBuffering(true);
-      setShowLoadingIndicator(true);
+      // Use debouncing: only show loading indicator after 500ms to avoid flickering
+      if (!bufferingTimeoutRef.current) {
+        bufferingTimeoutRef.current = setTimeout(() => {
+          setShowLoadingIndicator(true);
+        }, 500);
+      }
+    };
+
+    const handlePlay = () => {
+      // Mark that video has started playing and record the time
+      hasStartedPlayingRef.current = true;
+      playStartTimeRef.current = Date.now();
     };
 
     const handleCanPlay = () => {
       setIsBuffering(false);
+      if (bufferingTimeoutRef.current) {
+        clearTimeout(bufferingTimeoutRef.current);
+        bufferingTimeoutRef.current = null;
+      }
       setShowLoadingIndicator(false);
     };
 
     const handleCanPlayThrough = () => {
       setIsBuffering(false);
+      if (bufferingTimeoutRef.current) {
+        clearTimeout(bufferingTimeoutRef.current);
+        bufferingTimeoutRef.current = null;
+      }
       setShowLoadingIndicator(false);
+    };
+
+    const handlePause = () => {
+      // Reset play start time when video is paused manually
+      playStartTimeRef.current = null;
     };
 
     const handleEnded = () => {
       setIsBuffering(false);
+      hasStartedPlayingRef.current = false; // Reset for next play
+      playStartTimeRef.current = null; // Reset play start time
+      if (bufferingTimeoutRef.current) {
+        clearTimeout(bufferingTimeoutRef.current);
+        bufferingTimeoutRef.current = null;
+      }
       setShowLoadingIndicator(false);
     };
 
     video.addEventListener('progress', handleProgress);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('waiting', handleWaiting);
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
     video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('canplaythrough', handleCanPlayThrough);
     video.addEventListener('ended', handleEnded);
@@ -184,9 +289,16 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster, isVisible }: { videoUrl: stri
       video.removeEventListener('progress', handleProgress);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('waiting', handleWaiting);
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
       video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('canplaythrough', handleCanPlayThrough);
       video.removeEventListener('ended', handleEnded);
+      // Cleanup timeout
+      if (bufferingTimeoutRef.current) {
+        clearTimeout(bufferingTimeoutRef.current);
+        bufferingTimeoutRef.current = null;
+      }
     };
   }, [isBuffering]);
 
@@ -245,13 +357,20 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster, isVisible }: { videoUrl: stri
 
   return (
     <div ref={containerRef} className="relative w-full h-full">
+      {/* Hide browser-native loading spinner - we use our own */}
+      <style>{`
+        video::-webkit-media-controls-start-playback-button {
+          display: none !important;
+          opacity: 0 !important;
+        }
+      `}</style>
       <video 
         ref={videoRef}
         controls 
         muted
         className="w-full h-full object-cover object-center"
         poster={poster || undefined}
-        preload="none"
+        preload="metadata"
         style={{ objectFit: 'cover', objectPosition: 'center' }}
       >
         {/* Dynamically determine video type based on URL extension */}
