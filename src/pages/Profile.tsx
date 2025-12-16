@@ -21,10 +21,13 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { clearAllCaches } from '@/utils/cacheUtils';
 import { getVersionInfo, checkForUpdates } from '@/utils/version';
+import { useSidebar } from '@/components/SidebarContext';
+import { cn } from '@/lib/utils';
 
 const Profile = () => {
   const { user, session, signOut, loading } = useAuth();
   const navigate = useNavigate();
+  const { isExpanded } = useSidebar();
   const queryClient = useQueryClient();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -309,9 +312,9 @@ const Profile = () => {
   return (
     <div className="flex min-h-screen bg-[#F9FAF9]">
       <Sidebar />
-      <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
-        <DashboardHeader />
-        <main className="flex-1">
+      <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
+          <DashboardHeader />
+          <main className="flex-1">
           <div className="container max-w-4xl mx-auto p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-heading font-bold tracking-wide text-[#13112B] pt-2 md:pt-0">Profil Einstellungen</h1>
           

@@ -152,14 +152,14 @@ export const DashboardHeader = () => {
   return (
     <>
       <div 
-        className="h-14 lg:h-16 flex items-center justify-between px-4 lg:px-8 max-w-7xl mx-auto w-full relative bg-white"
+        className="h-14 lg:h-16 flex items-center justify-between px-4 md:pl-0 md:pr-8 w-full relative bg-white border-b border-[#E7F7E9]"
         style={{ 
           paddingTop: 'max(env(safe-area-inset-top, 0px), 0px)',
           minHeight: 'calc(3.5rem + env(safe-area-inset-top, 0px))'
         }}
       >
         {/* Mobile Avatar (left) */}
-        <div className="w-10 flex items-center lg:hidden">
+        <div className="w-10 flex items-center md:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="cursor-pointer focus:outline-none">
@@ -199,15 +199,15 @@ export const DashboardHeader = () => {
           </DropdownMenu>
         </div>
 
-        {/* Center Title */}
-        <div className="absolute left-1/2 -translate-x-1/2 pt-1 flex items-center gap-3">
-          <h1 className="font-heading font-semibold tracking-wide text-2xl text-[#13112B]">
+        {/* Title - Centered */}
+        <div className="flex-1 flex justify-center md:min-w-0">
+          <h1 className="font-heading font-semibold tracking-wide text-xl md:text-2xl text-[#13112B] text-center truncate">
             {pageTitle}
           </h1>
         </div>
 
-        {/* Right Action */}
-        <div className="flex items-center justify-end gap-1 lg:gap-4">
+        {/* Right Actions */}
+        <div className="flex items-center justify-end gap-1 lg:gap-3 flex-shrink-0">
           {/* Test Push Button - only visible for admins, sends to registered devices (phones) */}
           {isAdmin && (
             <button 

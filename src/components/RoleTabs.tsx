@@ -307,15 +307,15 @@ export const RoleTabs = () => {
     // But: If hooks are still loading, don't return null yet (wait for them to finish)
     if (adminLoading || setterLoading) {
       // Still loading - return empty div to prevent layout shift
-      return <div className="lg:hidden h-0" />;
+      return <div className="h-0" />;
     }
     return null;
   }
 
   return (
-    <div className="lg:hidden border-b border-[#E7F7E9] bg-white">
-      <div className="px-4 py-2 lg:px-8 max-w-7xl mx-auto w-full">
-        <div className="flex bg-[#F9FAF9] p-1 rounded-xl w-full max-w-md mx-auto lg:mx-0 border border-[#E7F7E9]">
+    <div className="border-b border-[#E7F7E9] bg-white md:hidden">
+      <div className="px-4 py-2 md:pl-0 md:pr-8 w-full">
+        <div className="flex bg-[#F9FAF9] p-1 rounded-xl w-full max-w-md mx-auto md:mx-0 border border-[#E7F7E9]">
           {tabs.map((t) => {
             const to = getDefaultPathForGroup(t.key);
             const isActive = activeRole === t.key;

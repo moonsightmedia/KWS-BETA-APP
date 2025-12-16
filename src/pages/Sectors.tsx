@@ -9,11 +9,14 @@ import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
+import { useSidebar } from '@/components/SidebarContext';
+import { cn } from '@/lib/utils';
 
 const Sectors = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { loading: authLoading } = useAuth();
+  const { isExpanded } = useSidebar();
   // CRITICAL: Only run queries after auth loading is complete
   const { data: sectors, isLoading, error } = useSectorsTransformed(!authLoading);
   const { data: boulders } = useBoulders(!authLoading);
@@ -25,7 +28,7 @@ const Sectors = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#F9FAF9] flex">
-        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+        <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8 flex items-center justify-center">
             <div className="text-center">
@@ -53,7 +56,7 @@ const Sectors = () => {
     
     return (
       <div className="min-h-screen bg-[#F9FAF9] flex">
-        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+        <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8 flex items-center justify-center">
             <div className="w-full max-w-md">
@@ -99,7 +102,7 @@ const Sectors = () => {
 
   return (
     <div className="min-h-screen bg-[#F9FAF9] flex">
-      <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+        <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
         <DashboardHeader />
         
         <main className="flex-1 p-4 md:p-8">

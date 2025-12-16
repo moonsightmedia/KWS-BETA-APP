@@ -492,7 +492,7 @@ const Setter = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { setHideMobileNav } = useSidebar();
+  const { setHideMobileNav, isExpanded } = useSidebar();
   // CRITICAL: Only run queries after auth loading is complete
   const { data: sectors } = useSectorsTransformed(!authLoading);
   const { data: boulders } = useBouldersWithSectors(!authLoading);
@@ -1081,7 +1081,7 @@ const Setter = () => {
   return (
     <SetterTabTitleProvider tabTitle={getTabTitle(view)}>
       <div className="min-h-screen bg-[#F9FAF9] flex">
-        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0 w-full min-w-0">
+        <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0", isExpanded ? "md:ml-64" : "md:ml-20")}        >
           <DashboardHeader />
           <main 
             className="flex-1 p-4 md:p-8 w-full min-w-0"
@@ -1089,9 +1089,9 @@ const Setter = () => {
               paddingTop: 'max(calc(1rem + env(safe-area-inset-top, 0px)), 1rem)'
             }}
           >
-            {/* Tabs navigation - hidden on mobile, shown on desktop */}
+            {/* Tabs navigation - hidden */}
             <Tabs value={view} onValueChange={(value) => setView(value as typeof view)} className="w-full min-w-0">
-            <TabsList className="grid w-full grid-cols-4 mb-6 h-auto min-w-0 hidden md:grid">
+            <TabsList className="grid w-full grid-cols-4 mb-6 h-auto min-w-0 hidden">
               <TabsTrigger value="batch" className="text-xs sm:text-sm min-w-0">Erstellen</TabsTrigger>
               <TabsTrigger value="edit" className="text-xs sm:text-sm min-w-0">Bearbeiten</TabsTrigger>
               <TabsTrigger value="status" className="text-xs sm:text-sm min-w-0">Status</TabsTrigger>

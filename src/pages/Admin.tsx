@@ -13,11 +13,14 @@ import { BoulderOperationLogs } from "@/components/admin/BoulderOperationLogs";
 import { CompetitionBoulderManagement } from "@/components/competition/CompetitionBoulderManagement";
 import { FeedbackManagement } from "@/components/admin/FeedbackManagement";
 import { PushNotificationTest } from "@/components/admin/PushNotificationTest";
+import { useSidebar } from "@/components/SidebarContext";
+import { cn } from "@/lib/utils";
 
 const Admin = () => {
   const { user } = useAuth();
   const { isAdmin, loading } = useIsAdmin();
   const navigate = useNavigate();
+  const { isExpanded } = useSidebar();
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -66,12 +69,12 @@ const Admin = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex bg-[#F9FAF9] overflow-x-hidden">
-        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0 overflow-x-hidden w-full min-w-0">
-          <DashboardHeader />
-          <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-x-hidden">
-            <Skeleton className="h-12 w-64 mb-8" />
-            <Skeleton className="h-96 w-full" />
-          </main>
+        <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 overflow-x-hidden w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
+            <DashboardHeader />
+            <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-x-hidden">
+              <Skeleton className="h-12 w-64 mb-8" />
+              <Skeleton className="h-96 w-full" />
+            </main>
         </div>
       </div>
     );
@@ -84,7 +87,7 @@ const Admin = () => {
   return (
     <AdminTabTitleProvider tabTitle={tabTitle}>
       <div className="min-h-screen flex bg-[#F9FAF9] overflow-x-hidden">
-        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0 overflow-x-hidden w-full min-w-0">
+        <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 overflow-x-hidden w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-x-hidden">
 

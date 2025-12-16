@@ -23,6 +23,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
 import { cn } from '@/lib/utils';
+import { useSidebar } from '@/components/SidebarContext';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Search, Video, FileText, Calendar, ArrowUpDown, ArrowUp, ArrowDown, AlertCircle, Palette, Map, BarChart3, Filter, X, CheckCircle2 } from 'lucide-react';
@@ -76,6 +77,7 @@ const TEXT_ON_COLOR: Record<string, string> = {
 };
 
 const Boulders = () => {
+  const { isExpanded } = useSidebar();
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [sectorFilter, setSectorFilter] = useState<string>('all');
@@ -183,28 +185,28 @@ const Boulders = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#F9FAF9] flex">
-        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
-          <DashboardHeader />
-          <main className="flex-1 p-4 md:p-8">
-            <div className="flex gap-3 mb-6">
-              <Skeleton className="h-10 flex-1" />
-              <Skeleton className="h-10 w-10" />
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {[...Array(6)].map((_, i) => (
-                <Card key={i}>
-                  <CardHeader>
-                    <Skeleton className="h-6 w-32 mb-2" />
-                    <Skeleton className="h-4 w-24" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-4 w-full mb-2" />
-                    <Skeleton className="h-4 w-3/4" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </main>
+        <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
+            <DashboardHeader />
+            <main className="flex-1 p-4 md:p-8">
+              <div className="flex gap-3 mb-6">
+                <Skeleton className="h-10 flex-1" />
+                <Skeleton className="h-10 w-10" />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[...Array(6)].map((_, i) => (
+                  <Card key={i}>
+                    <CardHeader>
+                      <Skeleton className="h-6 w-32 mb-2" />
+                      <Skeleton className="h-4 w-24" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-4 w-full mb-2" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </main>
         </div>
       </div>
     );
@@ -213,17 +215,17 @@ const Boulders = () => {
   if (bouldersError) {
     return (
       <div className="min-h-screen bg-[#F9FAF9] flex">
-        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
-          <DashboardHeader />
-          <main className="flex-1 p-4 md:p-8">
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
-              <AlertDescription>
-                {bouldersError instanceof Error ? bouldersError.message : 'Ein unbekannter Fehler ist aufgetreten.'}
-              </AlertDescription>
-            </Alert>
-          </main>
+        <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
+            <DashboardHeader />
+            <main className="flex-1 p-4 md:p-8">
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
+                <AlertDescription>
+                  {bouldersError instanceof Error ? bouldersError.message : 'Ein unbekannter Fehler ist aufgetreten.'}
+                </AlertDescription>
+              </Alert>
+            </main>
         </div>
       </div>
     );
@@ -231,7 +233,7 @@ const Boulders = () => {
 
   return (
     <div className="min-h-screen bg-[#F9FAF9] flex">
-      <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+      <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
         <DashboardHeader />
         
         <main 

@@ -18,10 +18,13 @@ import { usePreloadBoulderThumbnails } from '@/hooks/usePreloadBoulderThumbnails
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSidebar } from '@/components/SidebarContext';
+import { cn } from '@/lib/utils';
 
 const Index = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isExpanded } = useSidebar();
   const statistics = useStatistics();
   const { user, loading: authLoading } = useAuth();
   
@@ -176,23 +179,23 @@ const Index = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex bg-[#F9FAF9]">
-        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
-          <DashboardHeader />
-          <main className="flex-1 p-4 md:p-8">
-            <div className="mb-8">
-              <Skeleton className="h-9 w-64 mb-2" />
-              <Skeleton className="h-5 w-96" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-32" />
-              ))}
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Skeleton className="h-96 lg:col-span-2" />
-              <Skeleton className="h-96" />
-            </div>
-          </main>
+        <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
+            <DashboardHeader />
+            <main className="flex-1 p-4 md:p-8">
+              <div className="mb-8">
+                <Skeleton className="h-9 w-64 mb-2" />
+                <Skeleton className="h-5 w-96" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                {[...Array(4)].map((_, i) => (
+                  <Skeleton key={i} className="h-32" />
+                ))}
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Skeleton className="h-96 lg:col-span-2" />
+                <Skeleton className="h-96" />
+              </div>
+            </main>
         </div>
       </div>
     );
@@ -201,30 +204,30 @@ const Index = () => {
   if (error) {
     return (
       <div className="min-h-screen flex bg-[#F9FAF9]">
-        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
-          <DashboardHeader />
-          <main className="flex-1 p-4 md:p-8">
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
-              <AlertDescription className="mb-4">
-                {error instanceof Error ? error.message : 'Ein unbekannter Fehler ist aufgetreten.'}
-              </AlertDescription>
-              <Button
-                onClick={async () => {
-                  await Promise.all([
-                    queryClient.refetchQueries({ queryKey: ['boulders'] }),
-                    queryClient.refetchQueries({ queryKey: ['sectors'] }),
-                  ]);
-                }}
-                variant="outline"
-                size="sm"
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Erneut versuchen
-              </Button>
-            </Alert>
-          </main>
+        <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
+            <DashboardHeader />
+            <main className="flex-1 p-4 md:p-8">
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
+                <AlertDescription className="mb-4">
+                  {error instanceof Error ? error.message : 'Ein unbekannter Fehler ist aufgetreten.'}
+                </AlertDescription>
+                <Button
+                  onClick={async () => {
+                    await Promise.all([
+                      queryClient.refetchQueries({ queryKey: ['boulders'] }),
+                      queryClient.refetchQueries({ queryKey: ['sectors'] }),
+                    ]);
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Erneut versuchen
+                </Button>
+              </Alert>
+            </main>
         </div>
       </div>
     );
@@ -234,7 +237,7 @@ const Index = () => {
   if (!statistics && !isLoading && !error && (!boulders || boulders.length === 0) && (!sectors || sectors.length === 0)) {
     return (
       <div className="min-h-screen flex bg-[#F9FAF9]">
-        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+        <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8 flex items-center justify-center">
             <div className="text-center space-y-4">
@@ -263,7 +266,7 @@ const Index = () => {
   if (!statistics) {
     return (
       <div className="min-h-screen flex bg-[#F9FAF9]">
-        <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0">
+        <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8 flex items-center justify-center">
             <div className="text-center space-y-4">
@@ -289,7 +292,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex bg-[#F9FAF9]">
-      <div className="flex-1 flex flex-col md:ml-20 mb-20 md:mb-0 overflow-x-hidden">
+      <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
         <DashboardHeader />
         
         <main className="flex-1 p-4 md:p-8 overflow-x-hidden">
