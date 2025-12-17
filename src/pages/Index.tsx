@@ -163,10 +163,10 @@ const Index = () => {
         return sectorName;
       });
     
-    const sectorName = sameDaySchedules.length > 0 
-      ? (sameDaySchedules.length === 1 
-          ? sameDaySchedules[0] 
-          : `${sameDaySchedules.length} Sektoren`)
+    // Get unique sector names and join them
+    const uniqueSectorNames = Array.from(new Set(sameDaySchedules));
+    const sectorName = uniqueSectorNames.length > 0 
+      ? uniqueSectorNames.join(', ')
       : (sectors?.find(s => s.id === upcoming.sector_id)?.name || '-');
     
     return { when: new Date(upcoming.scheduled_at), sectorName };

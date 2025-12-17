@@ -758,54 +758,87 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    // Try to sign out from Supabase first with a short timeout for fast UX
+    // This ensures the session is properly invalidated on the server
+    let signOutSuccess = false;
     try {
-      // Add timeout to prevent hanging
       const signOutPromise = supabase.auth.signOut();
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Sign out timeout')), 5000);
+        setTimeout(() => reject(new Error('Sign out timeout')), 1500); // 1.5s timeout for fast UX
       });
       
-      const { error } = await Promise.race([signOutPromise, timeoutPromise]);
-      
-      if (error) {
-        console.error('[Auth] Sign out error:', error);
-        toast.error('Abmeldung fehlgeschlagen. Bitte versuche es erneut.');
-        throw error;
-      }
+      await Promise.race([signOutPromise, timeoutPromise]);
+      signOutSuccess = true;
+      console.log('[Auth] ✅ Supabase sign out successful');
     } catch (error: any) {
-      // If signOut hangs or fails, still clear local state
-      console.warn('[Auth] Sign out failed or timed out, clearing local state anyway:', error);
-      
-      // Clear user state locally even if signOut failed
-      setUser(null);
-      setSession(null);
-      
-      // Clear React Query cache
-      queryClient.clear();
+      // If timeout or error, we'll continue with local logout anyway
+      console.warn('[Auth] Sign out timeout or error (continuing with local logout):', error);
     }
     
-    // Always clear persisted data, even if signOut failed
+    // Clear local state immediately (optimistic logout for instant UI feedback)
+    setUser(null);
+    setSession(null);
+    
+    // Clear persisted data immediately
     try {
       localStorage.removeItem('greetingName');
-    } catch {
-      // Ignore localStorage errors
-    }
-    
-    // Clear stored roles from localStorage and sessionStorage
-    try {
       localStorage.removeItem('nav_isAdmin');
       localStorage.removeItem('nav_isSetter');
       localStorage.removeItem('nav_userId');
       sessionStorage.removeItem('nav_isAdmin');
       sessionStorage.removeItem('nav_isSetter');
       sessionStorage.removeItem('nav_userId');
-      console.log('[Auth] Roles cleared from storage');
+      
+      // Also clear Supabase auth storage keys to ensure complete logout
+      // These are used by Supabase to persist sessions
+      const supabaseStorageKeys = Object.keys(localStorage).filter(key => 
+        key.startsWith('sb-') || key.includes('supabase')
+      );
+      supabaseStorageKeys.forEach(key => {
+        try {
+          localStorage.removeItem(key);
+        } catch {
+          // Ignore errors
+        }
+      });
+      
+      const supabaseSessionKeys = Object.keys(sessionStorage).filter(key => 
+        key.startsWith('sb-') || key.includes('supabase')
+      );
+      supabaseSessionKeys.forEach(key => {
+        try {
+          sessionStorage.removeItem(key);
+        } catch {
+          // Ignore errors
+        }
+      });
     } catch {
       // Ignore storage errors
     }
     
-    toast.success('Erfolgreich abgemeldet!');
+    // Clear React Query cache
+    try {
+      queryClient.clear();
+    } catch (error) {
+      console.warn('[Auth] Error clearing query cache:', error);
+    }
+    
+    // Navigate immediately for instant feedback
     navigate('/auth');
+    
+    // Show toast
+    if (signOutSuccess) {
+      toast.success('Erfolgreich abgemeldet!');
+    } else {
+      toast.success('Abgemeldet!');
+    }
+    
+    // If signOut didn't complete in time, try again in background (non-blocking)
+    if (!signOutSuccess) {
+      supabase.auth.signOut().catch((error) => {
+        console.warn('[Auth] Background sign out retry failed (non-critical):', error);
+      });
+    }
   };
 
   const resetPassword = async (email: string) => {

@@ -567,7 +567,7 @@ const Guest = () => {
                       <button
                         key={dStr}
                         className={cn(
-                          "w-10 h-10 rounded-xl text-xs font-semibold shadow transition flex items-center justify-center",
+                          "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
                           difficultyFilter === dStr 
                             ? "bg-[#36B531] text-white" 
                             : "bg-white/10 text-white/70 hover:text-white"
