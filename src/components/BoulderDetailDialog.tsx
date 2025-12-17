@@ -634,14 +634,27 @@ const VideoPlayerWithBuffer = ({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="absolute top-2 left-2 z-20 bg-black/70 hover:bg-black/80 text-white border-0 backdrop-blur-sm font-medium text-xs sm:text-sm px-2 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer"
-              onClick={(e) => e.stopPropagation()}
+              type="button"
+              className="absolute top-2 left-2 z-30 bg-black/70 hover:bg-black/80 text-white border-0 backdrop-blur-sm font-medium text-xs sm:text-sm px-2 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+              }}
             >
               <Settings className="w-3 h-3" />
               {currentQuality.toUpperCase()}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-32">
+          <DropdownMenuContent align="start" className="w-32 z-[120]" onPointerDownOutside={(e) => {
+            // Don't close when clicking outside in the dialog
+            const target = e.target as HTMLElement;
+            if (target.closest('[role="dialog"]')) {
+              e.preventDefault();
+            }
+          }}>
             <DropdownMenuLabel>Qualität</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuRadioGroup
