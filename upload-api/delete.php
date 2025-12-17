@@ -70,50 +70,145 @@ if (strpos($fileUrl, 'https://cdn.kletterwelt-sauerland.de/upload-api/uploads/')
     exit;
 }
 
+// Remove double slashes and normalize path
+$relativePath = preg_replace('#/+#', '/', $relativePath);
+$relativePath = ltrim($relativePath, '/');
+
 // Construct file path - use absolute path to avoid issues
+// Videos are stored directly in uploads/ (parent directory)
 $uploadsDir = dirname(__DIR__) . '/uploads';
-$filePath = $uploadsDir . '/' . $relativePath;
+// Also check upload-api/uploads/ (alternative location)
+$uploadApiUploadsDir = __DIR__ . '/uploads';
 
 // Security: Prevent directory traversal
 $baseDir = realpath($uploadsDir);
-if (!$baseDir) {
+$uploadApiBaseDir = is_dir($uploadApiUploadsDir) ? realpath($uploadApiUploadsDir) : null;
+
+if (!$baseDir && !$uploadApiBaseDir) {
     http_response_code(500);
-    echo json_encode(['error' => 'Server configuration error', 'debug' => 'uploads directory not found: ' . $uploadsDir]);
+    echo json_encode(['error' => 'Server configuration error', 'debug' => 'uploads directory not found']);
     exit;
 }
 
 // Normalize the relative path to prevent directory traversal
-// Remove any '..' or '.' components
-$normalizedRelative = str_replace('..', '', $relativePath);
-$normalizedRelative = str_replace('./', '', $normalizedRelative);
+// Remove directory traversal attempts (..) but keep valid dots in filenames
+// Only remove '..' if it's a directory traversal pattern, not part of filename
+$normalizedRelative = preg_replace('#\.\./#', '', $relativePath); // Remove ../ patterns
+$normalizedRelative = preg_replace('#/\.\.#', '', $normalizedRelative); // Remove /.. patterns
+$normalizedRelative = preg_replace('#^\.\.#', '', $normalizedRelative); // Remove leading ..
+$normalizedRelative = preg_replace('#\./\.#', '', $normalizedRelative); // Remove ./ patterns
 $normalizedRelative = ltrim($normalizedRelative, '/');
 
-// Reconstruct file path with normalized relative path
-$filePath = $baseDir . '/' . $normalizedRelative;
+// Try both possible locations
+$filePath = null;
+$baseDirToUse = null;
+
+if ($baseDir) {
+    $testPath = $baseDir . '/' . $normalizedRelative;
+    if (file_exists($testPath)) {
+        $filePath = $testPath;
+        $baseDirToUse = $baseDir;
+    }
+}
+
+if (!$filePath && $uploadApiBaseDir) {
+    $testPath = $uploadApiBaseDir . '/' . $normalizedRelative;
+    if (file_exists($testPath)) {
+        $filePath = $testPath;
+        $baseDirToUse = $uploadApiBaseDir;
+    }
+}
+
+// If file not found in either location, try recursive search
+if (!$filePath) {
+    $filename = basename($normalizedRelative);
+    
+    // Function to recursively search for file
+    $searchInDir = function($dir, $searchFilename) use (&$searchInDir) {
+        if (!is_dir($dir)) return null;
+        
+        $files = scandir($dir);
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..') continue;
+            
+            $filePath = $dir . '/' . $file;
+            
+            if (is_dir($filePath)) {
+                // Recursively search in subdirectories
+                $found = $searchInDir($filePath, $searchFilename);
+                if ($found) return $found;
+            } else if ($file === $searchFilename) {
+                return $filePath;
+            }
+        }
+        return null;
+    };
+    
+    // Try recursive search in both directories
+    if ($baseDir) {
+        $found = $searchInDir($baseDir, $filename);
+        if ($found) {
+            $filePath = $found;
+            $baseDirToUse = $baseDir;
+        }
+    }
+    
+    if (!$filePath && $uploadApiBaseDir) {
+        $found = $searchInDir($uploadApiBaseDir, $filename);
+        if ($found) {
+            $filePath = $found;
+            $baseDirToUse = $uploadApiBaseDir;
+        }
+    }
+}
 
 // Final security check: ensure the normalized path is still within base directory
-$realFilePath = realpath($filePath);
-if ($realFilePath && strpos($realFilePath, $baseDir) !== 0) {
-    http_response_code(403);
-    echo json_encode(['error' => 'Access denied', 'debug' => 'Path traversal detected']);
-    exit;
+if ($filePath && $baseDirToUse) {
+    $realFilePath = realpath($filePath);
+    $realBaseDir = realpath($baseDirToUse);
+    
+    if ($realFilePath && $realBaseDir) {
+        // Check if file path is within base directory
+        if (strpos($realFilePath, $realBaseDir) !== 0) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Access denied', 'debug' => 'Path traversal detected', 'filePath' => $realFilePath, 'baseDir' => $realBaseDir]);
+            exit;
+        }
+    } else if (!$realFilePath) {
+        // File doesn't exist, but that's OK (idempotent)
+        // Don't treat as error, just return success
+    }
 }
 
 // Also check the directory of the file (in case file doesn't exist)
-$fileDir = dirname($filePath);
-$realFileDir = realpath($fileDir);
-if ($realFileDir && strpos($realFileDir, $baseDir) !== 0) {
-    http_response_code(403);
-    echo json_encode(['error' => 'Access denied', 'debug' => 'Directory path traversal detected']);
-    exit;
+if ($filePath && $baseDirToUse) {
+    $fileDir = dirname($filePath);
+    $realFileDir = realpath($fileDir);
+    $realBaseDir = realpath($baseDirToUse);
+    
+    if ($realFileDir && $realBaseDir && strpos($realFileDir, $realBaseDir) !== 0) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Access denied', 'debug' => 'Directory path traversal detected', 'fileDir' => $realFileDir, 'baseDir' => $realBaseDir]);
+        exit;
+    }
 }
 
 // Check if file exists
-if (!file_exists($filePath)) {
+if (!$filePath || !file_exists($filePath)) {
     // File doesn't exist - return success anyway (idempotent)
+    // But log for debugging
+    error_log("Delete API: File not found - URL: $fileUrl, Path: " . ($filePath ?? 'null') . ", Relative: $normalizedRelative");
     echo json_encode([
         'success' => true,
-        'message' => 'File not found (already deleted or never existed)'
+        'message' => 'File not found (already deleted or never existed)',
+        'debug' => [
+            'url' => $fileUrl,
+            'relativePath' => $normalizedRelative,
+            'searchedPaths' => [
+                $baseDir ? $baseDir . '/' . $normalizedRelative : null,
+                $uploadApiBaseDir ? $uploadApiBaseDir . '/' . $normalizedRelative : null,
+            ]
+        ]
     ]);
     exit;
 }

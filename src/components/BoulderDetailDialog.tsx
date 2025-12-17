@@ -5,13 +5,23 @@ import { Progress } from '@/components/ui/progress';
 import { Boulder, VideoQualities } from '@/types/boulder';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Calendar, MapPin, Palette, FileText, ExternalLink, Video, Maximize2, Minimize2 } from 'lucide-react';
+import { Calendar, MapPin, Palette, FileText, ExternalLink, Video, Maximize2, Minimize2, Settings } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useColors } from '@/hooks/useColors';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
 import { cn } from '@/lib/utils';
 import { getVideoUrl } from '@/utils/videoUtils';
 import { getOptimalVideoQualityWithDataSaver, detectNetworkSpeed } from '@/utils/networkUtils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from '@/components/ui/dropdown-menu';
 
 interface BoulderDetailDialogProps {
   boulder: Boulder | null;
@@ -88,6 +98,9 @@ const VideoPlayerWithBuffer = ({
     console.log('[VideoPlayer] Network speed:', networkSpeed, 'Selected quality:', optimalQuality);
   }, [isVisible]);
 
+  // Store playback state for quality switching
+  const playbackStateRef = useRef<{ time: number; wasPlaying: boolean } | null>(null);
+
   // Load video metadata when dialog opens and auto-play when ready
   useEffect(() => {
     const video = videoRef.current;
@@ -99,6 +112,14 @@ const VideoPlayerWithBuffer = ({
       console.error('[VideoPlayer] No video URL available');
       setHasError(true);
       return;
+    }
+
+    // Save current playback state before switching (if video was already loaded)
+    if (video.src && video.duration > 0) {
+      playbackStateRef.current = {
+        time: video.currentTime,
+        wasPlaying: !video.paused
+      };
     }
 
     // Set video source
@@ -122,9 +143,22 @@ const VideoPlayerWithBuffer = ({
     // Load metadata immediately when dialog opens
     video.load();
     
-    // Auto-play when video is ready to play through
+    // Restore playback position and state after quality switch
+    const handleLoadedMetadata = () => {
+      if (playbackStateRef.current) {
+        video.currentTime = playbackStateRef.current.time;
+        if (playbackStateRef.current.wasPlaying) {
+          video.play().catch(() => {
+            // Ignore play errors
+          });
+        }
+        playbackStateRef.current = null; // Clear after restoring
+      }
+    };
+    
+    // Auto-play when video is ready to play through (only if no saved state)
     const handleAutoPlay = () => {
-      if (video.readyState >= 3) { // HAVE_FUTURE_DATA or higher
+      if (!playbackStateRef.current && video.readyState >= 3) { // HAVE_FUTURE_DATA or higher
         video.play().catch((error) => {
           // Auto-play might be blocked by browser - that's okay, user can click play
           console.log('[VideoPlayer] Auto-play blocked or failed:', error);
@@ -134,10 +168,14 @@ const VideoPlayerWithBuffer = ({
     
     // Try to play when video can play through
     video.addEventListener('canplaythrough', handleAutoPlay, { once: true });
+    video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
     
     // Also try immediately if video is already ready
     if (video.readyState >= 3) {
       handleAutoPlay();
+    }
+    if (video.readyState >= 1) { // HAVE_METADATA
+      handleLoadedMetadata();
     }
     
     return () => {
@@ -150,14 +188,16 @@ const VideoPlayerWithBuffer = ({
         clearTimeout(loadTimeoutRef.current);
         loadTimeoutRef.current = null;
       }
-      // Remove event listener
+      // Remove event listeners
       video.removeEventListener('canplaythrough', handleAutoPlay);
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       // Pause and reset when not visible
       if (video) {
         video.pause();
         video.currentTime = 0;
         hasStartedPlayingRef.current = false; // Reset play state
         playStartTimeRef.current = null; // Reset play start time
+        playbackStateRef.current = null; // Clear playback state
       }
     };
   }, [isVisible, currentQuality, betaVideoUrls, betaVideoUrl]);
@@ -589,14 +629,58 @@ const VideoPlayerWithBuffer = ({
           </a>
         </p>
       </video>
-      {/* Quality Badge - only show if multiple qualities are available */}
+      {/* Quality Selector - only show if multiple qualities are available */}
       {betaVideoUrls && (betaVideoUrls.hd || betaVideoUrls.sd || betaVideoUrls.low) && (
-        <Badge
-          className="absolute top-2 left-2 z-20 bg-black/70 text-white border-0 backdrop-blur-sm font-medium text-xs sm:text-sm px-2 py-1"
-          variant="secondary"
-        >
-          {currentQuality.toUpperCase()}
-        </Badge>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="absolute top-2 left-2 z-20 bg-black/70 hover:bg-black/80 text-white border-0 backdrop-blur-sm font-medium text-xs sm:text-sm px-2 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Settings className="w-3 h-3" />
+              {currentQuality.toUpperCase()}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-32">
+            <DropdownMenuLabel>Qualität</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuRadioGroup
+              value={currentQuality}
+              onValueChange={(value) => {
+                const newQuality = value as 'hd' | 'sd' | 'low';
+                if (newQuality !== currentQuality) {
+                  // Save current playback state (will be restored by useEffect)
+                  const video = videoRef.current;
+                  if (video && video.duration > 0) {
+                    playbackStateRef.current = {
+                      time: video.currentTime,
+                      wasPlaying: !video.paused
+                    };
+                  }
+                  
+                  // Change quality - useEffect will handle the rest
+                  setCurrentQuality(newQuality);
+                }
+              }}
+            >
+              {betaVideoUrls.hd && (
+                <DropdownMenuRadioItem value="hd">
+                  HD (1920p)
+                </DropdownMenuRadioItem>
+              )}
+              {betaVideoUrls.sd && (
+                <DropdownMenuRadioItem value="sd">
+                  SD (1280p)
+                </DropdownMenuRadioItem>
+              )}
+              {betaVideoUrls.low && (
+                <DropdownMenuRadioItem value="low">
+                  Low (640p)
+                </DropdownMenuRadioItem>
+              )}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
       <button
         onClick={toggleFullscreen}

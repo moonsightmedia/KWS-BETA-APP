@@ -146,7 +146,29 @@ const Index = () => {
     const upcoming = (schedule || []).filter(s => new Date(s.scheduled_at) > now)
       .sort((a,b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0];
     if (!upcoming) return null;
-    const sectorName = sectors?.find(s => s.id === upcoming.sector_id)?.name || '-';
+    
+    // Find all schedules on the same day as the next one
+    const nextDate = new Date(upcoming.scheduled_at);
+    nextDate.setHours(0, 0, 0, 0);
+    const nextDateEnd = new Date(nextDate);
+    nextDateEnd.setHours(23, 59, 59, 999);
+    
+    const sameDaySchedules = (schedule || [])
+      .filter(s => {
+        const sDate = new Date(s.scheduled_at);
+        return sDate >= nextDate && sDate <= nextDateEnd && sDate > now;
+      })
+      .map(s => {
+        const sectorName = sectors?.find(sec => sec.id === s.sector_id)?.name || 'Unbekannter Sektor';
+        return sectorName;
+      });
+    
+    const sectorName = sameDaySchedules.length > 0 
+      ? (sameDaySchedules.length === 1 
+          ? sameDaySchedules[0] 
+          : `${sameDaySchedules.length} Sektoren`)
+      : (sectors?.find(s => s.id === upcoming.sector_id)?.name || '-');
+    
     return { when: new Date(upcoming.scheduled_at), sectorName };
   }, [schedule, sectors]);
 

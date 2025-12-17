@@ -1009,15 +1009,46 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
  * Compress video file into multiple quality levels (HD, SD, Low)
  * Creates 3 versions of the video for adaptive streaming
  */
+/**
+ * Detect if running on iOS device
+ */
+function isIOS(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
 export async function compressVideoMultiQuality(
   file: File,
   onProgress?: (progress: number) => void
 ): Promise<{ hd: File; sd: File; low: File }> {
-  // Set timeout for compression (20 minutes max for all 3 qualities)
-  const COMPRESSION_TIMEOUT = 20 * 60 * 1000; // 20 minutes
+  const isIOSDevice = isIOS();
+  
+  // On iOS, use longer timeout due to slower processing
+  // Also check file size - very large files might cause memory issues on iOS
+  const fileSizeMB = file.size / (1024 * 1024);
+  const isLargeFile = fileSizeMB > 100; // Files larger than 100MB
+  
+  // Set timeout for compression
+  // iOS devices are slower, so we give them more time
+  // But very large files might still timeout, so we warn the user
+  const COMPRESSION_TIMEOUT = isIOSDevice && isLargeFile 
+    ? 30 * 60 * 1000 // 30 minutes for large files on iOS
+    : isIOSDevice 
+    ? 25 * 60 * 1000 // 25 minutes for normal files on iOS
+    : 20 * 60 * 1000; // 20 minutes for desktop
+  
   let timeoutId: NodeJS.Timeout | null = null;
   let isResolved = false;
   let wakeLock: WakeLockSentinel | null = null;
+  
+  // Log iOS detection for debugging
+  if (isIOSDevice) {
+    console.log('[Video Multi-Quality Compression] 📱 iOS device detected - using extended timeout');
+    if (isLargeFile) {
+      console.warn('[Video Multi-Quality Compression] ⚠️ Large file detected on iOS - compression may take longer');
+    }
+  }
   
   // Request wake lock to prevent browser from throttling compression in background
   const requestWakeLock = async () => {

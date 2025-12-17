@@ -320,6 +320,9 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         
         if (upload.type === 'video') {
             console.log('[UploadContext] 🎬 Creating multiple video quality versions...');
+            
+            // CRITICAL: Videos MUST be uploaded in 3 quality versions - no fallback to original
+            // Note: On iOS devices, this may take longer due to limited CPU/memory
             try {
                 // Create multi-quality versions (progress: 0-30%)
                 const qualityFiles = await compressVideoMultiQuality(upload.file, (progress) => {
@@ -327,7 +330,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     updateUpload(upload.sessionId, { progress: compressionProgress });
                     updateLog('uploading', compressionProgress);
                 });
-                
+            
                 console.log('[UploadContext] ✅ Multi-quality videos created:', {
                     hd: qualityFiles.hd.size,
                     sd: qualityFiles.sd.size,
@@ -397,18 +400,27 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 url = videoUrls.hd || videoUrls.sd || videoUrls.low || '';
                 
                 console.log('[UploadContext] ✅ All video qualities uploaded:', videoUrls);
+            } catch (compressionError: any) {
+                // If compression fails, throw error (no fallback to original)
+                console.error('[UploadContext] ❌ Multi-quality compression failed:', compressionError);
                 
-            } catch (multiQualityError: any) {
-                console.error('[UploadContext] ⚠️ Multi-quality compression/upload failed, falling back to single upload:', multiQualityError);
-                // Fallback to single upload
-                fileToUpload = upload.file;
-                videoUrls = undefined;
+                // Provide helpful error message for iOS users
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                
+                if (isIOS && compressionError.message?.includes('timeout')) {
+                    throw new Error('Video-Kompression auf iOS-Gerät hat zu lange gedauert. Bitte versuche es mit einem kürzeren Video oder verbinde dich mit einem schnelleren Netzwerk.');
+                } else if (isIOS) {
+                    throw new Error('Video-Kompression auf iOS-Gerät fehlgeschlagen. Bitte versuche es erneut oder verwende ein kleineres Video.');
+                } else {
+                    throw new Error(`Video-Kompression fehlgeschlagen: ${compressionError.message || 'Unbekannter Fehler'}`);
+                }
             }
         }
 
-        // If multi-quality upload failed or it's a thumbnail, do single upload
-        if (!videoUrls) {
-            console.log('[UploadContext] 📤 Calling resumableUpload...', {
+        // If it's a thumbnail, do single upload (videos always have videoUrls from multi-quality compression)
+        if (!videoUrls && upload.type === 'thumbnail') {
+            console.log('[UploadContext] 📤 Uploading thumbnail...', {
                 fileName: upload.fileName,
                 fileSize: fileToUpload.size,
                 originalSize: upload.file.size,
@@ -418,49 +430,33 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 apiUrl: API_URL
             });
             
-            try {
-                // Adjust progress callback to account for compression (40-100% for upload)
-                const uploadProgressCallback = (p: number) => {
-                    // Map upload progress (0-100%) to overall progress (40-100%)
-                    const overallProgress = 40 + Math.floor(p * 0.6);
-                    // Check if cancelled by checking current state
-                    setUploads(prev => {
-                        const current = prev.find(u => u.sessionId === upload.sessionId);
-                        if (current?.status === 'cancelled') return prev;
-                        return prev.map(u => u.sessionId === upload.sessionId ? { ...u, progress: overallProgress } : u);
-                    });
-                    updateLog('uploading', overallProgress);
-                };
-
-                url = await resumableUpload(
-                    fileToUpload,
-                    API_URL,
-                    {
-                        sessionId: upload.sessionId,
-                        sectorId: upload.sectorId,
-                        onProgress: upload.type === 'thumbnail' ? uploadProgressCallback : (p) => {
-                            // For videos, use normal progress (0-100%)
-                            setUploads(prev => {
-                                const current = prev.find(u => u.sessionId === upload.sessionId);
-                                if (current?.status === 'cancelled') return prev;
-                                return prev.map(u => u.sessionId === upload.sessionId ? { ...u, progress: p } : u);
-                            });
-                            updateLog('uploading', p);
-                        },
-                        abortSignal: abortSignal || controller?.signal
-                    }
-                );
-                console.log('[UploadContext] ✅ resumableUpload completed, URL:', url);
-            } catch (uploadError: any) {
-                console.error('[UploadContext] ❌ resumableUpload failed:', uploadError);
-                console.error('[UploadContext] ❌ Error details:', {
-                    name: uploadError?.name,
-                    message: uploadError?.message,
-                    stack: uploadError?.stack,
-                    cause: uploadError?.cause
+            // Adjust progress callback to account for compression (40-100% for upload)
+            const uploadProgressCallback = (p: number) => {
+                // Map upload progress (0-100%) to overall progress (40-100%)
+                const overallProgress = 40 + Math.floor(p * 0.6);
+                // Check if cancelled by checking current state
+                setUploads(prev => {
+                    const current = prev.find(u => u.sessionId === upload.sessionId);
+                    if (current?.status === 'cancelled') return prev;
+                    return prev.map(u => u.sessionId === upload.sessionId ? { ...u, progress: overallProgress } : u);
                 });
-                throw uploadError; // Re-throw to be caught by outer catch
-            }
+                updateLog('uploading', overallProgress);
+            };
+
+            url = await resumableUpload(
+                fileToUpload,
+                API_URL,
+                {
+                    sessionId: upload.sessionId,
+                    sectorId: upload.sectorId,
+                    onProgress: uploadProgressCallback,
+                    abortSignal: abortSignal || controller?.signal
+                }
+            );
+            console.log('[UploadContext] ✅ Thumbnail upload completed, URL:', url);
+        } else if (!videoUrls && upload.type === 'video') {
+            // This should never happen - videos must always have videoUrls
+            throw new Error('Video upload failed: Could not create quality versions. Please try again.');
         }
 
         await updateLog('completed', 100);

@@ -54,6 +54,11 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   }
 });
 
+// Add FFmpeg to PATH (Windows)
+if (process.platform === 'win32') {
+  process.env.PATH = 'C:\\Program Files\\ffmpeg\\bin;' + process.env.PATH;
+}
+
 // Temporary directory for processing
 const TEMP_DIR = join(__dirname, '../temp-video-processing');
 if (!existsSync(TEMP_DIR)) {
@@ -357,10 +362,62 @@ function cleanupTempFiles() {
   }
 }
 
+// Lock file to prevent multiple instances
+const LOCK_FILE = join(TEMP_DIR, '.lock');
+
+/**
+ * Check if script is already running
+ */
+function checkLock() {
+  if (existsSync(LOCK_FILE)) {
+    const lockContent = readFileSync(LOCK_FILE, 'utf-8');
+    const lockData = JSON.parse(lockContent);
+    const lockAge = Date.now() - lockData.timestamp;
+    
+    // If lock is older than 1 hour, assume previous process crashed
+    if (lockAge > 60 * 60 * 1000) {
+      console.log('⚠️  Found stale lock file, removing...');
+      unlinkSync(LOCK_FILE);
+      return false;
+    }
+    
+    console.error('❌ Script is already running!');
+    console.error(`   Lock file created at: ${new Date(lockData.timestamp).toLocaleString()}`);
+    console.error(`   PID: ${lockData.pid}`);
+    process.exit(1);
+  }
+  
+  // Create lock file
+  writeFileSync(LOCK_FILE, JSON.stringify({
+    pid: process.pid,
+    timestamp: Date.now(),
+  }));
+  
+  return true;
+}
+
+/**
+ * Remove lock file
+ */
+function removeLock() {
+  try {
+    if (existsSync(LOCK_FILE)) {
+      unlinkSync(LOCK_FILE);
+    }
+  } catch (err) {
+    // Ignore errors
+  }
+}
+
 /**
  * Main migration function
  */
 async function createMultiQualityVideos() {
+  // Check for running instances
+  if (!checkLock()) {
+    return;
+  }
+  
   console.log('🚀 Starting multi-quality video creation...\n');
 
   // Clean up old temporary files first
@@ -384,13 +441,17 @@ async function createMultiQualityVideos() {
     process.exit(1);
   }
   
-  // Filter: Process only the failed video
-  // Target the specific video that failed: Roter Magischer Jaguar
-  const FAILED_VIDEO_ID = '6aa63569-4caf-494e-82fd-4a4f822620b2';
-  
+  // Filter: Process only boulders without quality versions (missing sd or low)
   const boulders = (allBoulders || []).filter(boulder => {
-    // Only process the failed video
-    return boulder.id === FAILED_VIDEO_ID;
+    const hasQualities = boulder.beta_video_urls && (() => {
+      const q = typeof boulder.beta_video_urls === 'string' 
+        ? JSON.parse(boulder.beta_video_urls) 
+        : boulder.beta_video_urls;
+      return !!(q.hd || q.sd || q.low);
+    })();
+    
+    // Process if no qualities exist
+    return !hasQualities;
   });
 
   if (!boulders || boulders.length === 0) {
@@ -450,38 +511,54 @@ async function createMultiQualityVideos() {
       // Upload qualities (preserve existing HD/SD if they exist)
       const videoUrls = { ...existingUrls };
       
-      console.log(`  📤 Uploading quality versions...`);
+      // Track which files we need to clean up
+      const filesToCleanup = [];
       
-      // Upload HD (only if we created it)
-      if (qualityFiles.hd.path && qualityFiles.hd.size > 0) {
-        const hdBuffer = readFileSync(qualityFiles.hd.path);
-        const hdFileName = `${baseFileName}_hd.mp4`;
-        videoUrls.hd = await uploadVideoToAllInkl(hdBuffer, hdFileName);
-        console.log(`    ✅ HD: ${videoUrls.hd}`);
-        unlinkSync(qualityFiles.hd.path);
-      } else if (existingUrls.hd) {
-        videoUrls.hd = existingUrls.hd;
-        console.log(`    ⏭️  HD: Using existing`);
+      try {
+        console.log(`  📤 Uploading quality versions...`);
+        
+        // Upload HD (only if we created it)
+        if (qualityFiles.hd.path && qualityFiles.hd.size > 0) {
+          const hdBuffer = readFileSync(qualityFiles.hd.path);
+          const hdFileName = `${baseFileName}_hd.mp4`;
+          videoUrls.hd = await uploadVideoToAllInkl(hdBuffer, hdFileName);
+          console.log(`    ✅ HD: ${videoUrls.hd}`);
+          filesToCleanup.push(qualityFiles.hd.path);
+        } else if (existingUrls.hd) {
+          videoUrls.hd = existingUrls.hd;
+          console.log(`    ⏭️  HD: Using existing`);
+        }
+        
+        // Upload SD (only if we created it)
+        if (qualityFiles.sd.path && qualityFiles.sd.size > 0) {
+          const sdBuffer = readFileSync(qualityFiles.sd.path);
+          const sdFileName = `${baseFileName}_sd.mp4`;
+          videoUrls.sd = await uploadVideoToAllInkl(sdBuffer, sdFileName);
+          console.log(`    ✅ SD: ${videoUrls.sd}`);
+          filesToCleanup.push(qualityFiles.sd.path);
+        } else if (existingUrls.sd) {
+          videoUrls.sd = existingUrls.sd;
+          console.log(`    ⏭️  SD: Using existing`);
+        }
+        
+        // Always upload new optimized Low quality
+        const lowBuffer = readFileSync(qualityFiles.low.path);
+        const lowFileName = `${baseFileName}_low.mp4`;
+        videoUrls.low = await uploadVideoToAllInkl(lowBuffer, lowFileName);
+        console.log(`    ✅ Low (optimized): ${videoUrls.low}`);
+        filesToCleanup.push(qualityFiles.low.path);
+      } finally {
+        // Always clean up temporary files, even if upload fails
+        filesToCleanup.forEach(filePath => {
+          try {
+            if (filePath && existsSync(filePath)) {
+              unlinkSync(filePath);
+            }
+          } catch (err) {
+            // Ignore cleanup errors
+          }
+        });
       }
-      
-      // Upload SD (only if we created it)
-      if (qualityFiles.sd.path && qualityFiles.sd.size > 0) {
-        const sdBuffer = readFileSync(qualityFiles.sd.path);
-        const sdFileName = `${baseFileName}_sd.mp4`;
-        videoUrls.sd = await uploadVideoToAllInkl(sdBuffer, sdFileName);
-        console.log(`    ✅ SD: ${videoUrls.sd}`);
-        unlinkSync(qualityFiles.sd.path);
-      } else if (existingUrls.sd) {
-        videoUrls.sd = existingUrls.sd;
-        console.log(`    ⏭️  SD: Using existing`);
-      }
-      
-      // Always upload new optimized Low quality
-      const lowBuffer = readFileSync(qualityFiles.low.path);
-      const lowFileName = `${baseFileName}_low.mp4`;
-      videoUrls.low = await uploadVideoToAllInkl(lowBuffer, lowFileName);
-      console.log(`    ✅ Low (optimized): ${videoUrls.low}`);
-      unlinkSync(qualityFiles.low.path);
       
       // Update database
       console.log(`  💾 Updating database...`);

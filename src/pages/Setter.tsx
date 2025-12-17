@@ -500,6 +500,7 @@ const Setter = () => {
   const updateBoulder = useUpdateBoulder();
   const deleteBoulder = useDeleteBoulder();
   const updateSector = useUpdateSector();
+  const { startUpload } = useUpload();
 
   useEffect(() => {
     // Only redirect if auth is done loading and there's no session
@@ -590,7 +591,7 @@ const Setter = () => {
   const [editDifficulty, setEditDifficulty] = useState<string>('all');
   const [editColor, setEditColor] = useState<string>('all');
   const [editing, setEditing] = useState<any | null>(null);
-  const [scheduleSectorId, setScheduleSectorId] = useState<string>('');
+  const [scheduleSectorIds, setScheduleSectorIds] = useState<Set<string>>(new Set());
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
   const [scheduleTime, setScheduleTime] = useState<string>('');
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
@@ -927,8 +928,34 @@ const Setter = () => {
       
       console.log('[Setter] submitEdit: Mutation successful:', result);
       
-      // Upload functionality removed
+      // If there's a new video file, upload it
+      if (form.file && editing?.id) {
+        try {
+          await startUpload(editing.id, form.file, 'video', form.sector_id);
+          toast.success('Video-Upload gestartet');
+        } catch (error: any) {
+          console.error('[Setter] Error starting video upload:', error);
+          toast.error('Fehler beim Starten des Video-Uploads', {
+            description: error.message || 'Unbekannter Fehler',
+          });
+        }
+      }
       
+      // If there's a new thumbnail file, upload it
+      if (form.thumbnailFile && editing?.id) {
+        try {
+          await startUpload(editing.id, form.thumbnailFile, 'thumbnail', form.sector_id);
+          toast.success('Thumbnail-Upload gestartet');
+        } catch (error: any) {
+          console.error('[Setter] Error starting thumbnail upload:', error);
+          toast.error('Fehler beim Starten des Thumbnail-Uploads', {
+            description: error.message || 'Unbekannter Fehler',
+          });
+        }
+      }
+      
+      // Reset form file fields
+      setForm(prev => ({ ...prev, file: null, thumbnailFile: null }));
       setEditing(null);
       setVideoPreviewUrl(null);
       setThumbnailPreviewUrl(null);
@@ -952,7 +979,7 @@ const Setter = () => {
   };
 
   const scheduleNextSector = async () => {
-    if (!scheduleSectorId || !scheduleDate || !scheduleTime) return;
+    if (scheduleSectorIds.size === 0 || !scheduleDate || !scheduleTime) return;
     
     // Combine date and time into ISO string
     const dateTime = new Date(scheduleDate);
@@ -960,15 +987,25 @@ const Setter = () => {
     dateTime.setHours(parseInt(hours, 10));
     dateTime.setMinutes(parseInt(minutes, 10));
     
-    await createSchedule.mutateAsync({ 
-      sector_id: scheduleSectorId, 
-      scheduled_at: dateTime.toISOString(), 
-      note: null 
-    } as any);
-    setScheduleSectorId('');
-    setScheduleDate(undefined);
-    setScheduleTime('');
-    setScheduleDialogOpen(false);
+    // Create a schedule entry for each selected sector
+    const promises = Array.from(scheduleSectorIds).map(sectorId => 
+      createSchedule.mutateAsync({ 
+        sector_id: sectorId, 
+        scheduled_at: dateTime.toISOString(), 
+        note: null 
+      } as any)
+    );
+    
+    try {
+      await Promise.all(promises);
+      setScheduleSectorIds(new Set());
+      setScheduleDate(undefined);
+      setScheduleTime('');
+      setScheduleDialogOpen(false);
+    } catch (error) {
+      console.error('Error creating schedules:', error);
+      throw error;
+    }
   };
 
   // Group schedule items by date
@@ -2420,15 +2457,41 @@ const Setter = () => {
                     </DialogHeader>
                     <div className="space-y-6 px-6 pb-6">
                       <div className="space-y-3">
-                        <Label className="text-base font-semibold text-[#13112B]">Sektor</Label>
-                        <Select value={scheduleSectorId} onValueChange={setScheduleSectorId}>
-                          <SelectTrigger className="h-12 w-full border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] text-base">
-                            <SelectValue placeholder="Sektor wählen" />
-                          </SelectTrigger>
-                          <SelectContent className="z-[150]">
-                            {sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                        <Label className="text-base font-semibold text-[#13112B]">Sektoren</Label>
+                        <div className="space-y-2 max-h-64 overflow-y-auto border border-[#E7F7E9] rounded-xl p-3">
+                          {sectors && sectors.length > 0 ? (
+                            sectors.map(sector => (
+                              <div key={sector.id} className="flex items-center space-x-3 py-2">
+                                <Checkbox
+                                  id={`sector-${sector.id}`}
+                                  checked={scheduleSectorIds.has(sector.id)}
+                                  onCheckedChange={(checked) => {
+                                    const newSet = new Set(scheduleSectorIds);
+                                    if (checked) {
+                                      newSet.add(sector.id);
+                                    } else {
+                                      newSet.delete(sector.id);
+                                    }
+                                    setScheduleSectorIds(newSet);
+                                  }}
+                                />
+                                <label
+                                  htmlFor={`sector-${sector.id}`}
+                                  className="text-sm font-medium text-[#13112B] cursor-pointer flex-1"
+                                >
+                                  {sector.name}
+                                </label>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-[#13112B]/60 py-2">Keine Sektoren verfügbar</p>
+                          )}
+                        </div>
+                        {scheduleSectorIds.size > 0 && (
+                          <p className="text-xs text-[#13112B]/60">
+                            {scheduleSectorIds.size} {scheduleSectorIds.size === 1 ? 'Sektor' : 'Sektoren'} ausgewählt
+                          </p>
+                        )}
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-3">
@@ -2536,7 +2599,7 @@ const Setter = () => {
                         variant="outline"
                         onClick={() => {
                           setScheduleDialogOpen(false);
-                          setScheduleSectorId('');
+                          setScheduleSectorIds(new Set());
                           setScheduleDate(undefined);
                           setScheduleTime('');
                         }}
@@ -2546,10 +2609,12 @@ const Setter = () => {
                       </Button>
                       <Button
                         onClick={scheduleNextSector}
-                        disabled={!scheduleSectorId || !scheduleDate || !scheduleTime}
+                        disabled={scheduleSectorIds.size === 0 || !scheduleDate || !scheduleTime}
                         className="flex-1 h-12 bg-[#36B531] hover:bg-[#2da029] text-white rounded-xl text-base font-medium"
                       >
-                        Termin erstellen
+                        {scheduleSectorIds.size > 0 
+                          ? `${scheduleSectorIds.size} ${scheduleSectorIds.size === 1 ? 'Termin' : 'Termine'} erstellen`
+                          : 'Termin erstellen'}
                       </Button>
                     </div>
                   </DialogContent>
