@@ -1103,10 +1103,11 @@ export async function compressVideoMultiQuality(
     if (onProgress) onProgress(20);
 
     // Quality settings
+    // Low quality optimized for very slow connections (low-tier mobile, < 1 Mbps)
     const qualitySettings = [
       { name: 'hd', width: 1920, bitrate: '4000000', crf: 23, progressStart: 20, progressEnd: 50 },
       { name: 'sd', width: 1280, bitrate: '2000000', crf: 24, progressStart: 50, progressEnd: 75 },
-      { name: 'low', width: 854, bitrate: '1000000', crf: 25, progressStart: 75, progressEnd: 95 },
+      { name: 'low', width: 640, bitrate: '500000', crf: 26, progressStart: 75, progressEnd: 95 }, // Reduced for very slow connections
     ];
 
     const results: { hd: File; sd: File; low: File } = {} as any;

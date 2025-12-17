@@ -64,7 +64,6 @@ const VideoPlayerWithBuffer = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isBuffering, setIsBuffering] = useState(false);
   const [bufferProgress, setBufferProgress] = useState(0);
-  const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentQuality, setCurrentQuality] = useState<'hd' | 'sd' | 'low'>('hd');
   const [hasError, setHasError] = useState(false);
@@ -73,6 +72,8 @@ const VideoPlayerWithBuffer = ({
   const playStartTimeRef = useRef<number | null>(null); // Track when video started playing
   const retryCountRef = useRef(0);
   const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const bufferingCountRef = useRef(0); // Track how many times video has buffered
+  const lastBufferingTimeRef = useRef<number | null>(null); // Track when last buffering occurred
 
   // Detect network speed and select optimal quality
   useEffect(() => {
@@ -81,6 +82,9 @@ const VideoPlayerWithBuffer = ({
     const networkSpeed = detectNetworkSpeed();
     const optimalQuality = getOptimalVideoQualityWithDataSaver(networkSpeed);
     setCurrentQuality(optimalQuality);
+    retryCountRef.current = 0; // Reset retry count when dialog opens
+    bufferingCountRef.current = 0; // Reset buffering count when dialog opens
+    lastBufferingTimeRef.current = null; // Reset last buffering time
     console.log('[VideoPlayer] Network speed:', networkSpeed, 'Selected quality:', optimalQuality);
   }, [isVisible]);
 
@@ -103,16 +107,17 @@ const VideoPlayerWithBuffer = ({
     // Set preload to metadata when visible - this loads video metadata immediately
     video.preload = 'metadata';
     
-    // Set timeout for loading (30 seconds)
+    // Set timeout for loading - shorter timeout for faster fallback
+    // If video doesn't start loading within 10 seconds, try lower quality
     if (loadTimeoutRef.current) {
       clearTimeout(loadTimeoutRef.current);
     }
     loadTimeoutRef.current = setTimeout(() => {
       if (video.readyState === 0) { // HAVE_NOTHING
-        console.warn('[VideoPlayer] Video loading timeout, trying lower quality');
+        console.warn('[VideoPlayer] Video loading timeout (10s), trying lower quality');
         handleQualityFallback();
       }
-    }, 30000);
+    }, 10000); // Reduced from 30s to 10s for faster fallback
     
     // Load metadata immediately when dialog opens
     video.load();
@@ -167,9 +172,8 @@ const VideoPlayerWithBuffer = ({
         const progress = (bufferedEnd / video.duration) * 100;
         setBufferProgress(progress);
         
-        // Don't show loading indicator if video has ended
+        // Don't process buffering if video has ended
         if (video.ended) {
-          setShowLoadingIndicator(false);
           setIsBuffering(false);
           return;
         }
@@ -187,34 +191,24 @@ const VideoPlayerWithBuffer = ({
         // Only show loading indicator if buffer is low AND not near the end
         // Increased threshold from 2s to 5s for better UX
         if (isNearEnd) {
-          // Near the end - hide loading indicator completely
+          // Near the end
           if (bufferingTimeoutRef.current) {
             clearTimeout(bufferingTimeoutRef.current);
             bufferingTimeoutRef.current = null;
           }
-          setShowLoadingIndicator(false);
           setIsBuffering(false);
         } else {
           // Not near the end - only show loading indicator if buffer is critically low (< 1s)
           // AND video is actually paused/waiting, not during normal playback
           // This prevents the overlay from appearing during normal playback
           if (bufferAhead < 1 && (video.paused || video.readyState < 3)) {
-            // Buffer is critically low AND video is paused/waiting - set timeout to show indicator after 500ms
-            if (!bufferingTimeoutRef.current) {
-              bufferingTimeoutRef.current = setTimeout(() => {
-                setShowLoadingIndicator(true);
-                bufferingTimeoutRef.current = null;
-              }, 500);
-            }
+          // Buffer is critically low AND video is paused/waiting
+          // (Loading indicator removed per user request)
           } else {
             // Buffer is sufficient OR video is playing normally - clear timeout and hide indicator immediately
             if (bufferingTimeoutRef.current) {
               clearTimeout(bufferingTimeoutRef.current);
               bufferingTimeoutRef.current = null;
-            }
-            // Only hide if buffer is actually sufficient (> 2s) or video is playing smoothly
-            if (bufferAhead > 2 || (!video.paused && video.readyState >= 3)) {
-              setShowLoadingIndicator(false);
             }
           }
         }
@@ -254,14 +248,13 @@ const VideoPlayerWithBuffer = ({
       const video = videoRef.current;
       if (!video) return;
       
-      // Don't show loading indicator if video has ended or is near the end
+      // Don't process buffering if video has ended or is near the end
       if (video.ended) {
         setIsBuffering(false);
         if (bufferingTimeoutRef.current) {
           clearTimeout(bufferingTimeoutRef.current);
           bufferingTimeoutRef.current = null;
         }
-        setShowLoadingIndicator(false);
         return;
       }
       
@@ -275,17 +268,33 @@ const VideoPlayerWithBuffer = ({
           clearTimeout(bufferingTimeoutRef.current);
           bufferingTimeoutRef.current = null;
         }
-        setShowLoadingIndicator(false);
+        return;
+      }
+      
+      // Track buffering events
+      const now = Date.now();
+      const timeSinceLastBuffering = lastBufferingTimeRef.current ? now - lastBufferingTimeRef.current : Infinity;
+      
+      // If buffering happens frequently (within 10 seconds), increment counter
+      if (timeSinceLastBuffering < 10000) {
+        bufferingCountRef.current++;
+      } else {
+        // Reset counter if buffering is infrequent
+        bufferingCountRef.current = 1;
+      }
+      
+      lastBufferingTimeRef.current = now;
+      
+      // If video buffers more than 2 times, automatically switch to lower quality
+      if (bufferingCountRef.current >= 2 && hasStartedPlayingRef.current) {
+        console.warn('[VideoPlayer] Video buffering frequently, switching to lower quality');
+        handleQualityFallback();
+        bufferingCountRef.current = 0; // Reset counter after fallback
         return;
       }
       
       setIsBuffering(true);
-      // Use debouncing: only show loading indicator after 500ms to avoid flickering
-      if (!bufferingTimeoutRef.current) {
-        bufferingTimeoutRef.current = setTimeout(() => {
-          setShowLoadingIndicator(true);
-        }, 500);
-      }
+      // (Loading indicator removed per user request)
     };
 
     const handlePlay = () => {
@@ -300,7 +309,8 @@ const VideoPlayerWithBuffer = ({
         clearTimeout(bufferingTimeoutRef.current);
         bufferingTimeoutRef.current = null;
       }
-      setShowLoadingIndicator(false);
+      // Reset buffering count when video can play again
+      bufferingCountRef.current = 0;
     };
 
     const handleCanPlayThrough = () => {
@@ -309,7 +319,6 @@ const VideoPlayerWithBuffer = ({
         clearTimeout(bufferingTimeoutRef.current);
         bufferingTimeoutRef.current = null;
       }
-      setShowLoadingIndicator(false);
     };
 
     const handlePause = () => {
@@ -325,7 +334,6 @@ const VideoPlayerWithBuffer = ({
         clearTimeout(bufferingTimeoutRef.current);
         bufferingTimeoutRef.current = null;
       }
-      setShowLoadingIndicator(false);
     };
 
     const handleError = () => {
@@ -581,6 +589,15 @@ const VideoPlayerWithBuffer = ({
           </a>
         </p>
       </video>
+      {/* Quality Badge - only show if multiple qualities are available */}
+      {betaVideoUrls && (betaVideoUrls.hd || betaVideoUrls.sd || betaVideoUrls.low) && (
+        <Badge
+          className="absolute top-2 left-2 z-20 bg-black/70 text-white border-0 backdrop-blur-sm font-medium"
+          variant="secondary"
+        >
+          {currentQuality.toUpperCase()}
+        </Badge>
+      )}
       <button
         onClick={toggleFullscreen}
         className="absolute top-2 right-2 z-20 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg transition-all backdrop-blur-sm"
@@ -593,17 +610,6 @@ const VideoPlayerWithBuffer = ({
           <Maximize2 className="w-4 h-4" />
         )}
       </button>
-      {showLoadingIndicator && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center flex-col gap-2 z-10">
-          <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          <p className="text-white text-sm">Video wird geladen...</p>
-          {bufferProgress > 0 && (
-            <div className="w-48">
-              <Progress value={bufferProgress} className="h-1" />
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 };

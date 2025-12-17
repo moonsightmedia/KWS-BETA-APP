@@ -38,11 +38,21 @@ export function detectNetworkSpeed(): NetworkSpeed {
     const downlink = connection.downlink;
     
     // Map effectiveType to network speed
+    // More aggressive mapping for low-tier mobile devices
     if (effectiveType) {
       switch (effectiveType.toLowerCase()) {
         case '4g':
-          return 'fast';
+          // Only use fast if downlink is actually high enough
+          if (downlink !== undefined && downlink >= 10) {
+            return 'fast';
+          }
+          // Otherwise treat as medium even if it's "4g"
+          return 'medium';
         case '3g':
+          // 3G can be slow, check downlink
+          if (downlink !== undefined && downlink < 2) {
+            return 'slow';
+          }
           return 'medium';
         case '2g':
         case 'slow-2g':
@@ -54,20 +64,24 @@ export function detectNetworkSpeed(): NetworkSpeed {
     }
     
     // Use downlink speed as fallback (Mbps)
+    // Very aggressive thresholds for better experience on slow connections
+    // Low-tier mobile typically has < 1 Mbps, so we need to be very conservative
     if (downlink !== undefined) {
       if (downlink >= 10) {
         return 'fast';
-      } else if (downlink >= 1.5) {
+      } else if (downlink >= 3) {
         return 'medium';
       } else {
+        // Anything below 3 Mbps is considered slow (including low-tier mobile)
         return 'slow';
       }
     }
   }
   
-  // Fallback: assume medium speed if we can't detect
-  // This is safer than assuming fast, as it will use SD quality
-  return 'medium';
+  // Fallback: assume slow speed if we can't detect
+  // This is safer - will use Low quality by default, which works better on slow connections
+  // Especially important for low-tier mobile devices
+  return 'slow';
 }
 
 /**

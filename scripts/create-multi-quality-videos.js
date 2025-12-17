@@ -99,6 +99,57 @@ async function downloadVideoFromCdn(videoUrl) {
 }
 
 /**
+ * Create only Low quality version (optimized for slow connections)
+ */
+async function createLowQualityOnly(inputBuffer, baseFileName) {
+  const inputPath = join(TEMP_DIR, `input_${baseFileName}`);
+  const lowPath = join(TEMP_DIR, `${baseFileName}_low.mp4`);
+
+  try {
+    // Write input file
+    writeFileSync(inputPath, inputBuffer);
+    console.log(`    Creating optimized low quality...`);
+
+    // Low quality settings (optimized for very slow connections)
+    const args = [
+      '-i', inputPath,
+      '-c:v', 'libx264',
+      '-preset', 'fast',
+      '-crf', '26',
+      '-vf', 'scale=640:-2', // Maintain aspect ratio
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-b:v', '500000', // 500 kbps
+      '-movflags', '+faststart',
+      '-y', // Overwrite output
+      lowPath,
+    ];
+
+    // Escape paths with spaces for Windows
+    const escapedArgs = args.map(arg => {
+      if (arg.includes(' ') && !arg.startsWith('-')) {
+        return `"${arg}"`;
+      }
+      return arg;
+    });
+    await execAsync(`ffmpeg ${escapedArgs.join(' ')}`);
+    
+    const stats = await import('fs').then(fs => fs.promises.stat(lowPath));
+    const result = {
+      path: lowPath,
+      size: stats.size,
+    };
+    console.log(`    ✅ low: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
+    return result;
+  } finally {
+    // Clean up input file
+    if (existsSync(inputPath)) {
+      unlinkSync(inputPath);
+    }
+  }
+}
+
+/**
  * Create multiple quality versions using FFmpeg
  */
 async function createMultiQualityVersions(inputBuffer, baseFileName) {
@@ -113,10 +164,11 @@ async function createMultiQualityVersions(inputBuffer, baseFileName) {
     console.log(`  🎬 Creating quality versions...`);
 
     // Quality settings
+    // Low quality optimized for very slow connections (low-tier mobile, < 1 Mbps)
     const qualitySettings = [
       { name: 'hd', path: hdPath, width: 1920, bitrate: '4000000', crf: 23 },
       { name: 'sd', path: sdPath, width: 1280, bitrate: '2000000', crf: 24 },
-      { name: 'low', path: lowPath, width: 854, bitrate: '1000000', crf: 25 },
+      { name: 'low', path: lowPath, width: 640, bitrate: '500000', crf: 26 }, // Reduced for very slow connections
     ];
 
     const results = {};
@@ -303,14 +355,16 @@ async function createMultiQualityVideos() {
     process.exit(1);
   }
   
-  // Filter: Only process videos that don't have SD and Low qualities yet
+  // Filter: Process all videos to update Low quality to new lower settings
+  // This will recreate Low quality with the new optimized settings (640px, 500kbps)
   const boulders = (allBoulders || []).filter(boulder => {
     if (!boulder.beta_video_urls) return true; // No beta_video_urls at all
     const urls = typeof boulder.beta_video_urls === 'string' 
       ? JSON.parse(boulder.beta_video_urls) 
       : boulder.beta_video_urls;
-    // Process if SD or Low is missing
-    return !urls.sd || !urls.low;
+    // Process all videos that have HD quality (to update Low quality)
+    // This ensures all videos get the new optimized Low quality
+    return !!urls.hd;
   });
 
   if (!boulders || boulders.length === 0) {
@@ -330,59 +384,77 @@ async function createMultiQualityVideos() {
     console.log(`  URL: ${boulder.beta_video_url}`);
 
     try {
-      // Get filename
-      const fileName = getFileNameFromUrl(boulder.beta_video_url);
-      const baseFileName = getBaseFileName(fileName);
+      // Get existing URLs
+      const existingUrls = boulder.beta_video_urls 
+        ? (typeof boulder.beta_video_urls === 'string' 
+            ? JSON.parse(boulder.beta_video_urls) 
+            : boulder.beta_video_urls)
+        : {};
       
-      // Check if quality files already exist from previous run
-      const hdPath = join(TEMP_DIR, `${baseFileName}_hd.mp4`);
-      const sdPath = join(TEMP_DIR, `${baseFileName}_sd.mp4`);
-      const lowPath = join(TEMP_DIR, `${baseFileName}_low.mp4`);
+      // Use HD as source video (it's the highest quality available)
+      const sourceVideoUrl = existingUrls.hd || boulder.beta_video_url;
+      if (!sourceVideoUrl) {
+        console.log(`  ⚠️  No source video URL found, skipping...`);
+        continue;
+      }
+      
+      // Get filename from source URL
+      const fileName = getFileNameFromUrl(sourceVideoUrl);
+      const baseFileName = getBaseFileName(fileName).replace(/_hd$/, ''); // Remove _hd suffix if present
       
       let qualityFiles;
-      if (existsSync(hdPath) && existsSync(sdPath) && existsSync(lowPath)) {
-        console.log(`  ⚡ Using existing quality files (skipping conversion)`);
-        const fs = await import('fs');
-        const stats = fs.promises.stat;
+      
+      // If HD and SD already exist, only recreate Low quality with new optimized settings
+      if (existingUrls.hd && existingUrls.sd) {
+        console.log(`  📥 Downloading HD source and recreating Low quality only...`);
+        const videoBuffer = await downloadVideoFromCdn(sourceVideoUrl);
+        const lowOnly = await createLowQualityOnly(videoBuffer, baseFileName);
         qualityFiles = {
-          hd: { path: hdPath, size: (await stats(hdPath)).size },
-          sd: { path: sdPath, size: (await stats(sdPath)).size },
-          low: { path: lowPath, size: (await stats(lowPath)).size },
+          hd: { path: '', size: 0 }, // Not needed, already exists
+          sd: { path: '', size: 0 }, // Not needed, already exists
+          low: lowOnly,
         };
-        console.log(`    ✅ HD: ${(qualityFiles.hd.size / 1024 / 1024).toFixed(2)} MB`);
-        console.log(`    ✅ SD: ${(qualityFiles.sd.size / 1024 / 1024).toFixed(2)} MB`);
-        console.log(`    ✅ Low: ${(qualityFiles.low.size / 1024 / 1024).toFixed(2)} MB`);
       } else {
-        // Download video and create quality versions
-        console.log(`  📥 Downloading and converting...`);
-        const videoBuffer = await downloadVideoFromCdn(boulder.beta_video_url);
+        // Need to create all qualities
+        console.log(`  📥 Downloading and converting all qualities...`);
+        const videoBuffer = await downloadVideoFromCdn(sourceVideoUrl);
         qualityFiles = await createMultiQualityVersions(videoBuffer, baseFileName);
       }
       
-      // Upload all qualities
-      const videoUrls = {};
+      // Upload qualities (preserve existing HD/SD if they exist)
+      const videoUrls = { ...existingUrls };
       
       console.log(`  📤 Uploading quality versions...`);
       
-      // Upload HD
-      const hdBuffer = readFileSync(qualityFiles.hd.path);
-      const hdFileName = `${baseFileName}_hd.mp4`;
-      videoUrls.hd = await uploadVideoToAllInkl(hdBuffer, hdFileName);
-      console.log(`    ✅ HD: ${videoUrls.hd}`);
-      unlinkSync(qualityFiles.hd.path);
+      // Upload HD (only if we created it)
+      if (qualityFiles.hd.path && qualityFiles.hd.size > 0) {
+        const hdBuffer = readFileSync(qualityFiles.hd.path);
+        const hdFileName = `${baseFileName}_hd.mp4`;
+        videoUrls.hd = await uploadVideoToAllInkl(hdBuffer, hdFileName);
+        console.log(`    ✅ HD: ${videoUrls.hd}`);
+        unlinkSync(qualityFiles.hd.path);
+      } else if (existingUrls.hd) {
+        videoUrls.hd = existingUrls.hd;
+        console.log(`    ⏭️  HD: Using existing`);
+      }
       
-      // Upload SD
-      const sdBuffer = readFileSync(qualityFiles.sd.path);
-      const sdFileName = `${baseFileName}_sd.mp4`;
-      videoUrls.sd = await uploadVideoToAllInkl(sdBuffer, sdFileName);
-      console.log(`    ✅ SD: ${videoUrls.sd}`);
-      unlinkSync(qualityFiles.sd.path);
+      // Upload SD (only if we created it)
+      if (qualityFiles.sd.path && qualityFiles.sd.size > 0) {
+        const sdBuffer = readFileSync(qualityFiles.sd.path);
+        const sdFileName = `${baseFileName}_sd.mp4`;
+        videoUrls.sd = await uploadVideoToAllInkl(sdBuffer, sdFileName);
+        console.log(`    ✅ SD: ${videoUrls.sd}`);
+        unlinkSync(qualityFiles.sd.path);
+      } else if (existingUrls.sd) {
+        videoUrls.sd = existingUrls.sd;
+        console.log(`    ⏭️  SD: Using existing`);
+      }
       
-      // Upload Low
+      // Always upload new optimized Low quality
       const lowBuffer = readFileSync(qualityFiles.low.path);
       const lowFileName = `${baseFileName}_low.mp4`;
       videoUrls.low = await uploadVideoToAllInkl(lowBuffer, lowFileName);
-      console.log(`    ✅ Low: ${videoUrls.low}`);
+      console.log(`    ✅ Low (optimized): ${videoUrls.low}`);
       unlinkSync(qualityFiles.low.path);
       
       // Update database
