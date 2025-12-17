@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Boulder } from '@/types/boulder';
+import { Boulder, VideoQualities } from '@/types/boulder';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Calendar, MapPin, Palette, FileText, ExternalLink, Video, Maximize2, Minimize2 } from 'lucide-react';
@@ -10,6 +10,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useColors } from '@/hooks/useColors';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
 import { cn } from '@/lib/utils';
+import { getVideoUrl } from '@/utils/videoUtils';
+import { getOptimalVideoQualityWithDataSaver, detectNetworkSpeed } from '@/utils/networkUtils';
 
 interface BoulderDetailDialogProps {
   boulder: Boulder | null;
@@ -45,26 +47,72 @@ const getYouTubeEmbedUrl = (url: string): string => {
 };
 
 /**
- * Video Player Component with improved buffering and preloading
+ * Video Player Component with improved buffering and adaptive quality selection
  */
-const VideoPlayerWithBuffer = ({ videoUrl, poster, isVisible }: { videoUrl: string; poster?: string; isVisible?: boolean }) => {
+const VideoPlayerWithBuffer = ({ 
+  betaVideoUrls, 
+  betaVideoUrl, 
+  poster, 
+  isVisible 
+}: { 
+  betaVideoUrls?: VideoQualities; 
+  betaVideoUrl?: string; 
+  poster?: string; 
+  isVisible?: boolean 
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isBuffering, setIsBuffering] = useState(false);
   const [bufferProgress, setBufferProgress] = useState(0);
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [currentQuality, setCurrentQuality] = useState<'hd' | 'sd' | 'low'>('hd');
+  const [hasError, setHasError] = useState(false);
   const bufferingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasStartedPlayingRef = useRef(false); // Track if video has started playing
   const playStartTimeRef = useRef<number | null>(null); // Track when video started playing
+  const retryCountRef = useRef(0);
+  const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Detect network speed and select optimal quality
+  useEffect(() => {
+    if (!isVisible) return;
+    
+    const networkSpeed = detectNetworkSpeed();
+    const optimalQuality = getOptimalVideoQualityWithDataSaver(networkSpeed);
+    setCurrentQuality(optimalQuality);
+    console.log('[VideoPlayer] Network speed:', networkSpeed, 'Selected quality:', optimalQuality);
+  }, [isVisible]);
 
   // Load video metadata when dialog opens and auto-play when ready
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isVisible) return;
 
+    // Get video URL based on current quality preference
+    const videoUrl = getVideoUrl(betaVideoUrls, betaVideoUrl, currentQuality);
+    if (!videoUrl) {
+      console.error('[VideoPlayer] No video URL available');
+      setHasError(true);
+      return;
+    }
+
+    // Set video source
+    video.src = videoUrl;
+    
     // Set preload to metadata when visible - this loads video metadata immediately
     video.preload = 'metadata';
+    
+    // Set timeout for loading (30 seconds)
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+    }
+    loadTimeoutRef.current = setTimeout(() => {
+      if (video.readyState === 0) { // HAVE_NOTHING
+        console.warn('[VideoPlayer] Video loading timeout, trying lower quality');
+        handleQualityFallback();
+      }
+    }, 30000);
     
     // Load metadata immediately when dialog opens
     video.load();
@@ -93,6 +141,10 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster, isVisible }: { videoUrl: stri
         clearTimeout(bufferingTimeoutRef.current);
         bufferingTimeoutRef.current = null;
       }
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
       // Remove event listener
       video.removeEventListener('canplaythrough', handleAutoPlay);
       // Pause and reset when not visible
@@ -103,7 +155,7 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster, isVisible }: { videoUrl: stri
         playStartTimeRef.current = null; // Reset play start time
       }
     };
-  }, [isVisible]);
+  }, [isVisible, currentQuality, betaVideoUrls, betaVideoUrl]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -276,6 +328,49 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster, isVisible }: { videoUrl: stri
       setShowLoadingIndicator(false);
     };
 
+    const handleError = () => {
+      const video = videoRef.current;
+      if (!video) return;
+      
+      const error = video.error;
+      if (error) {
+        console.error('[VideoPlayer] Video error:', {
+          code: error.code,
+          message: error.message,
+          quality: currentQuality
+        });
+        
+        // Try fallback to lower quality if available
+        if (error.code === MediaError.MEDIA_ERR_NETWORK || error.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+          handleQualityFallback();
+        } else {
+          setHasError(true);
+        }
+      }
+    };
+
+    const handleLoadedMetadata = () => {
+      // Clear timeout when metadata is loaded
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+      setHasError(false);
+    };
+
+    const handleStalled = () => {
+      console.warn('[VideoPlayer] Video stalled, checking if fallback needed');
+      const video = videoRef.current;
+      if (video && video.readyState < 2) {
+        // Video is stalled and not loading, try fallback after delay
+        setTimeout(() => {
+          if (video.readyState < 2) {
+            handleQualityFallback();
+          }
+        }, 5000);
+      }
+    };
+
     video.addEventListener('progress', handleProgress);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('waiting', handleWaiting);
@@ -284,6 +379,9 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster, isVisible }: { videoUrl: stri
     video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('canplaythrough', handleCanPlayThrough);
     video.addEventListener('ended', handleEnded);
+    video.addEventListener('error', handleError);
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('stalled', handleStalled);
 
     return () => {
       video.removeEventListener('progress', handleProgress);
@@ -294,13 +392,50 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster, isVisible }: { videoUrl: stri
       video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('canplaythrough', handleCanPlayThrough);
       video.removeEventListener('ended', handleEnded);
+      video.removeEventListener('error', handleError);
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('stalled', handleStalled);
       // Cleanup timeout
       if (bufferingTimeoutRef.current) {
         clearTimeout(bufferingTimeoutRef.current);
         bufferingTimeoutRef.current = null;
       }
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
     };
-  }, [isBuffering]);
+  }, [isBuffering, currentQuality, betaVideoUrls, betaVideoUrl]);
+
+  // Handle quality fallback when current quality fails
+  const handleQualityFallback = () => {
+    if (retryCountRef.current >= 2) {
+      // Already tried all qualities
+      setHasError(true);
+      return;
+    }
+    
+    retryCountRef.current++;
+    const video = videoRef.current;
+    if (!video || !betaVideoUrls) return;
+    
+    // Try next lower quality
+    let nextQuality: 'hd' | 'sd' | 'low' | null = null;
+    if (currentQuality === 'hd' && betaVideoUrls.sd) {
+      nextQuality = 'sd';
+    } else if ((currentQuality === 'hd' || currentQuality === 'sd') && betaVideoUrls.low) {
+      nextQuality = 'low';
+    }
+    
+    if (nextQuality) {
+      console.log('[VideoPlayer] Falling back to', nextQuality, 'quality');
+      setCurrentQuality(nextQuality);
+      setHasError(false);
+      video.load();
+    } else {
+      setHasError(true);
+    }
+  };
 
   // Fullscreen handling
   useEffect(() => {
@@ -355,6 +490,54 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster, isVisible }: { videoUrl: stri
     }
   };
 
+  // Get current video URL
+  const currentVideoUrl = getVideoUrl(betaVideoUrls, betaVideoUrl, currentQuality);
+
+  // Show error UI if video failed to load
+  if (hasError || !currentVideoUrl) {
+    const fallbackUrl = getVideoUrl(betaVideoUrls, betaVideoUrl, 'low') || betaVideoUrl;
+    return (
+      <div className="relative w-full h-full flex items-center justify-center bg-black/50 rounded-xl">
+        <div className="text-center p-4 space-y-4">
+          <Video className="w-12 h-12 text-white/60 mx-auto" />
+          <div>
+            <p className="text-white text-sm mb-2">
+              Video konnte nicht geladen werden
+            </p>
+            {fallbackUrl && (
+              <Button
+                onClick={() => {
+                  setHasError(false);
+                  retryCountRef.current = 0;
+                  if (videoRef.current) {
+                    videoRef.current.src = fallbackUrl;
+                    videoRef.current.load();
+                  }
+                }}
+                variant="outline"
+                size="sm"
+                className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+              >
+                Erneut versuchen
+              </Button>
+            )}
+            {fallbackUrl && (
+              <Button
+                onClick={() => window.open(fallbackUrl, '_blank')}
+                variant="outline"
+                size="sm"
+                className="ml-2 bg-white/10 text-white border-white/20 hover:bg-white/20"
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Video direkt öffnen
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div ref={containerRef} className="relative w-full h-full">
       {/* Hide browser-native loading spinner - we use our own */}
@@ -374,22 +557,22 @@ const VideoPlayerWithBuffer = ({ videoUrl, poster, isVisible }: { videoUrl: stri
         style={{ objectFit: 'cover', objectPosition: 'center' }}
       >
         {/* Dynamically determine video type based on URL extension */}
-        {videoUrl.toLowerCase().endsWith('.mp4') ? (
+        {currentVideoUrl.toLowerCase().endsWith('.mp4') ? (
           <>
-            <source src={videoUrl} type="video/mp4" />
-            <source src={videoUrl} type="video/webm" />
+            <source src={currentVideoUrl} type="video/mp4" />
+            <source src={currentVideoUrl} type="video/webm" />
           </>
         ) : (
           <>
-            <source src={videoUrl} type="video/webm" />
-            <source src={videoUrl} type="video/mp4" />
+            <source src={currentVideoUrl} type="video/webm" />
+            <source src={currentVideoUrl} type="video/mp4" />
           </>
         )}
         Dein Browser unterstützt keine Videos.
         <p className="p-4">
           Dein Browser unterstützt dieses Video-Format nicht.{' '}
           <a 
-            href={videoUrl} 
+            href={currentVideoUrl} 
             target="_blank" 
             rel="noopener noreferrer"
             className="text-primary hover:underline"
@@ -606,7 +789,12 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
                   </>
                 )}
                 {isDirectVideo && (
-                  <VideoPlayerWithBuffer videoUrl={videoUrl} poster={getThumbnailUrl(boulder)} isVisible={open} />
+                  <VideoPlayerWithBuffer 
+                    betaVideoUrls={boulder.betaVideoUrls} 
+                    betaVideoUrl={boulder.betaVideoUrl} 
+                    poster={getThumbnailUrl(boulder)} 
+                    isVisible={open} 
+                  />
                 )}
                 {!isYouTube && !isVimeo && !isDirectVideo && (
                   <div className="w-full h-full flex items-center justify-center flex-col gap-4 p-4">

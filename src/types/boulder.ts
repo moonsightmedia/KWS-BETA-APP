@@ -1,6 +1,12 @@
 export type Difficulty = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | null; // null represents "?" (unknown/not rated)
 export type BoulderColor = 'Grün' | 'Gelb' | 'Blau' | 'Orange' | 'Rot' | 'Schwarz' | 'Weiß' | 'Lila';
 
+export interface VideoQualities {
+  hd?: string;
+  sd?: string;
+  low?: string;
+}
+
 export interface Boulder {
   id: string;
   name: string;
@@ -8,7 +14,8 @@ export interface Boulder {
   sector2?: string; // Optional second sector if boulder spans multiple sectors
   difficulty: Difficulty;
   color: BoulderColor;
-  betaVideoUrl?: string;
+  betaVideoUrl?: string; // Legacy field, maps to hd in betaVideoUrls
+  betaVideoUrls?: VideoQualities; // New structure with multiple quality levels
   thumbnailUrl?: string; // URL to manually uploaded thumbnail image showing starting holds
   note?: string;
   createdAt: Date;

@@ -48,6 +48,12 @@ async function logBoulderOperation(
   }
 }
 
+export interface VideoQualities {
+  hd?: string;
+  sd?: string;
+  low?: string;
+}
+
 export interface Boulder {
   id: string;
   name: string;
@@ -56,6 +62,7 @@ export interface Boulder {
   difficulty: number;
   color: string;
   beta_video_url: string | null;
+  beta_video_urls: VideoQualities | null;
   thumbnail_url: string | null;
   note: string | null;
   status?: 'haengt' | 'abgeschraubt';

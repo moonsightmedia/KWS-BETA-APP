@@ -498,7 +498,7 @@ const Guest = () => {
                       Alle
                     </button>
                   </div>
-                  <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1 h-10">
+                  <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1 min-w-0 flex-nowrap">
                     {colors?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map(c => {
                       const colorHex = getColorBackgroundStyle(c.name, colors).backgroundColor || '#000';
                       const isWhite = colorHex === '#ffffff' || colorHex === 'white' || c.name.toLowerCase() === 'weiß';
@@ -506,7 +506,7 @@ const Guest = () => {
                         <button
                           key={c.name}
                           className={cn(
-                            "w-10 h-10 rounded-xl border shadow",
+                            "w-12 h-12 rounded-xl border shadow flex-shrink-0 aspect-square",
                             isWhite ? "bg-white border-gray-200" : "border-black/10"
                           )}
                           style={!isWhite ? { backgroundColor: colorHex } : undefined}

@@ -1006,6 +1006,221 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
 }
 
 /**
+ * Compress video file into multiple quality levels (HD, SD, Low)
+ * Creates 3 versions of the video for adaptive streaming
+ */
+export async function compressVideoMultiQuality(
+  file: File,
+  onProgress?: (progress: number) => void
+): Promise<{ hd: File; sd: File; low: File }> {
+  // Set timeout for compression (20 minutes max for all 3 qualities)
+  const COMPRESSION_TIMEOUT = 20 * 60 * 1000; // 20 minutes
+  let timeoutId: NodeJS.Timeout | null = null;
+  let isResolved = false;
+  let wakeLock: WakeLockSentinel | null = null;
+  
+  // Request wake lock to prevent browser from throttling compression in background
+  const requestWakeLock = async () => {
+    if ('wakeLock' in navigator) {
+      try {
+        wakeLock = await (navigator as any).wakeLock.request('screen');
+        console.log('[Video Multi-Quality Compression] ✅ Wake lock acquired');
+        
+        wakeLock.addEventListener('release', () => {
+          if (!isResolved) {
+            setTimeout(() => {
+              if (!isResolved && !wakeLock) {
+                requestWakeLock().catch(() => {});
+              }
+            }, 1000);
+          }
+        });
+      } catch (err: any) {
+        console.warn('[Video Multi-Quality Compression] ⚠️ Wake lock not available:', err.message || err);
+      }
+    }
+  };
+  
+  await requestWakeLock();
+  
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'hidden' && !wakeLock && !isResolved && 'wakeLock' in navigator) {
+      requestWakeLock().catch(() => {});
+    }
+  };
+  
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      if (!isResolved) {
+        isResolved = true;
+        reject(new Error('Video multi-quality compression timeout'));
+      }
+    }, COMPRESSION_TIMEOUT);
+  });
+
+  try {
+    if (onProgress) onProgress(5);
+    
+    // Initialize FFmpeg
+    const ffmpeg = await Promise.race([
+      getFFmpeg(),
+      timeoutPromise,
+    ]);
+    
+    if (timeoutId) clearTimeout(timeoutId);
+    if (onProgress) onProgress(10);
+
+    // Get video metadata
+    const video = document.createElement('video');
+    const objectUrl = URL.createObjectURL(file);
+    video.src = objectUrl;
+    
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve();
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Failed to load video metadata'));
+      };
+    });
+
+    const originalWidth = video.videoWidth;
+    const originalHeight = video.videoHeight;
+    const aspectRatio = originalHeight / originalWidth;
+
+    // Get file extension
+    const ext = getFileExt(file.name) || 'mp4';
+    const inputFileName = `input.${ext}`;
+
+    if (onProgress) onProgress(15);
+
+    // Write input file to FFmpeg
+    await ffmpeg.writeFile(inputFileName, await fetchFile(file));
+    if (onProgress) onProgress(20);
+
+    // Quality settings
+    const qualitySettings = [
+      { name: 'hd', width: 1920, bitrate: '4000000', crf: 23, progressStart: 20, progressEnd: 50 },
+      { name: 'sd', width: 1280, bitrate: '2000000', crf: 24, progressStart: 50, progressEnd: 75 },
+      { name: 'low', width: 854, bitrate: '1000000', crf: 25, progressStart: 75, progressEnd: 95 },
+    ];
+
+    const results: { hd: File; sd: File; low: File } = {} as any;
+
+    // Process each quality sequentially (to avoid memory issues)
+    for (let i = 0; i < qualitySettings.length; i++) {
+      const quality = qualitySettings[i];
+      const targetWidth = Math.min(originalWidth, quality.width);
+      const targetHeight = Math.round(targetWidth * aspectRatio);
+      const needsResize = originalWidth > quality.width;
+      const outputFileName = `output_${quality.name}.${ext}`;
+
+      if (onProgress) {
+        onProgress(quality.progressStart);
+      }
+
+      // Build FFmpeg command for this quality
+      const args = [
+        '-i', inputFileName,
+        '-c:v', 'libx264',
+        '-preset', 'fast',
+        '-crf', quality.crf.toString(),
+        ...(needsResize ? ['-vf', `scale=${targetWidth}:${targetHeight}`] : []),
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-b:v', quality.bitrate,
+        '-movflags', '+faststart',
+        '-y',
+        outputFileName,
+      ];
+
+      // Monitor progress for this quality
+      const progressHandler = ({ progress }: { progress: number }) => {
+        if (onProgress) {
+          const qualityProgress = quality.progressStart + 
+            ((progress / 100) * (quality.progressEnd - quality.progressStart));
+          onProgress(qualityProgress);
+        }
+        
+        if (!wakeLock && !isResolved && 'wakeLock' in navigator) {
+          requestWakeLock().catch(() => {});
+        }
+      };
+
+      ffmpeg.on('progress', progressHandler);
+
+      // Execute FFmpeg command
+      await Promise.race([
+        ffmpeg.exec(args),
+        timeoutPromise,
+      ]);
+
+      // Read output file
+      const data = await Promise.race([
+        ffmpeg.readFile(outputFileName),
+        timeoutPromise,
+      ]);
+
+      // Create File object
+      const compressedBlob = new Blob([data], { type: file.type || `video/${ext}` });
+      const baseName = file.name.replace(/\.[^/.]+$/, '');
+      const qualityFile = new File(
+        [compressedBlob],
+        `${baseName}_${quality.name}.${ext}`,
+        {
+          type: file.type || `video/${ext}`,
+          lastModified: Date.now(),
+        }
+      );
+
+      results[quality.name as 'hd' | 'sd' | 'low'] = qualityFile;
+
+      // Remove progress handler for this quality
+      ffmpeg.off('progress', progressHandler);
+
+      // Clean up output file
+      await ffmpeg.deleteFile(outputFileName);
+
+      if (onProgress) {
+        onProgress(quality.progressEnd);
+      }
+    }
+
+    // Clean up input file
+    await ffmpeg.deleteFile(inputFileName);
+
+    if (onProgress) onProgress(100);
+
+    console.log('[Video Multi-Quality Compression] Created HD, SD, and Low quality versions');
+    return results;
+
+  } catch (error) {
+    if (timeoutId) clearTimeout(timeoutId);
+    isResolved = true;
+    console.error('[Video Multi-Quality Compression] Failed:', error);
+    throw error;
+  } finally {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    
+    if (timeoutId) clearTimeout(timeoutId);
+    isResolved = true;
+    
+    if (wakeLock) {
+      try {
+        await wakeLock.release();
+      } catch (err) {
+        console.warn('[Video Multi-Quality Compression] Failed to release wake lock:', err);
+      }
+      wakeLock = null;
+    }
+  }
+}
+
+/**
  * Upload file to All-Inkl using chunked upload for large files
  * Includes retry mechanism and better error handling
  */
