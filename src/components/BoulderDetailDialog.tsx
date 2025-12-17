@@ -592,7 +592,7 @@ const VideoPlayerWithBuffer = ({
       {/* Quality Badge - only show if multiple qualities are available */}
       {betaVideoUrls && (betaVideoUrls.hd || betaVideoUrls.sd || betaVideoUrls.low) && (
         <Badge
-          className="absolute top-2 left-2 z-20 bg-black/70 text-white border-0 backdrop-blur-sm font-medium"
+          className="absolute top-2 left-2 z-20 bg-black/70 text-white border-0 backdrop-blur-sm font-medium text-xs sm:text-sm px-2 py-1"
           variant="secondary"
         >
           {currentQuality.toUpperCase()}

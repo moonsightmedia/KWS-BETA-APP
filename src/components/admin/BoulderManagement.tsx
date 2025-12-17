@@ -875,7 +875,8 @@ export const BoulderManagement = () => {
                 </div>
                 <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1 h-10 min-w-0 flex-nowrap">
                   {colors?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map(c => {
-                    const colorHex = getColorBackgroundStyle(c.name, colors).backgroundColor || '#000';
+                    const colorStyle = getColorBackgroundStyle(c.name, colors);
+                    const colorHex = colorStyle.backgroundColor || '#000';
                     const isWhite = colorHex === '#ffffff' || colorHex === 'white' || c.name.toLowerCase() === 'weiß';
                     return (
                       <button
@@ -884,7 +885,7 @@ export const BoulderManagement = () => {
                           "w-10 h-10 rounded-xl border shadow flex-shrink-0",
                           isWhite ? "bg-white border-gray-200" : "border-black/10"
                         )}
-                        style={!isWhite ? { backgroundColor: colorHex } : undefined}
+                        style={!isWhite ? colorStyle : undefined}
                         onClick={() => setColorFilter(c.name)}
                         aria-label={`Filter Farbe ${c.name}`}
                       />

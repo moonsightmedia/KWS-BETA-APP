@@ -355,16 +355,13 @@ async function createMultiQualityVideos() {
     process.exit(1);
   }
   
-  // Filter: Process all videos to update Low quality to new lower settings
-  // This will recreate Low quality with the new optimized settings (640px, 500kbps)
+  // Filter: Process only the failed video
+  // Target the specific video that failed: Roter Magischer Jaguar
+  const FAILED_VIDEO_ID = '6aa63569-4caf-494e-82fd-4a4f822620b2';
+  
   const boulders = (allBoulders || []).filter(boulder => {
-    if (!boulder.beta_video_urls) return true; // No beta_video_urls at all
-    const urls = typeof boulder.beta_video_urls === 'string' 
-      ? JSON.parse(boulder.beta_video_urls) 
-      : boulder.beta_video_urls;
-    // Process all videos that have HD quality (to update Low quality)
-    // This ensures all videos get the new optimized Low quality
-    return !!urls.hd;
+    // Only process the failed video
+    return boulder.id === FAILED_VIDEO_ID;
   });
 
   if (!boulders || boulders.length === 0) {
