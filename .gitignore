@@ -29,3 +29,6 @@ dist-ssr
 *-*.json
 !google-services.json
 service-account*.json
+
+# Temporary video processing files
+temp-video-processing/

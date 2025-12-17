@@ -19,7 +19,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, unlinkSync, existsSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { config } from 'dotenv';
@@ -332,10 +332,39 @@ function getBaseFileName(fileName) {
 }
 
 /**
+ * Clean up old temporary files
+ */
+function cleanupTempFiles() {
+  try {
+    if (existsSync(TEMP_DIR)) {
+      const files = require('fs').readdirSync(TEMP_DIR);
+      let cleanedCount = 0;
+      files.forEach(file => {
+        const filePath = join(TEMP_DIR, file);
+        try {
+          unlinkSync(filePath);
+          cleanedCount++;
+        } catch (err) {
+          // Ignore errors when deleting
+        }
+      });
+      if (cleanedCount > 0) {
+        console.log(`🧹 Cleaned up ${cleanedCount} old temporary file(s)\n`);
+      }
+    }
+  } catch (err) {
+    // Ignore cleanup errors
+  }
+}
+
+/**
  * Main migration function
  */
 async function createMultiQualityVideos() {
   console.log('🚀 Starting multi-quality video creation...\n');
+
+  // Clean up old temporary files first
+  cleanupTempFiles();
 
   // Check FFmpeg
   if (!(await checkFFmpeg())) {
@@ -487,6 +516,9 @@ async function createMultiQualityVideos() {
   console.log(`  ✅ Successfully processed: ${successCount}`);
   console.log(`  ❌ Failed: ${errorCount}`);
   console.log('='.repeat(60));
+  
+  // Final cleanup of any remaining temporary files
+  cleanupTempFiles();
 
   if (errors.length > 0) {
     console.log('\n❌ Errors:');
