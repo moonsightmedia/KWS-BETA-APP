@@ -740,6 +740,8 @@ async function removeAudioFromVideo(file: File, onProgress?: (progress: number) 
 
 // FFmpeg instance (lazy-loaded)
 let ffmpegInstance: any = null;
+// fetchFile function (lazy-loaded, needed for video compression)
+let fetchFileFn: ((file: File | Blob | URL | string) => Promise<Uint8Array>) | null = null;
 
 /**
  * Initialize FFmpeg instance (lazy loading with dynamic import)
@@ -754,6 +756,9 @@ async function getFFmpeg(): Promise<any> {
     import('@ffmpeg/ffmpeg'),
     import('@ffmpeg/util'),
   ]);
+
+  // Store fetchFile globally so it can be used in compression functions
+  fetchFileFn = fetchFile;
 
   const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
   const ffmpeg = new FFmpeg();
@@ -891,8 +896,16 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
 
     if (onProgress) onProgress(30);
 
+    // Ensure fetchFile is available
+    if (!fetchFileFn) {
+      // If fetchFileFn is not initialized, getFFmpeg should have initialized it
+      // But if it wasn't, we need to import it now
+      const { fetchFile } = await import('@ffmpeg/util');
+      fetchFileFn = fetchFile;
+    }
+
     // Write input file to FFmpeg
-    await ffmpeg.writeFile(inputFileName, await fetchFile(file));
+    await ffmpeg.writeFile(inputFileName, await fetchFileFn(file));
     if (onProgress) onProgress(40);
 
     // Build FFmpeg command
@@ -1129,8 +1142,16 @@ export async function compressVideoMultiQuality(
 
     if (onProgress) onProgress(15);
 
+    // Ensure fetchFile is available
+    if (!fetchFileFn) {
+      // If fetchFileFn is not initialized, getFFmpeg should have initialized it
+      // But if it wasn't, we need to import it now
+      const { fetchFile } = await import('@ffmpeg/util');
+      fetchFileFn = fetchFile;
+    }
+
     // Write input file to FFmpeg
-    await ffmpeg.writeFile(inputFileName, await fetchFile(file));
+    await ffmpeg.writeFile(inputFileName, await fetchFileFn(file));
     if (onProgress) onProgress(20);
 
     // Quality settings

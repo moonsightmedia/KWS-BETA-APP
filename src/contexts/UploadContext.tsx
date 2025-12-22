@@ -408,12 +408,17 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
                 
-                if (isIOS && compressionError.message?.includes('timeout')) {
+                const errorMessage = compressionError.message || compressionError.toString() || 'Unbekannter Fehler';
+                
+                // Check for specific errors
+                if (errorMessage.includes('FetchFile is not defined') || errorMessage.includes('fetchFile is not defined')) {
+                    throw new Error('Video-Kompression fehlgeschlagen: Technischer Fehler beim Laden der Kompressions-Bibliothek. Bitte lade die Seite neu und versuche es erneut.');
+                } else if (isIOS && errorMessage.includes('timeout')) {
                     throw new Error('Video-Kompression auf iOS-Gerät hat zu lange gedauert. Bitte versuche es mit einem kürzeren Video oder verbinde dich mit einem schnelleren Netzwerk.');
                 } else if (isIOS) {
                     throw new Error('Video-Kompression auf iOS-Gerät fehlgeschlagen. Bitte versuche es erneut oder verwende ein kleineres Video.');
                 } else {
-                    throw new Error(`Video-Kompression fehlgeschlagen: ${compressionError.message || 'Unbekannter Fehler'}`);
+                    throw new Error(`Video-Kompression fehlgeschlagen: ${errorMessage}`);
                 }
             }
         }
