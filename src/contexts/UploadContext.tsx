@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { reportError } from '@/utils/feedbackUtils';
 import { useAuth } from '@/hooks/useAuth';
-import { compressThumbnail, compressVideoMultiQuality } from '@/integrations/supabase/storage';
+import { compressThumbnail } from '@/integrations/supabase/storage';
 
 export interface ActiveUpload {
   sessionId: string;
@@ -39,6 +39,99 @@ export const useUpload = () => {
   }
   return context;
 };
+
+/**
+ * Background compression function - runs asynchronously without blocking
+ * Updates the database with quality URLs once compression is complete
+ */
+async function compressVideoInBackground(
+  originalUrl: string,
+  sectorId: string | undefined,
+  boulderId: string,
+  session: any
+): Promise<void> {
+  const API_URL = import.meta.env.VITE_ALLINKL_API_URL || 'https://cdn.kletterwelt-sauerland.de/upload-api';
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+  const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+  if (!SUPABASE_URL || !SUPABASE_KEY || !session?.access_token) {
+    console.warn('[UploadContext] ⚠️ Cannot run background compression - missing credentials');
+    return;
+  }
+
+  try {
+    console.log('[UploadContext] 🎬 Background compression started for boulder:', boulderId);
+    
+    // Request server-side compression (with timeout)
+    const compressionTimeout = 10 * 60 * 1000; // 10 minutes
+    const compressionTimeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Server-side compression timeout after 10 minutes'));
+      }, compressionTimeout);
+    });
+
+    const compressionResponse = await Promise.race([
+      fetch(`${API_URL}/process-video-qualities.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          video_url: originalUrl,
+          sector_id: sectorId,
+        }),
+      }),
+      compressionTimeoutPromise,
+    ]);
+
+    if (!compressionResponse.ok) {
+      const errorText = await compressionResponse.text();
+      console.warn('[UploadContext] ⚠️ Background compression failed:', errorText);
+      return; // Non-critical - original video is already saved
+    }
+
+    const compressionResult = await compressionResponse.json();
+    
+    if (compressionResult.success && compressionResult.qualities) {
+      // Extract URLs from server response
+      const videoUrls = {
+        hd: compressionResult.qualities.hd?.url || originalUrl,
+        sd: compressionResult.qualities.sd?.url,
+        low: compressionResult.qualities.low?.url,
+      };
+
+      // Update database with quality URLs
+      const updateResponse = await window.fetch(
+        `${SUPABASE_URL}/rest/v1/boulders?id=eq.${boulderId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify({
+            beta_video_url: videoUrls.hd || originalUrl,
+            beta_video_urls: videoUrls,
+          }),
+        }
+      );
+
+      if (updateResponse.ok) {
+        console.log('[UploadContext] ✅ Background compression completed and database updated:', videoUrls);
+      } else {
+        const errorText = await updateResponse.text();
+        console.warn('[UploadContext] ⚠️ Failed to update database after compression:', errorText);
+      }
+    } else {
+      console.warn('[UploadContext] ⚠️ Compression response invalid:', compressionResult);
+    }
+  } catch (error: any) {
+    // Non-critical error - original video is already uploaded and saved
+    console.warn('[UploadContext] ⚠️ Background compression error (non-critical):', error.message || error);
+  }
+}
 
 export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session } = useAuth(); // CRITICAL: Get session from useAuth for RLS after reload
@@ -314,112 +407,47 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             }
         }
 
-        // For videos: create multiple quality versions and upload all
+        // For videos: upload original and then create quality versions on server
         let videoUrls: { hd?: string; sd?: string; low?: string } | undefined = undefined;
         let url: string;
         
         if (upload.type === 'video') {
-            console.log('[UploadContext] 🎬 Creating multiple video quality versions...');
+            console.log('[UploadContext] 🎬 Uploading original video...');
             
-            // CRITICAL: Videos MUST be uploaded in 3 quality versions - no fallback to original
-            // Note: On iOS devices, this may take longer due to limited CPU/memory
             try {
-                // Create multi-quality versions (progress: 0-30%)
-                const qualityFiles = await compressVideoMultiQuality(upload.file, (progress) => {
-                    const compressionProgress = Math.floor(progress * 0.3); // Compression takes first 30%
-                    updateUpload(upload.sessionId, { progress: compressionProgress });
-                    updateLog('uploading', compressionProgress);
-                });
-            
-                console.log('[UploadContext] ✅ Multi-quality videos created:', {
-                    hd: qualityFiles.hd.size,
-                    sd: qualityFiles.sd.size,
-                    low: qualityFiles.low.size
-                });
-
-                // Upload all 3 qualities (progress: 30-95%)
-                const uploadPromises = [
-                    resumableUpload(qualityFiles.hd, API_URL, {
-                        sessionId: `${upload.sessionId}_hd`,
-                        sectorId: upload.sectorId,
-                        onProgress: (p) => {
-                            // HD upload: 30-55%
-                            const overallProgress = 30 + Math.floor(p * 0.25);
-                            setUploads(prev => {
-                                const current = prev.find(u => u.sessionId === upload.sessionId);
-                                if (current?.status === 'cancelled') return prev;
-                                return prev.map(u => u.sessionId === upload.sessionId ? { ...u, progress: overallProgress } : u);
-                            });
-                            updateLog('uploading', overallProgress);
-                        },
-                        abortSignal: abortSignal || controller?.signal
-                    }).then(url => ({ quality: 'hd' as const, url })),
-                    
-                    resumableUpload(qualityFiles.sd, API_URL, {
-                        sessionId: `${upload.sessionId}_sd`,
-                        sectorId: upload.sectorId,
-                        onProgress: (p) => {
-                            // SD upload: 55-75%
-                            const overallProgress = 55 + Math.floor(p * 0.2);
-                            setUploads(prev => {
-                                const current = prev.find(u => u.sessionId === upload.sessionId);
-                                if (current?.status === 'cancelled') return prev;
-                                return prev.map(u => u.sessionId === upload.sessionId ? { ...u, progress: overallProgress } : u);
-                            });
-                            updateLog('uploading', overallProgress);
-                        },
-                        abortSignal: abortSignal || controller?.signal
-                    }).then(url => ({ quality: 'sd' as const, url })),
-                    
-                    resumableUpload(qualityFiles.low, API_URL, {
-                        sessionId: `${upload.sessionId}_low`,
-                        sectorId: upload.sectorId,
-                        onProgress: (p) => {
-                            // Low upload: 75-95%
-                            const overallProgress = 75 + Math.floor(p * 0.2);
-                            setUploads(prev => {
-                                const current = prev.find(u => u.sessionId === upload.sessionId);
-                                if (current?.status === 'cancelled') return prev;
-                                return prev.map(u => u.sessionId === upload.sessionId ? { ...u, progress: overallProgress } : u);
-                            });
-                            updateLog('uploading', overallProgress);
-                        },
-                        abortSignal: abortSignal || controller?.signal
-                    }).then(url => ({ quality: 'low' as const, url }))
-                ];
-
-                const uploadResults = await Promise.all(uploadPromises);
-                
-                // Build videoUrls object
-                videoUrls = {};
-                uploadResults.forEach(result => {
-                    videoUrls![result.quality] = result.url;
+                // Upload original video (progress: 0-100%)
+                const originalUrl = await resumableUpload(upload.file, API_URL, {
+                    sessionId: upload.sessionId,
+                    sectorId: upload.sectorId,
+                    onProgress: (p) => {
+                        // Upload progress: 0-100%
+                        setUploads(prev => {
+                            const current = prev.find(u => u.sessionId === upload.sessionId);
+                            if (current?.status === 'cancelled') return prev;
+                            return prev.map(u => u.sessionId === upload.sessionId ? { ...u, progress: p } : u);
+                        });
+                        updateLog('uploading', p);
+                    },
+                    abortSignal: abortSignal || controller?.signal
                 });
                 
-                // Use HD URL as primary beta_video_url for backward compatibility
-                url = videoUrls.hd || videoUrls.sd || videoUrls.low || '';
+                console.log('[UploadContext] ✅ Original video uploaded:', originalUrl);
                 
-                console.log('[UploadContext] ✅ All video qualities uploaded:', videoUrls);
-            } catch (compressionError: any) {
-                // If compression fails, throw error (no fallback to original)
-                console.error('[UploadContext] ❌ Multi-quality compression failed:', compressionError);
+                // Use original URL for now - compression will happen in background
+                videoUrls = { hd: originalUrl };
+                url = originalUrl;
                 
-                // Provide helpful error message for iOS users
-                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                // Start compression asynchronously in background (don't wait for it)
+                console.log('[UploadContext] 🎬 Starting background compression...');
+                compressVideoInBackground(originalUrl, upload.sectorId, upload.boulderId, currentSession).catch((error) => {
+                    console.warn('[UploadContext] ⚠️ Background compression failed (non-critical):', error);
+                    // Non-critical error - original video is already uploaded and saved
+                });
                 
-                const errorMessage = compressionError.message || compressionError.toString() || 'Unbekannter Fehler';
-                
-                // Check for specific errors
-                if (errorMessage.includes('FetchFile is not defined') || errorMessage.includes('fetchFile is not defined')) {
-                    throw new Error('Video-Kompression fehlgeschlagen: Technischer Fehler beim Laden der Kompressions-Bibliothek. Bitte lade die Seite neu und versuche es erneut.');
-                } else if (isIOS && errorMessage.includes('timeout')) {
-                    throw new Error('Video-Kompression auf iOS-Gerät hat zu lange gedauert. Bitte versuche es mit einem kürzeren Video oder verbinde dich mit einem schnelleren Netzwerk.');
-                } else if (isIOS) {
-                    throw new Error('Video-Kompression auf iOS-Gerät fehlgeschlagen. Bitte versuche es erneut oder verwende ein kleineres Video.');
-                } else {
-                    throw new Error(`Video-Kompression fehlgeschlagen: ${errorMessage}`);
-                }
+                console.log('[UploadContext] ✅ Video upload completed, compression running in background');
+            } catch (uploadError: any) {
+                console.error('[UploadContext] ❌ Video upload failed:', uploadError);
+                throw new Error(`Video-Upload fehlgeschlagen: ${uploadError.message || 'Unbekannter Fehler'}`);
             }
         }
 
@@ -460,8 +488,9 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             );
             console.log('[UploadContext] ✅ Thumbnail upload completed, URL:', url);
         } else if (!videoUrls && upload.type === 'video') {
-            // This should never happen - videos must always have videoUrls
-            throw new Error('Video upload failed: Could not create quality versions. Please try again.');
+            // Fallback: use original URL if compression failed
+            console.warn('[UploadContext] ⚠️ No videoUrls available, using original URL as fallback');
+            videoUrls = { hd: url };
         }
 
         await updateLog('completed', 100);

@@ -912,12 +912,12 @@ const Setter = () => {
       
       console.log('[Setter] submitEdit: Update data prepared:', updateData);
       
-      // Add timeout to prevent infinite loading
+      // Add timeout to prevent infinite loading (increased to 60 seconds for video uploads)
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
-          console.error('[Setter] submitEdit: Timeout after 30 seconds');
+          console.error('[Setter] submitEdit: Timeout after 60 seconds');
           reject(new Error('Zeitüberschreitung beim Speichern. Bitte versuche es erneut.'));
-        }, 30000);
+        }, 60000); // Increased from 30 to 60 seconds
       });
       
       console.log('[Setter] submitEdit: Starting mutation...');
@@ -2110,6 +2110,13 @@ const Setter = () => {
                       const thumbnailUrl = getThumbnailUrl(b);
                       const currentStatus = (b as any).status || 'haengt';
                       
+                      // Check if boulder has multiple quality versions
+                      const hasMultiQuality = b.betaVideoUrls && (
+                        (b.betaVideoUrls.hd && b.betaVideoUrls.sd) || 
+                        (b.betaVideoUrls.hd && b.betaVideoUrls.low) || 
+                        (b.betaVideoUrls.sd && b.betaVideoUrls.low)
+                      );
+                      
                       return (
                         <button
                           key={b.id}
@@ -2123,7 +2130,7 @@ const Setter = () => {
                             <CardContent className="p-4 flex items-center gap-3 w-full min-w-0 overflow-hidden">
                               <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
                                 {thumbnailUrl && (
-                                  <div className="w-16 h-16 flex-shrink-0 rounded-xl overflow-hidden bg-[#F9FAF9] border border-[#E7F7E9]">
+                                  <div className="w-16 h-16 flex-shrink-0 rounded-xl overflow-hidden bg-[#F9FAF9] border border-[#E7F7E9] relative">
                                     <img 
                                       src={thumbnailUrl} 
                                       alt={b.name}
@@ -2134,13 +2141,26 @@ const Setter = () => {
                                         e.currentTarget.style.display = 'none';
                                       }}
                                     />
+                                    {hasMultiQuality && (
+                                      <div className="absolute top-1 right-1 bg-blue-500 text-white rounded-full p-1 shadow-sm" title="Mehrere Video-Qualitäten verfügbar">
+                                        <Video className="w-3 h-3" />
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                                 <span className={cn("w-7 h-7 rounded-xl border-2 grid place-items-center text-xs font-semibold flex-shrink-0", TEXT_ON_COLOR[b.color] || 'text-white')} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
                                   {formatDifficulty(b.difficulty)}
                                 </span>
                                 <div className="flex-1 min-w-0 overflow-hidden">
-                                  <div className="font-medium text-base text-[#13112B] truncate">{b.name}</div>
+                                  <div className="font-medium text-base text-[#13112B] truncate flex items-center gap-2">
+                                    {b.name}
+                                    {hasMultiQuality && (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-medium border border-blue-200" title="Mehrere Video-Qualitäten verfügbar">
+                                        <Video className="w-3 h-3" />
+                                        HD/SD/Low
+                                      </span>
+                                    )}
+                                  </div>
                                   <div className="text-xs text-[#13112B]/60 truncate">
                                     {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
                                   </div>

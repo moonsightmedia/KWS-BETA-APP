@@ -14,9 +14,11 @@
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
+header("Access-Control-Max-Age: 86400");
 header("Content-Type: application/json");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
     exit(0);
 }
 
@@ -29,6 +31,7 @@ $tempDir = sys_get_temp_dir() . '/video-processing-' . uniqid();
 $input = json_decode(file_get_contents('php://input'), true);
 $videoUrl = $input['video_url'] ?? null;
 $videoPath = $input['video_path'] ?? null;
+$sectorId = $input['sector_id'] ?? null;
 
 if (!$videoUrl && !$videoPath) {
     http_response_code(400);
@@ -36,10 +39,14 @@ if (!$videoUrl && !$videoPath) {
     exit;
 }
 
-// Determine file path
+// Determine file path and extract directory structure
 $filePath = null;
+$originalDir = null; // Directory where original file is stored (for sectorId subdirectory)
+
 if ($videoPath) {
     $filePath = $videoPath;
+    // Extract directory from path
+    $originalDir = dirname($filePath);
 } else if ($videoUrl) {
     // Extract path from URL
     $parsedUrl = parse_url($videoUrl);
@@ -50,14 +57,22 @@ if ($videoPath) {
     $relativePath = str_replace('/uploads/', '', $relativePath);
     $relativePath = ltrim($relativePath, '/');
     
+    // Check final directory first (where uploads go)
     $testPath = $finalDir . '/' . $relativePath;
     if (file_exists($testPath)) {
         $filePath = $testPath;
+        $originalDir = dirname($testPath);
     } else {
         $testPath = $uploadDir . '/' . $relativePath;
         if (file_exists($testPath)) {
             $filePath = $testPath;
+            $originalDir = dirname($testPath);
         }
+    }
+    
+    // If sectorId is provided but not in path, use it
+    if ($sectorId && $sectorId !== 'unknown_sector' && (!$originalDir || $originalDir === $finalDir)) {
+        $originalDir = $finalDir . '/' . $sectorId;
     }
 }
 
@@ -119,20 +134,40 @@ try {
             throw new Exception("Failed to create $qualityName quality: " . implode("\n", $output));
         }
         
-        // Upload to final directory
+        // Upload to final directory (same structure as original)
         $finalFileName = $baseFileName . '_' . $qualityName . '.mp4';
-        $finalPath = $finalDir . '/' . $finalFileName;
+        
+        // Use same directory as original file (preserves sectorId subdirectory structure)
+        if ($originalDir && $originalDir !== $finalDir && strpos($originalDir, $finalDir) === 0) {
+            // Original is in a subdirectory (e.g., final/sectorId/)
+            $finalPath = $originalDir . '/' . $finalFileName;
+        } else if ($sectorId && $sectorId !== 'unknown_sector') {
+            // Use sectorId if provided and originalDir not available
+            $sectorDir = $finalDir . '/' . $sectorId;
+            if (!file_exists($sectorDir)) {
+                mkdir($sectorDir, 0777, true);
+            }
+            $finalPath = $sectorDir . '/' . $finalFileName;
+        } else {
+            // Default: root final directory
+            $finalPath = $finalDir . '/' . $finalFileName;
+        }
         
         if (!copy($outputPath, $finalPath)) {
             throw new Exception("Failed to copy $qualityName quality to final directory");
         }
         
-        // Build URL
+        // Build URL (matching upload.php structure)
         $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
         $host = $_SERVER['HTTP_HOST'];
         $basePath = dirname($_SERVER['SCRIPT_NAME']);
-        $relativePath = 'uploads/final/' . $finalFileName;
-        $url = $protocol . $host . $basePath . '/' . $relativePath;
+        
+        // Construct relative path matching upload.php structure
+        $relativePath = str_replace($uploadDir, '', $finalPath);
+        $relativePath = str_replace('\\', '/', $relativePath);
+        $relativePath = ltrim($relativePath, '/');
+        
+        $url = $protocol . $host . $basePath . '/uploads/' . $relativePath;
         
         $results[$qualityName] = [
             'url' => $url,

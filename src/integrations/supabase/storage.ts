@@ -746,16 +746,23 @@ let fetchFileFn: ((file: File | Blob | URL | string) => Promise<Uint8Array>) | n
 /**
  * Initialize FFmpeg instance (lazy loading with dynamic import)
  */
-async function getFFmpeg(): Promise<any> {
+async function getFFmpeg(onProgress?: (progress: number) => void): Promise<any> {
   if (ffmpegInstance) {
+    if (onProgress) onProgress(100);
     return ffmpegInstance;
   }
+
+  console.log('[FFmpeg] Starting FFmpeg initialization...');
+  if (onProgress) onProgress(10);
 
   // Dynamically import FFmpeg to avoid bundling it in the main bundle
   const [{ FFmpeg }, { fetchFile, toBlobURL }] = await Promise.all([
     import('@ffmpeg/ffmpeg'),
     import('@ffmpeg/util'),
   ]);
+
+  console.log('[FFmpeg] ✅ FFmpeg modules imported');
+  if (onProgress) onProgress(30);
 
   // Store fetchFile globally so it can be used in compression functions
   fetchFileFn = fetchFile;
@@ -768,10 +775,24 @@ async function getFFmpeg(): Promise<any> {
   });
 
   try {
+    console.log('[FFmpeg] Loading FFmpeg core and WASM files...');
+    if (onProgress) onProgress(50);
+    
+    const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
+    console.log('[FFmpeg] ✅ Core JS loaded');
+    if (onProgress) onProgress(70);
+    
+    const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
+    console.log('[FFmpeg] ✅ WASM file loaded');
+    if (onProgress) onProgress(90);
+    
     await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      coreURL,
+      wasmURL,
     });
+    
+    console.log('[FFmpeg] ✅ FFmpeg fully loaded and ready');
+    if (onProgress) onProgress(100);
     
     ffmpegInstance = ffmpeg;
     return ffmpeg;
@@ -782,6 +803,8 @@ async function getFFmpeg(): Promise<any> {
 }
 
 /**
+ * @deprecated Client-side compression is no longer used. Videos are now compressed on the server.
+ * This function is kept for backward compatibility but should not be called.
  * Compress video file to reduce size before upload using FFmpeg
  * Only called for files >= 20MB to improve loading performance
  * Preserves original format (MP4, MOV, etc.) - no WebM conversion
@@ -896,15 +919,18 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
 
     if (onProgress) onProgress(30);
 
-    // Ensure fetchFile is available
+    // Ensure fetchFileFn is available after getFFmpeg
     if (!fetchFileFn) {
-      // If fetchFileFn is not initialized, getFFmpeg should have initialized it
-      // But if it wasn't, we need to import it now
+      console.warn('[Video Compression] fetchFileFn not initialized, importing now...');
       const { fetchFile } = await import('@ffmpeg/util');
       fetchFileFn = fetchFile;
     }
 
-    // Write input file to FFmpeg
+    // Write input file to FFmpeg - fetchFileFn should be initialized by now
+    if (!fetchFileFn) {
+      throw new Error('fetchFileFn is not available - FFmpeg initialization failed');
+    }
+    
     await ffmpeg.writeFile(inputFileName, await fetchFileFn(file));
     if (onProgress) onProgress(40);
 
@@ -1031,6 +1057,12 @@ function isIOS(): boolean {
          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
+/**
+ * @deprecated Client-side compression is no longer used. Videos are now compressed on the server.
+ * This function is kept for backward compatibility but should not be called.
+ * Compress video file into multiple quality levels (HD, SD, Low)
+ * Creates 3 versions of the video for adaptive streaming
+ */
 export async function compressVideoMultiQuality(
   file: File,
   onProgress?: (progress: number) => void
@@ -1105,29 +1137,65 @@ export async function compressVideoMultiQuality(
   });
 
   try {
-    if (onProgress) onProgress(5);
+    // Start with 0% to show that compression has started
+    if (onProgress) onProgress(0);
     
-    // Initialize FFmpeg
+    console.log('[Video Multi-Quality Compression] Starting FFmpeg initialization...');
+    
+    // Initialize FFmpeg with progress updates - this also initializes fetchFileFn
+    // FFmpeg loading takes 0-2% of total compression progress
     const ffmpeg = await Promise.race([
-      getFFmpeg(),
+      getFFmpeg((ffmpegProgress) => {
+        // Map FFmpeg loading progress (0-100%) to overall compression progress (0-2%)
+        if (onProgress) {
+          const overallProgress = (ffmpegProgress / 100) * 2;
+          onProgress(overallProgress);
+        }
+      }).then((ffmpegInstance) => {
+        console.log('[Video Multi-Quality Compression] ✅ FFmpeg initialized successfully');
+        return ffmpegInstance;
+      }),
       timeoutPromise,
     ]);
     
     if (timeoutId) clearTimeout(timeoutId);
-    if (onProgress) onProgress(10);
+    
+    // Ensure fetchFileFn is available after getFFmpeg
+    if (!fetchFileFn) {
+      console.warn('[Video Multi-Quality Compression] fetchFileFn not initialized, importing now...');
+      const { fetchFile } = await import('@ffmpeg/util');
+      fetchFileFn = fetchFile;
+    }
+    
+    if (onProgress) onProgress(5);
 
     // Get video metadata
+    console.log('[Video Multi-Quality Compression] Loading video metadata...');
     const video = document.createElement('video');
     const objectUrl = URL.createObjectURL(file);
     video.src = objectUrl;
     
     await new Promise<void>((resolve, reject) => {
-      video.onloadedmetadata = () => {
+      const timeout = setTimeout(() => {
         URL.revokeObjectURL(objectUrl);
+        console.error('[Video Multi-Quality Compression] ❌ Timeout loading video metadata');
+        reject(new Error('Timeout loading video metadata'));
+      }, 10000); // 10 second timeout for metadata loading
+      
+      video.onloadedmetadata = () => {
+        clearTimeout(timeout);
+        URL.revokeObjectURL(objectUrl);
+        console.log('[Video Multi-Quality Compression] ✅ Video metadata loaded:', {
+          width: video.videoWidth,
+          height: video.videoHeight,
+          duration: video.duration
+        });
         resolve();
       };
-      video.onerror = () => {
+      video.onerror = (e) => {
+        clearTimeout(timeout);
         URL.revokeObjectURL(objectUrl);
+        console.error('[Video Multi-Quality Compression] ❌ Failed to load video metadata:', e);
         reject(new Error('Failed to load video metadata'));
       };
     });
@@ -1140,19 +1208,26 @@ export async function compressVideoMultiQuality(
     const ext = getFileExt(file.name) || 'mp4';
     const inputFileName = `input.${ext}`;
 
-    if (onProgress) onProgress(15);
+    if (onProgress) onProgress(8);
+    
+    console.log('[Video Multi-Quality Compression] Writing input file to FFmpeg...');
 
-    // Ensure fetchFile is available
+    // Write input file to FFmpeg - fetchFileFn should be initialized by now
     if (!fetchFileFn) {
-      // If fetchFileFn is not initialized, getFFmpeg should have initialized it
-      // But if it wasn't, we need to import it now
-      const { fetchFile } = await import('@ffmpeg/util');
-      fetchFileFn = fetchFile;
+      throw new Error('fetchFileFn is not available - FFmpeg initialization failed');
     }
-
-    // Write input file to FFmpeg
-    await ffmpeg.writeFile(inputFileName, await fetchFileFn(file));
-    if (onProgress) onProgress(20);
+    
+    try {
+      const fileData = await fetchFileFn(file);
+      console.log('[Video Multi-Quality Compression] ✅ File data loaded, size:', fileData.length);
+      await ffmpeg.writeFile(inputFileName, fileData);
+      console.log('[Video Multi-Quality Compression] ✅ Input file written to FFmpeg');
+    } catch (error) {
+      console.error('[Video Multi-Quality Compression] ❌ Error writing file to FFmpeg:', error);
+      throw error;
+    }
+    
+    if (onProgress) onProgress(12);
 
     // Quality settings
     // Low quality optimized for very slow connections (low-tier mobile, < 1 Mbps)

@@ -203,8 +203,11 @@ const Root = () => {
     );
   }
   
-  // Show loading screen during initial load
-  if (authLoading || isInitialLoad) {
+  // Show loading screen during initial load, BUT allow auth page to render immediately
+  // This fixes the issue where /auth page stays blank while auth is loading
+  const isAuthPage = location.pathname === '/auth' || location.pathname === '/competition';
+  
+  if ((authLoading || isInitialLoad) && !isAuthPage) {
     return <LoadingScreen />;
   }
   

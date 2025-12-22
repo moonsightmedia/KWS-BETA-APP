@@ -82,8 +82,8 @@ export const UploadOverview = () => {
           variant="default"
           size="lg"
           className={cn(
-            "fixed left-4 right-4 md:left-auto md:right-8 md:bottom-8 z-50 rounded-xl shadow-2xl transition-all duration-300 flex items-center justify-center gap-3 border-2 border-white/20",
-            hasActiveUploads && (uploadingCount > 0 || restoringCount > 0 || errorCount > 0) ? "px-4 h-14" : "h-14 w-14 p-0",
+            "fixed left-4 md:left-auto md:right-8 md:bottom-8 z-50 rounded-xl shadow-2xl transition-all duration-300 flex items-center justify-center gap-3 border-2 border-white/20",
+            hasActiveUploads && (uploadingCount > 0 || restoringCount > 0 || errorCount > 0) ? "px-4 h-14 max-w-[calc(100vw-12rem)] md:max-w-none" : "h-14 w-14 p-0",
             "bg-gray-900 text-white hover:bg-gray-800",
             errorCount > 0 && "bg-destructive hover:bg-destructive/90 border-destructive-foreground/20"
           )}

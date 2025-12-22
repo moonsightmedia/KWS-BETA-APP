@@ -404,21 +404,28 @@ export const useUpdateBoulder = () => {
         throw new Error('Supabase-Konfiguration fehlt');
       }
 
-      // Get old data for logging
+      // Get old data for logging (with timeout)
       console.log('[useUpdateBoulder] Fetching old data...');
       let oldData = null;
       try {
-        const oldDataResponse = await fetch(
-          `${SUPABASE_URL}/rest/v1/boulders?id=eq.${id}&select=*`,
-          {
-            method: 'GET',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${currentSession.access_token}`,
-              'Content-Type': 'application/json',
-            },
-          }
+        const oldDataTimeout = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Old data fetch timeout')), 5000)
         );
+        
+        const oldDataResponse = await Promise.race([
+          fetch(
+            `${SUPABASE_URL}/rest/v1/boulders?id=eq.${id}&select=*`,
+            {
+              method: 'GET',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${currentSession.access_token}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          ),
+          oldDataTimeout
+        ]);
 
         if (oldDataResponse.ok) {
           const oldDataArray = await oldDataResponse.json();
@@ -430,21 +437,28 @@ export const useUpdateBoulder = () => {
         // Continue without old data - logging is not critical
       }
 
-      // Update boulder
+      // Update boulder (with timeout)
       console.log('[useUpdateBoulder] Updating boulder with data:', updates);
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/boulders?id=eq.${id}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${currentSession.access_token}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation',
-          },
-          body: JSON.stringify(updates),
-        }
+      const updateTimeout = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Update timeout after 20s')), 20000)
       );
+      
+      const response = await Promise.race([
+        fetch(
+          `${SUPABASE_URL}/rest/v1/boulders?id=eq.${id}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${currentSession.access_token}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=representation',
+            },
+            body: JSON.stringify(updates),
+          }
+        ),
+        updateTimeout
+      ]);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -471,10 +485,17 @@ export const useUpdateBoulder = () => {
         }
       });
 
-      // Log the operation
+      // Log the operation (with timeout, non-critical)
       console.log('[useUpdateBoulder] Logging operation...');
       try {
-        await logBoulderOperation('update', id, data.name, data, changes);
+        const logTimeout = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Log timeout')), 5000)
+        );
+        
+        await Promise.race([
+          logBoulderOperation('update', id, data.name, data, changes),
+          logTimeout
+        ]);
         console.log('[useUpdateBoulder] Operation logged successfully');
       } catch (logError) {
         console.warn('[useUpdateBoulder] Error logging operation (non-critical):', logError);

@@ -1,0 +1,41 @@
+Betreff: Anfrage zu FFmpeg und PHP-Funktionen für Video-Kompression (Premium-Tarif)
+
+Sehr geehrtes All-Inkl Support-Team,
+
+ich nutze den All-Inkl Premium Tarif und benötige Unterstützung bei der Einrichtung einer server-seitigen Video-Kompression für meine Webanwendung.
+
+KONKRETE FRAGEN:
+
+1. Ist FFmpeg auf meinem Premium-Tarif verfügbar bzw. kann es installiert werden?
+   - Ich benötige FFmpeg für die Erstellung mehrerer Video-Qualitätsstufen (HD, SD, Low)
+   - Die Kompression würde über PHP-Scripts erfolgen
+
+2. Sind die PHP-Funktionen exec() und shell_exec() auf meinem Account aktiviert?
+   - Diese Funktionen werden benötigt, um FFmpeg über PHP aufzurufen
+
+3. Falls FFmpeg nicht standardmäßig verfügbar ist:
+   - Gibt es die Möglichkeit, FFmpeg gegen Aufpreis installieren zu lassen?
+   - Oder gibt es alternative Lösungen für Video-Kompression?
+
+VERWENDUNGSZWECK:
+
+Ich entwickle eine Webanwendung, die Videos hochlädt und diese automatisch in verschiedene Qualitätsstufen komprimieren soll. Die Kompression soll server-seitig erfolgen, um Browser-Kompatibilitätsprobleme zu vermeiden.
+
+TECHNISCHE DETAILS:
+
+- Tarif: Premium
+- Domain: cdn.kletterwelt-sauerland.de
+- Verwendete Technologien: PHP, FFmpeg (falls verfügbar)
+- SSH-Zugang: vorhanden (laut Tarif)
+
+ALTERNATIVE:
+
+Falls FFmpeg nicht verfügbar ist, funktioniert meine Anwendung auch ohne Kompression - die Videos werden dann im Original hochgeladen. Die Kompression wäre jedoch wünschenswert, um Bandbreite und Speicherplatz zu sparen.
+
+Ich wäre Ihnen sehr dankbar für eine kurze Rückmeldung zu diesen Punkten.
+
+Mit freundlichen Grüßen
+
+[Dein Name]
+[Deine Kundennummer / Account-ID falls vorhanden]
+
