@@ -41,8 +41,9 @@ export const useUpload = () => {
 };
 
 /**
- * Background compression function - runs asynchronously without blocking
- * Updates the database with quality URLs once compression is complete
+ * @deprecated Background compression is disabled.
+ * Quality versions are now created manually via script.
+ * This function is kept for reference but is no longer called.
  */
 async function compressVideoInBackground(
   originalUrl: string,
@@ -50,87 +51,8 @@ async function compressVideoInBackground(
   boulderId: string,
   session: any
 ): Promise<void> {
-  const API_URL = import.meta.env.VITE_ALLINKL_API_URL || 'https://cdn.kletterwelt-sauerland.de/upload-api';
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-  const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-  if (!SUPABASE_URL || !SUPABASE_KEY || !session?.access_token) {
-    console.warn('[UploadContext] ⚠️ Cannot run background compression - missing credentials');
-    return;
-  }
-
-  try {
-    console.log('[UploadContext] 🎬 Background compression started for boulder:', boulderId);
-    
-    // Request server-side compression (with timeout)
-    const compressionTimeout = 10 * 60 * 1000; // 10 minutes
-    const compressionTimeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        reject(new Error('Server-side compression timeout after 10 minutes'));
-      }, compressionTimeout);
-    });
-
-    const compressionResponse = await Promise.race([
-      fetch(`${API_URL}/process-video-qualities.php`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          video_url: originalUrl,
-          sector_id: sectorId,
-        }),
-      }),
-      compressionTimeoutPromise,
-    ]);
-
-    if (!compressionResponse.ok) {
-      const errorText = await compressionResponse.text();
-      console.warn('[UploadContext] ⚠️ Background compression failed:', errorText);
-      return; // Non-critical - original video is already saved
-    }
-
-    const compressionResult = await compressionResponse.json();
-    
-    if (compressionResult.success && compressionResult.qualities) {
-      // Extract URLs from server response
-      const videoUrls = {
-        hd: compressionResult.qualities.hd?.url || originalUrl,
-        sd: compressionResult.qualities.sd?.url,
-        low: compressionResult.qualities.low?.url,
-      };
-
-      // Update database with quality URLs
-      const updateResponse = await window.fetch(
-        `${SUPABASE_URL}/rest/v1/boulders?id=eq.${boulderId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal',
-          },
-          body: JSON.stringify({
-            beta_video_url: videoUrls.hd || originalUrl,
-            beta_video_urls: videoUrls,
-          }),
-        }
-      );
-
-      if (updateResponse.ok) {
-        console.log('[UploadContext] ✅ Background compression completed and database updated:', videoUrls);
-      } else {
-        const errorText = await updateResponse.text();
-        console.warn('[UploadContext] ⚠️ Failed to update database after compression:', errorText);
-      }
-    } else {
-      console.warn('[UploadContext] ⚠️ Compression response invalid:', compressionResult);
-    }
-  } catch (error: any) {
-    // Non-critical error - original video is already uploaded and saved
-    console.warn('[UploadContext] ⚠️ Background compression error (non-critical):', error.message || error);
-  }
+  // Disabled - quality versions are created manually via script
+  console.log('[UploadContext] ℹ️ Background compression disabled - quality versions are created manually');
 }
 
 export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -433,18 +355,11 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 
                 console.log('[UploadContext] ✅ Original video uploaded:', originalUrl);
                 
-                // Use original URL for now - compression will happen in background
+                // Use original URL only - quality versions are created manually via script
                 videoUrls = { hd: originalUrl };
                 url = originalUrl;
                 
-                // Start compression asynchronously in background (don't wait for it)
-                console.log('[UploadContext] 🎬 Starting background compression...');
-                compressVideoInBackground(originalUrl, upload.sectorId, upload.boulderId, currentSession).catch((error) => {
-                    console.warn('[UploadContext] ⚠️ Background compression failed (non-critical):', error);
-                    // Non-critical error - original video is already uploaded and saved
-                });
-                
-                console.log('[UploadContext] ✅ Video upload completed, compression running in background');
+                console.log('[UploadContext] ✅ Video upload completed');
             } catch (uploadError: any) {
                 console.error('[UploadContext] ❌ Video upload failed:', uploadError);
                 throw new Error(`Video-Upload fehlgeschlagen: ${uploadError.message || 'Unbekannter Fehler'}`);

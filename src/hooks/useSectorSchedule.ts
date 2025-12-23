@@ -75,13 +75,39 @@ export const useCreateSectorSchedule = () => {
 
 export const useDeleteSectorSchedule = () => {
   const qc = useQueryClient();
+  const { session } = useAuth();
+  
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('sector_schedule')
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+        throw new Error('Supabase URL or API key not found');
+      }
+
+      // Get the access token from the session for RLS
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        throw new Error('No access token available');
+      }
+
+      const deleteUrl = `${SUPABASE_URL}/rest/v1/sector_schedule?id=eq.${id}`;
+      
+      const response = await window.fetch(deleteUrl, {
+        method: 'DELETE',
+        headers: {
+          'apikey': SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal',
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to delete schedule: ${response.status} ${errorText}`);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sector_schedule'] });

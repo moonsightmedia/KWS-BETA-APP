@@ -2355,7 +2355,9 @@ const Setter = () => {
                                                   type="button" 
                                                   size="sm" 
                                                   variant="ghost"
-                                                  onClick={async () => {
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
                                                     if (confirm('Möchtest du diesen Termin wirklich löschen?')) {
                                                       try {
                                                         await deleteSchedule.mutateAsync(item.id);
@@ -2427,7 +2429,9 @@ const Setter = () => {
                                                   type="button" 
                                                   size="sm" 
                                                   variant="ghost"
-                                                  onClick={async () => {
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
                                                     if (confirm('Möchtest du diesen Termin wirklich löschen?')) {
                                                       try {
                                                         await deleteSchedule.mutateAsync(item.id);
