@@ -998,13 +998,15 @@ const Setter = () => {
     
     try {
       await Promise.all(promises);
+      const count = scheduleSectorIds.size;
+      toast.success(`${count} ${count === 1 ? 'Termin' : 'Termine'} erfolgreich erstellt!`);
       setScheduleSectorIds(new Set());
       setScheduleDate(undefined);
       setScheduleTime('');
       setScheduleDialogOpen(false);
-    } catch (error) {
-      console.error('Error creating schedules:', error);
-      throw error;
+    } catch (error: any) {
+      console.error('[Setter] Error creating schedules:', error);
+      toast.error('Fehler beim Erstellen der Termine: ' + (error?.message || 'Unbekannter Fehler'));
     }
   };
 
@@ -2639,12 +2641,19 @@ const Setter = () => {
                       </Button>
                       <Button
                         onClick={scheduleNextSector}
-                        disabled={scheduleSectorIds.size === 0 || !scheduleDate || !scheduleTime}
-                        className="flex-1 h-12 bg-[#36B531] hover:bg-[#2da029] text-white rounded-xl text-base font-medium"
+                        disabled={scheduleSectorIds.size === 0 || !scheduleDate || !scheduleTime || createSchedule.isPending}
+                        className="flex-1 h-12 bg-[#36B531] hover:bg-[#2da029] text-white rounded-xl text-base font-medium disabled:opacity-50"
                       >
-                        {scheduleSectorIds.size > 0 
-                          ? `${scheduleSectorIds.size} ${scheduleSectorIds.size === 1 ? 'Termin' : 'Termine'} erstellen`
-                          : 'Termin erstellen'}
+                        {createSchedule.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            Erstelle...
+                          </>
+                        ) : (
+                          scheduleSectorIds.size > 0 
+                            ? `${scheduleSectorIds.size} ${scheduleSectorIds.size === 1 ? 'Termin' : 'Termine'} erstellen`
+                            : 'Termin erstellen'
+                        )}
                       </Button>
                     </div>
                   </DialogContent>
