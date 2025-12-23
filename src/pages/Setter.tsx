@@ -1759,18 +1759,24 @@ const Setter = () => {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={(e) => {
+                                    onClick={async (e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
-                                      setSelectedBouldersForDelete(prev => {
-                                        const next = new Set(prev);
-                                        next.add(b.id);
-                                        return next;
-                                      });
+                                      if (!confirm(`Diesen Boulder wirklich löschen? Das Beta-Video wird ebenfalls gelöscht.`)) {
+                                        return;
+                                      }
+                                      
+                                      try {
+                                        await deleteBoulder.mutateAsync(b.id);
+                                      } catch (error) {
+                                        // Error is already handled by the hook's onError
+                                        console.error('[Setter] Failed to delete boulder:', error);
+                                      }
                                     }}
-                                    className="h-8 w-8 rounded-lg hover:bg-red-50 text-destructive hover:text-destructive"
+                                    disabled={deleteBoulder.isPending}
+                                    className="h-8 w-8 rounded-lg hover:bg-red-50 text-destructive hover:text-destructive disabled:opacity-50"
                                   >
-                                    <Trash2 className="w-4 h-4" />
+                                    {deleteBoulder.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                   </Button>
                                 </div>
                               )}
