@@ -328,4 +328,3 @@ if ('serviceWorker' in navigator) {
     }
   }
 }
-}
