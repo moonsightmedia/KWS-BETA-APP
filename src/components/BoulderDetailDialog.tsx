@@ -101,6 +101,9 @@ const VideoPlayerWithBuffer = ({
   // Store playback state for quality switching
   const playbackStateRef = useRef<{ time: number; wasPlaying: boolean } | null>(null);
 
+  // Get current video URL (moved up to avoid initialization error)
+  const currentVideoUrl = getVideoUrl(betaVideoUrls, betaVideoUrl, currentQuality);
+
   // Enforce muted playback: user cannot enable sound
   useEffect(() => {
     const video = videoRef.current;
@@ -552,9 +555,6 @@ const VideoPlayerWithBuffer = ({
       console.error('Error toggling fullscreen:', error);
     }
   };
-
-  // Get current video URL
-  const currentVideoUrl = getVideoUrl(betaVideoUrls, betaVideoUrl, currentQuality);
 
   // Show error UI if video failed to load
   if (hasError || !currentVideoUrl) {
