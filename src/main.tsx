@@ -1,13 +1,6 @@
-// CACHE BUST: Version 3 - Force reload of all JavaScript files
-console.log('[Main] 🚀 Loading application v3 - Cache busted');
-
-// NOTE: Fetch is already overridden in index.html BEFORE this module loads
-// This ensures Supabase requests are intercepted even before module imports
-console.log('[Main] 🔍 Checking if fetch was already overridden in index.html:', {
-  windowFetch: typeof window.fetch,
-  fetchToString: window.fetch.toString().substring(0, 150),
-  hasIndexOverride: window.fetch.toString().includes('Index HTML Fetch Override'),
-});
+const KWS_VERBOSE = typeof window !== 'undefined' && (window as any).__KWS_VERBOSE === true;
+if (KWS_VERBOSE) console.log('[Main] 🚀 Loading application v3 - Cache busted');
+if (KWS_VERBOSE) console.log('[Main] 🔍 Checking if fetch was already overridden in index.html:', { windowFetch: typeof window.fetch, hasIndexOverride: window.fetch?.toString?.()?.includes('Index HTML Fetch Override') });
 
 // Keep the override in main.tsx as a backup, but index.html should have already done it
 const originalFetch = window.fetch;
@@ -68,15 +61,7 @@ window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Pro
       });
     }
     
-    console.log(`[Main Fetch Override] 🚀 [${callId}] Starting Supabase request:`, {
-      url: urlObj.href,
-      pathname: urlObj.pathname,
-      method: init?.method || 'GET',
-      hasAuth: !!finalHeaders['Authorization'] || !!finalHeaders['authorization'],
-      hasApiKey: !!(finalHeaders['apikey'] || finalHeaders['apiKey'] || finalHeaders['x-api-key']),
-      headerKeys: Object.keys(finalHeaders),
-      timestamp: new Date().toISOString(),
-    });
+    if (KWS_VERBOSE) console.log(`[Main Fetch Override] 🚀 [${callId}] Starting Supabase request:`, { url: urlObj.href, pathname: urlObj.pathname, method: init?.method || 'GET', hasAuth: !!finalHeaders['Authorization'] || !!finalHeaders['authorization'], hasApiKey: !!(finalHeaders['apikey'] || finalHeaders['apiKey'] || finalHeaders['x-api-key']), timestamp: new Date().toISOString() });
     
     try {
       // CRITICAL: Use original fetch with ALL headers preserved
@@ -95,21 +80,11 @@ window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Pro
       const response = await originalFetch(request);
       
       const duration = Date.now() - startTime;
-      console.log(`[Main Fetch Override] ✅ [${callId}] Response received:`, {
-        url: urlObj.href,
-        status: response.status,
-        statusText: response.statusText,
-        duration: `${duration}ms`,
-      });
-      
+      if (KWS_VERBOSE) console.log(`[Main Fetch Override] ✅ [${callId}] Response received:`, { url: urlObj.href, status: response.status, statusText: response.statusText, duration: `${duration}ms` });
       return response;
     } catch (error: any) {
       const duration = Date.now() - startTime;
-      console.error(`[Main Fetch Override] ❌ [${callId}] Request failed:`, {
-        url: urlObj.href,
-        error: error?.message || error,
-        duration: `${duration}ms`,
-      });
+      if (KWS_VERBOSE) console.error(`[Main Fetch Override] ❌ [${callId}] Request failed:`, { url: urlObj.href, error: error?.message || error, duration: `${duration}ms` });
       throw error;
     }
   }
@@ -118,13 +93,8 @@ window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Pro
   return originalFetch(input, init);
 };
 
-console.log('[Main] ✅ Native fetch overridden BEFORE Supabase import');
-console.log('[Main] 🔍 Fetch override check:', {
-  originalFetch: typeof originalFetch,
-  windowFetch: typeof window.fetch,
-  isOverridden: window.fetch !== originalFetch,
-  fetchToString: window.fetch.toString().substring(0, 100),
-});
+if (KWS_VERBOSE) console.log('[Main] ✅ Native fetch overridden BEFORE Supabase import');
+if (KWS_VERBOSE) console.log('[Main] 🔍 Fetch override check:', { originalFetch: typeof originalFetch, windowFetch: typeof window.fetch, isOverridden: window.fetch !== originalFetch });
 
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
@@ -206,13 +176,7 @@ createRoot(document.getElementById("root")!).render(<App />);
 // Listen for messages from service worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'SW_SUPABASE_BYPASS') {
-      console.log('[Main] ✅ Service Worker bypassed Supabase request:', {
-        url: event.data.url,
-        method: event.data.method,
-        timestamp: event.data.timestamp,
-      });
-    }
+    if (KWS_VERBOSE && event.data && event.data.type === 'SW_SUPABASE_BYPASS') console.log('[Main] ✅ Service Worker bypassed Supabase request:', { url: event.data.url, method: event.data.method, timestamp: event.data.timestamp });
   });
 }
 
@@ -224,26 +188,22 @@ if ('serviceWorker' in navigator) {
   if ('caches' in window) {
     // Don't wait - clear caches immediately
     caches.keys().then(async (cacheNames) => {
-      console.log('[Main] 🗑️ IMMEDIATELY clearing all caches to remove service worker:', cacheNames);
+      if (KWS_VERBOSE) console.log('[Main] 🗑️ IMMEDIATELY clearing all caches to remove service worker:', cacheNames);
       await Promise.all(cacheNames.map(name => caches.delete(name)));
-      console.log('[Main] ✅ All caches cleared');
-    }).catch((error) => {
-      console.error('[Main] Error clearing caches:', error);
-    });
+      if (KWS_VERBOSE) console.log('[Main] ✅ All caches cleared');
+    }).catch((error) => { if (KWS_VERBOSE) console.error('[Main] Error clearing caches:', error); });
   }
   
   // IMMEDIATELY unregister all service workers - FORCE unregister (don't wait)
   navigator.serviceWorker.getRegistrations().then(async (registrations) => {
-    console.log('[Main] ⚠️ CRITICAL FIX: IMMEDIATELY unregistering all service workers');
-    
+    if (KWS_VERBOSE) console.log('[Main] ⚠️ CRITICAL FIX: IMMEDIATELY unregistering all service workers');
     if (registrations.length === 0) {
-      console.log('[Main] ✅ No service workers found');
+      if (KWS_VERBOSE) console.log('[Main] ✅ No service workers found');
       return;
     }
-    
     for (const registration of registrations) {
       try {
-        console.log('[Main] Unregistering:', registration.scope, registration.active?.scriptURL);
+        if (KWS_VERBOSE) console.log('[Main] Unregistering:', registration.scope, registration.active?.scriptURL);
         
         // Stop all service worker states immediately
         if (registration.active) {
@@ -264,39 +224,53 @@ if ('serviceWorker' in navigator) {
         
         // Force unregister immediately
         const success = await registration.unregister();
-        console.log('[Main] Service Worker unregistered:', success);
+        if (KWS_VERBOSE) console.log('[Main] Service Worker unregistered:', success);
       } catch (error) {
-        console.error('[Main] Error unregistering service worker:', error);
+        if (KWS_VERBOSE) console.error('[Main] Error unregistering service worker:', error);
       }
     }
-    
-    // Double-check immediately (no delay)
     const remaining = await navigator.serviceWorker.getRegistrations();
     if (remaining.length > 0) {
-      console.error('[Main] ⚠️ WARNING: Service Workers still registered:', remaining.length);
+      if (KWS_VERBOSE) console.error('[Main] ⚠️ WARNING: Service Workers still registered:', remaining.length);
       for (const reg of remaining) {
         try {
           await reg.unregister();
-          console.log('[Main] Second unregister:', 'SUCCESS');
+          if (KWS_VERBOSE) console.log('[Main] Second unregister:', 'SUCCESS');
         } catch (e) {
-          console.error('[Main] Second unregister failed:', e);
+          if (KWS_VERBOSE) console.error('[Main] Second unregister failed:', e);
         }
       }
-    } else {
-      console.log('[Main] ✅ All Service Workers successfully unregistered');
-    }
-  }).catch((error) => {
-    console.error('[Main] Error getting service worker registrations:', error);
-  });
+    } else if (KWS_VERBOSE) console.log('[Main] ✅ All Service Workers successfully unregistered');
+  }).catch((error) => { if (KWS_VERBOSE) console.error('[Main] Error getting service worker registrations:', error); });
   
-  // BLOCK any new service worker registrations immediately
+  // BLOCK any new service worker registrations – return a handled rejection so no "Uncaught (in promise)"
   const originalRegister = navigator.serviceWorker.register;
   navigator.serviceWorker.register = function(...args: any[]) {
-    console.warn('[Main] ⚠️ BLOCKED: Service Worker registration attempt blocked:', args[0]);
-    return Promise.reject(new Error('Service Worker registration is disabled'));
+    if (KWS_VERBOSE) console.warn('[Main] ⚠️ BLOCKED: Service Worker registration attempt blocked:', args[0]);
+    return Promise.reject(new Error('Service Worker registration is disabled')).catch(() => {
+      // Swallow so no unhandledrejection from callers that don't .catch()
+    });
   };
-  
-  console.log('[Main] ⚠️ Service Worker registration BLOCKED - file renamed to .disabled');
+
+  // Suppress unhandledrejection from old/cached service worker or extension (e.g. "Frame with ID ... was removed" from serviceWorker.js:1)
+  window.addEventListener('unhandledrejection', (event) => {
+    const msg = String(event.reason?.message ?? event.reason ?? '').toLowerCase();
+    const stack = String(event.reason?.stack ?? '').toLowerCase();
+    const fileName = String((event.reason as any)?.fileName ?? '').toLowerCase();
+    const frameRemoved = msg.includes('frame') && msg.includes('was removed');
+    const fromSw =
+      msg.includes('service worker') ||
+      frameRemoved ||
+      /serviceworker|service-worker|sw\.js|serviceworker\.js/.test(stack) ||
+      /serviceworker|service-worker|sw\.js|serviceworker\.js/.test(fileName) ||
+      (event.reason?.fileName && String(event.reason.fileName).toLowerCase().includes('serviceworker'));
+    if (fromSw) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
+
+  if (KWS_VERBOSE)   if (KWS_VERBOSE) console.log('[Main] ⚠️ Service Worker registration BLOCKED - file renamed to .disabled');
   
   // OLD CODE - commented out for testing
   /*
@@ -324,50 +298,34 @@ if ('serviceWorker' in navigator) {
   const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
   if (performance.navigation?.type === 1 || navigation?.type === 'reload') {
     const reloadStartTime = Date.now();
-    console.log('[Main] 🔄 Page reload detected - clearing React Query cache and forcing refetch...');
-    console.log('[Main] 📊 Debugging info:', {
-      timestamp: new Date().toISOString(),
-      navigationType: navigation?.type || performance.navigation?.type,
-    });
-    
-    // CRITICAL FIX: Clear React Query cache on reload to force fresh queries
-    // This ensures queries are re-executed after reload
+    if (KWS_VERBOSE) console.log('[Main] 🔄 Page reload detected - clearing React Query cache and forcing refetch...');
+    if (KWS_VERBOSE) console.log('[Main] 📊 Debugging info:', { timestamp: new Date().toISOString(), navigationType: navigation?.type || performance.navigation?.type });
     setTimeout(() => {
-      // Import QueryClient dynamically to avoid circular dependencies
       import('@tanstack/react-query').then(({ QueryClient }) => {
-        // Get the query client instance from the app
-        // We need to access it through the window object or a global
         const queryClient = (window as any).__queryClient;
         if (queryClient) {
-          console.log('[Main] 🗑️ Clearing React Query cache on reload...');
+          if (KWS_VERBOSE) console.log('[Main] 🗑️ Clearing React Query cache on reload...');
           queryClient.clear();
-          console.log('[Main] ✅ React Query cache cleared - queries will refetch');
-        } else {
-          console.warn('[Main] ⚠️ QueryClient not found on window object');
-        }
-      }).catch((error) => {
-        console.error('[Main] Error importing QueryClient:', error);
-      });
+          if (KWS_VERBOSE) console.log('[Main] ✅ React Query cache cleared - queries will refetch');
+        } else if (KWS_VERBOSE) console.warn('[Main] ⚠️ QueryClient not found on window object');
+      }).catch((error) => { if (KWS_VERBOSE) console.error('[Main] Error importing QueryClient:', error); });
     }, 100);
-    
-    // Clear browser caches (service worker caches)
     if ('caches' in window) {
       setTimeout(() => {
         caches.keys().then(async (cacheNames) => {
-          console.log('[Main] Clearing browser caches on reload:', cacheNames);
+          if (KWS_VERBOSE) console.log('[Main] Clearing browser caches on reload:', cacheNames);
           const cleared = await Promise.allSettled(
             cacheNames.map((cacheName) => {
-              console.log('[Main] Deleting cache on reload:', cacheName);
+              if (KWS_VERBOSE) console.log('[Main] Deleting cache on reload:', cacheName);
               return caches.delete(cacheName);
             })
           );
           const successCount = cleared.filter(r => r.status === 'fulfilled').length;
           const duration = Date.now() - reloadStartTime;
-          console.log(`[Main] ✅ Cleared ${successCount}/${cacheNames.length} browser caches in ${duration}ms`);
-        }).catch((error) => {
-          console.error('[Main] Error clearing browser caches on reload:', error);
-        });
+          if (KWS_VERBOSE) console.log(`[Main] ✅ Cleared ${successCount}/${cacheNames.length} browser caches in ${duration}ms`);
+        }).catch((error) => { if (KWS_VERBOSE) console.error('[Main] Error clearing browser caches on reload:', error); });
       }, 200);
     }
   }
+}
 }

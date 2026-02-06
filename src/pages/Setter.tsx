@@ -31,6 +31,7 @@ import { useColors } from '@/hooks/useColors';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BatchUpload } from '@/components/setter/BatchUpload';
+import { MutedVideo } from '@/components/MutedVideo';
 import { Boulder } from '@/types/boulder';
 import { cn } from '@/lib/utils';
 import { useUpload } from '@/contexts/UploadContext';
@@ -270,11 +271,11 @@ const VideoSelector = ({
                         : 'border-border hover:border-primary/50'
                     }`}
                   >
-                    <video
+                    <MutedVideo
                       src={videoUrl}
                       className="w-full h-full object-cover pointer-events-none"
                       preload="metadata"
-                      muted
+                      controls={false}
                     />
                     {isSelected && (
                       <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
@@ -1320,10 +1321,8 @@ const Setter = () => {
                           )}
                           {videoPreviewUrl && (
                             <div className="aspect-[9/16] w-full max-w-xs mx-auto rounded-lg overflow-hidden border">
-                              <video 
+                              <MutedVideo 
                                 src={videoPreviewUrl} 
-                                controls 
-                                muted
                                 className="w-full h-full object-cover"
                                 playsInline
                               />
@@ -1468,10 +1467,8 @@ const Setter = () => {
                           )}
                           {videoPreviewUrl && (
                             <div className="aspect-[9/16] w-full max-w-xs mt-2 rounded-lg overflow-hidden border">
-                              <video 
+                              <MutedVideo 
                                 src={videoPreviewUrl} 
-                                controls 
-                                muted
                                 className="w-full h-full object-cover"
                                 playsInline
                               />

@@ -101,6 +101,21 @@ const VideoPlayerWithBuffer = ({
   // Store playback state for quality switching
   const playbackStateRef = useRef<{ time: number; wasPlaying: boolean } | null>(null);
 
+  // Enforce muted playback: user cannot enable sound
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const enforceMuted = () => {
+      if (!video.muted || video.volume > 0) {
+        video.muted = true;
+        video.volume = 0;
+      }
+    };
+    enforceMuted();
+    video.addEventListener('volumechange', enforceMuted);
+    return () => video.removeEventListener('volumechange', enforceMuted);
+  }, [currentVideoUrl]);
+
   // Load video metadata when dialog opens and auto-play when ready
   useEffect(() => {
     const video = videoRef.current;
@@ -594,11 +609,14 @@ const VideoPlayerWithBuffer = ({
           display: none !important;
           opacity: 0 !important;
         }
+        video::-webkit-media-controls-volume-slider { display: none !important; }
+        video::-webkit-media-controls-mute-button { display: none !important; }
       `}</style>
       <video 
         ref={videoRef}
         controls 
         muted
+        controlsList="nodownload"
         className="w-full h-full object-cover object-center"
         poster={poster || undefined}
         preload="metadata"

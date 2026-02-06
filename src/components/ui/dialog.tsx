@@ -30,9 +30,11 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => {
+  const feedbackOverlay = (props as Record<string, unknown>)['data-feedback-overlay'];
+  return (
   <DialogPortal>
-    <DialogOverlay className="bg-[#13112B]/30 backdrop-blur-sm" />
+    <DialogOverlay className="bg-[#13112B]/30 backdrop-blur-sm" {...(feedbackOverlay !== undefined ? { 'data-feedback-overlay': feedbackOverlay } : {})} />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
@@ -55,7 +57,8 @@ const DialogContent = React.forwardRef<
       {children}
     </DialogPrimitive.Content>
   </DialogPortal>
-));
+  );
+});
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

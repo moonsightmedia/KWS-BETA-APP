@@ -4,6 +4,10 @@ import { useEffect } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 
+const devLog = (...args: unknown[]) => { if (import.meta.env.DEV) console.log(...args); };
+const devWarn = (...args: unknown[]) => { if (import.meta.env.DEV) console.warn(...args); };
+const devError = (...args: unknown[]) => { if (import.meta.env.DEV) console.error(...args); };
+
 export interface Notification {
   id: string;
   user_id: string;
@@ -49,7 +53,7 @@ export const useNotifications = () => {
       // Get the access token from the session for RLS
       const accessToken = session.access_token;
       if (!accessToken) {
-        console.warn('[useNotifications] No access token in session');
+        devWarn('[useNotifications] No access token in session');
         return [];
       }
       
@@ -66,19 +70,19 @@ export const useNotifications = () => {
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[useNotifications] Error loading notifications:', response.status, errorText);
+        devError('[useNotifications] Error loading notifications:', response.status, errorText);
         throw new Error(`Failed to load notifications: ${response.status} ${errorText}`);
       }
       
         const data = await response.json();
         const notifications = (data || []) as Notification[];
-        console.log(`[useNotifications] ✅ Loaded ${notifications.length} notifications from database`);
+        devLog(`[useNotifications] ✅ Loaded ${notifications.length} notifications from database`);
         if (notifications.length > 0) {
-          console.log('[useNotifications] 📋 Latest notification:', notifications[0]);
+          devLog('[useNotifications] 📋 Latest notification:', notifications[0]);
         }
         return notifications;
       } catch (error: any) {
-        console.error('[useNotifications] Error loading notifications:', error);
+        devError('[useNotifications] Error loading notifications:', error);
         throw error;
       }
     },
@@ -89,13 +93,13 @@ export const useNotifications = () => {
   // Realtime subscription for new notifications
   useEffect(() => {
     if (!user || !session) {
-      console.log('[useNotifications] No user or session, skipping Realtime subscription');
+      devLog('[useNotifications] No user or session, skipping Realtime subscription');
       return; // Don't subscribe if no user or session
     }
     
     let channel: any = null;
 
-    console.log('[useNotifications] Setting up Realtime subscription for user:', user.id);
+    devLog('[useNotifications] Setting up Realtime subscription for user:', user.id);
 
     channel = supabase
       .channel(`notifications_for_user_${user.id}`)
@@ -108,8 +112,8 @@ export const useNotifications = () => {
           filter: `user_id=eq.${user.id}`,
         },
         async (payload) => {
-          console.log('[useNotifications] 🔔🔔🔔 NEW NOTIFICATION RECEIVED VIA REALTIME:', payload.new);
-          console.log('[useNotifications] 🔔 Payload details:', {
+          devLog('[useNotifications] 🔔🔔🔔 NEW NOTIFICATION RECEIVED VIA REALTIME:', payload.new);
+          devLog('[useNotifications] 🔔 Payload details:', {
             event: payload.eventType,
             table: payload.table,
             new: payload.new,
@@ -121,7 +125,7 @@ export const useNotifications = () => {
           
           // Show toast for new notification
           const notification = payload.new as Notification;
-          console.log('[useNotifications] 📨 Notification details:', {
+          devLog('[useNotifications] 📨 Notification details:', {
             id: notification.id,
             user_id: notification.user_id,
             type: notification.type,
@@ -141,9 +145,9 @@ export const useNotifications = () => {
           
           if (notification.type === 'boulder_new') {
             if (boulderCount > 1) {
-              console.log('[useNotifications] ⏭️ Skipping push notification for batch notification (boulder_count:', boulderCount, ') - BatchUpload will send push notification manually');
+              devLog('[useNotifications] ⏭️ Skipping push notification for batch notification (boulder_count:', boulderCount, ') - BatchUpload will send push notification manually');
             } else {
-              console.log('[useNotifications] ⏭️ Skipping push notification for single boulder notification - notifications are now handled manually by BatchUpload component');
+              devLog('[useNotifications] ⏭️ Skipping push notification for single boulder notification - notifications are now handled manually by BatchUpload component');
             }
             return;
           }
@@ -153,9 +157,9 @@ export const useNotifications = () => {
             try {
               const { sendPushNotificationForNotification } = await import('@/services/pushNotifications');
               await sendPushNotificationForNotification(notification.id, session);
-              console.log('[useNotifications] ✅ Push notification sent successfully for notification:', notification.id);
+              devLog('[useNotifications] ✅ Push notification sent successfully for notification:', notification.id);
             } catch (error) {
-              console.error('[useNotifications] ❌ Error sending push notification:', error);
+              devError('[useNotifications] ❌ Error sending push notification:', error);
               // Don't throw - push notifications are optional
             }
           }, 500);
@@ -170,34 +174,34 @@ export const useNotifications = () => {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
-          console.log('[useNotifications] Notification updated, invalidating queries');
+          devLog('[useNotifications] Notification updated, invalidating queries');
           queryClient.invalidateQueries({ queryKey: ['notifications'] });
           queryClient.invalidateQueries({ queryKey: ['unread_count'] });
         }
       )
       .subscribe((status) => {
-        console.log('[useNotifications] 🔔 Realtime subscription status:', status);
-        console.log('[useNotifications] 🔔 Channel details:', {
+        devLog('[useNotifications] 🔔 Realtime subscription status:', status);
+        devLog('[useNotifications] 🔔 Channel details:', {
           status,
           user_id: user.id,
           channel_name: `notifications_for_user_${user.id}`,
         });
         if (status === 'SUBSCRIBED') {
-          console.log('[useNotifications] ✅✅✅ Successfully subscribed to Realtime channel - ready to receive notifications!');
+          devLog('[useNotifications] ✅✅✅ Successfully subscribed to Realtime channel - ready to receive notifications!');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('[useNotifications] ❌ Realtime channel error');
+          devError('[useNotifications] ❌ Realtime channel error');
         } else if (status === 'TIMED_OUT') {
-          console.error('[useNotifications] ❌ Realtime subscription timed out');
+          devError('[useNotifications] ❌ Realtime subscription timed out');
         } else if (status === 'CLOSED') {
-          console.warn('[useNotifications] ⚠️ Realtime subscription closed');
+          devWarn('[useNotifications] ⚠️ Realtime subscription closed');
         } else {
-          console.log('[useNotifications] 🔄 Realtime subscription status:', status);
+          devLog('[useNotifications] 🔄 Realtime subscription status:', status);
         }
       });
 
     return () => {
       if (channel) {
-        console.log('[useNotifications] Cleaning up Realtime subscription for user:', user.id);
+        devLog('[useNotifications] Cleaning up Realtime subscription for user:', user.id);
         supabase.removeChannel(channel);
         channel = null;
       }
@@ -238,7 +242,7 @@ export const useUnreadCount = () => {
       // Get the access token from the session for RPC calls
       const accessToken = session.access_token;
       if (!accessToken) {
-        console.warn('[useUnreadCount] No access token in session');
+        devWarn('[useUnreadCount] No access token in session');
         return 0;
       }
       
@@ -256,14 +260,14 @@ export const useUnreadCount = () => {
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[useUnreadCount] Error getting unread count:', response.status, errorText);
+        devError('[useUnreadCount] Error getting unread count:', response.status, errorText);
         return 0;
       }
       
         const data = await response.json();
         return data || 0;
       } catch (error: any) {
-        console.error('[useUnreadCount] Error getting unread count:', error);
+        devError('[useUnreadCount] Error getting unread count:', error);
         return 0; // Return 0 on error instead of throwing
       }
     },
@@ -279,7 +283,7 @@ export const useMarkAsRead = () => {
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
-      console.log('[useMarkAsRead] 🔵 Marking notification as read:', notificationId);
+      devLog('[useMarkAsRead] 🔵 Marking notification as read:', notificationId);
       
       // CRITICAL: Use session from useAuth hook instead of supabase.auth.getSession()
       // supabase.auth.getSession() hangs on localhost after reload
@@ -300,7 +304,7 @@ export const useMarkAsRead = () => {
           }
           currentSession = fetchedSession;
         } catch (timeoutError) {
-          console.error('[useMarkAsRead] ❌ Session timeout:', timeoutError);
+          devError('[useMarkAsRead] ❌ Session timeout:', timeoutError);
           throw new Error('Session timeout - bitte Seite neu laden');
         }
       }
@@ -309,7 +313,7 @@ export const useMarkAsRead = () => {
         throw new Error('Nicht angemeldet. Bitte melde dich an.');
       }
       
-      console.log('[useMarkAsRead] ✅ Session obtained');
+      devLog('[useMarkAsRead] ✅ Session obtained');
 
       // Use direct fetch instead of RPC to avoid hanging issues after reload
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -339,18 +343,18 @@ export const useMarkAsRead = () => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[useMarkAsRead] ❌ Error marking as read:', errorText);
+        devError('[useMarkAsRead] ❌ Error marking as read:', errorText);
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
-      console.log('[useMarkAsRead] ✅ Notification marked as read');
+      devLog('[useMarkAsRead] ✅ Notification marked as read');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['unread_count'] });
     },
     onError: (error) => {
-      console.error('[useMarkAsRead] ❌ Error:', error);
+      devError('[useMarkAsRead] ❌ Error:', error);
       toast.error('Fehler beim Markieren als gelesen: ' + error.message);
     },
   });
@@ -362,7 +366,7 @@ export const useMarkAllAsRead = () => {
 
   return useMutation({
     mutationFn: async () => {
-      console.log('[useMarkAllAsRead] 🔵 Marking all notifications as read');
+      devLog('[useMarkAllAsRead] 🔵 Marking all notifications as read');
       
       // CRITICAL: Use session from useAuth hook instead of supabase.auth.getSession()
       // supabase.auth.getSession() hangs on localhost after reload
@@ -383,7 +387,7 @@ export const useMarkAllAsRead = () => {
           }
           currentSession = fetchedSession;
         } catch (timeoutError) {
-          console.error('[useMarkAllAsRead] ❌ Session timeout:', timeoutError);
+          devError('[useMarkAllAsRead] ❌ Session timeout:', timeoutError);
           throw new Error('Session timeout - bitte Seite neu laden');
         }
       }
@@ -392,7 +396,7 @@ export const useMarkAllAsRead = () => {
         throw new Error('Nicht angemeldet. Bitte melde dich an.');
       }
       
-      console.log('[useMarkAllAsRead] ✅ Session obtained');
+      devLog('[useMarkAllAsRead] ✅ Session obtained');
 
       // Use direct fetch instead of RPC to avoid hanging issues after reload
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -422,11 +426,11 @@ export const useMarkAllAsRead = () => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[useMarkAllAsRead] ❌ Error marking all as read:', errorText);
+        devError('[useMarkAllAsRead] ❌ Error marking all as read:', errorText);
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
-      console.log('[useMarkAllAsRead] ✅ All notifications marked as read');
+      devLog('[useMarkAllAsRead] ✅ All notifications marked as read');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -434,7 +438,7 @@ export const useMarkAllAsRead = () => {
       toast.success('Alle Benachrichtigungen als gelesen markiert');
     },
     onError: (error) => {
-      console.error('[useMarkAllAsRead] ❌ Error:', error);
+      devError('[useMarkAllAsRead] ❌ Error:', error);
       toast.error('Fehler beim Markieren aller als gelesen: ' + error.message);
     },
   });

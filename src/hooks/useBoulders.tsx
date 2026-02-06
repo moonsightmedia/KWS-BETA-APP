@@ -10,41 +10,105 @@ import { Boulder as FrontendBoulder } from '@/types/boulder';
 import { useSectors } from './useSectors';
 import { deleteBetaVideo, deleteThumbnail } from '@/integrations/supabase/storage';
 
-// Helper function to log boulder operations
-async function logBoulderOperation(
+/** Trim boulder data for log payload to avoid huge JSON and timeouts. Never throws. */
+function trimBoulderDataForLog(data: any): any {
+  try {
+    if (!data || typeof data !== 'object') return null;
+    return {
+      id: data.id,
+      name: data.name,
+      sector_id: data.sector_id,
+      sector_id_2: data.sector_id_2,
+      difficulty: data.difficulty,
+      color: data.color,
+      status: data.status,
+      note: data.note ?? null,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      beta_video_url: data.beta_video_url ? '(present)' : null,
+      thumbnail_url: data.thumbnail_url ? '(present)' : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Safe JSON for log: avoid circular refs / non-serializable. Returns null on failure. */
+function safeStringifyLogPayload(payload: Record<string, unknown>): string | null {
+  try {
+    return JSON.stringify(payload);
+  } catch {
+    try {
+      return JSON.stringify({
+        boulder_id: payload.boulder_id,
+        operation_type: payload.operation_type,
+        user_id: null,
+        boulder_name: payload.boulder_name,
+        boulder_data: null,
+        changes: null,
+      });
+    } catch {
+      return null;
+    }
+  }
+}
+
+/**
+ * Logs a boulder operation. Never rejects – always resolves with true/false.
+ * Fire-and-forget: caller .catch() will not run for this function.
+ * Exported so BatchUpload (and other direct REST create paths) can log creates.
+ */
+export async function logBoulderOperation(
   operationType: 'create' | 'update' | 'delete',
   boulderId: string | null,
   boulderName: string | null,
   boulderData?: any,
-  changes?: Record<string, any>
-) {
+  changes?: Record<string, any>,
+  accessToken: string | null | undefined
+): Promise<boolean> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    // Get profile id from user id
-    let profileId: string | null = null;
-    if (user?.id) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', user.id)
-        .maybeSingle();
-      profileId = profile?.id || null;
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    if (!SUPABASE_URL || !key || !accessToken) {
+      console.warn('[logBoulderOperation] Missing URL, key or token – skip logging');
+      toast.warning('Log konnte nicht geschrieben werden (kein Zugriffstoken).');
+      return false;
     }
-    
-    await supabase
-      .from('boulder_operation_logs')
-      .insert({
-        boulder_id: boulderId,
-        operation_type: operationType,
-        user_id: profileId,
-        boulder_name: boulderName,
-        boulder_data: boulderData || null,
-        changes: changes || null,
-      });
+    const trimmedData = trimBoulderDataForLog(boulderData);
+    const payload: Record<string, unknown> = {
+      boulder_id: boulderId,
+      operation_type: operationType,
+      user_id: null,
+      boulder_name: boulderName ?? null,
+      boulder_data: trimmedData,
+      changes: changes ?? null,
+    };
+    const body = safeStringifyLogPayload(payload);
+    if (body === null) {
+      console.warn('[logBoulderOperation] Payload serialization failed – skip');
+      return false;
+    }
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/boulder_operation_logs`, {
+      method: 'POST',
+      headers: {
+        'apikey': key,
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      },
+      body,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      console.error('[logBoulderOperation] Insert failed:', res.status, text);
+      toast.error(`Log-Eintrag konnte nicht gespeichert werden (${res.status}). Siehe Konsole.`);
+      return false;
+    }
+    return true;
   } catch (error) {
     console.error('[logBoulderOperation] Error logging operation:', error);
-    // Don't throw - logging failures shouldn't break the operation
+    toast.error('Log-Eintrag konnte nicht gespeichert werden. Siehe Konsole.');
+    return false;
   }
 }
 
@@ -360,7 +424,7 @@ export const useBouldersWithSectors = (enabled: boolean = true) => {
 
 export const useUpdateBoulder = () => {
   const queryClient = useQueryClient();
-  const { session } = useAuth();
+  const { session, user } = useAuth();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Boulder> & { id: string }) => {
@@ -485,22 +549,14 @@ export const useUpdateBoulder = () => {
         }
       });
 
-      // Log the operation (with timeout, non-critical)
-      console.log('[useUpdateBoulder] Logging operation...');
-      try {
-        const logTimeout = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Log timeout')), 5000)
-        );
-        
-        await Promise.race([
-          logBoulderOperation('update', id, data.name, data, changes),
-          logTimeout
-        ]);
-        console.log('[useUpdateBoulder] Operation logged successfully');
-      } catch (logError) {
-        console.warn('[useUpdateBoulder] Error logging operation (non-critical):', logError);
-        // Don't throw - logging is not critical
-      }
+      // Log in background (fire-and-forget) – no await, no timeout; build marker: v2
+      console.log('[useUpdateBoulder] Log sent in background (no await)');
+      logBoulderOperation('update', id, data.name, data, changes, currentSession.access_token)
+        .then((ok) => { if (ok) console.log('[useUpdateBoulder] Operation logged'); })
+        .catch((err) => {
+          console.warn('[useUpdateBoulder] Log failed (non-critical):', err);
+          toast.warning('Boulder wurde gespeichert, aber der Log-Eintrag konnte nicht erstellt werden.');
+        });
 
       console.log('[useUpdateBoulder] Mutation completed successfully');
       return { data, updates };
@@ -509,6 +565,7 @@ export const useUpdateBoulder = () => {
       // Always invalidate and refetch boulders immediately
       queryClient.invalidateQueries({ queryKey: ['boulders'] });
       queryClient.refetchQueries({ queryKey: ['boulders'] });
+      queryClient.invalidateQueries({ queryKey: ['boulder-operation-logs'] });
       
       // If sector_id was changed, also invalidate sectors (affects boulder_count)
       if (result.updates.sector_id !== undefined) {
@@ -532,30 +589,31 @@ export const useUpdateBoulder = () => {
 
 export const useCreateBoulder = () => {
   const queryClient = useQueryClient();
+  const { session, user } = useAuth();
 
   return useMutation({
     mutationFn: async (newBoulder: Omit<Boulder, 'id' | 'created_at' | 'updated_at'>) => {
       console.log('[useCreateBoulder] 🔵 Starting mutation...');
-      
-      // CRITICAL: Get session for RLS with timeout to avoid hanging after reload
-      const sessionPromise = supabase.auth.getSession();
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Session timeout after 5s')), 5000)
-      );
-      
-      let sessionResult;
-      try {
-        sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
-      } catch (timeoutError) {
-        console.error('[useCreateBoulder] ❌ Session timeout:', timeoutError);
-        throw new Error('Session timeout - bitte Seite neu laden');
+
+      let currentSession = session;
+      if (!currentSession?.access_token) {
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Session timeout after 5s')), 5000)
+        );
+        try {
+          const sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
+          const { data: { session: fetchedSession } } = sessionResult as any;
+          if (!fetchedSession?.access_token) throw new Error('Nicht angemeldet. Bitte melde dich an.');
+          currentSession = fetchedSession;
+        } catch (timeoutError) {
+          console.error('[useCreateBoulder] ❌ Session timeout:', timeoutError);
+          throw new Error('Session timeout - bitte Seite neu laden');
+        }
       }
-      
-      const { data: { session } } = sessionResult as any;
-      if (!session) {
+      if (!currentSession?.access_token) {
         throw new Error('Nicht angemeldet. Bitte melde dich an.');
       }
-      
       console.log('[useCreateBoulder] ✅ Session obtained');
 
       // Erstelle den Boulder
@@ -579,7 +637,7 @@ export const useCreateBoulder = () => {
           method: 'POST',
           headers: {
             'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${currentSession.access_token}`,
             'Content-Type': 'application/json',
             'Prefer': 'return=representation',
           },
@@ -603,7 +661,7 @@ export const useCreateBoulder = () => {
             method: 'PATCH',
             headers: {
               'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${session.access_token}`,
+              'Authorization': `Bearer ${currentSession.access_token}`,
               'Content-Type': 'application/json',
               'Prefer': 'return=minimal',
             },
@@ -622,8 +680,13 @@ export const useCreateBoulder = () => {
         // Wir werfen den Fehler nicht, da der Boulder bereits erstellt wurde
       }
 
-      // Log the operation
-      await logBoulderOperation('create', createdBoulder.id, createdBoulder.name, createdBoulder);
+      // Log in background (fire-and-forget)
+      logBoulderOperation('create', createdBoulder.id, createdBoulder.name, createdBoulder, undefined, currentSession.access_token)
+        .then((ok) => { if (ok) console.log('[useCreateBoulder] Operation logged'); })
+        .catch((err) => {
+          console.warn('[useCreateBoulder] Log failed (non-critical):', err);
+          toast.warning('Boulder wurde erstellt, aber der Log-Eintrag konnte nicht erstellt werden.');
+        });
 
       return createdBoulder;
     },
@@ -633,17 +696,19 @@ export const useCreateBoulder = () => {
       queryClient.refetchQueries({ queryKey: ['boulders'] });
       queryClient.invalidateQueries({ queryKey: ['sectors'] });
       queryClient.refetchQueries({ queryKey: ['sectors'] });
+      queryClient.invalidateQueries({ queryKey: ['boulder-operation-logs'] });
       toast.success('Boulder erfolgreich erstellt!');
     },
     onError: (error) => {
-      toast.error('Fehler beim Erstellen: ' + error.message);
+      const msg = error?.message ?? String(error ?? 'Unbekannter Fehler');
+      toast.error('Fehler beim Erstellen: ' + msg);
     },
   });
 };
 
 export const useDeleteBoulder = () => {
   const queryClient = useQueryClient();
-  const { session } = useAuth();
+  const { session, user } = useAuth();
 
   return useMutation({
     mutationFn: async (id: string) => {
@@ -790,6 +855,15 @@ export const useDeleteBoulder = () => {
         // Continue with boulder deletion even if upload_logs deletion fails
       }
 
+      // Log delete BEFORE deleting the boulder (FK: boulder_operation_logs.boulder_id must exist in boulders)
+      const logName = fullBoulderData?.name ?? boulderData.name;
+      const logData = fullBoulderData ?? { id, name: boulderData.name };
+      const logOk = await logBoulderOperation('delete', id, logName, logData, undefined, currentSession.access_token);
+      if (logOk) {
+        console.log('[useDeleteBoulder] ✅ Operation logged (before delete)');
+        queryClient.invalidateQueries({ queryKey: ['boulder-operation-logs'] });
+      }
+
       // Then delete the boulder
       console.log('[useDeleteBoulder] 🗑️ Deleting boulder from database:', id);
       const deleteResponse = await fetch(
@@ -815,22 +889,6 @@ export const useDeleteBoulder = () => {
       const deleteData = Array.isArray(deleteDataArray) ? deleteDataArray : [];
 
       console.log('[useDeleteBoulder] ✅ Boulder deleted successfully. Response:', deleteData);
-
-      // Log the operation (before checking if deletion was successful)
-      // CRITICAL: Wrap in Promise.resolve to ensure it doesn't block
-      if (fullBoulderData) {
-        Promise.resolve().then(async () => {
-          try {
-            await logBoulderOperation('delete', id, fullBoulderData.name, fullBoulderData);
-            console.log('[useDeleteBoulder] ✅ Operation logged successfully');
-          } catch (logError) {
-            console.warn('[useDeleteBoulder] Error logging operation (non-critical):', logError);
-            // Don't throw - logging is not critical
-          }
-        }).catch(() => {
-          // Ignore errors - logging is not critical
-        });
-      }
       
       // Check if anything was actually deleted
       if (!deleteData || deleteData.length === 0) {
@@ -925,6 +983,7 @@ export const useDeleteBoulder = () => {
       // Also invalidate to ensure all dependent queries are updated
       queryClient.invalidateQueries({ queryKey: ['boulders'] });
       queryClient.invalidateQueries({ queryKey: ['sectors'] });
+      queryClient.invalidateQueries({ queryKey: ['boulder-operation-logs'] });
       
       // Force refetch immediately to ensure consistency with server
       // Use await to ensure refetch completes before showing success message
@@ -941,7 +1000,8 @@ export const useDeleteBoulder = () => {
       toast.success('Boulder erfolgreich gelöscht!');
     },
     onError: (error) => {
-      toast.error('Fehler beim Löschen: ' + error.message);
+      const msg = error?.message ?? String(error ?? 'Unbekannter Fehler');
+      toast.error('Fehler beim Löschen: ' + msg);
     },
   });
 };

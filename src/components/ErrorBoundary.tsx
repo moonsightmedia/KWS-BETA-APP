@@ -5,12 +5,14 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, RefreshCw, Send } from 'lucide-react';
-import { reportError } from '@/utils/feedbackUtils';
+import { reportError, type ReportErrorUserContext } from '@/utils/feedbackUtils';
 import { toast } from 'sonner';
 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  /** Optional user context for error reports (e.g. from useAuth); avoids getSession() in utils */
+  userContext?: ReportErrorUserContext | null;
 }
 
 interface State {
@@ -35,59 +37,13 @@ export class ErrorBoundary extends Component<Props, State> {
       userDescription: '',
       isReporting: false,
     };
-    
-    // Set up global unhandled promise rejection handler
-    this.setupPromiseRejectionHandler();
-  }
-
-  componentDidMount() {
-    // Set up unhandled promise rejection handler
-    window.addEventListener('unhandledrejection', this.handleUnhandledRejection);
   }
 
   componentWillUnmount() {
-    // Clean up
-    window.removeEventListener('unhandledrejection', this.handleUnhandledRejection);
     if (this.autoResetTimer) {
       clearTimeout(this.autoResetTimer);
     }
   }
-
-  setupPromiseRejectionHandler = () => {
-    // This is handled globally in errorHandler.ts, but we also catch it here
-    // as a fallback
-  };
-
-  handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-    console.error('[ErrorBoundary] Unhandled promise rejection:', event.reason);
-    
-    // Convert promise rejection to error
-    const error = event.reason instanceof Error 
-      ? event.reason 
-      : new Error(String(event.reason || 'Unhandled promise rejection'));
-    
-    // Only handle if we don't already have an error
-    if (!this.state.hasError) {
-      this.setState({
-        hasError: true,
-        error,
-        errorInfo: {
-          componentStack: 'Promise rejection',
-        },
-        showReportDialog: true,
-      });
-      
-      // Report error
-      reportError(error, {
-        componentStack: 'Promise rejection',
-      }).catch(() => {
-        // Silently fail
-      });
-    }
-    
-    // Prevent default browser behavior
-    event.preventDefault();
-  };
 
   static getDerivedStateFromError(error: Error): Partial<State> {
     return {
@@ -108,8 +64,8 @@ export class ErrorBoundary extends Component<Props, State> {
       showReportDialog: true,
     });
 
-    // Automatically report error in background
-    reportError(error, errorInfo).catch(() => {
+    // Automatically report error in background (userContext from props to avoid getSession())
+    reportError(error, errorInfo, undefined, this.props.userContext ?? undefined).catch(() => {
       // Silently fail
     });
     
@@ -150,7 +106,7 @@ export class ErrorBoundary extends Component<Props, State> {
     this.setState({ isReporting: true });
 
     try {
-      await reportError(error, errorInfo, userDescription);
+      await reportError(error, errorInfo, userDescription, this.props.userContext ?? undefined);
       toast.success('Fehler wurde gemeldet. Vielen Dank!');
       this.setState({
         showReportDialog: false,

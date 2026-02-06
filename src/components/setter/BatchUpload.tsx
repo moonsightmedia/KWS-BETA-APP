@@ -11,7 +11,9 @@ import { Plus, Trash2, Upload, FileVideo, Image as ImageIcon, Loader2, X, Check,
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { useQueryClient } from '@tanstack/react-query';
 import { useUpload } from '@/contexts/UploadContext';
+import { logBoulderOperation } from '@/hooks/useBoulders';
 import { generateBoulderName } from '@/utils/nameGenerator';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
 import { sendPushNotificationForNotification } from '@/services/pushNotifications';
@@ -22,6 +24,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+
+const devLog = (...args: unknown[]) => { if (import.meta.env.DEV) console.log(...args); };
+const devWarn = (...args: unknown[]) => { if (import.meta.env.DEV) devWarn(...args); };
+const devError = (...args: unknown[]) => { if (import.meta.env.DEV) devError(...args); };
 
 interface BatchBoulder {
   id: string;
@@ -37,6 +43,7 @@ interface BatchBoulder {
 }
 
 export const BatchUpload = () => {
+  const queryClient = useQueryClient();
   const { data: sectors } = useSectorsTransformed();
   const { data: colors } = useColors();
   const { session } = useAuth();
@@ -171,7 +178,7 @@ export const BatchUpload = () => {
                 insertData.sector_id_2 = boulder.sectorId2;
             }
             
-            console.log('[BatchUpload] 🔵 Creating boulder:', insertData.name);
+            devLog('[BatchUpload] 🔵 Creating boulder:', insertData.name);
             
             const response = await fetch(
                 `${SUPABASE_URL}/rest/v1/boulders`,
@@ -199,43 +206,48 @@ export const BatchUpload = () => {
                 throw new Error('Boulder wurde nicht erstellt');
             }
             
-            console.log('[BatchUpload] ✅ Boulder created:', dbBoulder.id);
+            devLog('[BatchUpload] ✅ Boulder created:', dbBoulder.id);
             successfulBoulderIds.push(dbBoulder.id);
+
+            // Log create for admin operation logs (fire-and-forget)
+            logBoulderOperation('create', dbBoulder.id, dbBoulder.name ?? null, dbBoulder, undefined, session?.access_token)
+              .then((ok) => { if (ok) queryClient.invalidateQueries({ queryKey: ['boulder-operation-logs'] }); })
+              .catch(() => {});
 
             // Start uploads (they will be queued by UploadContext)
             // Add small delay between boulders to avoid overwhelming the system
             if (boulder.thumbFile) {
-                console.log('[BatchUpload] 🚀 Starting thumbnail upload for boulder:', dbBoulder.id, 'file:', boulder.thumbFile.name, 'size:', boulder.thumbFile.size);
+                devLog('[BatchUpload] 🚀 Starting thumbnail upload for boulder:', dbBoulder.id, 'file:', boulder.thumbFile.name, 'size:', boulder.thumbFile.size);
                 try {
                     const sessionId = await startUpload(dbBoulder.id, boulder.thumbFile, 'thumbnail', boulder.sectorId);
-                    console.log('[BatchUpload] ✅ Thumbnail upload started, sessionId:', sessionId);
+                    devLog('[BatchUpload] ✅ Thumbnail upload started, sessionId:', sessionId);
                 } catch (error) {
-                    console.error('[BatchUpload] ❌ Error starting thumbnail upload:', error);
+                    devError('[BatchUpload] ❌ Error starting thumbnail upload:', error);
                 }
                 // Small delay to prevent too many simultaneous uploads
                 await new Promise(resolve => setTimeout(resolve, 100));
             } else {
-                console.warn('[BatchUpload] ⚠️ No thumbnail file for boulder:', dbBoulder.id);
+                devWarn('[BatchUpload] ⚠️ No thumbnail file for boulder:', dbBoulder.id);
             }
             
             if (boulder.videoFile) {
-                console.log('[BatchUpload] 🚀 Starting video upload for boulder:', dbBoulder.id, 'file:', boulder.videoFile.name, 'size:', boulder.videoFile.size);
+                devLog('[BatchUpload] 🚀 Starting video upload for boulder:', dbBoulder.id, 'file:', boulder.videoFile.name, 'size:', boulder.videoFile.size);
                 try {
                     const sessionId = await startUpload(dbBoulder.id, boulder.videoFile, 'video', boulder.sectorId);
-                    console.log('[BatchUpload] ✅ Video upload started, sessionId:', sessionId);
+                    devLog('[BatchUpload] ✅ Video upload started, sessionId:', sessionId);
                 } catch (error) {
-                    console.error('[BatchUpload] ❌ Error starting video upload:', error);
+                    devError('[BatchUpload] ❌ Error starting video upload:', error);
                 }
                 // Small delay to prevent too many simultaneous uploads
                 await new Promise(resolve => setTimeout(resolve, 100));
             } else {
-                console.warn('[BatchUpload] ⚠️ No video file for boulder:', dbBoulder.id);
+                devWarn('[BatchUpload] ⚠️ No video file for boulder:', dbBoulder.id);
             }
 
             successfulIds.push(boulder.id);
 
         } catch (error: any) {
-            console.error('Failed to queue boulder:', boulder.name, error);
+            devError('Failed to queue boulder:', boulder.name, error);
             failedBoulders.push({ name: boulder.name, error: error.message });
             toast.error(`Fehler bei "${boulder.name}": ${error.message}`);
         }
@@ -253,7 +265,7 @@ export const BatchUpload = () => {
         // This is much more reliable than relying on trigger timing
         if (successfulBoulderIds.length > 0) {
           try {
-            console.log(`[BatchUpload] 🔔 Creating batch notification for ${successfulBoulderIds.length} boulders...`);
+            devLog(`[BatchUpload] 🔔 Creating batch notification for ${successfulBoulderIds.length} boulders...`);
             
             // Get all users who have boulder_new enabled
             const usersResponse = await fetch(
@@ -270,7 +282,7 @@ export const BatchUpload = () => {
             
             if (usersResponse.ok) {
               const users = await usersResponse.json();
-              console.log(`[BatchUpload] Found ${users.length} users with boulder_new enabled`);
+              devLog(`[BatchUpload] Found ${users.length} users with boulder_new enabled`);
               
               // Get boulder details for the notification message
               const bouldersResponse = await fetch(
@@ -290,16 +302,24 @@ export const BatchUpload = () => {
                 boulderDetails = await bouldersResponse.json();
               }
               
-              // Get unique sector IDs
+              // Get unique sector IDs and names for group notification message
               const sectorIds = [...new Set(boulderDetails.map((b: any) => b.sector_id).filter(Boolean))];
+              const sectorNames = sectorIds
+                .map((id: string) => sectors?.find(s => s.id === id)?.name)
+                .filter(Boolean) as string[];
+              const sectorLabel = sectorNames.length === 1
+                ? ` in Sektor ${sectorNames[0]}`
+                : sectorNames.length > 1
+                  ? ` in Sektoren ${sectorNames.join(', ')}`
+                  : '';
               
-              // Create notification for each user
+              // Create notification for each user (one group notification per batch)
               const notificationPromises = users.map(async (user: { user_id: string }) => {
                 try {
-                  // Determine message based on count
+                  // Message: group notification, optionally with sector info
                   const message = successfulBoulderIds.length === 1
-                    ? `Ein neuer Boulder wurde hinzugefügt: ${boulderDetails[0]?.name || 'Unbenannt'}`
-                    : `${successfulBoulderIds.length} neue Boulder wurden hinzugefügt`;
+                    ? `Ein neuer Boulder wurde hinzugefügt: ${boulderDetails[0]?.name || 'Unbenannt'}${sectorLabel ? sectorLabel : ''}`
+                    : `${successfulBoulderIds.length} neue Boulder wurden hinzugefügt${sectorLabel}`;
                   
                   // Call create_notification RPC function
                   const createNotificationResponse = await fetch(
@@ -330,34 +350,34 @@ export const BatchUpload = () => {
                   
                   if (createNotificationResponse.ok) {
                     const notificationId = await createNotificationResponse.json();
-                    console.log(`[BatchUpload] ✅ Created notification ${notificationId} for user ${user.user_id}`);
+                    devLog(`[BatchUpload] ✅ Created notification ${notificationId} for user ${user.user_id}`);
                     
                     // Send push notification for this notification
                     if (notificationId) {
                       await sendPushNotificationForNotification(notificationId, session);
-                      console.log(`[BatchUpload] ✅ Sent push notification for notification ${notificationId}`);
+                      devLog(`[BatchUpload] ✅ Sent push notification for notification ${notificationId}`);
                     }
                     
                     return notificationId;
                   } else {
                     const errorText = await createNotificationResponse.text();
-                    console.error(`[BatchUpload] ❌ Error creating notification for user ${user.user_id}:`, errorText);
+                    devError(`[BatchUpload] ❌ Error creating notification for user ${user.user_id}:`, errorText);
                     return null;
                   }
                 } catch (error) {
-                  console.error(`[BatchUpload] ❌ Error creating notification for user ${user.user_id}:`, error);
+                  devError(`[BatchUpload] ❌ Error creating notification for user ${user.user_id}:`, error);
                   return null;
                 }
               });
               
               await Promise.all(notificationPromises);
-              console.log(`[BatchUpload] ✅ Batch notifications created and push notifications sent for ${successfulBoulderIds.length} boulders`);
+              devLog(`[BatchUpload] ✅ Batch notifications created and push notifications sent for ${successfulBoulderIds.length} boulders`);
             } else {
               const errorText = await usersResponse.text();
-              console.error('[BatchUpload] ❌ Error fetching users with boulder_new enabled:', errorText);
+              devError('[BatchUpload] ❌ Error fetching users with boulder_new enabled:', errorText);
             }
           } catch (error) {
-            console.error('[BatchUpload] ❌ Error creating batch notifications:', error);
+            devError('[BatchUpload] ❌ Error creating batch notifications:', error);
             // Don't show error to user - notifications are optional
           }
         }

@@ -54,15 +54,42 @@ export const useNotificationPreferences = () => {
       }
 
       const dataArray = await response.json();
-      const data = Array.isArray(dataArray) && dataArray.length > 0 ? dataArray[0] : null;
+      let data = Array.isArray(dataArray) && dataArray.length > 0 ? dataArray[0] : null;
 
-      // If no preferences exist, return null (component will use default values)
+      // If no preferences exist, create default row so new users get boulder_new etc. (BatchUpload queries boulder_new=eq.true)
       if (!data) {
-        console.log('[useNotificationPreferences] No preferences found, returning null');
-        return null;
+        const defaults = {
+          user_id: user.id,
+          in_app_enabled: true,
+          push_enabled: false,
+          boulder_new: true,
+          competition_update: true,
+          feedback_reply: true,
+          admin_announcement: true,
+          schedule_reminder: true,
+          updated_at: new Date().toISOString(),
+        };
+        const insertRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/notification_preferences`,
+          {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=representation',
+            },
+            body: JSON.stringify(defaults),
+          }
+        );
+        if (insertRes.ok) {
+          const inserted = await insertRes.json();
+          data = Array.isArray(inserted) ? inserted[0] : inserted;
+        }
+        // If 409 or error (e.g. race), leave data null and return null
       }
 
-      console.log('[useNotificationPreferences] Preferences loaded:', data);
+      if (!data) return null;
       return data as NotificationPreferences;
     },
     enabled: !!user && !!session,

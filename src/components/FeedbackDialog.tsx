@@ -78,7 +78,8 @@ export function FeedbackDialog({
         title: title.trim(),
         description: description.trim(),
         priority,
-        user_email: user?.email || undefined,
+        user_id: user?.id ?? undefined,
+        user_email: user?.email ?? undefined,
         screenshot_url: screenshotUrl,
       });
 
@@ -93,35 +94,25 @@ export function FeedbackDialog({
         onOpenChange(false);
       } else {
         console.error('[FeedbackDialog] Submit failed:', result.error);
-        // Check if it's a timeout or connection error - show reset dialog
-        const isTimeoutOrConnectionError = 
-          result.error?.toLowerCase().includes('timeout') ||
-          result.error?.toLowerCase().includes('verbindung') ||
-          result.error?.toLowerCase().includes('connection') ||
-          result.error?.toLowerCase().includes('network');
-        
-        if (isTimeoutOrConnectionError) {
-          // Show reset dialog instead of just error toast
-          setShowResetDialog(true);
-        } else {
-          toast.error(result.error || 'Fehler beim Senden des Feedbacks.');
-        }
+        const msg = result.error || 'Unbekannter Fehler';
+        toast.error(`Feedback konnte nicht gesendet werden: ${msg}. Bitte später erneut versuchen.`);
+        const isConnectionOrCache =
+          msg.toLowerCase().includes('timeout') ||
+          msg.toLowerCase().includes('verbindung') ||
+          msg.toLowerCase().includes('connection') ||
+          msg.toLowerCase().includes('network');
+        if (isConnectionOrCache) setShowResetDialog(true);
       }
     } catch (error: any) {
       console.error('[FeedbackDialog] Error submitting feedback:', error);
-      const errorMessage = error?.message || '';
-      const isTimeoutOrConnectionError = 
+      const errorMessage = error?.message || 'Unbekannter Fehler';
+      toast.error(`Feedback konnte nicht gesendet werden: ${errorMessage}. Bitte später erneut versuchen.`);
+      const isConnectionOrCache =
         errorMessage.toLowerCase().includes('timeout') ||
         errorMessage.toLowerCase().includes('verbindung') ||
         errorMessage.toLowerCase().includes('connection') ||
         errorMessage.toLowerCase().includes('network');
-      
-      if (isTimeoutOrConnectionError) {
-        // Show reset dialog instead of just error toast
-        setShowResetDialog(true);
-      } else {
-        toast.error(errorMessage || 'Fehler beim Senden des Feedbacks. Bitte versuche es erneut.');
-      }
+      if (isConnectionOrCache) setShowResetDialog(true);
     } finally {
       setIsSubmitting(false);
       setIsCapturingScreenshot(false);
@@ -148,7 +139,7 @@ export function FeedbackDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="w-full sm:max-w-lg max-h-[90vh] sm:max-h-[85vh] overflow-y-auto p-0 gap-0">
+      <DialogContent className="w-full sm:max-w-lg max-h-[90vh] sm:max-h-[85vh] overflow-y-auto p-0 gap-0" data-feedback-overlay>
         {/* Header */}
         <DialogHeader className="sticky top-0 z-10 bg-white border-b border-[#E7F7E9] px-4 sm:px-6 py-4 rounded-t-2xl">
           <div className="flex items-center justify-between">
@@ -315,15 +306,15 @@ export function FeedbackDialog({
       <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>App neustarten?</AlertDialogTitle>
+            <AlertDialogTitle>App-Zustand zurücksetzen?</AlertDialogTitle>
             <AlertDialogDescription>
-              Das Feedback konnte nicht gesendet werden. Dies kann ein Zeichen dafür sein, dass die App hängt oder nicht mehr richtig reagiert.
+              Die Verbindung hat nicht funktioniert. Wenn die App hängt oder nicht mehr reagiert, kannst du den App-Zustand zurücksetzen.
               <br />
               <br />
-              Möchtest du die App neustarten? Dies wird alle Caches löschen und die App neu laden. Deine Anmeldung bleibt erhalten.
+              Dies löscht Caches und lädt die App neu. Deine Anmeldung bleibt erhalten.
               <br />
               <br />
-              <strong>Verwende dies nur, wenn die App hängt oder nicht mehr reagiert.</strong>
+              <strong>Nur bei Verbindungs- oder Cache-Problemen verwenden.</strong>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

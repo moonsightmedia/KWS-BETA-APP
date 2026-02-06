@@ -75,11 +75,24 @@ import { PullToRefreshHandler } from '@/components/PullToRefreshHandler';
 import { SidebarProvider } from '@/components/SidebarContext';
 import { UploadOverview } from '@/components/UploadOverview';
 import { UploadProvider } from '@/contexts/UploadContext';
-import { initializeErrorHandler } from '@/utils/errorHandler';
+import { initializeErrorHandler, setErrorHandlerUserContext } from '@/utils/errorHandler';
 import { OnboardingProvider } from '@/components/Onboarding';
 import { RoleTabProvider } from '@/contexts/RoleTabContext';
 import { initializePushNotifications } from '@/utils/pushNotifications';
 import { EmergencyReset } from '@/components/EmergencyReset';
+
+// Wraps ErrorBoundary with user context from useAuth (for error reports when user is logged in)
+const ErrorBoundaryWithAuth = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth();
+  const userContext = user
+    ? { user_id: user.id, user_email: user.email ?? null }
+    : undefined;
+  return (
+    <ErrorBoundary userContext={userContext}>
+      {children}
+    </ErrorBoundary>
+  );
+};
 
 // Component to conditionally show Sidebar only for authenticated users
 const ConditionalSidebar = () => {
@@ -112,7 +125,14 @@ const Root = () => {
   useEffect(() => {
     initializeErrorHandler();
   }, []);
-  
+
+  // Pass user context to global error handler so reports from logged-in users include user_id/email
+  useEffect(() => {
+    setErrorHandlerUserContext(
+      user ? { user_id: user.id, user_email: user.email ?? null } : null
+    );
+  }, [user]);
+
   // Log when Root component is mounted
   useEffect(() => {
     console.log('[Root] Component mounted');
@@ -216,13 +236,15 @@ const Root = () => {
       <RoleTabProvider>
         <SidebarProvider>
           <UploadProvider>
-            <RouteLogger />
-            <PullToRefreshHandler />
-            <ConditionalSidebar />
-            <UploadOverview />
-            <EmergencyReset />
-          <Outlet />
-        </UploadProvider>
+            <ErrorBoundaryWithAuth>
+              <RouteLogger />
+              <PullToRefreshHandler />
+              <ConditionalSidebar />
+              <UploadOverview />
+              <EmergencyReset />
+              <Outlet />
+            </ErrorBoundaryWithAuth>
+          </UploadProvider>
       </SidebarProvider>
       </RoleTabProvider>
     </OnboardingProvider>

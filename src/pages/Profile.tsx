@@ -9,16 +9,16 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Sidebar } from '@/components/Sidebar';
 import { DashboardHeader } from '@/components/DashboardHeader';
-import { Trophy, Calendar, Award, Trash2, Info, RefreshCw, Bell, BellOff, Mountain, MessageSquare, Megaphone } from 'lucide-react';
+import { Trophy, Calendar, Award, Trash2, Info, RefreshCw, Bell, BellOff, Mountain, MessageSquare, Megaphone, Bug } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useNotificationPreferences, useUpdateNotificationPreferences } from '@/hooks/useNotificationPreferences';
 import { Capacitor } from '@capacitor/core';
-import { requestPermission, initializePushNotifications } from '@/utils/pushNotifications';
+import { requestPermission, initializePushNotifications, getPushPermissionStatus, deletePushTokensForUser, resetPushInitializationState, unregisterPushOnDevice } from '@/utils/pushNotifications';
 import { useCompetitionParticipant } from '@/hooks/useCompetitionParticipant';
 import { useCompetitionResults } from '@/hooks/useCompetitionResults';
 import { useCompetitionLeaderboard } from '@/hooks/useCompetitionLeaderboard';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { clearAllCaches } from '@/utils/cacheUtils';
 import { getVersionInfo, checkForUpdates } from '@/utils/version';
 import { useSidebar } from '@/components/SidebarContext';
@@ -38,10 +38,43 @@ const Profile = () => {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [hasUpdate, setHasUpdate] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [pushPermissionStatus, setPushPermissionStatus] = useState<'granted' | 'denied' | 'prompt' | null>(null);
   const versionInfo = getVersionInfo();
   
   // Notification preferences
   const { data: notificationPreferences } = useNotificationPreferences();
+  
+  // Push tokens (for debug card on native only)
+  const { data: pushTokensList } = useQuery({
+    queryKey: ['push_tokens', user?.id],
+    queryFn: async () => {
+      if (!user || !session) return [];
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (!SUPABASE_URL || !SUPABASE_KEY) return [];
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/push_tokens?user_id=eq.${user.id}&select=id,platform,created_at`,
+        {
+          method: 'GET',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!user && !!session && Capacitor.isNativePlatform(),
+  });
+  
+  // Load push permission status on native
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    getPushPermissionStatus().then(setPushPermissionStatus);
+  }, [notificationPreferences?.push_enabled]);
   const updateNotificationPreferences = useUpdateNotificationPreferences();
   
   // Competition data
@@ -543,7 +576,9 @@ const Profile = () => {
                                   if (Capacitor.isNativePlatform()) {
                                     console.log('[Profile] Initializing push notifications...');
                                     try {
-                                      await initializePushNotifications();
+                                      // Pass session so registerPushToken doesn't hang on getSession() when re-enabling
+                                      await initializePushNotifications(session ? { access_token: session.access_token, user: { id: user!.id } } : undefined);
+                                      queryClient.invalidateQueries({ queryKey: ['push_tokens', user?.id] });
                                       console.log('[Profile] Push notifications initialized successfully');
                                     } catch (initError) {
                                       console.error('[Profile] Error initializing push notifications:', initError);
@@ -569,6 +604,17 @@ const Profile = () => {
                           } else {
                             console.log('[Profile] Disabling push notifications...');
                             await updateNotificationPreferences.mutateAsync({ push_enabled: false });
+                            // Invalidate FCM token on device so next enable gets fresh token and fires 'registration' event
+                            await unregisterPushOnDevice();
+                            resetPushInitializationState();
+                            if (user?.id && session?.access_token) {
+                              try {
+                                await deletePushTokensForUser(user.id, session.access_token);
+                              } catch (_) {
+                                // Best-effort; preferences already updated
+                              }
+                              queryClient.invalidateQueries({ queryKey: ['push_tokens', user.id] });
+                            }
                             toast.success('Push-Benachrichtigungen deaktiviert');
                           }
                         }}
@@ -613,6 +659,41 @@ const Profile = () => {
                         <Info className="w-3 h-3" />
                         Push-Benachrichtigungen sind nur in nativen Apps verfügbar
                       </p>
+                    )}
+
+                    {/* Push-Status prüfen (nur auf dem Handy) */}
+                    {Capacitor.isNativePlatform() && (
+                      <div className="mt-3 p-3 rounded-xl border border-amber-200 bg-amber-50/80">
+                        <p className="text-sm font-medium text-[#13112B] flex items-center gap-2 mb-2">
+                          <Bug className="w-4 h-4 text-amber-600" />
+                          Push-Status prüfen
+                        </p>
+                        <ul className="text-xs text-[#13112B]/80 space-y-1">
+                          <li><strong>App-Version:</strong> {versionInfo.version} (Build: {versionInfo.buildDate})</li>
+                          <li><strong>Plattform:</strong> {Capacitor.getPlatform()}</li>
+                          <li><strong>Push-Berechtigung:</strong> {pushPermissionStatus === 'granted' ? '✓ Erlaubt' : pushPermissionStatus === 'denied' ? '✗ Verweigert' : pushPermissionStatus === 'prompt' ? 'Noch nicht gefragt' : '–'}</li>
+                          <li><strong>Push in Einstellungen:</strong> {notificationPreferences?.push_enabled ? '✓ Aktiviert' : '✗ Deaktiviert'}</li>
+                          <li><strong>Registrierte Geräte:</strong> {pushTokensList?.length ?? 0} Token(s)</li>
+                        </ul>
+                        <p className="text-xs text-[#13112B]/60 mt-2">
+                          Wenn alles ✓ ist und du trotzdem nichts bekommst: App aktualisieren (neuer Build), oder Admin → „Push-Benachrichtigungen Test“ nutzen.
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-2"
+                          onClick={async () => {
+                            const status = await getPushPermissionStatus();
+                            setPushPermissionStatus(status);
+                            queryClient.invalidateQueries({ queryKey: ['push_tokens', user?.id] });
+                            toast.success('Status aktualisiert');
+                          }}
+                        >
+                          <RefreshCw className="w-3 h-3 mr-1" />
+                          Status aktualisieren
+                        </Button>
+                      </div>
                     )}
 
                     {/* Benachrichtigungstypen */}

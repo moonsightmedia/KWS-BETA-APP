@@ -82,6 +82,7 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    dedupe: ['react', 'react-dom'],
   },
   build: {
     sourcemap: mode === 'development',
@@ -98,6 +99,7 @@ export default defineConfig(({ mode }) => ({
   },
   publicDir: 'public',
   optimizeDeps: {
+    include: ['react', 'react-dom'],
     // Exclude FFmpeg from pre-bundling as it uses WebAssembly
     exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
   },

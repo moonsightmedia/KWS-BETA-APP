@@ -18,6 +18,7 @@ import { getColorBackgroundStyle } from "@/utils/colorUtils";
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MutedVideo } from "@/components/MutedVideo";
 
 const DEFAULT_COLORS = ['Grün', 'Gelb', 'Blau', 'Orange', 'Rot', 'Schwarz', 'Weiß', 'Lila'];
 const DIFFICULTIES = [null, 1, 2, 3, 4, 5, 6, 7, 8]; // null = "?" (unknown/not rated)
@@ -188,10 +189,34 @@ export const BoulderManagement = () => {
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
-    await createBoulder.mutateAsync(formData);
-    
-    setIsDialogOpen(false);
-    resetForm();
+    const nameTrimmed = formData.name?.trim() ?? '';
+    if (!nameTrimmed) {
+      toast.error('Bitte gib einen Namen für den Boulder ein.');
+      return;
+    }
+    if (!formData.sector_id) {
+      toast.error('Bitte wähle einen Sektor.');
+      return;
+    }
+    if (!formData.color?.trim()) {
+      toast.error('Bitte wähle eine Farbe.');
+      return;
+    }
+
+    try {
+      await createBoulder.mutateAsync({
+        ...formData,
+        name: nameTrimmed,
+        sector_id: formData.sector_id,
+        color: formData.color.trim(),
+        difficulty: formData.difficulty ?? 1,
+        status: 'haengt',
+      });
+      setIsDialogOpen(false);
+      resetForm();
+    } catch {
+      // Error already shown by useCreateBoulder onError
+    }
   }, [formData, createBoulder, resetForm]);
 
   const handleDelete = async () => {
@@ -397,7 +422,7 @@ export const BoulderManagement = () => {
                 </div>
                 {formData.beta_video_url && (
                   <div className="mt-2 aspect-[9/16] w-full max-w-xs mx-auto rounded-lg overflow-hidden border">
-                    <video src={formData.beta_video_url} controls muted className="w-full h-full object-cover" playsInline />
+                    <MutedVideo src={formData.beta_video_url} className="w-full h-full object-cover" playsInline />
                   </div>
                 )}
               </div>

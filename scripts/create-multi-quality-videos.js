@@ -441,17 +441,22 @@ async function createMultiQualityVideos() {
     process.exit(1);
   }
   
-  // Filter: Process only boulders without quality versions (missing sd or low)
+  // Filter: Process boulders that are missing SD or Low quality versions
   const boulders = (allBoulders || []).filter(boulder => {
-    const hasQualities = boulder.beta_video_urls && (() => {
-      const q = typeof boulder.beta_video_urls === 'string' 
+    let qualityUrls = {};
+    if (boulder.beta_video_urls) {
+      qualityUrls = typeof boulder.beta_video_urls === 'string' 
         ? JSON.parse(boulder.beta_video_urls) 
         : boulder.beta_video_urls;
-      return !!(q.hd || q.sd || q.low);
-    })();
+    }
     
-    // Process if no qualities exist
-    return !hasQualities;
+    const hasHD = !!(qualityUrls.hd || boulder.beta_video_url);
+    const hasSD = !!qualityUrls.sd;
+    const hasLow = !!qualityUrls.low;
+    
+    // Process if HD exists but SD or Low is missing
+    // Also process if no qualities exist at all
+    return hasHD && (!hasSD || !hasLow);
   });
 
   if (!boulders || boulders.length === 0) {

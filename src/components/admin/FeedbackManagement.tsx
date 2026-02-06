@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -7,23 +7,37 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, startOfWeek, startOfMonth, isWithinInterval } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { 
-  MessageSquare, 
-  Bug, 
-  Lightbulb, 
-  AlertCircle, 
-  CheckCircle2, 
-  XCircle,
-  Clock,
+import {
+  MessageSquare,
+  Bug,
+  Lightbulb,
+  AlertCircle,
   ExternalLink,
   Eye,
-  Trash2
+  Trash2,
+  Pencil,
+  Check,
+  X,
+  ChevronDown,
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -73,12 +87,72 @@ const typeIcons: Record<FeedbackType, typeof MessageSquare> = {
   other: MessageSquare,
 };
 
+const statusLabels: Record<FeedbackStatus, string> = {
+  open: 'Offen',
+  in_progress: 'In Bearbeitung',
+  resolved: 'Gelöst',
+  closed: 'Geschlossen',
+};
+
+const typeLabels: Record<FeedbackType, string> = {
+  error: 'Fehler',
+  bug: 'Bug',
+  feature: 'Feature',
+  general: 'Allgemein',
+  other: 'Sonstiges',
+};
+
+const priorityLabels: Record<FeedbackPriority, string> = {
+  low: 'Niedrig',
+  medium: 'Mittel',
+  high: 'Hoch',
+  critical: 'Kritisch',
+};
+
+type GroupBy = 'none' | 'status' | 'type' | 'priority' | 'date';
+type SortOrder = 'newest' | 'oldest' | 'priority';
+
+function getDateGroupKey(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const thisWeek = startOfWeek(now, { weekStartsOn: 1 });
+  const lastWeek = new Date(thisWeek);
+  lastWeek.setDate(lastWeek.getDate() - 7);
+  if (isWithinInterval(d, { start: thisWeek, end: now })) return 'this_week';
+  if (isWithinInterval(d, { start: lastWeek, end: thisWeek })) return 'last_week';
+  const thisMonth = startOfMonth(now);
+  if (d >= thisMonth) return 'this_month';
+  const lastMonth = new Date(thisMonth.getFullYear(), thisMonth.getMonth() - 1, 1);
+  if (d >= lastMonth) return 'last_month';
+  return 'older';
+}
+
+const dateGroupLabels: Record<string, string> = {
+  this_week: 'Diese Woche',
+  last_week: 'Letzte Woche',
+  this_month: 'Dieser Monat',
+  last_month: 'Letzter Monat',
+  older: 'Älter',
+};
+
 export const FeedbackManagement = () => {
   const queryClient = useQueryClient();
   const { user, session, loading: authLoading } = useAuth();
   const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null);
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<FeedbackType | 'all'>('all');
+  const [groupBy, setGroupBy] = useState<GroupBy>('none');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<string[] | null>(null);
+  const [bulkStatusValue, setBulkStatusValue] = useState<FeedbackStatus>('open');
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [editForm, setEditForm] = useState<{ title: string; description: string; type: FeedbackType }>({
+    title: '',
+    description: '',
+    type: 'general',
+  });
 
   const queriesEnabled = !authLoading && !!user && !!session;
 
@@ -179,22 +253,255 @@ export const FeedbackManagement = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('feedback')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const accessToken = session?.access_token;
+      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || !accessToken) {
+        throw new Error('Supabase oder Session nicht verfügbar');
+      }
+      const url = `${SUPABASE_URL}/rest/v1/feedback?id=eq.${id}`;
+      const res = await window.fetch(url, {
+        method: 'DELETE',
+        headers: {
+          apikey: SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Löschen fehlgeschlagen: ${res.status} ${text}`);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-feedback'] });
       toast.success('Feedback gelöscht');
       setSelectedFeedback(null);
+      setDeleteConfirmId(null);
     },
     onError: (error: any) => {
-      toast.error('Fehler beim Löschen: ' + error.message);
+      toast.error('Fehler beim Löschen: ' + (error?.message ?? error));
     },
   });
+
+  const updateFeedbackMutation = useMutation({
+    mutationFn: async ({
+      id,
+      title,
+      description,
+      type,
+    }: {
+      id: string;
+      title: string;
+      description: string;
+      type: FeedbackType;
+    }) => {
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const accessToken = session?.access_token ?? SUPABASE_PUBLISHABLE_KEY;
+      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+        throw new Error('Supabase-Konfiguration fehlt');
+      }
+      const url = `${SUPABASE_URL}/rest/v1/feedback?id=eq.${id}`;
+      const res = await window.fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${accessToken}`,
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim(),
+          type,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || res.statusText);
+      }
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-feedback'] });
+      setSelectedFeedback((prev) =>
+        prev && prev.id === variables.id
+          ? {
+              ...prev,
+              title: variables.title.trim(),
+              description: variables.description.trim(),
+              type: variables.type,
+              updated_at: new Date().toISOString(),
+            }
+          : prev
+      );
+      setIsEditing(false);
+      toast.success('Feedback aktualisiert');
+    },
+    onError: (error: any) => {
+      toast.error('Fehler beim Speichern: ' + error.message);
+    },
+  });
+
+  const BULK_DELETE_CHUNK_SIZE = 50;
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (ids.length === 0) return;
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const accessToken = session?.access_token;
+      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || !accessToken) {
+        throw new Error('Supabase oder Session nicht verfügbar');
+      }
+      // Chunk IDs to avoid URL length limit (e.g. 2048) – one DELETE per chunk
+      for (let i = 0; i < ids.length; i += BULK_DELETE_CHUNK_SIZE) {
+        const chunk = ids.slice(i, i + BULK_DELETE_CHUNK_SIZE);
+        const filter = chunk.join(',');
+        const url = `${SUPABASE_URL}/rest/v1/feedback?id=in.(${filter})`;
+        const res = await window.fetch(url, {
+          method: 'DELETE',
+          headers: {
+            apikey: SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=minimal',
+          },
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Löschen fehlgeschlagen: ${res.status} ${text}`);
+        }
+      }
+    },
+    onSuccess: (_, ids) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-feedback'] });
+      setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)));
+      setBulkDeleteIds(null);
+      toast.success(`${ids.length} Feedback-Einträge gelöscht`);
+    },
+    onError: (error: any) => {
+      toast.error('Fehler beim Löschen: ' + (error?.message ?? error));
+    },
+  });
+
+  const bulkStatusMutation = useMutation({
+    mutationFn: async ({ ids, status }: { ids: string[]; status: FeedbackStatus }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const updateData: Record<string, unknown> = {
+        status,
+        updated_at: new Date().toISOString(),
+      };
+      if (status === 'resolved') {
+        updateData.resolved_at = new Date().toISOString();
+        updateData.resolved_by = user?.id ?? null;
+      }
+      const { error } = await supabase
+        .from('feedback')
+        .update(updateData)
+        .in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-feedback'] });
+      toast.success('Status aktualisiert');
+    },
+    onError: (error: any) => {
+      toast.error('Fehler beim Aktualisieren: ' + error.message);
+    },
+  });
+
+  const sortedFeedbacks = useMemo(() => {
+    if (!feedbacks) return [];
+    const list = [...feedbacks];
+    if (sortOrder === 'newest') {
+      list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    } else if (sortOrder === 'oldest') {
+      list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    } else {
+      const prioOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+      list.sort(
+        (a, b) =>
+          prioOrder[a.priority] - prioOrder[b.priority] ||
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    }
+    return list;
+  }, [feedbacks, sortOrder]);
+
+  const groupedFeedbacks = useMemo((): { key: string; label: string; items: Feedback[] }[] => {
+    if (groupBy === 'none') {
+      return [{ key: 'all', label: 'Alle', items: sortedFeedbacks }];
+    }
+    const groups = new Map<string, Feedback[]>();
+    for (const f of sortedFeedbacks) {
+      let key: string;
+      if (groupBy === 'status') key = f.status;
+      else if (groupBy === 'type') key = f.type;
+      else if (groupBy === 'priority') key = f.priority;
+      else key = getDateGroupKey(f.created_at);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(f);
+    }
+    const labels =
+      groupBy === 'status'
+        ? statusLabels
+        : groupBy === 'type'
+          ? typeLabels
+          : groupBy === 'priority'
+            ? priorityLabels
+            : dateGroupLabels;
+    const order =
+      groupBy === 'status'
+        ? (['open', 'in_progress', 'resolved', 'closed'] as const)
+        : groupBy === 'type'
+          ? (['error', 'bug', 'feature', 'general', 'other'] as const)
+          : groupBy === 'priority'
+            ? (['critical', 'high', 'medium', 'low'] as const)
+            : (['this_week', 'last_week', 'this_month', 'last_month', 'older'] as const);
+    return order
+      .filter((k) => groups.has(k))
+      .map((k) => ({ key: k, label: labels[k] ?? k, items: groups.get(k)! }));
+  }, [sortedFeedbacks, groupBy]);
+
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const allVisibleIds = useMemo(() => sortedFeedbacks.map((f) => f.id), [sortedFeedbacks]);
+  const isAllSelected =
+    sortedFeedbacks.length > 0 && allVisibleIds.every((id) => selectedSet.has(id));
+  const isSomeSelected = selectedIds.length > 0;
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+  const toggleSelectAll = () => {
+    if (isAllSelected) setSelectedIds([]);
+    else setSelectedIds([...allVisibleIds]);
+  };
+  const clearSelection = () => setSelectedIds([]);
+
+  const handleOpenDetail = (feedback: Feedback, openInEditMode = false) => {
+    setSelectedFeedback(feedback);
+    setEditForm({ title: feedback.title, description: feedback.description, type: feedback.type });
+    setIsEditing(openInEditMode);
+  };
+
+  const handleSaveEdit = () => {
+    if (!selectedFeedback) return;
+    if (!editForm.title.trim()) {
+      toast.error('Titel darf nicht leer sein.');
+      return;
+    }
+    updateFeedbackMutation.mutate({
+      id: selectedFeedback.id,
+      title: editForm.title,
+      description: editForm.description,
+      type: editForm.type,
+    });
+  };
 
   if (isLoading) {
     return (
@@ -269,6 +576,36 @@ export const FeedbackManagement = () => {
           </Select>
         </div>
 
+        <div className="space-y-2 flex-1">
+          <Label className="text-sm font-medium text-[#13112B]">Gruppierung</Label>
+          <Select value={groupBy} onValueChange={(v) => setGroupBy(v as GroupBy)}>
+            <SelectTrigger className="w-full h-11 rounded-xl border-[#E7F7E9]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border-[#E7F7E9]">
+              <SelectItem value="none">Keine</SelectItem>
+              <SelectItem value="status">Nach Status</SelectItem>
+              <SelectItem value="type">Nach Typ</SelectItem>
+              <SelectItem value="priority">Nach Priorität</SelectItem>
+              <SelectItem value="date">Nach Datum</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2 flex-1">
+          <Label className="text-sm font-medium text-[#13112B]">Sortierung</Label>
+          <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as SortOrder)}>
+            <SelectTrigger className="w-full h-11 rounded-xl border-[#E7F7E9]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border-[#E7F7E9]">
+              <SelectItem value="newest">Neueste zuerst</SelectItem>
+              <SelectItem value="oldest">Älteste zuerst</SelectItem>
+              <SelectItem value="priority">Nach Priorität</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <Button
           variant="outline"
           className="h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] w-full sm:w-auto"
@@ -278,12 +615,63 @@ export const FeedbackManagement = () => {
         </Button>
       </div>
 
+      {/* Bulk action bar */}
+      {isSomeSelected && (
+        <Card className="bg-[#E7F7E9]/30 border border-[#E7F7E9] rounded-xl">
+          <CardContent className="p-3 flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium text-[#13112B]">
+              {selectedIds.length} ausgewählt
+            </span>
+            <Select
+              value={bulkStatusValue}
+              onValueChange={(v) => setBulkStatusValue(v as FeedbackStatus)}
+            >
+              <SelectTrigger className="h-9 w-[180px] rounded-xl border-[#E7F7E9]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-[#E7F7E9]">
+                <SelectItem value="open">Offen</SelectItem>
+                <SelectItem value="in_progress">In Bearbeitung</SelectItem>
+                <SelectItem value="resolved">Gelöst</SelectItem>
+                <SelectItem value="closed">Geschlossen</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              className="h-9 rounded-xl bg-[#36B531] hover:bg-[#2d9a29]"
+              onClick={() => bulkStatusMutation.mutate({ ids: selectedIds, status: bulkStatusValue })}
+              disabled={bulkStatusMutation.isPending}
+            >
+              Status setzen
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 rounded-xl border-red-200 text-destructive hover:bg-red-50"
+              onClick={() => setBulkDeleteIds([...selectedIds])}
+            >
+              Ausgewählte löschen
+            </Button>
+            <Button variant="ghost" size="sm" className="h-9 rounded-xl" onClick={clearSelection}>
+              Auswahl aufheben
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Desktop Table */}
       <div className="hidden md:block border border-[#E7F7E9] rounded-xl bg-white overflow-hidden shadow-sm">
         <ScrollArea className="h-[600px]">
           <Table>
             <TableHeader>
               <TableRow className="border-b border-[#E7F7E9]">
+                <TableHead className="w-12 pr-0">
+                  <Checkbox
+                    checked={isAllSelected}
+                    onCheckedChange={toggleSelectAll}
+                    aria-label="Alle auswählen"
+                  />
+                </TableHead>
                 <TableHead className="text-[#13112B] font-medium">Typ</TableHead>
                 <TableHead className="text-[#13112B] font-medium">Titel</TableHead>
                 <TableHead className="text-[#13112B] font-medium">Status</TableHead>
@@ -294,77 +682,101 @@ export const FeedbackManagement = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {feedbacks?.length === 0 ? (
+              {sortedFeedbacks.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-[#13112B]/60 py-8">
+                  <TableCell colSpan={8} className="text-center text-[#13112B]/60 py-8">
                     Kein Feedback gefunden
                   </TableCell>
                 </TableRow>
               ) : (
-                feedbacks?.map((feedback) => {
-                  const TypeIcon = typeIcons[feedback.type];
-                  return (
-                    <TableRow key={feedback.id} className="border-b border-[#E7F7E9]">
-                      <TableCell className="text-[#13112B]">
-                        <div className="flex items-center gap-2">
-                          <TypeIcon className="h-4 w-4" />
-                          <span className="capitalize">{feedback.type}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-[#13112B]">
-                        <div className="max-w-[300px] truncate" title={feedback.title}>
-                          {feedback.title}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`${statusColors[feedback.status]} rounded-xl text-white`}>
-                          {feedback.status === 'open' && 'Offen'}
-                          {feedback.status === 'in_progress' && 'In Bearbeitung'}
-                          {feedback.status === 'resolved' && 'Gelöst'}
-                          {feedback.status === 'closed' && 'Geschlossen'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`${priorityColors[feedback.priority]} rounded-xl text-white`}>
-                          {feedback.priority === 'low' && 'Niedrig'}
-                          {feedback.priority === 'medium' && 'Mittel'}
-                          {feedback.priority === 'high' && 'Hoch'}
-                          {feedback.priority === 'critical' && 'Kritisch'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-[#13112B]/60">
-                        <div className="text-sm">
-                          {feedback.user_email || 'Gast'}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-[#13112B]/60">
-                        <div className="text-sm">
-                          {format(new Date(feedback.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-9 rounded-xl hover:bg-[#E7F7E9]"
-                            onClick={() => setSelectedFeedback(feedback)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-9 rounded-xl hover:bg-red-50 text-destructive"
-                            onClick={() => deleteMutation.mutate(feedback.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
+                groupedFeedbacks.map((group) => (
+                  <React.Fragment key={group.key}>
+                    {groupBy !== 'none' && (
+                      <TableRow className="bg-[#F9FAF9] border-b border-[#E7F7E9]">
+                        <TableCell colSpan={8} className="py-2">
+                          <span className="font-medium text-[#13112B] flex items-center gap-2">
+                            <ChevronDown className="h-4 w-4" />
+                            {group.label} ({group.items.length})
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {group.items.map((feedback) => {
+                      const TypeIcon = typeIcons[feedback.type];
+                      return (
+                        <TableRow key={feedback.id} className="border-b border-[#E7F7E9]">
+                          <TableCell className="w-12 pr-0" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              checked={selectedSet.has(feedback.id)}
+                              onCheckedChange={() => toggleSelect(feedback.id)}
+                              aria-label={`${feedback.title} auswählen`}
+                            />
+                          </TableCell>
+                          <TableCell className="text-[#13112B]">
+                            <div className="flex items-center gap-2">
+                              <TypeIcon className="h-4 w-4" />
+                              <span>{typeLabels[feedback.type]}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-[#13112B]">
+                            <div className="max-w-[300px] truncate" title={feedback.title}>
+                              {feedback.title}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={`${statusColors[feedback.status]} rounded-xl text-white`}>
+                              {statusLabels[feedback.status]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={`${priorityColors[feedback.priority]} rounded-xl text-white`}>
+                              {priorityLabels[feedback.priority]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-[#13112B]/60">
+                            <div className="text-sm">{feedback.user_email || 'Gast'}</div>
+                          </TableCell>
+                          <TableCell className="text-[#13112B]/60">
+                            <div className="text-sm">
+                              {format(new Date(feedback.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-9 rounded-xl hover:bg-[#E7F7E9]"
+                                onClick={() => handleOpenDetail(feedback)}
+                                title="Details anzeigen"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-9 rounded-xl hover:bg-[#E7F7E9]"
+                                onClick={() => handleOpenDetail(feedback, true)}
+                                title="Bearbeiten"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-9 rounded-xl hover:bg-red-50 text-destructive"
+                                onClick={() => setDeleteConfirmId(feedback.id)}
+                                title="Löschen"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </React.Fragment>
+                ))
               )}
             </TableBody>
           </Table>
@@ -373,97 +785,194 @@ export const FeedbackManagement = () => {
 
       {/* Mobile Card View */}
       <div className="md:hidden space-y-3 w-full min-w-0">
-        {feedbacks?.length === 0 ? (
+        {sortedFeedbacks.length > 0 && (
+          <div className="flex items-center gap-2 px-1">
+            <Checkbox
+              checked={isAllSelected}
+              onCheckedChange={toggleSelectAll}
+              aria-label="Alle auswählen"
+            />
+            <button
+              type="button"
+              className="text-sm font-medium text-[#36B531] hover:underline"
+              onClick={toggleSelectAll}
+            >
+              {isAllSelected ? 'Auswahl aufheben' : 'Alle auswählen'}
+            </button>
+          </div>
+        )}
+        {sortedFeedbacks.length === 0 ? (
           <Card className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
             <CardContent className="p-8 text-center text-[#13112B]/60">
               Kein Feedback gefunden
             </CardContent>
           </Card>
         ) : (
-          feedbacks?.map((feedback) => {
-            const TypeIcon = typeIcons[feedback.type];
-            return (
-              <Card 
-                key={feedback.id} 
-                className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer"
-                onClick={() => setSelectedFeedback(feedback)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <TypeIcon className="h-5 w-5 text-[#13112B] flex-shrink-0" />
-                      <h3 className="font-semibold text-base text-[#13112B] truncate">{feedback.title}</h3>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge className={`${statusColors[feedback.status]} rounded-xl text-white text-xs`}>
-                        {feedback.status === 'open' && 'Offen'}
-                        {feedback.status === 'in_progress' && 'In Bearbeitung'}
-                        {feedback.status === 'resolved' && 'Gelöst'}
-                        {feedback.status === 'closed' && 'Geschlossen'}
-                      </Badge>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    <Badge className={`${priorityColors[feedback.priority]} rounded-xl text-white text-xs`}>
-                      {feedback.priority === 'low' && 'Niedrig'}
-                      {feedback.priority === 'medium' && 'Mittel'}
-                      {feedback.priority === 'high' && 'Hoch'}
-                      {feedback.priority === 'critical' && 'Kritisch'}
-                    </Badge>
-                    <span className="text-xs text-[#13112B]/60 capitalize">{feedback.type}</span>
-                  </div>
+          groupedFeedbacks.map((group) => (
+            <div key={group.key} className="space-y-3">
+              {groupBy !== 'none' && (
+                <h3 className="text-sm font-medium text-[#13112B]/80 flex items-center gap-2 px-1">
+                  <ChevronDown className="h-4 w-4" />
+                  {group.label} ({group.items.length})
+                </h3>
+              )}
+              {group.items.map((feedback) => {
+                const TypeIcon = typeIcons[feedback.type];
+                return (
+                  <Card
+                    key={feedback.id}
+                    className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer"
+                    onClick={() => handleOpenDetail(feedback)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div
+                          className="flex items-center gap-2 flex-1 min-w-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Checkbox
+                            checked={selectedSet.has(feedback.id)}
+                            onCheckedChange={() => toggleSelect(feedback.id)}
+                            aria-label={`${feedback.title} auswählen`}
+                          />
+                          <TypeIcon className="h-5 w-5 text-[#13112B] flex-shrink-0" />
+                          <h3 className="font-semibold text-base text-[#13112B] truncate">{feedback.title}</h3>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Badge className={`${statusColors[feedback.status]} rounded-xl text-white text-xs`}>
+                            {statusLabels[feedback.status]}
+                          </Badge>
+                        </div>
+                      </div>
 
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="text-[#13112B]/60 truncate flex-1 min-w-0">
-                      {feedback.user_email || 'Gast'}
-                    </div>
-                    <div className="text-[#13112B]/60 flex-shrink-0 ml-2">
-                      {format(new Date(feedback.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
-                    </div>
-                  </div>
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                        <Badge className={`${priorityColors[feedback.priority]} rounded-xl text-white text-xs`}>
+                          {priorityLabels[feedback.priority]}
+                        </Badge>
+                        <span className="text-xs text-[#13112B]/60">{typeLabels[feedback.type]}</span>
+                      </div>
 
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#E7F7E9]">
-                    <Button
-                      variant="outline"
-                      className="flex-1 h-10 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedFeedback(feedback);
-                      }}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Details
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-10 w-10 rounded-xl border-[#E7F7E9] hover:bg-red-50 text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteMutation.mutate(feedback.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="text-[#13112B]/60 truncate flex-1 min-w-0">
+                          {feedback.user_email || 'Gast'}
+                        </div>
+                        <div className="text-[#13112B]/60 flex-shrink-0 ml-2">
+                          {format(new Date(feedback.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#E7F7E9]">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 h-10 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDetail(feedback);
+                          }}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          Details
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-10 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDetail(feedback, true);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Bearbeiten
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-10 w-10 rounded-xl border-[#E7F7E9] hover:bg-red-50 text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirmId(feedback.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ))
         )}
       </div>
 
+      {/* Single delete confirmation */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <AlertDialogContent className="rounded-2xl border-[#E7F7E9]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-[#13112B]">Feedback löschen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dieses Feedback wird unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteConfirmId && deleteMutation.mutate(deleteConfirmId)}
+            >
+              Löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk delete confirmation */}
+      <AlertDialog open={!!bulkDeleteIds?.length} onOpenChange={(open) => !open && setBulkDeleteIds(null)}>
+        <AlertDialogContent className="rounded-2xl border-[#E7F7E9]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-[#13112B]">
+              {bulkDeleteIds?.length} Feedback-Einträge löschen?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Die ausgewählten Einträge werden unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() =>
+                bulkDeleteIds?.length &&
+                bulkDeleteMutation.mutate(bulkDeleteIds)
+              }
+            >
+              Alle löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Detail Dialog */}
       {selectedFeedback && (
-        <Dialog open={!!selectedFeedback} onOpenChange={() => setSelectedFeedback(null)}>
+        <Dialog
+          open={!!selectedFeedback}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedFeedback(null);
+              setIsEditing(false);
+            }
+          }}
+        >
           <DialogContent className="sm:max-w-[700px] p-0 gap-0 max-h-[90vh] overflow-y-auto">
             <DialogHeader className="px-6 pt-6 pb-4">
               <DialogTitle className="flex items-center gap-2 text-xl font-heading font-bold text-[#13112B]">
                 {(() => {
-                  const TypeIcon = typeIcons[selectedFeedback.type];
-                  return <TypeIcon className="h-5 w-5" />;
+                  const TypeIcon = typeIcons[isEditing ? editForm.type : selectedFeedback.type];
+                  return <TypeIcon className="h-5 w-5 flex-shrink-0" />;
                 })()}
-                {selectedFeedback.title}
+                <span className="truncate">{isEditing ? 'Feedback bearbeiten' : selectedFeedback.title}</span>
               </DialogTitle>
               <DialogDescription className="text-sm text-[#13112B]/60">
                 Feedback vom {format(new Date(selectedFeedback.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
@@ -471,6 +980,56 @@ export const FeedbackManagement = () => {
             </DialogHeader>
 
             <div className="space-y-4 px-6 pb-6">
+              {/* Edit bar: Bearbeiten / Speichern / Abbrechen */}
+              <div className="flex items-center gap-2">
+                {!isEditing ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
+                    onClick={() => {
+                      setEditForm({
+                        title: selectedFeedback.title,
+                        description: selectedFeedback.description,
+                        type: selectedFeedback.type,
+                      });
+                      setIsEditing(true);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Bearbeiten
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      className="h-9 rounded-xl bg-[#36B531] hover:bg-[#2d9a29]"
+                      onClick={handleSaveEdit}
+                      disabled={updateFeedbackMutation.isPending}
+                    >
+                      <Check className="h-4 w-4 mr-2" />
+                      Speichern
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 rounded-xl border-[#E7F7E9]"
+                      onClick={() => {
+                        setEditForm({
+                          title: selectedFeedback.title,
+                          description: selectedFeedback.description,
+                          type: selectedFeedback.type,
+                        });
+                        setIsEditing(false);
+                      }}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Abbrechen
+                    </Button>
+                  </>
+                )}
+              </div>
+
               {/* Status and Priority Controls */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -514,12 +1073,60 @@ export const FeedbackManagement = () => {
                 </div>
               </div>
 
+              {/* Title (editable when isEditing) */}
+              {isEditing && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-[#13112B]">Titel</Label>
+                  <Input
+                    value={editForm.title}
+                    onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                    className="h-11 rounded-xl border-[#E7F7E9]"
+                    placeholder="Titel"
+                  />
+                </div>
+              )}
+
+              {/* Type (editable when isEditing) */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-[#13112B]">Typ</Label>
+                {isEditing ? (
+                  <Select
+                    value={editForm.type}
+                    onValueChange={(value) => setEditForm((f) => ({ ...f, type: value as FeedbackType }))}
+                  >
+                    <SelectTrigger className="h-11 rounded-xl border-[#E7F7E9]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-[#E7F7E9]">
+                      <SelectItem value="error">Fehler</SelectItem>
+                      <SelectItem value="bug">Bug</SelectItem>
+                      <SelectItem value="feature">Feature</SelectItem>
+                      <SelectItem value="general">Allgemein</SelectItem>
+                      <SelectItem value="other">Sonstiges</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="border border-[#E7F7E9] rounded-xl p-3 bg-[#F9FAF9] text-sm text-[#13112B]">
+                    {typeLabels[selectedFeedback.type]}
+                  </div>
+                )}
+              </div>
+
               {/* Description */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-[#13112B]">Beschreibung</Label>
-                <div className="border border-[#E7F7E9] rounded-xl p-4 bg-[#F9FAF9] whitespace-pre-wrap text-sm text-[#13112B]">
-                  {selectedFeedback.description}
-                </div>
+                {isEditing ? (
+                  <Textarea
+                    value={editForm.description}
+                    onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                    className="min-h-[120px] rounded-xl border-[#E7F7E9]"
+                    placeholder="Beschreibung"
+                  />
+                ) : (
+                  <div className="border border-[#E7F7E9] rounded-xl p-4 bg-[#F9FAF9] whitespace-pre-wrap text-sm text-[#13112B]">
+                    {selectedFeedback.description}
+                  </div>
+                )}
               </div>
 
               {/* Screenshot */}
