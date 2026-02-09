@@ -112,7 +112,7 @@ export const CategoryChart = () => {
           <p className="text-xs text-muted-foreground">Aktuelle Verteilung</p>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pr-4 md:pr-10">
         <div className="flex flex-col xl:flex-row items-center xl:items-center justify-between gap-6 xl:gap-8 max-w-full">
           <div className="flex-shrink-0 mx-auto w-[180px]">
             <ResponsiveContainer width="100%" aspect={1}>
@@ -134,7 +134,7 @@ export const CategoryChart = () => {
             </ResponsiveContainer>
           </div>
 
-          <div className="flex-1 w-full xl:max-w-[220px] space-y-3">
+          <div className="flex-1 w-full xl:max-w-[220px] min-w-0 space-y-3">
             {chartData.map((item, index) => (
               <div key={index} className="flex items-center justify-between text-sm gap-2">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -146,7 +146,7 @@ export const CategoryChart = () => {
                     {item.name}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1 flex-shrink-0 tabular-nums">
                   <span className="font-medium">{item.value}%</span>
                   <span className="text-xs text-muted-foreground">({item.count})</span>
                 </div>

@@ -317,7 +317,7 @@ const Index = () => {
       <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
         <DashboardHeader />
         
-        <main className="flex-1 p-4 md:p-8 overflow-x-hidden">
+        <main className="flex-1 p-4 md:p-8 pr-6 md:pr-12 overflow-x-hidden">
           {/* Welcome Section */}
           <div className="mb-8">
             <div className="mb-2">

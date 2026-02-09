@@ -184,9 +184,9 @@ const Auth = () => {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-4 bg-[#F9FAF9] p-1 rounded-xl">
-                <TabsTrigger value="login" className="h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Anmelden</TabsTrigger>
-                <TabsTrigger value="signup" className="h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Registrieren</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 gap-1 mb-4 bg-[#F9FAF9] p-1.5 rounded-xl">
+                <TabsTrigger value="login" className="h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white min-w-0">Anmelden</TabsTrigger>
+                <TabsTrigger value="signup" className="h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white min-w-0">Registrieren</TabsTrigger>
               </TabsList>
               
               <TabsContent value="login" className="mt-0">
@@ -255,7 +255,7 @@ const Auth = () => {
               
               <TabsContent value="signup" className="mt-0">
                 <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label htmlFor="signup-firstname" className="text-sm font-medium text-[#13112B]">Vorname</Label>
                       <Input 
@@ -278,60 +278,61 @@ const Auth = () => {
                         className="h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-[#13112B]">Geburtsdatum</Label>
-                      <div className="grid grid-cols-3 gap-2">
-                        <Select value={birthDay} onValueChange={setBirthDay}>
-                          <SelectTrigger className="h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]">
-                            <SelectValue placeholder="Tag" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.from({ length: validDays }, (_, i) => i + 1).map((day) => (
-                              <SelectItem key={day} value={day.toString()}>
-                                {day}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select value={birthMonth} onValueChange={handleMonthChange}>
-                          <SelectTrigger className="h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]">
-                            <SelectValue placeholder="Monat" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {[
-                              { value: '1', label: 'Januar' },
-                              { value: '2', label: 'Februar' },
-                              { value: '3', label: 'März' },
-                              { value: '4', label: 'April' },
-                              { value: '5', label: 'Mai' },
-                              { value: '6', label: 'Juni' },
-                              { value: '7', label: 'Juli' },
-                              { value: '8', label: 'August' },
-                              { value: '9', label: 'September' },
-                              { value: '10', label: 'Oktober' },
-                              { value: '11', label: 'November' },
-                              { value: '12', label: 'Dezember' },
-                            ].map((month) => (
-                              <SelectItem key={month.value} value={month.value}>
-                                {month.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select value={birthYear} onValueChange={handleYearChange}>
-                          <SelectTrigger className="h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]">
-                            <SelectValue placeholder="Jahr" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.from({ length: new Date().getFullYear() - 1899 }, (_, i) => new Date().getFullYear() - i).map((year) => (
-                              <SelectItem key={year} value={year.toString()}>
-                                {year}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-[#13112B]">Geburtsdatum</Label>
+                    <div className="grid grid-cols-3 gap-3 sm:grid-cols-[minmax(4rem,1fr)_minmax(6rem,1.4fr)_minmax(4.5rem,1fr)]">
+                      <Select value={birthDay} onValueChange={setBirthDay}>
+                        <SelectTrigger className="h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] min-w-[4rem] [&>span]:line-clamp-none [&>span]:text-left">
+                          <SelectValue placeholder="Tag" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: validDays }, (_, i) => i + 1).map((day) => (
+                            <SelectItem key={day} value={day.toString()}>
+                              {day}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={birthMonth} onValueChange={handleMonthChange}>
+                        <SelectTrigger className="h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] min-w-[6rem] [&>span]:line-clamp-none [&>span]:text-left">
+                          <SelectValue placeholder="Monat" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[
+                            { value: '1', label: 'Januar' },
+                            { value: '2', label: 'Februar' },
+                            { value: '3', label: 'März' },
+                            { value: '4', label: 'April' },
+                            { value: '5', label: 'Mai' },
+                            { value: '6', label: 'Juni' },
+                            { value: '7', label: 'Juli' },
+                            { value: '8', label: 'August' },
+                            { value: '9', label: 'September' },
+                            { value: '10', label: 'Oktober' },
+                            { value: '11', label: 'November' },
+                            { value: '12', label: 'Dezember' },
+                          ].map((month) => (
+                            <SelectItem key={month.value} value={month.value}>
+                              {month.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={birthYear} onValueChange={handleYearChange}>
+                        <SelectTrigger className="h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] min-w-[4.5rem] [&>span]:line-clamp-none [&>span]:text-left">
+                          <SelectValue placeholder="Jahr" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: new Date().getFullYear() - 1899 }, (_, i) => new Date().getFullYear() - i).map((year) => (
+                            <SelectItem key={year} value={year.toString()}>
+                              {year}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
+                    <p className="text-xs text-[#13112B]/60">Tag, Monat und Jahr auswählen</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-email" className="text-sm font-medium text-[#13112B]">E-Mail</Label>

@@ -252,20 +252,31 @@
                 });
                 
                 // Handle Request objects properly - don't try to clone if already used
+                // CRITICAL FIX for Firefox: Preserve body correctly
                 let request;
                 if (input instanceof Request) {
-                  // If input is already a Request, we need to extract the URL and create a new one
-                  // But we can't clone a used Request, so we extract the URL and create fresh
-                  // Get body if it exists (but only if not already consumed)
-                  let body = null;
-                  if (input.body && !input.bodyUsed) {
-                    body = await input.clone().arrayBuffer().catch(() => null);
+                  // CRITICAL: Use body from init first (Supabase puts it there)
+                  // Only fall back to extracting from Request if init.body is not available
+                  let body = requestInit.body;
+                  
+                  // If body is not in init and Request body hasn't been consumed, extract it
+                  if (!body && input.body && !input.bodyUsed) {
+                    try {
+                      // Clone the request to read the body without consuming the original
+                      const cloned = input.clone();
+                      body = cloned.body; // Use the body stream directly, don't read it
+                    } catch (e) {
+                      // If cloning fails, body might be a stream or already consumed
+                      body = null;
+                    }
                   }
                   
+                  // CRITICAL: For Firefox, we must use the URL as string and pass body explicitly
+                  // Creating a new Request from a Request object doesn't preserve body in Firefox
                   request = new Request(input.url, {
                     method: method,
                     headers: finalHeaders,
-                    body: body || requestInit.body,
+                    body: body, // Explicitly set body for Firefox compatibility
                     cache: requestInit.cache || input.cache,
                     credentials: requestInit.credentials || input.credentials,
                     mode: requestInit.mode || input.mode,
@@ -273,6 +284,8 @@
                     referrer: requestInit.referrer || input.referrer,
                     referrerPolicy: requestInit.referrerPolicy || input.referrerPolicy,
                     integrity: requestInit.integrity || input.integrity,
+                    keepalive: requestInit.keepalive || input.keepalive,
+                    signal: requestInit.signal || input.signal,
                   });
                 } else {
                   request = new Request(input, requestInit);

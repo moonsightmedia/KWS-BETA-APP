@@ -64,20 +64,52 @@ window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Pro
     if (KWS_VERBOSE) console.log(`[Main Fetch Override] 🚀 [${callId}] Starting Supabase request:`, { url: urlObj.href, pathname: urlObj.pathname, method: init?.method || 'GET', hasAuth: !!finalHeaders['Authorization'] || !!finalHeaders['authorization'], hasApiKey: !!(finalHeaders['apikey'] || finalHeaders['apiKey'] || finalHeaders['x-api-key']), timestamp: new Date().toISOString() });
     
     try {
-      // CRITICAL: Use original fetch with ALL headers preserved
-      // Create a new Request to ensure all headers are included
+      // CRITICAL: Preserve body correctly, especially for Firefox
+      // Firefox requires explicit body handling when creating new Request objects
+      // Supabase puts the body in init.body, so we use that directly
+      
+      // CRITICAL FIX for Firefox: When input is a Request object, we must preserve the body
+      // by explicitly passing it in requestInit. Firefox doesn't copy the body when creating
+      // a new Request from an existing Request object.
+      // If input is a Request and body is not in init, we need to extract it
+      let body: BodyInit | null | undefined = init?.body;
+      
+      // If input is a Request object and body is not explicitly in init, try to get it
+      // This handles cases where Supabase creates a Request object with body
+      if (input instanceof Request && !body && !input.bodyUsed) {
+        // Try to clone and read the body
+        try {
+          const cloned = input.clone();
+          body = cloned.body;
+        } catch (e) {
+          // If cloning fails, body might be a stream or already consumed
+          // In this case, we'll rely on init.body being set by Supabase
+          body = null;
+        }
+      }
+      
+      // Build requestInit with all properties explicitly set
       const requestInit: RequestInit = {
-        ...init,
+        method: init?.method || (input instanceof Request ? input.method : 'GET'),
         headers: finalHeaders, // Use processed headers
+        body: body, // CRITICAL: Explicitly set body for Firefox compatibility
         cache: 'no-store' as RequestCache,
+        // Preserve other init properties
+        credentials: init?.credentials,
+        mode: init?.mode,
+        redirect: init?.redirect,
+        referrer: init?.referrer,
+        referrerPolicy: init?.referrerPolicy,
+        integrity: init?.integrity,
+        keepalive: init?.keepalive,
+        signal: init?.signal,
       };
       
-      // If input is a Request, merge its properties
-      const request = input instanceof Request 
-        ? new Request(input, requestInit)
-        : new Request(input as string, requestInit);
-      
-      const response = await originalFetch(request);
+      // CRITICAL FIX for Firefox: If input is a Request object, use its URL as string
+      // and pass requestInit with body explicitly set. This ensures Firefox properly
+      // sends the body.
+      const requestUrl = input instanceof Request ? input.url : (input as string | URL);
+      const response = await originalFetch(requestUrl, requestInit);
       
       const duration = Date.now() - startTime;
       if (KWS_VERBOSE) console.log(`[Main Fetch Override] ✅ [${callId}] Response received:`, { url: urlObj.href, status: response.status, statusText: response.statusText, duration: `${duration}ms` });

@@ -704,6 +704,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signUp = async (email: string, password: string, meta?: { firstName?: string; lastName?: string; birthDate?: string }) => {
     const redirectUrl = `${window.location.origin}/auth`;
+    
+    // Validate email format before sending to Supabase
+    const emailTrimmed = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailTrimmed || !emailRegex.test(emailTrimmed)) {
+      const errorMessage = 'Ungültige E-Mail-Adresse. Bitte überprüfe deine Eingabe.';
+      toast.error(errorMessage);
+      throw new Error(errorMessage);
+    }
+    
     // Clean and validate names - only use non-empty strings
     const firstName = meta?.firstName?.trim() || undefined;
     const lastName = meta?.lastName?.trim() || undefined;
@@ -711,7 +721,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const birthDate = meta?.birthDate?.trim() || undefined;
     
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: emailTrimmed,
       password,
       options: {
         emailRedirectTo: redirectUrl,
@@ -725,15 +735,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
     
     if (error) {
-      // User-friendly error messages
+      // User-friendly error messages with more specific checks
       let errorMessage = 'Registrierung fehlgeschlagen';
-      if (error.message.includes('already registered') || error.message.includes('already exists') || error.message.includes('User already registered')) {
+      const errorMsgLower = error.message.toLowerCase();
+      const errorCode = (error as any).status || (error as any).code;
+      
+      // Check for specific error types
+      if (errorMsgLower.includes('already registered') || 
+          errorMsgLower.includes('already exists') || 
+          errorMsgLower.includes('user already registered') ||
+          errorCode === 422) {
         errorMessage = 'Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an oder verwende eine andere E-Mail.';
-      } else if (error.message.includes('Password')) {
+      } else if (errorMsgLower.includes('password') || 
+                 errorMsgLower.includes('password is too weak') ||
+                 errorMsgLower.includes('password should be at least')) {
         errorMessage = 'Das Passwort ist zu schwach. Bitte verwende mindestens 6 Zeichen.';
-      } else if (error.message.includes('email')) {
+      } else if (errorMsgLower.includes('invalid email') ||
+                 errorMsgLower.includes('email format') ||
+                 errorMsgLower.includes('email is invalid') ||
+                 (errorMsgLower.includes('email') && errorMsgLower.includes('invalid'))) {
         errorMessage = 'Ungültige E-Mail-Adresse. Bitte überprüfe deine Eingabe.';
+      } else if (errorMsgLower.includes('error sending confirmation email') ||
+                 errorMsgLower.includes('confirmation email') ||
+                 errorCode === 500) {
+        errorMessage = 'Fehler beim Senden der Bestätigungs-E-Mail. Bitte versuche es später erneut oder kontaktiere den Support.';
       } else {
+        // Show original error message for debugging, but in German if possible
         errorMessage = 'Registrierung fehlgeschlagen: ' + error.message;
       }
       toast.error(errorMessage);
