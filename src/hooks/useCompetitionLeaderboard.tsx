@@ -112,32 +112,40 @@ export const useCompetitionLeaderboard = (gender?: 'male' | 'female' | null) => 
         competition_results: resultsByParticipant.get(participant.id) || [],
       }));
 
-      // Fetch profiles for logged-in users separately
+      // Fetch display names for participants: use RPC for guests (no session), profiles table for authenticated
       const userIds = (participantsData || [])
         .filter((p: any) => p.user_id)
         .map((p: any) => p.user_id);
       
-      let profilesMap = new Map();
+      let profilesMap = new Map<string, { id: string; first_name: string | null; last_name: string | null; full_name: string | null; email?: string | null }>();
       
       if (userIds.length > 0) {
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, full_name, email')
-          .in('id', userIds);
-        
-        if (profilesData) {
-          profilesData.forEach((profile: any) => {
-            profilesMap.set(profile.id, profile);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          // Authenticated: use profiles table (RLS allows read for leaderboard)
+          const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, full_name, email')
+            .in('id', userIds);
+          if (profilesData) {
+            profilesData.forEach((profile: any) => profilesMap.set(profile.id, profile));
+          }
+        } else {
+          // Guest: use safe RPC that returns only id, first_name, last_name, full_name for competition participants
+          const { data: rpcData, error: rpcError } = await supabase.rpc('get_leaderboard_display_names', {
+            p_user_ids: userIds,
           });
+          if (rpcError) {
+            console.warn('[Leaderboard] get_leaderboard_display_names RPC error:', rpcError);
+          } else if (rpcData && Array.isArray(rpcData)) {
+            rpcData.forEach((row: { id: string; first_name: string | null; last_name: string | null; full_name: string | null }) => {
+              profilesMap.set(row.id, { ...row, email: null });
+            });
+          }
         }
-        
-        // For participants without profile data, try to get email from auth.users
-        // This is a fallback if the profile wasn't created properly
         const missingUserIds = userIds.filter((id: string) => !profilesMap.has(id));
-        if (missingUserIds.length > 0) {
+        if (missingUserIds.length > 0 && import.meta.env.DEV) {
           console.log('[Leaderboard] Missing profiles for users:', missingUserIds);
-          // Note: We can't directly query auth.users from the client, but we can try to sync them
-          // The syncMetadataToProfiles function should handle this, but we'll log it for debugging
         }
       }
 

@@ -1,22 +1,30 @@
--- Create feedback_type enum
-CREATE TYPE feedback_type AS ENUM ('error', 'bug', 'feature', 'general', 'other');
-
--- Create feedback_status enum
-CREATE TYPE feedback_status AS ENUM ('open', 'in_progress', 'resolved', 'closed');
-
--- Create feedback_priority enum
-CREATE TYPE feedback_priority AS ENUM ('low', 'medium', 'high', 'critical');
+-- Create enums only if not exists (idempotent)
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'feedback_type') THEN
+    CREATE TYPE public.feedback_type AS ENUM ('error', 'bug', 'feature', 'general', 'other');
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'feedback_status') THEN
+    CREATE TYPE public.feedback_status AS ENUM ('open', 'in_progress', 'resolved', 'closed');
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'feedback_priority') THEN
+    CREATE TYPE public.feedback_priority AS ENUM ('low', 'medium', 'high', 'critical');
+  END IF;
+END $$;
 
 -- Create feedback table
-CREATE TABLE feedback (
+CREATE TABLE IF NOT EXISTS public.feedback (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  type feedback_type NOT NULL DEFAULT 'general',
+  type public.feedback_type NOT NULL DEFAULT 'general',
   title TEXT NOT NULL,
   description TEXT NOT NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   user_email TEXT,
-  status feedback_status NOT NULL DEFAULT 'open',
-  priority feedback_priority NOT NULL DEFAULT 'medium',
+  status public.feedback_status NOT NULL DEFAULT 'open',
+  priority public.feedback_priority NOT NULL DEFAULT 'medium',
   browser_info JSONB,
   url TEXT,
   screenshot_url TEXT,
@@ -28,71 +36,72 @@ CREATE TABLE feedback (
   resolved_by UUID REFERENCES auth.users(id) ON DELETE SET NULL
 );
 
--- Create indexes for performance
-CREATE INDEX idx_feedback_status ON feedback(status);
-CREATE INDEX idx_feedback_type ON feedback(type);
-CREATE INDEX idx_feedback_created_at ON feedback(created_at DESC);
-CREATE INDEX idx_feedback_user_id ON feedback(user_id);
-CREATE INDEX idx_feedback_priority ON feedback(priority);
+-- Create indexes for performance (idempotent)
+CREATE INDEX IF NOT EXISTS idx_feedback_status ON public.feedback(status);
+CREATE INDEX IF NOT EXISTS idx_feedback_type ON public.feedback(type);
+CREATE INDEX IF NOT EXISTS idx_feedback_created_at ON public.feedback(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feedback_user_id ON public.feedback(user_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_priority ON public.feedback(priority);
 
 -- Enable RLS
-ALTER TABLE feedback ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
 
--- Policy: Anyone can insert feedback (including anonymous users)
+-- Policies (idempotent)
+DROP POLICY IF EXISTS "Anyone can insert feedback" ON public.feedback;
 CREATE POLICY "Anyone can insert feedback"
-  ON feedback
+  ON public.feedback
   FOR INSERT
   TO authenticated, anon
   WITH CHECK (true);
 
--- Policy: Only admins can view feedback
+DROP POLICY IF EXISTS "Admins can view feedback" ON public.feedback;
 CREATE POLICY "Admins can view feedback"
-  ON feedback
+  ON public.feedback
   FOR SELECT
   TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM user_roles
+      SELECT 1 FROM public.user_roles
       WHERE user_roles.user_id = auth.uid()
       AND user_roles.role = 'admin'
     )
   );
 
--- Policy: Only admins can update feedback
+DROP POLICY IF EXISTS "Admins can update feedback" ON public.feedback;
 CREATE POLICY "Admins can update feedback"
-  ON feedback
+  ON public.feedback
   FOR UPDATE
   TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM user_roles
+      SELECT 1 FROM public.user_roles
       WHERE user_roles.user_id = auth.uid()
       AND user_roles.role = 'admin'
     )
   )
   WITH CHECK (
     EXISTS (
-      SELECT 1 FROM user_roles
+      SELECT 1 FROM public.user_roles
       WHERE user_roles.user_id = auth.uid()
       AND user_roles.role = 'admin'
     )
   );
 
--- Policy: Only admins can delete feedback
+DROP POLICY IF EXISTS "Admins can delete feedback" ON public.feedback;
 CREATE POLICY "Admins can delete feedback"
-  ON feedback
+  ON public.feedback
   FOR DELETE
   TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM user_roles
+      SELECT 1 FROM public.user_roles
       WHERE user_roles.user_id = auth.uid()
       AND user_roles.role = 'admin'
     )
   );
 
 -- Function to update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_feedback_updated_at()
+CREATE OR REPLACE FUNCTION public.update_feedback_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = NOW();
@@ -100,9 +109,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to automatically update updated_at
+-- Trigger (idempotent)
+DROP TRIGGER IF EXISTS update_feedback_updated_at ON public.feedback;
 CREATE TRIGGER update_feedback_updated_at
-  BEFORE UPDATE ON feedback
+  BEFORE UPDATE ON public.feedback
   FOR EACH ROW
-  EXECUTE FUNCTION update_feedback_updated_at();
+  EXECUTE FUNCTION public.update_feedback_updated_at();
 

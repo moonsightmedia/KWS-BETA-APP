@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
 // Storage keys (same as in Sidebar and RoleTabs)
@@ -44,29 +43,37 @@ const getStoredAdmin = (userId: string | undefined): boolean | null => {
   }
 };
 
-// Check admin status once and store it
-const checkAdminOnce = async (userId: string): Promise<boolean> => {
+// Check admin status via direct REST on user_roles (avoids has_role RPC overload ambiguity)
+const checkAdminOnce = async (userId: string, accessToken: string): Promise<boolean> => {
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) return false;
   try {
-    const { data, error } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
-    
-    if (error) {
-      console.error('[useIsAdmin] Error checking admin status:', error);
+    const res = await window.fetch(
+      `${url}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.admin&select=user_id`,
+      {
+        method: 'GET',
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    if (!res.ok) {
+      console.error('[useIsAdmin] user_roles fetch failed:', res.status, await res.text());
       return false;
     }
-    
-    const isAdmin = !!data;
-    
-    // Store in localStorage (persists across app restarts)
+    const data = await res.json();
+    const isAdmin = Array.isArray(data) && data.length > 0;
     try {
       localStorage.setItem(STORAGE_KEY_ADMIN, String(isAdmin));
       localStorage.setItem(STORAGE_KEY_USER_ID, userId);
-      // Also set in sessionStorage for backward compatibility
       sessionStorage.setItem(STORAGE_KEY_ADMIN, String(isAdmin));
       sessionStorage.setItem(STORAGE_KEY_USER_ID, userId);
     } catch (storageError) {
       console.warn('[useIsAdmin] Error storing admin status:', storageError);
     }
-    
     return isAdmin;
   } catch (error) {
     console.error('[useIsAdmin] Exception checking admin status:', error);
@@ -75,34 +82,33 @@ const checkAdminOnce = async (userId: string): Promise<boolean> => {
 };
 
 export const useIsAdmin = () => {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    // Initial: Read from sessionStorage
     return getStoredAdmin(user?.id) ?? false;
   });
   const [loading, setLoading] = useState(false);
 
-  // Function to refresh admin status
   const refreshAdminStatus = useCallback(async () => {
     if (!user?.id) {
       setIsAdmin(false);
       setLoading(false);
       return;
     }
-
-    // Check if admin status is already in sessionStorage
     const stored = getStoredAdmin(user.id);
     if (stored !== null) {
-      // Admin status found in storage - use it
       setIsAdmin(stored);
       setLoading(false);
       return;
     }
-
-    // Admin status not in storage - check once
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      setIsAdmin(false);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const result = await checkAdminOnce(user.id);
+      const result = await checkAdminOnce(user.id, accessToken);
       setIsAdmin(result);
     } catch (error) {
       console.error('[useIsAdmin] Error refreshing admin status:', error);
@@ -110,7 +116,7 @@ export const useIsAdmin = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, session?.access_token]);
 
   useEffect(() => {
     refreshAdminStatus();

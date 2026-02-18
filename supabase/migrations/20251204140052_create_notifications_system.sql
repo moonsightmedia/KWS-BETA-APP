@@ -49,17 +49,20 @@ ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.push_tokens ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for notifications
+-- RLS Policies for notifications (idempotent)
+DROP POLICY IF EXISTS "Users can read their own notifications" ON public.notifications;
 CREATE POLICY "Users can read their own notifications"
   ON public.notifications
   FOR SELECT
   USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Admins can create notifications for any user" ON public.notifications;
 CREATE POLICY "Admins can create notifications for any user"
   ON public.notifications
   FOR INSERT
   WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
+DROP POLICY IF EXISTS "Setters can create boulder notifications" ON public.notifications;
 CREATE POLICY "Setters can create boulder notifications"
   ON public.notifications
   FOR INSERT
@@ -68,35 +71,41 @@ CREATE POLICY "Setters can create boulder notifications"
     (type = 'boulder_new' OR type = 'schedule_reminder')
   );
 
+DROP POLICY IF EXISTS "Users can update their own notifications" ON public.notifications;
 CREATE POLICY "Users can update their own notifications"
   ON public.notifications
   FOR UPDATE
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can delete their own notifications" ON public.notifications;
 CREATE POLICY "Users can delete their own notifications"
   ON public.notifications
   FOR DELETE
   USING (user_id = auth.uid());
 
--- RLS Policies for notification_preferences
+-- RLS Policies for notification_preferences (idempotent)
+DROP POLICY IF EXISTS "Users can read their own preferences" ON public.notification_preferences;
 CREATE POLICY "Users can read their own preferences"
   ON public.notification_preferences
   FOR SELECT
   USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can insert their own preferences" ON public.notification_preferences;
 CREATE POLICY "Users can insert their own preferences"
   ON public.notification_preferences
   FOR INSERT
   WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can update their own preferences" ON public.notification_preferences;
 CREATE POLICY "Users can update their own preferences"
   ON public.notification_preferences
   FOR UPDATE
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
--- RLS Policies for push_tokens
+-- RLS Policies for push_tokens (idempotent)
+DROP POLICY IF EXISTS "Users can manage their own push tokens" ON public.push_tokens;
 CREATE POLICY "Users can manage their own push tokens"
   ON public.push_tokens
   FOR ALL
@@ -252,8 +261,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Enable Realtime for notifications table
-ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+-- Enable Realtime for notifications table (idempotent)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'notifications'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+  END IF;
+END $$;
 
 -- Trigger to update updated_at on notification_preferences
 CREATE OR REPLACE FUNCTION update_notification_preferences_updated_at()
@@ -264,6 +281,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_notification_preferences_updated_at ON public.notification_preferences;
 CREATE TRIGGER trigger_update_notification_preferences_updated_at
   BEFORE UPDATE ON public.notification_preferences
   FOR EACH ROW
@@ -278,6 +296,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_push_tokens_last_used_at ON public.push_tokens;
 CREATE TRIGGER trigger_update_push_tokens_last_used_at
   BEFORE UPDATE ON public.push_tokens
   FOR EACH ROW

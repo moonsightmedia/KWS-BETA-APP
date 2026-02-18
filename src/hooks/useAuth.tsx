@@ -14,6 +14,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, meta?: { firstName?: string; lastName?: string; birthDate?: string }) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  resendConfirmation: (email: string) => Promise<void>;
   loading: boolean;
 }
 
@@ -268,7 +269,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   console.log('[Auth] Roles missing or user changed after reload, refreshing roles');
                   // Use setTimeout to avoid blocking the initial load
                   setTimeout(() => {
-                    checkAndStoreRoles(session.user.id).catch(err => {
+                    checkAndStoreRoles(session.user.id, session.access_token ?? '').catch(err => {
                       console.error('[Auth] Error refreshing roles after reload:', err);
                     });
                   }, 500);
@@ -310,7 +311,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               
               // Check and store roles when user signs in
               if (event === 'SIGNED_IN') {
-                await checkAndStoreRoles(session.user.id);
+                await checkAndStoreRoles(session.user.id, session.access_token ?? '');
               }
               
               // Prefetch critical data immediately after login for instant navigation
@@ -446,27 +447,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               storedUserId = sessionStorage.getItem('nav_userId');
             }
             if (storedUserId !== session.user.id) {
-              // Different user or no roles stored - check roles
-              await checkAndStoreRoles(session.user.id);
+              await checkAndStoreRoles(session.user.id, session.access_token ?? '');
             } else {
-              // Same user - check if roles exist, if not refresh them
               let storedAdmin = localStorage.getItem('nav_isAdmin');
               let storedSetter = localStorage.getItem('nav_isSetter');
-              if (storedAdmin === null) {
-                storedAdmin = sessionStorage.getItem('nav_isAdmin');
-              }
-              if (storedSetter === null) {
-                storedSetter = sessionStorage.getItem('nav_isSetter');
-              }
+              if (storedAdmin === null) storedAdmin = sessionStorage.getItem('nav_isAdmin');
+              if (storedSetter === null) storedSetter = sessionStorage.getItem('nav_isSetter');
               if (storedAdmin === null || storedSetter === null) {
                 console.log('[Auth] Roles missing in storage, refreshing roles');
-                await checkAndStoreRoles(session.user.id);
+                await checkAndStoreRoles(session.user.id, session.access_token ?? '');
               }
             }
           } catch (storageError) {
             console.warn('[Auth] Error checking stored roles:', storageError);
-            // If storage check fails, still try to check roles
-            await checkAndStoreRoles(session.user.id);
+            await checkAndStoreRoles(session.user.id, session.access_token ?? '');
           }
         }
       } catch (error: any) {
@@ -555,43 +549,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               
               if (storedUserId !== session.user.id) {
                 console.log('[Auth] User ID changed or not stored, checking roles');
-                await checkAndStoreRoles(session.user.id);
+                await checkAndStoreRoles(session.user.id, session.access_token ?? '');
                 rolesRefreshed = true;
               } else {
-                // Same user, but check if roles are missing and refresh them
                 let storedAdmin = localStorage.getItem('nav_isAdmin');
                 let storedSetter = localStorage.getItem('nav_isSetter');
-                if (storedAdmin === null) {
-                  storedAdmin = sessionStorage.getItem('nav_isAdmin');
-                }
-                if (storedSetter === null) {
-                  storedSetter = sessionStorage.getItem('nav_isSetter');
-                }
+                if (storedAdmin === null) storedAdmin = sessionStorage.getItem('nav_isAdmin');
+                if (storedSetter === null) storedSetter = sessionStorage.getItem('nav_isSetter');
                 if (storedAdmin === null || storedSetter === null) {
                   console.log('[Auth] Roles missing in storage, refreshing roles');
-                  await checkAndStoreRoles(session.user.id);
+                  await checkAndStoreRoles(session.user.id, session.access_token ?? '');
                   rolesRefreshed = true;
                 }
               }
             } else {
-              // Same user - check if roles exist, if not refresh them
               let storedAdmin = localStorage.getItem('nav_isAdmin');
               let storedSetter = localStorage.getItem('nav_isSetter');
-              if (storedAdmin === null) {
-                storedAdmin = sessionStorage.getItem('nav_isAdmin');
-              }
-              if (storedSetter === null) {
-                storedSetter = sessionStorage.getItem('nav_isSetter');
-              }
-              
+              if (storedAdmin === null) storedAdmin = sessionStorage.getItem('nav_isAdmin');
+              if (storedSetter === null) storedSetter = sessionStorage.getItem('nav_isSetter');
               if (storedAdmin === null || storedSetter === null) {
                 console.log('[Auth] Same user - roles missing, refreshing roles');
-                await checkAndStoreRoles(session.user.id);
+                await checkAndStoreRoles(session.user.id, session.access_token ?? '');
                 rolesRefreshed = true;
               } else {
-                // Roles exist, but refresh them anyway to ensure they're current
                 console.log('[Auth] Same user - refreshing roles to ensure they are current');
-                await checkAndStoreRoles(session.user.id);
+                await checkAndStoreRoles(session.user.id, session.access_token ?? '');
                 rolesRefreshed = true;
               }
             }
@@ -634,28 +616,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [user, loading]);
 
-  // Check and store roles once after login
-  const checkAndStoreRoles = async (userId: string) => {
+  // Check and store roles via direct user_roles REST (avoids has_role RPC overload ambiguity)
+  const checkAndStoreRoles = async (userId: string, accessToken: string) => {
+    const url = import.meta.env.VITE_SUPABASE_URL;
+    const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    if (!url || !key || !accessToken) return;
     try {
       console.log('[Auth] Checking roles for user:', userId);
-      
-      // Check both roles in parallel
-      const [adminResult, setterResult] = await Promise.all([
-        supabase.rpc('has_role', { _user_id: userId, _role: 'admin' }),
-        supabase.rpc('has_role', { _user_id: userId, _role: 'setter' })
+      const [adminRes, setterRes] = await Promise.all([
+        window.fetch(`${url}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.admin&select=user_id`, {
+          method: 'GET',
+          headers: { apikey: key, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        }),
+        window.fetch(`${url}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.setter&select=user_id`, {
+          method: 'GET',
+          headers: { apikey: key, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        }),
       ]);
-      
-      const isAdmin = !!adminResult.data;
-      const isSetter = !!setterResult.data;
-      
-      // Store in localStorage (persists across app restarts)
-      // CRITICAL: Use localStorage instead of sessionStorage for native apps
-      // sessionStorage is cleared when app is closed, localStorage persists
+      const adminData = adminRes.ok ? await adminRes.json() : [];
+      const setterData = setterRes.ok ? await setterRes.json() : [];
+      const isAdmin = Array.isArray(adminData) && adminData.length > 0;
+      const isSetter = Array.isArray(setterData) && setterData.length > 0;
       try {
         localStorage.setItem('nav_isAdmin', String(isAdmin));
         localStorage.setItem('nav_isSetter', String(isSetter));
         localStorage.setItem('nav_userId', userId);
-        // Also set in sessionStorage for backward compatibility
         sessionStorage.setItem('nav_isAdmin', String(isAdmin));
         sessionStorage.setItem('nav_isSetter', String(isSetter));
         sessionStorage.setItem('nav_userId', userId);
@@ -665,7 +650,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (error) {
       console.error('[Auth] Error checking roles:', error);
-      // Don't throw - roles check failure shouldn't block login
     }
   };
 
@@ -693,9 +677,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw error;
     }
     
-    // After successful login, check and store roles once
     if (data.session?.user) {
-      await checkAndStoreRoles(data.session.user.id);
+      await checkAndStoreRoles(data.session.user.id, data.session.access_token ?? '');
     }
     
     toast.success('Erfolgreich angemeldet!');
@@ -782,6 +765,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Fallback message
       toast.success('Registrierung erfolgreich! Bitte überprüfe deine E-Mail zur Bestätigung.');
     }
+  };
+
+  const resendConfirmation = async (emailAddress: string) => {
+    const emailTrimmed = emailAddress.trim();
+    if (!emailTrimmed) {
+      toast.error('Bitte E-Mail-Adresse eingeben.');
+      return;
+    }
+    const { data, error } = await supabase.auth.resend({
+      type: 'signup',
+      email: emailTrimmed,
+    });
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes('rate limit') || msg.includes('already confirmed')) {
+        toast.error(msg.includes('already confirmed')
+          ? 'Dieses Konto ist bereits bestätigt. Bitte melde dich an.'
+          : 'Bitte warte einige Minuten, bevor du die E-Mail erneut anforderst.');
+      } else {
+        toast.error('Fehler: ' + error.message);
+      }
+      throw error;
+    }
+    toast.success('Falls ein unbestätigtes Konto existiert, wurde eine neue Bestätigungs-E-Mail gesendet. Prüfe auch den Spam-Ordner.');
   };
 
   const signOut = async () => {
@@ -901,7 +908,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   usePreloadBoulderThumbnails(!!session);
 
   return (
-    <AuthContext.Provider value={{ user, session, signIn, signUp, signOut, resetPassword, loading }}>
+    <AuthContext.Provider value={{ user, session, signIn, signUp, signOut, resetPassword, resendConfirmation, loading }}>
       {children}
     </AuthContext.Provider>
   );

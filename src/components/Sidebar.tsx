@@ -80,8 +80,10 @@ const getStoredUserId = (): string | null => {
 const setStoredUserId = (userId: string | null): void => {
   try {
     if (userId) {
+      localStorage.setItem(STORAGE_KEY_USER_ID, userId);
       sessionStorage.setItem(STORAGE_KEY_USER_ID, userId);
     } else {
+      localStorage.removeItem(STORAGE_KEY_USER_ID);
       sessionStorage.removeItem(STORAGE_KEY_USER_ID);
     }
   } catch {
@@ -91,6 +93,9 @@ const setStoredUserId = (userId: string | null): void => {
 
 const clearStoredRoles = (): void => {
   try {
+    localStorage.removeItem(STORAGE_KEY_ADMIN);
+    localStorage.removeItem(STORAGE_KEY_SETTER);
+    localStorage.removeItem(STORAGE_KEY_USER_ID);
     sessionStorage.removeItem(STORAGE_KEY_ADMIN);
     sessionStorage.removeItem(STORAGE_KEY_SETTER);
     sessionStorage.removeItem(STORAGE_KEY_USER_ID);

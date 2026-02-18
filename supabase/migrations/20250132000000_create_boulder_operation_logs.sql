@@ -10,16 +10,17 @@ CREATE TABLE IF NOT EXISTS public.boulder_operation_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Create indexes for better query performance
-CREATE INDEX idx_boulder_operation_logs_boulder_id ON public.boulder_operation_logs(boulder_id);
-CREATE INDEX idx_boulder_operation_logs_operation_type ON public.boulder_operation_logs(operation_type);
-CREATE INDEX idx_boulder_operation_logs_user_id ON public.boulder_operation_logs(user_id);
-CREATE INDEX idx_boulder_operation_logs_created_at ON public.boulder_operation_logs(created_at DESC);
+-- Create indexes for better query performance (idempotent)
+CREATE INDEX IF NOT EXISTS idx_boulder_operation_logs_boulder_id ON public.boulder_operation_logs(boulder_id);
+CREATE INDEX IF NOT EXISTS idx_boulder_operation_logs_operation_type ON public.boulder_operation_logs(operation_type);
+CREATE INDEX IF NOT EXISTS idx_boulder_operation_logs_user_id ON public.boulder_operation_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_boulder_operation_logs_created_at ON public.boulder_operation_logs(created_at DESC);
 
 -- Enable RLS
 ALTER TABLE public.boulder_operation_logs ENABLE ROW LEVEL SECURITY;
 
--- RLS Policy: Admins can view all logs
+-- RLS Policies (idempotent: drop if exists then create)
+DROP POLICY IF EXISTS "Admins can view all boulder operation logs" ON public.boulder_operation_logs;
 CREATE POLICY "Admins can view all boulder operation logs"
   ON public.boulder_operation_logs
   FOR SELECT
@@ -32,7 +33,7 @@ CREATE POLICY "Admins can view all boulder operation logs"
     )
   );
 
--- RLS Policy: Setters can view all logs
+DROP POLICY IF EXISTS "Setters can view all boulder operation logs" ON public.boulder_operation_logs;
 CREATE POLICY "Setters can view all boulder operation logs"
   ON public.boulder_operation_logs
   FOR SELECT
@@ -45,7 +46,7 @@ CREATE POLICY "Setters can view all boulder operation logs"
     )
   );
 
--- RLS Policy: Users can insert their own logs
+DROP POLICY IF EXISTS "Users can insert their own boulder operation logs" ON public.boulder_operation_logs;
 CREATE POLICY "Users can insert their own boulder operation logs"
   ON public.boulder_operation_logs
   FOR INSERT

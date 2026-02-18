@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,6 +19,11 @@ export const UserManagement = () => {
   const { user, session, loading: authLoading } = useAuth();
 
   const queriesEnabled = !authLoading && !!user && !!session;
+  const sessionRef = useRef(session);
+  const [listVersion, setListVersion] = useState(0);
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   const { data: users, isLoading, error, isError } = useQuery({
     queryKey: ["admin-users"],
@@ -33,8 +38,8 @@ export const UserManagement = () => {
         throw new Error('Supabase URL or API key not found');
       }
 
-      // Get the access token from the session for RLS
-      const accessToken = session?.access_token;
+      // Use ref so refetch after mutation always has current session (avoids stale closure)
+      const accessToken = sessionRef.current?.access_token;
       if (!accessToken) {
         throw new Error('No access token available');
       }
@@ -77,10 +82,11 @@ export const UserManagement = () => {
       const roles = await rolesResponse.json();
       console.log('[UserManagement] Roles loaded:', roles?.length || 0);
 
+      const pid = (id: string) => String(id ?? '').toLowerCase();
       const mapped = profiles?.map((profile: any) => ({
         ...profile,
-        isAdmin: roles?.some((r: any) => r.user_id === profile.id && r.role === 'admin') || false,
-        isSetter: roles?.some((r: any) => r.user_id === profile.id && r.role === 'setter') || false
+        isAdmin: roles?.some((r: any) => pid(r.user_id) === pid(profile.id) && r.role === 'admin') || false,
+        isSetter: roles?.some((r: any) => pid(r.user_id) === pid(profile.id) && r.role === 'setter') || false
       }));
 
       console.log('[UserManagement] Mapped users:', mapped?.length || 0);
@@ -92,24 +98,58 @@ export const UserManagement = () => {
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 
+  const fetchRoleMutation = (
+    method: 'POST' | 'DELETE',
+    userId: string,
+    role: 'admin' | 'setter'
+  ) => {
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const accessToken = session?.access_token;
+    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || !accessToken) {
+      throw new Error('Session oder Konfiguration fehlt');
+    }
+    const url =
+      method === 'DELETE'
+        ? `${SUPABASE_URL}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.${role}`
+        : `${SUPABASE_URL}/rest/v1/user_roles`;
+    const init: RequestInit = {
+      method,
+      headers: {
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+      },
+    };
+    if (method === 'POST') {
+      (init as RequestInit).body = JSON.stringify({ user_id: userId, role });
+    }
+    return window.fetch(url, init);
+  };
+
   const toggleAdminMutation = useMutation({
     mutationFn: async ({ userId, isAdmin }: { userId: string; isAdmin: boolean }) => {
-      if (isAdmin) {
-        const { error } = await supabase
-          .from("user_roles")
-          .delete()
-          .eq("user_id", userId)
-          .eq("role", "admin");
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("user_roles")
-          .insert({ user_id: userId, role: "admin" });
-        if (error) throw error;
+      const method = isAdmin ? 'DELETE' : 'POST';
+      const res = await fetchRoleMutation(method, userId, 'admin');
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text || res.statusText}`);
       }
     },
-    onSuccess: (_, variables) => {
+    onSuccess: async (_, variables) => {
+      queryClient.setQueryData(["admin-users"], (old: any[] | undefined) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((u: any) =>
+          String(u?.id).toLowerCase() === String(variables.userId).toLowerCase()
+            ? { ...u, isAdmin: !variables.isAdmin }
+            : u
+        );
+      });
+      setListVersion((v) => v + 1);
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      await queryClient.refetchQueries({ queryKey: ["admin-users"], type: "active" });
+      setListVersion((v) => v + 1);
       toast.success(
         variables.isAdmin 
           ? "Admin-Rechte erfolgreich entzogen"
@@ -117,32 +157,40 @@ export const UserManagement = () => {
       );
     },
     onError: (error) => {
-      toast.error("Fehler beim Ändern der Rechte: " + error.message);
+      toast.error("Fehler beim Ändern der Rechte: " + (error instanceof Error ? error.message : String(error)));
     },
   });
 
   const toggleSetterMutation = useMutation({
     mutationFn: async ({ userId, isSetter }: { userId: string; isSetter: boolean }) => {
-      if (isSetter) {
-        const { error } = await supabase
-          .from("user_roles")
-          .delete()
-          .eq("user_id", userId)
-          .eq("role", "setter");
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("user_roles")
-          .insert({ user_id: userId, role: "setter" });
-        if (error) throw error;
+      if (!session?.access_token) {
+        throw new Error('Keine aktive Session. Bitte erneut einloggen.');
+      }
+      const method = isSetter ? 'DELETE' : 'POST';
+      const res = await fetchRoleMutation(method, userId, 'setter');
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text || res.statusText}`);
       }
     },
-    onSuccess: () => {
+    onSuccess: async (_, variables) => {
+      queryClient.setQueryData(["admin-users"], (old: any[] | undefined) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((u: any) =>
+          String(u?.id).toLowerCase() === String(variables.userId).toLowerCase()
+            ? { ...u, isSetter: !variables.isSetter }
+            : u
+        );
+      });
+      setListVersion((v) => v + 1);
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      await queryClient.refetchQueries({ queryKey: ["admin-users"], type: "active" });
+      setListVersion((v) => v + 1);
       toast.success("Rolle aktualisiert");
     },
-    onError: (error) => {
-      toast.error("Fehler beim Ändern der Rolle: " + error.message);
+    onError: (error: any) => {
+      const msg = error?.message ?? error?.toString?.() ?? 'Unbekannter Fehler';
+      toast.error("Fehler beim Ändern der Rolle: " + msg);
     },
   });
 
@@ -243,7 +291,7 @@ export const UserManagement = () => {
         </Button>
       </div>
       {/* Desktop Table View */}
-      <div className="hidden md:block border border-[#E7F7E9] rounded-xl bg-white overflow-hidden w-full min-w-0 shadow-sm">
+      <div key={`admin-users-desktop-${listVersion}`} className="hidden md:block border border-[#E7F7E9] rounded-xl bg-white overflow-hidden w-full min-w-0 shadow-sm">
         <div className="overflow-x-auto w-full min-w-0">
           <Table className="w-full min-w-0">
             <TableHeader>
@@ -307,12 +355,13 @@ export const UserManagement = () => {
                       <Button
                         variant={user.isSetter ? "destructive" : "outline"}
                         className="h-9 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
-                        onClick={() =>
+                        onClick={() => {
+                          console.log('[UserManagement] Setter button clicked:', { userId: user.id, isSetter: user.isSetter, mutationPending: toggleSetterMutation.isPending });
                           toggleSetterMutation.mutate({
                             userId: user.id,
                             isSetter: user.isSetter,
-                          })
-                        }
+                          });
+                        }}
                         disabled={toggleSetterMutation.isPending}
                       >
                         {user.isSetter ? "Setter entfernen" : "Als Setter"}
@@ -334,7 +383,7 @@ export const UserManagement = () => {
       </div>
 
       {/* Mobile Card View */}
-      <div className="md:hidden space-y-3 w-full min-w-0">
+      <div key={`admin-users-mobile-${listVersion}`} className="md:hidden space-y-3 w-full min-w-0">
         {users?.map((user) => (
           <Card key={user.id} className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm w-full min-w-0">
             <CardContent className="p-4 w-full min-w-0">
@@ -389,12 +438,13 @@ export const UserManagement = () => {
                 <Button
                   variant={user.isSetter ? "destructive" : "outline"}
                   className="h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] min-w-0 text-xs sm:text-sm"
-                  onClick={() =>
+                  onClick={() => {
+                    console.log('[UserManagement] Setter button clicked (mobile):', { userId: user.id, isSetter: user.isSetter, mutationPending: toggleSetterMutation.isPending });
                     toggleSetterMutation.mutate({
                       userId: user.id,
                       isSetter: user.isSetter,
-                    })
-                  }
+                    });
+                  }}
                   disabled={toggleSetterMutation.isPending}
                 >
                   <span className="truncate">{user.isSetter ? "Setter entfernen" : "Als Setter"}</span>

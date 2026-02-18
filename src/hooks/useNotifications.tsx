@@ -193,7 +193,7 @@ export const useNotifications = () => {
         } else if (status === 'TIMED_OUT') {
           devError('[useNotifications] ❌ Realtime subscription timed out');
         } else if (status === 'CLOSED') {
-          devWarn('[useNotifications] ⚠️ Realtime subscription closed');
+          devLog('[useNotifications] Realtime subscription closed (e.g. tab change or unmount)');
         } else {
           devLog('[useNotifications] 🔄 Realtime subscription status:', status);
         }

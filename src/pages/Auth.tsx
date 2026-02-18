@@ -24,10 +24,14 @@ const Auth = () => {
   const [birthYear, setBirthYear] = useState<string>('');
   const [resetEmail, setResetEmail] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showResendConfirmation, setShowResendConfirmation] = useState(false);
+  const [resendEmail, setResendEmail] = useState('');
+  const [resendPending, setResendPending] = useState(false);
   const {
     signIn,
     signUp,
     resetPassword,
+    resendConfirmation,
     user
   } = useAuth();
   const navigate = useNavigate();
@@ -117,6 +121,20 @@ const Auth = () => {
       setShowResetPassword(false);
     } catch (error) {
       console.error('Reset password error:', error);
+    }
+  };
+  const handleResendConfirmation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resendEmail.trim()) return;
+    setResendPending(true);
+    try {
+      await resendConfirmation(resendEmail.trim());
+      setResendEmail('');
+      setShowResendConfirmation(false);
+    } catch (error) {
+      console.error('Resend confirmation error:', error);
+    } finally {
+      setResendPending(false);
     }
   };
   const handleContinueAsGuest = () => {
@@ -369,7 +387,43 @@ const Auth = () => {
               </TabsContent>
             </Tabs>
             
-            <div className="mt-4 pt-4 border-t border-[#E7F7E9]">
+            <div className="mt-4 pt-4 border-t border-[#E7F7E9] space-y-3">
+              {!showResendConfirmation ? (
+                <button
+                  type="button"
+                  onClick={() => setShowResendConfirmation(true)}
+                  className="text-xs text-[#36B531] hover:underline w-full text-center block"
+                >
+                  Keine Bestätigungsmail erhalten? Erneut senden
+                </button>
+              ) : (
+                <form onSubmit={handleResendConfirmation} className="space-y-2 p-3 rounded-xl bg-[#F9FAF9] border border-[#E7F7E9]">
+                  <Label htmlFor="resend-email" className="text-xs font-medium text-[#13112B]">E-Mail für Bestätigungslink</Label>
+                  <Input
+                    id="resend-email"
+                    type="email"
+                    placeholder="deine@email.de"
+                    value={resendEmail}
+                    onChange={e => setResendEmail(e.target.value)}
+                    required
+                    className="h-10 rounded-xl border-[#E7F7E9] text-sm"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { setShowResendConfirmation(false); setResendEmail(''); }}
+                      className="flex-1 h-9 rounded-xl border-[#E7F7E9] text-[#13112B] text-xs"
+                    >
+                      Abbrechen
+                    </Button>
+                    <Button type="submit" size="sm" disabled={resendPending} className="flex-1 h-9 rounded-xl bg-[#36B531] hover:bg-[#2DA029] text-white text-xs">
+                      {resendPending ? 'Wird gesendet…' : 'Link erneut senden'}
+                    </Button>
+                  </div>
+                </form>
+              )}
               <Button 
                 variant="outline" 
                 onClick={handleContinueAsGuest} 

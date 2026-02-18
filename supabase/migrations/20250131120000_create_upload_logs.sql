@@ -22,12 +22,12 @@ CREATE TABLE IF NOT EXISTS public.upload_logs (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Create indexes for better query performance
-CREATE INDEX idx_upload_logs_session_id ON public.upload_logs(upload_session_id);
-CREATE INDEX idx_upload_logs_boulder_id ON public.upload_logs(boulder_id);
-CREATE INDEX idx_upload_logs_status ON public.upload_logs(status);
-CREATE INDEX idx_upload_logs_created_at ON public.upload_logs(created_at DESC);
-CREATE INDEX idx_upload_logs_file_name ON public.upload_logs(file_name);
+-- Create indexes for better query performance (session_id matches existing table from 20240228)
+CREATE INDEX IF NOT EXISTS idx_upload_logs_session_id ON public.upload_logs(session_id);
+CREATE INDEX IF NOT EXISTS idx_upload_logs_boulder_id ON public.upload_logs(boulder_id);
+CREATE INDEX IF NOT EXISTS idx_upload_logs_status ON public.upload_logs(status);
+CREATE INDEX IF NOT EXISTS idx_upload_logs_created_at ON public.upload_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_upload_logs_file_name ON public.upload_logs(file_name);
 
 -- Add file_hash column for duplicate detection
 ALTER TABLE public.upload_logs ADD COLUMN IF NOT EXISTS file_hash TEXT;
@@ -103,16 +103,27 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to automatically update updated_at
+-- Trigger to automatically update updated_at (idempotent: drop if exists then create)
+DROP TRIGGER IF EXISTS update_upload_logs_updated_at ON public.upload_logs;
 CREATE TRIGGER update_upload_logs_updated_at
   BEFORE UPDATE ON public.upload_logs
   FOR EACH ROW
   EXECUTE FUNCTION public.update_upload_logs_updated_at();
 
--- Add comments
+-- Add comments (table and columns that always exist)
 COMMENT ON TABLE public.upload_logs IS 'Logs for tracking video and thumbnail uploads';
-COMMENT ON COLUMN public.upload_logs.upload_session_id IS 'Unique session ID for each upload attempt';
+COMMENT ON COLUMN public.upload_logs.session_id IS 'Unique session ID for each upload attempt';
 COMMENT ON COLUMN public.upload_logs.file_hash IS 'SHA-256 hash of the file for duplicate detection';
-COMMENT ON COLUMN public.upload_logs.device_info IS 'Device information (user agent, platform, etc.)';
-COMMENT ON COLUMN public.upload_logs.network_info IS 'Network information (connection type, speed, etc.)';
-COMMENT ON COLUMN public.upload_logs.chunk_info IS 'Information about chunked uploads';
+-- Optional columns (only comment if they exist - table may have older schema)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='upload_logs' AND column_name='device_info') THEN
+    COMMENT ON COLUMN public.upload_logs.device_info IS 'Device information (user agent, platform, etc.)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='upload_logs' AND column_name='network_info') THEN
+    COMMENT ON COLUMN public.upload_logs.network_info IS 'Network information (connection type, speed, etc.)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='upload_logs' AND column_name='chunk_info') THEN
+    COMMENT ON COLUMN public.upload_logs.chunk_info IS 'Information about chunked uploads';
+  END IF;
+END $$;

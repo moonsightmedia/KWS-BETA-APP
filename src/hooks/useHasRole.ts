@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
 // Storage keys (same as in Sidebar and RoleTabs)
@@ -82,22 +81,34 @@ const storeRole = (role: 'admin' | 'user' | 'setter', value: boolean, userId: st
   }
 };
 
-// Check role once and store it
-const checkRoleOnce = async (role: 'admin' | 'user' | 'setter', userId: string): Promise<boolean> => {
+// Check role via direct REST on user_roles (avoids has_role RPC overload ambiguity)
+const checkRoleOnce = async (
+  role: 'admin' | 'user' | 'setter',
+  userId: string,
+  accessToken: string
+): Promise<boolean> => {
+  if (role === 'user') return true;
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) return false;
   try {
-    if (role === 'user') {
-      // User role is always true if user exists
-      return true;
-    }
-    
-    const { data, error } = await supabase.rpc('has_role', { _user_id: userId, _role: role });
-    
-    if (error) {
-      console.error(`[useHasRole] Error checking role "${role}":`, error);
+    const res = await window.fetch(
+      `${url}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.${role}&select=user_id`,
+      {
+        method: 'GET',
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    if (!res.ok) {
+      console.error(`[useHasRole] user_roles fetch "${role}" failed:`, res.status, await res.text());
       return false;
     }
-    
-    const hasRole = !!data;
+    const data = await res.json();
+    const hasRole = Array.isArray(data) && data.length > 0;
     storeRole(role, hasRole, userId);
     return hasRole;
   } catch (error) {
@@ -107,34 +118,32 @@ const checkRoleOnce = async (role: 'admin' | 'user' | 'setter', userId: string):
 };
 
 export const useHasRole = (role: 'admin' | 'user' | 'setter') => {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [hasRole, setHasRole] = useState<boolean>(() => {
-    // Initial: Read from sessionStorage
     return getStoredRole(role, user?.id) ?? false;
   });
   const [loading, setLoading] = useState(false);
 
-  // Function to refresh role status
   const refreshRoleStatus = useCallback(async () => {
     if (!user?.id) {
       setHasRole(false);
       setLoading(false);
       return;
     }
-
-    // Check if role is already in sessionStorage
     const stored = getStoredRole(role, user.id);
     if (stored !== null) {
-      // Role found in storage - use it
       setHasRole(stored);
       setLoading(false);
       return;
     }
-
-    // Role not in storage - check once
+    if (role !== 'user' && !session?.access_token) {
+      setHasRole(false);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const result = await checkRoleOnce(role, user.id);
+      const result = await checkRoleOnce(role, user.id, session?.access_token ?? '');
       setHasRole(result);
     } catch (error) {
       console.error(`[useHasRole] Error refreshing role "${role}":`, error);
@@ -142,7 +151,7 @@ export const useHasRole = (role: 'admin' | 'user' | 'setter') => {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, role]);
+  }, [user?.id, role, session?.access_token]);
 
   useEffect(() => {
     refreshRoleStatus();
