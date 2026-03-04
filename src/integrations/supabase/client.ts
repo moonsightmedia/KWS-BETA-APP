@@ -203,7 +203,7 @@ function createSupabaseClient() {
           detectSessionInUrl: false,
         },
         global: {
-          fetch: customFetch as any,
+          fetch: customFetch as typeof fetch,
         },
       }
     );
@@ -230,7 +230,7 @@ function createSupabaseClient() {
           detectSessionInUrl: false,
         },
         global: {
-          fetch: forcedCustomFetch as any,
+          fetch: forcedCustomFetch as typeof fetch,
           headers: {
             'X-Client-Info': 'kws-beta-app',
           },

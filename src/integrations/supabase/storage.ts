@@ -8,6 +8,13 @@ const SECTOR_IMAGES_BUCKET = 'sector-images';
 const ALLINKL_API_URL = import.meta.env.VITE_ALLINKL_API_URL || 'https://cdn.kletterwelt-sauerland.de/upload-api';
 const USE_ALLINKL_STORAGE = import.meta.env.VITE_USE_ALLINKL_STORAGE === 'true' || false;
 
+type NavigatorWithWakeLock = Navigator & {
+  wakeLock?: { request: (type: 'screen') => Promise<WakeLockSentinel> };
+};
+
+const getErrorMessage = (err: unknown): string =>
+  err instanceof Error ? err.message : String(err);
+
 async function getAllinklAuthHeaders(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -61,9 +68,9 @@ function setupUploadKeepAlive(): () => void {
             }, 1000); // Wait 1 second before retry
           }
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Wake lock may not be available (e.g., in some browsers, when battery saver is on)
-        console.warn('[Upload] ⚠️ Wake lock not available:', err.message || err);
+        console.warn('[Upload] ⚠️ Wake lock not available:', getErrorMessage(err));
         console.log('[Upload] ℹ️ Uploads will continue, but device may sleep. This is usually fine.');
       }
     } else {
@@ -844,8 +851,8 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
             }, 1000);
           }
         });
-      } catch (err: any) {
-        console.warn('[Video Compression] ⚠️ Wake lock not available:', err.message || err);
+      } catch (err: unknown) {
+        console.warn('[Video Compression] ⚠️ Wake lock not available:', getErrorMessage(err));
         console.log('[Video Compression] ℹ️ Compression will continue, but may be throttled in background');
       }
     }
@@ -1119,8 +1126,8 @@ export async function compressVideoMultiQuality(
             }, 1000);
           }
         });
-      } catch (err: any) {
-        console.warn('[Video Multi-Quality Compression] ⚠️ Wake lock not available:', err.message || err);
+      } catch (err: unknown) {
+        console.warn('[Video Multi-Quality Compression] ⚠️ Wake lock not available:', getErrorMessage(err));
       }
     }
   };
@@ -1474,15 +1481,15 @@ async function uploadToAllInkl(
                 try {
                   wakeLock = await (navigator as any).wakeLock.request('screen');
                   console.log('[Upload] ✅ Wake lock reacquired');
-                } catch (err: any) {
-                  console.warn('[Upload] ⚠️ Failed to reacquire wake lock:', err.message || err);
+                } catch (err: unknown) {
+                  console.warn('[Upload] ⚠️ Failed to reacquire wake lock:', getErrorMessage(err));
                   // Continue without wake lock - upload should still work
                 }
               }
             }, 1000);
           });
-        } catch (err: any) {
-          console.warn('[Upload] ⚠️ Wake lock not available:', err.message || err);
+        } catch (err: unknown) {
+          console.warn('[Upload] ⚠️ Wake lock not available:', getErrorMessage(err));
           console.log('[Upload] ℹ️ Upload will continue without wake lock');
         }
       }
@@ -1766,15 +1773,15 @@ async function uploadToAllInkl(
                 try {
                   wakeLock = await (navigator as any).wakeLock.request('screen');
                   console.log('[Upload] ✅ Wake lock reacquired');
-                } catch (err: any) {
-                  console.warn('[Upload] ⚠️ Failed to reacquire wake lock:', err.message || err);
+                } catch (err: unknown) {
+                  console.warn('[Upload] ⚠️ Failed to reacquire wake lock:', getErrorMessage(err));
                   // Continue without wake lock - upload should still work
                 }
               }
             }, 1000);
           });
-        } catch (err: any) {
-          console.warn('[Upload] ⚠️ Wake lock not available:', err.message || err);
+        } catch (err: unknown) {
+          console.warn('[Upload] ⚠️ Wake lock not available:', getErrorMessage(err));
           console.log('[Upload] ℹ️ Upload will continue without wake lock');
         }
       }

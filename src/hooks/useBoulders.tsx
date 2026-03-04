@@ -10,8 +10,10 @@ import { Boulder as FrontendBoulder } from '@/types/boulder';
 import { useSectors } from './useSectors';
 import { deleteBetaVideo, deleteThumbnail } from '@/integrations/supabase/storage';
 
+type BoulderLogData = Record<string, unknown>;
+
 /** Trim boulder data for log payload to avoid huge JSON and timeouts. Never throws. */
-function trimBoulderDataForLog(data: any): any {
+function trimBoulderDataForLog(data: BoulderLogData | null | undefined): BoulderLogData | null {
   try {
     if (!data || typeof data !== 'object') return null;
     return {
@@ -62,8 +64,8 @@ export async function logBoulderOperation(
   operationType: 'create' | 'update' | 'delete',
   boulderId: string | null,
   boulderName: string | null,
-  boulderData?: any,
-  changes?: Record<string, any>,
+  boulderData?: BoulderLogData | null,
+  changes?: Record<string, unknown>,
   accessToken: string | null | undefined
 ): Promise<boolean> {
   try {
@@ -248,7 +250,7 @@ export const useBoulders = (enabled: boolean = true) => {
           ]);
           
           console.log('[useBoulders] 🔵 REST fetch result:', result);
-          const { data, error } = result as { data: any, error: any };
+          const { data, error } = result as { data: unknown; error: unknown };
           
           if (error) {
             throw error;
@@ -323,20 +325,22 @@ export const useBoulders = (enabled: boolean = true) => {
         }
         
         return data as Boulder[];
-      } catch (error: any) {
+      } catch (error: unknown) {
         clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
+        const err = error as { name?: string; message?: string };
+        const errorMessage = err.message ?? '';
         
         // Check if it's a timeout/abort error
-        if (error?.name === 'AbortError' || error?.message?.includes('timeout')) {
+        if (err.name === 'AbortError' || errorMessage.includes('timeout')) {
           console.error(`[useBoulders] ⏱️ TIMEOUT after ${duration}ms:`, error);
           throw new Error('Supabase request timeout after 10s');
         }
         
         // Check for rate limiting errors
-        if (error?.message?.includes('rate limit') || 
-            error?.message?.includes('429') || 
-            error?.message?.includes('Too many requests')) {
+        if (errorMessage.includes('rate limit') || 
+            errorMessage.includes('429') || 
+            errorMessage.includes('Too many requests')) {
           console.error(`[useBoulders] ⚠️ RATE LIMIT after ${duration}ms:`, error);
           throw new Error('Rate limit erreicht. Bitte warte einen Moment und versuche es erneut.');
         }
@@ -390,12 +394,12 @@ export const useBouldersWithSectors = (enabled: boolean = true) => {
             id: b.id,
             name: b.name,
             sector: 'Unbekannter Sektor',
-            difficulty: b.difficulty as any,
-            color: b.color as any,
+            difficulty: b.difficulty,
+            color: b.color,
             betaVideoUrl: b.beta_video_url || undefined,
             note: b.note || undefined,
             createdAt: new Date(b.created_at),
-            status: (b as any).status || 'haengt',
+            status: b.status || 'haengt',
           };
         }
       })
@@ -443,7 +447,7 @@ export const useUpdateBoulder = () => {
         
         try {
           const sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
-          const { data: { session: fetchedSession } } = sessionResult as any;
+          const { data: { session: fetchedSession } } = sessionResult as { data: { session: { access_token?: string } | null } };
           if (!fetchedSession?.access_token) {
             throw new Error('Nicht angemeldet. Bitte melde dich an.');
           }
@@ -496,7 +500,7 @@ export const useUpdateBoulder = () => {
           oldData = Array.isArray(oldDataArray) && oldDataArray.length > 0 ? oldDataArray[0] : null;
           console.log('[useUpdateBoulder] Old data fetched');
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.warn('[useUpdateBoulder] Could not fetch old data (non-critical):', error);
         // Continue without old data - logging is not critical
       }
@@ -539,7 +543,7 @@ export const useUpdateBoulder = () => {
       console.log('[useUpdateBoulder] Boulder updated successfully');
 
       // Calculate changes
-      const changes: Record<string, any> = {};
+      const changes: Record<string, unknown> = {};
       Object.keys(updates).forEach(key => {
         if (oldData && oldData[key] !== updates[key as keyof typeof updates]) {
           changes[key] = {
@@ -603,7 +607,7 @@ export const useCreateBoulder = () => {
         );
         try {
           const sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
-          const { data: { session: fetchedSession } } = sessionResult as any;
+          const { data: { session: fetchedSession } } = sessionResult as { data: { session: { access_token?: string } | null } };
           if (!fetchedSession?.access_token) throw new Error('Nicht angemeldet. Bitte melde dich an.');
           currentSession = fetchedSession;
         } catch (timeoutError) {
@@ -727,7 +731,7 @@ export const useDeleteBoulder = () => {
         
         try {
           const sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
-          const { data: { session: fetchedSession } } = sessionResult as any;
+          const { data: { session: fetchedSession } } = sessionResult as { data: { session: { access_token?: string } | null } };
           if (!fetchedSession?.access_token) {
             throw new Error('Nicht angemeldet. Bitte melde dich an.');
           }
@@ -1027,7 +1031,7 @@ export const useBulkUpdateBoulderStatus = () => {
         
         try {
           const sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
-          const { data: { session: fetchedSession } } = sessionResult as any;
+          const { data: { session: fetchedSession } } = sessionResult as { data: { session: { access_token?: string } | null } };
           if (!fetchedSession?.access_token) {
             throw new Error('Nicht angemeldet. Bitte melde dich an.');
           }

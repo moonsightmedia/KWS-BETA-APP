@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
+
+type UserMetadata = Record<string, unknown>;
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -28,10 +30,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient(); // Get queryClient at component level
 
   // Sync function to transfer user_metadata to profiles table
-  const syncMetadataToProfiles = async (userId: string, metadata: any) => {
+  const syncMetadataToProfiles = async (userId: string, metadata: UserMetadata | null | undefined) => {
     if (!userId) return;
     
-    const payload: any = {};
+    const payload: Record<string, unknown> = {};
     // Sync first_name if it exists and is not empty
     if (metadata?.first_name !== undefined && metadata.first_name !== null && String(metadata.first_name).trim() !== '') {
       payload.first_name = String(metadata.first_name).trim();
@@ -118,7 +120,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Versuche zuerst ein Update (falls es zwischenzeitlich erstellt wurde), dann Insert
           console.warn('[Profile Sync] Profil existiert immer noch nicht nach Retry. Versuche es selbst zu erstellen...');
           
-          const createPayload: any = {
+          const createPayload: Record<string, unknown> = {
             id: userId,
             email: metadata?.email || null,
             ...payload
@@ -280,7 +282,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 setTimeout(async () => {
                   try {
                     const { refetchOnVisibilityChange } = await import('@/utils/cacheUtils');
-                    const queryClient = (window as any).__queryClient;
+                    const queryClient = (window as Window & { __queryClient?: { clear: () => void } }).__queryClient;
                     if (queryClient) {
                       await refetchOnVisibilityChange(queryClient);
                     }
@@ -299,7 +301,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // Sync user_metadata to profiles table when session becomes available
             // This happens on SIGNED_IN, TOKEN_REFRESHED, and INITIAL_SESSION events
             if (session?.user) {
-              const meta = session.user.user_metadata as any;
+              const meta = session.user.user_metadata as UserMetadata;
               // Always try to sync - even if metadata is empty, we might need to update email
               // Add email to metadata if not present
               const metadataWithEmail = {
@@ -345,7 +347,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               
               console.log('[Auth] Critical data prefetch initiated');
             }
-          } catch (error: any) {
+          } catch (error: unknown) {
             // Ignore storage access errors
             if (error?.message?.includes('storage') || error?.message?.includes('Storage')) {
               console.warn('[Auth] Storage error in auth state change (ignored):', error.message);
@@ -366,7 +368,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       );
       subscription = sub;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Ignore storage access errors when setting up auth state listener
       if (error?.message?.includes('storage') || error?.message?.includes('Storage')) {
         console.warn('[Auth] Storage error setting up auth listener (ignored):', error.message);
@@ -430,7 +432,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         // Also sync on initial session load
         if (session?.user) {
-          const meta = session.user.user_metadata as any;
+          const meta = session.user.user_metadata as UserMetadata;
           // Always try to sync - even if metadata is empty, we might need to update email
           // Add email to metadata if not present
           const metadataWithEmail = {
@@ -463,7 +465,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             await checkAndStoreRoles(session.user.id, session.access_token ?? '');
           }
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (!mounted) return;
         
         // Ignore storage-related errors
@@ -592,7 +594,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setTimeout(async () => {
               try {
                 const { refetchOnVisibilityChange } = await import('@/utils/cacheUtils');
-                const queryClient = (window as any).__queryClient;
+                const queryClient = (window as Window & { __queryClient?: { clear: () => void } }).__queryClient;
                 if (queryClient) {
                   await refetchOnVisibilityChange(queryClient);
                 }
@@ -721,7 +723,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // User-friendly error messages with more specific checks
       let errorMessage = 'Registrierung fehlgeschlagen';
       const errorMsgLower = error.message.toLowerCase();
-      const errorCode = (error as any).status || (error as any).code;
+      const authError = error as { status?: number; code?: string | number };
+      const errorCode = authError.status || authError.code;
       
       // Check for specific error types
       if (errorMsgLower.includes('already registered') || 
@@ -804,7 +807,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await Promise.race([signOutPromise, timeoutPromise]);
       signOutSuccess = true;
       console.log('[Auth] ✅ Supabase sign out successful');
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If timeout or error, we'll continue with local logout anyway
       console.warn('[Auth] Sign out timeout or error (continuing with local logout):', error);
     }
