@@ -38,6 +38,7 @@ import {
   Check,
   X,
   ChevronDown,
+  Download,
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -466,6 +467,55 @@ export const FeedbackManagement = () => {
       .map((k) => ({ key: k, label: labels[k] ?? k, items: groups.get(k)! }));
   }, [sortedFeedbacks, groupBy]);
 
+  // Export all feedback data as JSON
+  const handleExport = () => {
+    if (!feedbacks || feedbacks.length === 0) {
+      toast.error('Keine Daten zum Exportieren vorhanden');
+      return;
+    }
+    
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      count: feedbacks.length,
+      filters: {
+        status: statusFilter,
+        type: typeFilter,
+        groupBy,
+        sortOrder,
+      },
+      feedbacks: feedbacks.map(f => ({
+        id: f.id,
+        type: f.type,
+        title: f.title,
+        description: f.description,
+        status: f.status,
+        priority: f.priority,
+        user_email: f.user_email,
+        user_id: f.user_id,
+        url: f.url,
+        screenshot_url: f.screenshot_url,
+        browser_info: f.browser_info,
+        error_details: f.error_details,
+        metadata: f.metadata,
+        created_at: f.created_at,
+        updated_at: f.updated_at,
+        resolved_at: f.resolved_at,
+        resolved_by: f.resolved_by,
+      })),
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `feedback-export-${format(new Date(), 'yyyy-MM-dd-HHmm')}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`${feedbacks.length} Feedback-Einträge exportiert`);
+  };
+
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const allVisibleIds = useMemo(() => sortedFeedbacks.map((f) => f.id), [sortedFeedbacks]);
   const isAllSelected =
@@ -612,6 +662,15 @@ export const FeedbackManagement = () => {
           onClick={() => queryClient.invalidateQueries({ queryKey: ['admin-feedback'] })}
         >
           Aktualisieren
+        </Button>
+
+        <Button
+          variant="outline"
+          className="h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] w-full sm:w-auto"
+          onClick={handleExport}
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Exportieren
         </Button>
       </div>
 
