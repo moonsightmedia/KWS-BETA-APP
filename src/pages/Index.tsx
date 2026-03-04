@@ -22,6 +22,7 @@ import { useSidebar } from '@/components/SidebarContext';
 import { cn } from '@/lib/utils';
 
 const Index = () => {
+  const isCompetitionEnabled = import.meta.env.VITE_ENABLE_COMPETITION === 'true';
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isExpanded } = useSidebar();
@@ -333,7 +334,7 @@ const Index = () => {
           </div>
 
           {/* Competition Button - Temporarily hidden */}
-          {false && (
+          {isCompetitionEnabled && (
             <div className="mb-6">
               <Button
                 onClick={() => navigate('/competition')}

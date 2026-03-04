@@ -40,6 +40,7 @@ const Profile = () => {
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [pushPermissionStatus, setPushPermissionStatus] = useState<'granted' | 'denied' | 'prompt' | null>(null);
   const versionInfo = getVersionInfo();
+  const isCompetitionEnabled = import.meta.env.VITE_ENABLE_COMPETITION === 'true';
   
   // Notification preferences
   const { data: notificationPreferences } = useNotificationPreferences();
@@ -448,7 +449,7 @@ const Profile = () => {
               </Card>
 
               {/* Teilgenommene Wettkämpfe - Temporarily hidden */}
-              {false && participant && (
+              {isCompetitionEnabled && participant && (
                 <Card className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
                   <CardHeader className="pb-4">
                     <div className="flex items-center gap-2">
@@ -718,7 +719,7 @@ const Profile = () => {
                       </div>
 
                       {/* Wettkampf-Updates - Temporarily hidden */}
-                      {false && (
+                      {isCompetitionEnabled && (
                         <div className="flex items-center justify-between p-3 rounded-xl border border-[#E7F7E9] bg-[#F9FAF9]">
                           <div className="flex items-center gap-3">
                             <Trophy className="w-5 h-5 text-[#13112B]/60" />

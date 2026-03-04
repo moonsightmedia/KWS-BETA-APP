@@ -65,6 +65,7 @@ const Admin = () => {
 
   const currentTab = searchParams.get('tab') || 'users';
   const tabTitle = getTabTitle(currentTab);
+  const isCompetitionEnabled = import.meta.env.VITE_ENABLE_COMPETITION === 'true';
 
   if (loading) {
     return (
@@ -137,7 +138,7 @@ const Admin = () => {
             </TabsContent>
 
             {/* Temporarily hidden */}
-            {false && (
+            {isCompetitionEnabled && (
               <TabsContent value="competition" className="mt-0">
                 <CompetitionBoulderManagement />
               </TabsContent>
@@ -190,7 +191,7 @@ const Admin = () => {
               </div>
             )}
             {/* Temporarily hidden */}
-            {false && searchParams.get('tab') === 'competition' && (
+            {isCompetitionEnabled && searchParams.get('tab') === 'competition' && (
               <div className="mt-0">
                 <CompetitionBoulderManagement />
               </div>

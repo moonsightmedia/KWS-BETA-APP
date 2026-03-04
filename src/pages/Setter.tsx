@@ -487,6 +487,7 @@ const DatePickerPopover = ({
 };
 
 const Setter = () => {
+  const isCompetitionEnabled = import.meta.env.VITE_ENABLE_COMPETITION === 'true';
   const { session, loading: authLoading } = useAuth();
   const { hasRole: isSetter, loading: loadingSetter } = useHasRole('setter');
   const { hasRole: isAdmin, loading: loadingAdmin } = useHasRole('admin');
@@ -1145,7 +1146,7 @@ const Setter = () => {
               <TabsContent value="edit" className="mt-0 w-full min-w-0">
                 <div className="space-y-4 w-full min-w-0">
                   {/* Create wizard - currently disabled */}
-                  {false && (
+                  {isCompetitionEnabled && (
                     <Card>
                       <CardHeader>
                 <div className="flex items-center justify-between">
