@@ -254,7 +254,7 @@ if (isReload) {
 }
 
 // Test if custom fetch is actually being used by checking the client internals
-// @ts-ignore - accessing internal property for debugging
+// @ts-expect-error - accessing internal property for debugging
 if (supabaseInstance.rest && supabaseInstance.rest.fetch) {
   console.log('[Supabase Client] ✅ Custom fetch is set on client.rest.fetch');
   console.log('[Supabase Client] 🔍 Fetch function:', supabaseInstance.rest.fetch.toString().substring(0, 200));
@@ -276,14 +276,13 @@ if (supabaseInstance.rest && supabaseInstance.rest.fetch) {
 }
 
 // Also check postgrest client
-// @ts-ignore
-if (supabaseInstance.rest && supabaseInstance.rest.postgrest) {
-  // @ts-ignore
-  const postgrest = supabaseInstance.rest.postgrest;
+const supabaseDebug = supabaseInstance as unknown as {
+  rest?: { postgrest?: { fetch?: () => unknown } };
+};
+if (supabaseDebug.rest?.postgrest) {
+  const postgrest = supabaseDebug.rest.postgrest;
   console.log('[Supabase Client] 🔍 Postgrest client found:', typeof postgrest);
-  // @ts-ignore
   if (postgrest.fetch) {
-    // @ts-ignore
     console.log('[Supabase Client] 🔍 Postgrest fetch:', postgrest.fetch.toString().substring(0, 200));
   }
 }
@@ -343,8 +342,7 @@ export const ensureSupabaseReady = async (): Promise<void> => {
         // CRITICAL: On reload, verify that the client can actually make requests
         // by checking if the fetch function is properly set
         if (isReload) {
-          // @ts-ignore
-          const restFetch = supabaseInstance.rest?.fetch;
+          const restFetch = (supabaseInstance as unknown as { rest?: { fetch?: () => unknown } }).rest?.fetch;
           if (restFetch) {
             const fetchStr = restFetch.toString();
             console.log('[Supabase Client] 🔍 Verifying fetch on reload:', fetchStr.substring(0, 100));

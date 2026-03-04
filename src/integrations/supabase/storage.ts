@@ -207,10 +207,9 @@ function applyExifOrientation(ctx: CanvasRenderingContext2D, orientation: number
  * Automatically corrects EXIF orientation so portrait images are saved as portrait
  */
 export async function compressThumbnail(file: File, onProgress?: (progress: number) => void): Promise<File> {
-  return new Promise(async (resolve, reject) => {
-    // Read EXIF orientation first
-    const orientation = await getExifOrientation(file);
-    
+  const orientation = await getExifOrientation(file);
+
+  return new Promise((resolve, reject) => {
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
     img.src = objectUrl;
@@ -219,8 +218,8 @@ export async function compressThumbnail(file: File, onProgress?: (progress: numb
       try {
         // Browser automatically applies EXIF orientation when displaying
         // So img.width/height are already corrected for display
-        let imgWidth = img.width;
-        let imgHeight = img.height;
+        const imgWidth = img.width;
+        const imgHeight = img.height;
 
         // Determine if image is landscape (width > height) or portrait (height > width)
         const isLandscape = imgWidth > imgHeight;
@@ -1968,18 +1967,17 @@ export async function uploadBetaVideo(
  * Maintains aspect ratio and corrects EXIF orientation
  */
 async function compressSectorImage(file: File, onProgress?: (progress: number) => void): Promise<File> {
-  return new Promise(async (resolve, reject) => {
-    // Read EXIF orientation first
-    const orientation = await getExifOrientation(file);
-    
+  const orientation = await getExifOrientation(file);
+
+  return new Promise((resolve, reject) => {
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
     img.src = objectUrl;
 
     img.onload = () => {
       try {
-        let imgWidth = img.width;
-        let imgHeight = img.height;
+        const imgWidth = img.width;
+        const imgHeight = img.height;
 
         // Calculate optimal dimensions (max 1920px width, maintain aspect ratio)
         const maxWidth = 1920;

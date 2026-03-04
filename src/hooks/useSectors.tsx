@@ -82,7 +82,7 @@ export const useSectors = (enabled: boolean = true) => {
         
         // CRITICAL: Always use REST client fetch directly for localhost
         // QueryBuilder doesn't work reliably on localhost, so we bypass it
-        // @ts-ignore - accessing internal property
+        // @ts-expect-error - accessing internal property
         const restClient = currentSupabase.rest;
         const restFetch = restClient?.fetch;
         
