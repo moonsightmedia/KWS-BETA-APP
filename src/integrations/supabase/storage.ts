@@ -8,6 +8,15 @@ const SECTOR_IMAGES_BUCKET = 'sector-images';
 const ALLINKL_API_URL = import.meta.env.VITE_ALLINKL_API_URL || 'https://cdn.kletterwelt-sauerland.de/upload-api';
 const USE_ALLINKL_STORAGE = import.meta.env.VITE_USE_ALLINKL_STORAGE === 'true' || false;
 
+async function getAllinklAuthHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) {
+    throw new Error('Nicht authentifiziert: Aktion benötigt eine gültige Sitzung.');
+  }
+  return { Authorization: `Bearer ${token}` };
+}
+
 function getFileExt(fileName: string): string {
   const idx = fileName.lastIndexOf('.');
   return idx >= 0 ? fileName.slice(idx + 1) : '';
@@ -1487,6 +1496,8 @@ async function uploadToAllInkl(
         console.log('[Upload] ℹ️ Tab is hidden, using background upload strategy');
       }
       
+      const authHeaders = await getAllinklAuthHeaders();
+
       // Track uploaded chunks for resume capability
       const uploadedChunks: number[] = [];
       
@@ -1504,6 +1515,7 @@ async function uploadToAllInkl(
           'X-File-Type': mimeType,
           'X-Chunk-Number': i.toString(),
           'X-Total-Chunks': totalChunks.toString(),
+          ...authHeaders,
         };
 
         if (uploadSessionId) {
@@ -1713,6 +1725,8 @@ async function uploadToAllInkl(
   } else {
     // Single file upload for small files with retry mechanism
     return retryWithBackoff(async () => {
+      const authHeaders = await getAllinklAuthHeaders();
+
       const formData = new FormData();
       // Use 'chunk' field name for consistency with chunked uploads (required by PHP API)
       formData.append('chunk', file);
@@ -1727,6 +1741,7 @@ async function uploadToAllInkl(
         'X-Upload-Session-Id': singleFileSessionId,
         'X-Chunk-Number': '0', // Single file = chunk 0
         'X-Total-Chunks': '1', // Single file = 1 chunk
+        ...authHeaders,
       };
 
       if (sectorId) {
@@ -2177,10 +2192,12 @@ export async function deleteThumbnail(thumbnailUrl: string | null): Promise<void
   try {
     // Check if it's an All-Inkl URL
     if (thumbnailUrl.includes('cdn.kletterwelt-sauerland.de')) {
+      const authHeaders = await getAllinklAuthHeaders();
       const response = await fetch(`${ALLINKL_API_URL}/delete.php`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders,
         },
         body: JSON.stringify({ url: thumbnailUrl }),
       });
@@ -2230,10 +2247,12 @@ export async function deleteBetaVideo(videoUrl: string | null): Promise<void> {
   try {
     // Check if it's an All-Inkl URL
     if (videoUrl.includes('cdn.kletterwelt-sauerland.de')) {
+      const authHeaders = await getAllinklAuthHeaders();
       const response = await fetch(`${ALLINKL_API_URL}/delete.php`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders,
         },
         body: JSON.stringify({ url: videoUrl }),
       });
@@ -2292,10 +2311,12 @@ export async function deleteSectorImage(imageUrl: string): Promise<void> {
   try {
     // Check if it's an All-Inkl URL
     if (imageUrl.includes('cdn.kletterwelt-sauerland.de')) {
+      const authHeaders = await getAllinklAuthHeaders();
       const response = await fetch(`${ALLINKL_API_URL}/delete.php`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders,
         },
         body: JSON.stringify({ url: imageUrl }),
       });

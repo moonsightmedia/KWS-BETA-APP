@@ -2,12 +2,15 @@
 // upload-status.php - Check upload status for resume capability
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header("Access-Control-Max-Age: 86400");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
+
+require_once __DIR__ . '/auth.php';
+require_supabase_user(['admin', 'setter']);
 
 $uploadDir = __DIR__ . '/uploads';
 $tempDir = $uploadDir . '/temp';

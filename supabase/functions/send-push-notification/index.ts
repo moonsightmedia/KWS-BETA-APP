@@ -48,9 +48,7 @@ interface PushPayload {
 async function getAccessToken(serviceAccountJson: string): Promise<string> {
   try {
     console.log('[FCM] Starting access token request...');
-    console.log('[FCM] Service Account JSON length:', serviceAccountJson.length);
-    console.log('[FCM] Service Account JSON first 200 chars:', serviceAccountJson.substring(0, 200));
-    console.log('[FCM] Service Account JSON last 100 chars:', serviceAccountJson.substring(Math.max(0, serviceAccountJson.length - 100)));
+    console.log('[FCM] Service account payload present:', serviceAccountJson.length > 0);
     
     // Try to parse JSON - handle both string and already-parsed JSON
     let serviceAccount;
@@ -75,10 +73,7 @@ async function getAccessToken(serviceAccountJson: string): Promise<string> {
       try {
         serviceAccount = JSON.parse(jsonString);
       } catch (parseError: any) {
-        console.error('[FCM] JSON parse error:', parseError);
-        console.error('[FCM] Error message:', parseError.message);
-        console.error('[FCM] JSON string (first 500 chars):', jsonString.substring(0, 500));
-        console.error('[FCM] JSON string (last 200 chars):', jsonString.substring(Math.max(0, jsonString.length - 200)));
+        console.error('[FCM] JSON parse error in service account payload');
         throw new Error(`Invalid JSON in FCM_SERVICE_ACCOUNT_JSON: ${parseError.message}`);
       }
     } else {

@@ -2,12 +2,15 @@
 // upload.php - Chunked Upload Handler
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, X-File-Name, X-File-Size, X-File-Type, X-Chunk-Number, X-Total-Chunks, X-Upload-Session-Id, X-Sector-Id");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-File-Name, X-File-Size, X-File-Type, X-Chunk-Number, X-Total-Chunks, X-Upload-Session-Id, X-Sector-Id");
 header("Access-Control-Max-Age: 86400");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
+
+require_once __DIR__ . '/auth.php';
+require_supabase_user(['admin', 'setter']);
 
 $uploadDir = __DIR__ . '/uploads';
 $tempDir = $uploadDir . '/temp';

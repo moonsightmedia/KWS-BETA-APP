@@ -83,10 +83,8 @@ const checkAdminOnce = async (userId: string, accessToken: string): Promise<bool
 
 export const useIsAdmin = () => {
   const { user, session } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    return getStoredAdmin(user?.id) ?? false;
-  });
-  const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(!!user?.id);
 
   const refreshAdminStatus = useCallback(async () => {
     if (!user?.id) {
@@ -95,17 +93,19 @@ export const useIsAdmin = () => {
       return;
     }
     const stored = getStoredAdmin(user.id);
-    if (stored !== null) {
-      setIsAdmin(stored);
-      setLoading(false);
-      return;
+    // Never trust a cached "true" value from browser storage.
+    // It can be tampered with in DevTools. Only trust explicit cached false while re-validating.
+    if (stored === false) {
+      setIsAdmin(false);
     }
+
     const accessToken = session?.access_token;
     if (!accessToken) {
       setIsAdmin(false);
       setLoading(false);
       return;
     }
+
     setLoading(true);
     try {
       const result = await checkAdminOnce(user.id, accessToken);

@@ -1,4 +1,6 @@
 
+import { supabase } from '@/integrations/supabase/client';
+
 // Configuration
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB chunks
 const MAX_RETRIES = 5;
@@ -80,6 +82,12 @@ export async function resumableUpload(
   console.log('[resumableUpload] ✅ Wake lock acquired');
 
   try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) {
+      throw new Error('Nicht authentifiziert: Upload benötigt eine gültige Sitzung.');
+    }
+
     // Check if aborted before starting
     if (abortSignal?.aborted) {
       throw new DOMException('Upload aborted', 'AbortError');
@@ -90,7 +98,12 @@ export async function resumableUpload(
     let uploadedChunks: number[] = [];
     
     try {
-      const statusRes = await fetch(statusUrl, { signal: abortSignal });
+      const statusRes = await fetch(statusUrl, {
+        signal: abortSignal,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
       if (statusRes.ok) {
         const statusData: UploadStatus = await statusRes.json();
         uploadedChunks = statusData.uploaded_chunks || [];
@@ -140,7 +153,8 @@ export async function resumableUpload(
             'X-Total-Chunks': totalChunks.toString(),
             'X-File-Name': file.name,
             'X-File-Size': file.size.toString(),
-            'X-File-Type': file.type
+            'X-File-Type': file.type,
+            'Authorization': `Bearer ${accessToken}`
           };
           
           if (sectorId) {

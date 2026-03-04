@@ -1127,11 +1127,18 @@ export const useCdnVideos = () => {
       const allinklApiUrl = import.meta.env.VITE_ALLINKL_API_URL || 'https://cdn.kletterwelt-sauerland.de/upload-api';
       
       try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) {
+          throw new Error('Nicht authentifiziert: Video-Liste benötigt eine gültige Sitzung.');
+        }
+
         // Fetch all videos directly from CDN directory
         const response = await fetch(`${allinklApiUrl}/list-videos.php`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
           },
         });
 

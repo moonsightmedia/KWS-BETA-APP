@@ -39,7 +39,10 @@ const getStoredRole = (role: 'admin' | 'user' | 'setter', userId: string | undef
           localStorage.setItem(STORAGE_KEY_ADMIN, stored);
         }
       }
-      return stored === null ? null : stored === 'true';
+      if (stored === null) return null;
+      // Never trust cached admin=true from browser storage (can be manipulated).
+      // Force server-side revalidation for admin privileges.
+      return stored === 'true' ? null : false;
     } else if (role === 'setter') {
       let stored = localStorage.getItem(STORAGE_KEY_SETTER);
       if (stored === null) {
