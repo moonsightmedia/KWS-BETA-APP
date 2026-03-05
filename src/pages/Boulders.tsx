@@ -88,7 +88,7 @@ const Boulders = () => {
   const [showOnlyHanging, setShowOnlyHanging] = useState(true);
   const [selectedBoulder, setSelectedBoulder] = useState<Boulder | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [quickFilter, setQuickFilter] = useState<null | 'sector' | 'difficulty' | 'color' | 'sort'>(null);
+  const [quickFilter, setQuickFilter] = useState<null | 'search' | 'sector' | 'difficulty' | 'color' | 'sort'>(null);
   const { data: colors } = useColors();
 
   const { user, loading: authLoading } = useAuth();
@@ -242,8 +242,8 @@ const Boulders = () => {
             paddingTop: 'max(calc(1rem + env(safe-area-inset-top, 0px)), 1rem)'
           }}
         >
-          {/* Search and Filter */}
-          <div className="flex gap-3 mb-6">
+          {/* Search and Filter (desktop only; mobile uses floating filter bar) */}
+          <div className="hidden sm:flex gap-3 mb-6">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
@@ -386,10 +386,41 @@ const Boulders = () => {
             <div className="pointer-events-auto rounded-2xl bg-[#13112B] text-white shadow-2xl border border-white/10 overflow-hidden w-full">
               <div className="flex items-center px-3 py-2">
                 <span className="px-3 py-1 bg-white/10 rounded-xl text-xs font-semibold">
-                  {quickFilter === 'color' ? 'Farbe' : quickFilter === 'sector' ? 'Sektor' : quickFilter === 'difficulty' ? 'Schwierigkeit' : 'Sortierung'}
+                  {quickFilter === 'search'
+                    ? 'Suche'
+                    : quickFilter === 'color'
+                    ? 'Farbe'
+                    : quickFilter === 'sector'
+                    ? 'Sektor'
+                    : quickFilter === 'difficulty'
+                    ? 'Schwierigkeit'
+                    : 'Sortierung'}
                 </span>
               </div>
               <div className="px-3 pb-3">
+                {quickFilter === 'search' && (
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60" />
+                      <Input
+                        placeholder="Suchen..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="h-10 pl-9 border-white/20 bg-white/10 text-white placeholder:text-white/50 focus-visible:ring-[#36B531]"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl border border-white/15 bg-white/10 px-3 py-2">
+                      <Label htmlFor="mobile-show-only-hanging" className="text-xs text-white/90 cursor-pointer">
+                        Nur hängende Boulder
+                      </Label>
+                      <Switch
+                        id="mobile-show-only-hanging"
+                        checked={showOnlyHanging}
+                        onCheckedChange={setShowOnlyHanging}
+                      />
+                    </div>
+                  </div>
+                )}
                 {quickFilter === 'color' && (
                   <>
                     <div className="flex items-center gap-2 mb-2">
@@ -547,8 +578,13 @@ const Boulders = () => {
         >
           <div className="bg-[#13112B] text-white rounded-2xl shadow-2xl border border-white/10 px-2 py-2 flex items-center justify-between">
             <div>
-              <button className="h-10 px-3 bg-white text-[#13112B] rounded-xl text-xs font-semibold shadow-sm active:scale-95 transition flex items-center">
-                {filteredAndSortedBoulders.length} Treffer
+              <button
+                onClick={() => setQuickFilter(prev => prev === 'search' ? null : 'search')}
+                className="h-10 px-3 bg-white text-[#13112B] rounded-xl text-xs font-semibold shadow-sm active:scale-95 transition flex items-center gap-1.5"
+                aria-label="Suche und Schnellfilter"
+              >
+                <Search className="w-4 h-4" strokeWidth={2} />
+                {searchQuery ? 'Suche aktiv' : `${filteredAndSortedBoulders.length} Treffer`}
               </button>
             </div>
             <div className="flex items-center gap-2">
