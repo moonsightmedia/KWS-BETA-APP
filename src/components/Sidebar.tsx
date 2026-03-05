@@ -324,7 +324,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
     
     // Default: User role
     return [
-      { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+      { icon: LayoutDashboard, label: 'Home', path: '/' },
       { icon: List, label: 'Boulder', path: '/boulders' },
       { icon: Map, label: 'Sektoren', path: '/sectors' },
     ];
@@ -527,7 +527,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                   )}
                 >
                   <item.icon className={cn("w-6 h-6 flex-shrink-0", isActive && "text-[#36B531]")} />
-                  <span className={cn("text-xs font-medium truncate max-w-[60px]", isActive && "text-[#36B531]")}>{item.label}</span>
+                  <span className={cn("text-[11px] leading-tight font-medium truncate max-w-[72px]", isActive && "text-[#36B531]")}>{item.label}</span>
                 </NavLink>
               );
             })}

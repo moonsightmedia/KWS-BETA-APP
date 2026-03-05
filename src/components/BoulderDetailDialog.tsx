@@ -1,11 +1,11 @@
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Boulder, VideoQualities } from '@/types/boulder';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Calendar, MapPin, Palette, FileText, ExternalLink, Video, Maximize2, Minimize2, Settings } from 'lucide-react';
+import { Calendar, MapPin, Palette, FileText, ExternalLink, Video, Maximize2, Minimize2, Settings, X } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useColors } from '@/hooks/useColors';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
@@ -817,11 +817,21 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-[700px] p-0 gap-0 max-h-[90vh] sm:max-h-[85vh] overflow-y-auto !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 !bottom-auto !right-auto !rounded-2xl !border !border-[#E7F7E9]">
-        <DialogHeader className="px-6 pt-6 pb-4">
+        <DialogHeader className="relative px-6 pt-6 pb-4">
+          <DialogClose asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-4 top-4 h-9 w-9 rounded-xl border border-[#E7F7E9] bg-white/90 text-[#13112B] shadow-sm hover:bg-[#F9FAF9]"
+              aria-label="Dialog schließen"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </DialogClose>
           <DialogDescription className="sr-only">
             Details für Boulder {boulder.name} - {boulder.color} · Grad {boulder.difficulty === null ? '?' : boulder.difficulty} · {boulder.sector}
           </DialogDescription>
-          <DialogTitle className="text-xl sm:text-2xl font-heading font-bold text-[#13112B] text-center">
+          <DialogTitle className="text-xl sm:text-2xl font-heading font-bold text-[#13112B] text-center pr-10">
             {boulder.name}
           </DialogTitle>
         </DialogHeader>

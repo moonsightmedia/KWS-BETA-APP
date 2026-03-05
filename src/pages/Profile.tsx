@@ -349,7 +349,7 @@ const Profile = () => {
       <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
           <DashboardHeader />
           <main className="flex-1">
-          <div className="container max-w-4xl mx-auto p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
+          <div className="container max-w-4xl mx-auto p-3 sm:p-4 md:p-6 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] md:pb-6 space-y-3 sm:space-y-4 md:space-y-6">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-heading font-bold tracking-wide text-[#13112B] pt-2 md:pt-0">Profil Einstellungen</h1>
           
           {loading ? (
