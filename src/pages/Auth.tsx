@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 
 // Helper function to get days in a month
@@ -35,6 +35,8 @@ const Auth = () => {
     user
   } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const defaultTab = location.pathname.endsWith('/register') ? 'signup' : 'login';
   useEffect(() => {
     console.log('[Auth] mounted');
     
@@ -201,7 +203,7 @@ const Auth = () => {
             <CardDescription className="text-[#13112B]/60">Melde dich an oder erstelle ein neues Konto</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login" className="w-full">
+            <Tabs key={defaultTab} defaultValue={defaultTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 gap-1 mb-4 bg-[#F9FAF9] p-1.5 rounded-xl">
                 <TabsTrigger value="login" className="h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white min-w-0">Anmelden</TabsTrigger>
                 <TabsTrigger value="signup" className="h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white min-w-0">Registrieren</TabsTrigger>
@@ -232,9 +234,15 @@ const Auth = () => {
                         required 
                         className="h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]"
                       />
-                      <button type="button" onClick={() => setShowResetPassword(true)} className="text-xs text-[#36B531] hover:underline">
-                        Passwort vergessen?
+                      <button
+                        type="button"
+                        onClick={() => setShowResetPassword(true)}
+                        className="w-full text-left text-sm font-semibold text-[#36B531] hover:underline mt-1"
+                        aria-label="Passwort zurücksetzen"
+                      >
+                        Passwort vergessen? Jetzt zurücksetzen
                       </button>
+                      <p className="text-xs text-[#13112B]/60">Falls dein Login nicht klappt, kannst du dir hier direkt einen Reset-Link senden lassen.</p>
                     </div>
                     <Button type="submit" className="w-full mt-6 h-11 rounded-xl bg-[#36B531] hover:bg-[#2DA029] text-white">
                       Anmelden

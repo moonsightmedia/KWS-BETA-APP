@@ -305,6 +305,7 @@ const router = createBrowserRouter([
           <Index />
         </RequireAuth>
       ) },
+      // canonical routes
       { path: "sectors", element: <Sectors /> },
       { path: "boulders", element: <Boulders /> },
       { path: "auth", element: <Auth /> },
@@ -313,6 +314,20 @@ const router = createBrowserRouter([
       { path: "setter", element: <Setter /> },
       { path: "guest", element: <Guest /> },
       { path: "competition", element: <Competition /> },
+
+      // app-prefixed aliases for consistent UX/deeplinks (kletterliga live paths)
+      { path: "app", element: (
+        <RequireAuth>
+          <Index />
+        </RequireAuth>
+      ) },
+      { path: "app/profile", element: <Profile /> },
+      { path: "app/rankings", element: <Competition /> },
+      { path: "app/gyms", element: <Sectors /> },
+      { path: "app/finale", element: <Competition /> },
+      { path: "app/login", element: <Auth /> },
+      { path: "app/register", element: <Auth /> },
+
       { path: "*", element: <NotFound /> },
     ],
   },

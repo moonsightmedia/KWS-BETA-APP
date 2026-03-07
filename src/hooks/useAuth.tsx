@@ -655,11 +655,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  async function withSingleRetry<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch (error: any) {
+      const msg = String(error?.message || '').toLowerCase();
+      const looksTransient = msg.includes('network') || msg.includes('fetch') || msg.includes('timeout') || msg.includes('failed to fetch');
+      if (!looksTransient) throw error;
+      // one short retry for intermittent network/backend hiccups
+      await new Promise((resolve) => setTimeout(resolve, 450));
+      return await operation();
+    }
+  }
+
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await withSingleRetry(() => supabase.auth.signInWithPassword({
       email,
       password,
-    });
+    }));
     
     if (error) {
       // User-friendly German error messages
@@ -705,7 +718,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const fullName = [firstName, lastName].filter(Boolean).join(' ').trim() || undefined;
     const birthDate = meta?.birthDate?.trim() || undefined;
     
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await withSingleRetry(() => supabase.auth.signUp({
       email: emailTrimmed,
       password,
       options: {
@@ -717,7 +730,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           birth_date: birthDate || null,
         }
       }
-    });
+    }));
     
     if (error) {
       // User-friendly error messages with more specific checks
@@ -881,9 +894,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const resetPassword = async (email: string) => {
     const redirectUrl = `${window.location.origin}/auth`;
     
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await withSingleRetry(() => supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl
-    });
+    }));
     
     if (error) {
       // User-friendly German error messages
