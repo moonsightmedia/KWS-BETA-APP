@@ -513,7 +513,7 @@ export const BoulderOperationLogs = () => {
                       Boulder-Daten
                     </p>
                     <div className="px-4 py-3 space-y-2">
-                      {['name', 'difficulty', 'color', 'status', 'note', 'sector_id', 'created_at', 'updated_at'].map((key) => {
+                      {['name', 'difficulty', 'color', 'color_2', 'is_partner_boulder', 'status', 'note', 'sector_id', 'sector_id_2', 'created_at', 'updated_at'].map((key) => {
                         const v = selectedLog.boulder_data[key];
                         if (v === undefined) return null;
                         const label = key.replace(/_/g, ' ');

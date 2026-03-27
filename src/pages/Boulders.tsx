@@ -21,7 +21,7 @@ import { useSectorsTransformed } from '@/hooks/useSectors';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
-import { getColorBackgroundStyle } from '@/utils/colorUtils';
+import { getBoulderColorBackgroundStyle, getBoulderColorLabel, getColorBackgroundStyle, matchesBoulderColorFilter } from '@/utils/colorUtils';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/components/SidebarContext';
 import { formatDate } from 'date-fns';
@@ -143,11 +143,13 @@ const Boulders = () => {
     if (!boulders) return [];
 
     let filtered = boulders.filter((boulder) => {
+      const colorLabel = getBoulderColorLabel(boulder.color, boulder.color2);
       const matchesSearch = boulder.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           colorLabel.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            (boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector).toLowerCase().includes(searchQuery.toLowerCase());
       const matchesSector = sectorFilter === 'all' || boulder.sector === sectorFilter || boulder.sector2 === sectorFilter;
       const matchesDifficulty = difficultyFilter === 'all' || (boulder.difficulty === null ? '?' : String(boulder.difficulty)) === difficultyFilter;
-      const matchesColor = colorFilter === 'all' || boulder.color === colorFilter;
+      const matchesColor = matchesBoulderColorFilter(boulder.color, boulder.color2, colorFilter);
       const matchesStatus = showOnlyHanging ? boulder.status === 'haengt' : true;
       
       return matchesSearch && matchesSector && matchesDifficulty && matchesColor && matchesStatus;
@@ -339,6 +341,16 @@ const Boulders = () => {
                     <span className="text-xs sm:text-sm text-[#13112B]/60 truncate">
                       {boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}
                     </span>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] text-[#13112B]/50">
+                        {getBoulderColorLabel(boulder.color, boulder.color2)}
+                      </span>
+                      {boulder.isPartnerBoulder && (
+                        <Badge variant="secondary" className="rounded-xl bg-[#E7F7E9] text-[#13112B]">
+                          Partnerboulder
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   {/* Difficulty Badge rechts - quadratisch */}
                   <div className="flex-shrink-0">
@@ -347,7 +359,8 @@ const Boulders = () => {
                         "w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-xl text-base sm:text-lg font-semibold",
                         TEXT_ON_COLOR[boulder.color] || 'text-white'
                       )}
-                      style={getColorBackgroundStyle(boulder.color, colors)}
+                      style={getBoulderColorBackgroundStyle(boulder.color, boulder.color2, colors)}
+                      title={getBoulderColorLabel(boulder.color, boulder.color2)}
                     >
                       {boulder.difficulty === null ? '?' : boulder.difficulty}
                     </span>

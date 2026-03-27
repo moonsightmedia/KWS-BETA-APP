@@ -12,9 +12,10 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Plus, MoreVertical, Search, ArrowUpDown, ArrowUp, ArrowDown, Palette, Map, BarChart3, X, Edit2, Eye, Filter } from "lucide-react";
 import { useColors } from "@/hooks/useColors";
-import { getColorBackgroundStyle } from "@/utils/colorUtils";
+import { getBoulderColorBackgroundStyle, getBoulderColorLabel, getColorBackgroundStyle, matchesBoulderColorFilter } from "@/utils/colorUtils";
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -72,13 +73,15 @@ export const BoulderManagement = () => {
 
     let filtered = boulders.filter((boulder) => {
       const sector = sectors.find(s => s.id === boulder.sector_id);
+      const colorLabel = getBoulderColorLabel(boulder.color, boulder.color_2);
       
       // Suchfilter
       const matchesSearch = 
         boulder.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         sector?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        boulder.color.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        boulder.difficulty.toString().includes(searchQuery) ||
+        colorLabel.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (boulder.is_partner_boulder ? 'partnerboulder'.includes(searchQuery.toLowerCase()) : false) ||
+        String(boulder.difficulty ?? '?').includes(searchQuery) ||
         (boulder.note && boulder.note.toLowerCase().includes(searchQuery.toLowerCase()));
 
       // Sektor-Filter
@@ -88,7 +91,7 @@ export const BoulderManagement = () => {
       const matchesDifficulty = difficultyFilter === 'all' || (boulder.difficulty === null ? '?' : String(boulder.difficulty)) === difficultyFilter;
 
       // Farb-Filter
-      const matchesColor = colorFilter === 'all' || boulder.color === colorFilter;
+      const matchesColor = matchesBoulderColorFilter(boulder.color, boulder.color_2, colorFilter);
 
       return matchesSearch && matchesSector && matchesDifficulty && matchesColor;
     });
@@ -147,6 +150,8 @@ export const BoulderManagement = () => {
     sector_id: "",
     difficulty: 1,
     color: "Grün",
+    color_2: "",
+    is_partner_boulder: false,
     beta_video_url: "",
     thumbnail_url: "",
     note: "",
@@ -158,6 +163,8 @@ export const BoulderManagement = () => {
       sector_id: "",
       difficulty: null,
       color: "Grün",
+      color_2: "",
+      is_partner_boulder: false,
       beta_video_url: "",
       thumbnail_url: "",
       note: "",
@@ -204,12 +211,20 @@ export const BoulderManagement = () => {
     }
 
     try {
+      const secondaryColor = formData.color_2.trim();
+      if (secondaryColor && secondaryColor === formData.color.trim()) {
+        toast.error('Die zweite Farbe muss sich von der Hauptfarbe unterscheiden.');
+        return;
+      }
+
       await createBoulder.mutateAsync({
         ...formData,
         name: nameTrimmed,
         sector_id: formData.sector_id,
         color: formData.color.trim(),
-        difficulty: formData.difficulty ?? 1,
+        color_2: secondaryColor || null,
+        difficulty: formData.difficulty,
+        is_partner_boulder: formData.is_partner_boulder,
         status: 'haengt',
       });
       setIsDialogOpen(false);
@@ -304,7 +319,11 @@ export const BoulderManagement = () => {
                           <button
                             key={color}
                             type="button"
-                            onClick={() => setFormData({ ...formData, color })}
+                            onClick={() => setFormData({ 
+                              ...formData,
+                              color,
+                              color_2: formData.color_2 === color ? "" : formData.color_2,
+                            })}
                             className={`relative flex flex-col items-center gap-2 p-2 sm:p-3 rounded-lg border-2 transition-all w-full min-w-0 ${
                               isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
                             }`}
@@ -383,6 +402,43 @@ export const BoulderManagement = () => {
                         </div>
                       </div>
                     )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0">
+                <div className="w-full min-w-0">
+                  <Label htmlFor="color_2">Zweite Farbe</Label>
+                  <Select
+                    value={formData.color_2 || 'none'}
+                    onValueChange={(value) => setFormData({ ...formData, color_2: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Keine zweite Farbe" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Keine zweite Farbe</SelectItem>
+                      {availableColors
+                        .filter((color) => color !== formData.color)
+                        .map((color) => (
+                          <SelectItem key={`secondary-${color}`} value={color}>
+                            {color}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-end">
+                  <div className="flex items-center gap-3 rounded-lg border px-3 py-2 w-full">
+                    <Checkbox
+                      id="is_partner_boulder"
+                      checked={formData.is_partner_boulder}
+                      onCheckedChange={(checked) => setFormData({ ...formData, is_partner_boulder: checked === true })}
+                    />
+                    <Label htmlFor="is_partner_boulder" className="cursor-pointer">
+                      Partnerboulder
+                    </Label>
                   </div>
                 </div>
               </div>
@@ -611,7 +667,12 @@ export const BoulderManagement = () => {
                     {(() => {
                       // Sammle alle einzigartigen Farben aus den Bouldern
                       const uniqueColors = new Set<string>();
-                      boulders?.forEach(b => uniqueColors.add(b.color));
+                      boulders?.forEach((b) => {
+                        uniqueColors.add(b.color);
+                        if (b.color_2) {
+                          uniqueColors.add(b.color_2);
+                        }
+                      });
                       const sortedColors = Array.from(uniqueColors).sort();
                       
                       return sortedColors.map((color) => {
@@ -769,16 +830,30 @@ export const BoulderManagement = () => {
               ) : (
                 filteredAndSortedBoulders.map((boulder) => {
                   const sector = sectors?.find(s => s.id === boulder.sector_id);
+                  const colorLabel = getBoulderColorLabel(boulder.color, boulder.color_2);
                   return (
                     <TableRow key={boulder.id}>
-                      <TableCell className="font-medium">{boulder.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <span>{boulder.name}</span>
+                          {boulder.is_partner_boulder && (
+                            <Badge variant="secondary" className="rounded-xl bg-[#E7F7E9] text-[#13112B]">
+                              Partner
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>{sector?.name || "Unbekannt"}</TableCell>
-                      <TableCell>{boulder.difficulty}</TableCell>
+                      <TableCell>{formatDifficulty(boulder.difficulty)}</TableCell>
                       <TableCell>
-                        <div 
-                          className={`w-6 h-6 rounded-xl border-2 ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${COLOR_MAP[boulder.color]?.border || 'border-gray-500'}`}
-                          title={boulder.color}
-                        />
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-6 h-6 rounded-xl border-2 border-black/10"
+                            style={getBoulderColorBackgroundStyle(boulder.color, boulder.color_2, colors)}
+                            title={colorLabel}
+                          />
+                          <span className="text-sm text-muted-foreground">{colorLabel}</span>
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
@@ -809,6 +884,7 @@ export const BoulderManagement = () => {
         ) : (
           filteredAndSortedBoulders.map((boulder) => {
             const sector = sectors?.find(s => s.id === boulder.sector_id);
+            const colorLabel = getBoulderColorLabel(boulder.color, boulder.color_2);
             return (
               <Card key={boulder.id} className="shadow-soft">
                 <CardContent className="p-4">
@@ -850,12 +926,19 @@ export const BoulderManagement = () => {
                       </Button>
                     </div>
                   </div>
-                  <div className="flex gap-2 items-center">
-                    <Badge variant="secondary">Schwierigkeit {boulder.difficulty}</Badge>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <Badge variant="secondary">Schwierigkeit {formatDifficulty(boulder.difficulty)}</Badge>
                     <div 
-                      className={`w-6 h-6 rounded-full border-2 ${COLOR_MAP[boulder.color]?.bg || 'bg-gray-400'} ${COLOR_MAP[boulder.color]?.border || 'border-gray-500'}`}
-                      title={boulder.color}
+                      className="w-6 h-6 rounded-full border-2 border-black/10"
+                      style={getBoulderColorBackgroundStyle(boulder.color, boulder.color_2, colors)}
+                      title={colorLabel}
                     />
+                    <span className="text-sm text-muted-foreground">{colorLabel}</span>
+                    {boulder.is_partner_boulder && (
+                      <Badge variant="secondary" className="rounded-xl bg-[#E7F7E9] text-[#13112B]">
+                        Partnerboulder
+                      </Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>

@@ -35,7 +35,12 @@ import { MutedVideo } from '@/components/MutedVideo';
 import { Boulder } from '@/types/boulder';
 import { cn } from '@/lib/utils';
 import { useUpload } from '@/contexts/UploadContext';
-import { getColorBackgroundStyle } from '@/utils/colorUtils';
+import {
+  getBoulderColorBackgroundStyle,
+  getBoulderColorLabel,
+  getColorBackgroundStyle,
+  matchesBoulderColorFilter,
+} from '@/utils/colorUtils';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
@@ -548,6 +553,8 @@ const Setter = () => {
     sector_id_2: '',
     difficulty: 1,
     color: 'Grün',
+    color_2: '',
+    is_partner_boulder: false,
     note: '',
     file: null as File | null,
     thumbnailFile: null as File | null,
@@ -639,7 +646,9 @@ const Setter = () => {
   };
 
   const canSubmit = useMemo(() => {
-    return !!form.name && !!form.sector_id && (form.difficulty === null || (form.difficulty >= 1 && form.difficulty <= 8));
+    const hasValidDifficulty = form.difficulty === null || (form.difficulty >= 1 && form.difficulty <= 8);
+    const hasValidSecondaryColor = !form.color_2 || form.color_2 !== form.color;
+    return !!form.name && !!form.sector_id && hasValidDifficulty && hasValidSecondaryColor;
   }, [form]);
 
   // Wizard validation helpers
@@ -656,8 +665,12 @@ const Setter = () => {
   }, []);
 
   const canProceedStep4 = useMemo(() => {
-    return (form.difficulty === null || (form.difficulty >= 1 && form.difficulty <= 8)) && !!form.color;
-  }, [form.difficulty, form.color]);
+    return (
+      (form.difficulty === null || (form.difficulty >= 1 && form.difficulty <= 8)) &&
+      !!form.color &&
+      (!form.color_2 || form.color_2 !== form.color)
+    );
+  }, [form.difficulty, form.color, form.color_2]);
 
   // Helper to create preview URLs
   useEffect(() => {
@@ -711,6 +724,8 @@ const Setter = () => {
         sector_id_2: form.spansMultipleSectors && form.sector_id_2 ? form.sector_id_2 : null,
         difficulty: form.difficulty,
         color: form.color,
+        color_2: form.color_2 || null,
+        is_partner_boulder: form.is_partner_boulder,
         beta_video_url: form.videoUrl || (form.file ? null : null), // Use CDN URL if provided, otherwise null if file exists (will be updated)
         thumbnail_url: form.thumbnailFile ? null : null, // Will be updated after upload
         note: form.note,
@@ -720,7 +735,7 @@ const Setter = () => {
       
       // Upload functionality removed
       
-      setForm({ name: '', sector_id: '', spansMultipleSectors: false, sector_id_2: '', difficulty: 1, color: 'Grün', note: '', file: null, thumbnailFile: null, videoUrl: '' });
+      setForm({ name: '', sector_id: '', spansMultipleSectors: false, sector_id_2: '', difficulty: 1, color: 'Grün', color_2: '', is_partner_boulder: false, note: '', file: null, thumbnailFile: null, videoUrl: '' });
       setWizardStep(1);
       setVideoPreviewUrl(null);
       setThumbnailPreviewUrl(null);
@@ -749,6 +764,8 @@ const Setter = () => {
         sector_id_2: form.spansMultipleSectors && form.sector_id_2 ? form.sector_id_2 : null,
         difficulty: form.difficulty,
         color: form.color,
+        color_2: form.color_2 || null,
+        is_partner_boulder: form.is_partner_boulder,
         beta_video_url: form.file ? null : null, // Will be updated after upload
         note: form.note,
       };
@@ -781,7 +798,7 @@ const Setter = () => {
         }
       }
       
-      setForm({ name: '', sector_id: '', spansMultipleSectors: false, sector_id_2: '', difficulty: 1, color: 'Grün', note: '', file: null, thumbnailFile: null, videoUrl: '' });
+      setForm({ name: '', sector_id: '', spansMultipleSectors: false, sector_id_2: '', difficulty: 1, color: 'Grün', color_2: '', is_partner_boulder: false, note: '', file: null, thumbnailFile: null, videoUrl: '' });
       setWizardStep(1);
       setVideoPreviewUrl(null);
       setThumbnailPreviewUrl(null);
@@ -816,13 +833,19 @@ const Setter = () => {
       });
     }
     if (editColor !== 'all') {
-      list = list.filter(b => b.color === editColor);
+      list = list.filter((b) => matchesBoulderColorFilter(b.color, b.color2, editColor));
     }
     if (editSearch.trim()) {
       const q = editSearch.toLowerCase();
       list = list.filter(b => {
         const sectorText = b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector;
-        return b.name.toLowerCase().includes(q) || sectorText.toLowerCase().includes(q);
+        const colorText = getBoulderColorLabel(b.color, b.color2).toLowerCase();
+        return (
+          b.name.toLowerCase().includes(q) ||
+          sectorText.toLowerCase().includes(q) ||
+          colorText.includes(q) ||
+          (b.isPartnerBoulder ? 'partnerboulder'.includes(q) : false)
+        );
       });
     }
     return list.slice(0, 100);
@@ -857,6 +880,8 @@ const Setter = () => {
       sector_id_2: sector2Id,
       difficulty: b.difficulty,
       color: b.color,
+      color_2: b.color2 || '',
+      is_partner_boulder: !!b.isPartnerBoulder,
       note: b.note || '',
       file: null,
       thumbnailFile: null,
@@ -907,6 +932,8 @@ const Setter = () => {
         sector_id_2: form.spansMultipleSectors && form.sector_id_2 ? form.sector_id_2 : null,
         difficulty: form.difficulty,
         color: form.color,
+        color_2: form.color_2 || null,
+        is_partner_boulder: form.is_partner_boulder,
         beta_video_url: form.file ? null : editing.betaVideoUrl || null, // Will be updated after upload
         thumbnail_url: form.thumbnailFile ? null : editing.thumbnailUrl || null, // Will be updated after upload
         note: form.note,
@@ -1398,7 +1425,7 @@ const Setter = () => {
                       </div>
                       <div className="w-full min-w-0">
                         <Label>Farbe *</Label>
-                        <Select value={form.color} onValueChange={(v)=>setForm(prev => ({...prev, color: v, name: adjustNameForColor(prev.name, v)}))}>
+                        <Select value={form.color} onValueChange={(v)=>setForm(prev => ({...prev, color: v, color_2: prev.color_2 === v ? '' : prev.color_2, name: adjustNameForColor(prev.name, v)}))}>
                           <SelectTrigger className="h-12 text-base w-full">
                             <SelectValue />
                           </SelectTrigger>
@@ -1413,6 +1440,37 @@ const Setter = () => {
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0">
+                      <div className="w-full min-w-0">
+                        <Label>Zweite Farbe</Label>
+                        <Select value={form.color_2 || 'none'} onValueChange={(v)=>setForm({...form, color_2: v === 'none' ? '' : v})}>
+                          <SelectTrigger className="h-12 text-base w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Keine zweite Farbe</SelectItem>
+                            {COLORS.filter((c) => c !== form.color).map(c => (
+                              <SelectItem key={`secondary-${c}`} value={c}>
+                                <div className="flex items-center gap-2">
+                                  <span className="w-3 h-3 rounded-xl border" style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }} />
+                                  <span>{c}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-end">
+                        <div className="flex items-center gap-3 rounded-xl border border-[#E7F7E9] px-4 py-3 w-full">
+                          <Checkbox
+                            id="partner-boulder-create"
+                            checked={form.is_partner_boulder}
+                            onCheckedChange={(checked) => setForm({...form, is_partner_boulder: checked === true})}
+                          />
+                          <Label htmlFor="partner-boulder-create" className="cursor-pointer">Partnerboulder</Label>
+                        </div>
                       </div>
                     </div>
                     <div className="w-full min-w-0">
@@ -1452,11 +1510,17 @@ const Setter = () => {
                         <div>
                           <Label className="text-muted-foreground">Farbe</Label>
                           <div className="flex items-center gap-2">
-                            <span className="w-4 h-4 rounded-xl border" style={{ backgroundColor: COLOR_HEX[form.color] || '#9ca3af' }} />
-                            <p className="text-lg font-medium">{form.color}</p>
+                            <span className="w-4 h-4 rounded-xl border" style={getBoulderColorBackgroundStyle(form.color, form.color_2, colorsDb)} />
+                            <p className="text-lg font-medium">{getBoulderColorLabel(form.color, form.color_2)}</p>
                           </div>
                         </div>
                       </div>
+                      {form.is_partner_boulder && (
+                        <div>
+                          <Label className="text-muted-foreground">Typ</Label>
+                          <p className="text-lg font-medium">Partnerboulder</p>
+                        </div>
+                      )}
                       {(form.file || form.videoUrl) && (
                         <div>
                           <Label className="text-muted-foreground">Video</Label>
@@ -1719,13 +1783,24 @@ const Setter = () => {
                                     />
                                   </div>
                                 )}
-                                <span className={cn("w-7 h-7 rounded-xl border-2 grid place-items-center text-xs font-semibold flex-shrink-0", TEXT_ON_COLOR[b.color] || 'text-white')} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
+                                <span
+                                  className={cn("w-7 h-7 rounded-xl border-2 grid place-items-center text-xs font-semibold flex-shrink-0", TEXT_ON_COLOR[b.color] || 'text-white')}
+                                  style={getBoulderColorBackgroundStyle(b.color, b.color2, colorsDb)}
+                                  title={getBoulderColorLabel(b.color, b.color2)}
+                                >
                                   {formatDifficulty(b.difficulty)}
                                 </span>
                                 <div className="flex-1 min-w-0 overflow-hidden">
                                   <div className="font-medium text-base text-[#13112B] truncate">{b.name}</div>
-                                  <div className="text-xs text-[#13112B]/60 truncate">
-                                    {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
+                                  <div className="text-xs text-[#13112B]/60 truncate flex flex-wrap items-center gap-1.5">
+                                    <span>{b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}</span>
+                                    <span>•</span>
+                                    <span>{getBoulderColorLabel(b.color, b.color2)}</span>
+                                    {b.isPartnerBoulder && (
+                                      <span className="inline-flex items-center rounded-xl bg-[#E7F7E9] px-2 py-0.5 text-[10px] font-semibold text-[#13112B]">
+                                        Partner
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -1994,7 +2069,12 @@ const Setter = () => {
                                 <button
                                   key={c.id}
                                   type="button"
-                                  onClick={() => setForm(prev => ({...prev, color: c.name, name: adjustNameForColor(prev.name, c.name)}))}
+                                  onClick={() => setForm(prev => ({
+                                    ...prev,
+                                    color: c.name,
+                                    color_2: prev.color_2 === c.name ? '' : prev.color_2,
+                                    name: adjustNameForColor(prev.name, c.name)
+                                  }))}
                                   className={cn(
                                     "flex-shrink-0 w-11 h-11 rounded-xl transition-all border-2 flex items-center justify-center",
                                     form.color === c.name
@@ -2010,6 +2090,36 @@ const Setter = () => {
                                 </button>
                               ))}
                             </div>
+                          </div>
+                          <div className="space-y-2 w-full box-border min-w-0">
+                            <Label className="text-sm font-medium text-[#13112B]">Zweite Farbe</Label>
+                            <Select value={form.color_2 || 'none'} onValueChange={(value) => setForm({...form, color_2: value === 'none' ? '' : value})}>
+                              <SelectTrigger className="h-11 w-full border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]">
+                                <SelectValue placeholder="Keine zweite Farbe" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Keine zweite Farbe</SelectItem>
+                                {COLORS.filter((c) => c !== form.color).map((c) => (
+                                  <SelectItem key={`edit-secondary-${c}`} value={c}>
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-3 h-3 rounded-xl border" style={{ backgroundColor: COLOR_HEX[c] || '#9ca3af' }} />
+                                      <span>{c}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="partner-boulder-edit"
+                              checked={form.is_partner_boulder}
+                              onCheckedChange={(checked) => setForm({...form, is_partner_boulder: checked === true})}
+                              className="border-[#E7F7E9] data-[state=checked]:bg-[#36B531] data-[state=checked]:text-white"
+                            />
+                            <Label htmlFor="partner-boulder-edit" className="cursor-pointer text-sm text-[#13112B]">
+                              Partnerboulder
+                            </Label>
                           </div>
                         </div>
                         <div className="space-y-2 w-full box-border min-w-0">
@@ -2154,10 +2264,14 @@ const Setter = () => {
                                     )}
                                   </div>
                                 )}
-                                <span className={cn("w-7 h-7 rounded-xl border-2 grid place-items-center text-xs font-semibold flex-shrink-0", TEXT_ON_COLOR[b.color] || 'text-white')} style={{ backgroundColor: COLOR_HEX[b.color] || '#9ca3af' }}>
-                                  {formatDifficulty(b.difficulty)}
-                                </span>
-                                <div className="flex-1 min-w-0 overflow-hidden">
+                                  <span
+                                    className={cn("w-7 h-7 rounded-xl border-2 grid place-items-center text-xs font-semibold flex-shrink-0", TEXT_ON_COLOR[b.color] || 'text-white')}
+                                    style={getBoulderColorBackgroundStyle(b.color, b.color2, colorsDb)}
+                                    title={getBoulderColorLabel(b.color, b.color2)}
+                                  >
+                                    {formatDifficulty(b.difficulty)}
+                                  </span>
+                                  <div className="flex-1 min-w-0 overflow-hidden">
                                   <div className="font-medium text-base text-[#13112B] truncate flex items-center gap-2">
                                     {b.name}
                                     {hasMultiQuality && (
@@ -2167,11 +2281,18 @@ const Setter = () => {
                                       </span>
                                     )}
                                   </div>
-                                  <div className="text-xs text-[#13112B]/60 truncate">
-                                    {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
+                                    <div className="text-xs text-[#13112B]/60 truncate flex flex-wrap items-center gap-1.5">
+                                      <span>{b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}</span>
+                                      <span>•</span>
+                                      <span>{getBoulderColorLabel(b.color, b.color2)}</span>
+                                      {b.isPartnerBoulder && (
+                                        <span className="inline-flex items-center rounded-xl bg-[#E7F7E9] px-2 py-0.5 text-[10px] font-semibold text-[#13112B]">
+                                          Partner
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
                               <span className={cn("text-xs px-2 py-0.5 rounded-xl border flex-shrink-0", 
                                 currentStatus === 'abgeschraubt' 
                                   ? 'bg-red-50 text-[#E74C3C] border-red-200' 

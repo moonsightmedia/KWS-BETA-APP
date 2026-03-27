@@ -8,7 +8,7 @@ import { de } from 'date-fns/locale';
 import { Calendar, MapPin, Palette, FileText, ExternalLink, Video, Maximize2, Minimize2, Settings, X } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useColors } from '@/hooks/useColors';
-import { getColorBackgroundStyle } from '@/utils/colorUtils';
+import { getBoulderColorBackgroundStyle, getBoulderColorLabel } from '@/utils/colorUtils';
 import { cn } from '@/lib/utils';
 import { getVideoUrl } from '@/utils/videoUtils';
 import { getOptimalVideoQualityWithDataSaver, detectNetworkSpeed } from '@/utils/networkUtils';
@@ -829,7 +829,7 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
             </Button>
           </DialogClose>
           <DialogDescription className="sr-only">
-            Details für Boulder {boulder.name} - {boulder.color} · Grad {boulder.difficulty === null ? '?' : boulder.difficulty} · {boulder.sector}
+            Details für Boulder {boulder.name} - {getBoulderColorLabel(boulder.color, boulder.color2)} · Grad {boulder.difficulty === null ? '?' : boulder.difficulty} · {boulder.sector}
           </DialogDescription>
           <DialogTitle className="text-xl sm:text-2xl font-heading font-bold text-[#13112B] text-center pr-10">
             {boulder.name}
@@ -848,19 +848,28 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
               <Calendar className="w-3.5 h-3.5 text-[#36B531] flex-shrink-0" />
               <span>{formatDate(boulder.createdAt, 'dd. MMM yyyy', { locale: de })}</span>
             </span>
+            <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E7F7E9] bg-[#F9FAF9] px-2.5 py-1 text-xs text-[#13112B]">
+              <Palette className="w-3.5 h-3.5 text-[#36B531] flex-shrink-0" />
+              <span>{getBoulderColorLabel(boulder.color, boulder.color2)}</span>
+            </span>
             <span
               className={cn(
                 "inline-flex items-center justify-center gap-2 h-8 px-3 rounded-xl border-2 text-xs font-semibold",
                 TEXT_ON_COLOR[boulder.color] || 'text-white'
               )}
               style={{
-                ...getColorBackgroundStyle(boulder.color, colors || []),
+                ...getBoulderColorBackgroundStyle(boulder.color, boulder.color2, colors || []),
                 borderColor: 'rgba(0, 0, 0, 0.1)'
               }}
-              title={`${boulder.color} · Grad ${boulder.difficulty === null ? '?' : boulder.difficulty}`}
+              title={`${getBoulderColorLabel(boulder.color, boulder.color2)} · Grad ${boulder.difficulty === null ? '?' : boulder.difficulty}`}
             >
               <span>{boulder.difficulty === null ? '?' : boulder.difficulty}</span>
             </span>
+            {boulder.isPartnerBoulder && (
+              <Badge className="inline-flex items-center rounded-xl bg-[#E7F7E9] px-2.5 py-1 text-xs font-semibold text-[#13112B]">
+                Partnerboulder
+              </Badge>
+            )}
           </div>
 
           <div className="space-y-4">

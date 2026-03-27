@@ -15,7 +15,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useUpload } from '@/contexts/UploadContext';
 import { logBoulderOperation } from '@/hooks/useBoulders';
 import { generateBoulderName } from '@/utils/nameGenerator';
-import { getColorBackgroundStyle } from '@/utils/colorUtils';
+import { getBoulderColorBackgroundStyle, getBoulderColorLabel, getColorBackgroundStyle } from '@/utils/colorUtils';
 import { sendPushNotificationForNotification } from '@/services/pushNotifications';
 import {
   Dialog,
@@ -26,8 +26,8 @@ import {
 } from "@/components/ui/dialog"
 
 const devLog = (...args: unknown[]) => { if (import.meta.env.DEV) console.log(...args); };
-const devWarn = (...args: unknown[]) => { if (import.meta.env.DEV) devWarn(...args); };
-const devError = (...args: unknown[]) => { if (import.meta.env.DEV) devError(...args); };
+const devWarn = (...args: unknown[]) => { if (import.meta.env.DEV) console.warn(...args); };
+const devError = (...args: unknown[]) => { if (import.meta.env.DEV) console.error(...args); };
 
 interface BatchBoulder {
   id: string;
@@ -36,6 +36,8 @@ interface BatchBoulder {
   sectorId2?: string;
   spansMultipleSectors?: boolean;
   colorId: string;
+  colorId2?: string;
+  isPartnerBoulder?: boolean;
   difficulty: number | null;
   videoFile: File | null;
   thumbFile: File | null;
@@ -64,6 +66,10 @@ export const BatchUpload = () => {
     return generateBoulderName(color.name, currentBoulder.difficulty);
   };
 
+  const getColorNameById = (colorId?: string) => {
+    return colors?.find((color) => color.id === colorId)?.name;
+  };
+
   function createEmptyBoulder(): BatchBoulder {
     const defaultColor = colors?.[0];
     return {
@@ -71,6 +77,8 @@ export const BatchUpload = () => {
       name: defaultColor ? generateBoulderName(defaultColor.name, 4) : 'Neuer Boulder',
       sectorId: '',
       colorId: defaultColor?.id || '',
+      colorId2: undefined,
+      isPartnerBoulder: false,
       difficulty: 4,
       videoFile: null,
       thumbFile: null,
@@ -93,6 +101,14 @@ export const BatchUpload = () => {
   const saveBoulderFromDialog = () => {
     if (!currentBoulder.name || !currentBoulder.sectorId || !currentBoulder.colorId) {
         toast.error('Bitte Name, Sektor und Farbe ausfüllen.');
+        return;
+    }
+    if (currentBoulder.spansMultipleSectors && !currentBoulder.sectorId2) {
+        toast.error('Bitte den zweiten Sektor auswählen.');
+        return;
+    }
+    if (currentBoulder.colorId2 && currentBoulder.colorId2 === currentBoulder.colorId) {
+        toast.error('Die zweite Farbe muss sich von der ersten unterscheiden.');
         return;
     }
 
@@ -126,10 +142,16 @@ export const BatchUpload = () => {
       return false;
     }
     const valid = boulders.every(b => 
-        b.name && b.sectorId && b.colorId && b.videoFile && b.thumbFile
+        b.name &&
+        b.sectorId &&
+        b.colorId &&
+        b.videoFile &&
+        b.thumbFile &&
+        (!b.spansMultipleSectors || !!b.sectorId2) &&
+        (!b.colorId2 || b.colorId2 !== b.colorId)
     );
     if (!valid) {
-        toast.error('Bitte für alle Boulder Video und Thumbnail hinzufügen.');
+        toast.error('Bitte für alle Boulder Pflichtfelder ausfüllen. Zweite Farbe muss optional und unterschiedlich sein.');
       return false;
     }
     return true;
@@ -169,7 +191,9 @@ export const BatchUpload = () => {
                 name: boulder.name,
                 sector_id: boulder.sectorId,
                 color: colors?.find(c => c.id === boulder.colorId)?.name || 'Unbekannt',
+                color_2: getColorNameById(boulder.colorId2) || null,
                 difficulty: boulder.difficulty,
+                is_partner_boulder: !!boulder.isPartnerBoulder,
                 status: 'haengt'
             };
             
@@ -563,7 +587,11 @@ export const BatchUpload = () => {
                                             key={c.id}
                                             onClick={() => {
                                                 const newName = adjustNameForColor(c.id);
-                                                updateCurrentBoulder({ colorId: c.id, name: newName });
+                                                updateCurrentBoulder({ 
+                                                  colorId: c.id,
+                                                  colorId2: currentBoulder.colorId2 === c.id ? undefined : currentBoulder.colorId2,
+                                                  name: newName
+                                                });
                                             }}
                                             className={cn(
                                                 "flex-shrink-0 w-11 h-11 rounded-xl transition-all border-2 flex items-center justify-center",
@@ -583,6 +611,59 @@ export const BatchUpload = () => {
                             ) : (
                                 <div className="text-sm text-[#13112B]/60">Farben werden geladen...</div>
                             )}
+                        </div>
+                        <div className="space-y-2 w-full box-border min-w-0">
+                            <Label className="text-sm font-medium text-[#13112B]">Zweite Farbe (optional)</Label>
+                            <div className="flex flex-wrap gap-2">
+                                <Button
+                                  type="button"
+                                  variant={!currentBoulder.colorId2 ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => updateCurrentBoulder({ colorId2: undefined })}
+                                  className={cn(
+                                    "rounded-xl",
+                                    !currentBoulder.colorId2 ? "bg-[#36B531] text-white hover:bg-[#2da029]" : "border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
+                                  )}
+                                >
+                                  Keine
+                                </Button>
+                                {colors?.map(c => {
+                                  const disabled = c.id === currentBoulder.colorId;
+                                  const isSelected = currentBoulder.colorId2 === c.id;
+                                  return (
+                                    <button
+                                      key={`secondary-${c.id}`}
+                                      type="button"
+                                      onClick={() => !disabled && updateCurrentBoulder({ colorId2: c.id })}
+                                      disabled={disabled}
+                                      className={cn(
+                                        "flex-shrink-0 w-11 h-11 rounded-xl transition-all border-2 flex items-center justify-center",
+                                        isSelected
+                                          ? "border-[#36B531] shadow-lg scale-110 ring-2 ring-[#36B531] ring-offset-2"
+                                          : "border-[#E7F7E9] hover:border-[#36B531]/50 hover:scale-105",
+                                        disabled && "opacity-35 cursor-not-allowed hover:scale-100 hover:border-[#E7F7E9]"
+                                      )}
+                                      style={getColorBackgroundStyle(c.name, colors)}
+                                      title={disabled ? `${c.name} ist bereits die Hauptfarbe` : c.name}
+                                    >
+                                      {isSelected && (
+                                        <div className="w-3 h-3 rounded-xl bg-white/90 shadow-sm" />
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                            </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="is-partner-boulder-batch"
+                            checked={currentBoulder.isPartnerBoulder || false}
+                            onCheckedChange={(checked) => updateCurrentBoulder({ isPartnerBoulder: checked === true })}
+                            className="border-[#E7F7E9] data-[state=checked]:bg-[#36B531] data-[state=checked]:text-white"
+                          />
+                          <Label htmlFor="is-partner-boulder-batch" className="cursor-pointer text-sm text-[#13112B]">
+                            Partnerboulder
+                          </Label>
                         </div>
                     </div>
                     <div className="space-y-2 w-full box-border min-w-0">
@@ -686,13 +767,28 @@ export const BatchUpload = () => {
             <div className="flex-1 min-w-0 cursor-pointer px-1" onClick={() => openEditDialog(boulder)}>
                 <div className="flex items-center gap-2 mb-1.5">
                     <h3 className="font-bold text-base text-[#13112B] truncate">{boulder.name || 'Unbenannt'}</h3>
-                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-xl bg-[#36B531] text-[10px] font-bold text-white flex-shrink-0">{boulder.difficulty || '?'}</span>
+                    <span
+                      className="inline-flex items-center justify-center h-5 w-5 rounded-xl text-[10px] font-bold text-white flex-shrink-0 border"
+                      style={getBoulderColorBackgroundStyle(
+                        getColorNameById(boulder.colorId) || 'Unbekannt',
+                        getColorNameById(boulder.colorId2),
+                        colors
+                      )}
+                      title={getBoulderColorLabel(getColorNameById(boulder.colorId) || 'Unbekannt', getColorNameById(boulder.colorId2))}
+                    >
+                      {boulder.difficulty || '?'}
+                    </span>
                   </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-[#13112B]/60">
                     <span className="truncate max-w-[100px]">{sectors?.find(s => s.id === boulder.sectorId)?.name || 'Sektor?'}</span>
                     <span>•</span>
-                    <span>{colors?.find(c => c.id === boulder.colorId)?.name || 'Farbe?'}</span>
-                    </div>
+                    <span>{getBoulderColorLabel(getColorNameById(boulder.colorId) || 'Farbe?', getColorNameById(boulder.colorId2))}</span>
+                    {boulder.isPartnerBoulder && (
+                      <span className="inline-flex items-center rounded-xl bg-[#E7F7E9] px-2 py-0.5 text-[10px] font-semibold text-[#13112B]">
+                        Partner
+                      </span>
+                    )}
+                  </div>
                   </div>
             <Button variant="ghost" size="icon" className="h-10 w-10 text-[#13112B]/60 hover:text-[#E74C3C] hover:bg-red-50 rounded-xl" onClick={() => removeBoulder(boulder.id)} disabled={isProcessing}>
                 <Trash2 className="w-6 h-6" />

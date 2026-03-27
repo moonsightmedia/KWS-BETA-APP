@@ -40,6 +40,8 @@ export const transformBoulder = (
     sector2: sector2?.name || undefined,
     difficulty: boulder.difficulty as Boulder['difficulty'],
     color: boulder.color as Boulder['color'],
+    color2: boulder.color_2 || undefined,
+    isPartnerBoulder: boulder.is_partner_boulder ?? false,
     betaVideoUrl: boulder.beta_video_url || undefined, // Legacy field
     betaVideoUrls: betaVideoUrls, // New structure with multiple qualities
     thumbnailUrl: boulder.thumbnail_url || undefined,

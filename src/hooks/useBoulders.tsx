@@ -23,6 +23,8 @@ function trimBoulderDataForLog(data: BoulderLogData | null | undefined): Boulder
       sector_id_2: data.sector_id_2,
       difficulty: data.difficulty,
       color: data.color,
+      color_2: data.color_2,
+      is_partner_boulder: data.is_partner_boulder ?? false,
       status: data.status,
       note: data.note ?? null,
       created_at: data.created_at,
@@ -125,12 +127,14 @@ export interface Boulder {
   name: string;
   sector_id: string;
   sector_id_2?: string | null;
-  difficulty: number;
+  difficulty: number | null;
   color: string;
+  color_2?: string | null;
   beta_video_url: string | null;
   beta_video_urls: VideoQualities | null;
   thumbnail_url: string | null;
   note: string | null;
+  is_partner_boulder?: boolean | null;
   status?: 'haengt' | 'abgeschraubt';
   created_at: string;
   updated_at: string;
@@ -571,8 +575,8 @@ export const useUpdateBoulder = () => {
       queryClient.refetchQueries({ queryKey: ['boulders'] });
       queryClient.invalidateQueries({ queryKey: ['boulder-operation-logs'] });
       
-      // If sector_id was changed, also invalidate sectors (affects boulder_count)
-      if (result.updates.sector_id !== undefined) {
+      // If sector assignments changed, also invalidate sectors (affects boulder_count)
+      if (result.updates.sector_id !== undefined || result.updates.sector_id_2 !== undefined) {
         queryClient.invalidateQueries({ queryKey: ['sectors'] });
         queryClient.refetchQueries({ queryKey: ['sectors'] });
       }

@@ -17,44 +17,66 @@ export type Database = {
       boulders: {
         Row: {
           beta_video_url: string | null
+          beta_video_urls: Json | null
           color: string
+          color_2: string | null
           created_at: string
-          difficulty: number
+          difficulty: number | null
           id: string
+          is_partner_boulder: boolean
           name: string
           note: string | null
           sector_id: string
+          sector_id_2: string | null
           status: Database["public"]["Enums"]["boulder_status"]
+          thumbnail_url: string | null
           updated_at: string
         }
         Insert: {
           beta_video_url?: string | null
+          beta_video_urls?: Json | null
           color: string
+          color_2?: string | null
           created_at?: string
-          difficulty: number
+          difficulty?: number | null
           id?: string
+          is_partner_boulder?: boolean
           name: string
           note?: string | null
           sector_id: string
+          sector_id_2?: string | null
           status?: Database["public"]["Enums"]["boulder_status"]
+          thumbnail_url?: string | null
           updated_at?: string
         }
         Update: {
           beta_video_url?: string | null
+          beta_video_urls?: Json | null
           color?: string
+          color_2?: string | null
           created_at?: string
-          difficulty?: number
+          difficulty?: number | null
           id?: string
+          is_partner_boulder?: boolean
           name?: string
           note?: string | null
           sector_id?: string
+          sector_id_2?: string | null
           status?: Database["public"]["Enums"]["boulder_status"]
+          thumbnail_url?: string | null
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "boulders_sector_id_fkey"
             columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boulders_sector_id_2_fkey"
+            columns: ["sector_id_2"]
             isOneToOne: false
             referencedRelation: "sectors"
             referencedColumns: ["id"]
@@ -68,6 +90,7 @@ export type Database = {
           inserted_at: string
           is_active: boolean
           name: string
+          secondary_hex: string | null
           sort_order: number
           updated_at: string
         }
@@ -77,6 +100,7 @@ export type Database = {
           inserted_at?: string
           is_active?: boolean
           name: string
+          secondary_hex?: string | null
           sort_order?: number
           updated_at?: string
         }
@@ -86,6 +110,7 @@ export type Database = {
           inserted_at?: string
           is_active?: boolean
           name?: string
+          secondary_hex?: string | null
           sort_order?: number
           updated_at?: string
         }
