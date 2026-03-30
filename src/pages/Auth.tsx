@@ -202,9 +202,9 @@ const Auth = () => {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 gap-1 mb-4 bg-[#F9FAF9] p-1.5 rounded-xl">
-                <TabsTrigger value="login" className="h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white min-w-0">Anmelden</TabsTrigger>
-                <TabsTrigger value="signup" className="h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white min-w-0">Registrieren</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 gap-2 mb-4 bg-[#F9FAF9] p-1.5 rounded-xl h-auto min-h-[56px]">
+                <TabsTrigger value="login" className="h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white min-w-0 data-[state=active]:shadow-sm">Anmelden</TabsTrigger>
+                <TabsTrigger value="signup" className="h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white min-w-0 data-[state=active]:shadow-sm">Registrieren</TabsTrigger>
               </TabsList>
               
               <TabsContent value="login" className="mt-0">

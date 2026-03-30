@@ -1,18 +1,10 @@
-import { Settings, User, LogOut, HelpCircle, MessageSquare, RefreshCw, Bell } from 'lucide-react';
-import { NotificationCenter } from '@/components/NotificationCenter';
+import { createContext, useContext } from 'react';
+import { LayoutDashboard, LogOut, Settings, Shield, User, Wrench } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+
 import { useAuth } from '@/hooks/useAuth';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useState, createContext, useContext } from 'react';
-import { FeedbackDialog } from '@/components/FeedbackDialog';
-import { useOnboarding } from '@/components/Onboarding';
-import { RoleTabs } from '@/components/RoleTabs';
-import { useQueryClient } from '@tanstack/react-query';
-import { refreshAllData } from '@/utils/cacheUtils';
-import { toast } from 'sonner';
+import { useHasRole } from '@/hooks/useHasRole';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
-import { sendPushNotification } from '@/services/pushNotifications';
-import { Capacitor } from '@capacitor/core';
-import { useNotifications } from '@/hooks/useNotifications';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +13,24 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-// Context for Setter tab title
+const STORAGE_KEY_ADMIN = 'nav_isAdmin';
+const STORAGE_KEY_SETTER = 'nav_isSetter';
+const STORAGE_KEY_USER_ID = 'nav_userId';
+
+const getStoredRole = (key: string, userId?: string): boolean => {
+  if (!userId) return false;
+
+  try {
+    const storedUserId = localStorage.getItem(STORAGE_KEY_USER_ID) ?? sessionStorage.getItem(STORAGE_KEY_USER_ID);
+    if (storedUserId !== userId) return false;
+
+    const storedValue = localStorage.getItem(key) ?? sessionStorage.getItem(key);
+    return storedValue === 'true';
+  } catch {
+    return false;
+  }
+};
+
 const SetterTabTitleContext = createContext<{ tabTitle?: string }>({});
 
 export const SetterTabTitleProvider = ({ children, tabTitle }: { children: React.ReactNode; tabTitle?: string }) => {
@@ -32,7 +41,6 @@ export const SetterTabTitleProvider = ({ children, tabTitle }: { children: React
   );
 };
 
-// Context for Admin tab title
 const AdminTabTitleContext = createContext<{ tabTitle?: string }>({});
 
 export const AdminTabTitleProvider = ({ children, tabTitle }: { children: React.ReactNode; tabTitle?: string }) => {
@@ -43,220 +51,155 @@ export const AdminTabTitleProvider = ({ children, tabTitle }: { children: React.
   );
 };
 
-// Get page title based on current route
 const getPageTitle = (pathname: string, setterTabTitle?: string, adminTabTitle?: string): string => {
-  // If we're on /setter and have a tab title, use it
+  if (pathname.startsWith('/boulders/')) {
+    return 'Boulder';
+  }
+
+  if (pathname === '/setter/create') {
+    return 'Erstellen';
+  }
+
+  if (pathname === '/setter/edit') {
+    return 'Bearbeiten';
+  }
+
+  if (pathname === '/setter/status') {
+    return 'Status';
+  }
+
+  if (pathname === '/setter/schedule') {
+    return 'Planung';
+  }
+
   if (pathname === '/setter' && setterTabTitle) {
     return setterTabTitle;
   }
-  
-  // If we're on /admin and have a tab title, use it
+
   if (pathname === '/admin' && adminTabTitle) {
     return adminTabTitle;
   }
-  
+
   const titleMap: Record<string, string> = {
-    '/': 'DASHBOARD',
-    '/boulders': 'BOULDER',
-    '/sectors': 'SEKTOREN',
-    '/setter': 'SETTER',
-    '/admin': 'ADMIN',
-    // '/competition': 'WETTKAMPF', // Temporarily hidden
-    '/profile': 'PROFIL',
+    '/': 'Dashboard',
+    '/boulders': 'Boulder',
+    '/sectors': 'Sektoren',
+    '/statistics': 'Statistiken',
+    '/setter': 'Setter',
+    '/admin': 'Admin',
+    '/profile': 'Profil',
   };
-  return titleMap[pathname] || 'DASHBOARD';
+
+  return titleMap[pathname] || 'Dashboard';
 };
 
-export const DashboardHeader = () => {
+export const DashboardHeader = ({
+  rightSlot,
+}: {
+  rightSlot?: React.ReactNode;
+}) => {
   const location = useLocation();
-  const { user, session, signOut } = useAuth();
   const navigate = useNavigate();
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isSendingTest, setIsSendingTest] = useState(false);
-  const { openOnboarding } = useOnboarding();
+  const { user, signOut } = useAuth();
+  const { isAdmin } = useIsAdmin();
+  const { hasRole: isSetter } = useHasRole('setter');
   const { tabTitle: setterTabTitle } = useContext(SetterTabTitleContext);
   const { tabTitle: adminTabTitle } = useContext(AdminTabTitleContext);
-  const queryClient = useQueryClient();
-  const { isAdmin } = useIsAdmin();
-  
-  // CRITICAL: Use useNotifications here to ensure Realtime subscription is always active
-  // This ensures push notifications are sent when new notifications are created
-  // even if the NotificationCenter popover is not open
-  useNotifications();
-  
+
   const pageTitle = getPageTitle(location.pathname, setterTabTitle, adminTabTitle);
-  
-  const handleRefresh = async () => {
-    if (isRefreshing) return;
-    
-    setIsRefreshing(true);
-    try {
-      await refreshAllData(queryClient);
-      toast.success('Daten aktualisiert');
-    } catch (error) {
-      console.error('[DashboardHeader] Refresh error:', error);
-      toast.error('Fehler beim Aktualisieren');
-    } finally {
-      setIsRefreshing(false);
+  const storedIsAdmin = getStoredRole(STORAGE_KEY_ADMIN, user?.id);
+  const storedIsSetter = getStoredRole(STORAGE_KEY_SETTER, user?.id);
+  const effectiveIsAdmin = isAdmin || storedIsAdmin;
+  const effectiveIsSetter = effectiveIsAdmin || isSetter || storedIsSetter;
+
+  const navigateToArea = (path: string) => {
+    if (location.pathname + location.search === path) {
+      return;
     }
+    navigate(path);
   };
 
-  const handleSendTestPush = async () => {
-    if (!user || isSendingTest) return;
-    
-    setIsSendingTest(true);
-    try {
-      console.log('[DashboardHeader] 🚀 Starting test push notification...');
-      // Sendet Push-Benachrichtigung über FCM an alle registrierten Geräte (Handys)
-      // Funktioniert sowohl vom Browser als auch von nativen Apps
-      await sendPushNotification(user.id, {
-        title: 'Test-Benachrichtigung',
-        body: 'Dies ist eine Test-Push-Benachrichtigung vom Dashboard',
-        data: {
-          test: true,
-          timestamp: new Date().toISOString(),
-        },
-        action_url: '/',
-      }, session);
-      console.log('[DashboardHeader] ✅ Test push notification sent successfully');
-      
-      // Note: Invalid tokens are automatically deleted by sendPushNotification
-      // If no error was thrown, the notification was sent (even if some tokens were invalid)
-      toast.success('Test-Benachrichtigung gesendet!', {
-        description: 'Die Benachrichtigung wurde an alle registrierten Geräte (Handys) gesendet. Ungültige Tokens wurden automatisch gelöscht.',
-      });
-    } catch (error: any) {
-      console.error('[DashboardHeader] ❌ Test push error:', error);
-      console.error('[DashboardHeader] ❌ Error details:', {
-        message: error?.message,
-        stack: error?.stack,
-        name: error?.name,
-      });
-      
-      const errorMessage = error?.message || '';
-      if (errorMessage.includes('UNREGISTERED') || errorMessage.includes('INVALID_ARGUMENT')) {
-        toast.warning('Ungültiges Token', {
-          description: 'Das Token wurde automatisch gelöscht. Bitte öffne die App auf dem Handy und aktiviere Push-Benachrichtigungen erneut.',
-        });
-      } else {
-        toast.error('Fehler beim Senden', {
-          description: error?.message || 'Unbekannter Fehler. Bitte Console-Logs prüfen.',
-        });
-      }
-    } finally {
-      setIsSendingTest(false);
-    }
-  };
-  
+  const profileMenuContentClassName =
+    'z-50 w-[min(17rem,calc(100vw-2rem))] rounded-xl border border-[#DDE7DF] bg-[#F9FAF9] p-0 shadow-[0_14px_32px_rgba(19,17,43,0.10)] overflow-hidden';
+  const profileMenuItemClassName =
+    'mx-2 my-1 flex min-h-[46px] items-center gap-3 rounded-xl px-4 py-3 text-[0.96rem] font-medium text-[#13112B] outline-none transition-colors data-[highlighted]:bg-[#F4F7F4] data-[highlighted]:text-[#13112B]';
+  const profileMenuSeparatorClassName = 'my-0 h-px bg-[#E7F0E8]';
+
   return (
-    <>
-      <div 
-        className="h-14 lg:h-16 flex items-center justify-between px-4 md:pl-0 md:pr-8 w-full relative bg-white border-b border-[#E7F7E9]"
-        style={{ 
-          paddingTop: 'max(env(safe-area-inset-top, 0px), 0px)',
-          minHeight: 'calc(3.5rem + env(safe-area-inset-top, 0px))'
-        }}
-      >
-        {/* Mobile Avatar (left) */}
-        <div className="w-10 flex items-center md:hidden">
+    <div
+      className="sticky top-0 z-10 border-b border-border bg-background/80 px-4 pt-12 pb-3 backdrop-blur-xl"
+      style={{
+        paddingTop: 'max(3rem, calc(3rem + env(safe-area-inset-top, 0px)))',
+      }}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex min-w-0 items-center gap-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="cursor-pointer focus:outline-none">
-                <div className="w-8 h-8 rounded bg-[#E7F7E9] flex items-center justify-center text-xs font-semibold text-[#36B531]">
-                  {user ? (
-                    user.email?.substring(0, 2).toUpperCase() || 'KS'
-                  ) : (
-                    <HelpCircle className="w-4 h-4" />
-                  )}
-                </div>
+              <button
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary transition-colors active:scale-95 focus:outline-none"
+                aria-label="Profil"
+              >
+                <User className="h-4 w-4 text-muted-foreground" strokeWidth={1.9} />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 z-50">
+            <DropdownMenuContent align="start" sideOffset={12} className={profileMenuContentClassName}>
               {user ? (
                 <>
-                  <div className="px-3 py-2.5">
-                    <p className="text-sm font-medium text-[#13112B] truncate">{user.email}</p>
+                  <div className="px-4 py-4">
+                    <p className="truncate text-[1rem] font-semibold tracking-[-0.02em] text-[#13112B]">{user.email}</p>
                   </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate('/profile')}>
-                    <Settings className="w-4 h-4 mr-2 text-[#13112B]/70" />
+                  <DropdownMenuSeparator className={profileMenuSeparatorClassName} />
+                  <DropdownMenuItem className={profileMenuItemClassName} onSelect={() => navigate('/profile')}>
+                    <Settings className="h-5 w-5 text-[#13112B]/55" />
                     Profil Einstellungen
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={signOut} className="text-[#E74C3C] data-[highlighted]:bg-red-50 data-[highlighted]:text-[#E74C3C]">
-                    <LogOut className="w-4 h-4 mr-2" />
+                  <DropdownMenuSeparator className={profileMenuSeparatorClassName} />
+                  <DropdownMenuItem className={profileMenuItemClassName} onSelect={() => navigateToArea('/')}>
+                    <LayoutDashboard className="h-5 w-5 text-[#13112B]/55" />
+                    User Bereich
+                  </DropdownMenuItem>
+                  {effectiveIsSetter && (
+                    <DropdownMenuItem className={profileMenuItemClassName} onSelect={() => navigateToArea('/setter/create')}>
+                      <Wrench className="h-5 w-5 text-[#13112B]/55" />
+                      Setter Bereich
+                    </DropdownMenuItem>
+                  )}
+                  {effectiveIsAdmin && (
+                    <DropdownMenuItem className={profileMenuItemClassName} onSelect={() => navigateToArea('/admin?tab=users')}>
+                      <Shield className="h-5 w-5 text-[#13112B]/55" />
+                      Admin Bereich
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator className={profileMenuSeparatorClassName} />
+                  <DropdownMenuItem
+                    onSelect={signOut}
+                    className={`${profileMenuItemClassName} text-[#D25545] data-[highlighted]:bg-red-50 data-[highlighted]:text-[#D25545]`}
+                  >
+                    <LogOut className="h-5 w-5" />
                     Abmelden
                   </DropdownMenuItem>
                 </>
               ) : (
-                <DropdownMenuItem onClick={() => navigate('/auth')}>
-                  <User className="w-4 h-4 mr-2" />
+                <DropdownMenuItem className={profileMenuItemClassName} onSelect={() => navigate('/auth')}>
+                  <User className="h-5 w-5" />
                   Anmelden
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
 
-        {/* Title - Centered */}
-        <div className="flex-1 flex justify-center md:min-w-0">
-          <h1 className="font-heading font-semibold tracking-wide text-xl md:text-2xl text-[#13112B] text-center truncate">
-            {pageTitle}
-          </h1>
-        </div>
-
-        {/* Right Actions */}
-        <div className="flex items-center justify-end gap-1 lg:gap-3 flex-shrink-0">
-          {/* Test Push Button - only visible for admins, sends to registered devices (phones) */}
-          {isAdmin && (
-            <button 
-              className="p-1.5 text-[#13112B]/70 active:scale-95 transition-transform flex-shrink-0"
-              onClick={handleSendTestPush}
-              disabled={isSendingTest}
-              aria-label="Test-Push senden"
-              title="Test-Push-Benachrichtigung an registrierte Geräte (Handys) senden"
-            >
-              <Bell className={`w-5 h-5 ${isSendingTest ? 'animate-pulse' : ''}`} />
-            </button>
-          )}
-          {/* Refresh button - only visible on desktop (mobile has pull-to-refresh) */}
-          <button 
-            className="hidden lg:flex p-1.5 text-[#13112B]/70 active:scale-95 transition-transform flex-shrink-0"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            aria-label="Aktualisieren"
-            title="Aktualisieren"
-          >
-            <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-          </button>
-          <button 
-            className="p-1.5 text-[#13112B]/70 active:scale-95 transition-transform flex-shrink-0"
-            onClick={() => openOnboarding()}
-            aria-label="Info"
-          >
-            <HelpCircle className="w-5 h-5" />
-          </button>
-          {user && (
-            <div className="flex-shrink-0">
-              <NotificationCenter />
-            </div>
-          )}
-          <button 
-            className="p-1.5 -mr-1.5 lg:mr-0 text-[#13112B]/70 active:scale-95 transition-transform flex-shrink-0"
-            onClick={() => setFeedbackOpen(true)}
-            aria-label="Feedback"
-          >
-            <MessageSquare className="w-5 h-5" />
-          </button>
-          <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
-            <span className="w-2 h-2 bg-[#36B531] rounded-full animate-pulse"></span>
-            <span className="text-[10px] font-mono text-[#13112B]/50">LIVE</span>
+          <div className="min-w-0">
+            <h1 className="truncate text-[2.15rem] font-semibold leading-none tracking-[-0.03em] text-foreground">
+              {pageTitle}
+            </h1>
           </div>
         </div>
+
+        <div className="flex w-10 shrink-0 items-center justify-end">
+          {rightSlot ?? null}
+        </div>
       </div>
-      <RoleTabs />
-      <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
-    </>
+    </div>
   );
 };

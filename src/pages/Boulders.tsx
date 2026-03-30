@@ -1,84 +1,82 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
-import { DashboardHeader } from '@/components/DashboardHeader';
-import { BoulderDetailDialog } from '@/components/BoulderDetailDialog';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useBouldersWithSectors } from '@/hooks/useBoulders';
-import { useSectorsTransformed } from '@/hooks/useSectors';
-import { useColors } from '@/hooks/useColors';
-import { useAuth } from '@/hooks/useAuth';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { getColorBackgroundStyle } from '@/utils/colorUtils';
-import { cn } from '@/lib/utils';
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, Check, ChevronRight, LayoutDashboard, Map, Search, Settings, Shield, SlidersHorizontal, Sparkles, Star, User, Wrench, X } from 'lucide-react';
+import { HallMapView } from '@/components/HallMapView';
 import { useSidebar } from '@/components/SidebarContext';
-import { formatDate } from 'date-fns';
-import { de } from 'date-fns/locale';
-import { Search, Video, FileText, Calendar, ArrowUpDown, ArrowUp, ArrowDown, AlertCircle, Palette, Map, BarChart3, Filter, X, CheckCircle2 } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/hooks/useAuth';
+import { useBoulderRatingSummaries, useMyTrackedBoulders } from '@/hooks/useBoulderCommunity';
+import { useBouldersWithSectors } from '@/hooks/useBoulders';
+import { useColors } from '@/hooks/useColors';
+import { useHasRole } from '@/hooks/useHasRole';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useSectorsTransformed } from '@/hooks/useSectors';
+import { cn } from '@/lib/utils';
 import { Boulder } from '@/types/boulder';
-import { useSearchParams } from 'react-router-dom';
+import { getColorBackgroundStyle } from '@/utils/colorUtils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
-const difficultyColors: Record<number, string> = {
-  1: 'bg-green-500',
-  2: 'bg-green-600',
-  3: 'bg-yellow-500',
-  4: 'bg-yellow-600',
-  5: 'bg-orange-500',
-  6: 'bg-orange-600',
-  7: 'bg-red-500',
-  8: 'bg-red-700',
+const LIGHT_TEXT_COLORS = new Set(['Grün', 'Blau', 'Rot', 'Schwarz', 'Lila']);
+
+const getDifficultyTextColor = (colorName: string, colorHex?: string) => {
+  if (colorHex) {
+    const hex = colorHex.replace('#', '');
+    if (hex.length === 6) {
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      return luminance > 0.72 ? 'text-black' : 'text-white';
+    }
+  }
+
+  return LIGHT_TEXT_COLORS.has(colorName) ? 'text-white' : 'text-black';
 };
 
-const COLOR_MAP: Record<string, { bg: string; border: string }> = {
-  'Grün': { bg: 'bg-green-500', border: 'border-green-600' },
-  'Gelb': { bg: 'bg-yellow-400', border: 'border-yellow-500' },
-  'Blau': { bg: 'bg-blue-500', border: 'border-blue-600' },
-  'Orange': { bg: 'bg-orange-500', border: 'border-orange-600' },
-  'Rot': { bg: 'bg-red-500', border: 'border-red-600' },
-  'Schwarz': { bg: 'bg-gray-900', border: 'border-gray-950' },
-  'Weiß': { bg: 'bg-white', border: 'border-gray-300' },
-  'Lila': { bg: 'bg-purple-500', border: 'border-purple-600' },
-};
 
-const COLOR_HEX: Record<string, string> = {
-  'Grün': '#22c55e',
-  'Gelb': '#facc15',
-  'Blau': '#3b82f6',
-  'Orange': '#f97316',
-  'Rot': '#ef4444',
-  'Schwarz': '#111827',
-  'Weiß': '#ffffff',
-  'Lila': '#a855f7',
-};
+const STORAGE_KEY_ADMIN = 'nav_isAdmin';
+const STORAGE_KEY_SETTER = 'nav_isSetter';
+const STORAGE_KEY_USER_ID = 'nav_userId';
 
-const TEXT_ON_COLOR: Record<string, string> = {
-  'Grün': 'text-white',
-  'Gelb': 'text-black',
-  'Blau': 'text-white',
-  'Orange': 'text-black',
-  'Rot': 'text-white',
-  'Schwarz': 'text-white',
-  'Weiß': 'text-black',
-  'Lila': 'text-white',
+const sortOptions = [
+  { key: 'date-desc', label: 'Neueste zuerst' },
+  { key: 'date-asc', label: 'Älteste zuerst' },
+  { key: 'difficulty-asc', label: 'Grad aufsteigend' },
+  { key: 'difficulty-desc', label: 'Grad absteigend' },
+  { key: 'name-asc', label: 'Name A-Z' },
+  { key: 'name-desc', label: 'Name Z-A' },
+] as const;
+
+const getStoredRole = (key: string, userId?: string): boolean => {
+  if (!userId) return false;
+
+  try {
+    const storedUserId = localStorage.getItem(STORAGE_KEY_USER_ID) ?? sessionStorage.getItem(STORAGE_KEY_USER_ID);
+    if (storedUserId !== userId) return false;
+
+    const storedValue = localStorage.getItem(key) ?? sessionStorage.getItem(key);
+    return storedValue === 'true';
+  } catch {
+    return false;
+  }
 };
 
 const Boulders = () => {
   const { isExpanded } = useSidebar();
-  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [sectorFilter, setSectorFilter] = useState<string>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
@@ -86,127 +84,527 @@ const Boulders = () => {
   const [sortBy, setSortBy] = useState<'name' | 'difficulty' | 'date'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showOnlyHanging, setShowOnlyHanging] = useState(true);
-  const [selectedBoulder, setSelectedBoulder] = useState<Boulder | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [quickFilter, setQuickFilter] = useState<null | 'sector' | 'difficulty' | 'color' | 'sort'>(null);
-  const { data: colors } = useColors();
+  const [showNew, setShowNew] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+  const [showBetaOnly, setShowBetaOnly] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showSort, setShowSort] = useState(false);
+  const [showMap, setShowMap] = useState(false);
 
+  const { data: colors } = useColors();
   const { user, loading: authLoading } = useAuth();
-  // CRITICAL: Only run queries after auth loading is complete AND user is available
-  // This prevents race conditions where queries start before auth is ready
+  const { isAdmin } = useIsAdmin();
+  const { hasRole: isSetter } = useHasRole('setter');
   const queriesEnabled = !authLoading && !!user;
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(queriesEnabled);
   const { data: sectors, isLoading: isLoadingSectors } = useSectorsTransformed(queriesEnabled);
+  const { data: myTrackedBoulders } = useMyTrackedBoulders();
+  const boulderIds = useMemo(() => (boulders ?? []).map((boulder) => boulder.id), [boulders]);
+  const { data: boulderRatingSummaries } = useBoulderRatingSummaries(boulderIds);
   const isLoading = isLoadingBoulders || isLoadingSectors;
-  const queryClient = useQueryClient();
+  const shouldShowPageSkeleton = authLoading && !user;
+  const storedIsAdmin = getStoredRole(STORAGE_KEY_ADMIN, user?.id);
+  const storedIsSetter = getStoredRole(STORAGE_KEY_SETTER, user?.id);
+  const effectiveIsAdmin = isAdmin || storedIsAdmin;
+  const effectiveIsSetter = effectiveIsAdmin || isSetter || storedIsSetter;
 
-  // Log when component is mounted
   useEffect(() => {
-    console.log('[Boulders] Component mounted');
-  }, []);
+    const sectorParam = searchParams.get('sector');
+    const showParam = searchParams.get('show');
+    const statusParam = searchParams.get('status');
 
-  // CRITICAL FIX: Monitor queries for hanging and cancel/refetch if needed
+    setSectorFilter(sectorParam || 'all');
+    setShowNew(showParam === 'new');
+    setShowSaved(showParam === 'saved');
+    setShowBetaOnly(showParam === 'beta');
+    setShowOnlyHanging(statusParam !== 'all');
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (searchParams.has('view')) {
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.delete('view');
+      setSearchParams(nextSearchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   useEffect(() => {
     if (!authLoading && user) {
-      // Monitor queries for 15 seconds - if still loading, cancel and refetch
       const timeoutId = setTimeout(() => {
         const bouldersQuery = queryClient.getQueryState(['boulders']);
         const sectorsQuery = queryClient.getQueryState(['sectors']);
-        
-        // If queries are still pending after 15s, cancel and refetch
+
         if (bouldersQuery?.status === 'pending') {
-          console.warn('[Boulders] Query [boulders] still pending after 15s - canceling and refetching');
           queryClient.cancelQueries({ queryKey: ['boulders'] });
           queryClient.refetchQueries({ queryKey: ['boulders'] });
         }
-        
+
         if (sectorsQuery?.status === 'pending') {
-          console.warn('[Boulders] Query [sectors] still pending after 15s - canceling and refetching');
           queryClient.cancelQueries({ queryKey: ['sectors'] });
           queryClient.refetchQueries({ queryKey: ['sectors'] });
         }
-      }, 15000); // 15 second timeout
-      
+      }, 15000);
+
       return () => clearTimeout(timeoutId);
     }
   }, [authLoading, user, queryClient]);
 
-  // Read sector from URL params on mount
-  useEffect(() => {
-    const sectorParam = searchParams.get('sector');
-    if (sectorParam) {
-      setSectorFilter(sectorParam);
-    }
-  }, [searchParams]);
-
   const filteredAndSortedBoulders = useMemo(() => {
     if (!boulders) return [];
+    const favoriteBoulderIds = new Set(
+      (myTrackedBoulders ?? [])
+        .filter((item) => item.tick.is_favorite)
+        .map((item) => item.tick.boulder_id)
+    );
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    let filtered = boulders.filter((boulder) => {
-      const matchesSearch = boulder.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           (boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector).toLowerCase().includes(searchQuery.toLowerCase());
+    const filtered = boulders.filter((boulder) => {
+      const searchableSector = boulder.sector2 ? `${boulder.sector} · ${boulder.sector2}` : boulder.sector;
+      const matchesSearch =
+        boulder.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        searchableSector.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesSector = sectorFilter === 'all' || boulder.sector === sectorFilter || boulder.sector2 === sectorFilter;
       const matchesDifficulty = difficultyFilter === 'all' || (boulder.difficulty === null ? '?' : String(boulder.difficulty)) === difficultyFilter;
       const matchesColor = colorFilter === 'all' || boulder.color === colorFilter;
       const matchesStatus = showOnlyHanging ? boulder.status === 'haengt' : true;
-      
-      return matchesSearch && matchesSector && matchesDifficulty && matchesColor && matchesStatus;
+      const matchesNew = !showNew || boulder.createdAt >= sevenDaysAgo;
+      const matchesSaved = !showSaved || favoriteBoulderIds.has(boulder.id);
+      const matchesBeta = !showBetaOnly || !!boulder.betaVideoUrl;
+      return matchesSearch && matchesSector && matchesDifficulty && matchesColor && matchesStatus && matchesNew && matchesSaved && matchesBeta;
     });
 
-    // Sort
     filtered.sort((a, b) => {
       let result = 0;
       switch (sortBy) {
         case 'name':
           result = a.name.localeCompare(b.name);
           break;
-        case 'difficulty':
+        case 'difficulty': {
           const aDiff = a.difficulty === null ? 999 : a.difficulty;
           const bDiff = b.difficulty === null ? 999 : b.difficulty;
           result = aDiff - bDiff;
           break;
+        }
         case 'date':
           result = b.createdAt.getTime() - a.createdAt.getTime();
           break;
         default:
-          return 0;
+          result = 0;
       }
-      return sortOrder === 'asc' ? result : -result;
+      return sortOrder === 'asc' ? -result : result;
     });
 
-      return filtered;
-  }, [boulders, searchQuery, sectorFilter, difficultyFilter, colorFilter, sortBy, sortOrder, showOnlyHanging]);
+    return filtered;
+  }, [boulders, colorFilter, difficultyFilter, myTrackedBoulders, searchQuery, sectorFilter, showBetaOnly, showNew, showOnlyHanging, showSaved, sortBy, sortOrder]);
 
-  const handleBoulderClick = (boulder: Boulder) => {
-    setSelectedBoulder(boulder);
-    setDialogOpen(true);
+  const hallMapCounts = useMemo(() => {
+    if (!boulders) return {};
+
+    return boulders
+      .filter((boulder) => {
+      const searchableSector = boulder.sector2 ? `${boulder.sector} · ${boulder.sector2}` : boulder.sector;
+        const matchesSearch =
+          boulder.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          searchableSector.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesDifficulty = difficultyFilter === 'all' || (boulder.difficulty === null ? '?' : String(boulder.difficulty)) === difficultyFilter;
+        const matchesColor = colorFilter === 'all' || boulder.color === colorFilter;
+        const matchesStatus = showOnlyHanging ? boulder.status === 'haengt' : true;
+        const matchesBeta = !showBetaOnly || !!boulder.betaVideoUrl;
+        return matchesSearch && matchesDifficulty && matchesColor && matchesStatus && matchesBeta;
+      })
+      .reduce<Record<string, number>>((accumulator, boulder) => {
+        const primarySector = sectors?.find((sector) => sector.name === boulder.sector)?.id;
+        const secondarySector = boulder.sector2 ? sectors?.find((sector) => sector.name === boulder.sector2)?.id : null;
+
+        if (primarySector) accumulator[primarySector] = (accumulator[primarySector] ?? 0) + 1;
+        if (secondarySector) accumulator[secondarySector] = (accumulator[secondarySector] ?? 0) + 1;
+        return accumulator;
+      }, {});
+  }, [boulders, colorFilter, difficultyFilter, searchQuery, sectors, showBetaOnly, showOnlyHanging]);
+
+  const activeSectorLabel = sectorFilter === 'all' ? 'Alle Sektoren' : sectorFilter;
+  const activeFilterCount = [sectorFilter !== 'all', difficultyFilter !== 'all', colorFilter !== 'all', showNew, showSaved, showBetaOnly, !showOnlyHanging].filter(Boolean).length;
+  const hasCustomSorting = sortBy !== 'date' || sortOrder !== 'desc';
+
+  const clearFilters = () => {
+    setSectorFilter('all');
+    setDifficultyFilter('all');
+    setColorFilter('all');
+    setShowNew(false);
+    setShowSaved(false);
+    setShowBetaOnly(false);
+    setShowOnlyHanging(true);
   };
 
-  if (isLoading) {
+  const handleBoulderClick = (boulderId: string) => {
+    navigate(`/boulders/${boulderId}`);
+  };
+
+  const handleMapSectorSelect = (sectorName: string) => {
+    setSectorFilter(sectorName);
+    setShowMap(false);
+    requestAnimationFrame(() => {
+      document.getElementById('boulder-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
+  const navigateToArea = (path: string) => {
+    if (window.location.pathname + window.location.search === path) {
+      return;
+    }
+    navigate(path);
+  };
+
+  const applySortOption = (value: (typeof sortOptions)[number]['key']) => {
+    const [nextSortBy, nextSortOrder] = value.split('-') as ['date' | 'name' | 'difficulty', 'asc' | 'desc'];
+    setSortBy(nextSortBy);
+    setSortOrder(nextSortOrder);
+    setShowSort(false);
+  };
+
+  const selectedSortOption = `${sortBy}-${sortOrder}` as (typeof sortOptions)[number]['key'];
+  const profileMenuContentClassName =
+    'z-50 w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-[#DDE7DF] bg-white p-0 shadow-[0_18px_45px_rgba(19,17,43,0.12)] overflow-hidden';
+  const profileMenuItemClassName =
+    'mx-3 my-1 flex min-h-14 items-center gap-3 rounded-2xl px-4 py-3 text-[1.05rem] font-medium text-[#13112B] outline-none transition-colors data-[highlighted]:bg-[#F4F7F4] data-[highlighted]:text-[#13112B]';
+  const profileMenuSeparatorClassName = 'my-0 h-px bg-[#E7F0E8]';
+
+
+  const getThumbnailUrl = (boulder: Boulder) => {
+    if (boulder.thumbnailUrl) {
+      let url = boulder.thumbnailUrl;
+      if (url.includes('cdn.kletterwelt-sauerland.de/uploads/videos/')) {
+        url = url.replace('/uploads/videos/', '/uploads/');
+      }
+      return url;
+    }
+
+    return 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';
+  };
+
+  const isNewBoulder = (boulder: Boulder) => {
+    const threshold = new Date();
+    threshold.setDate(threshold.getDate() - 7);
+    return boulder.createdAt >= threshold;
+  };
+
+  const pageHeader = (
+    <div className="sticky top-0 z-10 border-b border-border bg-background/80 px-4 pt-12 pb-3 backdrop-blur-xl">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary transition-colors active:scale-95 focus:outline-none"
+                aria-label="Profil"
+              >
+                <User className="h-4 w-4 text-muted-foreground" strokeWidth={1.9} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" sideOffset={12} className={profileMenuContentClassName}>
+              {user ? (
+                <>
+                  <div className="px-5 py-5">
+                    <p className="truncate text-[1.05rem] font-semibold tracking-[-0.02em] text-[#13112B]">{user.email}</p>
+                  </div>
+                  <DropdownMenuSeparator className={profileMenuSeparatorClassName} />
+                  <DropdownMenuItem className={profileMenuItemClassName} onSelect={() => navigate('/profile')}>
+                    <Settings className="mr-2 h-4 w-4 text-[#13112B]/70" />
+                    Profil Einstellungen
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className={profileMenuSeparatorClassName} />
+                  <DropdownMenuItem className={profileMenuItemClassName} onSelect={() => navigateToArea('/')}>
+                    <LayoutDashboard className="mr-2 h-4 w-4 text-[#13112B]/70" />
+                    User Bereich
+                  </DropdownMenuItem>
+                  {effectiveIsSetter && (
+                    <DropdownMenuItem className={profileMenuItemClassName} onSelect={() => navigateToArea('/setter/create')}>
+                      <Wrench className="mr-2 h-4 w-4 text-[#13112B]/70" />
+                      Setter Bereich
+                    </DropdownMenuItem>
+                  )}
+                  {effectiveIsAdmin && (
+                    <DropdownMenuItem className={profileMenuItemClassName} onSelect={() => navigateToArea('/admin?tab=users')}>
+                      <Shield className="mr-2 h-4 w-4 text-[#13112B]/70" />
+                      Admin Bereich
+                    </DropdownMenuItem>
+                  )}
+                </>
+              ) : (
+                <DropdownMenuItem className={profileMenuItemClassName} onSelect={() => navigate('/auth')}>
+                  <User className="mr-2 h-4 w-4" />
+                  Anmelden
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div className="min-w-0">
+            <h1 className="truncate text-[2.15rem] font-semibold leading-none tracking-[-0.03em] text-foreground">
+              Boulder
+            </h1>
+          </div>
+        </div>
+
+        <div className='flex shrink-0 gap-2'>
+          <button
+            type='button'
+            onClick={() => {
+              setShowMap((prev) => !prev);
+              setShowFilters(false);
+              setShowSort(false);
+            }}
+            className={cn(
+              'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors',
+              showMap ? 'bg-primary' : 'bg-secondary'
+            )}
+            aria-label='Karte'
+          >
+            <Map className={cn('h-4 w-4', showMap ? 'text-primary-foreground' : 'text-muted-foreground')} strokeWidth={1.9} />
+          </button>
+          <button
+            type='button'
+            onClick={() => {
+              setShowSort((prev) => !prev);
+              setShowFilters(false);
+              setShowMap(false);
+            }}
+            className={cn(
+              'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors',
+              showSort ? 'bg-primary' : 'bg-secondary'
+            )}
+            aria-label='Sortierung'
+          >
+            <ArrowUpDown className={cn('h-4 w-4', showSort ? 'text-primary-foreground' : 'text-muted-foreground')} strokeWidth={1.9} />
+            {hasCustomSorting ? (
+              <span className='absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground'>
+                1
+              </span>
+            ) : null}
+          </button>
+          <button
+            type='button'
+            onClick={() => {
+              setShowFilters((prev) => !prev);
+              setShowSort(false);
+              setShowMap(false);
+            }}
+            className={cn(
+              'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors',
+              showFilters ? 'bg-primary' : 'bg-secondary'
+            )}
+            aria-label='Filter'
+          >
+            <SlidersHorizontal className={cn('h-4 w-4', showFilters ? 'text-primary-foreground' : 'text-muted-foreground')} strokeWidth={1.9} />
+            {activeFilterCount > 0 ? (
+              <span className='absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground'>
+                {activeFilterCount}
+              </span>
+            ) : null}
+          </button>
+        </div>
+      </div>
+
+      <div className='relative mb-3'>
+        <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground' />
+        <Input
+          placeholder='Boulder suchen...'
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          className='h-10 rounded-xl border-none bg-secondary pl-10 pr-4 text-sm text-foreground shadow-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary/50'
+          disabled={isLoading}
+        />
+      </div>
+
+      <div className='-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 hide-scrollbar'>
+        <button
+          type='button'
+          onClick={() => setShowNew((prev) => !prev)}
+            className={cn(
+              'flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all',
+              showNew ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'
+            )}
+        >
+          <Sparkles className='h-3 w-3' />
+          Neu
+        </button>
+        <button
+          type='button'
+          onClick={() => setShowSaved((prev) => !prev)}
+            className={cn(
+              'flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all',
+              showSaved ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'
+            )}
+        >
+          <Bookmark className='h-3 w-3' />
+          Gespeichert
+        </button>
+        <button
+          type='button'
+          onClick={() => setShowBetaOnly((prev) => !prev)}
+            className={cn(
+              'flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all',
+              showBetaOnly ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'
+            )}
+        >
+          <Sparkles className='h-3 w-3' />
+          Mit Beta
+        </button>
+        {sectorFilter !== 'all' && (
+          <button type='button' onClick={() => setSectorFilter('all')} className='flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground'>
+            {activeSectorLabel}
+            <X className='h-3 w-3' />
+          </button>
+        )}
+        {difficultyFilter !== 'all' && (
+          <button type='button' onClick={() => setDifficultyFilter('all')} className='flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground'>
+            {difficultyFilter}
+            <X className='h-3 w-3' />
+          </button>
+        )}
+        {colorFilter !== 'all' && (
+          <button type='button' onClick={() => setColorFilter('all')} className='flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground'>
+            {colorFilter}
+            <X className='h-3 w-3' />
+          </button>
+        )}
+        {!showOnlyHanging && (
+          <button type='button' onClick={() => setShowOnlyHanging(true)} className='flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground'>
+            Alle Boulder
+            <X className='h-3 w-3' />
+          </button>
+        )}
+      </div>
+
+      {showFilters && (
+        <div className='mt-3 space-y-3 border-t border-border pt-3 animate-in slide-in-from-top-2 duration-200'>
+          <div>
+            <span className='mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'>Schwierigkeit</span>
+            <div className='-mx-4 flex gap-1.5 overflow-x-auto px-4 hide-scrollbar'>
+              <button
+                type='button'
+                onClick={() => setDifficultyFilter('all')}
+                className={cn('shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all', difficultyFilter === 'all' ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-foreground')}
+              >
+                Alle Grade
+              </button>
+              {[null, 1, 2, 3, 4, 5, 6, 7, 8].map((difficulty) => {
+                const difficultyLabel = difficulty === null ? '?' : String(difficulty);
+                return (
+                  <button
+                    key={difficultyLabel}
+                    type='button'
+                    onClick={() => setDifficultyFilter(difficultyLabel)}
+                    className={cn('shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all', difficultyFilter === difficultyLabel ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-foreground')}
+                  >
+                    {difficultyLabel}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <span className='mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'>Farbe</span>
+            <div className='-mx-4 flex gap-1.5 overflow-x-auto px-4 hide-scrollbar'>
+              <button
+                type='button'
+                onClick={() => setColorFilter('all')}
+                className={cn('shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all', colorFilter === 'all' ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-foreground')}
+              >
+                Alle Farben
+              </button>
+              {colors?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map((color) => {
+                const colorStyle = getColorBackgroundStyle(color.name, colors);
+                const colorHex = colorStyle.backgroundColor || '#000';
+                const isWhite = colorHex === '#ffffff' || colorHex === 'white' || color.name.toLowerCase() === 'weiß';
+                return (
+                  <button
+                    key={color.name}
+                    type='button'
+                    onClick={() => setColorFilter(color.name)}
+                    className={cn(
+                        'flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all',
+                      colorFilter === color.name ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-foreground'
+                    )}
+                  >
+                    <span className={cn('h-2.5 w-2.5 rounded-full border border-border/50', isWhite ? 'bg-white' : '')} style={!isWhite ? colorStyle : undefined} />
+                    {color.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className='-mx-4 flex gap-1.5 overflow-x-auto px-4 hide-scrollbar'>
+            <button
+              type='button'
+              onClick={() => setShowOnlyHanging((prev) => !prev)}
+              className={cn('shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all', !showOnlyHanging ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-foreground')}>
+              Alle Boulder anzeigen
+            </button>
+            <button
+              type='button'
+              onClick={clearFilters}
+              className='flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground'
+            >
+              <X className='h-3 w-3' />
+              Filter zurücksetzen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showSort && (
+        <div className='mt-3 border-t border-border pt-3 animate-in slide-in-from-top-2 duration-200'>
+          <span className='mb-2 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'>Sortierung</span>
+          <div className='-mx-1 flex flex-col gap-0.5'>
+            {sortOptions.map((option) => (
+              <button
+                key={option.key}
+                type='button'
+                onClick={() => applySortOption(option.key)}
+                className={cn(
+                  'flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition-all',
+                  selectedSortOption === option.key ? 'bg-primary/10 font-semibold text-primary' : 'text-foreground hover:bg-secondary'
+                )}
+              >
+                {option.label}
+                {selectedSortOption === option.key ? <Check className='h-4 w-4 text-primary' /> : null}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (shouldShowPageSkeleton) {
     return (
-      <div className="min-h-screen bg-[#F9FAF9] flex">
-        <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
-            <DashboardHeader />
-            <main className="flex-1 p-4 md:p-8">
-              <div className="flex gap-3 mb-6">
-                <Skeleton className="h-10 flex-1" />
-                <Skeleton className="h-10 w-10" />
-              </div>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {[...Array(6)].map((_, i) => (
-                  <Card key={i}>
-                    <CardHeader>
-                      <Skeleton className="h-6 w-32 mb-2" />
-                      <Skeleton className="h-4 w-24" />
-                    </CardHeader>
-                    <CardContent>
-                      <Skeleton className="h-4 w-full mb-2" />
-                      <Skeleton className="h-4 w-3/4" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </main>
+      <div className="flex min-h-screen bg-[#F9FAF9]">
+        <div className={cn('flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+          {pageHeader}
+          <main className="flex-1 p-4 md:p-8">
+            <div className="mb-6 flex gap-3">
+              <Skeleton className="h-10 flex-1" />
+              <Skeleton className="h-10 w-10" />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[...Array(6)].map((_, index) => (
+                <Card key={index}>
+                  <CardHeader>
+                    <Skeleton className="mb-2 h-6 w-32" />
+                    <Skeleton className="h-4 w-24" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="mb-2 h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </main>
         </div>
       </div>
     );
@@ -214,383 +612,148 @@ const Boulders = () => {
 
   if (bouldersError) {
     return (
-      <div className="min-h-screen bg-[#F9FAF9] flex">
-        <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
-            <DashboardHeader />
-            <main className="flex-1 p-4 md:p-8">
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
-                <AlertDescription>
-                  {bouldersError instanceof Error ? bouldersError.message : 'Ein unbekannter Fehler ist aufgetreten.'}
-                </AlertDescription>
-              </Alert>
-            </main>
+      <div className="flex min-h-screen bg-[#F9FAF9]">
+        <div className={cn('flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+          {pageHeader}
+          <main className="flex-1 p-4 md:p-8">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
+              <AlertDescription>
+                {bouldersError instanceof Error ? bouldersError.message : 'Ein unbekannter Fehler ist aufgetreten.'}
+              </AlertDescription>
+            </Alert>
+          </main>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F9FAF9] flex">
-      <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
-        <DashboardHeader />
-        
-        <main 
+    <div className="flex min-h-screen bg-[#F9FAF9]">
+      <div className={cn('flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+        {pageHeader}
+
+        <main
           className="flex-1 p-4 md:p-8"
-          style={{
-            paddingTop: 'max(calc(1rem + env(safe-area-inset-top, 0px)), 1rem)'
-          }}
+          style={{ paddingTop: showMap ? '0' : '0.75rem' }}
         >
-          {/* Search and Filter */}
-          <div className="flex gap-3 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <Input
-                placeholder="Suchen..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+          {showMap && (
+            <section className="-mx-4 mb-4 animate-in slide-in-from-top-2 duration-200 md:-mx-8">
+              <HallMapView
+                sectors={sectors ?? []}
+                countsBySectorId={hallMapCounts}
+                selectedSectorName={sectorFilter}
+                onSelectSector={handleMapSectorSelect}
+                onClearSector={() => setSectorFilter('all')}
+                compact
+                frameless
               />
-            </div>
+            </section>
+          )}
 
-            {/* Toggle for only hanging boulders */}
-            <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-card">
-              <Switch
-                id="show-only-hanging"
-                checked={showOnlyHanging}
-                onCheckedChange={setShowOnlyHanging}
-              />
-              <Label htmlFor="show-only-hanging" className="text-sm font-medium cursor-pointer whitespace-nowrap">
-                Nur hängende
-              </Label>
-            </div>
+          <div className="px-1 pb-1">
+            <span className="text-xs font-medium text-muted-foreground">
+              {filteredAndSortedBoulders.length} Boulder
+              {sectorFilter !== 'all' ? ` in ${activeSectorLabel}` : ''}
+            </span>
           </div>
 
-          {/* Boulder Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pb-24 md:pb-4" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
-            {filteredAndSortedBoulders.map((boulder) => {
-              // Get thumbnail URL for boulder
-              const getThumbnailUrl = (b: Boulder): string => {
-                if (b.thumbnailUrl) {
-                  // Fix old URLs that incorrectly include /videos/ in the path
-                  let url = b.thumbnailUrl;
-                  if (url.includes('cdn.kletterwelt-sauerland.de/uploads/videos/')) {
-                    url = url.replace('/uploads/videos/', '/uploads/');
-                  }
-                  return url;
-                }
-                // Use placeholder
-                return 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';
-              };
+          <div
+            id="boulder-results"
+            className="space-y-2.5 pb-24"
+            style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}
+          >
+            {isLoading &&
+              [...Array(6)].map((_, index) => (
+                <Card key={`boulder-list-skeleton-${index}`} className="rounded-2xl border border-border bg-card">
+                  <CardContent className="flex items-center gap-3.5 p-3.5">
+                    <Skeleton className="h-16 w-16 rounded-xl" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                    <Skeleton className="h-4 w-4 rounded" />
+                  </CardContent>
+                </Card>
+              ))}
 
-              return (
-              <Card 
-                key={boulder.id} 
-                className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:bg-muted/50 cursor-pointer transition-colors group h-[100px] sm:h-[112px] overflow-hidden"
-                onClick={() => handleBoulderClick(boulder)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleBoulderClick(boulder);
-                  }
-                }}
-              >
-                <CardContent className="p-0 pointer-events-none flex h-full items-center gap-3 px-4">
-                  {/* Thumbnail links - quadratisch */}
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0 rounded-xl overflow-hidden bg-muted">
-                    <img 
-                      className="w-full h-full object-cover pointer-events-none transition-opacity duration-300" 
-                      src={getThumbnailUrl(boulder)} 
-                      alt={boulder.name}
-                      loading="lazy"
-                      decoding="async"
-                      style={{ 
-                        objectFit: 'cover',
-                        objectPosition: 'center',
-                        opacity: 0
-                      }}
-                      onLoad={(e) => {
-                        const img = e.currentTarget;
-                        
-                        // Check if image is landscape (width > height) and rotate it to portrait
-                        if (img.naturalWidth > img.naturalHeight) {
-                          // Landscape image: rotate 90° clockwise to make it portrait
-                          img.style.transform = 'rotate(90deg)';
-                          console.log(`[Boulders] Rotating landscape thumbnail to portrait: ${img.naturalWidth}x${img.naturalHeight}`);
-                        }
-                        
-                        img.style.opacity = '1';
-                      }}
-                      onError={(e) => {
-                        const placeholder = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';
-                        if (e.currentTarget.src !== placeholder) {
-                          e.currentTarget.src = placeholder;
-                          e.currentTarget.style.opacity = '1';
-                        }
-                      }}
-                    />
-                  </div>
-                  {/* Content Mitte */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <h4 className="font-heading text-base sm:text-lg font-semibold text-[#13112B] truncate mb-0.5">{boulder.name}</h4>
-                    <span className="text-xs sm:text-sm text-[#13112B]/60 truncate">
+            {!isLoading &&
+              filteredAndSortedBoulders.map((boulder) => (
+                <button
+                  key={`boulder-list-${boulder.id}`}
+                  type="button"
+                  onClick={() => handleBoulderClick(boulder.id)}
+                  className="w-full rounded-2xl border border-border bg-card p-3.5 text-left transition-transform active:scale-[0.98]"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-muted">
+                      <img
+                        className="h-full w-full object-cover object-center transition-opacity duration-300"
+                        src={getThumbnailUrl(boulder)}
+                        alt={boulder.name}
+                        loading="lazy"
+                        decoding="async"
+                        style={{ opacity: 0 }}
+                        onLoad={(event) => {
+                          const image = event.currentTarget;
+                          if (image.naturalWidth > image.naturalHeight) {
+                            image.style.transform = 'rotate(90deg)';
+                          }
+                          image.style.opacity = '1';
+                        }}
+                        onError={(event) => {
+                          const placeholder = getThumbnailUrl({ ...boulder, thumbnailUrl: null } as Boulder);
+                          if (event.currentTarget.src !== placeholder) {
+                            event.currentTarget.src = placeholder;
+                            event.currentTarget.style.opacity = '1';
+                          }
+                        }}
+                      />
+                      <span
+                        className={cn(
+                          'absolute bottom-1 right-1 rounded px-1.5 py-0.5 text-[10px] font-bold backdrop-blur-sm',
+                          getDifficultyTextColor(boulder.color, boulder.colorHex)
+                        )}
+                        style={{
+                          ...(getColorBackgroundStyle(boulder.color, colors) || {}),
+                          color: undefined,
+                        }}
+                      >
+                        {boulder.difficulty === null ? '?' : boulder.difficulty}
+                      </span>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-0.5 flex items-center gap-2">
+                        <span className="truncate text-sm font-semibold text-foreground">{boulder.name}</span>
+                          {isNewBoulder(boulder) && (
+                           <span className="shrink-0 rounded-md bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">NEU</span>
+                          )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
                       {boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}
-                    </span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                        <Star className="h-3 w-3 fill-primary text-primary" />
+                        <span className="font-medium text-foreground">{boulderRatingSummaries?.[boulder.id]?.averageRating?.toFixed(1) ?? '–'}</span>
+                        <span>({boulderRatingSummaries?.[boulder.id]?.ratingCount ?? 0})</span>
+                      </div>
+                    </div>
+
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                   </div>
-                  {/* Difficulty Badge rechts - quadratisch */}
-                  <div className="flex-shrink-0">
-                    <span 
-                      className={cn(
-                        "w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-xl text-base sm:text-lg font-semibold",
-                        TEXT_ON_COLOR[boulder.color] || 'text-white'
-                      )}
-                      style={getColorBackgroundStyle(boulder.color, colors)}
-                    >
-                      {boulder.difficulty === null ? '?' : boulder.difficulty}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-            })}
+                </button>
+              ))}
+
           </div>
 
-          {filteredAndSortedBoulders.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">Keine Boulder gefunden.</p>
-            </div>
+          {!isLoading && filteredAndSortedBoulders.length === 0 && (
+            <div className="py-12 text-center text-sm text-muted-foreground">Keine Boulder gefunden.</div>
           )}
         </main>
 
-        <BoulderDetailDialog 
-          boulder={selectedBoulder}
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-        />
 
-        {/* Quick Filter Bar (mobile) */}
-        {quickFilter && (
-          <div 
-            className="sm:hidden fixed z-[100] pointer-events-none"
-            style={{ 
-              bottom: 'calc(11rem + env(safe-area-inset-bottom, 0px))',
-              left: '1rem',
-              right: '1rem',
-              width: 'calc(100% - 2rem)',
-              maxWidth: '100%'
-            }}
-          >
-            <div className="pointer-events-auto rounded-2xl bg-[#13112B] text-white shadow-2xl border border-white/10 overflow-hidden w-full">
-              <div className="flex items-center px-3 py-2">
-                <span className="px-3 py-1 bg-white/10 rounded-xl text-xs font-semibold">
-                  {quickFilter === 'color' ? 'Farbe' : quickFilter === 'sector' ? 'Sektor' : quickFilter === 'difficulty' ? 'Schwierigkeit' : 'Sortierung'}
-                </span>
-              </div>
-              <div className="px-3 pb-3">
-                {quickFilter === 'color' && (
-                  <>
-                    <div className="flex items-center gap-2 mb-2">
-                      <button 
-                        className={cn(
-                          "px-3 py-1.5 rounded-xl text-xs font-semibold shadow transition",
-                          colorFilter === 'all' 
-                            ? "bg-[#36B531] text-white" 
-                            : "bg-white/10 text-white/70 hover:text-white"
-                        )}
-                        onClick={() => setColorFilter('all')}
-                      >
-                        Alle
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1 min-w-0 flex-nowrap">
-                      {colors?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map(c => {
-                        const colorStyle = getColorBackgroundStyle(c.name, colors);
-                        const colorHex = colorStyle.backgroundColor || '#000';
-                        const isWhite = colorHex === '#ffffff' || colorHex === 'white' || c.name.toLowerCase() === 'weiß';
-                        return (
-                          <button
-                            key={c.name}
-                            className={cn(
-                              "w-12 h-12 rounded-xl border shadow flex-shrink-0 aspect-square",
-                              isWhite ? "bg-white border-gray-200" : "border-black/10"
-                            )}
-                            style={!isWhite ? colorStyle : undefined}
-                            onClick={() => setColorFilter(c.name)}
-                            aria-label={`Filter Farbe ${c.name}`}
-                          />
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-                {quickFilter === 'sector' && (
-                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 h-10">
-                    <button 
-                      className={cn(
-                        "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
-                        sectorFilter === 'all' 
-                          ? "bg-[#36B531] text-white" 
-                          : "bg-white/10 text-white/70 hover:text-white"
-                      )}
-                      onClick={() => setSectorFilter('all')}
-                    >
-                      Alle
-                    </button>
-                    {sectors?.map(s => (
-                      <button
-                        key={s.id}
-                        className={cn(
-                          "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
-                          sectorFilter === s.name 
-                            ? "bg-[#36B531] text-white" 
-                            : "bg-white/10 text-white/70 hover:text-white"
-                        )}
-                        onClick={() => setSectorFilter(s.name)}
-                      >
-                        {s.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {quickFilter === 'difficulty' && (
-                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 h-10 min-w-0 flex-nowrap">
-                    <button 
-                      className={cn(
-                        "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center flex-shrink-0",
-                        difficultyFilter === 'all' 
-                          ? "bg-[#36B531] text-white" 
-                          : "bg-white/10 text-white/70 hover:text-white"
-                      )}
-                      onClick={() => setDifficultyFilter('all')}
-                    >
-                      Alle
-                    </button>
-                    {[null, 1, 2, 3, 4, 5, 6, 7, 8].map(d => {
-                      const dStr = d === null ? '?' : String(d);
-                      return (
-                        <button
-                          key={dStr}
-                          className={cn(
-                            "w-10 h-10 rounded-xl text-xs font-semibold shadow transition flex items-center justify-center flex-shrink-0",
-                            difficultyFilter === dStr 
-                              ? "bg-[#36B531] text-white" 
-                              : "bg-white/10 text-white/70 hover:text-white"
-                          )}
-                          onClick={() => setDifficultyFilter(dStr)}
-                        >
-                          {dStr}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                {quickFilter === 'sort' && (
-                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 h-10">
-                    <button 
-                      className={cn(
-                        "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
-                        sortBy === 'date' 
-                          ? "bg-[#36B531] text-white" 
-                          : "bg-white/10 text-white/70 hover:text-white"
-                      )}
-                      onClick={() => setSortBy('date')}
-                    >
-                      Datum
-                    </button>
-                    <button 
-                      className={cn(
-                        "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
-                        sortBy === 'name' 
-                          ? "bg-[#36B531] text-white" 
-                          : "bg-white/10 text-white/70 hover:text-white"
-                      )}
-                      onClick={() => setSortBy('name')}
-                    >
-                      Name
-                    </button>
-                    <button 
-                      className={cn(
-                        "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
-                        sortBy === 'difficulty' 
-                          ? "bg-[#36B531] text-white" 
-                          : "bg-white/10 text-white/70 hover:text-white"
-                      )}
-                      onClick={() => setSortBy('difficulty')}
-                    >
-                      Schwierigkeit
-                    </button>
-                    <div className="h-10 w-px bg-white/20 mx-1" />
-                    <button 
-                      className="h-10 px-3 bg-white/10 text-white/70 hover:text-white rounded-xl text-xs font-semibold shadow transition flex items-center gap-1"
-                      onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                    >
-                      {sortOrder === 'asc' ? (
-                        <ArrowUp className="w-3 h-3" />
-                      ) : (
-                        <ArrowDown className="w-3 h-3" />
-                      )}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Floating Filter Bar (mobile) */}
-        <nav 
-          className="sm:hidden fixed left-4 right-4 z-[100]"
-          style={{ bottom: 'calc(7rem + env(safe-area-inset-bottom, 0px))' }}
-        >
-          <div className="bg-[#13112B] text-white rounded-2xl shadow-2xl border border-white/10 px-2 py-2 flex items-center justify-between">
-            <div>
-              <button className="h-10 px-3 bg-white text-[#13112B] rounded-xl text-xs font-semibold shadow-sm active:scale-95 transition flex items-center">
-                {filteredAndSortedBoulders.length} Treffer
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setQuickFilter(prev => prev === 'color' ? null : 'color')}
-                className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
-                aria-label="Farbe filtern"
-              >
-                {colorFilter !== 'all' ? (
-                  <span className="w-5 h-5 rounded-xl border border-[#13112B]/20" style={getColorBackgroundStyle(colorFilter, colors || [])} />
-                ) : (
-                  <Palette className="w-5 h-5" strokeWidth={1.5} />
-                )}
-              </button>
-              <button
-                onClick={() => setQuickFilter(prev => prev === 'sector' ? null : 'sector')}
-                className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
-                aria-label="Sektionen filtern"
-              >
-                <Map className="w-5 h-5" strokeWidth={1.5} />
-              </button>
-              <button
-                onClick={() => setQuickFilter(prev => prev === 'difficulty' ? null : 'difficulty')}
-                className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
-                aria-label="Schwierigkeit filtern"
-              >
-                {difficultyFilter !== 'all' ? (
-                  <span className="text-[11px] font-semibold leading-none">{difficultyFilter}</span>
-                ) : (
-                  <BarChart3 className="w-5 h-5" strokeWidth={1.5} />
-                )}
-              </button>
-              <button
-                onClick={() => setQuickFilter(prev => prev === 'sort' ? null : 'sort')}
-                className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
-                aria-label="Sortieren"
-              >
-                <ArrowUpDown className="w-5 h-5" strokeWidth={1.5} />
-              </button>
-            </div>
-          </div>
-        </nav>
       </div>
     </div>
   );

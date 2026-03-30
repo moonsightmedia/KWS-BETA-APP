@@ -1,4 +1,57 @@
 const KWS_VERBOSE = typeof window !== 'undefined' && (window as any).__KWS_VERBOSE === true;
+const DEV_LOG_PREFIXES = [
+  '[Auth]',
+  '[Sidebar]',
+  '[Root]',
+  '[Index]',
+  '[Route]',
+  '[Supabase Client]',
+  '[useBoulders]',
+  '[useSectors]',
+  '[useNotifications]',
+  '[UploadContext]',
+  '[CacheUtils]',
+  '[PushNotifications]',
+  '[useColors]',
+  '[PreloadSectorImages]',
+  '[Profile Sync]',
+];
+
+const DEV_LOG_SUBSTRINGS = [
+  'Supabase environment variables loaded',
+  'Service Worker unregistered',
+];
+
+if (import.meta.env.DEV && !KWS_VERBOSE && typeof window !== 'undefined') {
+  const shouldSuppress = (args: unknown[]) => {
+    const first = args[0];
+    if (typeof first !== 'string') {
+      return false;
+    }
+
+    return DEV_LOG_PREFIXES.some((prefix) => first.startsWith(prefix))
+      || DEV_LOG_SUBSTRINGS.some((part) => first.includes(part));
+  };
+
+  const originalLog = console.log.bind(console);
+  const originalDebug = console.debug.bind(console);
+  const originalWarn = console.warn.bind(console);
+
+  console.log = (...args: unknown[]) => {
+    if (shouldSuppress(args)) return;
+    originalLog(...args);
+  };
+
+  console.debug = (...args: unknown[]) => {
+    if (shouldSuppress(args)) return;
+    originalDebug(...args);
+  };
+
+  console.warn = (...args: unknown[]) => {
+    if (shouldSuppress(args)) return;
+    originalWarn(...args);
+  };
+}
 if (KWS_VERBOSE) console.log('[Main] 🚀 Loading application v3 - Cache busted');
 if (KWS_VERBOSE) console.log('[Main] 🔍 Checking if fetch was already overridden in index.html:', { windowFetch: typeof window.fetch, hasIndexOverride: window.fetch?.toString?.()?.includes('Index HTML Fetch Override') });
 

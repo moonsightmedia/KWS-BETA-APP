@@ -1,7 +1,25 @@
-import { LayoutDashboard, List, Map, ChevronRight, ChevronLeft, User, LogOut, Settings, HelpCircle, Shield, Edit3, Upload, CheckCircle, Calendar, Users, Trophy, MessageSquare, FileText } from 'lucide-react';
+import {
+  LayoutDashboard,
+  List,
+  ChevronRight,
+  ChevronLeft,
+  User,
+  LogOut,
+  Settings,
+  HelpCircle,
+  Shield,
+  Edit3,
+  BarChart3,
+  CalendarDays,
+  CheckCircle2,
+  FileText,
+  MessageSquare,
+  Plus,
+  Users,
+} from 'lucide-react';
 import { MaterialIcon } from '@/components/MaterialIcon';
 import { cn } from '@/lib/utils';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
@@ -10,7 +28,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useHasRole } from '@/hooks/useHasRole';
 import { useSidebar } from './SidebarContext';
-import { useRoleTab } from '@/contexts/RoleTabContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -105,13 +122,19 @@ const clearStoredRoles = (): void => {
 };
 
 export const Sidebar = ({ className }: SidebarProps) => {
-  const { hideMobileNav, isExpanded, setIsExpanded } = useSidebar();
+  const { isExpanded, setIsExpanded } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   const { hasRole: isSetter, loading: setterLoading } = useHasRole('setter');
-  const { activeRole } = useRoleTab();
+
+  const navigateToArea = useCallback((path: string) => {
+    if (location.pathname + location.search === path) {
+      return;
+    }
+    navigate(path);
+  }, [location.pathname, location.search, navigate]);
 
   // Memoize toggle function to prevent unnecessary re-renders
   const toggleExpanded = useCallback(() => {
@@ -253,86 +276,66 @@ export const Sidebar = ({ className }: SidebarProps) => {
   }, [signOut]);
 
   // Compute desktop navigation groups - always stable, never changes during navigation
-  const desktopNavGroups = useMemo(() => {
-    const groups: Array<{
-      title: string;
-      items: Array<{ icon: any; label: string; path: string; isMaterialIcon?: boolean }>;
-      visible: boolean;
-    }> = [
-      {
-        title: 'User Area',
-        items: [
-          { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-          { icon: List, label: 'Boulder', path: '/boulders' },
-          { icon: Map, label: 'Sektoren', path: '/sectors' },
-        ],
-        visible: true,
-      },
-    ];
+  const desktopNavGroups = useMemo(() => [
+    {
+      title: 'User Area',
+      items: [
+        { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+        { icon: List, label: 'Boulder', path: '/boulders' },
+        { icon: BarChart3, label: 'Statistiken', path: '/statistics' },
+      ],
+      visible: true,
+    },
+  ], []);
 
-    // Add Setter Area if user has setter role
-    if (stableIsSetter) {
-      groups.push({
-        title: 'Setter Area',
-        items: [
-          { icon: Edit3, label: 'Bearbeiten', path: '/setter?view=edit' },
-          { icon: Upload, label: 'Upload', path: '/setter?view=batch' },
-          { icon: CheckCircle, label: 'Status', path: '/setter?view=status' },
-          { icon: Calendar, label: 'Termin', path: '/setter?view=schedule' },
-        ],
-        visible: true,
-      });
-    }
+  const homePath = user ? '/' : '/guest';
+  const isSetterArea = location.pathname === '/setter' || location.pathname.startsWith('/setter/');
+  const isAdminArea = location.pathname === '/admin';
 
-    // Add Admin Area if user has admin role
-    if (stableIsAdmin) {
-      groups.push({
-        title: 'Admin Area',
-        items: [
-          { icon: Users, label: 'Benutzer', path: '/admin?tab=users' },
-          { icon: Settings, label: 'Einstellungen', path: '/admin?tab=settings' },
-          { icon: MessageSquare, label: 'Feedback', path: '/admin?tab=feedback' },
-          { icon: FileText, label: 'Logs', path: '/admin?tab=logs' },
-        ],
-        visible: true,
-      });
-    }
-
-    return groups;
-  }, [stableIsAdmin, stableIsSetter]);
-
-  // Compute mobile bottom navigation items based on active role tab
   const mobileNavItems = useMemo(() => {
-    if (activeRole === 'setter' && stableIsSetter) {
+    if (!user) {
       return [
-        { icon: Edit3, label: 'Bearbeiten', path: '/setter?view=edit' },
-        { icon: Upload, label: 'Upload', path: '/setter?view=batch' },
-        { icon: CheckCircle, label: 'Status', path: '/setter?view=status' },
-        { icon: Calendar, label: 'Termin', path: '/setter?view=schedule' },
+        { icon: LayoutDashboard, label: 'Home', path: '/guest' },
+        { icon: List, label: 'Boulder', path: '/boulders' },
+        { icon: User, label: 'Anmelden', path: '/auth' },
       ];
     }
-    
-    if (activeRole === 'admin' && stableIsAdmin) {
+
+    if (isSetterArea && stableIsSetter) {
+      return [
+        { icon: Plus, label: 'Erstellen', path: '/setter/create' },
+        { icon: Edit3, label: 'Bearbeiten', path: '/setter/edit' },
+        { icon: CheckCircle2, label: 'Status', path: '/setter/status' },
+        { icon: CalendarDays, label: 'Planung', path: '/setter/schedule' },
+      ];
+    }
+
+    if (isAdminArea && stableIsAdmin) {
       return [
         { icon: Users, label: 'Benutzer', path: '/admin?tab=users' },
-        { icon: Settings, label: 'Einstellungen', path: '/admin?tab=settings' },
-        // { icon: Trophy, label: 'Wettkampf', path: '/admin?tab=competition' }, // Temporarily hidden
+        { icon: Settings, label: 'Settings', path: '/admin?tab=settings' },
         { icon: MessageSquare, label: 'Feedback', path: '/admin?tab=feedback' },
         { icon: FileText, label: 'Logs', path: '/admin?tab=logs' },
+        { icon: Shield, label: 'Tests', path: '/admin?tab=tests' },
       ];
     }
-    
-    // Default: User role
+
     return [
-      { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+      { icon: LayoutDashboard, label: 'Home', path: homePath },
       { icon: List, label: 'Boulder', path: '/boulders' },
-      { icon: Map, label: 'Sektoren', path: '/sectors' },
+      { icon: BarChart3, label: 'Statistiken', path: '/statistics' },
     ];
-  }, [activeRole, stableIsSetter, stableIsAdmin]);
+  }, [homePath, isAdminArea, isSetterArea, stableIsAdmin, stableIsSetter, user]);
+
+  const avatarUrl =
+    typeof user?.user_metadata?.avatar_url === 'string' && user.user_metadata.avatar_url.trim().length > 0
+      ? user.user_metadata.avatar_url
+      : null;
 
   return (
     <>
       {/* Desktop Sidebar */}
+      {user ? (
       <aside className={cn(
         "hidden md:flex bg-sidebar-bg flex-col py-6 h-screen fixed left-0 top-0 z-50",
         isExpanded ? "w-64 items-start" : "w-20 items-center",
@@ -343,8 +346,11 @@ export const Sidebar = ({ className }: SidebarProps) => {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="cursor-pointer focus:outline-none relative">
-                <Avatar className="w-12 h-12 rounded hover:opacity-80 transition-opacity">
-                  <AvatarFallback className="bg-primary text-primary-foreground rounded">
+                <Avatar className="w-12 h-12 rounded-xl hover:opacity-80 transition-opacity">
+                  {avatarUrl ? (
+                    <AvatarImage src={avatarUrl} alt={user?.email || 'Profilbild'} className="rounded-xl object-cover" />
+                  ) : null}
+                  <AvatarFallback className="bg-primary text-primary-foreground rounded-xl">
                     {user ? (
                       user.email?.substring(0, 2).toUpperCase() || 'KS'
                     ) : (
@@ -371,18 +377,35 @@ export const Sidebar = ({ className }: SidebarProps) => {
                     <p className="text-sm font-medium text-[#13112B]">{user.email}</p>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                  <DropdownMenuItem onSelect={() => navigate('/profile')}>
                     <Settings className="w-4 h-4 mr-2 text-[#13112B]/70" />
                     Profil Einstellungen
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="text-[#E74C3C] data-[highlighted]:bg-red-50 data-[highlighted]:text-[#E74C3C]">
+                  <DropdownMenuItem onSelect={() => navigateToArea('/')}>
+                    <LayoutDashboard className="w-4 h-4 mr-2 text-[#13112B]/70" />
+                    User Bereich
+                  </DropdownMenuItem>
+                  {stableIsSetter && (
+                    <DropdownMenuItem onSelect={() => navigateToArea('/setter/create')}>
+                      <Edit3 className="w-4 h-4 mr-2 text-[#13112B]/70" />
+                      Setter Bereich
+                    </DropdownMenuItem>
+                  )}
+                  {stableIsAdmin && (
+                    <DropdownMenuItem onSelect={() => navigateToArea('/admin?tab=users')}>
+                      <Shield className="w-4 h-4 mr-2 text-[#13112B]/70" />
+                      Admin Bereich
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={handleSignOut} className="text-[#E74C3C] data-[highlighted]:bg-red-50 data-[highlighted]:text-[#E74C3C]">
                     <LogOut className="w-4 h-4 mr-2" />
                     Abmelden
                   </DropdownMenuItem>
                 </>
               ) : (
-                <DropdownMenuItem onClick={() => navigate('/auth')}>
+                <DropdownMenuItem onSelect={() => navigate('/auth')}>
                   <User className="w-4 h-4 mr-2" />
                   Anmelden
                 </DropdownMenuItem>
@@ -496,42 +519,54 @@ export const Sidebar = ({ className }: SidebarProps) => {
           )}
         </div>
       </aside>
+      ) : null}
 
       {/* Mobile Bottom Navigation */}
-      {!hideMobileNav && (
-        <nav 
-          className="md:hidden fixed left-4 right-4 z-50 bg-gray-900 rounded-2xl shadow-2xl" 
-          style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+      {location.pathname !== '/auth' && location.pathname !== '/competition' && (
+        <nav
+          className="fixed inset-x-0 bottom-0 z-[110] border-t border-border bg-card/90 backdrop-blur-xl md:hidden"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
-          <div className="flex items-center justify-around px-4 py-3">
+          <div className="flex items-stretch">
             {mobileNavItems.map((item) => {
               // Check if active based on pathname and query params
               const searchParams = new URLSearchParams(location.search);
-              const isActive = activeRole === 'setter' 
-                ? location.pathname === '/setter' && searchParams.get('view') === item.path.split('?view=')[1]
-                : activeRole === 'admin'
-                ? location.pathname === '/admin' && (() => {
-                    const itemTab = item.path.split('?tab=')[1];
-                    const currentTab = searchParams.get('tab') || 'users'; // Default to 'users' if no tab param
-                    return itemTab === currentTab;
-                  })()
-                : location.pathname === item.path;
+              const isActive = item.path === '/guest'
+                ? location.pathname === '/guest'
+                : item.path === '/'
+                  ? location.pathname === '/'
+                  : item.path === '/boulders'
+                    ? location.pathname.startsWith('/boulders')
+                    : item.path === '/statistics'
+                      ? location.pathname.startsWith('/statistics')
+                      : item.path === '/auth'
+                        ? location.pathname === '/auth'
+                        : item.path.startsWith('/setter')
+                          ? location.pathname === item.path
+                          : item.path.startsWith('/admin')
+                            ? location.pathname === '/admin' && (() => {
+                                const itemTab = item.path.split('?tab=')[1];
+                                const currentTab = searchParams.get('tab') || 'users';
+                                return itemTab === currentTab;
+                              })()
+                            : location.pathname === item.path;
               
               return (
                 <NavLink
                   key={item.label}
                   to={item.path}
                   className={cn(
-                    "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all duration-300 min-w-0",
-                    isActive ? "text-[#36B531]" : "text-gray-400"
+                    "flex min-h-[72px] flex-1 flex-col items-center justify-center gap-1 px-3 py-3 text-center transition-colors",
+                    isActive ? "text-primary" : "text-muted-foreground"
                   )}
                 >
-                  <item.icon className={cn("w-6 h-6 flex-shrink-0", isActive && "text-[#36B531]")} />
-                  <span className={cn("text-xs font-medium truncate max-w-[60px]", isActive && "text-[#36B531]")}>{item.label}</span>
+                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                  <span className="max-w-[72px] truncate text-[11px] font-semibold">{item.label}</span>
                 </NavLink>
               );
             })}
           </div>
+          <div className="h-[env(safe-area-inset-bottom)]" />
         </nav>
       )}
     </>

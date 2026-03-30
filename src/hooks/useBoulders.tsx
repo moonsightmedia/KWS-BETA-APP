@@ -135,9 +135,6 @@ export interface Boulder {
 }
 
 export const useBoulders = (enabled: boolean = true) => {
-  // CRITICAL: Log enabled state
-  console.log('[useBoulders] Hook called with enabled:', enabled);
-  
   return useQuery({
     queryKey: ['boulders'],
     enabled: enabled, // Only run query if enabled (e.g., after auth loading is complete)
@@ -362,17 +359,6 @@ export const useBouldersWithSectors = (enabled: boolean = true) => {
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBoulders(enabled);
   const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectors(enabled);
 
-  // Only log in development to reduce console noise
-  if (import.meta.env.DEV) {
-    console.log('[useBouldersWithSectors] Raw boulders:', boulders?.length || 0, 'sectors:', sectors?.length || 0, 'isLoadingBoulders:', isLoadingBoulders, 'isLoadingSectors:', isLoadingSectors);
-    if (bouldersError) {
-      console.error('[useBouldersWithSectors] Boulders error:', bouldersError);
-    }
-    if (sectorsError) {
-      console.error('[useBouldersWithSectors] Sectors error:', sectorsError);
-    }
-  }
-  
   // If there's an error, don't wait forever - use empty arrays
   const effectiveBoulders = bouldersError ? [] : (boulders || []);
   const effectiveSectors = sectorsError ? [] : (sectors || []);
@@ -384,7 +370,6 @@ export const useBouldersWithSectors = (enabled: boolean = true) => {
         try {
           return transformBoulder(b, effectiveSectors);
         } catch (error) {
-          console.error('[useBouldersWithSectors] Error transforming boulder:', b.id, error);
           // Return a fallback boulder
           return {
             id: b.id,
@@ -400,14 +385,6 @@ export const useBouldersWithSectors = (enabled: boolean = true) => {
         }
       })
     : (bouldersError || sectorsError ? [] : undefined); // Return empty array on error, undefined if still loading
-
-  // Only log in development to reduce console noise
-  if (import.meta.env.DEV) {
-    console.log('[useBouldersWithSectors] Transformed boulders:', transformedBoulders?.length || 0);
-    if (transformedBoulders && transformedBoulders.length > 0) {
-      console.log('[useBouldersWithSectors] Sample transformed boulder:', transformedBoulders[0]);
-    }
-  }
 
   // If there are errors, don't show loading state forever
   const hasError = bouldersError || sectorsError;

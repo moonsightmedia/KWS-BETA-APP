@@ -1,0 +1,24 @@
+<svg width="735" height="466" viewBox="0 0 735 466" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="735" height="466" fill="#F3F4F3"/>
+  <path d="M0 0H217L221 40H0V0Z" fill="#D1D1D1" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M217 0H416L409 72H275L259 40H221L217 0Z" fill="#B9B9B9" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M416 0H639L649 29L634 57H594L486 31H409L416 0Z" fill="#B5B5B5" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M649 0H735V106H664V89L649 29V0Z" fill="#B3B3B3" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M0 40H168L164 129H42V80L0 40Z" fill="#B3B3B3" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M168 40H261L275 72H345L367 40H486L594 66L634 57L649 89L634 129H490L381 129H345H164L168 40Z" fill="#F8F8F8" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M664 106H689V227H679H664V106Z" fill="#A8A8A8" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M0 129H115L112 240H0V129Z" fill="#A7A7A7" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M115 129H289V240H112L115 129Z" fill="#B0B0B0" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M289 129H370V240H289V129Z" fill="#BDBDBD" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M370 129H490L539 202L535 309L456 343L429 318L395 329L325 329L289 240H370V129Z" fill="#ABABAB" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M490 129H539L535 309L456 343L456 240L490 129Z" fill="#A2A2A2" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M0 240H63L51 294L0 281V240Z" fill="#A2A2A2" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M63 240H138L243 281L260 406L222 433L223 466H84L31 439L63 354L51 294L63 240Z" fill="#F8F8F8" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M138 240H206L243 281L138 240Z" fill="#B2B2B2" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M206 240H310V466H223L222 433L260 406L243 281L206 240Z" fill="#A5A5A5" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M310 240H395L325 329L310 240Z" fill="#9E9E9E" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M325 329H429L456 343L517 441H344L325 409L344 381L325 329Z" fill="#F8F8F8" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M517 441H735V466H517V441Z" fill="#A7A7A7" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M708 347H735V441H708V347Z" fill="#ADADAD" stroke="#1F1F1F" stroke-width="0.8"/>
+  <path d="M0 439H84L84 466H0V439Z" fill="#A8A8A8" stroke="#1F1F1F" stroke-width="0.8"/>
+</svg>

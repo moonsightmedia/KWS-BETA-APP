@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Shield } from "lucide-react";
+import { FileText, MessageSquare, Settings, Shield, Users } from "lucide-react";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { ColorManagement } from "@/components/admin/ColorManagement";
 import { SectorManagement } from "@/components/admin/SectorManagement";
@@ -22,6 +22,14 @@ const Admin = () => {
   const navigate = useNavigate();
   const { isExpanded } = useSidebar();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const adminMobileNavItems = [
+    { value: 'users', label: 'Benutzer', icon: Users },
+    { value: 'settings', label: 'Settings', icon: Settings },
+    { value: 'feedback', label: 'Feedback', icon: MessageSquare },
+    { value: 'logs', label: 'Logs', icon: FileText },
+    { value: 'tests', label: 'Tests', icon: Shield },
+  ] as const;
 
   useEffect(() => {
     if (!user) {
@@ -90,6 +98,39 @@ const Admin = () => {
         <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 overflow-x-hidden w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-x-hidden">
+          <div className="mb-4 md:hidden">
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {adminMobileNavItems.map((item) => {
+                const isActive = currentTab === item.value;
+
+                return (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => {
+                      const nextSearchParams = new URLSearchParams(searchParams);
+                      nextSearchParams.set('tab', item.value);
+                      if (item.value !== 'settings') {
+                        nextSearchParams.delete('settingsTab');
+                      } else if (!nextSearchParams.get('settingsTab')) {
+                        nextSearchParams.set('settingsTab', 'sectors');
+                      }
+                      setSearchParams(nextSearchParams, { replace: true });
+                    }}
+                    className={cn(
+                      "inline-flex h-11 shrink-0 items-center gap-2 rounded-xl border px-4 text-sm font-medium transition-colors",
+                      isActive
+                        ? "border-[#36B531] bg-[#36B531] text-white"
+                        : "border-[#DDE7DF] bg-white text-[#13112B] hover:border-[#36B531]/40"
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <Tabs 
             value={searchParams.get('tab') || 'users'} 

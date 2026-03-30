@@ -94,18 +94,19 @@ export const useIsAdmin = () => {
       setLoading(false);
       return;
     }
+
     const stored = getStoredAdmin(user.id);
     if (stored !== null) {
       setIsAdmin(stored);
-      setLoading(false);
-      return;
     }
+
     const accessToken = session?.access_token;
     if (!accessToken) {
-      setIsAdmin(false);
+      setIsAdmin(stored ?? false);
       setLoading(false);
       return;
     }
+
     setLoading(true);
     try {
       const result = await checkAdminOnce(user.id, accessToken);
@@ -126,7 +127,6 @@ export const useIsAdmin = () => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && user?.id) {
-        console.log('[useIsAdmin] App visible - refreshing admin status');
         refreshAdminStatus();
       }
     };

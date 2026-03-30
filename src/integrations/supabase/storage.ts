@@ -3,6 +3,8 @@ import exifr from 'exifr';
 
 const DEFAULT_BUCKET = 'beta-videos';
 const SECTOR_IMAGES_BUCKET = 'sector-images';
+const HALL_MAPS_BUCKET = 'hall-maps';
+const PROFILE_AVATARS_BUCKET = 'profile-avatars';
 
 // All-Inkl API Configuration
 const ALLINKL_API_URL = import.meta.env.VITE_ALLINKL_API_URL || 'https://cdn.kletterwelt-sauerland.de/upload-api';
@@ -2275,6 +2277,161 @@ export async function deleteBetaVideo(videoUrl: string | null): Promise<void> {
 }
 
 /**
+ * Upload a hall map image to Supabase Storage
+ */
+export async function uploadHallMapImage(
+  file: File,
+  hallMapId: string,
+  onProgress?: (progress: number) => void,
+): Promise<string> {
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error(`Ungültiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
+  }
+
+  let imageToUpload = file;
+  try {
+    if (onProgress) onProgress(5);
+    imageToUpload = await compressSectorImage(file, (progress) => {
+      if (onProgress) onProgress(5 + progress * 0.4);
+    });
+    if (onProgress) onProgress(45);
+  } catch (error) {
+    console.warn('[Hall Map Upload] Compression failed, using original image:', error);
+    imageToUpload = file;
+  }
+
+  const ext = 'jpg';
+  const objectPath = `${hallMapId}/${randomId()}.${ext}`;
+
+  const simulateProgress = () => {
+    if (!onProgress) return null;
+    let progress = 45;
+    const interval = setInterval(() => {
+      progress += Math.random() * 10;
+      if (progress >= 95) {
+        progress = 95;
+        clearInterval(interval);
+      }
+      onProgress(progress);
+    }, 200);
+    return interval;
+  };
+
+  const progressInterval = simulateProgress();
+
+  try {
+    const { error } = await supabase.storage
+      .from(HALL_MAPS_BUCKET)
+      .upload(objectPath, imageToUpload, {
+        cacheControl: '604800',
+        upsert: true,
+        contentType: 'image/jpeg',
+      });
+
+    if (progressInterval) clearInterval(progressInterval);
+    if (error) throw error;
+
+    if (onProgress) onProgress(100);
+
+    const { data } = supabase.storage.from(HALL_MAPS_BUCKET).getPublicUrl(objectPath);
+    return data.publicUrl;
+  } catch (error) {
+    if (progressInterval) clearInterval(progressInterval);
+    throw error;
+  }
+}
+
+/**
+ * Upload a profile avatar image to Supabase Storage.
+ */
+export async function uploadProfileAvatar(
+  file: File,
+  userId: string,
+  onProgress?: (progress: number) => void,
+): Promise<string> {
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error(`Ungueltiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
+  }
+
+  let imageToUpload = file;
+  try {
+    if (onProgress) onProgress(5);
+    imageToUpload = await compressSectorImage(file, (progress) => {
+      if (onProgress) onProgress(5 + progress * 0.4);
+    });
+    if (onProgress) onProgress(45);
+  } catch (error) {
+    console.warn('[Profile Avatar Upload] Compression failed, using original image:', error);
+    imageToUpload = file;
+  }
+
+  const ext = 'jpg';
+  const objectPath = `${userId}/${randomId()}.${ext}`;
+
+  const simulateProgress = () => {
+    if (!onProgress) return null;
+    let progress = 45;
+    const interval = setInterval(() => {
+      progress += Math.random() * 10;
+      if (progress >= 95) {
+        progress = 95;
+        clearInterval(interval);
+      }
+      onProgress(progress);
+    }, 200);
+    return interval;
+  };
+
+  const progressInterval = simulateProgress();
+
+  try {
+    const { error } = await supabase.storage
+      .from(PROFILE_AVATARS_BUCKET)
+      .upload(objectPath, imageToUpload, {
+        cacheControl: '604800',
+        upsert: true,
+        contentType: 'image/jpeg',
+      });
+
+    if (progressInterval) clearInterval(progressInterval);
+    if (error) throw error;
+
+    if (onProgress) onProgress(100);
+
+    const { data } = supabase.storage.from(PROFILE_AVATARS_BUCKET).getPublicUrl(objectPath);
+    return data.publicUrl;
+  } catch (error) {
+    if (progressInterval) clearInterval(progressInterval);
+    throw error;
+  }
+}
+
+/**
+ * Delete a profile avatar image from Supabase Storage.
+ */
+export async function deleteProfileAvatar(imageUrl: string | null): Promise<void> {
+  if (!imageUrl) return;
+
+  try {
+    const url = new URL(imageUrl);
+    const pathParts = url.pathname.split('/');
+    const bucketIndex = pathParts.findIndex((part) => part === PROFILE_AVATARS_BUCKET);
+
+    if (bucketIndex === -1) {
+      return;
+    }
+
+    const filePath = pathParts.slice(bucketIndex + 1).join('/');
+    const { error } = await supabase.storage.from(PROFILE_AVATARS_BUCKET).remove([filePath]);
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error deleting profile avatar:', error);
+  }
+}
+
+/**
  * Upload a boulder thumbnail image to All-Inkl or Supabase Storage
  */
 export async function uploadThumbnail(
@@ -2332,3 +2489,25 @@ export async function deleteSectorImage(imageUrl: string): Promise<void> {
   }
 }
 
+
+/**
+ * Delete a hall map image from Supabase Storage
+ */
+export async function deleteHallMapImage(imageUrl: string): Promise<void> {
+  try {
+    const url = new URL(imageUrl);
+    const pathParts = url.pathname.split('/');
+    const bucketIndex = pathParts.findIndex((part) => part === HALL_MAPS_BUCKET);
+
+    if (bucketIndex === -1) {
+      return;
+    }
+
+    const filePath = pathParts.slice(bucketIndex + 1).join('/');
+
+    const { error } = await supabase.storage.from(HALL_MAPS_BUCKET).remove([filePath]);
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error deleting hall map image:', error);
+  }
+}

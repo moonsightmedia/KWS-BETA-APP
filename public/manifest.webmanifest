@@ -3,11 +3,11 @@
   "short_name": "KWS Beta",
   "start_url": "/",
   "scope": "/",
-  "display": "standalone",
+  "display": "browser",
   "orientation": "portrait-primary",
   "background_color": "#F9FAF9",
   "theme_color": "#36B531",
-  "description": "Boulder-Übersicht mit Beta-Videos, Statistiken, Wettkämpfen und Admin-Tools für die Kletterwelt Sauerland",
+  "description": "Boulder-\u00DCbersicht mit Beta-Videos, Community, Statistik und Admin-Tools f\u00FCr die Kletterwelt Sauerland",
   "categories": ["sports", "lifestyle"],
   "icons": [
     {
@@ -23,32 +23,5 @@
       "purpose": "any maskable"
     }
   ],
-  "screenshots": [],
-  "shortcuts": [
-    {
-      "name": "Boulder",
-      "short_name": "Boulder",
-      "description": "Boulder-Übersicht öffnen",
-      "url": "/boulders",
-      "icons": [
-        {
-          "src": "/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png",
-          "sizes": "192x192"
-        }
-      ]
-    },
-    {
-      "name": "Wettkampf",
-      "short_name": "Wettkampf",
-      "description": "Wettkampf-Rangliste öffnen",
-      "url": "/competition",
-      "icons": [
-        {
-          "src": "/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png",
-          "sizes": "192x192"
-        }
-      ]
-    }
-  ]
+  "screenshots": []
 }
-

@@ -1,18 +1,60 @@
-import { useState, useRef, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+﻿import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { Pencil, RefreshCcw, Search, Shield, ShieldOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Shield, ShieldOff, Pencil } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MaterialIcon } from "@/components/MaterialIcon";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+
+type UserProfileRecord = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  birth_date: string | null;
+  created_at: string | null;
+};
+
+type UserRoleRecord = {
+  user_id: string;
+  role: "admin" | "setter" | string;
+};
+
+type AdminUserRecord = UserProfileRecord & {
+  isAdmin: boolean;
+  isSetter: boolean;
+};
+
+type UserSegment = "all" | "admins" | "setters" | "users";
+
+const formatJoinedDate = (value?: string | null) => {
+  if (!value) return "Unbekannt";
+
+  try {
+    return format(new Date(value), "dd.MM.yyyy HH:mm");
+  } catch {
+    return "Unbekannt";
+  }
+};
+
+const getDisplayName = (user: Partial<AdminUserRecord>) => {
+  const combinedName = [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim();
+  if (combinedName) return combinedName;
+  if (user?.full_name) return user.full_name;
+  if (user?.email) return String(user.email).split("@")[0];
+  return "Unbekannter Nutzer";
+};
 
 export const UserManagement = () => {
   const queryClient = useQueryClient();
@@ -20,7 +62,15 @@ export const UserManagement = () => {
 
   const queriesEnabled = !authLoading && !!user && !!session;
   const sessionRef = useRef(session);
-  const [listVersion, setListVersion] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeSegment, setActiveSegment] = useState<UserSegment>("all");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editUser, setEditUser] = useState<AdminUserRecord | null>(null);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [passwordResetPending, setPasswordResetPending] = useState(false);
+
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
@@ -29,209 +79,137 @@ export const UserManagement = () => {
     queryKey: ["admin-users"],
     enabled: queriesEnabled,
     queryFn: async () => {
-      console.log('[UserManagement] Loading profiles...');
-      
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      
-      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-        throw new Error('Supabase URL or API key not found');
-      }
-
-      // Use ref so refetch after mutation always has current session (avoids stale closure)
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const accessToken = sessionRef.current?.access_token;
-      if (!accessToken) {
-        throw new Error('No access token available');
+
+      if (!supabaseUrl || !publishableKey) {
+        throw new Error("Supabase URL oder API Key fehlt");
       }
 
-      // Use direct fetch instead of QueryBuilder
-      const profilesUrl = `${SUPABASE_URL}/rest/v1/profiles?select=*&order=created_at.desc`;
-      const profilesResponse = await window.fetch(profilesUrl, {
-        method: 'GET',
+      if (!accessToken) {
+        throw new Error("Keine aktive Session verfuegbar");
+      }
+
+      const profilesResponse = await window.fetch(`${supabaseUrl}/rest/v1/profiles?select=*&order=created_at.desc`, {
+        method: "GET",
         headers: {
-          'apikey': SUPABASE_PUBLISHABLE_KEY,
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
+          apikey: publishableKey,
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
         },
       });
 
       if (!profilesResponse.ok) {
-        const errorText = await profilesResponse.text();
-        throw new Error(`Failed to load profiles: ${profilesResponse.status} ${errorText}`);
+        throw new Error(await profilesResponse.text());
       }
 
-      const profiles = await profilesResponse.json();
-      console.log('[UserManagement] Profiles loaded:', profiles?.length || 0);
-
-      // Load user roles
-      const rolesUrl = `${SUPABASE_URL}/rest/v1/user_roles?select=*`;
-      const rolesResponse = await window.fetch(rolesUrl, {
-        method: 'GET',
+      const rolesResponse = await window.fetch(`${supabaseUrl}/rest/v1/user_roles?select=*`, {
+        method: "GET",
         headers: {
-          'apikey': SUPABASE_PUBLISHABLE_KEY,
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
+          apikey: publishableKey,
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
         },
       });
 
       if (!rolesResponse.ok) {
-        const errorText = await rolesResponse.text();
-        throw new Error(`Failed to load roles: ${rolesResponse.status} ${errorText}`);
+        throw new Error(await rolesResponse.text());
       }
 
-      const roles = await rolesResponse.json();
-      console.log('[UserManagement] Roles loaded:', roles?.length || 0);
+      const profiles = (await profilesResponse.json()) as UserProfileRecord[];
+      const roles = (await rolesResponse.json()) as UserRoleRecord[];
+      const normalizeId = (value: string) => String(value ?? "").toLowerCase();
 
-      const pid = (id: string) => String(id ?? '').toLowerCase();
-      const mapped = profiles?.map((profile: any) => ({
+      return profiles.map((profile) => ({
         ...profile,
-        isAdmin: roles?.some((r: any) => pid(r.user_id) === pid(profile.id) && r.role === 'admin') || false,
-        isSetter: roles?.some((r: any) => pid(r.user_id) === pid(profile.id) && r.role === 'setter') || false
+        isAdmin: roles.some((roleEntry) => normalizeId(roleEntry.user_id) === normalizeId(profile.id) && roleEntry.role === "admin"),
+        isSetter: roles.some((roleEntry) => normalizeId(roleEntry.user_id) === normalizeId(profile.id) && roleEntry.role === "setter"),
       }));
-
-      console.log('[UserManagement] Mapped users:', mapped?.length || 0);
-      return mapped;
     },
     retry: 2,
     retryDelay: 1000,
-    staleTime: 0, // Always refetch
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    staleTime: 0,
+    gcTime: 5 * 60 * 1000,
   });
 
-  const fetchRoleMutation = (
-    method: 'POST' | 'DELETE',
-    userId: string,
-    role: 'admin' | 'setter'
-  ) => {
-    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-    const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const fetchRoleMutation = (method: "POST" | "DELETE", userId: string, role: "admin" | "setter") => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     const accessToken = session?.access_token;
-    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || !accessToken) {
-      throw new Error('Session oder Konfiguration fehlt');
+
+    if (!supabaseUrl || !publishableKey || !accessToken) {
+      throw new Error("Session oder Konfiguration fehlt");
     }
+
     const url =
-      method === 'DELETE'
-        ? `${SUPABASE_URL}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.${role}`
-        : `${SUPABASE_URL}/rest/v1/user_roles`;
+      method === "DELETE"
+        ? `${supabaseUrl}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.${role}`
+        : `${supabaseUrl}/rest/v1/user_roles`;
+
     const init: RequestInit = {
       method,
       headers: {
-        apikey: SUPABASE_PUBLISHABLE_KEY,
+        apikey: publishableKey,
         Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        Prefer: 'return=representation',
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
       },
     };
-    if (method === 'POST') {
-      (init as RequestInit).body = JSON.stringify({ user_id: userId, role });
+
+    if (method === "POST") {
+      init.body = JSON.stringify({ user_id: userId, role });
     }
+
     return window.fetch(url, init);
   };
 
   const toggleAdminMutation = useMutation({
     mutationFn: async ({ userId, isAdmin }: { userId: string; isAdmin: boolean }) => {
-      const method = isAdmin ? 'DELETE' : 'POST';
-      const res = await fetchRoleMutation(method, userId, 'admin');
+      const res = await fetchRoleMutation(isAdmin ? "DELETE" : "POST", userId, "admin");
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`${res.status}: ${text || res.statusText}`);
+        throw new Error(await res.text());
       }
     },
-    onSuccess: async (_, variables) => {
-      queryClient.setQueryData(["admin-users"], (old: any[] | undefined) => {
-        if (!Array.isArray(old)) return old;
-        return old.map((u: any) =>
-          String(u?.id).toLowerCase() === String(variables.userId).toLowerCase()
-            ? { ...u, isAdmin: !variables.isAdmin }
-            : u
-        );
-      });
-      setListVersion((v) => v + 1);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
-      await queryClient.refetchQueries({ queryKey: ["admin-users"], type: "active" });
-      setListVersion((v) => v + 1);
-      toast.success(
-        variables.isAdmin 
-          ? "Admin-Rechte erfolgreich entzogen"
-          : "Admin-Rechte erfolgreich vergeben"
-      );
+      toast.success("Admin-Rechte aktualisiert");
     },
-    onError: (error) => {
-      toast.error("Fehler beim Ändern der Rechte: " + (error instanceof Error ? error.message : String(error)));
+    onError: (mutationError) => {
+      toast.error(mutationError instanceof Error ? mutationError.message : "Fehler beim Aktualisieren");
     },
   });
 
   const toggleSetterMutation = useMutation({
     mutationFn: async ({ userId, isSetter }: { userId: string; isSetter: boolean }) => {
-      if (!session?.access_token) {
-        throw new Error('Keine aktive Session. Bitte erneut einloggen.');
-      }
-      const method = isSetter ? 'DELETE' : 'POST';
-      const res = await fetchRoleMutation(method, userId, 'setter');
+      const res = await fetchRoleMutation(isSetter ? "DELETE" : "POST", userId, "setter");
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`${res.status}: ${text || res.statusText}`);
+        throw new Error(await res.text());
       }
     },
-    onSuccess: async (_, variables) => {
-      queryClient.setQueryData(["admin-users"], (old: any[] | undefined) => {
-        if (!Array.isArray(old)) return old;
-        return old.map((u: any) =>
-          String(u?.id).toLowerCase() === String(variables.userId).toLowerCase()
-            ? { ...u, isSetter: !variables.isSetter }
-            : u
-        );
-      });
-      setListVersion((v) => v + 1);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
-      await queryClient.refetchQueries({ queryKey: ["admin-users"], type: "active" });
-      setListVersion((v) => v + 1);
-      toast.success("Rolle aktualisiert");
+      toast.success("Setter-Rechte aktualisiert");
     },
-    onError: (error: any) => {
-      const msg = error?.message ?? error?.toString?.() ?? 'Unbekannter Fehler';
-      toast.error("Fehler beim Ändern der Rolle: " + msg);
+    onError: (mutationError) => {
+      toast.error(mutationError instanceof Error ? mutationError.message : "Fehler beim Aktualisieren");
     },
   });
-
-  const [editOpen, setEditOpen] = useState(false);
-  const [editUser, setEditUser] = useState<any | null>(null);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [birthDate, setBirthDate] = useState("");
-
-  const openEdit = (u: any) => {
-    setEditUser(u);
-    const full = (u.full_name as string) || "";
-    const parts = full.trim().split(/\s+/);
-    const derivedFirst = u.first_name || (parts.length ? parts[0] : "");
-    const derivedLast = u.last_name || (parts.length > 1 ? parts.slice(1).join(" ") : "");
-    setFirstName(derivedFirst);
-    setLastName(derivedLast);
-    const bd = u.birth_date ? (
-      typeof u.birth_date === 'string' && u.birth_date.length > 10
-        ? new Date(u.birth_date).toISOString().slice(0,10)
-        : u.birth_date
-    ) : "";
-    setBirthDate(bd as string);
-    setEditOpen(true);
-  };
 
   const saveProfileMutation = useMutation({
     mutationFn: async () => {
       if (!editUser) return;
-      const computedFullName = [firstName, lastName].filter(Boolean).join(' ').trim() || null;
-      const payload: any = {
+
+      const fullName = [firstName, lastName].filter(Boolean).join(" ").trim() || null;
+      const payload: Pick<UserProfileRecord, "first_name" | "last_name" | "full_name" | "birth_date"> = {
         first_name: firstName || null,
         last_name: lastName || null,
-        full_name: computedFullName,
+        full_name: fullName,
         birth_date: birthDate || null,
       };
-      const { error } = await supabase
-        .from("profiles")
-        .update(payload)
-        .eq("id", editUser.id);
-      if (error) throw error;
+
+      const { error: updateError } = await supabase.from("profiles").update(payload).eq("id", editUser.id);
+      if (updateError) throw updateError;
     },
     onSuccess: () => {
       setEditOpen(false);
@@ -239,298 +217,318 @@ export const UserManagement = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       toast.success("Profil gespeichert");
     },
-    onError: (error) => {
-      toast.error("Fehler beim Speichern: " + error.message);
+    onError: (mutationError) => {
+      toast.error(mutationError instanceof Error ? mutationError.message : "Fehler beim Speichern");
     },
   });
 
+  const openEdit = (entry: AdminUserRecord) => {
+    setEditUser(entry);
+    const full = entry.full_name || "";
+    const parts = full.trim().split(/\s+/).filter(Boolean);
+    setFirstName(entry.first_name || parts[0] || "");
+    setLastName(entry.last_name || parts.slice(1).join(" ") || "");
+    setBirthDate(entry.birth_date ? String(entry.birth_date).slice(0, 10) : "");
+    setEditOpen(true);
+  };
+
+  const resetPasswordForEmail = async (email: string | null | undefined) => {
+    if (!email) return;
+    try {
+      setPasswordResetPending(true);
+      const redirectUrl = `${window.location.origin}/auth`;
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: redirectUrl });
+
+      if (resetError) {
+        toast.error(resetError.message);
+        return;
+      }
+
+      toast.success("Passwort-Reset E-Mail gesendet");
+    } finally {
+      setPasswordResetPending(false);
+    }
+  };
+
+  const resetPasswordForEditedUser = async () => {
+    await resetPasswordForEmail(editUser?.email);
+  };
+
+  const allUsers = users ?? [];
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredUsers = allUsers.filter((entry) => {
+    const matchesSegment =
+      activeSegment === "all" ||
+      (activeSegment === "admins" && entry.isAdmin) ||
+      (activeSegment === "setters" && entry.isSetter) ||
+      (activeSegment === "users" && !entry.isAdmin && !entry.isSetter);
+
+    if (!matchesSegment) return false;
+
+    if (!normalizedSearch) return true;
+
+    return (
+      String(entry.email ?? "").toLowerCase().includes(normalizedSearch) ||
+      String(entry.full_name ?? "").toLowerCase().includes(normalizedSearch) ||
+      String(entry.first_name ?? "").toLowerCase().includes(normalizedSearch) ||
+      String(entry.last_name ?? "").toLowerCase().includes(normalizedSearch)
+    );
+  });
+
+  const adminCount = allUsers.filter((entry) => entry.isAdmin).length;
+  const setterCount = allUsers.filter((entry) => entry.isSetter).length;
+
   if (isLoading) {
     return (
-      <div className="space-y-4 w-full min-w-0">
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center space-y-3">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#36B531] mx-auto"></div>
-            <p className="text-[#13112B]/60">Lädt Benutzer...</p>
-          </div>
-        </div>
+      <div className="space-y-8">
+        <section>
+          <h2 className="mb-1 text-xl font-bold text-foreground">Benutzer</h2>
+          <p className="mb-4 text-sm text-muted-foreground">Lade Benutzerverwaltung...</p>
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-sm text-muted-foreground">Benutzer werden geladen.</p>
+            </CardContent>
+          </Card>
+        </section>
       </div>
     );
   }
 
   if (isError || error) {
     return (
-      <div className="space-y-4 w-full min-w-0">
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center space-y-4 max-w-md">
-            <p className="text-red-600 font-medium">Fehler beim Laden der Benutzer</p>
-            <p className="text-[#13112B]/60 text-sm">
-              {error instanceof Error ? error.message : 'Ein unbekannter Fehler ist aufgetreten'}
-            </p>
-            <Button 
-              variant="outline" 
-              className="h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]" 
-              onClick={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}
-            >
-              Erneut versuchen
-            </Button>
-          </div>
-        </div>
+      <div className="space-y-8">
+        <section>
+          <h2 className="mb-1 text-xl font-bold text-foreground">Benutzer</h2>
+          <p className="mb-4 text-sm text-muted-foreground">Fehlerzustand</p>
+          <Card>
+            <CardContent className="space-y-4 pt-6">
+              <p className="text-sm text-destructive">Fehler beim Laden der Benutzer.</p>
+              <p className="text-sm text-muted-foreground">
+                {error instanceof Error ? error.message : "Unbekannter Fehler"}
+              </p>
+              <Button variant="outline" onClick={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}>
+                Erneut versuchen
+              </Button>
+            </CardContent>
+          </Card>
+        </section>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 w-full min-w-0">
-      <div className="flex items-center justify-end w-full min-w-0">
-        <Button 
-          variant="outline" 
-          className="h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]" 
-          onClick={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}
-        >
-          Neu laden
-        </Button>
-      </div>
-      {/* Desktop Table View */}
-      <div key={`admin-users-desktop-${listVersion}`} className="hidden md:block border border-[#E7F7E9] rounded-xl bg-white overflow-hidden w-full min-w-0 shadow-sm">
-        <div className="overflow-x-auto w-full min-w-0">
-          <Table className="w-full min-w-0">
-            <TableHeader>
-              <TableRow className="border-b border-[#E7F7E9]">
-                <TableHead className="text-[#13112B] font-medium">E-Mail</TableHead>
-                <TableHead className="text-[#13112B] font-medium">Rollen</TableHead>
-                <TableHead className="text-[#13112B] font-medium">Registriert am</TableHead>
-                <TableHead className="text-right text-[#13112B] font-medium">Aktionen</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users?.map((user) => (
-                <TableRow key={user.id} className="border-b border-[#E7F7E9]">
-                  <TableCell className="font-medium text-[#13112B]">{user.email}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {user.isAdmin ? (
-                        <Badge className="gap-1 bg-[#36B531] text-white rounded-xl">
-                          <Shield className="w-3 h-3" />
-                          Admin
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-[#E7F7E9] text-[#13112B] rounded-xl">Benutzer</Badge>
-                      )}
-                      {user.isSetter && (
-                        <Badge className="gap-1 border border-[#E7F7E9] text-[#13112B] rounded-xl">
-                          <MaterialIcon name="build" className="w-3 h-3" size={12} />
-                          Setter
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-[#13112B]/60">
-                    {format(new Date(user.created_at), "dd.MM.yyyy HH:mm")}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant={user.isAdmin ? "destructive" : "default"}
-                        className="h-9 rounded-xl"
-                        onClick={() =>
-                          toggleAdminMutation.mutate({
-                            userId: user.id,
-                            isAdmin: user.isAdmin,
-                          })
-                        }
-                        disabled={toggleAdminMutation.isPending}
-                      >
-                        {user.isAdmin ? (
-                          <>
-                            <ShieldOff className="w-4 h-4 mr-2" />
-                            Admin entfernen
-                          </>
-                        ) : (
-                          <>
-                            <Shield className="w-4 h-4 mr-2" />
-                            Zum Admin machen
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant={user.isSetter ? "destructive" : "outline"}
-                        className="h-9 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
-                        onClick={() => {
-                          console.log('[UserManagement] Setter button clicked:', { userId: user.id, isSetter: user.isSetter, mutationPending: toggleSetterMutation.isPending });
-                          toggleSetterMutation.mutate({
-                            userId: user.id,
-                            isSetter: user.isSetter,
-                          });
-                        }}
-                        disabled={toggleSetterMutation.isPending}
-                      >
-                        {user.isSetter ? "Setter entfernen" : "Als Setter"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="h-9 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
-                        onClick={() => openEdit(user)}
-                      >
-                        <Pencil className="w-4 h-4 mr-2" /> Bearbeiten
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
+    <div className="space-y-8">
+      <section>
+        <h2 className="mb-1 text-xl font-bold text-foreground">Benutzer</h2>
+        <p className="mb-4 text-sm text-muted-foreground">Verwalte Profile, Rollen und Stammdaten</p>
 
-      {/* Mobile Card View */}
-      <div key={`admin-users-mobile-${listVersion}`} className="md:hidden space-y-3 w-full min-w-0">
-        {users?.map((user) => (
-          <Card key={user.id} className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm w-full min-w-0">
-            <CardContent className="p-4 w-full min-w-0">
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm text-[#13112B] truncate">{user.email}</p>
-                  <p className="text-xs text-[#13112B]/60 mt-1">
-                    {format(new Date(user.created_at), "dd.MM.yyyy HH:mm")}
-                  </p>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Übersicht</CardTitle>
+            <CardDescription>{allUsers.length} Profile im System</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Alle Benutzer</p>
+                  <p className="mt-2 text-2xl font-bold text-foreground">{allUsers.length}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Admins</p>
+                  <p className="mt-2 text-2xl font-bold text-foreground">{adminCount}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Setter</p>
+                  <p className="mt-2 text-2xl font-bold text-foreground">{setterCount}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <Tabs value={activeSegment} onValueChange={(value) => setActiveSegment(value as UserSegment)}>
+                <TabsList className="grid h-auto w-full grid-cols-2 gap-1 md:grid-cols-4">
+                  <TabsTrigger value="all">Alle</TabsTrigger>
+                  <TabsTrigger value="admins">Admin Accounts</TabsTrigger>
+                  <TabsTrigger value="setters">Setter</TabsTrigger>
+                  <TabsTrigger value="users">User</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              <div className="flex flex-col gap-3 md:flex-row">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    placeholder="Name oder E-Mail suchen"
+                    className="pl-9"
+                  />
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {user.isAdmin ? (
-                    <Badge className="gap-1 bg-[#36B531] text-white rounded-xl">
-                      <Shield className="w-3 h-3" />
+                <Button variant="outline" onClick={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}>
+                  <RefreshCcw className="mr-2 h-4 w-4" />
+                  Neu laden
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section>
+        <h2 className="mb-1 text-xl font-bold text-foreground">Benutzerliste</h2>
+        <p className="mb-4 text-sm text-muted-foreground">{filteredUsers.length} sichtbare Eintraege</p>
+
+        <div className="space-y-4">
+          {filteredUsers.map((entry) => (
+            <Card key={entry.id}>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">{getDisplayName(entry)}</CardTitle>
+                <CardDescription>{entry.email || "Keine E-Mail"}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {entry.isAdmin ? (
+                    <Badge>
+                      <Shield className="mr-1 h-3 w-3" />
                       Admin
                     </Badge>
                   ) : (
-                    <Badge className="bg-[#E7F7E9] text-[#13112B] rounded-xl">Benutzer</Badge>
+                    <Badge variant="secondary">Benutzer</Badge>
                   )}
-                  {user.isSetter && (
-                    <Badge className="gap-1 border border-[#E7F7E9] text-[#13112B] rounded-xl">
-                      <MaterialIcon name="build" className="w-3 h-3" size={12} />
+                  {entry.isSetter && (
+                    <Badge variant="outline">
+                      <MaterialIcon name="build" className="mr-1 h-3 w-3" size={12} />
                       Setter
                     </Badge>
                   )}
                 </div>
-              </div>
-              <Button
-                variant={user.isAdmin ? "destructive" : "default"}
-                className="w-full h-11 rounded-xl"
-                onClick={() =>
-                  toggleAdminMutation.mutate({
-                    userId: user.id,
-                    isAdmin: user.isAdmin,
-                  })
-                }
-                disabled={toggleAdminMutation.isPending}
-              >
-                {user.isAdmin ? (
-                  <>
-                    <ShieldOff className="w-4 h-4 mr-2" />
-                    Admin entfernen
-                  </>
-                ) : (
-                  <>
-                    <Shield className="w-4 h-4 mr-2" />
-                    Zum Admin machen
-                  </>
-                )}
-              </Button>
-              <div className="grid grid-cols-2 gap-2 mt-2 w-full min-w-0">
-                <Button
-                  variant={user.isSetter ? "destructive" : "outline"}
-                  className="h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] min-w-0 text-xs sm:text-sm"
-                  onClick={() => {
-                    console.log('[UserManagement] Setter button clicked (mobile):', { userId: user.id, isSetter: user.isSetter, mutationPending: toggleSetterMutation.isPending });
-                    toggleSetterMutation.mutate({
-                      userId: user.id,
-                      isSetter: user.isSetter,
-                    });
-                  }}
-                  disabled={toggleSetterMutation.isPending}
-                >
-                  <span className="truncate">{user.isSetter ? "Setter entfernen" : "Als Setter"}</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] min-w-0 text-xs sm:text-sm"
-                  onClick={() => openEdit(user)}
-                >
-                  <Pencil className="w-4 h-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Bearbeiten</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+
+                <div className="grid gap-3 text-sm md:grid-cols-2">
+                  <div className="rounded-lg bg-muted/40 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Registriert</p>
+                    <p className="mt-1 text-foreground">{formatJoinedDate(entry.created_at)}</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/40 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Geburtsdatum</p>
+                    <p className="mt-1 text-foreground">{entry.birth_date ? String(entry.birth_date).slice(0, 10) : "Nicht hinterlegt"}</p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm">Rollen & Rechte</CardTitle>
+                    <CardDescription>Verwalte Zugriffe direkt in diesem Bereich</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <Label className="text-sm font-medium text-foreground">Admin-Rechte</Label>
+                        <p className="text-xs text-muted-foreground">Voller Zugriff auf den Adminbereich</p>
+                      </div>
+                      <Switch
+                        checked={entry.isAdmin}
+                        disabled={toggleAdminMutation.isPending}
+                        onCheckedChange={() =>
+                          toggleAdminMutation.mutate({
+                            userId: entry.id,
+                            isAdmin: entry.isAdmin,
+                          })
+                        }
+                      />
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <Label className="text-sm font-medium text-foreground">Setter-Rechte</Label>
+                        <p className="text-xs text-muted-foreground">Boulder und Inhalte pflegen</p>
+                      </div>
+                      <Switch
+                        checked={entry.isSetter}
+                        disabled={toggleSetterMutation.isPending}
+                        onCheckedChange={() =>
+                          toggleSetterMutation.mutate({
+                            userId: entry.id,
+                            isSetter: entry.isSetter,
+                          })
+                        }
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button variant="outline" onClick={() => openEdit(entry)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Bearbeiten
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => resetPasswordForEmail(entry.email)}
+                    disabled={passwordResetPending}
+                  >
+                    Passwort-Reset
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-[425px] p-0 gap-0">
-          <DialogHeader className="px-6 pt-6 pb-4">
-            <DialogTitle className="text-xl font-heading font-bold text-[#13112B]">Benutzer bearbeiten</DialogTitle>
+        <DialogContent className="sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle>Benutzer bearbeiten</DialogTitle>
+            <DialogDescription>Bearbeite die Stammdaten dieses Profils.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 px-6 pb-6">
+
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-[#13112B]">E-Mail</Label>
-              <Input value={editUser?.email || ""} readOnly className="h-11 rounded-xl border-[#E7F7E9] bg-[#F9FAF9]" />
+              <Label>E-Mail</Label>
+              <Input value={editUser?.email || ""} readOnly />
             </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Vorname</Label>
+                <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Nachname</Label>
+                <Input value={lastName} onChange={(event) => setLastName(event.target.value)} />
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-[#13112B]">Vorname</Label>
-              <Input 
-                value={firstName} 
-                onChange={(e)=>setFirstName(e.target.value)} 
-                className="h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
-              />
+              <Label>Geburtsdatum</Label>
+              <Input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-[#13112B]">Nachname</Label>
-              <Input 
-                value={lastName} 
-                onChange={(e)=>setLastName(e.target.value)} 
-                className="h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-[#13112B]">Geburtsdatum</Label>
-              <Input 
-                type="date" 
-                value={birthDate || ""} 
-                onChange={(e)=>setBirthDate(e.target.value)} 
-                className="h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
-              />
-            </div>
-          </div>
-          <div className="flex flex-col-reverse sm:flex-row gap-3 px-6 pb-6 pt-0 border-t border-[#E7F7E9]">
-            <Button 
-              variant="outline" 
-              onClick={()=>setEditOpen(false)} 
-              className="flex-1 h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
-            >
-              Abbrechen
-            </Button>
-            <div className="flex flex-col sm:flex-row gap-2 flex-1">
-              <Button
-                variant="outline"
-                className="h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] text-xs sm:text-sm"
-                onClick={async ()=>{
-                  if (!editUser?.email) return;
-                  const redirectUrl = `${window.location.origin}/auth`;
-                  const { error } = await supabase.auth.resetPasswordForEmail(editUser.email, { redirectTo: redirectUrl });
-                  if (error) {
-                    toast.error('Fehler beim Senden: ' + error.message);
-                  } else {
-                    toast.success('Passwort-Reset E-Mail gesendet');
-                  }
-                }}
-              >
-                <span className="truncate">Passwort zurücksetzen</span>
+
+            <Separator />
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+              <Button variant="outline" onClick={resetPasswordForEditedUser} disabled={passwordResetPending}>
+                Passwort zurücksetzen
               </Button>
-              <Button 
-                onClick={()=>saveProfileMutation.mutate()} 
-                disabled={saveProfileMutation.isPending} 
-                className="h-11 rounded-xl bg-[#36B531] hover:bg-[#2da029] text-white"
-              >
-                Speichern
-              </Button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button variant="outline" onClick={() => setEditOpen(false)}>
+                  Abbrechen
+                </Button>
+                <Button onClick={() => saveProfileMutation.mutate()} disabled={saveProfileMutation.isPending}>
+                  Speichern
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
@@ -538,3 +536,4 @@ export const UserManagement = () => {
     </div>
   );
 };
+

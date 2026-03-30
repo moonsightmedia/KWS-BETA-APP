@@ -18,7 +18,9 @@ import { getColorBackgroundStyle } from "@/utils/colorUtils";
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { BoulderAttributeSelector } from "@/components/BoulderAttributeSelector";
 import { MutedVideo } from "@/components/MutedVideo";
+import { useBoulderAttributeCatalog, useSetBoulderAttributes } from "@/hooks/useBoulderCommunity";
 
 const DEFAULT_COLORS = ['Grün', 'Gelb', 'Blau', 'Orange', 'Rot', 'Schwarz', 'Weiß', 'Lila'];
 const DIFFICULTIES = [null, 1, 2, 3, 4, 5, 6, 7, 8]; // null = "?" (unknown/not rated)
@@ -41,7 +43,9 @@ export const BoulderManagement = () => {
   const { data: sectors } = useSectors();
   const { data: sectorsTransformed } = useSectorsTransformed();
   const { data: colors } = useColors();
+  const { data: attributeCatalog = [] } = useBoulderAttributeCatalog();
   const createBoulder = useCreateBoulder();
+  const setBoulderAttributes = useSetBoulderAttributes();
   const deleteBoulder = useDeleteBoulder();
   const deleteAllBoulders = useDeleteAllBoulders();
 
@@ -54,6 +58,7 @@ export const BoulderManagement = () => {
   const [customColorName, setCustomColorName] = useState("");
   const [customColorHex, setCustomColorHex] = useState("#000000");
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedAttributeIds, setSelectedAttributeIds] = useState<string[]>([]);
 
   // Such- und Filter-Funktionen
   const [searchQuery, setSearchQuery] = useState("");
@@ -165,7 +170,16 @@ export const BoulderManagement = () => {
     setShowColorPicker(false);
     setCustomColorName("");
     setCustomColorHex("#000000");
+    setSelectedAttributeIds([]);
   };
+
+  const toggleSelectedAttribute = useCallback((attributeId: string) => {
+    setSelectedAttributeIds((current) =>
+      current.includes(attributeId)
+        ? current.filter((id) => id !== attributeId)
+        : [...current, attributeId],
+    );
+  }, []);
 
   const handleAddCustomColor = useCallback(() => {
     if (customColorName.trim() && customColorHex) {
@@ -204,7 +218,7 @@ export const BoulderManagement = () => {
     }
 
     try {
-      await createBoulder.mutateAsync({
+      const createdBoulder = await createBoulder.mutateAsync({
         ...formData,
         name: nameTrimmed,
         sector_id: formData.sector_id,
@@ -212,12 +226,16 @@ export const BoulderManagement = () => {
         difficulty: formData.difficulty ?? 1,
         status: 'haengt',
       });
+      await setBoulderAttributes.mutateAsync({
+        boulderId: createdBoulder.id,
+        attributeIds: selectedAttributeIds,
+      });
       setIsDialogOpen(false);
       resetForm();
     } catch {
       // Error already shown by useCreateBoulder onError
     }
-  }, [formData, createBoulder, resetForm]);
+  }, [formData, createBoulder, resetForm, selectedAttributeIds, setBoulderAttributes]);
 
   const handleDelete = async () => {
     if (deleteId) {
@@ -480,6 +498,14 @@ export const BoulderManagement = () => {
                   className="w-full min-w-0"
                 />
               </div>
+
+              <BoulderAttributeSelector
+                attributes={attributeCatalog}
+                selectedAttributeIds={selectedAttributeIds}
+                onToggle={toggleSelectedAttribute}
+                title="Route DNA"
+                description="Die Auswahl kommt vom Admin/Setter und wird spaeter read-only im Detailscreen gezeigt."
+              />
 
         <div className="flex justify-end gap-2 w-full min-w-0">
           <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-shrink-0">

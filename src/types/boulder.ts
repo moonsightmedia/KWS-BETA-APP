@@ -20,6 +20,9 @@ export interface Boulder {
   note?: string;
   createdAt: Date;
   status?: 'haengt' | 'abgeschraubt';
+  /** Position on hall map: 0-100 percent of map width/height; undefined = not set */
+  mapX?: number;
+  mapY?: number;
 }
 
 export interface Sector {

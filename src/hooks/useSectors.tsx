@@ -17,9 +17,6 @@ export interface Sector {
 }
 
 export const useSectors = (enabled: boolean = true) => {
-  // CRITICAL: Log enabled state
-  console.log('[useSectors] Hook called with enabled:', enabled);
-  
   return useQuery({
     queryKey: ['sectors'],
     enabled: enabled, // Only run query if enabled (e.g., after auth loading is complete)

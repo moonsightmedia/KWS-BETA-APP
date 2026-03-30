@@ -1,4 +1,5 @@
 import { useState, useEffect, createContext, useContext } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { X, ChevronRight, MessageSquare, AlertCircle, Heart, LucideIcon } from 'lucide-react';
@@ -67,13 +68,29 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
 export const OnboardingProvider = ({ children }: { children: React.ReactNode }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const location = useLocation();
+
+  const shouldAutoOpen = location.pathname === '/guest' || location.pathname === '/auth';
 
   useEffect(() => {
-    const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
-    if (!hasSeenOnboarding) {
-      setIsOpen(true);
+    try {
+      if (!shouldAutoOpen) {
+        setIsOpen(false);
+        return;
+      }
+
+      const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
+      if (!hasSeenOnboarding) {
+        setCurrentStep(0);
+        setIsOpen(true);
+      }
+    } catch {
+      if (shouldAutoOpen) {
+        setCurrentStep(0);
+        setIsOpen(true);
+      }
     }
-  }, []);
+  }, [shouldAutoOpen]);
 
   const openOnboarding = () => {
     setCurrentStep(0);
@@ -89,7 +106,11 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
   };
 
   const handleFinish = () => {
-    localStorage.setItem('hasSeenOnboarding', 'true');
+    try {
+      localStorage.setItem('hasSeenOnboarding', 'true');
+    } catch {
+      // Ignore storage access issues, just close the dialog.
+    }
     setIsOpen(false);
   };
 

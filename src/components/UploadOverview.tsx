@@ -15,9 +15,9 @@ export const UploadOverview = () => {
   const location = useLocation();
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  const isSetterArea = location.pathname.startsWith('/setter');
-  
-  if (!isSetterArea) return null;
+  const isSetterCreate = location.pathname === '/setter/create';
+
+  if (!isSetterCreate) return null;
 
   const activeUploads = uploads;
   const hasActiveUploads = activeUploads.length > 0;
@@ -82,22 +82,22 @@ export const UploadOverview = () => {
           variant="default"
           size="lg"
           className={cn(
-            "fixed left-4 md:left-auto md:right-8 md:bottom-8 z-50 rounded-xl shadow-2xl transition-all duration-300 flex items-center justify-center gap-3 border-2 border-white/20",
+            "fixed left-4 md:left-auto md:right-8 md:bottom-8 z-50 rounded-2xl shadow-[0_14px_36px_rgba(19,17,43,0.10)] transition-all duration-300 flex items-center justify-center gap-3 border border-[#DDE7DF]",
             hasActiveUploads && (uploadingCount > 0 || restoringCount > 0 || errorCount > 0) ? "px-4 h-14 max-w-[calc(100vw-12rem)] md:max-w-none" : "h-14 w-14 p-0",
-            "bg-gray-900 text-white hover:bg-gray-800",
-            errorCount > 0 && "bg-destructive hover:bg-destructive/90 border-destructive-foreground/20"
+            "bg-white text-[#13112B] hover:bg-[#F7FAF7]",
+            errorCount > 0 && "border-[#E7B7B0] bg-[#FFF4F2] text-[#B64332] hover:bg-[#FFF0ED]"
           )}
           style={{ bottom: 'calc(104px + env(safe-area-inset-bottom, 0px))' }}
         >
           {errorCount > 0 ? (
             <div className="relative">
-                <AlertCircle className="w-6 h-6 animate-pulse text-white" />
-                <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-gray-900" />
+                <AlertCircle className="w-6 h-6 animate-pulse text-[#B64332]" />
+                <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full border-2 border-white bg-[#E55A4E]" />
             </div>
           ) : (
             <div className="relative">
-                <Upload className={cn("w-6 h-6 text-white/90", uploadingCount > 0 && "animate-bounce")} />
-                {uploadingCount > 0 && <span className="absolute -bottom-1 -right-1 h-2 w-2 bg-green-400 rounded-full animate-ping" />}
+                <Upload className={cn("w-6 h-6 text-[#69B545]", uploadingCount > 0 && "animate-bounce")} />
+                {uploadingCount > 0 && <span className="absolute -bottom-1 -right-1 h-2 w-2 rounded-full bg-[#69B545] animate-ping" />}
             </div>
           )}
           {hasActiveUploads && (uploadingCount > 0 || restoringCount > 0 || errorCount > 0) && (
@@ -106,25 +106,25 @@ export const UploadOverview = () => {
                   {uploadingCount + restoringCount + errorCount} Upload{(uploadingCount + restoringCount + errorCount) !== 1 ? 's' : ''} {uploadingCount > 0 ? 'aktiv' : 'wartend'}
               </span>
               {uploadingCount > 0 && (
-                <span className="text-white/80 text-xs font-medium">{totalProgress.toFixed(0)}% abgeschlossen</span>
+                <span className="text-[#13112B]/58 text-xs font-medium">{totalProgress.toFixed(0)}% abgeschlossen</span>
               )}
             </div>
           )}
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="sm:max-w-[500px] w-full bottom-4 right-0 left-0 translate-y-0 top-auto translate-x-0 data-[state=open]:slide-in-from-bottom-10 p-0 gap-0 overflow-hidden border-none shadow-2xl rounded-xl sm:left-auto sm:right-4 sm:w-[95vw]">
-        <div className="bg-gray-900 p-4 text-white flex flex-row items-center justify-between">
+      <DialogContent className="sm:max-w-[500px] w-full bottom-4 right-0 left-0 translate-y-0 top-auto translate-x-0 data-[state=open]:slide-in-from-bottom-10 p-0 gap-0 overflow-hidden rounded-2xl border border-[#DDE7DF] bg-white shadow-[0_18px_45px_rgba(19,17,43,0.12)] sm:left-auto sm:right-4 sm:w-[95vw]">
+        <div className="flex flex-row items-center justify-between border-b border-[#E7F0E8] bg-white p-4 text-[#13112B]">
           <div className="flex items-center gap-2">
-            <CloudUpload className="w-6 h-6 text-green-400" />
+            <CloudUpload className="w-6 h-6 text-[#69B545]" />
             <DialogTitle className="text-lg font-bold">Upload Zentrale</DialogTitle>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/10 rounded-full">
+          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="h-8 w-8 rounded-xl text-[#13112B]/62 hover:bg-[#F7FAF7] hover:text-[#13112B]">
             <Minimize2 className="w-6 h-6" />
           </Button>
         </div>
         
-        <ScrollArea className="h-[400px] bg-background/95 backdrop-blur-sm">
+        <ScrollArea className="h-[400px] bg-white">
           <div className="p-4 space-y-3">
             {activeUploads.length === 0 && (
                 <div className="text-center py-10 text-muted-foreground flex flex-col items-center">
@@ -134,14 +134,14 @@ export const UploadOverview = () => {
             )}
             {activeUploads.map((upload) => (
               <div key={upload.sessionId} className={cn(
-                  "p-4 rounded-xl border transition-all",
-                  upload.status === 'error' ? "bg-red-50/50 border-red-100" : "bg-card border-border/50 shadow-sm"
+                  "p-4 rounded-2xl border transition-all",
+                  upload.status === 'error' ? "border-[#E7B7B0] bg-[#FFF4F2]" : "border-[#DDE7DF] bg-[#FCFDFC]"
               )}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className={cn(
-                        "p-2 rounded-lg flex-shrink-0",
-                        upload.type === 'video' ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"
+                        "p-2 rounded-xl flex-shrink-0",
+                        upload.type === 'video' ? "bg-[#EEF3FF] text-[#4062D8]" : "bg-[#F3F6EF] text-[#69B545]"
                     )}>
                         {upload.type === 'video' ? <FileVideo className="w-6 h-6" /> : <ImageIcon className="w-6 h-6" />}
                     </div>
@@ -161,15 +161,15 @@ export const UploadOverview = () => {
                   </div>
                   
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {upload.status === 'completed' && <div className="bg-green-100 text-green-700 p-1 rounded-xl"><CheckCircle2 className="w-6 h-6" /></div>}
-                    {upload.status === 'error' && <div className="bg-red-100 text-red-700 p-1 rounded-xl"><AlertCircle className="w-6 h-6" /></div>}
+                    {upload.status === 'completed' && <div className="rounded-xl bg-[#EEF6E1] p-1 text-[#4E8A31]"><CheckCircle2 className="w-6 h-6" /></div>}
+                    {upload.status === 'error' && <div className="rounded-xl bg-[#FFF4F2] p-1 text-[#B64332]"><AlertCircle className="w-6 h-6" /></div>}
                     
                     {(upload.status === 'uploading' || upload.status === 'pending') && (
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => handleCancel(upload.sessionId)}
-                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="h-8 w-8 rounded-xl p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                         title="Upload abbrechen"
                       >
                         <X className="w-5 h-5" />
@@ -181,7 +181,7 @@ export const UploadOverview = () => {
                         size="sm"
                         variant="outline"
                         onClick={() => handleRemove(upload.sessionId)}
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        className="h-8 w-8 rounded-xl p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                         title="Upload entfernen"
                       >
                         <Trash2 className="w-5 h-5" />
@@ -194,16 +194,16 @@ export const UploadOverview = () => {
                   <div className="flex justify-between text-xs font-medium">
                     <span className="text-muted-foreground">Fortschritt</span>
                     <span className={cn(
-                        upload.status === 'completed' ? "text-green-600" : "text-primary"
+                        upload.status === 'completed' ? "text-[#4E8A31]" : "text-[#13112B]"
                     )}>{upload.progress?.toFixed(0)}%</span>
                   </div>
-                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                  <div className="h-2 overflow-hidden rounded-xl bg-[#EEF1EE]">
                     <div 
                       className={cn(
-                        "h-full transition-all duration-500 ease-out rounded-full relative overflow-hidden",
-                        upload.status === 'completed' ? "bg-green-500" :
-                        upload.status === 'error' ? "bg-red-500" :
-                        "bg-gray-900"
+                        "relative h-full overflow-hidden rounded-xl transition-all duration-500 ease-out",
+                        upload.status === 'completed' ? "bg-[#69B545]" :
+                        upload.status === 'error' ? "bg-[#E55A4E]" :
+                        "bg-[#13112B]"
                       )}
                       style={{ width: `${upload.progress || 0}%` }}
                     >
@@ -216,7 +216,7 @@ export const UploadOverview = () => {
                 
                 {upload.error && (
                   <div className="mt-3 space-y-2">
-                    <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100 flex gap-2 items-start">
+                    <div className="flex items-start gap-2 rounded-xl border border-[#E7B7B0] bg-[#FFF4F2] p-2 text-xs text-red-600">
                       <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                       <p>{upload.error}</p>
                     </div>
@@ -233,7 +233,7 @@ export const UploadOverview = () => {
                           size="sm"
                           variant="outline"
                           onClick={() => triggerFileSelect(upload.sessionId)}
-                          className="flex-1 text-xs"
+                          className="h-10 flex-1 rounded-xl border-[#DDE7DF] text-xs"
                         >
                           <RefreshCw className="w-3 h-3 mr-1" />
                           Datei neu wählen

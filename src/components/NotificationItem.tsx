@@ -1,17 +1,14 @@
 import { Notification } from '@/hooks/useNotifications';
-import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { 
-  Bell, 
-  Mountain, 
-  Trophy, 
-  MessageSquare, 
-  Megaphone, 
+import {
+  Bell,
+  Mountain,
+  Trophy,
+  MessageSquare,
+  Megaphone,
   Calendar,
-  TrendingUp,
-  Award
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useMarkAsRead } from '@/hooks/useNotifications';
@@ -40,22 +37,22 @@ const getNotificationIcon = (type: Notification['type']) => {
   }
 };
 
-const getNotificationColor = (type: Notification['type']) => {
+const getNotificationIconColor = (type: Notification['type']) => {
   switch (type) {
     case 'boulder_new':
-      return 'bg-blue-100 text-blue-600';
+      return 'bg-[#E8EEFF] text-[#4F68E8]';
     case 'competition_update':
     case 'competition_result':
     case 'competition_leaderboard_change':
-      return 'bg-yellow-100 text-yellow-600';
+      return 'bg-[#FFF4D9] text-[#C99B12]';
     case 'feedback_reply':
-      return 'bg-green-100 text-green-600';
+      return 'bg-[#E8F6E8] text-[#4AA45A]';
     case 'admin_announcement':
-      return 'bg-purple-100 text-purple-600';
+      return 'bg-[#F0E9FF] text-[#8C63D8]';
     case 'schedule_reminder':
-      return 'bg-orange-100 text-orange-600';
+      return 'bg-[#FFF0E4] text-[#D78239]';
     default:
-      return 'bg-gray-100 text-gray-600';
+      return 'bg-[#EEF2EA] text-[#6C6A7E]';
   }
 };
 
@@ -63,53 +60,58 @@ export const NotificationItem = ({ notification, onClick }: NotificationItemProp
   const navigate = useNavigate();
   const markAsRead = useMarkAsRead();
   const Icon = getNotificationIcon(notification.type);
-  const iconColor = getNotificationColor(notification.type);
 
   const handleClick = () => {
     if (!notification.read) {
       markAsRead.mutate(notification.id);
     }
-    
+
     if (onClick) {
       onClick();
     }
 
-    // Navigate to action_url if provided
     if (notification.action_url) {
       navigate(notification.action_url);
     }
   };
 
   return (
-    <Card
-      className={cn(
-        "p-4 cursor-pointer transition-all hover:bg-[#F9FAF9] active:bg-[#F0F9FF] border-l-4 touch-manipulation",
-        "min-h-[72px] w-full", // Ensure minimum touch target size and full width
-        !notification.read && "bg-[#F0F9FF] border-l-[#36B531] border-l-4",
-        notification.read && "border-l-transparent"
-      )}
+    <button
+      type="button"
       onClick={handleClick}
+      className={cn(
+        'w-full rounded-2xl border bg-white px-5 py-5 text-left shadow-[0_8px_24px_rgba(19,17,43,0.04)] transition-colors',
+        notification.read
+          ? 'border-[#E5EAE2]'
+          : 'border-[#D9E7D0] bg-[#FCFDFC]',
+      )}
     >
-      <div className="flex items-start gap-3 w-full">
-        <div className={cn("p-2 rounded-lg flex-shrink-0", iconColor)}>
-          <Icon className="w-5 h-5" />
+      <div className="flex items-start gap-4">
+        <div
+          className={cn(
+            'flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-xl',
+            getNotificationIconColor(notification.type),
+          )}
+        >
+          <Icon className="h-8 w-8" strokeWidth={2.1} />
         </div>
-        <div className="flex-1 min-w-0 flex flex-col">
-          <div className="flex items-start justify-between gap-2 w-full">
-            <h4 className={cn(
-              "text-sm font-semibold text-[#13112B] leading-tight flex-1",
-              !notification.read && "font-bold"
-            )}>
-              {notification.title}
-            </h4>
-            {!notification.read && (
-              <div className="w-2 h-2 bg-[#36B531] rounded-full flex-shrink-0 mt-1.5" />
-            )}
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h4 className="text-[0.98rem] font-semibold tracking-[-0.02em] text-[#13112B]">
+                {notification.title}
+              </h4>
+              <p className="pt-3 text-[1rem] leading-[1.45] text-[#6C6A7E]">
+                {notification.message}
+              </p>
+            </div>
+            {!notification.read ? (
+              <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#68B63E]" />
+            ) : null}
           </div>
-          <p className="text-sm text-[#13112B]/70 mt-1.5 line-clamp-2 sm:line-clamp-3 leading-relaxed">
-            {notification.message}
-          </p>
-          <p className="text-xs text-[#13112B]/50 mt-2">
+
+          <p className="pt-5 text-[0.92rem] text-[#8A8FA1]">
             {formatDistanceToNow(new Date(notification.created_at), {
               addSuffix: true,
               locale: de,
@@ -117,7 +119,6 @@ export const NotificationItem = ({ notification, onClick }: NotificationItemProp
           </p>
         </div>
       </div>
-    </Card>
+    </button>
   );
 };
-

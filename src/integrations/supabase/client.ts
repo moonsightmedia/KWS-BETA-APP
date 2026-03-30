@@ -2,195 +2,199 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
+const KWS_VERBOSE = typeof window !== 'undefined' && (window as Window & { __KWS_VERBOSE?: boolean }).__KWS_VERBOSE === true;
+
+const devLog = (...args: unknown[]) => {
+  if (KWS_VERBOSE) {
+    console.log(...args);
+  }
+};
+
+const devWarn = (...args: unknown[]) => {
+  if (KWS_VERBOSE) {
+    console.warn(...args);
+  }
+};
+
 // NOTE: Native fetch is already overridden in main.tsx BEFORE this file is imported
 // This ensures ALL Supabase requests are intercepted
-
-// CRITICAL: Verify fetch override is active
-console.log('[Supabase Client] 🔍 Checking fetch override:', {
-  windowFetch: typeof window.fetch,
-  fetchToString: window.fetch.toString().substring(0, 150),
-  hasMainOverride: window.fetch.toString().includes('Main Fetch Override'),
-});
+if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
+  devLog('[Supabase Client] Checking fetch override:', {
+    windowFetch: typeof window.fetch,
+    fetchToString: window.fetch.toString().substring(0, 150),
+    hasMainOverride: window.fetch.toString().includes('Main Fetch Override'),
+  });
+}
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// Validate environment variables
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  console.error('❌ CRITICAL: Missing Supabase environment variables:', {
+  console.error('CRITICAL: Missing Supabase environment variables:', {
     hasUrl: !!SUPABASE_URL,
     hasKey: !!SUPABASE_PUBLISHABLE_KEY,
     urlValue: SUPABASE_URL ? `${SUPABASE_URL.substring(0, 30)}...` : 'MISSING',
     keyValue: SUPABASE_PUBLISHABLE_KEY ? `${SUPABASE_PUBLISHABLE_KEY.substring(0, 20)}...` : 'MISSING',
     envMode: import.meta.env.MODE,
-    allEnvKeys: Object.keys(import.meta.env).filter(k => k.startsWith('VITE_'))
+    allEnvKeys: Object.keys(import.meta.env).filter((key) => key.startsWith('VITE_')),
   });
 } else {
-  console.log('✅ Supabase environment variables loaded:', {
+  devLog('[Supabase Client] Supabase environment variables loaded:', {
     url: `${SUPABASE_URL.substring(0, 30)}...`,
     key: `${SUPABASE_PUBLISHABLE_KEY.substring(0, 20)}...`,
-    envMode: import.meta.env.MODE
+    envMode: import.meta.env.MODE,
   });
 }
 
-// Create a completely safe storage adapter that NEVER throws errors
-// This prevents any "Access to storage is not allowed" errors
-const createSafeStorage = () => {
-  return {
-    getItem: (key: string) => {
-      try {
-        if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-          return null;
-        }
-        // Check if storage is actually accessible
-        const testKey = '__sb_storage_test__';
-        try {
-          localStorage.setItem(testKey, '1');
-          localStorage.removeItem(testKey);
-        } catch {
-          // Storage is blocked, return null
-          return null;
-        }
-        return localStorage.getItem(key);
-      } catch (error) {
-        // Silently return null - never throw
+const createSafeStorage = () => ({
+  getItem: (key: string) => {
+    try {
+      if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
         return null;
       }
-    },
-    setItem: (key: string, value: string) => {
-      try {
-        if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-          return;
-        }
-        // Check if storage is actually accessible
-        const testKey = '__sb_storage_test__';
-        try {
-          localStorage.setItem(testKey, '1');
-          localStorage.removeItem(testKey);
-        } catch {
-          // Storage is blocked, silently ignore
-          return;
-        }
-        localStorage.setItem(key, value);
-      } catch (error) {
-        // Silently ignore - never throw
-      }
-    },
-    removeItem: (key: string) => {
-      try {
-        if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-          return;
-        }
-        // Check if storage is actually accessible
-        const testKey = '__sb_storage_test__';
-        try {
-          localStorage.setItem(testKey, '1');
-          localStorage.removeItem(testKey);
-        } catch {
-          // Storage is blocked, silently ignore
-          return;
-        }
-        localStorage.removeItem(key);
-      } catch (error) {
-        // Silently ignore - never throw
-      }
-    },
-  };
-};
 
-// Check if storage is available (but don't throw if it's not)
+      const testKey = '__sb_storage_test__';
+      try {
+        localStorage.setItem(testKey, '1');
+        localStorage.removeItem(testKey);
+      } catch {
+        return null;
+      }
+
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (key: string, value: string) => {
+    try {
+      if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+        return;
+      }
+
+      const testKey = '__sb_storage_test__';
+      try {
+        localStorage.setItem(testKey, '1');
+        localStorage.removeItem(testKey);
+      } catch {
+        return;
+      }
+
+      localStorage.setItem(key, value);
+    } catch {
+      // Ignore storage failures.
+    }
+  },
+  removeItem: (key: string) => {
+    try {
+      if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+        return;
+      }
+
+      const testKey = '__sb_storage_test__';
+      try {
+        localStorage.setItem(testKey, '1');
+        localStorage.removeItem(testKey);
+      } catch {
+        return;
+      }
+
+      localStorage.removeItem(key);
+    } catch {
+      // Ignore storage failures.
+    }
+  },
+});
+
 const isStorageAvailable = (() => {
   try {
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
       return false;
     }
+
     const testKey = '__sb_test__';
     localStorage.setItem(testKey, '1');
     localStorage.removeItem(testKey);
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 })();
 
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
+const customFetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  const url =
+    typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.href
+        : input instanceof Request
+          ? input.url
+          : String(input);
 
-// CRITICAL: Use window.fetch directly - it's already overridden in index.html
-// Don't create a custom fetch wrapper, just use window.fetch which is already intercepted
-// This ensures the index.html override catches all requests
-// IMPORTANT: We need to get a fresh reference to window.fetch each time, not cache it
-// Supabase might cache the fetch function, so we create a wrapper that always uses current window.fetch
-const customFetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  // Always use current window.fetch to ensure we get the overridden version
-  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input instanceof Request ? input.url : String(input));
   const startTime = Date.now();
-  
   const hostname = typeof window !== 'undefined' ? window.location.hostname : 'unknown';
-  console.log('[Supabase Client] 📞📞📞 customFetch CALLED:', {
-    url: url,
+
+  devLog('[Supabase Client] customFetch called:', {
+    url,
     method: init?.method || 'GET',
-    hostname: hostname,
+    hostname,
     isLocalhost: hostname === 'localhost' || hostname === '127.0.0.1',
-    windowFetchType: typeof window.fetch,
-    isOverridden: window.fetch.toString().includes('Index HTML Fetch Override'),
+    windowFetchType: typeof window !== 'undefined' ? typeof window.fetch : 'undefined',
+    isOverridden:
+      typeof window !== 'undefined' && typeof window.fetch === 'function'
+        ? window.fetch.toString().includes('Index HTML Fetch Override')
+        : false,
     timestamp: new Date().toISOString(),
   });
-  
-  // CRITICAL: Ensure we're using the overridden fetch from index.html
-  // Get a fresh reference to window.fetch each time to avoid caching issues
+
   const currentFetch = window.fetch;
-  
-  // CRITICAL: Call window.fetch directly - it should trigger the index.html override
-  console.log('[Supabase Client] 🔵 Calling window.fetch with:', { url, method: init?.method || 'GET', hostname });
+  devLog('[Supabase Client] Calling window.fetch with:', { url, method: init?.method || 'GET', hostname });
   const result = currentFetch(input, init);
-  console.log('[Supabase Client] 🔵 window.fetch returned:', typeof result, result instanceof Promise ? 'Promise' : 'not Promise');
-  
-  // Add timeout detection and better error logging
-  result.then((response) => {
-    const duration = Date.now() - startTime;
-    if (!response.ok) {
-      console.error(`[Supabase Client] ❌ Request failed after ${duration}ms:`, {
-        url: url,
-        status: response.status,
-        statusText: response.statusText,
-        hostname: hostname,
+  devLog('[Supabase Client] window.fetch returned:', typeof result, result instanceof Promise ? 'Promise' : 'not Promise');
+
+  result
+    .then((response) => {
+      const duration = Date.now() - startTime;
+      if (!response.ok) {
+        devWarn(`[Supabase Client] Request failed after ${duration}ms:`, {
+          url,
+          status: response.status,
+          statusText: response.statusText,
+          hostname,
+          isLocalhost: hostname === 'localhost' || hostname === '127.0.0.1',
+          headers: Object.fromEntries(response.headers.entries()),
+        });
+      } else {
+        devLog(`[Supabase Client] Request succeeded after ${duration}ms:`, {
+          url,
+          status: response.status,
+          hostname,
+          isLocalhost: hostname === 'localhost' || hostname === '127.0.0.1',
+        });
+      }
+    })
+    .catch((error: Error) => {
+      const duration = Date.now() - startTime;
+      devWarn(`[Supabase Client] Request error after ${duration}ms:`, {
+        url,
+        error: error.message,
+        errorType: error.name,
+        hostname,
         isLocalhost: hostname === 'localhost' || hostname === '127.0.0.1',
-        headers: Object.fromEntries(response.headers.entries()),
+        stack: error.stack?.substring(0, 500),
       });
-    } else {
-      console.log(`[Supabase Client] ✅ Request succeeded after ${duration}ms:`, {
-        url: url,
-        status: response.status,
-        hostname: hostname,
-        isLocalhost: hostname === 'localhost' || hostname === '127.0.0.1',
-      });
-    }
-  }).catch((error) => {
-    const duration = Date.now() - startTime;
-    console.error(`[Supabase Client] ❌ Request error after ${duration}ms:`, {
-      url: url,
-      error: error.message,
-      errorType: error.name,
-      hostname: hostname,
-      isLocalhost: hostname === 'localhost' || hostname === '127.0.0.1',
-      stack: error.stack?.substring(0, 500),
     });
-  });
-  
+
   return result;
 };
 
-// Wrap client creation in try-catch to prevent any initialization errors
 let supabaseInstance: ReturnType<typeof createClient<Database>>;
 
-// CRITICAL: Create a function to initialize/reinitialize the client
-// This allows us to recreate the client after reload if needed
 function createSupabaseClient() {
-  console.log('[Supabase Client] Creating client with custom fetch...');
-  console.log('[Supabase Client] Custom fetch function type:', typeof customFetch);
-  console.log('[Supabase Client] Custom fetch function:', customFetch.toString().substring(0, 100));
-  
+  devLog('[Supabase Client] Creating client with custom fetch...');
+  devLog('[Supabase Client] Custom fetch function type:', typeof customFetch);
+  devLog('[Supabase Client] Custom fetch function:', customFetch.toString().substring(0, 100));
+
   try {
     const client = createClient<Database>(
       SUPABASE_URL || 'https://placeholder.supabase.co',
@@ -203,22 +207,32 @@ function createSupabaseClient() {
           detectSessionInUrl: false,
         },
         global: {
-          fetch: customFetch as any,
+          fetch: customFetch as typeof fetch,
         },
       }
     );
-    console.log('[Supabase Client] ✅ Client created successfully with custom fetch');
+
+    devLog('[Supabase Client] Client created successfully with custom fetch');
     return client;
   } catch (error) {
-    console.warn('[Supabase] Error creating client, using fallback:', error);
-    const forcedCustomFetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-      console.log('[Supabase Client] 🔵🔵🔵 forcedCustomFetch CALLED (fallback):', {
-        url: typeof input === 'string' ? input : input instanceof URL ? input.href : (input instanceof Request ? input.url : String(input)),
+    devWarn('[Supabase] Error creating client, using fallback:', error);
+
+    const forcedCustomFetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      devLog('[Supabase Client] forcedCustomFetch called (fallback):', {
+        url:
+          typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input instanceof Request
+                ? input.url
+                : String(input),
         method: init?.method || 'GET',
       });
+
       return customFetch(input, init);
     };
-    
+
     return createClient<Database>(
       SUPABASE_URL || 'https://placeholder.supabase.co',
       SUPABASE_PUBLISHABLE_KEY || 'placeholder-key',
@@ -230,7 +244,7 @@ function createSupabaseClient() {
           detectSessionInUrl: false,
         },
         global: {
-          fetch: forcedCustomFetch as any,
+          fetch: forcedCustomFetch as typeof fetch,
           headers: {
             'X-Client-Info': 'kws-beta-app',
           },
@@ -240,130 +254,108 @@ function createSupabaseClient() {
   }
 }
 
-// CRITICAL: Check if this is a reload and recreate client if needed
-const isReload = typeof window !== 'undefined' && 
-                 (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type === 'reload';
+const isReload =
+  typeof window !== 'undefined' &&
+  (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type === 'reload';
 
 if (isReload) {
-  console.log('[Supabase Client] 🔄 Reload detected - recreating client');
-  // On reload, recreate the client to ensure fresh initialization
+  devLog('[Supabase Client] Reload detected - recreating client');
   supabaseInstance = createSupabaseClient();
 } else {
-  // Initial load - create client normally
   supabaseInstance = createSupabaseClient();
 }
 
-// Test if custom fetch is actually being used by checking the client internals
-// @ts-ignore - accessing internal property for debugging
+// @ts-ignore - internal Supabase debugging only
 if (supabaseInstance.rest && supabaseInstance.rest.fetch) {
-  console.log('[Supabase Client] ✅ Custom fetch is set on client.rest.fetch');
-  console.log('[Supabase Client] 🔍 Fetch function:', supabaseInstance.rest.fetch.toString().substring(0, 200));
-  // Check if it's our custom fetch
-  // Note: Supabase wraps our custom fetch, so we check for indirect indicators
+  devLog('[Supabase Client] Custom fetch is set on client.rest.fetch');
+  devLog('[Supabase Client] Fetch function:', supabaseInstance.rest.fetch.toString().substring(0, 200));
+
   const fetchStr = supabaseInstance.rest.fetch.toString();
-  // Supabase wraps our custom fetch, so it won't directly contain 'customFetch'
-  // Instead, we check if the fetch function exists and is being used
-  // The actual fetch calls will go through our customFetch via window.fetch override
   if (fetchStr.includes('getAccessToken') || fetchStr.includes('supabaseKey')) {
-    // This is Supabase's internal fetch wrapper, which will use our custom fetch
-    console.log('[Supabase Client] ✅ Custom fetch is configured (Supabase wraps it internally)');
+    devLog('[Supabase Client] Custom fetch is configured (Supabase wraps it internally)');
   } else {
-    // If we can't detect it, don't warn - it might still work via window.fetch override
-    console.log('[Supabase Client] ℹ️ Fetch function detected (may use window.fetch override)');
+    devLog('[Supabase Client] Fetch function detected (may use window.fetch override)');
   }
 } else {
-  console.warn('[Supabase Client] ⚠️ Custom fetch might not be set correctly');
+  devWarn('[Supabase Client] Custom fetch might not be set correctly');
 }
 
-// Also check postgrest client
-// @ts-ignore
+// @ts-ignore - internal Supabase debugging only
 if (supabaseInstance.rest && supabaseInstance.rest.postgrest) {
   // @ts-ignore
   const postgrest = supabaseInstance.rest.postgrest;
-  console.log('[Supabase Client] 🔍 Postgrest client found:', typeof postgrest);
+  devLog('[Supabase Client] Postgrest client found:', typeof postgrest);
   // @ts-ignore
   if (postgrest.fetch) {
     // @ts-ignore
-    console.log('[Supabase Client] 🔍 Postgrest fetch:', postgrest.fetch.toString().substring(0, 200));
+    devLog('[Supabase Client] Postgrest fetch:', postgrest.fetch.toString().substring(0, 200));
   }
 }
 
-// CRITICAL: Export a function to explicitly recreate the client
-// This can be called from hooks to ensure a fresh client after reload
 export const recreateSupabaseClient = () => {
-  console.log('[Supabase Client] 🔄 Explicitly recreating client...');
+  devLog('[Supabase Client] Explicitly recreating client...');
   supabaseInstance = createSupabaseClient();
   return supabaseInstance;
 };
 
-// CRITICAL: Export a getter function that always returns the current instance
-// This ensures we always get the latest client, especially after reload
 export const getSupabase = () => {
-  // On reload, check if we need to recreate the client
-  const isReload = typeof window !== 'undefined' && 
-                   (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type === 'reload';
-  
-  if (isReload && (!supabaseInstance || !supabaseInstance.from)) {
-    console.log('[Supabase Client] 🔄 Reload detected in getSupabase - recreating client');
+  const reloaded =
+    typeof window !== 'undefined' &&
+    (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type === 'reload';
+
+  if (reloaded && (!supabaseInstance || !supabaseInstance.from)) {
+    devLog('[Supabase Client] Reload detected in getSupabase - recreating client');
     supabaseInstance = createSupabaseClient();
   }
-  
+
   return supabaseInstance;
 };
 
-// Export the instance directly for backward compatibility
 export const supabase = supabaseInstance;
 
-// Helper function to ensure Supabase client is ready
 let clientReadyPromise: Promise<void> | null = null;
+
 export const ensureSupabaseReady = async (): Promise<void> => {
-  // CRITICAL: Reset promise on reload to ensure fresh initialization
-  // Check if this is a reload by checking if the client was already initialized
-  const isReload = typeof window !== 'undefined' && 
-                   (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type === 'reload';
-  
-  if (isReload) {
-    console.log('[Supabase Client] 🔄 Reload detected - resetting client ready promise');
+  const reloaded =
+    typeof window !== 'undefined' &&
+    (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type === 'reload';
+
+  if (reloaded) {
+    devLog('[Supabase Client] Reload detected - resetting client ready promise');
     clientReadyPromise = null;
   }
-  
+
   if (clientReadyPromise) {
     return clientReadyPromise;
   }
-  
+
   clientReadyPromise = new Promise<void>((resolve) => {
-    // CRITICAL: On reload, wait longer to ensure client is fully reinitialized
-    const delay = isReload ? 200 : 50;
-    
+    const delay = reloaded ? 200 : 50;
+
     setTimeout(() => {
-      // Verify client is ready by checking if it has the necessary methods
       if (supabaseInstance && typeof supabaseInstance.from === 'function') {
-        console.log('[Supabase Client] ✅ Client verified ready');
-        
-        // CRITICAL: On reload, verify that the client can actually make requests
-        // by checking if the fetch function is properly set
-        if (isReload) {
+        devLog('[Supabase Client] Client verified ready');
+
+        if (reloaded) {
           // @ts-ignore
           const restFetch = supabaseInstance.rest?.fetch;
           if (restFetch) {
-            const fetchStr = restFetch.toString();
-            console.log('[Supabase Client] 🔍 Verifying fetch on reload:', fetchStr.substring(0, 100));
+            devLog('[Supabase Client] Verifying fetch on reload:', restFetch.toString().substring(0, 100));
           } else {
-            console.warn('[Supabase Client] ⚠️ No fetch function found on reload!');
+            devWarn('[Supabase Client] No fetch function found on reload!');
           }
         }
-        
+
         resolve();
       } else {
-        console.warn('[Supabase Client] ⚠️ Client not ready, waiting...');
-        // Retry after a short delay
+        devWarn('[Supabase Client] Client not ready, waiting...');
         setTimeout(() => {
-          console.log('[Supabase Client] ✅ Client ready after retry');
+          devLog('[Supabase Client] Client ready after retry');
           resolve();
         }, 100);
       }
     }, delay);
   });
-  
+
   return clientReadyPromise;
 };

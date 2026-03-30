@@ -1,8 +1,6 @@
 import { useNotifications, Notification } from '@/hooks/useNotifications';
 import { NotificationItem } from './NotificationItem';
-import { Button } from '@/components/ui/button';
-import { useMarkAllAsRead } from '@/hooks/useNotifications';
-import { Check, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,7 +11,6 @@ interface NotificationListProps {
 
 export const NotificationList = ({ onNotificationClick }: NotificationListProps) => {
   const { data: notifications = [], isLoading, error } = useNotifications();
-  const markAllAsRead = useMarkAllAsRead();
   const [filter, setFilter] = useState<'all' | 'unread' | Notification['type']>('all');
 
   const filteredNotifications = notifications.filter((notification) => {
@@ -55,28 +52,25 @@ export const NotificationList = ({ onNotificationClick }: NotificationListProps)
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
-      {/* Header with filter */}
-      <div className="flex items-center justify-center p-3 border-b border-[#E7F7E9] flex-shrink-0">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center justify-center border-b border-[#E3ECD9] px-4 py-5">
         <Select value={filter} onValueChange={(value) => setFilter(value as typeof filter)}>
-          <SelectTrigger className="w-full max-w-[200px] h-10 text-xs touch-manipulation">
+          <SelectTrigger className="h-[56px] w-full max-w-[520px] rounded-xl border-[3px] border-[#68B63E] bg-white px-5 text-[1rem] text-[#34424B] shadow-none focus:ring-0 focus:ring-offset-0">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="max-h-[50vh]">
-            <SelectItem value="all" className="text-xs">Alle</SelectItem>
-            <SelectItem value="unread" className="text-xs">Ungelesen ({unreadCount})</SelectItem>
-            <SelectItem value="boulder_new" className="text-xs">Neue Boulder</SelectItem>
-            {/* <SelectItem value="competition_update">Wettkampf</SelectItem> */}
-            <SelectItem value="feedback_reply" className="text-xs">Feedback</SelectItem>
-            <SelectItem value="admin_announcement" className="text-xs">Admin</SelectItem>
-            <SelectItem value="schedule_reminder" className="text-xs">Termine</SelectItem>
+          <SelectContent className="max-h-[50vh] rounded-xl border border-[#DDE7DF]">
+            <SelectItem value="all">Alle</SelectItem>
+            <SelectItem value="unread">Ungelesen ({unreadCount})</SelectItem>
+            <SelectItem value="boulder_new">Neue Boulder</SelectItem>
+            <SelectItem value="feedback_reply">Feedback</SelectItem>
+            <SelectItem value="admin_announcement">Admin</SelectItem>
+            <SelectItem value="schedule_reminder">Termine</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {/* Notification list - scrollable area */}
       <ScrollArea className="flex-1">
-        <div className="p-3 space-y-3">
+        <div className="space-y-4 p-5">
           {filteredNotifications.map((notification) => (
             <NotificationItem
               key={notification.id}
@@ -89,4 +83,3 @@ export const NotificationList = ({ onNotificationClick }: NotificationListProps)
     </div>
   );
 };
-

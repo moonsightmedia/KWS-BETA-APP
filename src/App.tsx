@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { createBrowserRouter, RouterProvider, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
@@ -10,18 +10,29 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { refreshAllData, clearAllCaches, clearBrowserCaches } from "@/utils/cacheUtils";
 // PullToRefreshIndicator import entfernt - Animation deaktiviert
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { Button } from "@/components/ui/button";
 import { retryPendingFeedback } from "@/utils/feedbackUtils";
 import Index from "./pages/Index";
 import Sectors from "./pages/Sectors";
 import Boulders from "./pages/Boulders";
+import BoulderDetail from "./pages/BoulderDetail";
 import Auth from "./pages/Auth";
 import Profile from "./pages/Profile";
+import ProfileEdit from "./pages/ProfileEdit";
+import NotificationSettings from "./pages/NotificationSettings";
+import AboutApp from "./pages/AboutApp";
+import Statistics from "./pages/Statistics";
 import Admin from "./pages/Admin";
 import Setter from "./pages/Setter";
+import SetterCreatePage from "./pages/setter/SetterCreatePage";
+import SetterEditPage from "./pages/setter/SetterEditPage";
+import SetterSchedulePage from "./pages/setter/SetterSchedulePage";
+import SetterStatusPage from "./pages/setter/SetterStatusPage";
 import Guest from "./pages/Guest";
 import Competition from "./pages/Competition";
 import NotFound from "./pages/NotFound";
 import { Sidebar } from "@/components/Sidebar";
+import { SetterAreaLayout } from "@/components/setter/SetterAreaLayout";
 
 // Configure QueryClient for optimal caching and prefetching
 const queryClient = new QueryClient({
@@ -38,7 +49,7 @@ const queryClient = new QueryClient({
       // If a query takes longer than 15 seconds, it will be marked as error
       // This prevents the app from hanging in loading state
       // Global error handler for all queries
-      onError: (error: any) => {
+      onError: (error: unknown) => {
         console.error('[QueryClient] Query error:', error);
         // Don't throw - let individual queries handle their errors
         // This prevents the entire app from crashing
@@ -47,16 +58,20 @@ const queryClient = new QueryClient({
     mutations: {
       retry: 1,
       networkMode: 'online',
-      onError: (error: any) => {
+      onError: (error: unknown) => {
         console.error('[QueryClient] Mutation error:', error);
       },
     },
   },
 });
 
+type QueryClientWindow = Window & typeof globalThis & {
+  __queryClient?: QueryClient;
+};
+
 // CRITICAL: Expose queryClient to window for main.tsx to access it
 if (typeof window !== 'undefined') {
-  (window as any).__queryClient = queryClient;
+  (window as QueryClientWindow).__queryClient = queryClient;
 }
 
 const RouteLogger = () => {
@@ -97,16 +112,10 @@ const ErrorBoundaryWithAuth = ({ children }: { children: React.ReactNode }) => {
 // Component to conditionally show Sidebar only for authenticated users
 const ConditionalSidebar = () => {
   const location = useLocation();
-  const { user, loading } = useAuth();
   
-  // Don't render anything while loading - wait for auth to resolve
-  // This prevents flickering and ensures proper state
-  if (loading) {
-    return null;
-  }
-  
-  // Hide sidebar on auth page, competition page, or if user is not logged in
-  if (location.pathname === '/auth' || location.pathname === '/competition' || !user) {
+  // Hide navigation only on auth and competition pages.
+  // Mobile navigation should stay available on the rest of the app.
+  if (location.pathname === '/auth' || location.pathname === '/competition') {
     return null;
   }
   
@@ -294,11 +303,7 @@ restoreRouteOnInit();
 const router = createBrowserRouter([
   {
     path: "/",
-    element: (
-      <AuthProvider>
-        <Root />
-      </AuthProvider>
-    ),
+    element: <Root />,
     children: [
       { index: true, element: (
         <RequireAuth>
@@ -307,10 +312,54 @@ const router = createBrowserRouter([
       ) },
       { path: "sectors", element: <Sectors /> },
       { path: "boulders", element: <Boulders /> },
+      { path: "boulders/:id", element: (
+        <RequireAuth>
+          <BoulderDetail />
+        </RequireAuth>
+      ) },
       { path: "auth", element: <Auth /> },
-      { path: "profile", element: <Profile /> },
+      { path: "profile", element: (
+        <RequireAuth>
+          <Profile />
+        </RequireAuth>
+      ) },
+      { path: "profile/edit", element: (
+        <RequireAuth>
+          <ProfileEdit />
+        </RequireAuth>
+      ) },
+      { path: "profile/notifications", element: (
+        <RequireAuth>
+          <NotificationSettings />
+        </RequireAuth>
+      ) },
+      { path: "profile/about", element: (
+        <RequireAuth>
+          <AboutApp />
+        </RequireAuth>
+      ) },
+      { path: "profile/appearance", element: (
+        <RequireAuth>
+          <Navigate to="/profile" replace />
+        </RequireAuth>
+      ) },
+      { path: "statistics", element: (
+        <RequireAuth>
+          <Statistics />
+        </RequireAuth>
+      ) },
       { path: "admin", element: <Admin /> },
-      { path: "setter", element: <Setter /> },
+      {
+        path: "setter",
+        element: <SetterAreaLayout />,
+        children: [
+          { index: true, element: <Setter /> },
+          { path: "create", element: <SetterCreatePage /> },
+          { path: "edit", element: <SetterEditPage /> },
+          { path: "status", element: <SetterStatusPage /> },
+          { path: "schedule", element: <SetterSchedulePage /> },
+        ],
+      },
       { path: "guest", element: <Guest /> },
       { path: "competition", element: <Competition /> },
       { path: "*", element: <NotFound /> },
@@ -320,19 +369,21 @@ const router = createBrowserRouter([
 
 // CRITICAL: Expose queryClient on window for reload handling
 if (typeof window !== 'undefined') {
-  (window as any).__queryClient = queryClient;
+  (window as QueryClientWindow).__queryClient = queryClient;
 }
 
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <RouterProvider 
-          router={router} 
-          future={{ v7_startTransition: true }} 
-        />
+        <AuthProvider>
+          <Toaster />
+          <Sonner />
+          <RouterProvider 
+            router={router} 
+            future={{ v7_startTransition: true }} 
+          />
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   </ErrorBoundary>

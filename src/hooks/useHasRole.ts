@@ -130,17 +130,24 @@ export const useHasRole = (role: 'admin' | 'user' | 'setter') => {
       setLoading(false);
       return;
     }
+
     const stored = getStoredRole(role, user.id);
     if (stored !== null) {
       setHasRole(stored);
-      setLoading(false);
-      return;
     }
+
     if (role !== 'user' && !session?.access_token) {
-      setHasRole(false);
+      setHasRole(stored ?? false);
       setLoading(false);
       return;
     }
+
+    if (role === 'user') {
+      setHasRole(true);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const result = await checkRoleOnce(role, user.id, session?.access_token ?? '');
@@ -161,7 +168,6 @@ export const useHasRole = (role: 'admin' | 'user' | 'setter') => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && user?.id) {
-        console.log(`[useHasRole] App visible - refreshing role "${role}"`);
         refreshRoleStatus();
       }
     };

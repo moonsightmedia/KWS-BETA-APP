@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePreloadSectorImages } from './usePreloadSectorImages';
@@ -24,7 +23,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
   const queryClient = useQueryClient(); // Get queryClient at component level
 
   // Sync function to transfer user_metadata to profiles table
@@ -48,6 +46,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (metadata?.birth_date !== undefined && metadata.birth_date !== null && String(metadata.birth_date).trim() !== '') {
       payload.birth_date = metadata.birth_date;
     }
+    // Sync avatar_url if it exists or was cleared explicitly
+    if (metadata?.avatar_url !== undefined) {
+      payload.avatar_url = metadata.avatar_url || null;
+    }
     // Always sync email if available
     if (metadata?.email) {
       payload.email = metadata.email;
@@ -56,7 +58,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // First check if profile exists
     const { data: existingProfile, error: checkError } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, full_name, email')
+      .select('id, first_name, last_name, full_name, email, avatar_url')
       .eq('id', userId)
       .maybeSingle();
     
@@ -97,7 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setTimeout(async () => {
         const { data: retryProfile } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, full_name, email')
+          .select('id, first_name, last_name, full_name, email, avatar_url')
           .eq('id', userId)
           .maybeSingle();
         
@@ -682,7 +684,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     
     toast.success('Erfolgreich angemeldet!');
-    navigate('/');
+    window.location.assign('/');
   };
 
   const signUp = async (email: string, password: string, meta?: { firstName?: string; lastName?: string; birthDate?: string }) => {
@@ -857,8 +859,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.warn('[Auth] Error clearing query cache:', error);
     }
     
-    // Navigate immediately for instant feedback
-    navigate('/auth');
+    // Redirect immediately for instant feedback without depending on Router context
+    window.location.assign('/auth');
     
     // Show toast
     if (signOutSuccess) {
@@ -921,4 +923,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
