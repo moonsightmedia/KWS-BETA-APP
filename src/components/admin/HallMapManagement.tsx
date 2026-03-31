@@ -1,18 +1,47 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ImagePlus,
+  AlertCircle,
+  BadgePlus,
   Loader2,
-  Map,
   MapPinned,
-  Pencil,
+  PencilLine,
   Save,
+  Search,
   Trash2,
   Undo2,
   X,
 } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { useSectors } from '@/hooks/useSectors';
+import { toast } from 'sonner';
+
+import hallMapBase from '@/assets/boulderkarte-original.png';
+import hallMapRegionProposalsJson from '@/data/hallMapRegionProposals.json?raw';
+import { InteractiveMapStage } from '@/components/InteractiveMapStage';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  useActiveHallMap,
   useCreateHallMap,
   useCreateSectorMapRegion,
   useDeleteHallMap,
@@ -22,743 +51,1610 @@ import {
   useUpdateHallMap,
   useUpdateSectorMapRegion,
 } from '@/hooks/useHallMaps';
+import { useSectors } from '@/hooks/useSectors';
 import { deleteHallMapImage, uploadHallMapImage } from '@/integrations/supabase/storage';
-import type { HallMap, MapPoint, SectorMapRegion } from '@/types/hallMap';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
+import type { MapPoint, SectorMapRegion } from '@/types/hallMap';
 
-type DraftMode = 'create' | 'edit';
+type EditorMode = 'idle' | 'create' | 'edit';
+
+type HallMapRegionProposal = {
+  id: string;
+  label: string;
+  originalIndex: number;
+  sourceFill: string;
+  surfaceRole: 'wall' | 'gap';
+  pointCount: number;
+  areaPx: number;
+  centroid: MapPoint;
+  label_x: number;
+  label_y: number;
+  bounds: {
+    minX: number;
+    maxX: number;
+    minY: number;
+    maxY: number;
+  };
+  points_json: MapPoint[];
+};
+
+const USER_HALL_MAP_DIMENSIONS = {
+  width: 1471,
+  height: 930,
+} as const;
+
 type DragState =
-  | { type: 'point'; index: number }
+  | { type: 'vertex'; index: number }
   | { type: 'label' }
   | null;
 
-const MIN_POINTS = 3;
+const HALL_MAP_REGION_PROPOSALS: HallMapRegionProposal[] = (() => {
+  try {
+    const parsed = JSON.parse(hallMapRegionProposalsJson) as { proposals?: HallMapRegionProposal[] };
+    return Array.isArray(parsed.proposals) ? parsed.proposals : [];
+  } catch (error) {
+    console.error('[HallMapManagement] Failed to parse hall map region proposals:', error);
+    return [];
+  }
+})();
 
-function clampPercent(value: number) {
-  return Math.min(Math.max(value, 0), 100);
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }
 
-function getImageDimensions(src: string): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
-    image.onerror = reject;
-    image.src = src;
+function roundPercent(value: number) {
+  return Number(value.toFixed(2));
+}
+
+function normalizePoint(point: MapPoint): MapPoint {
+  return {
+    x: roundPercent(clamp(point.x, 0, 100)),
+    y: roundPercent(clamp(point.y, 0, 100)),
+  };
+}
+
+function normalizePoints(points: MapPoint[]) {
+  return points.map(normalizePoint);
+}
+
+function pointsEqual(left: MapPoint[], right: MapPoint[]) {
+  if (left.length !== right.length) return false;
+
+  return left.every((point, index) => {
+    const other = right[index];
+    return Math.abs(point.x - other.x) < 0.01 && Math.abs(point.y - other.y) < 0.01;
   });
 }
 
-function centroid(points: MapPoint[]) {
-  if (points.length === 0) {
+function pointEqual(left: MapPoint | null, right: MapPoint | null) {
+  if (!left && !right) return true;
+  if (!left || !right) return false;
+
+  return Math.abs(left.x - right.x) < 0.01 && Math.abs(left.y - right.y) < 0.01;
+}
+
+function percentToAbsolute(point: MapPoint, width: number, height: number) {
+  return {
+    x: (point.x / 100) * width,
+    y: (point.y / 100) * height,
+  };
+}
+
+function absoluteToPercent(point: { x: number; y: number }, width: number, height: number) {
+  return normalizePoint({
+    x: (point.x / width) * 100,
+    y: (point.y / height) * 100,
+  });
+}
+
+function polygonToString(points: MapPoint[], width: number, height: number) {
+  return points
+    .map((point) => {
+      const absolute = percentToAbsolute(point, width, height);
+      return `${absolute.x},${absolute.y}`;
+    })
+    .join(' ');
+}
+
+function pointInPolygon(point: MapPoint, polygon: MapPoint[]) {
+  let inside = false;
+
+  for (let index = 0, previousIndex = polygon.length - 1; index < polygon.length; previousIndex = index, index += 1) {
+    const current = polygon[index];
+    const previous = polygon[previousIndex];
+
+    const intersects =
+      current.y > point.y !== previous.y > point.y &&
+      point.x < ((previous.x - current.x) * (point.y - current.y)) / (previous.y - current.y || Number.EPSILON) + current.x;
+
+    if (intersects) {
+      inside = !inside;
+    }
+  }
+
+  return inside;
+}
+
+function getPolygonCentroid(points: MapPoint[]) {
+  if (!points.length) {
     return { x: 50, y: 50 };
   }
 
-  let twiceArea = 0;
+  if (points.length < 3) {
+    const total = points.reduce(
+      (accumulator, point) => ({
+        x: accumulator.x + point.x,
+        y: accumulator.y + point.y,
+      }),
+      { x: 0, y: 0 },
+    );
+
+    return {
+      x: total.x / points.length,
+      y: total.y / points.length,
+    };
+  }
+
+  let areaAccumulator = 0;
   let centroidX = 0;
   let centroidY = 0;
 
   for (let index = 0; index < points.length; index += 1) {
     const current = points[index];
     const next = points[(index + 1) % points.length];
-    const cross = current.x * next.y - next.x * current.y;
-    twiceArea += cross;
-    centroidX += (current.x + next.x) * cross;
-    centroidY += (current.y + next.y) * cross;
+    const factor = current.x * next.y - next.x * current.y;
+
+    areaAccumulator += factor;
+    centroidX += (current.x + next.x) * factor;
+    centroidY += (current.y + next.y) * factor;
   }
 
-  if (Math.abs(twiceArea) < 0.0001) {
-    const averageX = points.reduce((sum, point) => sum + point.x, 0) / points.length;
-    const averageY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
-    return { x: averageX, y: averageY };
+  const area = areaAccumulator / 2;
+  if (Math.abs(area) < 0.0001) {
+    const minX = Math.min(...points.map((point) => point.x));
+    const maxX = Math.max(...points.map((point) => point.x));
+    const minY = Math.min(...points.map((point) => point.y));
+    const maxY = Math.max(...points.map((point) => point.y));
+
+    return {
+      x: (minX + maxX) / 2,
+      y: (minY + maxY) / 2,
+    };
   }
 
   return {
-    x: centroidX / (3 * twiceArea),
-    y: centroidY / (3 * twiceArea),
+    x: centroidX / (6 * area),
+    y: centroidY / (6 * area),
   };
 }
 
-function toPolygonString(points: MapPoint[]) {
-  return points.map((point) => `${point.x},${point.y}`).join(' ');
+function getRegionLabelPoint(region: SectorMapRegion) {
+  if (region.label_x !== null && region.label_y !== null) {
+    return { x: region.label_x, y: region.label_y };
+  }
+
+  return getPolygonCentroid(region.points_json);
 }
 
-function buildRegionDraft(region: SectorMapRegion) {
-  const autoLabel = centroid(region.points_json);
-  return {
-    sectorId: region.sector_id,
-    points: region.points_json,
-    label: {
-      x: region.label_x ?? autoLabel.x,
-      y: region.label_y ?? autoLabel.y,
-      manual: region.label_x !== null && region.label_y !== null,
-    },
-  };
+async function getImageDimensions(src: string) {
+  return new Promise<{ width: number; height: number }>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
+    image.onerror = () => reject(new Error('Bild konnte nicht geladen werden'));
+    image.src = src;
+  });
 }
 
-function getSectorName(sectors: Array<{ id: string; name: string }>, sectorId: string | null) {
-  if (!sectorId) return 'Kein Sektor gewählt';
-  return sectors.find((sector) => sector.id === sectorId)?.name ?? 'Unbekannter Sektor';
+function getFriendlyHallMapError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : fallback;
+
+  if (/duplicate key/i.test(message) || /unique/i.test(message)) {
+    return 'Für diesen Sektor existiert auf der Hallenkarte bereits eine Fläche.';
+  }
+
+  return message || fallback;
 }
 
-export function HallMapManagement() {
-  const { session, loading: authLoading } = useAuth();
+export const HallMapManagement = () => {
+  const { user, session, loading: authLoading } = useAuth();
   const accessToken = session?.access_token ?? null;
-  const dataEnabled = !authLoading && !!accessToken;
-
-  const { data: hallMaps = [], isLoading: mapsLoading } = useHallMaps(accessToken, dataEnabled);
-  const { data: sectors = [], isLoading: sectorsLoading } = useSectors(dataEnabled);
-
+  const queriesEnabled = !authLoading && !!user;
+  const { data: hallMaps = [], isLoading: isLoadingHallMaps } = useHallMaps(accessToken, queriesEnabled);
+  const { data: activeHallMap } = useActiveHallMap(accessToken, queriesEnabled);
+  const { data: sectors = [], isLoading: isLoadingSectors } = useSectors(queriesEnabled);
+  const managedHallMap = activeHallMap ?? hallMaps[0] ?? null;
+  const managedHallMapId = managedHallMap?.id ?? null;
+  const {
+    data: regions = [],
+    isLoading: isLoadingRegions,
+  } = useSectorMapRegions(managedHallMapId, accessToken, queriesEnabled && !!managedHallMapId);
   const createHallMap = useCreateHallMap(accessToken);
   const updateHallMap = useUpdateHallMap(accessToken);
   const deleteHallMap = useDeleteHallMap(accessToken);
-  const createRegion = useCreateSectorMapRegion(accessToken);
-  const updateRegion = useUpdateSectorMapRegion(accessToken);
-  const deleteRegion = useDeleteSectorMapRegion(accessToken);
+  const createSectorRegion = useCreateSectorMapRegion(accessToken);
+  const updateSectorRegion = useUpdateSectorMapRegion(accessToken);
+  const deleteSectorRegion = useDeleteSectorMapRegion(accessToken);
 
-  const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
-  const [mapName, setMapName] = useState('');
-  const [mapActive, setMapActive] = useState(true);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [hallMapName, setHallMapName] = useState('');
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [savingMap, setSavingMap] = useState(false);
-
-  const [draftMode, setDraftMode] = useState<DraftMode>('create');
-  const [editingRegionId, setEditingRegionId] = useState<string | null>(null);
+  const [isSavingHallMap, setIsSavingHallMap] = useState(false);
+  const [sectorSearch, setSectorSearch] = useState('');
   const [selectedSectorId, setSelectedSectorId] = useState<string | null>(null);
+  const [editorMode, setEditorMode] = useState<EditorMode>('idle');
+  const [editingRegionId, setEditingRegionId] = useState<string | null>(null);
   const [draftPoints, setDraftPoints] = useState<MapPoint[]>([]);
-  const [draftLabel, setDraftLabel] = useState<{ x: number; y: number; manual: boolean } | null>(null);
+  const [draftLabel, setDraftLabel] = useState<MapPoint | null>(null);
+  const [selectedVertexIndex, setSelectedVertexIndex] = useState<number | null>(null);
   const [dragState, setDragState] = useState<DragState>(null);
-
-  const imageContainerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!selectedMapId && hallMaps.length > 0) {
-      setSelectedMapId(hallMaps[0].id);
-    }
-  }, [hallMaps, selectedMapId]);
-
-  const selectedMap = useMemo(
-    () => hallMaps.find((hallMap) => hallMap.id === selectedMapId) ?? null,
-    [hallMaps, selectedMapId],
-  );
-
-  const { data: regions = [], isLoading: regionsLoading } = useSectorMapRegions(selectedMap?.id, accessToken, dataEnabled);
+  const [appendPointMode, setAppendPointMode] = useState(false);
+  const [isSectorSheetOpen, setIsSectorSheetOpen] = useState(false);
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
+  const [showDeleteRegionDialog, setShowDeleteRegionDialog] = useState(false);
+  const [showDeleteHallMapDialog, setShowDeleteHallMapDialog] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [showProposalOverlay, setShowProposalOverlay] = useState(true);
+  const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
+  const [hoveredProposalId, setHoveredProposalId] = useState<string | null>(null);
+  const discardActionRef = useRef<(() => void) | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
 
   useEffect(() => {
-    if (!selectedMap) {
-      setMapName('');
-      setMapActive(true);
-      setImageFile(null);
-      setImagePreview(null);
-      setUploadProgress(0);
-      setSelectedSectorId(null);
-      setDraftPoints([]);
-      setDraftLabel(null);
-      setDraftMode('create');
-      setEditingRegionId(null);
-      return;
-    }
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
 
-    setMapName(selectedMap.name);
-    setMapActive(selectedMap.is_active);
-    setImageFile(null);
-    setImagePreview(selectedMap.image_url);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    setHallMapName(managedHallMap?.name ?? '');
+    setSelectedImageFile(null);
+    setImagePreview(managedHallMap?.image_url ?? null);
     setUploadProgress(0);
+    setImageError(false);
     setSelectedSectorId(null);
+    setEditorMode('idle');
+    setEditingRegionId(null);
     setDraftPoints([]);
     setDraftLabel(null);
-    setDraftMode('create');
-    setEditingRegionId(null);
-  }, [selectedMap?.id]);
+    setSelectedVertexIndex(null);
+    setAppendPointMode(false);
+    setShowDeleteRegionDialog(false);
+    setSelectedProposalId(null);
+    setHoveredProposalId(null);
+  }, [managedHallMapId]);
 
-  useEffect(() => {
-    return () => {
-      if (imagePreview?.startsWith('blob:')) {
-        URL.revokeObjectURL(imagePreview);
+  const regionsBySectorId = useMemo(() => new Map(regions.map((region) => [region.sector_id, region])), [regions]);
+
+  const selectedSector = useMemo(
+    () => sectors.find((sector) => sector.id === selectedSectorId) ?? null,
+    [selectedSectorId, sectors],
+  );
+
+  const selectedRegion = useMemo(() => {
+    if (!selectedSectorId) return null;
+    return regionsBySectorId.get(selectedSectorId) ?? null;
+  }, [regionsBySectorId, selectedSectorId]);
+
+  const filteredSectors = useMemo(() => {
+    const normalizedSearch = sectorSearch.trim().toLowerCase();
+
+    return sectors.filter((sector) => {
+      if (!normalizedSearch) return true;
+      return sector.name.toLowerCase().includes(normalizedSearch);
+    });
+  }, [sectorSearch, sectors]);
+
+  const assignedSectorCount = useMemo(
+    () => sectors.filter((sector) => regionsBySectorId.has(sector.id)).length,
+    [regionsBySectorId, sectors],
+  );
+  const missingSectorCount = sectors.length - assignedSectorCount;
+
+  const occupiedProposalIds = useMemo(() => {
+    const occupied = new Set<string>();
+
+    for (const proposal of HALL_MAP_REGION_PROPOSALS) {
+      const proposalCentroid = proposal.centroid;
+      const proposalLabelPoint = { x: proposal.label_x, y: proposal.label_y };
+
+      const matchesExistingRegion = regions.some((region) => {
+        const regionCentroid = getRegionLabelPoint(region);
+
+        return (
+          pointInPolygon(proposalCentroid, region.points_json) ||
+          pointInPolygon(proposalLabelPoint, region.points_json) ||
+          pointInPolygon(regionCentroid, proposal.points_json)
+        );
+      });
+
+      if (matchesExistingRegion) {
+        occupied.add(proposal.id);
       }
-    };
-  }, [imagePreview]);
+    }
+
+    return occupied;
+  }, [regions]);
+
+  const availableProposals = useMemo(
+    () =>
+      HALL_MAP_REGION_PROPOSALS.filter(
+        (proposal) => proposal.surfaceRole === 'wall' && !occupiedProposalIds.has(proposal.id),
+      ),
+    [occupiedProposalIds],
+  );
+
+  const selectedProposal = useMemo(
+    () => availableProposals.find((proposal) => proposal.id === selectedProposalId) ?? null,
+    [availableProposals, selectedProposalId],
+  );
+
+  const displayedMapImageSrc = selectedImageFile && imagePreview ? imagePreview : hallMapBase;
+  const mapWidth = displayedMapImageSrc === hallMapBase
+    ? USER_HALL_MAP_DIMENSIONS.width
+    : managedHallMap?.width ?? USER_HALL_MAP_DIMENSIONS.width;
+  const mapHeight = displayedMapImageSrc === hallMapBase
+    ? USER_HALL_MAP_DIMENSIONS.height
+    : managedHallMap?.height ?? USER_HALL_MAP_DIMENSIONS.height;
+
+  const normalizedDraftPoints = useMemo(() => normalizePoints(draftPoints), [draftPoints]);
+  const normalizedDraftLabel = useMemo(() => (draftLabel ? normalizePoint(draftLabel) : null), [draftLabel]);
+  const originalDraftPoints = useMemo(
+    () => (selectedRegion ? normalizePoints(selectedRegion.points_json) : []),
+    [selectedRegion],
+  );
+  const originalDraftLabel = useMemo(
+    () => (selectedRegion ? normalizePoint(getRegionLabelPoint(selectedRegion)) : null),
+    [selectedRegion],
+  );
+
+  const isDraftDirty = useMemo(() => {
+    if (editorMode === 'idle' || !selectedSectorId) {
+      return false;
+    }
+
+    if (!selectedRegion) {
+      return normalizedDraftPoints.length > 0 || normalizedDraftLabel !== null;
+    }
+
+    return (
+      !pointsEqual(normalizedDraftPoints, originalDraftPoints) ||
+      !pointEqual(normalizedDraftLabel, originalDraftLabel)
+    );
+  }, [
+    editorMode,
+    normalizedDraftLabel,
+    normalizedDraftPoints,
+    originalDraftLabel,
+    originalDraftPoints,
+    selectedRegion,
+    selectedSectorId,
+  ]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedSectorId(null);
+    setEditorMode('idle');
+    setEditingRegionId(null);
+    setDraftPoints([]);
+    setDraftLabel(null);
+    setSelectedVertexIndex(null);
+    setAppendPointMode(false);
+    setDragState(null);
+    setSelectedProposalId(null);
+    setHoveredProposalId(null);
+  }, []);
+
+  const requestDraftReset = useCallback(
+    (nextAction: () => void) => {
+      if (isDraftDirty) {
+        discardActionRef.current = nextAction;
+        setShowDiscardDialog(true);
+        return;
+      }
+
+      nextAction();
+    },
+    [isDraftDirty],
+  );
+
+  const openSectorEditor = useCallback(
+    (sectorId: string) => {
+      requestDraftReset(() => {
+        const region = regionsBySectorId.get(sectorId);
+
+        setSelectedSectorId(sectorId);
+        setSelectedVertexIndex(null);
+        setAppendPointMode(false);
+        setDragState(null);
+        setSelectedProposalId(null);
+        setHoveredProposalId(null);
+
+        if (region) {
+          setEditorMode('edit');
+          setEditingRegionId(region.id);
+          setDraftPoints(region.points_json);
+          setDraftLabel(getRegionLabelPoint(region));
+          setShowProposalOverlay(false);
+        } else {
+          setEditorMode('create');
+          setEditingRegionId(null);
+          setDraftPoints([]);
+          setDraftLabel(null);
+          setShowProposalOverlay(true);
+        }
+
+        setIsSectorSheetOpen(false);
+      });
+    },
+    [regionsBySectorId, requestDraftReset],
+  );
+
+  const clientToPercentPoint = useCallback(
+    (clientX: number, clientY: number) => {
+      const svg = svgRef.current;
+      if (!svg) return null;
+
+      const rect = svg.getBoundingClientRect();
+      if (!rect.width || !rect.height) return null;
+
+      return absoluteToPercent(
+        {
+          x: clamp(((clientX - rect.left) / rect.width) * mapWidth, 0, mapWidth),
+          y: clamp(((clientY - rect.top) / rect.height) * mapHeight, 0, mapHeight),
+        },
+        mapWidth,
+        mapHeight,
+      );
+    },
+    [mapHeight, mapWidth],
+  );
 
   useEffect(() => {
     if (!dragState) return;
 
     const handlePointerMove = (event: PointerEvent) => {
-      if (!imageContainerRef.current) return;
-      const rect = imageContainerRef.current.getBoundingClientRect();
-      const x = clampPercent(((event.clientX - rect.left) / rect.width) * 100);
-      const y = clampPercent(((event.clientY - rect.top) / rect.height) * 100);
-
-      if (dragState.type === 'point') {
-        setDraftPoints((current) =>
-          current.map((point, index) => (index === dragState.index ? { x, y } : point)),
-        );
-        setDraftLabel((current) => (current?.manual ? current : { ...centroid(draftPoints), manual: false }));
-      }
+      const nextPoint = clientToPercentPoint(event.clientX, event.clientY);
+      if (!nextPoint) return;
 
       if (dragState.type === 'label') {
-        setDraftLabel({ x, y, manual: true });
+        setDraftLabel(nextPoint);
+        return;
       }
+
+      setDraftPoints((current) =>
+        current.map((point, index) => (index === dragState.index ? nextPoint : point)),
+      );
     };
 
-    const handlePointerUp = () => setDragState(null);
+    const handlePointerEnd = () => {
+      setDragState(null);
+    };
 
     window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointerup', handlePointerEnd);
+    window.addEventListener('pointercancel', handlePointerEnd);
+
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointerup', handlePointerEnd);
+      window.removeEventListener('pointercancel', handlePointerEnd);
     };
-  }, [dragState, draftPoints]);
+  }, [clientToPercentPoint, dragState]);
 
   useEffect(() => {
-    if (!draftLabel || draftLabel.manual) return;
-    setDraftLabel({ ...centroid(draftPoints), manual: false });
-  }, [draftPoints, draftLabel]);
+    if (selectedProposalId && !availableProposals.some((proposal) => proposal.id === selectedProposalId)) {
+      setSelectedProposalId(null);
+    }
+  }, [availableProposals, selectedProposalId]);
 
-  const regionsWithSector = useMemo(
-    () =>
-      regions.map((region) => ({
-        ...region,
-        sectorName: getSectorName(sectors, region.sector_id),
-      })),
-    [regions, sectors],
+  useEffect(() => {
+    if (hoveredProposalId && !availableProposals.some((proposal) => proposal.id === hoveredProposalId)) {
+      setHoveredProposalId(null);
+    }
+  }, [availableProposals, hoveredProposalId]);
+
+  const handleMapOverlayClick = useCallback(
+    (event: React.MouseEvent<SVGSVGElement>) => {
+      if (!selectedSectorId || editorMode === 'idle') return;
+      if (editorMode === 'edit' && !appendPointMode) return;
+
+      const nextPoint = clientToPercentPoint(event.clientX, event.clientY);
+      if (!nextPoint) return;
+
+      setDraftPoints((current) => {
+        const nextPoints = [...current, nextPoint];
+        if (nextPoints.length >= 3 && !draftLabel) {
+          setDraftLabel(getPolygonCentroid(nextPoints));
+        }
+        return nextPoints;
+      });
+      setAppendPointMode(false);
+      setSelectedVertexIndex(null);
+    },
+    [appendPointMode, clientToPercentPoint, draftLabel, editorMode, selectedSectorId],
   );
 
-  const statusText = useMemo(() => {
-    if (!selectedMap) return 'Wähle oder erstelle zuerst einen Hallenplan.';
-    if (!selectedSectorId) return 'Wähle einen Sektor, bevor du speicherst.';
-    if (draftPoints.length < MIN_POINTS) return `Es fehlen noch ${MIN_POINTS - draftPoints.length} Punkte.`;
-    return draftMode === 'edit' ? 'Region kann aktualisiert werden.' : 'Region kann gespeichert werden.';
-  }, [draftMode, draftPoints.length, selectedMap, selectedSectorId]);
+  const handleStartVertexDrag = useCallback(
+    (index: number, event: React.PointerEvent<SVGCircleElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setSelectedVertexIndex(index);
+      setDragState({ type: 'vertex', index });
+    },
+    [],
+  );
 
-  const canSaveRegion = !!selectedMap && !!selectedSectorId && draftPoints.length >= MIN_POINTS;
-  const isBusy =
-    savingMap ||
-    createHallMap.isPending ||
-    updateHallMap.isPending ||
-    deleteHallMap.isPending ||
-    createRegion.isPending ||
-    updateRegion.isPending ||
-    deleteRegion.isPending;
+  const handleStartLabelDrag = useCallback((event: React.PointerEvent<SVGCircleElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedVertexIndex(null);
+    setDragState({ type: 'label' });
+  }, []);
 
-  const handleMapImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const nextFile = event.target.files?.[0] ?? null;
-    setImageFile(nextFile);
-
-    if (imagePreview?.startsWith('blob:')) {
-      URL.revokeObjectURL(imagePreview);
+  const validateDraft = useCallback(() => {
+    if (!selectedSectorId) {
+      return 'Bitte zuerst einen Sektor auswählen.';
     }
 
-    if (!nextFile) {
-      setImagePreview(selectedMap?.image_url ?? null);
+    if (normalizedDraftPoints.length < 3) {
+      return 'Eine Sektorfläche braucht mindestens drei Punkte.';
+    }
+
+    const invalidPoint = normalizedDraftPoints.some(
+      (point) =>
+        !Number.isFinite(point.x) ||
+        !Number.isFinite(point.y) ||
+        point.x < 0 ||
+        point.x > 100 ||
+        point.y < 0 ||
+        point.y > 100,
+    );
+
+    if (invalidPoint) {
+      return 'Alle Polygonpunkte müssen innerhalb der Karte liegen.';
+    }
+
+    const labelPoint = normalizedDraftLabel ?? getPolygonCentroid(normalizedDraftPoints);
+    if (
+      !Number.isFinite(labelPoint.x) ||
+      !Number.isFinite(labelPoint.y) ||
+      labelPoint.x < 0 ||
+      labelPoint.x > 100 ||
+      labelPoint.y < 0 ||
+      labelPoint.y > 100
+    ) {
+      return 'Die Label-Position muss innerhalb der Karte liegen.';
+    }
+
+    return null;
+  }, [normalizedDraftLabel, normalizedDraftPoints, selectedSectorId]);
+
+  const handleSaveHallMap = useCallback(async () => {
+    const trimmedName = hallMapName.trim();
+    if (!trimmedName) {
+      toast.error('Bitte vergib einen Namen für die Hallenkarte.');
       return;
     }
 
-    setImagePreview(URL.createObjectURL(nextFile));
-  };
+    if (!managedHallMap && !selectedImageFile) {
+      toast.error('Bitte lade zuerst ein Kartenbild hoch.');
+      return;
+    }
 
-  const resetDraft = () => {
-    setDraftMode('create');
-    setEditingRegionId(null);
-    setSelectedSectorId(null);
-    setDraftPoints([]);
-    setDraftLabel(null);
-    setDragState(null);
-  };
+    setIsSavingHallMap(true);
+    setUploadProgress(0);
 
-  const startEditingRegion = (region: SectorMapRegion) => {
-    const nextDraft = buildRegionDraft(region);
-    setDraftMode('edit');
-    setEditingRegionId(region.id);
-    setSelectedSectorId(nextDraft.sectorId);
-    setDraftPoints(nextDraft.points);
-    setDraftLabel(nextDraft.label);
-  };
+    let uploadedImageUrl = managedHallMap?.image_url ?? null;
+    const previousImageUrl = managedHallMap?.image_url ?? null;
+    const targetHallMapId = managedHallMap?.id ?? crypto.randomUUID();
 
-  const handleMapClick = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!imageContainerRef.current || dragState) return;
-    const target = event.target as HTMLElement;
-    if (target.closest('[data-handle="true"]')) return;
-
-    const rect = imageContainerRef.current.getBoundingClientRect();
-    const x = clampPercent(((event.clientX - rect.left) / rect.width) * 100);
-    const y = clampPercent(((event.clientY - rect.top) / rect.height) * 100);
-
-    setDraftPoints((current) => {
-      const next = [...current, { x, y }];
-      if (!draftLabel || !draftLabel.manual) {
-        setDraftLabel({ ...centroid(next), manual: false });
-      }
-      return next;
-    });
-  };
-
-  const persistMap = async () => {
-    if (!mapName.trim()) return;
-
-    setSavingMap(true);
     try {
-      let nextImageUrl = selectedMap?.image_url ?? '';
-      let nextWidth = selectedMap?.width ?? null;
-      let nextHeight = selectedMap?.height ?? null;
-
-      if (imageFile) {
-        const targetId = selectedMap?.id ?? crypto.randomUUID();
-        nextImageUrl = await uploadHallMapImage(imageFile, targetId, setUploadProgress);
-        const dimensions = await getImageDimensions(nextImageUrl);
-        nextWidth = dimensions.width;
-        nextHeight = dimensions.height;
+      if (selectedImageFile) {
+        uploadedImageUrl = await uploadHallMapImage(selectedImageFile, targetHallMapId, setUploadProgress);
       }
 
-      if (!nextImageUrl) {
-        throw new Error('Bitte wähle zuerst ein Hallenplan-Bild aus.');
+      if (!uploadedImageUrl) {
+        throw new Error('Es ist keine Kartenbild-URL vorhanden.');
       }
 
-      if (selectedMap) {
-        const previousImage = selectedMap.image_url;
+      const dimensions = await getImageDimensions(uploadedImageUrl);
+
+      if (managedHallMap) {
         await updateHallMap.mutateAsync({
-          id: selectedMap.id,
-          name: mapName.trim(),
-          image_url: nextImageUrl,
-          width: nextWidth,
-          height: nextHeight,
-          is_active: mapActive,
+          id: managedHallMap.id,
+          name: trimmedName,
+          image_url: uploadedImageUrl,
+          width: dimensions.width,
+          height: dimensions.height,
+          is_active: true,
         });
 
-        if (imageFile && previousImage && previousImage !== nextImageUrl) {
-          await deleteHallMapImage(previousImage);
+        if (selectedImageFile && previousImageUrl && previousImageUrl !== uploadedImageUrl) {
+          deleteHallMapImage(previousImageUrl).catch((error) => {
+            console.error('[HallMapManagement] Failed to delete previous hall map image:', error);
+          });
         }
       } else {
-        const created = await createHallMap.mutateAsync({
-          name: mapName.trim(),
-          image_url: nextImageUrl,
-          width: nextWidth,
-          height: nextHeight,
-          is_active: mapActive,
+        await createHallMap.mutateAsync({
+          id: targetHallMapId,
+          name: trimmedName,
+          image_url: uploadedImageUrl,
+          width: dimensions.width,
+          height: dimensions.height,
+          is_active: true,
         });
-
-        if (created?.id) {
-          setSelectedMapId(created.id);
-        }
       }
 
-      setImageFile(null);
+      setSelectedImageFile(null);
+      setImagePreview(uploadedImageUrl);
       setUploadProgress(0);
+      toast.success(managedHallMap ? 'Hallenkarte aktualisiert.' : 'Hallenkarte angelegt.');
+    } catch (error) {
+      if (!managedHallMap && uploadedImageUrl) {
+        deleteHallMapImage(uploadedImageUrl).catch((cleanupError) => {
+          console.error('[HallMapManagement] Failed to cleanup hall map upload after create error:', cleanupError);
+        });
+      }
+
+      toast.error(getFriendlyHallMapError(error, 'Hallenkarte konnte nicht gespeichert werden.'));
     } finally {
-      setSavingMap(false);
+      setIsSavingHallMap(false);
+      setUploadProgress(0);
     }
-  };
+  }, [createHallMap, hallMapName, managedHallMap, selectedImageFile, updateHallMap]);
 
-  const persistRegion = async () => {
-    if (!selectedMap || !selectedSectorId || draftPoints.length < MIN_POINTS) return;
+  const handleDeleteHallMap = useCallback(async () => {
+    if (!managedHallMap) return;
 
-    const autoLabel = centroid(draftPoints);
+    try {
+      await deleteHallMap.mutateAsync(managedHallMap.id);
+      if (managedHallMap.image_url) {
+        deleteHallMapImage(managedHallMap.image_url).catch((error) => {
+          console.error('[HallMapManagement] Failed to cleanup hall map image after delete:', error);
+      toast.warning('Die Hallenkarte wurde gelöscht, das Kartenbild konnte aber nicht automatisch entfernt werden.');
+        });
+      }
+      clearSelection();
+      setShowDeleteHallMapDialog(false);
+      setHallMapName('');
+      setImagePreview(null);
+      setSelectedImageFile(null);
+    } catch (error) {
+      toast.error(getFriendlyHallMapError(error, 'Hallenkarte konnte nicht gelöscht werden.'));
+    }
+  }, [clearSelection, deleteHallMap, managedHallMap]);
+
+  const handleSaveRegion = useCallback(async () => {
+    if (!managedHallMap || !selectedSectorId) return;
+
+    const validationError = validateDraft();
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
     const payload = {
-      hall_map_id: selectedMap.id,
+      hall_map_id: managedHallMap.id,
       sector_id: selectedSectorId,
       shape_type: 'polygon' as const,
-      points_json: draftPoints,
-      label_x: draftLabel?.manual ? draftLabel.x : autoLabel.x,
-      label_y: draftLabel?.manual ? draftLabel.y : autoLabel.y,
-      z_index: editingRegionId ? regions.find((region) => region.id === editingRegionId)?.z_index ?? 0 : regions.length,
+      points_json: normalizedDraftPoints,
+      label_x: (normalizedDraftLabel ?? getPolygonCentroid(normalizedDraftPoints)).x,
+      label_y: (normalizedDraftLabel ?? getPolygonCentroid(normalizedDraftPoints)).y,
+      z_index: selectedRegion?.z_index ?? regions.length,
     };
 
-    if (editingRegionId) {
-      await updateRegion.mutateAsync({ id: editingRegionId, ...payload });
-    } else {
-      await createRegion.mutateAsync(payload);
+    try {
+      const nextRegion = editingRegionId
+        ? await updateSectorRegion.mutateAsync({ id: editingRegionId, ...payload })
+        : await createSectorRegion.mutateAsync(payload);
+
+      setEditorMode('edit');
+      setEditingRegionId(nextRegion.id);
+      setDraftPoints(nextRegion.points_json);
+      setDraftLabel(getRegionLabelPoint(nextRegion));
+      setSelectedVertexIndex(null);
+      setAppendPointMode(false);
+      toast.success('Sektorfläche gespeichert.');
+    } catch (error) {
+      toast.error(getFriendlyHallMapError(error, 'Sektorfläche konnte nicht gespeichert werden.'));
+    }
+  }, [
+    createSectorRegion,
+    editingRegionId,
+    managedHallMap,
+    normalizedDraftLabel,
+    normalizedDraftPoints,
+    regions.length,
+    selectedRegion?.z_index,
+    selectedSectorId,
+    updateSectorRegion,
+    validateDraft,
+  ]);
+
+  const handleDeleteRegion = useCallback(async () => {
+    if (!managedHallMap || !editingRegionId) return;
+
+    try {
+      await deleteSectorRegion.mutateAsync({
+        id: editingRegionId,
+        hallMapId: managedHallMap.id,
+      });
+
+      setShowDeleteRegionDialog(false);
+      clearSelection();
+    } catch (error) {
+      toast.error(getFriendlyHallMapError(error, 'Sektorfläche konnte nicht gelöscht werden.'));
+    }
+  }, [clearSelection, deleteSectorRegion, editingRegionId, managedHallMap]);
+
+  const removeLastPoint = useCallback(() => {
+    setDraftPoints((current) => current.slice(0, -1));
+    setSelectedVertexIndex(null);
+  }, []);
+
+  const removeSelectedVertex = useCallback(() => {
+    if (selectedVertexIndex === null) return;
+    if (draftPoints.length <= 3) {
+      toast.error('Mindestens drei Punkte müssen erhalten bleiben.');
+      return;
     }
 
-    resetDraft();
-  };
+    setDraftPoints((current) => current.filter((_, index) => index !== selectedVertexIndex));
+    setSelectedVertexIndex(null);
+  }, [draftPoints.length, selectedVertexIndex]);
 
-  const handleDeleteSelectedMap = async () => {
-    if (!selectedMap) return;
+  const centerLabel = useCallback(() => {
+    if (!draftPoints.length) return;
+    setDraftLabel(getPolygonCentroid(draftPoints));
+  }, [draftPoints]);
 
-    const confirmed = window.confirm(`Hallenkarte "${selectedMap.name}" wirklich löschen?`);
-    if (!confirmed) return;
+  const applyProposalToCurrentSector = useCallback(
+    (proposal: HallMapRegionProposal) => {
+      if (!selectedSectorId) {
+      toast.error('Bitte zuerst einen Sektor auswählen.');
+        return;
+      }
 
-    await deleteHallMap.mutateAsync(selectedMap.id);
-    await deleteHallMapImage(selectedMap.image_url);
+      requestDraftReset(() => {
+        const existingRegion = regionsBySectorId.get(selectedSectorId) ?? null;
+        const proposalPoints = normalizePoints(proposal.points_json);
+        const proposalLabel = normalizePoint({ x: proposal.label_x, y: proposal.label_y });
 
-    const remaining = hallMaps.filter((hallMap) => hallMap.id !== selectedMap.id);
-    setSelectedMapId(remaining[0]?.id ?? null);
-  };
+        setSelectedProposalId(proposal.id);
+        setSelectedVertexIndex(null);
+        setAppendPointMode(false);
+        setDragState(null);
+        setDraftPoints(proposalPoints);
+        setDraftLabel(proposalLabel);
+        setShowProposalOverlay(false);
 
-  const handleDeleteRegion = async (region: SectorMapRegion) => {
-    const confirmed = window.confirm(`Sektorfläche für "${getSectorName(sectors, region.sector_id)}" wirklich löschen?`);
-    if (!confirmed) return;
+        if (existingRegion) {
+          setEditorMode('edit');
+          setEditingRegionId(existingRegion.id);
+        } else {
+          setEditorMode('create');
+          setEditingRegionId(null);
+        }
 
-    await deleteRegion.mutateAsync({ id: region.id, hallMapId: region.hall_map_id });
-    if (editingRegionId === region.id) {
-      resetDraft();
+      toast.success(`Vorschlag ${proposal.label} für ${selectedSector?.name ?? 'den Sektor'} geladen.`);
+      });
+    },
+    [regionsBySectorId, requestDraftReset, selectedSector?.name, selectedSectorId],
+  );
+
+  const handleImageInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error(`Ungültiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
+      return;
     }
-  };
 
-  if (authLoading || mapsLoading || sectorsLoading) {
-    return (
-      <Card className="border-[#E3ECE5] bg-white">
-        <CardContent className="flex min-h-[240px] items-center justify-center">
-          <div className="flex items-center gap-3 text-[#13112B]/70">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Hallenkarten werden geladen…</span>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error('Das Kartenbild darf maximal 10 MB groß sein.');
+      return;
+    }
 
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_320px]">
-        <Card className="border-[#E3ECE5] bg-white">
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-xl text-[#13112B]">Pläne</CardTitle>
-            <CardDescription>
-              Wähle einen Hallenplan oder lege einen neuen an. Der aktive Plan wird später in der Boulder-Ansicht genutzt.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              {hallMaps.map((hallMap) => (
-                <button
-                  key={hallMap.id}
-                  type="button"
-                  onClick={() => setSelectedMapId(hallMap.id)}
-                  className={cn(
-                    'w-full rounded-2xl border px-4 py-3 text-left transition-colors',
-                    selectedMapId === hallMap.id
-                      ? 'border-[#36B531] bg-[#F4FBF4]'
-                      : 'border-[#E3ECE5] bg-white hover:border-[#BFD7C2]',
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-[#13112B]">{hallMap.name}</div>
-                      <div className="text-xs text-[#13112B]/55">
-                        {hallMap.width && hallMap.height ? `${hallMap.width} × ${hallMap.height}` : 'Bildgröße folgt nach Upload'}
-                      </div>
-                    </div>
-                    {hallMap.is_active && (
-                      <span className="rounded-full bg-[#E9F9E9] px-2.5 py-1 text-[11px] font-semibold text-[#2F8F2B]">
-                        Aktiv
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
+    setSelectedImageFile(file);
+    if (imagePreview && imagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImagePreview(URL.createObjectURL(file));
+    setImageError(false);
+  }, [imagePreview]);
 
-            <Button
+  useEffect(() => {
+    return () => {
+      if (imagePreview && imagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]);
+
+  const isMapFormDirty = useMemo(() => {
+    const trimmedName = hallMapName.trim();
+    if (!managedHallMap) {
+      return trimmedName.length > 0 || !!selectedImageFile;
+    }
+
+    return trimmedName !== managedHallMap.name || !!selectedImageFile;
+  }, [hallMapName, managedHallMap, selectedImageFile]);
+
+  const canSaveMap =
+    hallMapName.trim().length > 0 &&
+    (!!managedHallMap || !!selectedImageFile) &&
+    (isMapFormDirty || !managedHallMap);
+
+  const canSaveRegion = normalizedDraftPoints.length >= 3 && !!selectedSectorId && editorMode !== 'idle';
+  const isBusyRegionMutation =
+    createSectorRegion.isPending || updateSectorRegion.isPending || deleteSectorRegion.isPending;
+  const proposalAssistVisible =
+    !!selectedSector &&
+    editorMode === 'create' &&
+    availableProposals.length > 0 &&
+    showProposalOverlay;
+
+  const renderSectorList = (className?: string) => (
+    <div className={cn('space-y-3', className)}>
+      <div className="space-y-2">
+        <Label htmlFor="hall-map-sector-search" className="text-sm font-medium text-[#13112B]">
+          Sektoren
+        </Label>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            id="hall-map-sector-search"
+            value={sectorSearch}
+            onChange={(event) => setSectorSearch(event.target.value)}
+            placeholder="Sektor suchen"
+            className="h-11 rounded-xl border-[#DDE7DF] bg-white pl-9"
+          />
+        </div>
+      </div>
+
+      <div className="text-xs text-[#13112B]/58">
+        {assignedSectorCount} zugeordnet / {missingSectorCount} offen
+      </div>
+
+      <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+        {filteredSectors.map((sector) => {
+          const region = regionsBySectorId.get(sector.id);
+          const isSelected = selectedSectorId === sector.id;
+
+          return (
+            <button
+              key={sector.id}
               type="button"
-              variant="outline"
-              className="w-full border-dashed border-[#CFE2D2] text-[#13112B]"
-              onClick={() => {
-                setSelectedMapId(null);
-                setMapName('');
-                setMapActive(true);
-                setImageFile(null);
-                setImagePreview(null);
-                setUploadProgress(0);
-                resetDraft();
-              }}
+              onClick={() => openSectorEditor(sector.id)}
+              className={cn(
+                'w-full rounded-xl border px-4 py-3 text-left transition-colors',
+                isSelected
+                  ? 'border-[#36B531] bg-[#F7FBF7]'
+                  : 'border-[#DDE7DF] bg-white hover:border-[#36B531]/30 hover:bg-[#FCFEFC]',
+              )}
             >
-              <ImagePlus className="h-4 w-4" />
-              Neuen Hallenplan anlegen
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="border-[#E3ECE5] bg-white">
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-xl text-[#13112B]">Editor</CardTitle>
-            <CardDescription>
-              Klicke direkt auf den Plan, um Punkte zu setzen. Punkte und Label können anschließend verschoben werden.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-2xl border border-[#E3ECE5] bg-[#F7FAF7] p-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="space-y-2 text-sm text-[#13112B]">
-                  <span className="font-medium">Planname</span>
-                  <input
-                    value={mapName}
-                    onChange={(event) => setMapName(event.target.value)}
-                    placeholder="z. B. Boulderhalle"
-                    className="h-11 w-full rounded-xl border border-[#D8E4DA] bg-white px-3 text-sm outline-none transition focus:border-[#36B531]"
-                  />
-                </label>
-
-                <label className="space-y-2 text-sm text-[#13112B]">
-                  <span className="font-medium">Hallenplan</span>
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={handleMapImageSelect}
-                    className="block h-11 w-full rounded-xl border border-[#D8E4DA] bg-white px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-[#E9F9E9] file:px-3 file:py-1.5 file:text-[#2F8F2B]"
-                  />
-                </label>
-              </div>
-
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#E3ECE5] bg-white px-4 py-3">
-                <div>
-                  <div className="text-sm font-medium text-[#13112B]">Aktiver Plan</div>
-                  <div className="text-xs text-[#13112B]/60">Nur eine Hallenkarte ist gleichzeitig aktiv.</div>
-                </div>
-                <Switch checked={mapActive} onCheckedChange={setMapActive} />
-              </div>
-
-              {uploadProgress > 0 && uploadProgress < 100 && (
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-between text-xs text-[#13112B]/60">
-                    <span>Bild wird hochgeladen</span>
-                    <span>{Math.round(uploadProgress)}%</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-[#E6EFE7]">
-                    <div className="h-full rounded-full bg-[#36B531]" style={{ width: `${uploadProgress}%` }} />
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold text-[#13112B]">{sector.name}</div>
+                  <div className="mt-1 text-xs text-[#13112B]/55">
+                    {region ? 'Region vorhanden' : 'Noch keine Kartenfläche'}
                   </div>
                 </div>
-              )}
-
-              <div className="mt-4 flex flex-wrap gap-3">
-                <Button type="button" onClick={persistMap} disabled={isBusy || !mapName.trim() || !imagePreview}>
-                  {savingMap ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  {selectedMap ? 'Plan aktualisieren' : 'Plan speichern'}
-                </Button>
-                {selectedMap && (
-                  <Button type="button" variant="outline" onClick={handleDeleteSelectedMap} disabled={isBusy}>
-                    <Trash2 className="h-4 w-4" />
-                    Plan löschen
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-[#E3ECE5] bg-[#F7FAF7] p-4">
-              {imagePreview ? (
-                <div className="space-y-4">
-                  <div
-                    ref={imageContainerRef}
-                    className="relative w-full overflow-hidden rounded-2xl border border-[#DCE6DE] bg-white"
-                    style={{ aspectRatio: selectedMap?.width && selectedMap?.height ? `${selectedMap.width} / ${selectedMap.height}` : '16 / 10' }}
-                    onClick={handleMapClick}
-                  >
-                    <img src={imagePreview} alt="Hallenplan" className="absolute inset-0 h-full w-full object-contain" />
-                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
-                      {regionsWithSector.map((region) => (
-                        <g key={region.id}>
-                          <polygon
-                            points={toPolygonString(region.points_json)}
-                            fill={editingRegionId === region.id ? 'rgba(54,181,49,0.30)' : 'rgba(19,17,43,0.12)'}
-                            stroke={editingRegionId === region.id ? '#36B531' : 'rgba(19,17,43,0.45)'}
-                            strokeWidth={editingRegionId === region.id ? 0.8 : 0.45}
-                            className="cursor-pointer transition-colors"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              startEditingRegion(region);
-                            }}
-                          />
-                        </g>
-                      ))}
-
-                      {draftPoints.length > 0 && (
-                        <>
-                          <polyline
-                            points={toPolygonString(draftPoints)}
-                            fill={draftPoints.length >= MIN_POINTS ? 'rgba(54,181,49,0.26)' : 'rgba(54,181,49,0.14)'}
-                            stroke="#36B531"
-                            strokeWidth={0.8}
-                          />
-                          {draftLabel && (
-                            <g
-                              transform={`translate(${draftLabel.x}, ${draftLabel.y})`}
-                              data-handle="true"
-                              onPointerDown={(event) => {
-                                event.stopPropagation();
-                                setDragState({ type: 'label' });
-                              }}
-                              className="cursor-move"
-                            >
-                              <rect
-                                x={-8}
-                                y={-3.4}
-                                rx={2.6}
-                                width={16}
-                                height={6.8}
-                                fill="#13112B"
-                                opacity={0.92}
-                              />
-                              <text
-                                x={0}
-                                y={0.8}
-                                textAnchor="middle"
-                                className="fill-white text-[2.4px] font-semibold"
-                              >
-                                {`${getSectorName(sectors, selectedSectorId)} (${draftPoints.length})`}
-                              </text>
-                            </g>
-                          )}
-                          {draftPoints.map((point, index) => (
-                            <g
-                              key={`${point.x}-${point.y}-${index}`}
-                              transform={`translate(${point.x}, ${point.y})`}
-                              data-handle="true"
-                              onPointerDown={(event) => {
-                                event.stopPropagation();
-                                setDragState({ type: 'point', index });
-                              }}
-                              className="cursor-grab active:cursor-grabbing"
-                            >
-                              <circle r={2.1} fill="rgba(19,17,43,0.15)" />
-                              <circle r={1.1} fill="#13112B" />
-                            </g>
-                          ))}
-                        </>
-                      )}
-                    </svg>
-                  </div>
-
-                  <div className="rounded-xl border border-[#E3ECE5] bg-white px-4 py-3 text-sm text-[#13112B]/72">
-                    {statusText}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-[#CFDDCF] bg-white text-center text-sm text-[#13112B]/55">
-                  <div className="space-y-2 px-6">
-                    <Map className="mx-auto h-8 w-8 text-[#36B531]" />
-                    <p>Lege zuerst einen Hallenplan an oder wähle einen bestehenden Plan.</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-[#E3ECE5] bg-white">
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-xl text-[#13112B]">Regionen</CardTitle>
-            <CardDescription>
-              Weise den aktuellen Entwurf einem Sektor zu und verwalte bereits gespeicherte Flächen.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-2xl border border-[#E3ECE5] bg-[#F7FAF7] p-4">
-              <div className="space-y-3">
-                <div className="text-sm font-medium text-[#13112B]">
-                  {draftMode === 'edit' ? 'Sektorfläche bearbeiten' : 'Neue Sektorfläche'}
-                </div>
-                <Select value={selectedSectorId ?? ''} onValueChange={setSelectedSectorId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sektor auswählen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sectors.map((sector) => (
-                      <SelectItem key={sector.id} value={sector.id}>
-                        {sector.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Button type="button" variant="outline" onClick={() => setDraftPoints((current) => current.slice(0, -1))} disabled={draftPoints.length === 0}>
-                    <Undo2 className="h-4 w-4" />
-                    Letzten Punkt entfernen
-                  </Button>
-                  <Button type="button" variant="outline" onClick={resetDraft} disabled={draftPoints.length === 0 && !editingRegionId}>
-                    <X className="h-4 w-4" />
-                    Entwurf verwerfen
-                  </Button>
-                </div>
-
-                <Button type="button" className="w-full" onClick={persistRegion} disabled={!canSaveRegion || isBusy}>
-                  {(createRegion.isPending || updateRegion.isPending) ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-semibold',
+                    region
+                      ? 'border-[#DDE7DF] bg-[#F7FBF7] text-[#13112B]'
+                      : 'border-[#DDE7DF] bg-white text-[#13112B]/62',
                   )}
-                  {draftMode === 'edit' ? 'Sektorfläche aktualisieren' : 'Sektorfläche speichern'}
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="w-full text-[#13112B]/70"
-                  disabled={!draftLabel}
-                  onClick={() => setDraftLabel(draftPoints.length > 0 ? { ...centroid(draftPoints), manual: false } : null)}
                 >
-                  Label auf Automatik zurücksetzen
-                </Button>
+                  {region ? 'zugeordnet' : 'fehlt'}
+                </Badge>
               </div>
-            </div>
+            </button>
+          );
+        })}
 
-            <div className="rounded-2xl border border-[#E3ECE5] bg-[#F7FAF7] p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="text-sm font-medium text-[#13112B]">Gespeicherte Flächen</div>
-                <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-[#13112B]/65">
-                  {regions.length}
-                </span>
-              </div>
-
-              {regionsLoading ? (
-                <div className="flex items-center gap-2 text-sm text-[#13112B]/60">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Regionen werden geladen…
-                </div>
-              ) : regions.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-[#CFDDCF] bg-white px-4 py-5 text-sm text-[#13112B]/55">
-                  Für diesen Plan sind noch keine Sektorflächen gespeichert.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {regionsWithSector.map((region) => (
-                    <div key={region.id} className="rounded-xl border border-[#E3ECE5] bg-white px-4 py-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold text-[#13112B]">{region.sectorName}</div>
-                          <div className="text-xs text-[#13112B]/55">
-                            {region.points_json.length} Punkte
-                            {editingRegionId === region.id ? ' • wird bearbeitet' : ''}
-                          </div>
-                        </div>
-                        {editingRegionId === region.id && (
-                          <span className="rounded-full bg-[#E9F9E9] px-2.5 py-1 text-[11px] font-semibold text-[#2F8F2B]">
-                            Aktiv
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="mt-3 flex gap-2">
-                        <Button type="button" size="sm" variant="outline" onClick={() => startEditingRegion(region)}>
-                          <Pencil className="h-4 w-4" />
-                          Bearbeiten
-                        </Button>
-                        <Button type="button" size="sm" variant="outline" onClick={() => handleDeleteRegion(region)}>
-                          <Trash2 className="h-4 w-4" />
-                          Löschen
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-[#E3ECE5] bg-[#F7FAF7] p-4 text-sm text-[#13112B]/72">
-              <div className="mb-2 flex items-center gap-2 font-medium text-[#13112B]">
-                <MapPinned className="h-4 w-4 text-[#36B531]" />
-                So funktioniert der Editor
-              </div>
-              <p>Klick auf das Bild setzt Punkte. Ziehe Punkte oder das Label direkt im Plan, um die Fläche präzise auszurichten.</p>
-            </div>
-          </CardContent>
-        </Card>
+        {filteredSectors.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FAFCFA] px-4 py-5 text-sm text-[#13112B]/58">
+            Kein passender Sektor gefunden.
+          </div>
+        ) : null}
       </div>
     </div>
   );
-}
+
+  const activePolygonPoints = editorMode === 'idle' ? [] : normalizedDraftPoints;
+
+  const handleDiscardConfirm = useCallback(() => {
+    const pendingAction = discardActionRef.current;
+    discardActionRef.current = null;
+    setShowDiscardDialog(false);
+    pendingAction?.();
+  }, []);
+
+  const handleDiscardCancel = useCallback(() => {
+    discardActionRef.current = null;
+    setShowDiscardDialog(false);
+  }, []);
+
+  const editorActionBar = selectedSector ? (
+    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      {editorMode === 'edit' ? (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setAppendPointMode(true)}
+          className={cn(
+            'rounded-xl border-[#DDE7DF] bg-white text-[#13112B]',
+            appendPointMode && 'border-[#36B531] bg-[#F7FBF7] text-[#13112B]',
+          )}
+        >
+          <BadgePlus className="h-4 w-4" />
+          Punkt hinzufügen
+        </Button>
+      ) : null}
+
+      <Button
+        type="button"
+        variant="outline"
+        onClick={editorMode === 'create' ? removeLastPoint : removeSelectedVertex}
+        disabled={editorMode === 'create' ? draftPoints.length === 0 : selectedVertexIndex === null}
+        className="rounded-xl border-[#DDE7DF] bg-white text-[#13112B]"
+      >
+        <Undo2 className="h-4 w-4" />
+        {editorMode === 'create' ? 'Letzten Punkt entfernen' : 'Punkt entfernen'}
+      </Button>
+
+      <Button
+        type="button"
+        variant="outline"
+        onClick={centerLabel}
+        disabled={draftPoints.length < 3}
+        className="rounded-xl border-[#DDE7DF] bg-white text-[#13112B]"
+      >
+        Label zentrieren
+      </Button>
+
+      {editorMode === 'edit' ? (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setShowDeleteRegionDialog(true)}
+          className="rounded-xl border-[#E8C9C0] bg-white text-[#C14E37] hover:bg-[#FFF7F5] hover:text-[#C14E37]"
+        >
+          <Trash2 className="h-4 w-4" />
+          Region löschen
+        </Button>
+      ) : null}
+
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => requestDraftReset(clearSelection)}
+        className="rounded-xl border-[#DDE7DF] bg-white text-[#13112B]"
+      >
+        <X className="h-4 w-4" />
+        Abbrechen
+      </Button>
+
+      <Button
+        type="button"
+        onClick={handleSaveRegion}
+        disabled={!canSaveRegion || isBusyRegionMutation}
+        className="rounded-xl bg-[#36B531] text-white hover:bg-[#2FA12B]"
+      >
+        {isBusyRegionMutation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+        Speichern
+      </Button>
+    </div>
+  ) : null;
+
+  const mapInteractionHint = !selectedSector
+    ? 'Wähle links einen Sektor aus, um eine Fläche anzulegen oder zu bearbeiten.'
+    : editorMode === 'create'
+      ? showProposalOverlay
+        ? 'Tippe direkt auf die passende Wandfläche. Der Vorschlag wird übernommen und kann danach fein angepasst werden.'
+        : 'Tippe auf die Karte, um Polygonpunkte für diesen Sektor zu setzen. Ab dem dritten Punkt kannst du speichern.'
+      : appendPointMode
+        ? 'Tippe auf die Karte, um einen weiteren Punkt in die bestehende Fläche einzufügen.'
+        : 'Ziehe Punkte oder das Label auf der Karte. Du kannst einzelne Punkte löschen und die Fläche direkt speichern.';
+
+  const mapBusy = isLoadingHallMaps || isLoadingRegions || isLoadingSectors;
+  const hasProposalOverlay = availableProposals.length > 0;
+
+  return (
+    <div className="w-full max-w-full overflow-x-hidden space-y-4 md:space-y-5">
+      <div className="space-y-2">
+        <div className="min-w-0">
+          <div className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">
+            Hallenkarte
+          </div>
+          <h3 className="mt-2 text-[1.32rem] font-semibold tracking-[-0.02em] text-[#13112B]">
+            Karte und Sektorflächen verwalten
+          </h3>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#13112B]/58">
+            Pflege das Kartenbild und ordne jedem Sektor genau eine Fläche zu.
+          </p>
+        </div>
+        <div className="text-xs text-[#13112B]/58">
+          {managedHallMap ? 'Aktive Karte eingerichtet' : 'Noch keine Hallenkarte'} / {assignedSectorCount}/{sectors.length} Sektoren zugeordnet
+          {hasProposalOverlay ? ` / ${availableProposals.length} Vorschläge verfügbar` : ''}
+        </div>
+      </div>
+
+      {hallMaps.length > 1 ? (
+        <Alert className="rounded-2xl border-[#DDE7DF] bg-white">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Mehrere Hallenkarten gefunden</AlertTitle>
+          <AlertDescription>
+            In dieser Verwaltung wird in V1 nur die aktive bzw. erste gefundene Hallenkarte bearbeitet.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <div className="grid w-full min-w-0 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-[#DDE7DF] bg-white p-4 md:p-5">
+          <div className="mb-4">
+            <div className="text-[0.78rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">
+              Kartendaten
+            </div>
+            <p className="mt-2 text-sm text-[#13112B]/58">
+              Name, Bild und aktiver Stand der Hallenkarte.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="hall-map-name" className="text-sm font-medium text-[#13112B]">
+                Kartenname
+              </Label>
+              <Input
+                id="hall-map-name"
+                value={hallMapName}
+                onChange={(event) => setHallMapName(event.target.value)}
+                placeholder="z. B. Hauptbereich"
+                className="h-11 rounded-xl border-[#DDE7DF] bg-white"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="hall-map-file" className="text-sm font-medium text-[#13112B]">
+                Kartenbild
+              </Label>
+
+              {imagePreview ? (
+                <div className="w-full overflow-hidden rounded-2xl border border-[#DDE7DF] bg-[#FCFEFC]">
+                  <img
+                    src={displayedMapImageSrc}
+                    alt={hallMapName || 'Hallenkarte'}
+                    className="block h-auto w-full max-w-full object-contain"
+                    style={{ aspectRatio: `${USER_HALL_MAP_DIMENSIONS.width} / ${USER_HALL_MAP_DIMENSIONS.height}` }}
+                    onError={() => setImageError(true)}
+                  />
+                </div>
+              ) : (
+                <div className="grid min-h-40 place-items-center rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FCFEFC] px-4 text-center text-sm text-[#13112B]/58">
+                  Noch kein Kartenbild hinterlegt.
+                </div>
+              )}
+
+              <div className="rounded-xl border border-dashed border-[#DDE7DF] bg-[#FCFEFC] p-3">
+                <Input
+                  id="hall-map-file"
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  onChange={handleImageInputChange}
+                  className="sr-only"
+                />
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <label
+                    htmlFor="hall-map-file"
+                    className="inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-xl border border-[#DDE7DF] bg-white px-4 text-sm font-medium text-[#13112B] transition-colors hover:border-[#36B531]/35 hover:bg-[#FCFEFC] sm:w-auto"
+                  >
+                    Datei auswählen
+                  </label>
+                  <div className="min-w-0 flex-1 rounded-xl border border-[#DDE7DF] bg-white px-4 py-3 text-sm text-[#13112B]/68">
+                    <span className="block truncate">
+                      {selectedImageFile?.name ?? (managedHallMap ? 'Aktuelles Kartenbild aktiv' : 'Noch keine Datei ausgewählt')}
+                    </span>
+                  </div>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-[#13112B]/55">
+                  JPG, PNG oder WebP. Die Bildmaße werden automatisch für die Kartenansicht übernommen.
+                </p>
+              </div>
+            </div>
+
+            {isSavingHallMap && uploadProgress > 0 ? (
+              <div className="space-y-2">
+                <Progress value={uploadProgress} />
+                <p className="text-xs text-[#13112B]/55">Upload: {Math.round(uploadProgress)}%</p>
+              </div>
+            ) : null}
+
+            <div className="grid gap-2 pt-1 sm:grid-cols-2">
+              <Button
+                type="button"
+                onClick={handleSaveHallMap}
+                disabled={!canSaveMap || isSavingHallMap}
+                className="w-full rounded-xl bg-[#36B531] text-white hover:bg-[#2FA12B]"
+              >
+                {isSavingHallMap ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {managedHallMap ? 'Karte speichern' : 'Karte anlegen'}
+              </Button>
+
+              {managedHallMap ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowDeleteHallMapDialog(true)}
+                  className="w-full rounded-xl border-[#E8C9C0] bg-white text-[#C14E37] hover:bg-[#FFF7F5] hover:text-[#C14E37]"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Karte löschen
+                </Button>
+              ) : null}
+            </div>
+
+            {!managedHallMap ? (
+              <Alert className="rounded-2xl border-[#DDE7DF] bg-[#FCFEFC]">
+                <MapPinned className="h-4 w-4" />
+                <AlertTitle>Ersteinrichtung</AlertTitle>
+                <AlertDescription>
+                  Lege zuerst die aktive Hallenkarte an. Danach kannst du die Sektorflächen direkt auf dem Bild setzen.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="min-w-0 space-y-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <div className="text-[0.78rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">
+                Sektorflächen
+              </div>
+              <h4 className="mt-2 text-[1.08rem] font-semibold tracking-[-0.02em] text-[#13112B]">
+                Bereiche auf der Karte bearbeiten
+              </h4>
+              <p className="mt-2 text-sm leading-6 text-[#13112B]/58">{mapInteractionHint}</p>
+            </div>
+
+            <div className="flex items-center gap-2 lg:justify-end">
+              {isMobile ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsSectorSheetOpen(true)}
+                  className="rounded-xl border-[#DDE7DF] bg-white text-[#13112B]"
+                  disabled={!managedHallMap}
+                >
+                  <PencilLine className="h-4 w-4" />
+                  Sektoren
+                </Button>
+              ) : null}
+              {selectedSector ? (
+                <Badge variant="outline" className="rounded-lg border-[#DDE7DF] bg-white px-3 py-1 text-[#13112B]">
+                  {selectedSector.name}
+                </Badge>
+              ) : null}
+            </div>
+          </div>
+
+          {!managedHallMap ? (
+            <div className="rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FCFEFC] px-4 py-5 text-sm text-[#13112B]/58">
+              Lege zuerst eine Hallenkarte an. Danach kannst du die Sektorflächen direkt auf dem Bild setzen.
+            </div>
+          ) : (
+            <div className="grid min-w-0 gap-4 xl:grid-cols-[240px_minmax(0,1fr)]">
+              {!isMobile ? (
+                <div className="min-w-0 rounded-2xl border border-[#DDE7DF] bg-white p-4">
+                  {renderSectorList()}
+                </div>
+              ) : null}
+
+              <div className="min-w-0 space-y-4">
+                <div className="w-full overflow-hidden rounded-2xl border border-[#DDE7DF] bg-[#FCFEFC]">
+                  {imageError ? (
+                    <Alert variant="destructive" className="m-3 rounded-2xl">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Kartenbild konnte nicht geladen werden</AlertTitle>
+                      <AlertDescription>
+                        Bitte prüfe die Bild-URL der aktiven Hallenkarte oder lade das Bild neu hoch.
+                      </AlertDescription>
+                    </Alert>
+                  ) : mapBusy ? (
+                    <div className="grid min-h-[420px] place-items-center bg-white text-sm text-[#13112B]/58">
+                      Kartenverwaltung wird geladen...
+                    </div>
+                  ) : (
+                    <InteractiveMapStage
+                      width={mapWidth}
+                      height={mapHeight}
+                      disablePanZoom
+                      viewportClassName="min-h-[360px] bg-white sm:min-h-[520px]"
+                    >
+                      <img
+                        src={displayedMapImageSrc}
+                        alt={managedHallMap.name}
+                        className="pointer-events-none block h-full w-full select-none object-contain"
+                        draggable={false}
+                        onError={() => setImageError(true)}
+                      />
+                      <svg
+                        ref={svgRef}
+                        viewBox={`0 0 ${mapWidth} ${mapHeight}`}
+                        preserveAspectRatio="xMidYMid meet"
+                        className="absolute inset-0 h-full w-full"
+                        onClick={handleMapOverlayClick}
+                      >
+                          {regions.map((region) => {
+                            const sector = sectors.find((entry) => entry.id === region.sector_id);
+                            if (!sector) return null;
+
+                            const isSelectedRegion =
+                              selectedSectorId === region.sector_id && editingRegionId === region.id;
+                            const points = isSelectedRegion ? activePolygonPoints : region.points_json;
+                            const labelPoint = isSelectedRegion
+                              ? normalizedDraftLabel ?? getPolygonCentroid(points)
+                              : getRegionLabelPoint(region);
+                            const absoluteLabelPoint = percentToAbsolute(labelPoint, mapWidth, mapHeight);
+
+                            return (
+                              <g key={region.id}>
+                                <polygon
+                                  points={polygonToString(points, mapWidth, mapHeight)}
+                                  fill="transparent"
+                                  stroke="rgba(19,17,43,0.001)"
+                                  strokeWidth={24}
+                                  style={{ pointerEvents: 'stroke' }}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openSectorEditor(region.sector_id);
+                                  }}
+                                />
+                                <polygon
+                                  points={polygonToString(points, mapWidth, mapHeight)}
+                                  fill={isSelectedRegion ? 'rgba(54, 181, 49, 0.22)' : 'rgba(54, 181, 49, 0.1)'}
+                                  stroke={isSelectedRegion ? '#1F7C22' : 'rgba(46, 139, 53, 0.55)'}
+                                  strokeWidth={isSelectedRegion ? 4 : 2.5}
+                                  className="cursor-pointer transition-all duration-200"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openSectorEditor(region.sector_id);
+                                  }}
+                                />
+
+                                <g
+                                  className="pointer-events-none"
+                                  transform={`translate(${absoluteLabelPoint.x}, ${absoluteLabelPoint.y})`}
+                                >
+                                  <rect
+                                    x={-58}
+                                    y={-18}
+                                    width={116}
+                                    height={36}
+                                    rx={12}
+                                    fill={isSelectedRegion ? 'rgba(19,17,43,0.92)' : 'rgba(255,255,255,0.92)'}
+                                    stroke={isSelectedRegion ? 'rgba(54,181,49,0.45)' : 'rgba(19,17,43,0.1)'}
+                                  />
+                                  <text
+                                    x={0}
+                                    y={6}
+                                    textAnchor="middle"
+                                    fontSize={14}
+                                    fontWeight={700}
+                                    fill={isSelectedRegion ? '#ffffff' : '#13112B'}
+                                  >
+                                    {sector.name}
+                                  </text>
+                                </g>
+                              </g>
+                            );
+                          })}
+
+                          {proposalAssistVisible
+                            ? availableProposals.map((proposal) => {
+                                const isProposalSelected = selectedProposalId === proposal.id || hoveredProposalId === proposal.id;
+
+                                return (
+                                  <g key={proposal.id}>
+                                    <polygon
+                                      points={polygonToString(proposal.points_json, mapWidth, mapHeight)}
+                                      fill="transparent"
+                                      stroke="rgba(19,17,43,0.001)"
+                                      strokeWidth={20}
+                                      style={{ pointerEvents: 'stroke' }}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        applyProposalToCurrentSector(proposal);
+                                      }}
+                                    />
+                                    <polygon
+                                      points={polygonToString(proposal.points_json, mapWidth, mapHeight)}
+                                      fill={isProposalSelected ? 'rgba(54, 181, 49, 0.12)' : 'rgba(54, 181, 49, 0.04)'}
+                                      stroke={isProposalSelected ? '#36B531' : 'rgba(19,17,43,0.18)'}
+                                      strokeWidth={isProposalSelected ? 3.5 : 1.6}
+                                      strokeDasharray={isProposalSelected ? 'none' : '10 10'}
+                                      className="cursor-pointer transition-all duration-200"
+                                      onMouseEnter={() => setHoveredProposalId(proposal.id)}
+                                      onMouseLeave={() => setHoveredProposalId((current) => (current === proposal.id ? null : current))}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        applyProposalToCurrentSector(proposal);
+                                      }}
+                                    />
+                                  </g>
+                                );
+                              })
+                            : null}
+
+                          {selectedSector && activePolygonPoints.length > 0 ? (
+                            <g>
+                              {activePolygonPoints.length >= 2 ? (
+                                <polyline
+                                  points={polygonToString(activePolygonPoints, mapWidth, mapHeight)}
+                                  fill={editorMode === 'edit' ? 'rgba(54, 181, 49, 0.14)' : 'rgba(54, 181, 49, 0.08)'}
+                                  stroke="#36B531"
+                                  strokeWidth={3}
+                                  strokeLinejoin="round"
+                                  strokeLinecap="round"
+                                />
+                              ) : null}
+
+                              {activePolygonPoints.length >= 3 ? (
+                                <polygon
+                                  points={polygonToString(activePolygonPoints, mapWidth, mapHeight)}
+                                  fill="rgba(54, 181, 49, 0.16)"
+                                  stroke="#1F7C22"
+                                  strokeWidth={3}
+                                  strokeLinejoin="round"
+                                />
+                              ) : null}
+
+                              {activePolygonPoints.map((point, index) => {
+                                const absolutePoint = percentToAbsolute(point, mapWidth, mapHeight);
+
+                                return (
+                                  <g key={`${selectedSector.id}-point-${index}`}>
+                                    <circle
+                                      cx={absolutePoint.x}
+                                      cy={absolutePoint.y}
+                                      r={13}
+                                      fill="rgba(54, 181, 49, 0.12)"
+                                      stroke="transparent"
+                                      className="cursor-grab active:cursor-grabbing"
+                                      onPointerDown={(event) => handleStartVertexDrag(index, event)}
+                                    />
+                                    <circle
+                                      cx={absolutePoint.x}
+                                      cy={absolutePoint.y}
+                                      r={7}
+                                      fill={selectedVertexIndex === index ? '#1F7C22' : '#36B531'}
+                                      stroke="#ffffff"
+                                      strokeWidth={3}
+                                      className="cursor-grab active:cursor-grabbing"
+                                      onPointerDown={(event) => handleStartVertexDrag(index, event)}
+                                    />
+                                    <text
+                                      x={absolutePoint.x}
+                                      y={absolutePoint.y - 14}
+                                      textAnchor="middle"
+                                      fontSize={12}
+                                      fontWeight={700}
+                                      fill="#13112B"
+                                    >
+                                      {index + 1}
+                                    </text>
+                                  </g>
+                                );
+                              })}
+
+                              {normalizedDraftLabel && activePolygonPoints.length >= 3 ? (
+                                <g>
+                                  <line
+                                    x1={percentToAbsolute(getPolygonCentroid(activePolygonPoints), mapWidth, mapHeight).x}
+                                    y1={percentToAbsolute(getPolygonCentroid(activePolygonPoints), mapWidth, mapHeight).y}
+                                    x2={percentToAbsolute(normalizedDraftLabel, mapWidth, mapHeight).x}
+                                    y2={percentToAbsolute(normalizedDraftLabel, mapWidth, mapHeight).y}
+                                    stroke="rgba(19,17,43,0.22)"
+                                    strokeDasharray="6 5"
+                                  />
+                                  <circle
+                                    cx={percentToAbsolute(normalizedDraftLabel, mapWidth, mapHeight).x}
+                                    cy={percentToAbsolute(normalizedDraftLabel, mapWidth, mapHeight).y}
+                                    r={13}
+                                    fill="rgba(19,17,43,0.1)"
+                                    stroke="transparent"
+                                    className="cursor-grab active:cursor-grabbing"
+                                    onPointerDown={handleStartLabelDrag}
+                                  />
+                                  <circle
+                                    cx={percentToAbsolute(normalizedDraftLabel, mapWidth, mapHeight).x}
+                                    cy={percentToAbsolute(normalizedDraftLabel, mapWidth, mapHeight).y}
+                                    r={7}
+                                    fill="#13112B"
+                                    stroke="#ffffff"
+                                    strokeWidth={3}
+                                    className="cursor-grab active:cursor-grabbing"
+                                    onPointerDown={handleStartLabelDrag}
+                                  />
+                                </g>
+                              ) : null}
+                            </g>
+                          ) : null}
+                      </svg>
+                    </InteractiveMapStage>
+                  )}
+                  <div className="border-t border-[#DDE7DF] bg-white px-4 py-4">
+                    {selectedSector ? (
+                      <div className="space-y-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <div className="text-sm font-semibold text-[#13112B]">{selectedSector.name}</div>
+                            <div className="mt-1 text-xs text-[#13112B]/58">
+                              {editorMode === 'create' ? 'Neue Fläche zeichnen' : 'Bestehende Fläche anpassen'}
+                            </div>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'w-fit rounded-lg px-3 py-1',
+                              editorMode === 'create'
+                                ? 'border-[#DDE7DF] bg-white text-[#13112B]/65'
+                                : 'border-[#DDE7DF] bg-[#F7FBF7] text-[#13112B]',
+                            )}
+                          >
+                            {editorMode === 'create' ? 'neu' : 'bearbeiten'}
+                          </Badge>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline" className="rounded-lg border-[#DDE7DF] bg-white px-3 py-1 text-[#13112B]">
+                            {draftPoints.length} Punkte
+                          </Badge>
+                          <Badge variant="outline" className="rounded-lg border-[#DDE7DF] bg-white px-3 py-1 text-[#13112B]/72">
+                            Label {draftLabel ? 'gesetzt' : draftPoints.length >= 3 ? 'zentrierbar' : 'offen'}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'rounded-lg px-3 py-1',
+                              isDraftDirty
+                                ? 'border-[#36B531] bg-[#F7FBF7] text-[#13112B]'
+                                : 'border-[#DDE7DF] bg-white text-[#13112B]/72',
+                            )}
+                          >
+                            {isDraftDirty ? 'ungespeichert' : 'synchron'}
+                          </Badge>
+                        </div>
+
+                        {hasProposalOverlay && editorMode === 'create' ? (
+                          <div className="rounded-xl border border-[#DDE7DF] bg-[#FCFEFC] px-4 py-3">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#13112B]/45">
+                                  Vorschlagsmodus
+                                </div>
+                                <div className="mt-1 text-sm leading-6 text-[#13112B]/68">
+                                  Tippe direkt auf eine sichtbare Wandfläche auf der Karte. Die gefundene Form wird danach als editierbare Fläche übernommen.
+                                </div>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setShowProposalOverlay((current) => !current);
+                                  setHoveredProposalId(null);
+                                }}
+                                className="w-fit rounded-xl border-[#DDE7DF] bg-white text-[#13112B]"
+                              >
+                                {showProposalOverlay ? 'Vorschlagsmodus aus' : 'Vorschlagsmodus an'}
+                              </Button>
+                            </div>
+                            <p className="mt-3 text-sm text-[#13112B]/58">
+                              {showProposalOverlay
+                                ? 'Aktiv. Die Wandflächen auf der Karte können jetzt direkt angetippt werden.'
+                                : 'Aus. Wenn du Hilfe willst, schalte den Vorschlagsmodus wieder ein.'}
+                            </p>
+                          </div>
+                        ) : null}
+
+                        {!isMobile ? editorActionBar : null}
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FCFEFC] px-4 py-6 text-sm text-[#13112B]/58">
+                        Wähle einen Sektor aus, um auf der Karte eine Fläche anzulegen oder zu bearbeiten.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {isMobile && managedHallMap && selectedSector ? (
+        <div className="sticky bottom-0 z-20 -mx-4 border-t border-[#DDE7DF] bg-[#FCFEFC]/95 px-4 py-3 backdrop-blur">
+          {editorActionBar}
+        </div>
+      ) : null}
+
+      <Sheet open={isSectorSheetOpen} onOpenChange={setIsSectorSheetOpen}>
+        <SheetContent side="bottom" className="max-h-[88vh] rounded-t-2xl bg-white px-4 pb-8 pt-6">
+          <SheetHeader>
+            <SheetTitle>Sektoren verwalten</SheetTitle>
+            <SheetDescription>Wähle einen Sektor aus, um ihn auf der Hallenkarte zuzuordnen oder zu bearbeiten.</SheetDescription>
+          </SheetHeader>
+          <div className="mt-4">{renderSectorList()}</div>
+        </SheetContent>
+      </Sheet>
+
+      <AlertDialog open={showDiscardDialog} onOpenChange={setShowDiscardDialog}>
+        <AlertDialogContent className="rounded-2xl border-[#DDE7DF]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ungespeicherte Änderungen verwerfen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deine Änderungen an der aktuellen Sektorfläche sind noch nicht gespeichert.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl border-[#DDE7DF]" onClick={handleDiscardCancel}>
+              Weiter bearbeiten
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDiscardConfirm} className="rounded-xl bg-[#36B531] text-white hover:bg-[#2FA12B]">
+              Verwerfen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteRegionDialog} onOpenChange={setShowDeleteRegionDialog}>
+        <AlertDialogContent className="rounded-2xl border-[#DDE7DF]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sektorfläche löschen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Die Region wird von der Hallenkarte entfernt. Der Sektor selbst bleibt erhalten.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl border-[#DDE7DF]">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteRegion} className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteHallMapDialog} onOpenChange={setShowDeleteHallMapDialog}>
+        <AlertDialogContent className="rounded-2xl border-[#DDE7DF]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hallenkarte löschen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Die aktive Hallenkarte und alle zugeordneten Sektorflächen werden entfernt.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl border-[#DDE7DF]">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteHallMap} className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Karte löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+};
+
 

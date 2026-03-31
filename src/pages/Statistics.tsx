@@ -4,12 +4,108 @@ import { ArrowLeft, ChevronRight, CircleDot, Flame, Mountain, TrendingUp, Trophy
 
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { useSidebar } from '@/components/SidebarContext';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/useAuth';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderCommunity';
 import { DIFFICULTY_VALUES, formatDifficulty } from '@/lib/difficulty';
 import { cn } from '@/lib/utils';
+
+const StatisticsLoadingState = () => (
+  <>
+    <div className="mb-4 mt-3 px-4 md:mt-0 md:px-0">
+      <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-3 w-44" />
+        </div>
+        <Skeleton className="h-6 w-20 rounded-full" />
+      </div>
+    </div>
+
+    <div className="mb-5 px-4 md:px-0">
+      <div className="rounded-2xl border border-border bg-card p-5">
+        <div className="flex items-center gap-5">
+          <Skeleton className="h-[88px] w-[88px] rounded-full" />
+          <div className="min-w-0 flex-1 space-y-3">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-48" />
+            <div className="space-y-2">
+              <Skeleton className="h-2 w-full" />
+              <Skeleton className="h-2 w-5/6" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="mb-5 px-4 md:px-0">
+      <div className="grid grid-cols-4 gap-2">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="rounded-2xl border border-border bg-card p-3">
+            <Skeleton className="mx-auto mb-2 h-7 w-7 rounded-xl" />
+            <Skeleton className="mx-auto h-5 w-8" />
+            <Skeleton className="mx-auto mt-2 h-3 w-12" />
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <div className="mb-5 px-4 md:px-0">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card p-4">
+        <Skeleton className="h-3 w-24" />
+        <div className="mt-4 grid grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="space-y-2 text-center">
+              <Skeleton className="mx-auto h-4 w-4 rounded-full" />
+              <Skeleton className="mx-auto h-5 w-10" />
+              <Skeleton className="mx-auto h-3 w-14" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <div className="mb-5 px-4 md:px-0">
+      <div className="rounded-2xl border border-border bg-card p-4">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="mt-2 h-3 w-36" />
+        <div className="mt-4 flex h-32 items-end gap-3">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} className="flex flex-1 flex-col items-center gap-2">
+              <Skeleton className="h-3 w-4" />
+              <Skeleton className="w-full rounded-t-sm" style={{ height: `${35 + (index % 4) * 12}%`, minHeight: '18px' }} />
+              <Skeleton className="h-3 w-6" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <div className="mb-5 px-4 md:px-0">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="p-4 pb-2">
+          <Skeleton className="h-3 w-28" />
+        </div>
+        <div className="divide-y divide-border">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="flex items-center justify-between px-4 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <Skeleton className="h-9 w-9 rounded-xl" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+              <Skeleton className="h-5 w-16 rounded-lg" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </>
+);
 
 const Statistics = () => {
   const navigate = useNavigate();
@@ -18,14 +114,23 @@ const Statistics = () => {
   const { user, loading: authLoading } = useAuth();
   const [showAllTime, setShowAllTime] = useState(false);
   const queriesEnabled = !authLoading && !!user;
-  const { data: boulders } = useBouldersWithSectors(queriesEnabled);
-  const { data: trackedBoulders } = useMyTrackedBoulders(null);
-  const { data: trackingSessions } = useMyTrackingSessions();
+  const bouldersQuery = useBouldersWithSectors(queriesEnabled);
+  const trackedBouldersQuery = useMyTrackedBoulders(null);
+  const trackingSessionsQuery = useMyTrackingSessions();
+  const { data: boulders } = bouldersQuery;
+  const { data: trackedBoulders } = trackedBouldersQuery;
+  const { data: trackingSessions } = trackingSessionsQuery;
   const selectedGradeParam = searchParams.get('grade');
   const activeGrade = useMemo(
     () => (selectedGradeParam && DIFFICULTY_VALUES.some((grade) => String(grade) === selectedGradeParam) ? selectedGradeParam : null),
     [selectedGradeParam],
   );
+  const isStatisticsLoading =
+    authLoading ||
+    (queriesEnabled &&
+      [bouldersQuery, trackedBouldersQuery, trackingSessionsQuery].some(
+        (query) => query.isLoading || (!query.error && query.data === undefined),
+      ));
 
   const setGradeFilter = (grade: string | null) => {
     const nextSearchParams = new URLSearchParams(searchParams);
@@ -142,6 +247,37 @@ const Statistics = () => {
     'flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-background',
     isExpanded ? 'md:ml-64' : 'md:ml-20',
   );
+
+  if (isStatisticsLoading) {
+    return (
+      <div className="min-h-screen flex bg-background">
+        <div className={pageLayoutClassName}>
+          <div className="hidden md:block">
+            <DashboardHeader />
+          </div>
+
+          <main className="flex-1 pb-12 md:px-6 md:pt-6 lg:px-8">
+            <div className="px-4 pt-12 pb-2 md:hidden">
+              <div className="mb-1 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate(-1)}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary transition-colors active:scale-95"
+                  aria-label="Zurück"
+                >
+                  <ArrowLeft className="h-4 w-4 text-muted-foreground" />
+                </button>
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">Statistiken</h1>
+              </div>
+              <p className="ml-[52px] text-sm text-muted-foreground">Dein Boulder-Fortschritt</p>
+            </div>
+
+            <StatisticsLoadingState />
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex bg-background">

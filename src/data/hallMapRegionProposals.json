@@ -1,0 +1,892 @@
+{
+  "generatedAt": "2026-03-31T20:02:17.839216Z",
+  "source": {
+    "imagePath": "src/assets/boulderkarte-original.png",
+    "workWidth": 735,
+    "workHeight": 466,
+    "candidateCount": 19,
+    "method": "png-wall-segmentation"
+  },
+  "notes": [
+    "Die Kandidaten werden direkt aus der sichtbaren PNG-Hallenkarte segmentiert.",
+    "Es werden nur graue Wandflaechen erkannt; weisse Freiflaechen und schwarze Trennlinien sind ausgeschlossen.",
+    "Die Punkte sind bereits auf 0..100 fuer sector_map_regions.points_json normalisiert.",
+    "Die Zuordnung zu echten Sektornamen bleibt fachlich offen und muss bestaetigt werden."
+  ],
+  "proposals": [
+    {
+      "id": "candidate-01",
+      "label": "1",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 6,
+      "areaPx": 7441.5,
+      "centroid": {
+        "x": 17.39,
+        "y": 4.29
+      },
+      "label_x": 17.39,
+      "label_y": 4.29,
+      "bounds": {
+        "minX": 0.54,
+        "maxX": 30.07,
+        "minY": 0.21,
+        "maxY": 9.87
+      },
+      "points_json": [
+        {
+          "x": 0.54,
+          "y": 0.21
+        },
+        {
+          "x": 29.8,
+          "y": 0.21
+        },
+        {
+          "x": 30.07,
+          "y": 9.87
+        },
+        {
+          "x": 24.22,
+          "y": 9.44
+        },
+        {
+          "x": 22.72,
+          "y": 8.37
+        },
+        {
+          "x": 8.03,
+          "y": 8.37
+        }
+      ]
+    },
+    {
+      "id": "candidate-02",
+      "label": "2",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 10,
+      "areaPx": 10511.5,
+      "centroid": {
+        "x": 42.62,
+        "y": 6.6
+      },
+      "label_x": 42.62,
+      "label_y": 6.6,
+      "bounds": {
+        "minX": 29.93,
+        "maxX": 55.92,
+        "minY": 0.21,
+        "maxY": 15.24
+      },
+      "points_json": [
+        {
+          "x": 29.93,
+          "y": 0.43
+        },
+        {
+          "x": 55.92,
+          "y": 0.21
+        },
+        {
+          "x": 55.92,
+          "y": 1.29
+        },
+        {
+          "x": 54.56,
+          "y": 10.52
+        },
+        {
+          "x": 51.43,
+          "y": 9.66
+        },
+        {
+          "x": 49.25,
+          "y": 9.87
+        },
+        {
+          "x": 46.94,
+          "y": 15.24
+        },
+        {
+          "x": 37.41,
+          "y": 15.24
+        },
+        {
+          "x": 35.37,
+          "y": 10.52
+        },
+        {
+          "x": 30.34,
+          "y": 10.09
+        }
+      ]
+    },
+    {
+      "id": "candidate-03",
+      "label": "3",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 11,
+      "areaPx": 17465.0,
+      "centroid": {
+        "x": 72.45,
+        "y": 8.65
+      },
+      "label_x": 72.45,
+      "label_y": 8.65,
+      "bounds": {
+        "minX": 54.69,
+        "maxX": 87.62,
+        "minY": 0.21,
+        "maxY": 20.17
+      },
+      "points_json": [
+        {
+          "x": 54.69,
+          "y": 10.3
+        },
+        {
+          "x": 56.19,
+          "y": 0.21
+        },
+        {
+          "x": 86.39,
+          "y": 0.21
+        },
+        {
+          "x": 86.39,
+          "y": 4.72
+        },
+        {
+          "x": 85.99,
+          "y": 5.58
+        },
+        {
+          "x": 87.62,
+          "y": 10.73
+        },
+        {
+          "x": 87.62,
+          "y": 12.45
+        },
+        {
+          "x": 85.71,
+          "y": 17.81
+        },
+        {
+          "x": 85.03,
+          "y": 18.67
+        },
+        {
+          "x": 78.64,
+          "y": 18.88
+        },
+        {
+          "x": 76.46,
+          "y": 20.17
+        }
+      ]
+    },
+    {
+      "id": "candidate-04",
+      "label": "4",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 4,
+      "areaPx": 11493.0,
+      "centroid": {
+        "x": 11.16,
+        "y": 42.79
+      },
+      "label_x": 11.16,
+      "label_y": 42.79,
+      "bounds": {
+        "minX": 0.14,
+        "maxX": 22.31,
+        "minY": 34.76,
+        "maxY": 51.07
+      },
+      "points_json": [
+        {
+          "x": 0.14,
+          "y": 35.41
+        },
+        {
+          "x": 22.31,
+          "y": 34.76
+        },
+        {
+          "x": 21.22,
+          "y": 51.07
+        },
+        {
+          "x": 0.27,
+          "y": 50.21
+        }
+      ]
+    },
+    {
+      "id": "candidate-05",
+      "label": "5",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 6,
+      "areaPx": 2808.0,
+      "centroid": {
+        "x": 91.77,
+        "y": 36.46
+      },
+      "label_x": 91.77,
+      "label_y": 36.46,
+      "bounds": {
+        "minX": 88.16,
+        "maxX": 93.47,
+        "minY": 22.96,
+        "maxY": 48.28
+      },
+      "points_json": [
+        {
+          "x": 88.16,
+          "y": 48.07
+        },
+        {
+          "x": 88.3,
+          "y": 45.28
+        },
+        {
+          "x": 90.48,
+          "y": 45.28
+        },
+        {
+          "x": 90.48,
+          "y": 22.96
+        },
+        {
+          "x": 93.47,
+          "y": 22.96
+        },
+        {
+          "x": 93.47,
+          "y": 48.28
+        }
+      ]
+    },
+    {
+      "id": "candidate-06",
+      "label": "6",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 5,
+      "areaPx": 6824.5,
+      "centroid": {
+        "x": 29.28,
+        "y": 45.03
+      },
+      "label_x": 29.28,
+      "label_y": 45.03,
+      "bounds": {
+        "minX": 21.36,
+        "maxX": 39.05,
+        "minY": 34.76,
+        "maxY": 51.07
+      },
+      "points_json": [
+        {
+          "x": 21.36,
+          "y": 50.64
+        },
+        {
+          "x": 22.59,
+          "y": 34.76
+        },
+        {
+          "x": 39.05,
+          "y": 44.42
+        },
+        {
+          "x": 39.05,
+          "y": 51.07
+        },
+        {
+          "x": 21.36,
+          "y": 51.07
+        }
+      ]
+    },
+    {
+      "id": "candidate-07",
+      "label": "7",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 3,
+      "areaPx": 2461.5,
+      "centroid": {
+        "x": 67.21,
+        "y": 46.42
+      },
+      "label_x": 67.21,
+      "label_y": 46.42,
+      "bounds": {
+        "minX": 62.04,
+        "maxX": 73.06,
+        "minY": 37.77,
+        "maxY": 51.07
+      },
+      "points_json": [
+        {
+          "x": 62.04,
+          "y": 51.07
+        },
+        {
+          "x": 66.53,
+          "y": 37.77
+        },
+        {
+          "x": 73.06,
+          "y": 50.43
+        }
+      ]
+    },
+    {
+      "id": "candidate-08",
+      "label": "8",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 6,
+      "areaPx": 5183.0,
+      "centroid": {
+        "x": 57.8,
+        "y": 45.17
+      },
+      "label_x": 57.8,
+      "label_y": 45.17,
+      "bounds": {
+        "minX": 50.34,
+        "maxX": 66.39,
+        "minY": 37.55,
+        "maxY": 51.29
+      },
+      "points_json": [
+        {
+          "x": 50.34,
+          "y": 47.21
+        },
+        {
+          "x": 50.48,
+          "y": 43.99
+        },
+        {
+          "x": 52.11,
+          "y": 41.42
+        },
+        {
+          "x": 66.39,
+          "y": 37.55
+        },
+        {
+          "x": 61.9,
+          "y": 51.29
+        },
+        {
+          "x": 50.34,
+          "y": 51.07
+        }
+      ]
+    },
+    {
+      "id": "candidate-09",
+      "label": "9",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 4,
+      "areaPx": 2511.0,
+      "centroid": {
+        "x": 44.75,
+        "y": 47.75
+      },
+      "label_x": 44.75,
+      "label_y": 47.75,
+      "bounds": {
+        "minX": 39.18,
+        "maxX": 50.2,
+        "minY": 44.21,
+        "maxY": 51.07
+      },
+      "points_json": [
+        {
+          "x": 39.18,
+          "y": 44.64
+        },
+        {
+          "x": 50.2,
+          "y": 44.21
+        },
+        {
+          "x": 50.2,
+          "y": 51.07
+        },
+        {
+          "x": 39.18,
+          "y": 51.07
+        }
+      ]
+    },
+    {
+      "id": "candidate-10",
+      "label": "10",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 5,
+      "areaPx": 6090.5,
+      "centroid": {
+        "x": 24.38,
+        "y": 57.0
+      },
+      "label_x": 24.38,
+      "label_y": 57.0,
+      "bounds": {
+        "minX": 14.42,
+        "maxX": 31.84,
+        "minY": 51.29,
+        "maxY": 66.74
+      },
+      "points_json": [
+        {
+          "x": 14.42,
+          "y": 51.29
+        },
+        {
+          "x": 31.84,
+          "y": 51.5
+        },
+        {
+          "x": 31.16,
+          "y": 66.74
+        },
+        {
+          "x": 16.6,
+          "y": 58.15
+        },
+        {
+          "x": 15.24,
+          "y": 57.94
+        }
+      ]
+    },
+    {
+      "id": "candidate-11",
+      "label": "11",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 7,
+      "areaPx": 6028.5,
+      "centroid": {
+        "x": 5.82,
+        "y": 58.24
+      },
+      "label_x": 5.82,
+      "label_y": 58.24,
+      "bounds": {
+        "minX": 0.14,
+        "maxX": 15.1,
+        "minY": 50.64,
+        "maxY": 69.31
+      },
+      "points_json": [
+        {
+          "x": 0.14,
+          "y": 50.64
+        },
+        {
+          "x": 14.15,
+          "y": 51.29
+        },
+        {
+          "x": 15.1,
+          "y": 57.94
+        },
+        {
+          "x": 7.21,
+          "y": 57.3
+        },
+        {
+          "x": 8.16,
+          "y": 64.16
+        },
+        {
+          "x": 7.07,
+          "y": 69.31
+        },
+        {
+          "x": 0.14,
+          "y": 66.95
+        }
+      ]
+    },
+    {
+      "id": "candidate-12",
+      "label": "12",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 6,
+      "areaPx": 11499.0,
+      "centroid": {
+        "x": 52.35,
+        "y": 60.31
+      },
+      "label_x": 52.35,
+      "label_y": 60.31,
+      "bounds": {
+        "minX": 42.31,
+        "maxX": 61.77,
+        "minY": 51.5,
+        "maxY": 72.96
+      },
+      "points_json": [
+        {
+          "x": 42.31,
+          "y": 51.5
+        },
+        {
+          "x": 61.77,
+          "y": 51.72
+        },
+        {
+          "x": 61.77,
+          "y": 72.96
+        },
+        {
+          "x": 58.5,
+          "y": 68.03
+        },
+        {
+          "x": 49.52,
+          "y": 70.39
+        },
+        {
+          "x": 42.31,
+          "y": 65.02
+        }
+      ]
+    },
+    {
+      "id": "candidate-13",
+      "label": "13",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 4,
+      "areaPx": 6792.0,
+      "centroid": {
+        "x": 67.14,
+        "y": 60.51
+      },
+      "label_x": 67.14,
+      "label_y": 60.51,
+      "bounds": {
+        "minX": 62.04,
+        "maxX": 73.2,
+        "minY": 50.86,
+        "maxY": 73.18
+      },
+      "points_json": [
+        {
+          "x": 62.04,
+          "y": 51.72
+        },
+        {
+          "x": 73.2,
+          "y": 50.86
+        },
+        {
+          "x": 72.52,
+          "y": 66.31
+        },
+        {
+          "x": 62.04,
+          "y": 73.18
+        }
+      ]
+    },
+    {
+      "id": "candidate-14",
+      "label": "14",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 8,
+      "areaPx": 15453.5,
+      "centroid": {
+        "x": 37.24,
+        "y": 75.59
+      },
+      "label_x": 37.24,
+      "label_y": 75.59,
+      "bounds": {
+        "minX": 30.34,
+        "maxX": 42.04,
+        "minY": 51.5,
+        "maxY": 100.0
+      },
+      "points_json": [
+        {
+          "x": 30.34,
+          "y": 92.7
+        },
+        {
+          "x": 35.51,
+          "y": 87.34
+        },
+        {
+          "x": 33.2,
+          "y": 68.03
+        },
+        {
+          "x": 31.43,
+          "y": 66.95
+        },
+        {
+          "x": 31.97,
+          "y": 51.5
+        },
+        {
+          "x": 42.04,
+          "y": 51.5
+        },
+        {
+          "x": 42.04,
+          "y": 100.0
+        },
+        {
+          "x": 30.48,
+          "y": 99.79
+        }
+      ]
+    },
+    {
+      "id": "candidate-15",
+      "label": "15",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 7,
+      "areaPx": 8912.0,
+      "centroid": {
+        "x": 6.34,
+        "y": 88.56
+      },
+      "label_x": 6.34,
+      "label_y": 88.56,
+      "bounds": {
+        "minX": 0.14,
+        "maxX": 21.63,
+        "minY": 67.38,
+        "maxY": 100.0
+      },
+      "points_json": [
+        {
+          "x": 0.14,
+          "y": 67.38
+        },
+        {
+          "x": 6.94,
+          "y": 69.53
+        },
+        {
+          "x": 3.4,
+          "y": 86.91
+        },
+        {
+          "x": 11.29,
+          "y": 94.85
+        },
+        {
+          "x": 21.5,
+          "y": 95.28
+        },
+        {
+          "x": 21.63,
+          "y": 100.0
+        },
+        {
+          "x": 0.14,
+          "y": 100.0
+        }
+      ]
+    },
+    {
+      "id": "candidate-16",
+      "label": "16",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 6,
+      "areaPx": 6887.5,
+      "centroid": {
+        "x": 91.76,
+        "y": 92.96
+      },
+      "label_x": 91.76,
+      "label_y": 92.96,
+      "bounds": {
+        "minX": 77.69,
+        "maxX": 99.86,
+        "minY": 75.11,
+        "maxY": 100.0
+      },
+      "points_json": [
+        {
+          "x": 77.69,
+          "y": 93.78
+        },
+        {
+          "x": 96.46,
+          "y": 93.78
+        },
+        {
+          "x": 96.46,
+          "y": 75.11
+        },
+        {
+          "x": 99.86,
+          "y": 75.11
+        },
+        {
+          "x": 99.86,
+          "y": 100.0
+        },
+        {
+          "x": 77.82,
+          "y": 100.0
+        }
+      ]
+    },
+    {
+      "id": "candidate-17",
+      "label": "17",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 4,
+      "areaPx": 3996.0,
+      "centroid": {
+        "x": 57.37,
+        "y": 97.65
+      },
+      "label_x": 57.37,
+      "label_y": 97.65,
+      "bounds": {
+        "minX": 42.59,
+        "maxX": 69.93,
+        "minY": 95.28,
+        "maxY": 100.0
+      },
+      "points_json": [
+        {
+          "x": 42.59,
+          "y": 99.79
+        },
+        {
+          "x": 46.8,
+          "y": 95.28
+        },
+        {
+          "x": 69.93,
+          "y": 95.28
+        },
+        {
+          "x": 69.93,
+          "y": 100.0
+        }
+      ]
+    },
+    {
+      "id": "candidate-18",
+      "label": "18",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 6,
+      "areaPx": 4238.5,
+      "centroid": {
+        "x": 44.56,
+        "y": 80.09
+      },
+      "label_x": 44.56,
+      "label_y": 80.09,
+      "bounds": {
+        "minX": 42.31,
+        "maxX": 49.39,
+        "minY": 65.24,
+        "maxY": 99.79
+      },
+      "points_json": [
+        {
+          "x": 42.31,
+          "y": 65.24
+        },
+        {
+          "x": 49.39,
+          "y": 70.6
+        },
+        {
+          "x": 44.08,
+          "y": 87.34
+        },
+        {
+          "x": 44.22,
+          "y": 88.63
+        },
+        {
+          "x": 46.67,
+          "y": 95.06
+        },
+        {
+          "x": 42.45,
+          "y": 99.79
+        }
+      ]
+    },
+    {
+      "id": "candidate-19",
+      "label": "19",
+      "source": "png-segmentation",
+      "surfaceRole": "wall",
+      "pointCount": 6,
+      "areaPx": 6404.0,
+      "centroid": {
+        "x": 3.05,
+        "y": 18.44
+      },
+      "label_x": 3.05,
+      "label_y": 18.44,
+      "bounds": {
+        "minX": 0.14,
+        "maxX": 8.03,
+        "minY": 0.43,
+        "maxY": 35.19
+      },
+      "points_json": [
+        {
+          "x": 0.14,
+          "y": 0.43
+        },
+        {
+          "x": 8.03,
+          "y": 8.58
+        },
+        {
+          "x": 6.39,
+          "y": 15.45
+        },
+        {
+          "x": 5.44,
+          "y": 17.17
+        },
+        {
+          "x": 5.58,
+          "y": 35.19
+        },
+        {
+          "x": 0.14,
+          "y": 34.98
+        }
+      ]
+    }
+  ]
+}

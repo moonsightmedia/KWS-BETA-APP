@@ -1,19 +1,18 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Pencil, RefreshCcw, Search, Shield, ShieldOff } from "lucide-react";
+import { ChevronDown, Pencil, RefreshCcw, Search, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MaterialIcon } from "@/components/MaterialIcon";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 type UserProfileRecord = {
@@ -66,6 +65,7 @@ export const UserManagement = () => {
   const [activeSegment, setActiveSegment] = useState<UserSegment>("all");
   const [editOpen, setEditOpen] = useState(false);
   const [editUser, setEditUser] = useState<AdminUserRecord | null>(null);
+  const [expandedUserIds, setExpandedUserIds] = useState<string[]>([]);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [birthDate, setBirthDate] = useState("");
@@ -88,7 +88,7 @@ export const UserManagement = () => {
       }
 
       if (!accessToken) {
-        throw new Error("Keine aktive Session verfuegbar");
+        throw new Error("Keine aktive Session verfügbar");
       }
 
       const profilesResponse = await window.fetch(`${supabaseUrl}/rest/v1/profiles?select=*&order=created_at.desc`, {
@@ -254,6 +254,12 @@ export const UserManagement = () => {
     await resetPasswordForEmail(editUser?.email);
   };
 
+  const toggleExpandedUser = (userId: string) => {
+    setExpandedUserIds((current) =>
+      current.includes(userId) ? current.filter((entryId) => entryId !== userId) : [...current, userId],
+    );
+  };
+
   const allUsers = users ?? [];
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const filteredUsers = allUsers.filter((entry) => {
@@ -277,217 +283,261 @@ export const UserManagement = () => {
 
   const adminCount = allUsers.filter((entry) => entry.isAdmin).length;
   const setterCount = allUsers.filter((entry) => entry.isSetter).length;
+  const segmentTriggerClassName =
+    "h-10 rounded-lg border border-[#DDE7DF] bg-white px-4 text-sm text-[#13112B] data-[state=active]:border-[#36B531] data-[state=active]:bg-[#F7FBF7] data-[state=active]:text-[#13112B]";
 
   if (isLoading) {
     return (
-      <div className="space-y-8">
-        <section>
-          <h2 className="mb-1 text-xl font-bold text-foreground">Benutzer</h2>
-          <p className="mb-4 text-sm text-muted-foreground">Lade Benutzerverwaltung...</p>
-          <Card>
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">Benutzer werden geladen.</p>
-            </CardContent>
-          </Card>
-        </section>
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <div className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Benutzer</div>
+          <h2 className="text-[1.32rem] font-semibold tracking-[-0.02em] text-[#13112B]">
+            Profile und Rollen verwalten
+          </h2>
+          <p className="max-w-2xl text-sm leading-6 text-[#13112B]/58">
+            Lade die Benutzerverwaltung und bereite die Stammdaten sowie Rollenansichten vor.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-[#DDE7DF] bg-white px-5 py-6 text-sm text-[#13112B]/58">
+          Benutzer werden geladen.
+        </div>
       </div>
     );
   }
 
   if (isError || error) {
     return (
-      <div className="space-y-8">
-        <section>
-          <h2 className="mb-1 text-xl font-bold text-foreground">Benutzer</h2>
-          <p className="mb-4 text-sm text-muted-foreground">Fehlerzustand</p>
-          <Card>
-            <CardContent className="space-y-4 pt-6">
-              <p className="text-sm text-destructive">Fehler beim Laden der Benutzer.</p>
-              <p className="text-sm text-muted-foreground">
-                {error instanceof Error ? error.message : "Unbekannter Fehler"}
-              </p>
-              <Button variant="outline" onClick={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}>
-                Erneut versuchen
-              </Button>
-            </CardContent>
-          </Card>
-        </section>
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <div className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Benutzer</div>
+          <h2 className="text-[1.32rem] font-semibold tracking-[-0.02em] text-[#13112B]">
+            Profile und Rollen verwalten
+          </h2>
+          <p className="max-w-2xl text-sm leading-6 text-[#13112B]/58">
+            Die Benutzerseite konnte gerade nicht geladen werden.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-[#E8C9C0] bg-white px-5 py-6">
+          <p className="text-sm font-medium text-[#C14E37]">Fehler beim Laden der Benutzer.</p>
+          <p className="mt-2 text-sm text-[#13112B]/58">
+            {error instanceof Error ? error.message : "Unbekannter Fehler"}
+          </p>
+          <Button
+            variant="outline"
+            className="mt-4 rounded-xl border-[#DDE7DF] bg-white text-[#13112B]"
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}
+          >
+            Erneut versuchen
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      <section>
-        <h2 className="mb-1 text-xl font-bold text-foreground">Benutzer</h2>
-        <p className="mb-4 text-sm text-muted-foreground">Verwalte Profile, Rollen und Stammdaten</p>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Übersicht</CardTitle>
-            <CardDescription>{allUsers.length} Profile im System</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-3">
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Alle Benutzer</p>
-                  <p className="mt-2 text-2xl font-bold text-foreground">{allUsers.length}</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Admins</p>
-                  <p className="mt-2 text-2xl font-bold text-foreground">{adminCount}</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Setter</p>
-                  <p className="mt-2 text-2xl font-bold text-foreground">{setterCount}</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-3">
-              <Tabs value={activeSegment} onValueChange={(value) => setActiveSegment(value as UserSegment)}>
-                <TabsList className="grid h-auto w-full grid-cols-2 gap-1 md:grid-cols-4">
-                  <TabsTrigger value="all">Alle</TabsTrigger>
-                  <TabsTrigger value="admins">Admin Accounts</TabsTrigger>
-                  <TabsTrigger value="setters">Setter</TabsTrigger>
-                  <TabsTrigger value="users">User</TabsTrigger>
-                </TabsList>
-              </Tabs>
-
-              <div className="flex flex-col gap-3 md:flex-row">
-                <div className="relative flex-1">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Name oder E-Mail suchen"
-                    className="pl-9"
-                  />
-                </div>
-                <Button variant="outline" onClick={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}>
-                  <RefreshCcw className="mr-2 h-4 w-4" />
-                  Neu laden
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
-
-      <section>
-        <h2 className="mb-1 text-xl font-bold text-foreground">Benutzerliste</h2>
-        <p className="mb-4 text-sm text-muted-foreground">{filteredUsers.length} sichtbare Eintraege</p>
-
-        <div className="space-y-4">
-          {filteredUsers.map((entry) => (
-            <Card key={entry.id}>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">{getDisplayName(entry)}</CardTitle>
-                <CardDescription>{entry.email || "Keine E-Mail"}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {entry.isAdmin ? (
-                    <Badge>
-                      <Shield className="mr-1 h-3 w-3" />
-                      Admin
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary">Benutzer</Badge>
-                  )}
-                  {entry.isSetter && (
-                    <Badge variant="outline">
-                      <MaterialIcon name="build" className="mr-1 h-3 w-3" size={12} />
-                      Setter
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="grid gap-3 text-sm md:grid-cols-2">
-                  <div className="rounded-lg bg-muted/40 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Registriert</p>
-                    <p className="mt-1 text-foreground">{formatJoinedDate(entry.created_at)}</p>
-                  </div>
-                  <div className="rounded-lg bg-muted/40 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Geburtsdatum</p>
-                    <p className="mt-1 text-foreground">{entry.birth_date ? String(entry.birth_date).slice(0, 10) : "Nicht hinterlegt"}</p>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm">Rollen & Rechte</CardTitle>
-                    <CardDescription>Verwalte Zugriffe direkt in diesem Bereich</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <Label className="text-sm font-medium text-foreground">Admin-Rechte</Label>
-                        <p className="text-xs text-muted-foreground">Voller Zugriff auf den Adminbereich</p>
-                      </div>
-                      <Switch
-                        checked={entry.isAdmin}
-                        disabled={toggleAdminMutation.isPending}
-                        onCheckedChange={() =>
-                          toggleAdminMutation.mutate({
-                            userId: entry.id,
-                            isAdmin: entry.isAdmin,
-                          })
-                        }
-                      />
-                    </div>
-
-                    <Separator />
-
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <Label className="text-sm font-medium text-foreground">Setter-Rechte</Label>
-                        <p className="text-xs text-muted-foreground">Boulder und Inhalte pflegen</p>
-                      </div>
-                      <Switch
-                        checked={entry.isSetter}
-                        disabled={toggleSetterMutation.isPending}
-                        onCheckedChange={() =>
-                          toggleSetterMutation.mutate({
-                            userId: entry.id,
-                            isSetter: entry.isSetter,
-                          })
-                        }
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button variant="outline" onClick={() => openEdit(entry)}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Bearbeiten
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => resetPasswordForEmail(entry.email)}
-                    disabled={passwordResetPending}
-                  >
-                    Passwort-Reset
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+    <div className="space-y-5">
+      <section className="space-y-2">
+        <div className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Benutzer</div>
+        <h2 className="text-[1.32rem] font-semibold tracking-[-0.02em] text-[#13112B]">
+          Profile und Rollen verwalten
+        </h2>
+        <p className="max-w-2xl text-sm leading-6 text-[#13112B]/58">
+          Suche Nutzer, prüfe Stammdaten und vergebe Admin- oder Setterrechte direkt im selben Bereich.
+        </p>
+        <div className="text-xs text-[#13112B]/58">
+          {allUsers.length} Profile / {adminCount} Admins / {setterCount} Setter
         </div>
       </section>
 
+      <section className="space-y-3">
+        <div>
+          <div className="text-[0.78rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Filter</div>
+          <p className="mt-2 text-sm text-[#13112B]/58">
+            Grenze die Liste nach Rollen ein und suche gezielt nach Namen oder E-Mail-Adressen.
+          </p>
+        </div>
+
+        <Tabs value={activeSegment} onValueChange={(value) => setActiveSegment(value as UserSegment)}>
+          <TabsList className="flex h-auto w-full flex-wrap gap-2 bg-transparent p-0">
+            <TabsTrigger value="all" className={segmentTriggerClassName}>Alle</TabsTrigger>
+            <TabsTrigger value="admins" className={segmentTriggerClassName}>Admins</TabsTrigger>
+            <TabsTrigger value="setters" className={segmentTriggerClassName}>Setter</TabsTrigger>
+            <TabsTrigger value="users" className={segmentTriggerClassName}>Benutzer</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+          <div className="relative min-w-0">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#13112B]/38" />
+            <Input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Name oder E-Mail suchen"
+              className="h-11 rounded-xl border-[#DDE7DF] bg-white pl-9"
+            />
+          </div>
+          <Button
+            variant="outline"
+            className="h-11 w-11 rounded-xl border-[#DDE7DF] bg-white px-0 text-[#13112B] sm:w-auto sm:px-4"
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["admin-users"] })}
+          >
+            <RefreshCcw className="h-4 w-4 sm:mr-2" />
+            <span className="sr-only sm:not-sr-only sm:inline">Neu laden</span>
+          </Button>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="text-[0.78rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Benutzerliste</div>
+            <p className="mt-2 text-sm text-[#13112B]/58">
+              {filteredUsers.length} sichtbare Einträge
+            </p>
+          </div>
+        </div>
+
+        {filteredUsers.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FCFEFC] px-5 py-6 text-sm text-[#13112B]/58">
+            Kein passender Benutzer gefunden.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredUsers.map((entry) => {
+              const isExpanded = expandedUserIds.includes(entry.id);
+
+              return (
+                <article
+                  key={entry.id}
+                  className="rounded-2xl border border-[#DDE7DF] bg-white"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleExpandedUser(entry.id)}
+                    className="w-full px-4 py-4 text-left md:px-5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-base font-semibold text-[#13112B] md:text-lg">{getDisplayName(entry)}</h3>
+                        <p className="mt-1 truncate text-sm text-[#13112B]/62">
+                          {entry.email || "Keine E-Mail hinterlegt"}
+                        </p>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "rounded-lg px-3 py-1 text-[11px] font-semibold",
+                              entry.isAdmin
+                                ? "border-[#36B531] bg-[#F7FBF7] text-[#13112B]"
+                                : "border-[#DDE7DF] bg-white text-[#13112B]/72",
+                            )}
+                          >
+                            {entry.isAdmin ? <Shield className="mr-1 h-3 w-3" /> : null}
+                            {entry.isAdmin ? "Admin" : "Benutzer"}
+                          </Badge>
+                          {entry.isSetter ? (
+                            <Badge variant="outline" className="rounded-lg border-[#DDE7DF] bg-white px-3 py-1 text-[11px] font-semibold text-[#13112B]">
+                              <MaterialIcon name="build" className="mr-1 h-3 w-3" size={12} />
+                              Setter
+                            </Badge>
+                          ) : null}
+                        </div>
+
+                        <div className="mt-3 flex flex-col gap-2 text-sm text-[#13112B]/68 sm:flex-row sm:flex-wrap sm:gap-x-5">
+                          <span>Registriert: {formatJoinedDate(entry.created_at)}</span>
+                          <span>Geburtsdatum: {entry.birth_date ? String(entry.birth_date).slice(0, 10) : "Nicht hinterlegt"}</span>
+                        </div>
+                      </div>
+
+                      <ChevronDown
+                        className={cn(
+                          "mt-1 h-5 w-5 shrink-0 text-[#13112B]/42 transition-transform duration-200",
+                          isExpanded && "rotate-180",
+                        )}
+                      />
+                    </div>
+                  </button>
+
+                  {isExpanded ? (
+                    <div className="border-t border-[#DDE7DF] px-4 py-4 md:px-5">
+                      <div className="space-y-4">
+                        <div>
+                          <div className="text-[0.78rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">
+                            Rollen und Rechte
+                          </div>
+                          <p className="mt-2 text-sm text-[#13112B]/58">
+                            Verwalte Zugriffe direkt in diesem Bereich.
+                          </p>
+                        </div>
+
+                        <div className="divide-y divide-[#DDE7DF] rounded-xl border border-[#DDE7DF] bg-[#FCFEFC]">
+                          <div className="flex items-center justify-between gap-4 px-4 py-3">
+                            <div>
+                              <Label className="text-sm font-medium text-[#13112B]">Admin-Rechte</Label>
+                              <p className="mt-1 text-xs text-[#13112B]/58">Voller Zugriff auf den Adminbereich</p>
+                            </div>
+                            <Switch
+                              checked={entry.isAdmin}
+                              disabled={toggleAdminMutation.isPending}
+                              onCheckedChange={() =>
+                                toggleAdminMutation.mutate({
+                                  userId: entry.id,
+                                  isAdmin: entry.isAdmin,
+                                })
+                              }
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between gap-4 px-4 py-3">
+                            <div>
+                              <Label className="text-sm font-medium text-[#13112B]">Setter-Rechte</Label>
+                              <p className="mt-1 text-xs text-[#13112B]/58">Boulder und Inhalte pflegen</p>
+                            </div>
+                            <Switch
+                              checked={entry.isSetter}
+                              disabled={toggleSetterMutation.isPending}
+                              onCheckedChange={() =>
+                                toggleSetterMutation.mutate({
+                                  userId: entry.id,
+                                  isSetter: entry.isSetter,
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Button
+                            className="rounded-xl bg-[#36B531] text-white hover:bg-[#2FA12B] sm:w-auto"
+                            onClick={() => openEdit(entry)}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Bearbeiten
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="rounded-xl border-[#DDE7DF] bg-white text-[#13112B] sm:w-auto"
+                            onClick={() => resetPasswordForEmail(entry.email)}
+                            disabled={passwordResetPending}
+                          >
+                            Passwort zurücksetzen
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-[560px]">
+        <DialogContent className="rounded-2xl border-[#DDE7DF] bg-white sm:max-w-[560px]">
           <DialogHeader>
             <DialogTitle>Benutzer bearbeiten</DialogTitle>
             <DialogDescription>Bearbeite die Stammdaten dieses Profils.</DialogDescription>
@@ -496,36 +546,43 @@ export const UserManagement = () => {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>E-Mail</Label>
-              <Input value={editUser?.email || ""} readOnly />
+              <Input value={editUser?.email || ""} readOnly className="h-11 rounded-xl border-[#DDE7DF] bg-white" />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Vorname</Label>
-                <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} />
+                <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} className="h-11 rounded-xl border-[#DDE7DF] bg-white" />
               </div>
               <div className="space-y-2">
                 <Label>Nachname</Label>
-                <Input value={lastName} onChange={(event) => setLastName(event.target.value)} />
+                <Input value={lastName} onChange={(event) => setLastName(event.target.value)} className="h-11 rounded-xl border-[#DDE7DF] bg-white" />
               </div>
             </div>
 
             <div className="space-y-2">
               <Label>Geburtsdatum</Label>
-              <Input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} />
+              <Input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} className="h-11 rounded-xl border-[#DDE7DF] bg-white" />
             </div>
 
-            <Separator />
-
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
-              <Button variant="outline" onClick={resetPasswordForEditedUser} disabled={passwordResetPending}>
+              <Button
+                variant="outline"
+                className="rounded-xl border-[#DDE7DF] bg-white text-[#13112B]"
+                onClick={resetPasswordForEditedUser}
+                disabled={passwordResetPending}
+              >
                 Passwort zurücksetzen
               </Button>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <Button variant="outline" onClick={() => setEditOpen(false)}>
+                <Button variant="outline" className="rounded-xl border-[#DDE7DF] bg-white text-[#13112B]" onClick={() => setEditOpen(false)}>
                   Abbrechen
                 </Button>
-                <Button onClick={() => saveProfileMutation.mutate()} disabled={saveProfileMutation.isPending}>
+                <Button
+                  className="rounded-xl bg-[#36B531] text-white hover:bg-[#2FA12B]"
+                  onClick={() => saveProfileMutation.mutate()}
+                  disabled={saveProfileMutation.isPending}
+                >
                   Speichern
                 </Button>
               </div>

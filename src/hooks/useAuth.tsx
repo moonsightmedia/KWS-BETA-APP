@@ -46,10 +46,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (metadata?.birth_date !== undefined && metadata.birth_date !== null && String(metadata.birth_date).trim() !== '') {
       payload.birth_date = metadata.birth_date;
     }
-    // Sync avatar_url if it exists or was cleared explicitly
-    if (metadata?.avatar_url !== undefined) {
-      payload.avatar_url = metadata.avatar_url || null;
-    }
     // Always sync email if available
     if (metadata?.email) {
       payload.email = metadata.email;
@@ -58,7 +54,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // First check if profile exists
     const { data: existingProfile, error: checkError } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, full_name, email, avatar_url')
+      .select('id, first_name, last_name, full_name, email')
       .eq('id', userId)
       .maybeSingle();
     
@@ -99,7 +95,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setTimeout(async () => {
         const { data: retryProfile } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, full_name, email, avatar_url')
+          .select('id, first_name, last_name, full_name, email')
           .eq('id', userId)
           .maybeSingle();
         

@@ -11,11 +11,34 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { deleteProfileAvatar, uploadProfileAvatar } from '@/integrations/supabase/storage';
+import { supabaseRestRequest } from '@/lib/supabaseRest';
+
+const AUTH_UPDATE_TIMEOUT_MS = 10_000;
+
+async function updateAuthUserWithTimeout(
+  update: Parameters<typeof supabase.auth.updateUser>[0],
+  timeoutMessage: string,
+) {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    window.setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, AUTH_UPDATE_TIMEOUT_MS);
+  });
+
+  const result = await Promise.race([
+    supabase.auth.updateUser(update),
+    timeoutPromise,
+  ]);
+
+  if (result.error) {
+    throw result.error;
+  }
+}
 
 const ProfileEdit = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const { user, resetPassword } = useAuth();
+  const { user, session, resetPassword } = useAuth();
 
   const [form, setForm] = useState({
     name: 'Kletterer',
@@ -62,27 +85,26 @@ const ProfileEdit = () => {
       setLoadingProfile(false);
 
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('first_name,last_name,full_name,email,avatar_url')
-          .eq('id', user.id)
-          .maybeSingle();
-
         if (cancelled) return;
-        if (error) throw error;
+        const data = await supabaseRestRequest<Array<{
+          first_name: string | null;
+          last_name: string | null;
+          full_name: string | null;
+          email: string | null;
+        }>>(
+          `/rest/v1/profiles?id=eq.${user.id}&select=first_name,last_name,full_name,email&limit=1`,
+          { accessToken: session?.access_token },
+        );
 
         const profileName =
-          data?.full_name?.trim() ||
-          [data?.first_name, data?.last_name].filter(Boolean).join(' ').trim() ||
+          data[0]?.full_name?.trim() ||
+          [data[0]?.first_name, data[0]?.last_name].filter(Boolean).join(' ').trim() ||
           fallbackName;
-        const nextAvatarUrl =
-          data?.avatar_url ||
-          metadataAvatarUrl ||
-          null;
+        const nextAvatarUrl = metadataAvatarUrl || null;
 
         setForm({
           name: profileName,
-          email: data?.email || user.email || '',
+          email: data[0]?.email || user.email || '',
           avatarUrl: nextAvatarUrl,
         });
         setInitialAvatarUrl(nextAvatarUrl);
@@ -102,7 +124,7 @@ const ProfileEdit = () => {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [session?.access_token, user]);
 
   const avatarPreviewUrl = useMemo(() => {
     if (!avatarFile) return null;
@@ -169,6 +191,7 @@ const ProfileEdit = () => {
       const firstName = nameParts[0] || null;
       const lastName = nameParts.slice(1).join(' ').trim() || null;
       let nextAvatarUrl = form.avatarUrl;
+      const emailChanged = trimmedEmail !== (user.email || '');
 
       if (avatarFile) {
         uploadedAvatarUrl = await uploadProfileAvatar(avatarFile, user.id);
@@ -183,25 +206,36 @@ const ProfileEdit = () => {
         avatar_url: nextAvatarUrl,
       };
 
-      const profileUpdate = supabase
-        .from('profiles')
-        .update({
+      if (emailChanged) {
+        await updateAuthUserWithTimeout(
+          { email: trimmedEmail, data: { ...metadata, email: trimmedEmail } },
+          'Die neue E-Mail-Adresse konnte nicht rechtzeitig gespeichert werden.',
+        );
+      }
+
+      await supabaseRestRequest(
+        `/rest/v1/profiles?id=eq.${user.id}`,
+        {
+          accessToken: session?.access_token,
+          method: 'PATCH',
+          prefer: 'return=minimal',
+          body: {
           first_name: firstName,
           last_name: lastName,
           full_name: trimmedName,
           email: trimmedEmail,
-          avatar_url: nextAvatarUrl,
-        } as any)
-        .eq('id', user.id);
+          },
+        },
+      );
 
-      const authUpdate =
-        trimmedEmail !== (user.email || '')
-          ? supabase.auth.updateUser({ email: trimmedEmail, data: { ...metadata, email: trimmedEmail } })
-          : supabase.auth.updateUser({ data: { ...metadata, email: trimmedEmail } });
-
-      const [{ error: profileError }, { error: authError }] = await Promise.all([profileUpdate, authUpdate]);
-      if (profileError) throw profileError;
-      if (authError) throw authError;
+      if (!emailChanged) {
+        void updateAuthUserWithTimeout(
+          { data: { ...metadata, email: trimmedEmail } },
+          'Die Kontodaten konnten nicht rechtzeitig synchronisiert werden.',
+        ).catch(() => {
+          // Das sichtbare Profil kommt aus `profiles`; ein hängender Metadaten-Sync darf den Flow nicht blockieren.
+        });
+      }
 
       if (initialAvatarUrl && initialAvatarUrl !== nextAvatarUrl) {
         await deleteProfileAvatar(initialAvatarUrl);
@@ -209,7 +243,7 @@ const ProfileEdit = () => {
 
       toast.success('Profil gespeichert', {
         description:
-          trimmedEmail !== (user.email || '')
+          emailChanged
             ? 'Bitte best\u00E4tige gegebenenfalls deine neue E-Mail-Adresse.'
             : 'Deine \u00C4nderungen wurden gespeichert.',
       });
@@ -217,7 +251,7 @@ const ProfileEdit = () => {
       setInitialAvatarUrl(nextAvatarUrl);
       setForm((current) => ({ ...current, avatarUrl: nextAvatarUrl }));
       setAvatarFile(null);
-      navigate(-1);
+      navigate('/profile', { replace: true });
     } catch (error: unknown) {
       if (uploadedAvatarUrl && uploadedAvatarUrl !== initialAvatarUrl) {
         await deleteProfileAvatar(uploadedAvatarUrl);

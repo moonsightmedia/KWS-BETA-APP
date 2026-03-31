@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, BadgeCheck, Play, Video } from 'lucide-react';
 import { format } from 'date-fns';
@@ -44,11 +44,98 @@ export default function BoulderDetail() {
   const { user, loading: authLoading } = useAuth();
   const { data: boulders, isLoading } = useBouldersWithSectors(!authLoading);
   const [activeTab, setActiveTab] = useState<DetailTab>('Info');
-  const tabAnchorRef = useRef<HTMLDivElement>(null);
+  const [tabContentMinHeight, setTabContentMinHeight] = useState<number>(0);
+  const tabBarRef = useRef<HTMLDivElement>(null);
+  const tabContentRef = useRef<HTMLDivElement>(null);
 
   const boulder = useMemo(() => boulders?.find((entry) => entry.id === id), [boulders, id]);
   const videoUrl = boulder?.betaVideoUrls?.hd || boulder?.betaVideoUrls?.sd || boulder?.betaVideoUrls?.low || boulder?.betaVideoUrl;
   const availableTabs = useMemo(() => (user ? tabs : (['Info', 'Beta'] as const)), [user]);
+
+  const getScrollContainer = () => {
+    const candidates = [
+      document.body,
+      document.scrollingElement,
+      document.documentElement,
+    ].filter((element): element is HTMLElement => element instanceof HTMLElement);
+
+    return candidates.reduce((largest, candidate) => {
+      const largestScrollableHeight = largest.scrollHeight - largest.clientHeight;
+      const candidateScrollableHeight = candidate.scrollHeight - candidate.clientHeight;
+      return candidateScrollableHeight > largestScrollableHeight ? candidate : largest;
+    }, candidates[0] ?? document.body);
+  };
+
+  const scrollPageTo = (top: number, behavior: ScrollBehavior) => {
+    const targetTop = Math.max(top, 0);
+    const scrollContainer = getScrollContainer();
+
+    scrollContainer.scrollTo({
+      top: targetTop,
+      behavior,
+    });
+
+    document.documentElement.scrollTo({
+      top: targetTop,
+      behavior,
+    });
+
+    window.scrollTo({
+      top: targetTop,
+      behavior,
+    });
+  };
+
+  const scrollTabsIntoView = () => {
+    const tabBar = tabBarRef.current;
+    if (!tabBar) return;
+    const scrollContainer = getScrollContainer();
+    const stickyTop = Number.parseFloat(window.getComputedStyle(tabBar).top || '0') || 0;
+    const currentScrollTop = scrollContainer.scrollTop;
+    const naturalTop = currentScrollTop + tabBar.getBoundingClientRect().top;
+    const targetTop = naturalTop - stickyTop;
+
+    scrollPageTo(targetTop, 'smooth');
+  };
+
+  useLayoutEffect(() => {
+    const updateTabContentMinHeight = () => {
+      const scrollContainer = getScrollContainer();
+      const tabBar = tabBarRef.current;
+      const tabContent = tabContentRef.current;
+
+      if (!tabBar || !tabContent) return;
+
+      const stickyTop = Number.parseFloat(window.getComputedStyle(tabBar).top || '0') || 0;
+      const naturalTop = scrollContainer.scrollTop + tabBar.getBoundingClientRect().top;
+      const prefixHeight = scrollContainer.scrollHeight - tabContent.offsetHeight;
+      const requiredMinHeight = Math.max(0, Math.ceil(window.innerHeight + (naturalTop - stickyTop) - prefixHeight));
+
+      setTabContentMinHeight((currentMinHeight) =>
+        currentMinHeight === requiredMinHeight ? currentMinHeight : requiredMinHeight,
+      );
+    };
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateTabContentMinHeight();
+    });
+
+    if (tabBarRef.current) {
+      resizeObserver.observe(tabBarRef.current);
+    }
+
+    if (tabContentRef.current) {
+      resizeObserver.observe(tabContentRef.current);
+    }
+
+    updateTabContentMinHeight();
+    window.addEventListener('resize', updateTabContentMinHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateTabContentMinHeight);
+    };
+  }, [activeTab, id]);
 
   useEffect(() => {
     if (!availableTabs.includes(activeTab as (typeof availableTabs)[number])) {
@@ -56,15 +143,9 @@ export default function BoulderDetail() {
     }
   }, [activeTab, availableTabs]);
 
-  useEffect(() => {
-    const anchorTop = tabAnchorRef.current?.offsetTop;
-    if (anchorTop === undefined) return;
-
-    window.scrollTo({
-      top: Math.max(anchorTop - 108, 0),
-      behavior: 'smooth',
-    });
-  }, [activeTab]);
+  useLayoutEffect(() => {
+    scrollPageTo(0, 'auto');
+  }, [id]);
 
   const renderTabContent = () => {
     if (!boulder) return null;
@@ -179,9 +260,7 @@ export default function BoulderDetail() {
           </div>
         </div>
 
-        <div ref={tabAnchorRef} className="h-0" />
-
-        <div className="sticky top-[6.75rem] z-[9] bg-background px-4 pb-2 pt-2">
+        <div ref={tabBarRef} data-detail-tab-bar className="sticky top-[6.75rem] z-[9] bg-background px-4 pb-2 pt-2">
           <div className="flex gap-1 rounded-xl bg-secondary p-1">
             {availableTabs.map((tab) => (
               <button
@@ -191,7 +270,14 @@ export default function BoulderDetail() {
                   'flex-1 rounded-lg py-2 text-sm font-semibold transition-all',
                   activeTab === tab ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'text-muted-foreground',
                 )}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => {
+                  setActiveTab(tab);
+                  window.requestAnimationFrame(() => {
+                    window.requestAnimationFrame(() => {
+                      scrollTabsIntoView();
+                    });
+                  });
+                }}
               >
                 {tab}
               </button>
@@ -199,7 +285,11 @@ export default function BoulderDetail() {
           </div>
         </div>
 
-        <div className="mt-4 px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]">
+        <div
+          ref={tabContentRef}
+          className="mt-4 px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]"
+          style={{ minHeight: `${tabContentMinHeight}px` }}
+        >
           {renderTabContent()}
         </div>
       </div>

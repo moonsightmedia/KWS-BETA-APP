@@ -62,14 +62,15 @@ const NotificationSettings = () => {
   const { user, session } = useAuth();
   const queryClient = useQueryClient();
   const versionInfo = getVersionInfo();
+  const isNativePlatform = Capacitor.isNativePlatform();
   const { data: notificationPreferences } = useNotificationPreferences();
   const updateNotificationPreferences = useUpdateNotificationPreferences();
   const [pushPermissionStatus, setPushPermissionStatus] = useState<'granted' | 'denied' | 'prompt' | null>(null);
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
+    if (!isNativePlatform) return;
     getPushPermissionStatus().then(setPushPermissionStatus);
-  }, []);
+  }, [isNativePlatform]);
 
   const { data: pushTokensList } = useQuery({
     queryKey: ['push_tokens', user?.id],
@@ -95,7 +96,7 @@ const NotificationSettings = () => {
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     },
-    enabled: !!user && !!session && Capacitor.isNativePlatform(),
+    enabled: !!user && !!session && isNativePlatform,
   });
 
   const notificationTypes = [
@@ -149,12 +150,13 @@ const NotificationSettings = () => {
             onCheckedChange={(checked) => updateNotificationPreferences.mutate({ in_app_enabled: checked })}
           />
 
-          <NotificationRow
+          {isNativePlatform ? (
+            <NotificationRow
             icon={<BellOff className="h-4 w-4 text-primary" strokeWidth={1.9} />}
             title="Push-Benachrichtigungen"
             subtitle="Benachrichtigungen auch wenn die App geschlossen ist"
             checked={notificationPreferences?.push_enabled ?? false}
-            disabled={(!Capacitor.isNativePlatform() && !('Notification' in window)) || updateNotificationPreferences.isPending}
+            disabled={updateNotificationPreferences.isPending}
             onCheckedChange={async (checked) => {
               if (updateNotificationPreferences.isPending) return;
 
@@ -169,7 +171,7 @@ const NotificationSettings = () => {
                   await updateNotificationPreferences.mutateAsync({ push_enabled: true });
                   toast.success('Push-Benachrichtigungen aktiviert');
 
-                  if (Capacitor.isNativePlatform()) {
+                  if (isNativePlatform) {
                     await initializePushNotifications(
                       session ? { access_token: session.access_token, user: { id: user!.id } } : undefined,
                     );
@@ -197,7 +199,8 @@ const NotificationSettings = () => {
                 toast.success('Push-Benachrichtigungen deaktiviert');
               }
             }}
-          />
+            />
+          ) : null}
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
@@ -213,14 +216,14 @@ const NotificationSettings = () => {
           ))}
         </div>
 
-        {!('Notification' in window) ? (
+        {!isNativePlatform ? (
           <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
             <Info className="h-4 w-4 shrink-0" />
-            Push-Benachrichtigungen sind nur in nativen Apps verf\u00FCgbar.
+            Browser-Push ist in der Web-Beta deaktiviert. In-App-Benachrichtigungen bleiben aktiv.
           </div>
         ) : null}
 
-        {Capacitor.isNativePlatform() ? (
+        {isNativePlatform ? (
           <div className="space-y-3 rounded-2xl border border-border bg-card px-4 py-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-medium text-foreground">Push-Status</p>

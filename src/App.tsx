@@ -86,6 +86,7 @@ const RouteLogger = () => {
 };
 
 import { PullToRefreshHandler } from '@/components/PullToRefreshHandler';
+import { Capacitor } from '@capacitor/core';
 
 import { SidebarProvider } from '@/components/SidebarContext';
 import { UploadOverview } from '@/components/UploadOverview';
@@ -113,9 +114,12 @@ const ErrorBoundaryWithAuth = ({ children }: { children: React.ReactNode }) => {
 const ConditionalSidebar = () => {
   const location = useLocation();
   
-  // Hide navigation only on auth and competition pages.
-  // Mobile navigation should stay available on the rest of the app.
-  if (location.pathname === '/auth' || location.pathname === '/competition') {
+  // Hide app navigation on public/read-only routes.
+  if (
+    location.pathname === '/auth' ||
+    location.pathname === '/competition' ||
+    location.pathname === '/guest'
+  ) {
     return null;
   }
   
@@ -164,6 +168,10 @@ const Root = () => {
   // Initialize push notifications when user is authenticated
   // Delay initialization to avoid crashes on app start
   useEffect(() => {
+    if (!Capacitor.isNativePlatform()) {
+      return;
+    }
+
     if (user && !authLoading) {
       // Wait a bit before initializing to ensure app is fully loaded
       const timer = setTimeout(() => {
@@ -232,11 +240,13 @@ const Root = () => {
     );
   }
   
-  // Show loading screen during initial load, BUT allow auth page to render immediately
-  // This fixes the issue where /auth page stays blank while auth is loading
-  const isAuthPage = location.pathname === '/auth' || location.pathname === '/competition';
+  // Show loading screen during initial load, BUT allow public routes to render immediately.
+  const isPublicRoute =
+    location.pathname === '/auth' ||
+    location.pathname === '/competition' ||
+    location.pathname === '/guest';
   
-  if ((authLoading || isInitialLoad) && !isAuthPage) {
+  if ((authLoading || isInitialLoad) && !isPublicRoute) {
     return <LoadingScreen />;
   }
   

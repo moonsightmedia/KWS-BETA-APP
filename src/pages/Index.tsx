@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Trophy,
   Zap,
+  type LucideIcon,
 } from 'lucide-react';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -41,6 +42,61 @@ const getThumbnailUrl = (thumbnailUrl?: string | null) => {
   return 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';
 };
 
+const getSectorLabel = (sector: string, sector2?: string | null) =>
+  sector2 ? `${sector} → ${sector2}` : sector;
+
+const getScheduleTitle = (sectorNames: string[]) => {
+  if (sectorNames.length === 1) return `${sectorNames[0]} bekommt neue Boulder`;
+  if (sectorNames.length === 2) return `${sectorNames[0]} & ${sectorNames[1]} bekommen neue Boulder`;
+  return `${sectorNames.length} Sektoren bekommen neue Boulder`;
+};
+
+const DashboardSectionHeader = ({
+  title,
+  description,
+  actionLabel,
+  onActionClick,
+}: {
+  title: string;
+  description?: string;
+  actionLabel?: string;
+  onActionClick?: () => void;
+}) => (
+  <div className="mb-3 flex items-end justify-between gap-3">
+    <div className="min-w-0">
+      <h2 className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">{title}</h2>
+      {description ? <p className="pt-1 text-sm text-[#13112B]/58">{description}</p> : null}
+    </div>
+    {actionLabel && onActionClick ? (
+      <button
+        type="button"
+        onClick={onActionClick}
+        className="shrink-0 text-sm font-semibold text-[#36B531]"
+      >
+        {actionLabel}
+      </button>
+    ) : null}
+  </div>
+);
+
+const DashboardStatCard = ({
+  icon: Icon,
+  value,
+  label,
+}: {
+  icon: LucideIcon;
+  value: number;
+  label: string;
+}) => (
+  <div className="rounded-2xl border border-[#DDE7DF] bg-white px-3 py-4 text-center shadow-[0_8px_24px_rgba(19,17,43,0.05)]">
+    <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#36B531]/10">
+      <Icon className="h-5 w-5 text-[#36B531]" strokeWidth={1.9} />
+    </div>
+    <p className="text-[1.7rem] font-semibold leading-none tracking-[-0.04em] text-[#13112B]">{value}</p>
+    <p className="pt-2 text-sm text-[#13112B]/58">{label}</p>
+  </div>
+);
+
 const HomePreviewCard = ({
   title,
   subtitle,
@@ -60,7 +116,7 @@ const HomePreviewCard = ({
     <div className="min-w-0">
       <p className="truncate text-[1.02rem] font-semibold tracking-[-0.02em] text-[#13112B]">{title}</p>
       <p className="truncate pt-1 text-sm text-[#13112B]/58">{subtitle}</p>
-      <p className="pt-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#69B545]">{meta}</p>
+      <p className="pt-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#36B531]">{meta}</p>
     </div>
     <ArrowRight className="h-4 w-4 shrink-0 text-[#6E806A]" />
   </button>
@@ -400,51 +456,29 @@ const Index = () => {
               Bereit für deine Session?
             </h1>
             <p className="pt-3 text-sm text-[#13112B]/60">
-              Alles Wichtige für dein Bouldern und Training direkt an einem Ort.
+              Neue Boulder, Projekte und anstehende Umschraubungen direkt auf einen Blick.
             </p>
           </section>
 
           <section className="mb-5">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Diese Woche</h2>
-              <span className="text-xs text-[#13112B]/45">Dein Verlauf</span>
-            </div>
+            <DashboardSectionHeader
+              title="Deine Woche"
+              description="Dein kompakter Rückblick auf die letzten 7 Tage."
+            />
             <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-[#DDE7DF] bg-white px-3 py-4 text-center shadow-[0_8px_24px_rgba(19,17,43,0.05)]">
-                <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#EEF6E8]">
-                  <Trophy className="h-5 w-5 text-[#69B545]" strokeWidth={1.9} />
-                </div>
-                <p className="text-[1.7rem] font-semibold leading-none tracking-[-0.04em] text-[#13112B]">{weeklyStats.tops}</p>
-                <p className="pt-2 text-sm text-[#13112B]/58">Tops</p>
-              </div>
-              <div className="rounded-2xl border border-[#DDE7DF] bg-white px-3 py-4 text-center shadow-[0_8px_24px_rgba(19,17,43,0.05)]">
-                <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#EEF6E8]">
-                  <Zap className="h-5 w-5 text-[#69B545]" strokeWidth={1.9} />
-                </div>
-                <p className="text-[1.7rem] font-semibold leading-none tracking-[-0.04em] text-[#13112B]">{weeklyStats.flashes}</p>
-                <p className="pt-2 text-sm text-[#13112B]/58">Flashes</p>
-              </div>
-              <div className="rounded-2xl border border-[#DDE7DF] bg-white px-3 py-4 text-center shadow-[0_8px_24px_rgba(19,17,43,0.05)]">
-                <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#EEF6E8]">
-                  <CircleDot className="h-5 w-5 text-[#69B545]" strokeWidth={1.9} />
-                </div>
-                <p className="text-[1.7rem] font-semibold leading-none tracking-[-0.04em] text-[#13112B]">{weeklyStats.projects}</p>
-                <p className="pt-2 text-sm text-[#13112B]/58">Projekte</p>
-              </div>
+              <DashboardStatCard icon={Trophy} value={weeklyStats.tops} label="Tops" />
+              <DashboardStatCard icon={Zap} value={weeklyStats.flashes} label="Flashes" />
+              <DashboardStatCard icon={CircleDot} value={weeklyStats.projects} label="Projekte" />
             </div>
           </section>
 
           <section className="mb-5">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#13112B]">Neue Boulder</h2>
-              <button
-                type="button"
-                onClick={() => navigate('/boulders?show=new')}
-                className="text-sm font-semibold text-[#69B545]"
-              >
-                Alle &gt;
-              </button>
-            </div>
+            <DashboardSectionHeader
+              title="Neu an der Wand"
+              description="Frische Boulder aus den letzten 7 Tagen."
+              actionLabel="Neu entdecken"
+              onActionClick={() => navigate('/boulders?show=new')}
+            />
             <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 hide-scrollbar">
               {newestBoulders.map((boulder) => (
                 <button
@@ -461,13 +495,18 @@ const Index = () => {
                       loading="lazy"
                       decoding="async"
                     />
-                    <span className="absolute bottom-2 right-2 rounded-lg bg-[#E55A4E] px-2 py-1 text-xs font-bold text-white">
-                      {boulder.difficulty ?? '?'}
+                    <span className="absolute bottom-2 right-2 rounded-xl bg-[#13112B]/90 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white">
+                      {formatDifficulty(boulder.difficulty ?? null)}
                     </span>
                   </div>
-                  <div className="px-3 py-3 text-center">
-                    <p className="truncate text-[0.98rem] font-medium tracking-[-0.02em] text-[#13112B]">{boulder.name}</p>
-                    <p className="truncate pt-1 text-sm text-[#13112B]/55">{boulder.sector}</p>
+                  <div className="px-3 py-3">
+                    <p className="truncate text-[0.98rem] font-semibold tracking-[-0.02em] text-[#13112B]">{boulder.name}</p>
+                    <p className="truncate pt-1 text-sm text-[#13112B]/55">
+                      {getSectorLabel(boulder.sector, boulder.sector2)}
+                    </p>
+                    <p className="pt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#36B531]">
+                      Grad {formatDifficulty(boulder.difficulty ?? null)}
+                    </p>
                   </div>
                 </button>
               ))}
@@ -481,23 +520,30 @@ const Index = () => {
 
           <section className="mb-5 overflow-hidden rounded-2xl border border-[#DDE7DF] bg-white shadow-[0_10px_30px_rgba(19,17,43,0.05)]">
             <div className="px-4 pb-3 pt-4">
-              <div className="flex items-center gap-2 text-[#6E806A]">
-                <CalendarDays className="h-4 w-4" strokeWidth={1.9} />
-                <h2 className="text-[0.82rem] font-semibold uppercase tracking-[0.18em]">Schraubtermine</h2>
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-2xl bg-[#36B531]/10 p-2 text-[#36B531]">
+                  <CalendarDays className="h-4 w-4" strokeWidth={1.9} />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Nächste Umschraubung</h2>
+                  <p className="pt-1 text-sm text-[#13112B]/58">Damit du schon vor deiner nächsten Session planen kannst.</p>
+                </div>
               </div>
             </div>
 
             {upcomingSchedules.length > 0 ? (
               <>
-                <div className="mx-4 mb-4 rounded-2xl border border-[#CFE4B8] bg-[#EEF6E1] px-4 py-4">
+                <div className="mx-4 mb-4 rounded-2xl border border-[#36B531]/20 bg-[#36B531]/10 px-4 py-4">
                   <div className="mb-3 flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-[1.06rem] font-semibold tracking-[-0.02em] text-[#13112B]">Große Umschraubung</p>
+                      <p className="text-[1.06rem] font-semibold tracking-[-0.02em] text-[#13112B]">
+                        {getScheduleTitle(upcomingSchedules[0].sectorNames)}
+                      </p>
                       <div className="pt-2 text-sm text-[#13112B]/70">
-                        {formatDate(upcomingSchedules[0].when, 'EEE, dd. MMM', { locale: de })}
+                        {formatDate(upcomingSchedules[0].when, 'EEE, dd. MMM', { locale: de })} · {upcomingSchedules[0].sectorNames.join(', ')}
                       </div>
                     </div>
-                    <span className="shrink-0 rounded-full bg-[#D7F083] px-3 py-1 text-sm font-semibold text-[#69B545]">
+                    <span className="shrink-0 rounded-full bg-[#36B531]/15 px-3 py-1 text-sm font-semibold text-[#36B531]">
                       {daysUntilLabel(upcomingSchedules[0].when)}
                     </span>
                   </div>
@@ -517,7 +563,7 @@ const Index = () => {
                   <div key={entry.when.toISOString()} className="flex items-center justify-between border-t border-[#E8ECE8] px-4 py-4">
                     <div className="min-w-0">
                       <p className="truncate text-[1.02rem] font-medium tracking-[-0.02em] text-[#13112B]">
-                        {entry.sectorNames.length === 1 ? `${entry.sectorNames[0]} Refresh` : 'Frühjahrs-Schrauben'}
+                        {getScheduleTitle(entry.sectorNames)}
                       </p>
                       <p className="truncate pt-1 text-sm text-[#13112B]/58">
                         {formatDate(entry.when, 'EEE, dd. MMM', { locale: de })} · {entry.sectorNames.join(', ')}
@@ -536,24 +582,20 @@ const Index = () => {
 
           {favoritePreview.length > 0 ? (
             <section className="mb-5">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Deine Projekte</h2>
-                <button
-                  type="button"
-                  onClick={() => navigate('/boulders?show=saved')}
-                  className="text-xs font-semibold text-[#69B545]"
-                >
-                  Gespeichert öffnen
-                </button>
-              </div>
+              <DashboardSectionHeader
+                title="Deine Projekte"
+                description="Boulder, die du weiterverfolgen oder gespeichert hast."
+                actionLabel="Alle Projekte"
+                onActionClick={() => navigate('/boulders?show=saved')}
+              />
               <div className="space-y-3">
                 {favoritePreview.map((item) =>
                   item.boulder ? (
                     <HomePreviewCard
                       key={item.tick.id}
                       title={item.boulder.name}
-                      subtitle={item.tick.status === 'flash' ? 'Flash' : item.tick.status === 'top' ? 'Top' : 'Versucht'}
-                      meta={item.tick.is_project ? 'Projekt' : 'Gespeichert'}
+                      subtitle={getSectorLabel(item.boulder.sector, item.boulder.sector2)}
+                      meta={`Grad ${formatDifficulty(item.boulder.difficulty ?? null)} · ${item.tick.is_project ? 'Projekt' : 'Gespeichert'}`}
                       onClick={() => navigate(`/boulders/${item.tick.boulder_id}`)}
                     />
                   ) : null,
@@ -563,17 +605,13 @@ const Index = () => {
           ) : null}
 
           <section className="space-y-4 pb-4">
-            <div className="rounded-2xl border border-[#DDE7DF] bg-white p-4 shadow-[0_10px_30px_rgba(19,17,43,0.05)]">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Nächster Fokus</h2>
-                <button
-                  type="button"
-                  onClick={() => navigate('/boulders?show=saved')}
-                  className="text-xs font-semibold text-[#8CCF19]"
-                >
-                  Alle Projekte
-                </button>
-              </div>
+            <section className="mb-5">
+              <DashboardSectionHeader
+                title="Nächster Boulder"
+                description="Das ist dein nächster sinnvoller Anknüpfpunkt für die Session."
+                actionLabel="Weiterklettern"
+                onActionClick={() => navigate('/boulders?show=saved')}
+              />
               {nextFocusBoulders.length > 0 ? (
                 <div className="space-y-3">
                   {nextFocusBoulders.map((item) =>
@@ -581,8 +619,8 @@ const Index = () => {
                       <HomePreviewCard
                         key={item.tick.id}
                         title={item.boulder.name}
-                        subtitle={`${item.tick.is_project ? 'Projekt' : item.tick.is_favorite ? 'Gespeichert' : 'In Arbeit'} · ${item.tick.attempt_count ?? 0} ${(item.tick.attempt_count ?? 0) === 1 ? 'Versuch' : 'Versuche'}`}
-                        meta={`Grad ${formatDifficulty(item.boulder.difficulty ?? null)}`}
+                        subtitle={getSectorLabel(item.boulder.sector, item.boulder.sector2)}
+                        meta={`Grad ${formatDifficulty(item.boulder.difficulty ?? null)} · ${item.tick.is_project ? 'Projekt' : item.tick.is_favorite ? 'Gespeichert' : 'In Arbeit'} · ${item.tick.attempt_count ?? 0} ${(item.tick.attempt_count ?? 0) === 1 ? 'Versuch' : 'Versuche'}`}
                         onClick={() => navigate(`/boulders/${item.tick.boulder_id}`)}
                       />
                     ) : null,
@@ -590,18 +628,23 @@ const Index = () => {
                 </div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FAFCFA] px-4 py-5 text-sm text-[#13112B]/55">
-                  Noch keine offenen Projekte oder Versuche für deinen nächsten Fokus.
+                  Noch keine offenen Projekte oder Versuche für deinen nächsten Boulder.
                 </div>
               )}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+            </section>
+            <section>
+              <DashboardSectionHeader
+                title="Dein Fortschritt"
+                description="Ein schneller Blick auf offene Boulder und deine letzten Versuche."
+              />
+              <div className="grid grid-cols-2 gap-4">
                 <div className="rounded-2xl border border-[#DDE7DF] bg-white p-4 shadow-[0_10px_30px_rgba(19,17,43,0.05)]">
-                  <h3 className="mb-4 text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Fortschritt</h3>
+                  <h3 className="mb-4 text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Übersicht</h3>
                   <div className="flex flex-col items-center">
                     <div
                       className="relative flex h-28 w-28 items-center justify-center rounded-full"
                       style={{
-                        background: `conic-gradient(#8CCF19 0 ${progressStats.toppedPercent}%, #6C7280 ${progressStats.toppedPercent}% ${progressStats.toppedPercent + progressStats.triedPercent}%, #E2E6EC 0 100%)`,
+                        background: `conic-gradient(#36B531 0 ${progressStats.toppedPercent}%, #6C7280 ${progressStats.toppedPercent}% ${progressStats.toppedPercent + progressStats.triedPercent}%, #E2E6EC 0 100%)`,
                       }}
                     >
                       <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-xl font-semibold text-[#13112B]">
@@ -609,31 +652,33 @@ const Index = () => {
                       </div>
                     </div>
                     <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-[#6C6A7E]">
-                      <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#8CCF19]" />Getoppt</span>
+                      <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#36B531]" />Getoppt</span>
                       <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#6C7280]" />Probiert</span>
                       <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#E2E6EC]" />Offen</span>
                     </div>
+                    <p className="pt-4 text-center text-xs text-[#6C6A7E]">auf alle hängenden Boulder</p>
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-[#DDE7DF] bg-white p-4 shadow-[0_10px_30px_rgba(19,17,43,0.05)]">
-                  <h3 className="mb-4 text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Versuche</h3>
+                  <h3 className="mb-4 text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Letzte Versuche</h3>
                   <div className="flex h-28 items-end justify-between gap-2">
                     {(attemptSeries.length > 0 ? attemptSeries : [{ key: 'Heute-0', label: 'Heute', value: 0 }]).map((item) => (
                       <div key={item.key} className="flex flex-1 flex-col items-center justify-end gap-1.5">
                         <span className="text-[11px] font-semibold leading-none text-[#13112B]">{item.value}</span>
                         <div
-                          className="w-full max-w-5 rounded-t-[4px] rounded-b-[1px] bg-[#9FD234]"
+                          className="w-full max-w-5 rounded-t-[4px] rounded-b-[1px] bg-[#36B531]"
                           style={{ height: `${Math.max(12, item.value * 12)}px` }}
                         />
                         <span className="text-[10px] text-[#6C6A7E]">{item.label}</span>
                       </div>
                     ))}
                   </div>
-                  <p className="pt-4 text-center text-xs text-[#6C6A7E]">pro Session</p>
+                  <p className="pt-4 text-center text-xs text-[#6C6A7E]">pro zuletzt gepflegter Session</p>
                 </div>
               </div>
             </section>
+          </section>
         </main>
       </div>
     </div>

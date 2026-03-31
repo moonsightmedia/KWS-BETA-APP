@@ -22,7 +22,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatDifficulty } from '@/lib/difficulty';
 
 interface ProfileRow {
-  avatar_url: string | null;
   first_name: string | null;
   last_name: string | null;
   full_name: string | null;
@@ -49,7 +48,7 @@ const Profile = () => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('first_name,last_name,full_name,avatar_url')
+          .select('first_name,last_name,full_name')
           .eq('id', user.id)
           .maybeSingle<ProfileRow>();
 
@@ -62,7 +61,7 @@ const Profile = () => {
           null;
 
         setProfileName(nextProfileName);
-        setProfileAvatarUrl(data?.avatar_url ?? null);
+        setProfileAvatarUrl(null);
       } catch {
         if (!cancelled) {
           setProfileName(null);

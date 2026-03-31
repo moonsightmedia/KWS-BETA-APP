@@ -5,10 +5,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, MessageSquare, Settings, Shield, Users } from "lucide-react";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { ColorManagement } from "@/components/admin/ColorManagement";
 import { SectorManagement } from "@/components/admin/SectorManagement";
+import { HallMapManagement } from "@/components/admin/HallMapManagement";
 import { BoulderOperationLogs } from "@/components/admin/BoulderOperationLogs";
 import { CompetitionBoulderManagement } from "@/components/competition/CompetitionBoulderManagement";
 import { FeedbackManagement } from "@/components/admin/FeedbackManagement";
@@ -22,14 +22,6 @@ const Admin = () => {
   const navigate = useNavigate();
   const { isExpanded } = useSidebar();
   const [searchParams, setSearchParams] = useSearchParams();
-
-  const adminMobileNavItems = [
-    { value: 'users', label: 'Benutzer', icon: Users },
-    { value: 'settings', label: 'Settings', icon: Settings },
-    { value: 'feedback', label: 'Feedback', icon: MessageSquare },
-    { value: 'logs', label: 'Logs', icon: FileText },
-    { value: 'tests', label: 'Tests', icon: Shield },
-  ] as const;
 
   useEffect(() => {
     if (!user) {
@@ -73,6 +65,10 @@ const Admin = () => {
 
   const currentTab = searchParams.get('tab') || 'users';
   const tabTitle = getTabTitle(currentTab);
+  const adminTabTriggerClassName =
+    "min-w-0 h-10 rounded-lg border border-[#DDE7DF] bg-white px-4 text-sm text-[#13112B] data-[state=active]:border-[#36B531] data-[state=active]:bg-[#F7FBF7] data-[state=active]:text-[#13112B]";
+  const settingsTabTriggerClassName =
+    "min-w-0 h-10 rounded-lg border border-[#DDE7DF] bg-white px-4 text-sm text-[#13112B] data-[state=active]:border-[#36B531] data-[state=active]:bg-[#F7FBF7] data-[state=active]:text-[#13112B]";
 
   if (loading) {
     return (
@@ -98,40 +94,6 @@ const Admin = () => {
         <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 overflow-x-hidden w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-x-hidden">
-          <div className="mb-4 md:hidden">
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {adminMobileNavItems.map((item) => {
-                const isActive = currentTab === item.value;
-
-                return (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => {
-                      const nextSearchParams = new URLSearchParams(searchParams);
-                      nextSearchParams.set('tab', item.value);
-                      if (item.value !== 'settings') {
-                        nextSearchParams.delete('settingsTab');
-                      } else if (!nextSearchParams.get('settingsTab')) {
-                        nextSearchParams.set('settingsTab', 'sectors');
-                      }
-                      setSearchParams(nextSearchParams, { replace: true });
-                    }}
-                    className={cn(
-                      "inline-flex h-11 shrink-0 items-center gap-2 rounded-xl border px-4 text-sm font-medium transition-colors",
-                      isActive
-                        ? "border-[#36B531] bg-[#36B531] text-white"
-                        : "border-[#DDE7DF] bg-white text-[#13112B] hover:border-[#36B531]/40"
-                    )}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           <Tabs 
             value={searchParams.get('tab') || 'users'} 
             onValueChange={(value) => {
@@ -141,13 +103,13 @@ const Admin = () => {
             }}
             className="w-full min-w-0 hidden md:block"
           >
-            <TabsList className="grid w-full grid-cols-6 mb-6 h-auto min-w-0 bg-[#F9FAF9] p-1 rounded-xl">
-              <TabsTrigger value="users" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Benutzer</TabsTrigger>
-              <TabsTrigger value="settings" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Einstellungen</TabsTrigger>
+            <TabsList className="mb-6 flex w-full flex-wrap gap-2 bg-transparent p-0">
+              <TabsTrigger value="users" className={adminTabTriggerClassName}>Benutzer</TabsTrigger>
+              <TabsTrigger value="settings" className={adminTabTriggerClassName}>Einstellungen</TabsTrigger>
               {/* <TabsTrigger value="competition" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Wettkampf</TabsTrigger> */}
-              <TabsTrigger value="feedback" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Feedback</TabsTrigger>
-              <TabsTrigger value="logs" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Logs</TabsTrigger>
-              <TabsTrigger value="tests" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Tests</TabsTrigger>
+              <TabsTrigger value="feedback" className={adminTabTriggerClassName}>Feedback</TabsTrigger>
+              <TabsTrigger value="logs" className={adminTabTriggerClassName}>Logs</TabsTrigger>
+              <TabsTrigger value="tests" className={adminTabTriggerClassName}>Tests</TabsTrigger>
             </TabsList>
 
             <TabsContent value="users" className="mt-0">
@@ -164,12 +126,16 @@ const Admin = () => {
                 }}
                 className="w-full min-w-0"
               >
-                <TabsList className="grid w-full grid-cols-2 mb-6 h-auto min-w-0 bg-[#F9FAF9] p-1 rounded-xl">
-                  <TabsTrigger value="sectors" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Sektoren</TabsTrigger>
-                  <TabsTrigger value="colors" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Farben</TabsTrigger>
+                <TabsList className="mb-5 flex w-full flex-wrap gap-2 bg-transparent p-0">
+                  <TabsTrigger value="sectors" className={settingsTabTriggerClassName}>Sektoren</TabsTrigger>
+                  <TabsTrigger value="hallMap" className={settingsTabTriggerClassName}>Hallenkarte</TabsTrigger>
+                  <TabsTrigger value="colors" className={settingsTabTriggerClassName}>Farben</TabsTrigger>
                 </TabsList>
                 <TabsContent value="sectors" className="mt-0">
                   <SectorManagement />
+                </TabsContent>
+                <TabsContent value="hallMap" className="mt-0">
+                  <HallMapManagement />
                 </TabsContent>
                 <TabsContent value="colors" className="mt-0">
                   <ColorManagement />
@@ -217,12 +183,16 @@ const Admin = () => {
                   }}
                   className="w-full min-w-0"
                 >
-                  <TabsList className="grid w-full grid-cols-2 mb-6 h-auto min-w-0 bg-[#F9FAF9] p-1 rounded-xl">
-                    <TabsTrigger value="sectors" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Sektoren</TabsTrigger>
-                    <TabsTrigger value="colors" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Farben</TabsTrigger>
+                  <TabsList className="mb-5 flex w-full flex-wrap gap-2 bg-transparent p-0">
+                    <TabsTrigger value="sectors" className={settingsTabTriggerClassName}>Sektoren</TabsTrigger>
+                    <TabsTrigger value="hallMap" className={settingsTabTriggerClassName}>Hallenkarte</TabsTrigger>
+                    <TabsTrigger value="colors" className={settingsTabTriggerClassName}>Farben</TabsTrigger>
                   </TabsList>
                   <TabsContent value="sectors" className="mt-0">
                     <SectorManagement />
+                  </TabsContent>
+                  <TabsContent value="hallMap" className="mt-0">
+                    <HallMapManagement />
                   </TabsContent>
                   <TabsContent value="colors" className="mt-0">
                     <ColorManagement />

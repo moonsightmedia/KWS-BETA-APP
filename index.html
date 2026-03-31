@@ -329,6 +329,53 @@
         if (window.__KWS_VERBOSE) console.log('[Index HTML] ✅ XMLHttpRequest also overridden');
       })();
     </script>
-    <script type="module" src="/src/main.tsx?v=3"></script>
+    <script>
+      (function() {
+        var isLocalhost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+        var devEntryVersion = '4';
+
+        function mountAppScript() {
+          var script = document.createElement('script');
+          script.type = 'module';
+          script.src = '/src/main.tsx?v=' + devEntryVersion;
+          document.body.appendChild(script);
+        }
+
+        if (!isLocalhost) {
+          mountAppScript();
+          return;
+        }
+
+        var cleanupTasks = [];
+
+        if ('serviceWorker' in navigator) {
+          cleanupTasks.push(
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+              return Promise.allSettled(
+                registrations.map(function(registration) {
+                  return registration.unregister();
+                })
+              );
+            })
+          );
+        }
+
+        if ('caches' in window) {
+          cleanupTasks.push(
+            caches.keys().then(function(cacheNames) {
+              return Promise.allSettled(
+                cacheNames.map(function(cacheName) {
+                  return caches.delete(cacheName);
+                })
+              );
+            })
+          );
+        }
+
+        Promise.allSettled(cleanupTasks).finally(function() {
+          mountAppScript();
+        });
+      })();
+    </script>
   </body>
 </html>

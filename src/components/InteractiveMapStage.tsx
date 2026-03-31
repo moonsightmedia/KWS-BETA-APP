@@ -21,6 +21,7 @@ interface InteractiveMapStageProps {
   lockAspectRatio?: boolean;
   panPadding?: number;
   honeycombBackground?: boolean;
+  disablePanZoom?: boolean;
   onViewportChange?: (viewport: { scale: number; translate: Point }) => void;
 }
 
@@ -48,6 +49,7 @@ export function InteractiveMapStage({
   lockAspectRatio = true,
   panPadding = 0,
   honeycombBackground = false,
+  disablePanZoom = false,
   onViewportChange,
 }: InteractiveMapStageProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -61,6 +63,7 @@ export function InteractiveMapStage({
   const [translate, setTranslate] = useState<Point>({ x: 0, y: 0 });
 
   useEffect(() => {
+    if (disablePanZoom) return;
     const node = containerRef.current;
     if (!node) return;
 
@@ -142,7 +145,7 @@ export function InteractiveMapStage({
 
     node.addEventListener('wheel', handleWheel, { passive: false });
     return () => node.removeEventListener('wheel', handleWheel);
-  }, [scale, updateScale]);
+  }, [disablePanZoom, scale, updateScale]);
 
   const resetView = useCallback(() => {
     setScale(1);
@@ -161,6 +164,7 @@ export function InteractiveMapStage({
   }, [onViewportChange, scale, translate]);
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (disablePanZoom) return;
     const node = containerRef.current;
     if (!node) return;
     node.setPointerCapture(event.pointerId);
@@ -180,6 +184,7 @@ export function InteractiveMapStage({
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (disablePanZoom) return;
     if (!pointerPositionsRef.current.has(event.pointerId)) return;
     pointerPositionsRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
@@ -210,6 +215,7 @@ export function InteractiveMapStage({
   };
 
   const handlePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (disablePanZoom) return;
     pointerPositionsRef.current.delete(event.pointerId);
 
     if (pointerPositionsRef.current.size < 2) {
@@ -255,7 +261,7 @@ export function InteractiveMapStage({
         ref={containerRef}
         className={cn(
           'relative w-full max-w-full overflow-hidden rounded-2xl border border-[#DEE6E0] bg-[#F7FAF7] touch-none',
-          scale > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-default',
+          !disablePanZoom && scale > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-default',
           viewportClassName,
         )}
         style={viewportStyle}

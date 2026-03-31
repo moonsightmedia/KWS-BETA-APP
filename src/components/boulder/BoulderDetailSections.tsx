@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import type { LucideIcon } from 'lucide-react';
@@ -115,6 +115,12 @@ function createSessionDraft(session: BoulderTrackingSession | null | undefined):
     attemptCount: Math.max(1, session.attempt_count),
     note: session.note ?? '',
   };
+}
+
+function hasDraftChanges(current: SessionSheetDraft, base: SessionSheetDraft) {
+  return current.result !== base.result
+    || current.attemptCount !== base.attemptCount
+    || current.note.trim() !== base.note.trim();
 }
 
 function isMarkerOnlyTick(tick: BoulderTick | null | undefined) {
@@ -267,24 +273,36 @@ function SessionSheet({
   const [draft, setDraft] = useState<SessionSheetDraft>(() => createSessionDraft(session));
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isClosingWithSave, setIsClosingWithSave] = useState(false);
+  const draftRef = useRef<SessionSheetDraft>(createSessionDraft(session));
+  const baseDraftRef = useRef<SessionSheetDraft>(createSessionDraft(session));
 
   const baseDraft = useMemo(() => createSessionDraft(session), [session]);
-  const isDirty = draft.result !== baseDraft.result
-    || draft.attemptCount !== baseDraft.attemptCount
-    || draft.note.trim() !== baseDraft.note.trim();
+  const isDirty = hasDraftChanges(draft, baseDraft);
   const isBusy = isSaving || isClosingWithSave;
 
   useEffect(() => {
-    setDraft(createSessionDraft(session));
+    const nextDraft = createSessionDraft(session);
+    draftRef.current = nextDraft;
+    baseDraftRef.current = nextDraft;
+    setDraft(nextDraft);
     setErrorMessage(null);
   }, [open, session]);
+
+  const updateDraft = (updater: (current: SessionSheetDraft) => SessionSheetDraft) => {
+    const nextDraft = updater(draftRef.current);
+    draftRef.current = nextDraft;
+    setDraft(nextDraft);
+  };
 
   const persistAndClose = async () => {
     if (isBusy) {
       return;
     }
 
-    if (!isDirty) {
+    const currentDraft = draftRef.current;
+    const currentBaseDraft = baseDraftRef.current;
+
+    if (!hasDraftChanges(currentDraft, currentBaseDraft)) {
       onOpenChange(false);
       return;
     }
@@ -293,9 +311,9 @@ function SessionSheet({
     setIsClosingWithSave(true);
     try {
       await onSave({
-        result: draft.result,
-        attemptCount: draft.attemptCount,
-        note: draft.note,
+        result: currentDraft.result,
+        attemptCount: currentDraft.attemptCount,
+        note: currentDraft.note,
       });
       onOpenChange(false);
     } catch (error) {
@@ -358,12 +376,12 @@ function SessionSheet({
                   key={option}
                   type="button"
                   onClick={() => {
-                    if (option === 'flash' && draft.attemptCount > 1) {
+                    if (option === 'flash' && draftRef.current.attemptCount > 1) {
                       setErrorMessage('Flash ist nur im ersten Versuch möglich. Reduziere erst die Versuche auf 1.');
                       return;
                     }
 
-                    setDraft((current) => ({
+                    updateDraft((current) => ({
                       ...current,
                       result: option,
                     }));
@@ -391,7 +409,7 @@ function SessionSheet({
                   className="rounded-xl bg-white/10 text-white hover:bg-white/20"
                   disabled={draft.result === 'flash'}
                   onClick={() => {
-                    setDraft((current) => ({
+                    updateDraft((current) => ({
                       ...current,
                       attemptCount: Math.max(1, current.attemptCount - 1),
                     }));
@@ -406,7 +424,7 @@ function SessionSheet({
                   className="rounded-xl bg-white/10 text-white hover:bg-white/20"
                   disabled={draft.result === 'flash'}
                   onClick={() => {
-                    setDraft((current) => ({
+                    updateDraft((current) => ({
                       ...current,
                       attemptCount: current.attemptCount + 1,
                     }));
@@ -425,7 +443,7 @@ function SessionSheet({
               rows={3}
               value={draft.note}
               onChange={(event) => {
-                setDraft((current) => ({ ...current, note: event.target.value }));
+                updateDraft((current) => ({ ...current, note: event.target.value }));
                 setErrorMessage(null);
               }}
               className="resize-none rounded-xl bg-secondary"
@@ -918,6 +936,8 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
         isFavorite,
         isProject,
       });
+
+      await Promise.all([communityQuery.refetch(), sessionsQuery.refetch()]);
     } catch (error) {
       setOptimisticTodaySession(previousSession);
       await Promise.allSettled([communityQuery.refetch(), sessionsQuery.refetch()]);
@@ -950,6 +970,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
         if (currentTick) {
           await deleteTick.mutateAsync();
         }
+        await communityQuery.refetch();
         return;
       }
 
@@ -960,6 +981,8 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
         isFavorite: nextMarkers.isFavorite,
         isProject: nextMarkers.isProject,
       });
+
+      await communityQuery.refetch();
     } catch {
       setIsFavorite(previousMarkers.isFavorite);
       setIsProject(previousMarkers.isProject);

@@ -1,12 +1,26 @@
-import React, { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+﻿import React, { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { format, isWithinInterval, startOfMonth, startOfWeek } from 'date-fns';
+import { de } from 'date-fns/locale';
+import {
+  AlertCircle,
+  Bug,
+  Check,
+  ChevronDown,
+  ExternalLink,
+  Eye,
+  Lightbulb,
+  MessageSquare,
+  Pencil,
+  RefreshCcw,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { toast } from 'sonner';
+
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,33 +31,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { toast } from 'sonner';
-import { format, startOfWeek, startOfMonth, isWithinInterval } from 'date-fns';
-import { de } from 'date-fns/locale';
-import {
-  MessageSquare,
-  Bug,
-  Lightbulb,
-  AlertCircle,
-  ExternalLink,
-  Eye,
-  Trash2,
-  Pencil,
-  Check,
-  X,
-  ChevronDown,
-} from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 
 type FeedbackStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 type FeedbackType = 'error' | 'bug' | 'feature' | 'general' | 'other';
 type FeedbackPriority = 'low' | 'medium' | 'high' | 'critical';
+type GroupBy = 'none' | 'status' | 'type' | 'priority' | 'date';
+type SortOrder = 'newest' | 'oldest' | 'priority';
 
 interface Feedback {
   id: string;
@@ -64,20 +67,6 @@ interface Feedback {
   resolved_at: string | null;
   resolved_by: string | null;
 }
-
-const statusColors: Record<FeedbackStatus, string> = {
-  open: 'bg-blue-500',
-  in_progress: 'bg-yellow-500',
-  resolved: 'bg-green-500',
-  closed: 'bg-gray-500',
-};
-
-const priorityColors: Record<FeedbackPriority, string> = {
-  low: 'bg-gray-400',
-  medium: 'bg-blue-400',
-  high: 'bg-orange-400',
-  critical: 'bg-red-500',
-};
 
 const typeIcons: Record<FeedbackType, typeof MessageSquare> = {
   error: AlertCircle,
@@ -109,8 +98,19 @@ const priorityLabels: Record<FeedbackPriority, string> = {
   critical: 'Kritisch',
 };
 
-type GroupBy = 'none' | 'status' | 'type' | 'priority' | 'date';
-type SortOrder = 'newest' | 'oldest' | 'priority';
+const statusBadgeClassNames: Record<FeedbackStatus, string> = {
+  open: 'border-[#DDE7DF] bg-white text-[#13112B]',
+  in_progress: 'border-[#E7D9A6] bg-[#FFF8E4] text-[#13112B]',
+  resolved: 'border-[#DDE7DF] bg-[#F7FBF7] text-[#13112B]',
+  closed: 'border-[#DDE7DF] bg-[#F5F6F5] text-[#13112B]/72',
+};
+
+const priorityBadgeClassNames: Record<FeedbackPriority, string> = {
+  low: 'border-[#DDE7DF] bg-white text-[#13112B]/72',
+  medium: 'border-[#D8E4F7] bg-[#F6FAFF] text-[#13112B]',
+  high: 'border-[#ECD8B1] bg-[#FFF7E9] text-[#13112B]',
+  critical: 'border-[#E8C9C0] bg-[#FFF5F2] text-[#C14E37]',
+};
 
 function getDateGroupKey(dateStr: string): string {
   const d = new Date(dateStr);
@@ -118,12 +118,16 @@ function getDateGroupKey(dateStr: string): string {
   const thisWeek = startOfWeek(now, { weekStartsOn: 1 });
   const lastWeek = new Date(thisWeek);
   lastWeek.setDate(lastWeek.getDate() - 7);
+
   if (isWithinInterval(d, { start: thisWeek, end: now })) return 'this_week';
   if (isWithinInterval(d, { start: lastWeek, end: thisWeek })) return 'last_week';
+
   const thisMonth = startOfMonth(now);
   if (d >= thisMonth) return 'this_month';
+
   const lastMonth = new Date(thisMonth.getFullYear(), thisMonth.getMonth() - 1, 1);
   if (d >= lastMonth) return 'last_month';
+
   return 'older';
 }
 
@@ -138,7 +142,9 @@ const dateGroupLabels: Record<string, string> = {
 export const FeedbackManagement = () => {
   const queryClient = useQueryClient();
   const { user, session, loading: authLoading } = useAuth();
+
   const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null);
+  const [expandedFeedbackIds, setExpandedFeedbackIds] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<FeedbackType | 'all'>('all');
   const [groupBy, setGroupBy] = useState<GroupBy>('none');
@@ -160,115 +166,117 @@ export const FeedbackManagement = () => {
     queryKey: ['admin-feedback', statusFilter, typeFilter],
     enabled: queriesEnabled,
     queryFn: async () => {
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      
-      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-        throw new Error('Supabase URL or API key not found');
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      if (!supabaseUrl || !supabasePublishableKey) {
+        throw new Error('Supabase-Konfiguration fehlt.');
       }
 
-      // Get the access token from the session for RLS
       const accessToken = session?.access_token;
       if (!accessToken) {
-        throw new Error('No access token available');
+        throw new Error('Keine aktive Session verfügbar.');
       }
 
-      // Build query URL with filters
-      let queryUrl = `${SUPABASE_URL}/rest/v1/feedback?select=*&order=created_at.desc`;
-      
-      if (statusFilter !== 'all') {
-        queryUrl += `&status=eq.${statusFilter}`;
-      }
+      let queryUrl = `${supabaseUrl}/rest/v1/feedback?select=*&order=created_at.desc`;
 
-      if (typeFilter !== 'all') {
-        queryUrl += `&type=eq.${typeFilter}`;
-      }
+      if (statusFilter !== 'all') queryUrl += `&status=eq.${statusFilter}`;
+      if (typeFilter !== 'all') queryUrl += `&type=eq.${typeFilter}`;
 
       const response = await window.fetch(queryUrl, {
         method: 'GET',
         headers: {
-          'apikey': SUPABASE_PUBLISHABLE_KEY,
-          'Authorization': `Bearer ${accessToken}`,
+          apikey: supabasePublishableKey,
+          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Failed to load feedback: ${response.status} ${errorText}`);
+        throw new Error(`Feedback konnte nicht geladen werden: ${response.status} ${errorText}`);
       }
 
-      const data = await response.json();
-      return data as Feedback[];
+      return (await response.json()) as Feedback[];
     },
   });
 
+  const updateSelectedFeedback = (id: string, patch: Partial<Feedback>) => {
+    setSelectedFeedback((current) => (current && current.id === id ? { ...current, ...patch } : current));
+  };
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: FeedbackStatus }) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      const updateData: any = {
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+
+      const updateData: Record<string, unknown> = {
         status,
         updated_at: new Date().toISOString(),
       };
 
-      if (status === 'resolved' && !updateData.resolved_at) {
+      if (status === 'resolved') {
         updateData.resolved_at = new Date().toISOString();
-        updateData.resolved_by = user?.id || null;
+        updateData.resolved_by = currentUser?.id || null;
+      } else {
+        updateData.resolved_at = null;
+        updateData.resolved_by = null;
       }
 
-      const { error } = await supabase
-        .from('feedback')
-        .update(updateData)
-        .eq('id', id);
-
+      const { error } = await supabase.from('feedback').update(updateData).eq('id', id);
       if (error) throw error;
+
+      return updateData;
     },
-    onSuccess: () => {
+    onSuccess: (updateData, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-feedback'] });
+      updateSelectedFeedback(variables.id, updateData as Partial<Feedback>);
       toast.success('Status aktualisiert');
     },
     onError: (error: any) => {
-      toast.error('Fehler beim Aktualisieren: ' + error.message);
+      toast.error(`Fehler beim Aktualisieren: ${error.message}`);
     },
   });
 
   const updatePriorityMutation = useMutation({
     mutationFn: async ({ id, priority }: { id: string; priority: FeedbackPriority }) => {
-      const { error } = await supabase
-        .from('feedback')
-        .update({ priority, updated_at: new Date().toISOString() })
-        .eq('id', id);
-
+      const updateData = { priority, updated_at: new Date().toISOString() };
+      const { error } = await supabase.from('feedback').update(updateData).eq('id', id);
       if (error) throw error;
+      return updateData;
     },
-    onSuccess: () => {
+    onSuccess: (updateData, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-feedback'] });
+      updateSelectedFeedback(variables.id, updateData as Partial<Feedback>);
       toast.success('Priorität aktualisiert');
     },
     onError: (error: any) => {
-      toast.error('Fehler beim Aktualisieren: ' + error.message);
+      toast.error(`Fehler beim Aktualisieren: ${error.message}`);
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const accessToken = session?.access_token;
-      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || !accessToken) {
-        throw new Error('Supabase oder Session nicht verfügbar');
+
+      if (!supabaseUrl || !supabasePublishableKey || !accessToken) {
+        throw new Error('Supabase oder Session nicht verfügbar.');
       }
-      const url = `${SUPABASE_URL}/rest/v1/feedback?id=eq.${id}`;
+
+      const url = `${supabaseUrl}/rest/v1/feedback?id=eq.${id}`;
       const res = await window.fetch(url, {
         method: 'DELETE',
         headers: {
-          apikey: SUPABASE_PUBLISHABLE_KEY,
+          apikey: supabasePublishableKey,
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
           Prefer: 'return=minimal',
         },
       });
+
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`Löschen fehlgeschlagen: ${res.status} ${text}`);
@@ -276,12 +284,12 @@ export const FeedbackManagement = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-feedback'] });
-      toast.success('Feedback gelöscht');
       setSelectedFeedback(null);
       setDeleteConfirmId(null);
+      toast.success('Feedback gelöscht');
     },
     onError: (error: any) => {
-      toast.error('Fehler beim Löschen: ' + (error?.message ?? error));
+      toast.error(`Fehler beim Löschen: ${error?.message ?? error}`);
     },
   });
 
@@ -297,18 +305,20 @@ export const FeedbackManagement = () => {
       description: string;
       type: FeedbackType;
     }) => {
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const accessToken = session?.access_token ?? SUPABASE_PUBLISHABLE_KEY;
-      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-        throw new Error('Supabase-Konfiguration fehlt');
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const accessToken = session?.access_token ?? supabasePublishableKey;
+
+      if (!supabaseUrl || !supabasePublishableKey) {
+        throw new Error('Supabase-Konfiguration fehlt.');
       }
-      const url = `${SUPABASE_URL}/rest/v1/feedback?id=eq.${id}`;
+
+      const url = `${supabaseUrl}/rest/v1/feedback?id=eq.${id}`;
       const res = await window.fetch(url, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          apikey: SUPABASE_PUBLISHABLE_KEY,
+          apikey: supabasePublishableKey,
           Authorization: `Bearer ${accessToken}`,
           Prefer: 'return=minimal',
         },
@@ -319,6 +329,7 @@ export const FeedbackManagement = () => {
           updated_at: new Date().toISOString(),
         }),
       });
+
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || res.statusText);
@@ -326,50 +337,47 @@ export const FeedbackManagement = () => {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-feedback'] });
-      setSelectedFeedback((prev) =>
-        prev && prev.id === variables.id
-          ? {
-              ...prev,
-              title: variables.title.trim(),
-              description: variables.description.trim(),
-              type: variables.type,
-              updated_at: new Date().toISOString(),
-            }
-          : prev
-      );
+      updateSelectedFeedback(variables.id, {
+        title: variables.title.trim(),
+        description: variables.description.trim(),
+        type: variables.type,
+        updated_at: new Date().toISOString(),
+      });
       setIsEditing(false);
       toast.success('Feedback aktualisiert');
     },
     onError: (error: any) => {
-      toast.error('Fehler beim Speichern: ' + error.message);
+      toast.error(`Fehler beim Speichern: ${error.message}`);
     },
   });
-
-  const BULK_DELETE_CHUNK_SIZE = 50;
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
       if (ids.length === 0) return;
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const accessToken = session?.access_token;
-      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || !accessToken) {
-        throw new Error('Supabase oder Session nicht verfügbar');
+
+      if (!supabaseUrl || !supabasePublishableKey || !accessToken) {
+        throw new Error('Supabase oder Session nicht verfügbar.');
       }
-      // Chunk IDs to avoid URL length limit (e.g. 2048) – one DELETE per chunk
-      for (let i = 0; i < ids.length; i += BULK_DELETE_CHUNK_SIZE) {
-        const chunk = ids.slice(i, i + BULK_DELETE_CHUNK_SIZE);
-        const filter = chunk.join(',');
-        const url = `${SUPABASE_URL}/rest/v1/feedback?id=in.(${filter})`;
+
+      const chunkSize = 50;
+
+      for (let index = 0; index < ids.length; index += chunkSize) {
+        const chunk = ids.slice(index, index + chunkSize);
+        const url = `${supabaseUrl}/rest/v1/feedback?id=in.(${chunk.join(',')})`;
         const res = await window.fetch(url, {
           method: 'DELETE',
           headers: {
-            apikey: SUPABASE_PUBLISHABLE_KEY,
+            apikey: supabasePublishableKey,
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
             Prefer: 'return=minimal',
           },
         });
+
         if (!res.ok) {
           const text = await res.text();
           throw new Error(`Löschen fehlgeschlagen: ${res.status} ${text}`);
@@ -378,30 +386,35 @@ export const FeedbackManagement = () => {
     },
     onSuccess: (_, ids) => {
       queryClient.invalidateQueries({ queryKey: ['admin-feedback'] });
-      setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)));
+      setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
       setBulkDeleteIds(null);
       toast.success(`${ids.length} Feedback-Einträge gelöscht`);
     },
     onError: (error: any) => {
-      toast.error('Fehler beim Löschen: ' + (error?.message ?? error));
+      toast.error(`Fehler beim Löschen: ${error?.message ?? error}`);
     },
   });
 
   const bulkStatusMutation = useMutation({
     mutationFn: async ({ ids, status }: { ids: string[]; status: FeedbackStatus }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+
       const updateData: Record<string, unknown> = {
         status,
         updated_at: new Date().toISOString(),
       };
+
       if (status === 'resolved') {
         updateData.resolved_at = new Date().toISOString();
-        updateData.resolved_by = user?.id ?? null;
+        updateData.resolved_by = currentUser?.id ?? null;
+      } else {
+        updateData.resolved_at = null;
+        updateData.resolved_by = null;
       }
-      const { error } = await supabase
-        .from('feedback')
-        .update(updateData)
-        .in('id', ids);
+
+      const { error } = await supabase.from('feedback').update(updateData).in('id', ids);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -409,25 +422,38 @@ export const FeedbackManagement = () => {
       toast.success('Status aktualisiert');
     },
     onError: (error: any) => {
-      toast.error('Fehler beim Aktualisieren: ' + error.message);
+      toast.error(`Fehler beim Aktualisieren: ${error.message}`);
     },
   });
 
   const sortedFeedbacks = useMemo(() => {
     if (!feedbacks) return [];
+
     const list = [...feedbacks];
+
     if (sortOrder === 'newest') {
       list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    } else if (sortOrder === 'oldest') {
-      list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    } else {
-      const prioOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-      list.sort(
-        (a, b) =>
-          prioOrder[a.priority] - prioOrder[b.priority] ||
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+      return list;
     }
+
+    if (sortOrder === 'oldest') {
+      list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      return list;
+    }
+
+    const priorityOrder: Record<FeedbackPriority, number> = {
+      critical: 0,
+      high: 1,
+      medium: 2,
+      low: 3,
+    };
+
+    list.sort(
+      (a, b) =>
+        priorityOrder[a.priority] - priorityOrder[b.priority] ||
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+
     return list;
   }, [feedbacks, sortOrder]);
 
@@ -435,16 +461,21 @@ export const FeedbackManagement = () => {
     if (groupBy === 'none') {
       return [{ key: 'all', label: 'Alle', items: sortedFeedbacks }];
     }
+
     const groups = new Map<string, Feedback[]>();
-    for (const f of sortedFeedbacks) {
+
+    for (const feedback of sortedFeedbacks) {
       let key: string;
-      if (groupBy === 'status') key = f.status;
-      else if (groupBy === 'type') key = f.type;
-      else if (groupBy === 'priority') key = f.priority;
-      else key = getDateGroupKey(f.created_at);
+
+      if (groupBy === 'status') key = feedback.status;
+      else if (groupBy === 'type') key = feedback.type;
+      else if (groupBy === 'priority') key = feedback.priority;
+      else key = getDateGroupKey(feedback.created_at);
+
       if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(f);
+      groups.get(key)!.push(feedback);
     }
+
     const labels =
       groupBy === 'status'
         ? statusLabels
@@ -453,6 +484,7 @@ export const FeedbackManagement = () => {
           : groupBy === 'priority'
             ? priorityLabels
             : dateGroupLabels;
+
     const order =
       groupBy === 'status'
         ? (['open', 'in_progress', 'resolved', 'closed'] as const)
@@ -461,26 +493,36 @@ export const FeedbackManagement = () => {
           : groupBy === 'priority'
             ? (['critical', 'high', 'medium', 'low'] as const)
             : (['this_week', 'last_week', 'this_month', 'last_month', 'older'] as const);
+
     return order
-      .filter((k) => groups.has(k))
-      .map((k) => ({ key: k, label: labels[k] ?? k, items: groups.get(k)! }));
-  }, [sortedFeedbacks, groupBy]);
+      .filter((key) => groups.has(key))
+      .map((key) => ({ key, label: labels[key] ?? key, items: groups.get(key)! }));
+  }, [groupBy, sortedFeedbacks]);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const allVisibleIds = useMemo(() => sortedFeedbacks.map((f) => f.id), [sortedFeedbacks]);
-  const isAllSelected =
-    sortedFeedbacks.length > 0 && allVisibleIds.every((id) => selectedSet.has(id));
+  const allVisibleIds = useMemo(() => sortedFeedbacks.map((feedback) => feedback.id), [sortedFeedbacks]);
+  const isAllSelected = sortedFeedbacks.length > 0 && allVisibleIds.every((id) => selectedSet.has(id));
   const isSomeSelected = selectedIds.length > 0;
 
   const toggleSelect = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    setSelectedIds((current) => (current.includes(id) ? current.filter((entryId) => entryId !== id) : [...current, id]));
+  };
+
+  const toggleExpandedFeedback = (id: string) => {
+    setExpandedFeedbackIds((current) =>
+      current.includes(id) ? current.filter((entryId) => entryId !== id) : [...current, id],
     );
   };
+
   const toggleSelectAll = () => {
-    if (isAllSelected) setSelectedIds([]);
-    else setSelectedIds([...allVisibleIds]);
+    if (isAllSelected) {
+      setSelectedIds([]);
+      return;
+    }
+
+    setSelectedIds([...allVisibleIds]);
   };
+
   const clearSelection = () => setSelectedIds([]);
 
   const handleOpenDetail = (feedback: Feedback, openInEditMode = false) => {
@@ -491,10 +533,12 @@ export const FeedbackManagement = () => {
 
   const handleSaveEdit = () => {
     if (!selectedFeedback) return;
+
     if (!editForm.title.trim()) {
       toast.error('Titel darf nicht leer sein.');
       return;
     }
+
     updateFeedbackMutation.mutate({
       id: selectedFeedback.id,
       title: editForm.title,
@@ -506,410 +550,433 @@ export const FeedbackManagement = () => {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-64 w-full" />
+        <div className="space-y-2">
+          <div className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Feedback</div>
+          <h2 className="text-[1.32rem] font-semibold tracking-[-0.02em] text-[#13112B]">
+            Meldungen und Ideen bearbeiten
+          </h2>
+          <p className="max-w-2xl text-sm leading-6 text-[#13112B]/58">
+            Lade offene Rückmeldungen und bereite die Bearbeitung vor.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <Skeleton className="h-11 w-full rounded-xl" />
+          <Skeleton className="h-11 w-full rounded-xl" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+        </div>
       </div>
     );
   }
 
-  const openFeedbacks = feedbacks?.filter(f => f.status === 'open').length || 0;
+  const openFeedbacks = feedbacks?.filter((feedback) => feedback.status === 'open').length || 0;
   const totalFeedbacks = feedbacks?.length || 0;
+  const resolvedFeedbacks = feedbacks?.filter((feedback) => feedback.status === 'resolved').length || 0;
 
   return (
-    <div className="space-y-4 w-full min-w-0">
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
-        <Card className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
-          <CardContent className="p-3 sm:p-4">
-            <div className="text-xs sm:text-sm text-[#13112B]/60">Gesamt</div>
-            <div className="text-xl sm:text-2xl font-bold text-[#13112B]">{totalFeedbacks}</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
-          <CardContent className="p-3 sm:p-4">
-            <div className="text-xs sm:text-sm text-[#13112B]/60">Offen</div>
-            <div className="text-xl sm:text-2xl font-bold text-blue-500">{openFeedbacks}</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
-          <CardContent className="p-3 sm:p-4">
-            <div className="text-xs sm:text-sm text-[#13112B]/60">Gelöst</div>
-            <div className="text-xl sm:text-2xl font-bold text-[#36B531]">
-              {feedbacks?.filter(f => f.status === 'resolved').length || 0}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+    <div className="space-y-5 w-full min-w-0">
+      <section className="space-y-2">
+        <div className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Feedback</div>
+        <h2 className="text-[1.32rem] font-semibold tracking-[-0.02em] text-[#13112B]">
+          Meldungen und Ideen bearbeiten
+        </h2>
+        <p className="max-w-2xl text-sm leading-6 text-[#13112B]/58">
+          Prüfe offene Rückmeldungen, aktualisiere Status und halte wichtige Fehler oder Ideen direkt an einem Ort fest.
+        </p>
+        <div className="text-xs text-[#13112B]/58">
+          {totalFeedbacks} Einträge / {openFeedbacks} offen / {resolvedFeedbacks} gelöst
+        </div>
+      </section>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-end">
-        <div className="space-y-2 flex-1">
-          <Label className="text-sm font-medium text-[#13112B]">Status</Label>
-          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as FeedbackStatus | 'all')}>
-            <SelectTrigger className="w-full h-11 rounded-xl border-[#E7F7E9]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-[#E7F7E9]">
-              <SelectItem value="all">Alle</SelectItem>
-              <SelectItem value="open">Offen</SelectItem>
-              <SelectItem value="in_progress">In Bearbeitung</SelectItem>
-              <SelectItem value="resolved">Gelöst</SelectItem>
-              <SelectItem value="closed">Geschlossen</SelectItem>
-            </SelectContent>
-          </Select>
+      <section className="space-y-3">
+        <div>
+          <div className="text-[0.78rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Filter</div>
+          <p className="mt-2 text-sm text-[#13112B]/58">
+            Filtere nach Status, Typ, Gruppierung und Sortierung, um schneller zum passenden Eintrag zu kommen.
+          </p>
         </div>
 
-        <div className="space-y-2 flex-1">
-          <Label className="text-sm font-medium text-[#13112B]">Typ</Label>
-          <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as FeedbackType | 'all')}>
-            <SelectTrigger className="w-full h-11 rounded-xl border-[#E7F7E9]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-[#E7F7E9]">
-              <SelectItem value="all">Alle</SelectItem>
-              <SelectItem value="error">Fehler</SelectItem>
-              <SelectItem value="bug">Bug</SelectItem>
-              <SelectItem value="feature">Feature</SelectItem>
-              <SelectItem value="general">Allgemein</SelectItem>
-              <SelectItem value="other">Sonstiges</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2 flex-1">
-          <Label className="text-sm font-medium text-[#13112B]">Gruppierung</Label>
-          <Select value={groupBy} onValueChange={(v) => setGroupBy(v as GroupBy)}>
-            <SelectTrigger className="w-full h-11 rounded-xl border-[#E7F7E9]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-[#E7F7E9]">
-              <SelectItem value="none">Keine</SelectItem>
-              <SelectItem value="status">Nach Status</SelectItem>
-              <SelectItem value="type">Nach Typ</SelectItem>
-              <SelectItem value="priority">Nach Priorität</SelectItem>
-              <SelectItem value="date">Nach Datum</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2 flex-1">
-          <Label className="text-sm font-medium text-[#13112B]">Sortierung</Label>
-          <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as SortOrder)}>
-            <SelectTrigger className="w-full h-11 rounded-xl border-[#E7F7E9]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-[#E7F7E9]">
-              <SelectItem value="newest">Neueste zuerst</SelectItem>
-              <SelectItem value="oldest">Älteste zuerst</SelectItem>
-              <SelectItem value="priority">Nach Priorität</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <Button
-          variant="outline"
-          className="h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] w-full sm:w-auto"
-          onClick={() => queryClient.invalidateQueries({ queryKey: ['admin-feedback'] })}
-        >
-          Aktualisieren
-        </Button>
-      </div>
-
-      {/* Bulk action bar */}
-      {isSomeSelected && (
-        <Card className="bg-[#E7F7E9]/30 border border-[#E7F7E9] rounded-xl">
-          <CardContent className="p-3 flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium text-[#13112B]">
-              {selectedIds.length} ausgewählt
-            </span>
-            <Select
-              value={bulkStatusValue}
-              onValueChange={(v) => setBulkStatusValue(v as FeedbackStatus)}
-            >
-              <SelectTrigger className="h-9 w-[180px] rounded-xl border-[#E7F7E9]">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto]">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-[#13112B]">Status</Label>
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as FeedbackStatus | 'all')}>
+              <SelectTrigger className="h-11 rounded-xl border-[#DDE7DF] bg-white">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-[#E7F7E9]">
+              <SelectContent className="rounded-xl border-[#DDE7DF]">
+                <SelectItem value="all">Alle</SelectItem>
                 <SelectItem value="open">Offen</SelectItem>
                 <SelectItem value="in_progress">In Bearbeitung</SelectItem>
                 <SelectItem value="resolved">Gelöst</SelectItem>
                 <SelectItem value="closed">Geschlossen</SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              size="sm"
-              className="h-9 rounded-xl bg-[#36B531] hover:bg-[#2d9a29]"
-              onClick={() => bulkStatusMutation.mutate({ ids: selectedIds, status: bulkStatusValue })}
-              disabled={bulkStatusMutation.isPending}
-            >
-              Status setzen
-            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-[#13112B]">Typ</Label>
+            <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as FeedbackType | 'all')}>
+              <SelectTrigger className="h-11 rounded-xl border-[#DDE7DF] bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-[#DDE7DF]">
+                <SelectItem value="all">Alle</SelectItem>
+                <SelectItem value="error">Fehler</SelectItem>
+                <SelectItem value="bug">Bug</SelectItem>
+                <SelectItem value="feature">Feature</SelectItem>
+                <SelectItem value="general">Allgemein</SelectItem>
+                <SelectItem value="other">Sonstiges</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-[#13112B]">Gruppierung</Label>
+            <Select value={groupBy} onValueChange={(value) => setGroupBy(value as GroupBy)}>
+              <SelectTrigger className="h-11 rounded-xl border-[#DDE7DF] bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-[#DDE7DF]">
+                <SelectItem value="none">Keine</SelectItem>
+                <SelectItem value="status">Nach Status</SelectItem>
+                <SelectItem value="type">Nach Typ</SelectItem>
+                <SelectItem value="priority">Nach Priorität</SelectItem>
+                <SelectItem value="date">Nach Datum</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-[#13112B]">Sortierung</Label>
+            <Select value={sortOrder} onValueChange={(value) => setSortOrder(value as SortOrder)}>
+              <SelectTrigger className="h-11 rounded-xl border-[#DDE7DF] bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-[#DDE7DF]">
+                <SelectItem value="newest">Neueste zuerst</SelectItem>
+                <SelectItem value="oldest">Älteste zuerst</SelectItem>
+                <SelectItem value="priority">Nach Priorität</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="self-end">
             <Button
               variant="outline"
-              size="sm"
-              className="h-9 rounded-xl border-red-200 text-destructive hover:bg-red-50"
-              onClick={() => setBulkDeleteIds([...selectedIds])}
+              className="h-11 w-full rounded-xl border-[#DDE7DF] bg-white px-0 text-[#13112B] sm:px-4 xl:w-auto"
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['admin-feedback'] })}
             >
-              Ausgewählte löschen
+              <RefreshCcw className="h-4 w-4 xl:mr-2" />
+              <span className="sr-only xl:not-sr-only xl:inline">Neu laden</span>
             </Button>
-            <Button variant="ghost" size="sm" className="h-9 rounded-xl" onClick={clearSelection}>
-              Auswahl aufheben
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </div>
+      </section>
 
-      {/* Desktop Table */}
-      <div className="hidden md:block border border-[#E7F7E9] rounded-xl bg-white overflow-hidden shadow-sm">
-        <ScrollArea className="h-[600px]">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-b border-[#E7F7E9]">
-                <TableHead className="w-12 pr-0">
-                  <Checkbox
-                    checked={isAllSelected}
-                    onCheckedChange={toggleSelectAll}
-                    aria-label="Alle auswählen"
-                  />
-                </TableHead>
-                <TableHead className="text-[#13112B] font-medium">Typ</TableHead>
-                <TableHead className="text-[#13112B] font-medium">Titel</TableHead>
-                <TableHead className="text-[#13112B] font-medium">Status</TableHead>
-                <TableHead className="text-[#13112B] font-medium">Priorität</TableHead>
-                <TableHead className="text-[#13112B] font-medium">Von</TableHead>
-                <TableHead className="text-[#13112B] font-medium">Erstellt</TableHead>
-                <TableHead className="text-right text-[#13112B] font-medium">Aktionen</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedFeedbacks.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-[#13112B]/60 py-8">
-                    Kein Feedback gefunden
-                  </TableCell>
-                </TableRow>
-              ) : (
-                groupedFeedbacks.map((group) => (
-                  <React.Fragment key={group.key}>
-                    {groupBy !== 'none' && (
-                      <TableRow className="bg-[#F9FAF9] border-b border-[#E7F7E9]">
-                        <TableCell colSpan={8} className="py-2">
-                          <span className="font-medium text-[#13112B] flex items-center gap-2">
-                            <ChevronDown className="h-4 w-4" />
-                            {group.label} ({group.items.length})
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {group.items.map((feedback) => {
-                      const TypeIcon = typeIcons[feedback.type];
-                      return (
-                        <TableRow key={feedback.id} className="border-b border-[#E7F7E9]">
-                          <TableCell className="w-12 pr-0" onClick={(e) => e.stopPropagation()}>
-                            <Checkbox
-                              checked={selectedSet.has(feedback.id)}
-                              onCheckedChange={() => toggleSelect(feedback.id)}
-                              aria-label={`${feedback.title} auswählen`}
+      {isSomeSelected ? (
+        <section className="rounded-xl border border-[#DDE7DF] bg-[#FCFEFC] px-4 py-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+            <span className="text-sm font-medium text-[#13112B]">{selectedIds.length} ausgewählt</span>
+            <Select value={bulkStatusValue} onValueChange={(value) => setBulkStatusValue(value as FeedbackStatus)}>
+              <SelectTrigger className="h-10 w-full rounded-xl border-[#DDE7DF] bg-white sm:w-[210px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-[#DDE7DF]">
+                <SelectItem value="open">Offen</SelectItem>
+                <SelectItem value="in_progress">In Bearbeitung</SelectItem>
+                <SelectItem value="resolved">Gelöst</SelectItem>
+                <SelectItem value="closed">Geschlossen</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                className="rounded-xl bg-[#36B531] text-white hover:bg-[#2FA12B]"
+                onClick={() => bulkStatusMutation.mutate({ ids: selectedIds, status: bulkStatusValue })}
+                disabled={bulkStatusMutation.isPending}
+              >
+                Status setzen
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-xl border-[#E8C9C0] bg-white text-[#C14E37] hover:bg-[#FFF5F2]"
+                onClick={() => setBulkDeleteIds([...selectedIds])}
+              >
+                Ausgewählte löschen
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-xl border-[#DDE7DF] bg-white text-[#13112B]"
+                onClick={clearSelection}
+              >
+                Auswahl aufheben
+              </Button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="text-[0.78rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Feedbackliste</div>
+            <p className="mt-2 text-sm text-[#13112B]/58">{sortedFeedbacks.length} sichtbare Einträge</p>
+          </div>
+          {sortedFeedbacks.length > 0 ? (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={isAllSelected}
+                onCheckedChange={toggleSelectAll}
+                aria-label="Alle auswählen"
+              />
+              <button
+                type="button"
+                className="text-sm font-medium text-[#36B531] hover:underline"
+                onClick={toggleSelectAll}
+              >
+                {isAllSelected ? 'Auswahl aufheben' : 'Alle auswählen'}
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        {sortedFeedbacks.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FCFEFC] px-5 py-6 text-sm text-[#13112B]/58">
+            Kein passendes Feedback gefunden.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {groupedFeedbacks.map((group) => (
+              <div key={group.key} className="space-y-3">
+                {groupBy !== 'none' ? (
+                  <div className="flex items-center gap-2 px-1 text-sm font-medium text-[#13112B]/80">
+                    <ChevronDown className="h-4 w-4" />
+                    {group.label} ({group.items.length})
+                  </div>
+                ) : null}
+
+                <div className="space-y-4">
+                  {group.items.map((feedback) => {
+                    const TypeIcon = typeIcons[feedback.type];
+                    const isExpanded = expandedFeedbackIds.includes(feedback.id);
+
+                    return (
+                      <article key={feedback.id} className="rounded-2xl border border-[#DDE7DF] bg-white">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpandedFeedback(feedback.id)}
+                          className="w-full px-4 py-4 text-left md:px-5"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
+                                <Checkbox
+                                  checked={selectedSet.has(feedback.id)}
+                                  onCheckedChange={() => toggleSelect(feedback.id)}
+                                  aria-label={`${feedback.title} auswählen`}
+                                />
+                                <TypeIcon className="h-4 w-4 shrink-0 text-[#13112B]/72" />
+                                <h3 className="min-w-0 truncate text-base font-semibold text-[#13112B] md:text-lg">
+                                  {feedback.title}
+                                </h3>
+                              </div>
+
+                              <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#13112B]/62">
+                                {feedback.description || 'Keine Beschreibung hinterlegt.'}
+                              </p>
+
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className={cn('rounded-lg px-3 py-1 text-[11px] font-semibold', statusBadgeClassNames[feedback.status])}
+                                >
+                                  {statusLabels[feedback.status]}
+                                </Badge>
+                                <Badge
+                                  variant="outline"
+                                  className={cn('rounded-lg px-3 py-1 text-[11px] font-semibold', priorityBadgeClassNames[feedback.priority])}
+                                >
+                                  {priorityLabels[feedback.priority]}
+                                </Badge>
+                                <Badge
+                                  variant="outline"
+                                  className="rounded-lg border-[#DDE7DF] bg-white px-3 py-1 text-[11px] font-semibold text-[#13112B]/72"
+                                >
+                                  {typeLabels[feedback.type]}
+                                </Badge>
+                              </div>
+
+                              <div className="mt-3 flex flex-col gap-2 text-sm text-[#13112B]/68 sm:flex-row sm:flex-wrap sm:gap-x-5">
+                                <span>{feedback.user_email || 'Gast'}</span>
+                                <span>{format(new Date(feedback.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}</span>
+                                {feedback.url ? <span>URL vorhanden</span> : null}
+                              </div>
+                            </div>
+
+                            <ChevronDown
+                              className={cn(
+                                'mt-1 h-5 w-5 shrink-0 text-[#13112B]/42 transition-transform duration-200',
+                                isExpanded && 'rotate-180',
+                              )}
                             />
-                          </TableCell>
-                          <TableCell className="text-[#13112B]">
-                            <div className="flex items-center gap-2">
-                              <TypeIcon className="h-4 w-4" />
-                              <span>{typeLabels[feedback.type]}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-[#13112B]">
-                            <div className="max-w-[300px] truncate" title={feedback.title}>
-                              {feedback.title}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={`${statusColors[feedback.status]} rounded-xl text-white`}>
-                              {statusLabels[feedback.status]}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={`${priorityColors[feedback.priority]} rounded-xl text-white`}>
-                              {priorityLabels[feedback.priority]}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-[#13112B]/60">
-                            <div className="text-sm">{feedback.user_email || 'Gast'}</div>
-                          </TableCell>
-                          <TableCell className="text-[#13112B]/60">
-                            <div className="text-sm">
-                              {format(new Date(feedback.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-9 rounded-xl hover:bg-[#E7F7E9]"
-                                onClick={() => handleOpenDetail(feedback)}
-                                title="Details anzeigen"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-9 rounded-xl hover:bg-[#E7F7E9]"
-                                onClick={() => handleOpenDetail(feedback, true)}
-                                title="Bearbeiten"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-9 rounded-xl hover:bg-red-50 text-destructive"
-                                onClick={() => setDeleteConfirmId(feedback.id)}
-                                title="Löschen"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </React.Fragment>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </ScrollArea>
-      </div>
+                          </div>
+                        </button>
 
-      {/* Mobile Card View */}
-      <div className="md:hidden space-y-3 w-full min-w-0">
-        {sortedFeedbacks.length > 0 && (
-          <div className="flex items-center gap-2 px-1">
-            <Checkbox
-              checked={isAllSelected}
-              onCheckedChange={toggleSelectAll}
-              aria-label="Alle auswählen"
-            />
-            <button
-              type="button"
-              className="text-sm font-medium text-[#36B531] hover:underline"
-              onClick={toggleSelectAll}
-            >
-              {isAllSelected ? 'Auswahl aufheben' : 'Alle auswählen'}
-            </button>
+                        {isExpanded ? (
+                          <div className="border-t border-[#DDE7DF] px-4 py-4 md:px-5">
+                            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+                              <div className="space-y-4">
+                                <div>
+                                  <div className="text-[0.78rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">
+                                    Beschreibung
+                                  </div>
+                                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#13112B]/72">
+                                    {feedback.description || 'Keine Beschreibung hinterlegt.'}
+                                  </p>
+                                </div>
+
+                                {feedback.screenshot_url ? (
+                                  <div className="space-y-2">
+                                    <div className="text-[0.78rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">
+                                      Screenshot
+                                    </div>
+                                    <div className="overflow-hidden rounded-xl border border-[#DDE7DF] bg-white">
+                                      <img src={feedback.screenshot_url} alt="Screenshot" className="w-full object-cover" />
+                                    </div>
+                                  </div>
+                                ) : null}
+
+                                {feedback.url ? (
+                                  <div className="space-y-2">
+                                    <div className="text-[0.78rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">
+                                      URL
+                                    </div>
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                      <div className="min-w-0 flex-1 truncate rounded-xl border border-[#DDE7DF] bg-[#FCFEFC] px-4 py-3 text-sm text-[#13112B]/72">
+                                        {feedback.url}
+                                      </div>
+                                      <Button
+                                        variant="outline"
+                                        className="rounded-xl border-[#DDE7DF] bg-white text-[#13112B]"
+                                        onClick={() => window.open(feedback.url!, '_blank')}
+                                      >
+                                        <ExternalLink className="mr-2 h-4 w-4" />
+                                        Öffnen
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </div>
+
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-medium text-[#13112B]">Status</Label>
+                                  <Select
+                                    value={feedback.status}
+                                    onValueChange={(value) =>
+                                      updateStatusMutation.mutate({ id: feedback.id, status: value as FeedbackStatus })
+                                    }
+                                  >
+                                    <SelectTrigger className="h-11 rounded-xl border-[#DDE7DF] bg-white">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl border-[#DDE7DF]">
+                                      <SelectItem value="open">Offen</SelectItem>
+                                      <SelectItem value="in_progress">In Bearbeitung</SelectItem>
+                                      <SelectItem value="resolved">Gelöst</SelectItem>
+                                      <SelectItem value="closed">Geschlossen</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label className="text-sm font-medium text-[#13112B]">Priorität</Label>
+                                  <Select
+                                    value={feedback.priority}
+                                    onValueChange={(value) =>
+                                      updatePriorityMutation.mutate({ id: feedback.id, priority: value as FeedbackPriority })
+                                    }
+                                  >
+                                    <SelectTrigger className="h-11 rounded-xl border-[#DDE7DF] bg-white">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl border-[#DDE7DF]">
+                                      <SelectItem value="low">Niedrig</SelectItem>
+                                      <SelectItem value="medium">Mittel</SelectItem>
+                                      <SelectItem value="high">Hoch</SelectItem>
+                                      <SelectItem value="critical">Kritisch</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div className="rounded-xl border border-[#DDE7DF] bg-[#FCFEFC] px-4 py-3">
+                                  <div className="space-y-2 text-sm text-[#13112B]/72">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <span>Typ</span>
+                                      <span className="text-right text-[#13112B]">{typeLabels[feedback.type]}</span>
+                                    </div>
+                                    <div className="flex items-start justify-between gap-3">
+                                      <span>Von</span>
+                                      <span className="text-right text-[#13112B]">{feedback.user_email || 'Gast'}</span>
+                                    </div>
+                                    <div className="flex items-start justify-between gap-3">
+                                      <span>Erstellt</span>
+                                      <span className="text-right text-[#13112B]">
+                                        {format(new Date(feedback.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
+                                      </span>
+                                    </div>
+                                    {feedback.resolved_at ? (
+                                      <div className="flex items-start justify-between gap-3">
+                                        <span>Gelöst am</span>
+                                        <span className="text-right text-[#13112B]">
+                                          {format(new Date(feedback.resolved_at), 'dd.MM.yyyy HH:mm', { locale: de })}
+                                        </span>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                              <Button
+                                variant="outline"
+                                className="rounded-xl border-[#DDE7DF] bg-white text-[#13112B]"
+                                onClick={() => handleOpenDetail(feedback)}
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                Details
+                              </Button>
+                              <Button
+                                className="rounded-xl bg-[#36B531] text-white hover:bg-[#2FA12B]"
+                                onClick={() => handleOpenDetail(feedback, true)}
+                              >
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Bearbeiten
+                              </Button>
+                              <Button
+                                variant="outline"
+                                className="rounded-xl border-[#E8C9C0] bg-white text-[#C14E37] hover:bg-[#FFF5F2]"
+                                onClick={() => setDeleteConfirmId(feedback.id)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Löschen
+                              </Button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </article>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
-        {sortedFeedbacks.length === 0 ? (
-          <Card className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
-            <CardContent className="p-8 text-center text-[#13112B]/60">
-              Kein Feedback gefunden
-            </CardContent>
-          </Card>
-        ) : (
-          groupedFeedbacks.map((group) => (
-            <div key={group.key} className="space-y-3">
-              {groupBy !== 'none' && (
-                <h3 className="text-sm font-medium text-[#13112B]/80 flex items-center gap-2 px-1">
-                  <ChevronDown className="h-4 w-4" />
-                  {group.label} ({group.items.length})
-                </h3>
-              )}
-              {group.items.map((feedback) => {
-                const TypeIcon = typeIcons[feedback.type];
-                return (
-                  <Card
-                    key={feedback.id}
-                    className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer"
-                    onClick={() => handleOpenDetail(feedback)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div
-                          className="flex items-center gap-2 flex-1 min-w-0"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Checkbox
-                            checked={selectedSet.has(feedback.id)}
-                            onCheckedChange={() => toggleSelect(feedback.id)}
-                            aria-label={`${feedback.title} auswählen`}
-                          />
-                          <TypeIcon className="h-5 w-5 text-[#13112B] flex-shrink-0" />
-                          <h3 className="font-semibold text-base text-[#13112B] truncate">{feedback.title}</h3>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <Badge className={`${statusColors[feedback.status]} rounded-xl text-white text-xs`}>
-                            {statusLabels[feedback.status]}
-                          </Badge>
-                        </div>
-                      </div>
+      </section>
 
-                      <div className="flex items-center gap-2 mb-3 flex-wrap">
-                        <Badge className={`${priorityColors[feedback.priority]} rounded-xl text-white text-xs`}>
-                          {priorityLabels[feedback.priority]}
-                        </Badge>
-                        <span className="text-xs text-[#13112B]/60">{typeLabels[feedback.type]}</span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="text-[#13112B]/60 truncate flex-1 min-w-0">
-                          {feedback.user_email || 'Gast'}
-                        </div>
-                        <div className="text-[#13112B]/60 flex-shrink-0 ml-2">
-                          {format(new Date(feedback.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#E7F7E9]">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 h-10 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenDetail(feedback);
-                          }}
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          Details
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-10 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenDetail(feedback, true);
-                          }}
-                        >
-                          <Pencil className="h-4 w-4 mr-2" />
-                          Bearbeiten
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-10 w-10 rounded-xl border-[#E7F7E9] hover:bg-red-50 text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteConfirmId(feedback.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Single delete confirmation */}
       <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
-        <AlertDialogContent className="rounded-2xl border-[#E7F7E9]">
+        <AlertDialogContent className="rounded-2xl border-[#DDE7DF]">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-[#13112B]">Feedback löschen?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -928,9 +995,8 @@ export const FeedbackManagement = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Bulk delete confirmation */}
       <AlertDialog open={!!bulkDeleteIds?.length} onOpenChange={(open) => !open && setBulkDeleteIds(null)}>
-        <AlertDialogContent className="rounded-2xl border-[#E7F7E9]">
+        <AlertDialogContent className="rounded-2xl border-[#DDE7DF]">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-[#13112B]">
               {bulkDeleteIds?.length} Feedback-Einträge löschen?
@@ -943,10 +1009,7 @@ export const FeedbackManagement = () => {
             <AlertDialogCancel className="rounded-xl">Abbrechen</AlertDialogCancel>
             <AlertDialogAction
               className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() =>
-                bulkDeleteIds?.length &&
-                bulkDeleteMutation.mutate(bulkDeleteIds)
-              }
+              onClick={() => bulkDeleteIds?.length && bulkDeleteMutation.mutate(bulkDeleteIds)}
             >
               Alle löschen
             </AlertDialogAction>
@@ -954,8 +1017,7 @@ export const FeedbackManagement = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Detail Dialog */}
-      {selectedFeedback && (
+      {selectedFeedback ? (
         <Dialog
           open={!!selectedFeedback}
           onOpenChange={(open) => {
@@ -965,12 +1027,12 @@ export const FeedbackManagement = () => {
             }
           }}
         >
-          <DialogContent className="sm:max-w-[700px] p-0 gap-0 max-h-[90vh] overflow-y-auto">
-            <DialogHeader className="px-6 pt-6 pb-4">
+          <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto rounded-2xl border-[#DDE7DF] p-0 sm:max-w-[700px]">
+            <DialogHeader className="px-6 pb-4 pt-6">
               <DialogTitle className="flex items-center gap-2 text-xl font-heading font-bold text-[#13112B]">
                 {(() => {
                   const TypeIcon = typeIcons[isEditing ? editForm.type : selectedFeedback.type];
-                  return <TypeIcon className="h-5 w-5 flex-shrink-0" />;
+                  return <TypeIcon className="h-5 w-5 shrink-0" />;
                 })()}
                 <span className="truncate">{isEditing ? 'Feedback bearbeiten' : selectedFeedback.title}</span>
               </DialogTitle>
@@ -980,13 +1042,12 @@ export const FeedbackManagement = () => {
             </DialogHeader>
 
             <div className="space-y-4 px-6 pb-6">
-              {/* Edit bar: Bearbeiten / Speichern / Abbrechen */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {!isEditing ? (
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-9 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
+                    className="h-9 rounded-xl border-[#DDE7DF] text-[#13112B] hover:bg-[#F7FBF7]"
                     onClick={() => {
                       setEditForm({
                         title: selectedFeedback.title,
@@ -996,24 +1057,24 @@ export const FeedbackManagement = () => {
                       setIsEditing(true);
                     }}
                   >
-                    <Pencil className="h-4 w-4 mr-2" />
+                    <Pencil className="mr-2 h-4 w-4" />
                     Bearbeiten
                   </Button>
                 ) : (
                   <>
                     <Button
                       size="sm"
-                      className="h-9 rounded-xl bg-[#36B531] hover:bg-[#2d9a29]"
+                      className="h-9 rounded-xl bg-[#36B531] hover:bg-[#2FA12B]"
                       onClick={handleSaveEdit}
                       disabled={updateFeedbackMutation.isPending}
                     >
-                      <Check className="h-4 w-4 mr-2" />
+                      <Check className="mr-2 h-4 w-4" />
                       Speichern
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-9 rounded-xl border-[#E7F7E9]"
+                      className="h-9 rounded-xl border-[#DDE7DF]"
                       onClick={() => {
                         setEditForm({
                           title: selectedFeedback.title,
@@ -1023,15 +1084,14 @@ export const FeedbackManagement = () => {
                         setIsEditing(false);
                       }}
                     >
-                      <X className="h-4 w-4 mr-2" />
+                      <X className="mr-2 h-4 w-4" />
                       Abbrechen
                     </Button>
                   </>
                 )}
               </div>
 
-              {/* Status and Priority Controls */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-[#13112B]">Status</Label>
                   <Select
@@ -1040,10 +1100,10 @@ export const FeedbackManagement = () => {
                       updateStatusMutation.mutate({ id: selectedFeedback.id, status: value as FeedbackStatus })
                     }
                   >
-                    <SelectTrigger className="h-11 rounded-xl border-[#E7F7E9]">
+                    <SelectTrigger className="h-11 rounded-xl border-[#DDE7DF]">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="rounded-xl border-[#E7F7E9]">
+                    <SelectContent className="rounded-xl border-[#DDE7DF]">
                       <SelectItem value="open">Offen</SelectItem>
                       <SelectItem value="in_progress">In Bearbeitung</SelectItem>
                       <SelectItem value="resolved">Gelöst</SelectItem>
@@ -1060,10 +1120,10 @@ export const FeedbackManagement = () => {
                       updatePriorityMutation.mutate({ id: selectedFeedback.id, priority: value as FeedbackPriority })
                     }
                   >
-                    <SelectTrigger className="h-11 rounded-xl border-[#E7F7E9]">
+                    <SelectTrigger className="h-11 rounded-xl border-[#DDE7DF]">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="rounded-xl border-[#E7F7E9]">
+                    <SelectContent className="rounded-xl border-[#DDE7DF]">
                       <SelectItem value="low">Niedrig</SelectItem>
                       <SelectItem value="medium">Mittel</SelectItem>
                       <SelectItem value="high">Hoch</SelectItem>
@@ -1073,31 +1133,29 @@ export const FeedbackManagement = () => {
                 </div>
               </div>
 
-              {/* Title (editable when isEditing) */}
-              {isEditing && (
+              {isEditing ? (
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-[#13112B]">Titel</Label>
                   <Input
                     value={editForm.title}
-                    onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                    className="h-11 rounded-xl border-[#E7F7E9]"
+                    onChange={(event) => setEditForm((current) => ({ ...current, title: event.target.value }))}
+                    className="h-11 rounded-xl border-[#DDE7DF]"
                     placeholder="Titel"
                   />
                 </div>
-              )}
+              ) : null}
 
-              {/* Type (editable when isEditing) */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-[#13112B]">Typ</Label>
                 {isEditing ? (
                   <Select
                     value={editForm.type}
-                    onValueChange={(value) => setEditForm((f) => ({ ...f, type: value as FeedbackType }))}
+                    onValueChange={(value) => setEditForm((current) => ({ ...current, type: value as FeedbackType }))}
                   >
-                    <SelectTrigger className="h-11 rounded-xl border-[#E7F7E9]">
+                    <SelectTrigger className="h-11 rounded-xl border-[#DDE7DF]">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="rounded-xl border-[#E7F7E9]">
+                    <SelectContent className="rounded-xl border-[#DDE7DF]">
                       <SelectItem value="error">Fehler</SelectItem>
                       <SelectItem value="bug">Bug</SelectItem>
                       <SelectItem value="feature">Feature</SelectItem>
@@ -1106,119 +1164,107 @@ export const FeedbackManagement = () => {
                     </SelectContent>
                   </Select>
                 ) : (
-                  <div className="border border-[#E7F7E9] rounded-xl p-3 bg-[#F9FAF9] text-sm text-[#13112B]">
+                  <div className="rounded-xl border border-[#DDE7DF] bg-[#FCFEFC] p-3 text-sm text-[#13112B]">
                     {typeLabels[selectedFeedback.type]}
                   </div>
                 )}
               </div>
 
-              {/* Description */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-[#13112B]">Beschreibung</Label>
                 {isEditing ? (
                   <Textarea
                     value={editForm.description}
-                    onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                    className="min-h-[120px] rounded-xl border-[#E7F7E9]"
+                    onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))}
+                    className="min-h-[120px] rounded-xl border-[#DDE7DF]"
                     placeholder="Beschreibung"
                   />
                 ) : (
-                  <div className="border border-[#E7F7E9] rounded-xl p-4 bg-[#F9FAF9] whitespace-pre-wrap text-sm text-[#13112B]">
+                  <div className="whitespace-pre-wrap rounded-xl border border-[#DDE7DF] bg-[#FCFEFC] p-4 text-sm text-[#13112B]">
                     {selectedFeedback.description}
                   </div>
                 )}
               </div>
 
-              {/* Screenshot */}
-              {selectedFeedback.screenshot_url && (
+              {selectedFeedback.screenshot_url ? (
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-[#13112B]">Screenshot</Label>
-                  <div className="border border-[#E7F7E9] rounded-xl overflow-hidden">
-                    <img
-                      src={selectedFeedback.screenshot_url}
-                      alt="Screenshot"
-                      className="w-full h-auto max-h-96 object-contain"
-                    />
+                  <div className="overflow-hidden rounded-xl border border-[#DDE7DF]">
+                    <img src={selectedFeedback.screenshot_url} alt="Screenshot" className="h-auto max-h-96 w-full object-contain" />
                   </div>
                 </div>
-              )}
+              ) : null}
 
-              {/* URL */}
-              {selectedFeedback.url && (
+              {selectedFeedback.url ? (
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-[#13112B]">URL</Label>
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 border border-[#E7F7E9] rounded-xl p-2 bg-[#F9FAF9] text-sm text-[#13112B] truncate">
+                    <div className="flex-1 truncate rounded-xl border border-[#DDE7DF] bg-[#FCFEFC] p-3 text-sm text-[#13112B]">
                       {selectedFeedback.url}
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-9 rounded-xl border-[#E7F7E9] hover:bg-[#E7F7E9]"
+                      className="h-10 rounded-xl border-[#DDE7DF] hover:bg-[#F7FBF7]"
                       onClick={() => window.open(selectedFeedback.url!, '_blank')}
                     >
                       <ExternalLink className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
-              )}
+              ) : null}
 
-              {/* Error Details */}
-              {selectedFeedback.error_details && (
+              {selectedFeedback.error_details ? (
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-[#13112B]">Fehlerdetails</Label>
-                  <ScrollArea className="h-32 border border-[#E7F7E9] rounded-xl p-4 bg-[#F9FAF9]">
+                  <ScrollArea className="h-32 rounded-xl border border-[#DDE7DF] bg-[#FCFEFC] p-4">
                     <pre className="text-xs whitespace-pre-wrap text-[#13112B]">
                       {JSON.stringify(selectedFeedback.error_details, null, 2)}
                     </pre>
                   </ScrollArea>
                 </div>
-              )}
+              ) : null}
 
-              {/* Browser Info */}
-              {selectedFeedback.browser_info && (
+              {selectedFeedback.browser_info ? (
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-[#13112B]">Browser-Informationen</Label>
-                  <ScrollArea className="h-32 border border-[#E7F7E9] rounded-xl p-4 bg-[#F9FAF9]">
+                  <ScrollArea className="h-32 rounded-xl border border-[#DDE7DF] bg-[#FCFEFC] p-4">
                     <pre className="text-xs whitespace-pre-wrap text-[#13112B]">
                       {JSON.stringify(selectedFeedback.browser_info, null, 2)}
                     </pre>
                   </ScrollArea>
                 </div>
-              )}
+              ) : null}
 
-              {/* Metadata */}
-              {selectedFeedback.metadata && Object.keys(selectedFeedback.metadata).length > 0 && (
+              {selectedFeedback.metadata && Object.keys(selectedFeedback.metadata).length > 0 ? (
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-[#13112B]">Metadaten</Label>
-                  <ScrollArea className="h-32 border border-[#E7F7E9] rounded-xl p-4 bg-[#F9FAF9]">
+                  <ScrollArea className="h-32 rounded-xl border border-[#DDE7DF] bg-[#FCFEFC] p-4">
                     <pre className="text-xs whitespace-pre-wrap text-[#13112B]">
                       {JSON.stringify(selectedFeedback.metadata, null, 2)}
                     </pre>
                   </ScrollArea>
                 </div>
-              )}
+              ) : null}
 
-              {/* User Info */}
-              <div className="grid grid-cols-2 gap-4 text-sm pt-4 border-t border-[#E7F7E9]">
+              <div className="grid gap-4 border-t border-[#DDE7DF] pt-4 text-sm sm:grid-cols-2">
                 <div>
                   <Label className="text-[#13112B]/60">Von</Label>
                   <div className="text-[#13112B]">{selectedFeedback.user_email || 'Gast'}</div>
                 </div>
-                {selectedFeedback.resolved_at && (
+                {selectedFeedback.resolved_at ? (
                   <div>
                     <Label className="text-[#13112B]/60">Gelöst am</Label>
                     <div className="text-[#13112B]">
                       {format(new Date(selectedFeedback.resolved_at), 'dd.MM.yyyy HH:mm', { locale: de })}
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           </DialogContent>
         </Dialog>
-      )}
+      ) : null}
     </div>
   );
 };
-

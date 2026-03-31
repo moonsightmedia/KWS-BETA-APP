@@ -368,7 +368,7 @@ const Guest = () => {
 
       {/* Mobile: no top search; use floating filter bar below */}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" style={{ paddingBottom: 'calc(11rem + env(safe-area-inset-bottom, 0px))' }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
         {filtered.map((b, index) => (
           <Card 
             key={b.id} 
@@ -475,7 +475,7 @@ const Guest = () => {
 
       {/* Quick Filter Bar (mobile) */}
       {quickFilter && (
-        <div className="sm:hidden fixed left-4 right-4 bottom-[calc(154px+env(safe-area-inset-bottom,0px))] z-[100] pointer-events-none">
+        <div className="sm:hidden fixed left-4 right-4 bottom-20 z-[100] pointer-events-none">
           <div className="pointer-events-auto rounded-2xl bg-[#13112B] text-white shadow-2xl border border-white/10 overflow-hidden">
             <div className="flex items-center px-3 py-2">
               <span className="px-3 py-1 bg-white/10 rounded-xl text-xs font-semibold">
@@ -634,7 +634,7 @@ const Guest = () => {
       )}
       {/* Floating Filter Bar (mobile) */}
       {!isOnboardingOpen && (
-      <nav className="sm:hidden fixed left-4 right-4 z-[100]" style={{ bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
+      <nav className="sm:hidden fixed bottom-4 left-4 right-4 z-[100]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         <div className="bg-[#13112B] text-white rounded-2xl shadow-2xl border border-white/10 px-2 py-2 flex items-center justify-between">
           <div>
             <button className="h-10 px-3 bg-white text-[#13112B] rounded-xl text-xs font-semibold shadow-sm active:scale-95 transition flex items-center">
@@ -685,7 +685,7 @@ const Guest = () => {
         </div>
       </nav>
       )}
-      <div className="h-40 sm:h-0" />
+      <div className="h-24 sm:h-0" />
         </main>
     </div>
   );

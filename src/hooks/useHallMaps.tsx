@@ -127,7 +127,9 @@ export const useSectorMapRegions = (hallMapId?: string | null, accessToken?: str
     },
   });
 
-type HallMapInput = Pick<HallMap, 'name' | 'image_url' | 'width' | 'height' | 'is_active'>;
+type HallMapInput = Pick<HallMap, 'name' | 'image_url' | 'width' | 'height' | 'is_active'> & {
+  id?: string;
+};
 
 export const useCreateHallMap = (accessToken?: string | null) => {
   const queryClient = useQueryClient();
@@ -158,6 +160,7 @@ export const useCreateHallMap = (accessToken?: string | null) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hall_maps'] });
+      queryClient.invalidateQueries({ queryKey: ['hall_maps', 'active'] });
       toast.success('Hallenkarte gespeichert');
     },
     onError: (error: Error) => {
@@ -195,6 +198,7 @@ export const useUpdateHallMap = (accessToken?: string | null) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hall_maps'] });
+      queryClient.invalidateQueries({ queryKey: ['hall_maps', 'active'] });
       queryClient.invalidateQueries({ queryKey: ['sector_map_regions'] });
       toast.success('Hallenkarte aktualisiert');
     },
@@ -216,6 +220,7 @@ export const useDeleteHallMap = (accessToken?: string | null) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hall_maps'] });
+      queryClient.invalidateQueries({ queryKey: ['hall_maps', 'active'] });
       queryClient.invalidateQueries({ queryKey: ['sector_map_regions'] });
       toast.success('Hallenkarte gelöscht');
     },
@@ -243,6 +248,8 @@ export const useCreateSectorMapRegion = (accessToken?: string | null) => {
       return normalizeRegion(rows[0]);
     },
     onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['hall_maps'] });
+      queryClient.invalidateQueries({ queryKey: ['hall_maps', 'active'] });
       queryClient.invalidateQueries({ queryKey: ['sector_map_regions', variables.hall_map_id] });
       toast.success('Sektorfläche gespeichert');
     },
@@ -268,6 +275,8 @@ export const useUpdateSectorMapRegion = (accessToken?: string | null) => {
       return normalizeRegion(rows[0]);
     },
     onSuccess: (region) => {
+      queryClient.invalidateQueries({ queryKey: ['hall_maps'] });
+      queryClient.invalidateQueries({ queryKey: ['hall_maps', 'active'] });
       queryClient.invalidateQueries({ queryKey: ['sector_map_regions', region.hall_map_id] });
       toast.success('Sektorfläche aktualisiert');
     },
@@ -289,6 +298,8 @@ export const useDeleteSectorMapRegion = (accessToken?: string | null) => {
       return hallMapId;
     },
     onSuccess: (hallMapId) => {
+      queryClient.invalidateQueries({ queryKey: ['hall_maps'] });
+      queryClient.invalidateQueries({ queryKey: ['hall_maps', 'active'] });
       queryClient.invalidateQueries({ queryKey: ['sector_map_regions', hallMapId] });
       toast.success('Sektorfläche gelöscht');
     },
