@@ -562,6 +562,8 @@ export const Sidebar = ({ className }: SidebarProps) => {
                 >
                   <item.icon className="h-5 w-5 flex-shrink-0" />
                   <span className="max-w-[72px] truncate text-[11px] font-semibold">{item.label}</span>
+                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                  <span className="max-w-[72px] truncate text-[11px] font-semibold">{item.label}</span>
                 </NavLink>
               );
             })}

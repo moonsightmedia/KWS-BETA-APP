@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, isWithinInterval, startOfMonth, startOfWeek } from 'date-fns';
 import { de } from 'date-fns/locale';

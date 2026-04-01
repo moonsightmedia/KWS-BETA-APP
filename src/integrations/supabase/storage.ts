@@ -10,6 +10,22 @@ const PROFILE_AVATARS_BUCKET = 'profile-avatars';
 const ALLINKL_API_URL = import.meta.env.VITE_ALLINKL_API_URL || 'https://cdn.kletterwelt-sauerland.de/upload-api';
 const USE_ALLINKL_STORAGE = import.meta.env.VITE_USE_ALLINKL_STORAGE === 'true' || false;
 
+type NavigatorWithWakeLock = Navigator & {
+  wakeLock?: { request: (type: 'screen') => Promise<WakeLockSentinel> };
+};
+
+const getErrorMessage = (err: unknown): string =>
+  err instanceof Error ? err.message : String(err);
+
+async function getAllinklAuthHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) {
+    throw new Error('Nicht authentifiziert: Aktion benötigt eine gültige Sitzung.');
+  }
+  return { Authorization: `Bearer ${token}` };
+}
+
 function getFileExt(fileName: string): string {
   const idx = fileName.lastIndexOf('.');
   return idx >= 0 ? fileName.slice(idx + 1) : '';
@@ -54,9 +70,9 @@ function setupUploadKeepAlive(): () => void {
             }, 1000); // Wait 1 second before retry
           }
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Wake lock may not be available (e.g., in some browsers, when battery saver is on)
-        console.warn('[Upload] ⚠️ Wake lock not available:', err.message || err);
+        console.warn('[Upload] ⚠️ Wake lock not available:', getErrorMessage(err));
         console.log('[Upload] ℹ️ Uploads will continue, but device may sleep. This is usually fine.');
       }
     } else {
@@ -200,10 +216,9 @@ function applyExifOrientation(ctx: CanvasRenderingContext2D, orientation: number
  * Automatically corrects EXIF orientation so portrait images are saved as portrait
  */
 export async function compressThumbnail(file: File, onProgress?: (progress: number) => void): Promise<File> {
-  return new Promise(async (resolve, reject) => {
-    // Read EXIF orientation first
-    const orientation = await getExifOrientation(file);
-    
+  const orientation = await getExifOrientation(file);
+
+  return new Promise((resolve, reject) => {
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
     img.src = objectUrl;
@@ -212,8 +227,8 @@ export async function compressThumbnail(file: File, onProgress?: (progress: numb
       try {
         // Browser automatically applies EXIF orientation when displaying
         // So img.width/height are already corrected for display
-        let imgWidth = img.width;
-        let imgHeight = img.height;
+        const imgWidth = img.width;
+        const imgHeight = img.height;
 
         // Determine if image is landscape (width > height) or portrait (height > width)
         const isLandscape = imgWidth > imgHeight;
@@ -838,8 +853,8 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
             }, 1000);
           }
         });
-      } catch (err: any) {
-        console.warn('[Video Compression] ⚠️ Wake lock not available:', err.message || err);
+      } catch (err: unknown) {
+        console.warn('[Video Compression] ⚠️ Wake lock not available:', getErrorMessage(err));
         console.log('[Video Compression] ℹ️ Compression will continue, but may be throttled in background');
       }
     }
@@ -1113,8 +1128,8 @@ export async function compressVideoMultiQuality(
             }, 1000);
           }
         });
-      } catch (err: any) {
-        console.warn('[Video Multi-Quality Compression] ⚠️ Wake lock not available:', err.message || err);
+      } catch (err: unknown) {
+        console.warn('[Video Multi-Quality Compression] ⚠️ Wake lock not available:', getErrorMessage(err));
       }
     }
   };
@@ -1468,15 +1483,15 @@ async function uploadToAllInkl(
                 try {
                   wakeLock = await (navigator as any).wakeLock.request('screen');
                   console.log('[Upload] ✅ Wake lock reacquired');
-                } catch (err: any) {
-                  console.warn('[Upload] ⚠️ Failed to reacquire wake lock:', err.message || err);
+                } catch (err: unknown) {
+                  console.warn('[Upload] ⚠️ Failed to reacquire wake lock:', getErrorMessage(err));
                   // Continue without wake lock - upload should still work
                 }
               }
             }, 1000);
           });
-        } catch (err: any) {
-          console.warn('[Upload] ⚠️ Wake lock not available:', err.message || err);
+        } catch (err: unknown) {
+          console.warn('[Upload] ⚠️ Wake lock not available:', getErrorMessage(err));
           console.log('[Upload] ℹ️ Upload will continue without wake lock');
         }
       }
@@ -1489,6 +1504,8 @@ async function uploadToAllInkl(
         console.log('[Upload] ℹ️ Tab is hidden, using background upload strategy');
       }
       
+      const authHeaders = await getAllinklAuthHeaders();
+
       // Track uploaded chunks for resume capability
       const uploadedChunks: number[] = [];
       
@@ -1506,6 +1523,7 @@ async function uploadToAllInkl(
           'X-File-Type': mimeType,
           'X-Chunk-Number': i.toString(),
           'X-Total-Chunks': totalChunks.toString(),
+          ...authHeaders,
         };
 
         if (uploadSessionId) {
@@ -1715,6 +1733,8 @@ async function uploadToAllInkl(
   } else {
     // Single file upload for small files with retry mechanism
     return retryWithBackoff(async () => {
+      const authHeaders = await getAllinklAuthHeaders();
+
       const formData = new FormData();
       // Use 'chunk' field name for consistency with chunked uploads (required by PHP API)
       formData.append('chunk', file);
@@ -1729,6 +1749,7 @@ async function uploadToAllInkl(
         'X-Upload-Session-Id': singleFileSessionId,
         'X-Chunk-Number': '0', // Single file = chunk 0
         'X-Total-Chunks': '1', // Single file = 1 chunk
+        ...authHeaders,
       };
 
       if (sectorId) {
@@ -1754,15 +1775,15 @@ async function uploadToAllInkl(
                 try {
                   wakeLock = await (navigator as any).wakeLock.request('screen');
                   console.log('[Upload] ✅ Wake lock reacquired');
-                } catch (err: any) {
-                  console.warn('[Upload] ⚠️ Failed to reacquire wake lock:', err.message || err);
+                } catch (err: unknown) {
+                  console.warn('[Upload] ⚠️ Failed to reacquire wake lock:', getErrorMessage(err));
                   // Continue without wake lock - upload should still work
                 }
               }
             }, 1000);
           });
-        } catch (err: any) {
-          console.warn('[Upload] ⚠️ Wake lock not available:', err.message || err);
+        } catch (err: unknown) {
+          console.warn('[Upload] ⚠️ Wake lock not available:', getErrorMessage(err));
           console.log('[Upload] ℹ️ Upload will continue without wake lock');
         }
       }
@@ -1955,18 +1976,17 @@ export async function uploadBetaVideo(
  * Maintains aspect ratio and corrects EXIF orientation
  */
 async function compressSectorImage(file: File, onProgress?: (progress: number) => void): Promise<File> {
-  return new Promise(async (resolve, reject) => {
-    // Read EXIF orientation first
-    const orientation = await getExifOrientation(file);
-    
+  const orientation = await getExifOrientation(file);
+
+  return new Promise((resolve, reject) => {
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
     img.src = objectUrl;
 
     img.onload = () => {
       try {
-        let imgWidth = img.width;
-        let imgHeight = img.height;
+        const imgWidth = img.width;
+        const imgHeight = img.height;
 
         // Calculate optimal dimensions (max 1920px width, maintain aspect ratio)
         const maxWidth = 1920;
@@ -2179,10 +2199,12 @@ export async function deleteThumbnail(thumbnailUrl: string | null): Promise<void
   try {
     // Check if it's an All-Inkl URL
     if (thumbnailUrl.includes('cdn.kletterwelt-sauerland.de')) {
+      const authHeaders = await getAllinklAuthHeaders();
       const response = await fetch(`${ALLINKL_API_URL}/delete.php`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders,
         },
         body: JSON.stringify({ url: thumbnailUrl }),
       });
@@ -2232,10 +2254,12 @@ export async function deleteBetaVideo(videoUrl: string | null): Promise<void> {
   try {
     // Check if it's an All-Inkl URL
     if (videoUrl.includes('cdn.kletterwelt-sauerland.de')) {
+      const authHeaders = await getAllinklAuthHeaders();
       const response = await fetch(`${ALLINKL_API_URL}/delete.php`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders,
         },
         body: JSON.stringify({ url: videoUrl }),
       });
@@ -2449,10 +2473,12 @@ export async function deleteSectorImage(imageUrl: string): Promise<void> {
   try {
     // Check if it's an All-Inkl URL
     if (imageUrl.includes('cdn.kletterwelt-sauerland.de')) {
+      const authHeaders = await getAllinklAuthHeaders();
       const response = await fetch(`${ALLINKL_API_URL}/delete.php`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders,
         },
         body: JSON.stringify({ url: imageUrl }),
       });

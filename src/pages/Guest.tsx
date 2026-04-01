@@ -45,6 +45,7 @@ const TEXT_ON_COLOR: Record<string, string> = {
 };
 
 const Guest = () => {
+  const isCompetitionEnabled = import.meta.env.VITE_ENABLE_COMPETITION === 'true';
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [loadedThumbnails, setLoadedThumbnails] = useState<Set<string>>(new Set());
@@ -164,19 +165,22 @@ const Guest = () => {
     const sorted = [...list].sort((a, b) => {
       let result = 0;
       switch (sortBy) {
-        case 'name':
+        case 'name': {
           result = a.name.localeCompare(b.name, 'de');
           break;
-        case 'difficulty':
+        }
+        case 'difficulty': {
           const aDiff = a.difficulty === null ? -1 : a.difficulty;
           const bDiff = b.difficulty === null ? -1 : b.difficulty;
           result = aDiff - bDiff;
           break;
-        case 'date':
+        }
+        case 'date': {
           const aDate = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt || 0).getTime();
           const bDate = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt || 0).getTime();
           result = aDate - bDate;
           break;
+        }
       }
       return sortOrder === 'asc' ? result : -result;
     });
@@ -251,7 +255,7 @@ const Guest = () => {
 
         <main className="p-4 md:p-8 max-w-4xl mx-auto">
           {/* Nikolaus Wettkampf Navigation Card - Temporarily hidden */}
-          {false && (
+          {isCompetitionEnabled && (
             <Card className="mb-6 bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:shadow-md transition-shadow">
               <CardContent className="p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
