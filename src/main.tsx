@@ -62,14 +62,27 @@ let fetchCallCount = 0;
 window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const urlString = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
   const urlObj = new URL(urlString, window.location.origin);
+  const requestMethod = init?.method || (input instanceof Request ? input.method : 'GET');
   
   // Only intercept Supabase requests
   const isSupabaseRequest = urlObj.hostname.includes('supabase.co') || 
                             urlObj.hostname.includes('supabase.io') ||
                             urlObj.hostname.includes('.supabase.co') ||
                             urlObj.hostname.includes('.supabase.io');
+
+  const isSupabaseStorageRequest = isSupabaseRequest && urlObj.pathname.includes('/storage/v1/object/');
   
   if (isSupabaseRequest) {
+    if (isSupabaseStorageRequest) {
+      if (KWS_VERBOSE) {
+        console.log('[Main Fetch Override] Bypassing Supabase storage request:', {
+          url: urlObj.href,
+          method: requestMethod,
+        });
+      }
+      return originalFetch(input, init);
+    }
+
     fetchCallCount++;
     const callId = fetchCallCount;
     const startTime = Date.now();
@@ -143,7 +156,7 @@ window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Pro
       
       // Build requestInit with all properties explicitly set
       const requestInit: RequestInit = {
-        method: init?.method || (input instanceof Request ? input.method : 'GET'),
+        method: requestMethod,
         headers: finalHeaders, // Use processed headers
         body: body, // CRITICAL: Explicitly set body for Firefox compatibility
         cache: 'no-store' as RequestCache,
