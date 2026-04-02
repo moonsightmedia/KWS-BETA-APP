@@ -66,8 +66,8 @@ const versionPlugin = () => {
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // Use relative base path for better compatibility
-  base: './',
+  // Web deploys need root-relative assets for deep links, Capacitor keeps relative assets.
+  base: mode === 'capacitor' ? './' : '/',
   server: {
     host: "::",
     port: 8080,

@@ -236,9 +236,9 @@ export default function BoulderDetail() {
                   style={{ background: `linear-gradient(135deg, ${boulder.colorHex || '#36B531'}44, transparent)` }}
                 />
                 <div className="relative flex flex-col items-center gap-2">
-                  <button type="button" className="flex h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/30">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/30">
                     <Play className="ml-0.5 h-6 w-6 text-primary-foreground" />
-                  </button>
+                  </div>
                   <span className="text-xs text-muted-foreground">Offizielle Beta</span>
                 </div>
               </>

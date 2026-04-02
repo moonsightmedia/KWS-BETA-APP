@@ -9,10 +9,8 @@ import {
   BadgeCheck,
   Check,
   Clock,
-  Flag,
   Heart,
   Lock,
-  MessageCircle,
   Pencil,
   Play,
   Plus,
@@ -218,38 +216,27 @@ function CommentItem({
           <p className="text-sm leading-relaxed text-foreground/90">{comment.comment}</p>
         )}
 
-        {!isEditing && (
+        {!isEditing && isOwn && (
           <div className="mt-1.5 flex items-center gap-3">
-            <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground">
-              <MessageCircle className="h-3 w-3" />
-              Antworten
+            <button
+              type="button"
+              className="flex items-center gap-1 text-xs text-muted-foreground"
+              onClick={() => {
+                setEditingCommentId(comment.id);
+                setEditingCommentValue(comment.comment);
+              }}
+            >
+              <Pencil className="h-3 w-3" />
+              Bearbeiten
             </button>
-            <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Flag className="h-3 w-3" />
+            <button
+              type="button"
+              className="flex items-center gap-1 text-xs text-muted-foreground"
+              onClick={() => commentsQuery.deleteComment.mutate(comment.id)}
+            >
+              <Trash2 className="h-3 w-3" />
+              Löschen
             </button>
-            {isOwn && (
-              <>
-                <button
-                  type="button"
-                  className="flex items-center gap-1 text-xs text-muted-foreground"
-                  onClick={() => {
-                    setEditingCommentId(comment.id);
-                    setEditingCommentValue(comment.comment);
-                  }}
-                >
-                  <Pencil className="h-3 w-3" />
-                  Bearbeiten
-                </button>
-                <button
-                  type="button"
-                  className="flex items-center gap-1 text-xs text-muted-foreground"
-                  onClick={() => commentsQuery.deleteComment.mutate(comment.id)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                  Löschen
-                </button>
-              </>
-            )}
           </div>
         )}
       </div>
@@ -1235,7 +1222,7 @@ export function BoulderBetaTab({ boulder }: { boulder: Boulder }) {
   const videoUrl = boulder.betaVideoUrls?.hd || boulder.betaVideoUrls?.sd || boulder.betaVideoUrls?.low || boulder.betaVideoUrl;
 
   const betaCards = [
-    { id: 'official', user: 'Offiziell', duration: videoUrl ? 'Live' : '–', isOfficial: true },
+    { id: 'official', user: 'Offiziell', duration: videoUrl ? 'Live' : '–', isOfficial: true, isInteractive: !!videoUrl },
     { id: 'slot-1', user: 'Coming soon', duration: '–', isOfficial: false },
     { id: 'slot-2', user: 'Coming soon', duration: '–', isOfficial: false },
     { id: 'slot-3', user: 'Coming soon', duration: '–', isOfficial: false },
@@ -1243,22 +1230,47 @@ export function BoulderBetaTab({ boulder }: { boulder: Boulder }) {
     { id: 'slot-5', user: 'Coming soon', duration: '–', isOfficial: false },
   ];
 
+  const handleOfficialVideoCardClick = () => {
+    const videoElement = document.querySelector('video');
+    if (!(videoElement instanceof HTMLVideoElement)) {
+      return;
+    }
+
+    videoElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    void videoElement.play().catch(() => {
+      // Manche Browser blockieren autoplay trotz Nutzergeste bei Navigationsübergängen.
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div>
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Beta Videos</h4>
         <div className="grid grid-cols-3 gap-2">
           {betaCards.map((beta) => (
-            <button
+            <div
               key={beta.id}
-              type="button"
-              className="group relative aspect-[9/16] overflow-hidden rounded-xl bg-secondary transition-transform active:scale-95"
+              className={cn(
+                'group relative aspect-[9/16] overflow-hidden rounded-xl bg-secondary',
+                beta.isInteractive && 'transition-transform active:scale-95',
+              )}
             >
               {beta.isOfficial ? (
-                <div
-                  className="absolute inset-0 opacity-15"
-                  style={{ background: `linear-gradient(135deg, ${boulder.colorHex || '#36B531'}66, transparent)` }}
-                />
+                beta.isInteractive ? (
+                  <button
+                    type="button"
+                    onClick={handleOfficialVideoCardClick}
+                    className="absolute inset-0 z-[1] opacity-15"
+                    style={{ background: `linear-gradient(135deg, ${boulder.colorHex || '#36B531'}66, transparent)` }}
+                    aria-label="Offizielles Beta-Video abspielen"
+                  />
+                ) : (
+                  <div
+                    className="absolute inset-0 opacity-15"
+                    style={{ background: `linear-gradient(135deg, ${boulder.colorHex || '#36B531'}66, transparent)` }}
+                  />
+                )
               ) : (
                 <div className="absolute inset-0 bg-muted/30" />
               )}
@@ -1280,7 +1292,7 @@ export function BoulderBetaTab({ boulder }: { boulder: Boulder }) {
                   {beta.duration}
                 </span>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       </div>

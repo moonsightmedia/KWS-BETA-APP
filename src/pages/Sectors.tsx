@@ -175,17 +175,13 @@ const Sectors = () => {
                         </span>
                       </div>
 
-                      <button
-                        type="button"
+                      <span
                         className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[#DDE7DF] bg-white px-4 py-3 text-[0.95rem] font-medium text-[#13112B] transition-colors group-active:bg-[#F5F8F1]"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleViewBoulders(sector.name);
-                        }}
+                        aria-hidden="true"
                       >
                         <Mountain className="h-4.5 w-4.5" strokeWidth={1.8} />
                         Boulder
-                      </button>
+                      </span>
                     </div>
                   </button>
                 );
