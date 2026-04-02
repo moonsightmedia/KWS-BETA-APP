@@ -220,6 +220,7 @@ const ProfileEdit = () => {
     setSaving(true);
 
     let uploadedAvatarUrl: string | null = null;
+    let saveStage = 'initialisieren';
 
     try {
       const nameParts = trimmedName.split(' ').filter(Boolean);
@@ -230,6 +231,7 @@ const ProfileEdit = () => {
       const avatarChanged = nextAvatarUrl !== initialAvatarUrl || Boolean(avatarFile);
 
       if (avatarFile) {
+        saveStage = 'Profilbild hochladen';
         uploadedAvatarUrl = await withTimeout(
           uploadProfileAvatar(avatarFile, user.id),
           AVATAR_UPLOAD_TIMEOUT_MS,
@@ -247,12 +249,14 @@ const ProfileEdit = () => {
       };
 
       if (emailChanged) {
+        saveStage = 'E-Mail aktualisieren';
         await updateAuthUserWithTimeout(
           { email: trimmedEmail, data: { ...metadata, email: trimmedEmail } },
           'Die neue E-Mail-Adresse konnte nicht rechtzeitig gespeichert werden.',
         );
       }
 
+      saveStage = 'Profil speichern';
       await withTimeout(
         updateProfileRecord(
           user.id,
@@ -270,6 +274,7 @@ const ProfileEdit = () => {
       );
 
       if (!emailChanged && avatarChanged) {
+        saveStage = 'Profilbild-Metadaten synchronisieren';
         await updateAuthUserWithTimeout(
           { data: { ...metadata, email: trimmedEmail } },
           'Das Profilbild konnte nicht rechtzeitig synchronisiert werden.',
@@ -284,9 +289,11 @@ const ProfileEdit = () => {
       }
 
       if (initialAvatarUrl && initialAvatarUrl !== nextAvatarUrl) {
+        saveStage = 'Altes Profilbild bereinigen';
         void cleanupAvatarBestEffort(initialAvatarUrl);
       }
 
+      saveStage = 'Abschließen';
       toast.success('Profil gespeichert', {
         description:
           emailChanged
@@ -299,6 +306,15 @@ const ProfileEdit = () => {
       setAvatarFile(null);
       navigate('/profile', { replace: true });
     } catch (error: unknown) {
+      console.error('[Profile Edit] Save failed:', {
+        stage: saveStage,
+        userId: user.id,
+        hasAvatarFile: Boolean(avatarFile),
+        initialAvatarUrl,
+        uploadedAvatarUrl,
+        error,
+      });
+
       if (uploadedAvatarUrl && uploadedAvatarUrl !== initialAvatarUrl) {
         void cleanupAvatarBestEffort(uploadedAvatarUrl);
       }

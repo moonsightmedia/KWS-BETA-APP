@@ -2443,6 +2443,16 @@ export async function uploadProfileAvatar(
     return data.publicUrl;
   } catch (error) {
     if (progressInterval) clearInterval(progressInterval);
+    console.error('[Profile Avatar Upload] Upload failed:', {
+      userId,
+      fileName: file.name,
+      fileType: file.type,
+      originalSize: file.size,
+      uploadSize: imageToUpload.size,
+      objectPath,
+      bucket: PROFILE_AVATARS_BUCKET,
+      error,
+    });
     throw error;
   }
 }
