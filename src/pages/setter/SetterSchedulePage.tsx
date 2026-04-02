@@ -147,15 +147,15 @@ const SetterSchedulePage = () => {
   };
 
   const handleDeleteSchedule = async (id: string) => {
-    if (!window.confirm('Diesen Termin wirklich l\u00F6schen?')) {
+      if (!window.confirm('Diesen Termin wirklich löschen?')) {
       return;
     }
 
     try {
       await deleteSchedule.mutateAsync(id);
-      toast.success('Termin gel\u00F6scht');
+      toast.success('Termin gelöscht');
     } catch (error) {
-      toast.error('Fehler beim L\u00F6schen des Termins');
+      toast.error('Fehler beim Löschen des Termins');
       console.error('[SetterSchedulePage] delete schedule failed', error);
     }
   };
@@ -339,7 +339,7 @@ const SetterSchedulePage = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>{'Ausgew\u00E4hlte Sektoren'}</Label>
+                <Label>{'Ausgewählte Sektoren'}</Label>
                 {selectedSectorIds.size > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {sectors
@@ -357,7 +357,7 @@ const SetterSchedulePage = () => {
                       ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-[#13112B]/58">{'Noch keine Sektoren ausgew\u00E4hlt.'}</p>
+                  <p className="text-sm text-[#13112B]/58">{'Noch keine Sektoren ausgewählt.'}</p>
                 )}
               </div>
             </section>

@@ -1,59 +1,74 @@
-<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-  <!-- Header -->
-  <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 40px 20px; text-align: center; border-radius: 8px 8px 0 0;">
-    <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">Kletterwelt Sauerland</h1>
-    <p style="margin: 8px 0 0; color: #ffffff; font-size: 16px;">Beta App</p>
-  </div>
-  
-  <!-- Content -->
-  <div style="padding: 40px 30px;">
-    <h2 style="margin: 0 0 20px; color: #1f2937; font-size: 24px;">Willkommen! 👋</h2>
-    
-    <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px; line-height: 1.6;">
-      Hi {{ .Email }},
-    </p>
-    
-    <p style="margin: 0 0 30px; color: #4b5563; font-size: 16px; line-height: 1.6;">
-      schön, dass du dabei bist! Um dein Konto zu aktivieren und alle Features nutzen zu können, bestätige bitte deine E-Mail-Adresse mit einem Klick auf den Button unten.
-    </p>
-    
-    <!-- CTA Button -->
-    <div style="text-align: center; margin: 0 0 30px;">
-      <a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 14px 28px; background-color: #22c55e; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
-        E-Mail bestätigen
-      </a>
-    </div>
-    
-    <!-- Alternative Link -->
-    <div style="padding: 20px; background-color: #f9fafb; border-radius: 6px; border-left: 4px solid #22c55e; margin: 0 0 30px;">
-      <p style="margin: 0 0 10px; color: #6b7280; font-size: 14px; font-weight: 600;">
-        Falls der Button nicht funktioniert:
-      </p>
-      <p style="margin: 0; color: #4b5563; font-size: 13px; line-height: 1.6; word-break: break-all;">
-        Kopiere diesen Link in deinen Browser:<br>
-        <a href="{{ .ConfirmationURL }}" style="color: #22c55e; text-decoration: underline;">{{ .ConfirmationURL }}</a>
-      </p>
-    </div>
-    
-    <!-- Security Note -->
-    <p style="margin: 30px 0 0; color: #9ca3af; font-size: 13px; text-align: center;">
-      🔒 Aus Sicherheitsgründen ist dieser Link zeitlich begrenzt gültig.
-    </p>
-  </div>
-  
-  <!-- Footer -->
-  <div style="padding: 30px; background-color: #f9fafb; border-radius: 0 0 8px 8px; border-top: 1px solid #e5e7eb; text-align: center;">
-    <p style="margin: 0 0 12px; color: #6b7280; font-size: 14px;">
-      Bei Fragen melde dich jederzeit:
-    </p>
-    <p style="margin: 0 0 20px;">
-      <a href="mailto:support@kletterwelt-sauerland.de" style="color: #22c55e; text-decoration: none; font-weight: 600; font-size: 14px;">
-        support@kletterwelt-sauerland.de
-      </a>
-    </p>
-    <p style="margin: 0; color: #9ca3af; font-size: 12px;">
-      © 2025 Kletterwelt Sauerland • Alle Rechte vorbehalten
-    </p>
-  </div>
-</div>
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="width:100%; background-color:#F7FBF7; margin:0; padding:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Poppins,Arial,sans-serif; color:#13112B;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width:600px; width:100%; background-color:#FFFFFF; border:1px solid #DDE7DF; border-radius:24px;">
+        <tr>
+          <td style="padding:28px 28px 18px; border-bottom:1px solid #EEF3EE;">
+            <p style="margin:0 0 10px; font-size:12px; line-height:1; letter-spacing:0.26em; text-transform:uppercase; color:#6B7A6E; font-weight:700;">
+              Kletterwelt Sauerland Beta
+            </p>
+            <h1 style="margin:0; font-size:32px; line-height:1.05; color:#13112B; font-weight:700;">
+              Willkommen in der App
+            </h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px;">
+            <p style="margin:0 0 16px; font-size:16px; line-height:1.7; color:#13112B;">
+              Hallo {{ .Email }},
+            </p>
+            <p style="margin:0 0 18px; font-size:16px; line-height:1.75; color:rgba(19,17,43,0.78);">
+              schön, dass du dabei bist. Bitte bestätige jetzt deine E-Mail-Adresse, damit dein Konto aktiviert wird und du die Beta-App vollständig nutzen kannst.
+            </p>
+            <p style="margin:0 0 28px; font-size:15px; line-height:1.7; color:rgba(19,17,43,0.62);">
+              Danach kannst du dich direkt anmelden, Boulder verfolgen und die aktuellen Bereiche in der Halle ansehen.
+            </p>
 
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 28px;">
+              <tr>
+                <td align="center" bgcolor="#36B531" style="background-color:#36B531; border-radius:14px;">
+                  <a href="{{ .ConfirmationURL }}" style="display:inline-block; padding:16px 28px; font-size:16px; line-height:1; font-weight:700; color:#FFFFFF; text-decoration:none; background-color:#36B531; border-radius:14px;">
+                    Konto bestätigen
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="width:100%; margin:0 0 24px; background-color:#FCFEFC; border:1px solid #DDE7DF; border-radius:18px;">
+              <tr>
+                <td style="padding:18px 18px 16px;">
+                  <p style="margin:0 0 8px; font-size:13px; line-height:1.4; letter-spacing:0.18em; text-transform:uppercase; color:#6B7A6E; font-weight:700;">
+                    Falls der Button nicht funktioniert
+                  </p>
+                  <p style="margin:0 0 10px; font-size:14px; line-height:1.7; color:rgba(19,17,43,0.72);">
+                    Kopiere diesen Link in deinen Browser:
+                  </p>
+                  <p style="margin:0; font-size:14px; line-height:1.7; word-break:break-all;">
+                    <a href="{{ .ConfirmationURL }}" style="color:#36B531; text-decoration:underline;">{{ .ConfirmationURL }}</a>
+                  </p>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0; font-size:13px; line-height:1.7; color:rgba(19,17,43,0.54);">
+              Aus Sicherheitsgründen ist dieser Link nur für eine begrenzte Zeit gültig.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 28px 28px; border-top:1px solid #EEF3EE;">
+            <p style="margin:0 0 8px; font-size:14px; line-height:1.6; color:rgba(19,17,43,0.62);">
+              Fragen oder Probleme?
+            </p>
+            <p style="margin:0 0 14px; font-size:14px; line-height:1.6;">
+              <a href="mailto:support@kletterwelt-sauerland.de" style="color:#36B531; text-decoration:none; font-weight:700;">support@kletterwelt-sauerland.de</a>
+            </p>
+            <p style="margin:0; font-size:12px; line-height:1.6; color:rgba(19,17,43,0.46);">
+              Du erhältst diese E-Mail, weil du dich für die Kletterwelt Sauerland Beta registriert hast.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>

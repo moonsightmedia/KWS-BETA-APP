@@ -244,8 +244,8 @@ const ProfileEdit = () => {
       toast.success('Profil gespeichert', {
         description:
           emailChanged
-            ? 'Bitte best\u00E4tige gegebenenfalls deine neue E-Mail-Adresse.'
-            : 'Deine \u00C4nderungen wurden gespeichert.',
+                ? 'Bitte bestätige gegebenenfalls deine neue E-Mail-Adresse.'
+                : 'Deine Änderungen wurden gespeichert.',
       });
 
       setInitialAvatarUrl(nextAvatarUrl);
@@ -270,7 +270,7 @@ const ProfileEdit = () => {
 
     if (!email) {
       toast.error('Keine E-Mail-Adresse gefunden.', {
-        description: 'Bitte hinterlege zuerst eine g\u00FCltige E-Mail-Adresse.',
+            description: 'Bitte hinterlege zuerst eine gültige E-Mail-Adresse.',
       });
       return;
     }
@@ -290,7 +290,7 @@ const ProfileEdit = () => {
             type="button"
             onClick={() => navigate(-1)}
             className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary transition-colors active:scale-95"
-            aria-label={'Zur\u00FCck'}
+          aria-label={'Zurück'}
           >
             <ArrowLeft className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -333,7 +333,7 @@ const ProfileEdit = () => {
               onClick={() => fileInputRef.current?.click()}
             >
               <Camera className="mr-2 h-4 w-4" />
-              {displayAvatarUrl ? 'Bild ersetzen' : 'Bild ausw\u00E4hlen'}
+                {displayAvatarUrl ? 'Bild ersetzen' : 'Bild auswählen'}
             </Button>
 
             {displayAvatarUrl ? (
@@ -399,7 +399,7 @@ const ProfileEdit = () => {
             disabled={loadingProfile || saving}
             className="h-12 w-full rounded-xl font-medium"
           >
-            {'Passwort \u00E4ndern'}
+                  {'Passwort ändern'}
           </Button>
         </div>
       </div>

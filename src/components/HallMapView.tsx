@@ -90,8 +90,8 @@ function getCentroid(region: SectorMapRegion) {
 }
 
 function shortenSectorName(name: string, compact: boolean) {
-  const maxLength = compact ? 10 : 16;
-  return name.length > maxLength ? `${name.slice(0, maxLength - 3)}...` : name;
+  const maxLength = compact ? 8 : 12;
+  return name.length > maxLength ? `${name.slice(0, maxLength - 1).trim()}…` : name;
 }
 
 function buildMarkerLayout({
@@ -115,9 +115,13 @@ function buildMarkerLayout({
   const centroidX = (centroid.x / 100) * mapWidth;
   const centroidY = (centroid.y / 100) * mapHeight;
   const compact = crowded || sectorName.length > 14;
-  const label = `${shortenSectorName(sectorName, compact)} (${count})`;
-  const width = clamp(label.length * (compact ? 1.34 : 1.52) * mapUnit + 6.6 * mapUnit, 14 * mapUnit, compact ? 24 * mapUnit : 31 * mapUnit);
-  const height = compact ? 5.6 * mapUnit : 6.3 * mapUnit;
+  const label = `${shortenSectorName(sectorName, compact)} · ${count}`;
+  const width = clamp(
+    label.length * (compact ? 1.02 : 1.12) * mapUnit + 4.8 * mapUnit,
+    10.8 * mapUnit,
+    compact ? 17.2 * mapUnit : 21.6 * mapUnit,
+  );
+  const height = compact ? 4.1 * mapUnit : 4.7 * mapUnit;
   const edgeInset = 1.2 * mapUnit;
 
   return {
@@ -317,6 +321,14 @@ export function HallMapView({
               preserveAspectRatio="xMidYMid meet"
               className="absolute inset-0 h-full w-full"
             >
+              <defs>
+                <filter id="sector-region-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy={0.25 * mapUnit} stdDeviation={0.45 * mapUnit} floodColor="#13112B" floodOpacity="0.12" />
+                </filter>
+                <filter id="sector-label-shadow" x="-30%" y="-40%" width="160%" height="180%">
+                  <feDropShadow dx="0" dy={0.2 * mapUnit} stdDeviation={0.35 * mapUnit} floodColor="#13112B" floodOpacity="0.12" />
+                </filter>
+              </defs>
               {renderedRegions.map(({ region, sector }) => {
                 const isSelected = selectedSectorSet.has(sector.name);
                 const isHovered = hoveredSectorName === sector.name;
@@ -338,6 +350,11 @@ export function HallMapView({
                   mapWidth,
                   mapHeight,
                 });
+                const regionFill = isHighlighted ? 'rgba(54, 181, 49, 0.20)' : 'rgba(54, 181, 49, 0.08)';
+                const regionStroke = isHighlighted ? 'rgba(54, 181, 49, 0.76)' : 'rgba(19, 17, 43, 0.18)';
+                const markerFill = isHighlighted ? 'rgba(247, 252, 247, 0.98)' : 'rgba(255, 255, 255, 0.92)';
+                const markerStroke = isHighlighted ? 'rgba(54, 181, 49, 0.44)' : 'rgba(19, 17, 43, 0.11)';
+                const markerText = isHighlighted ? '#17641D' : '#13112B';
 
                 return (
                   <g key={region.id}>
@@ -353,13 +370,14 @@ export function HallMapView({
                     />
                     <polygon
                       points={polygonToString(region.points_json, mapWidth, mapHeight)}
-                      className={cn(
-                        'cursor-pointer transition-all duration-200',
-                        isHighlighted
-                          ? 'fill-[#36B531]/38 stroke-[#1C6324]'
-                          : 'fill-[#36B531]/16 stroke-[#2E8B35]/52 hover:fill-[#36B531]/24',
-                      )}
-                      strokeWidth={isHighlighted ? 1.6 * mapUnit : 1.05 * mapUnit}
+                      fill={regionFill}
+                      stroke={regionStroke}
+                      filter="url(#sector-region-shadow)"
+                      strokeWidth={isHighlighted ? 1.2 * mapUnit : 0.85 * mapUnit}
+                      className="cursor-pointer transition-all duration-200"
+                      style={{
+                        transition: 'fill 160ms ease, stroke 160ms ease, stroke-width 160ms ease',
+                      }}
                       onMouseEnter={() => setHoveredSectorName(sector.name)}
                       onMouseLeave={() => setHoveredSectorName((current) => (current === sector.name ? null : current))}
                       onClick={() => onSelectSector(sector.name)}
@@ -370,18 +388,20 @@ export function HallMapView({
                         y={marker.y - marker.height / 2}
                         width={marker.width}
                         height={marker.height}
-                        rx={(marker.compact ? 2.35 : 2.8) * mapUnit}
-                        fill={isHighlighted ? 'rgba(19, 17, 43, 0.94)' : 'rgba(255, 255, 255, 0.9)'}
-                        stroke={isHighlighted ? 'rgba(54, 181, 49, 0.42)' : 'rgba(19, 17, 43, 0.1)'}
-                        strokeWidth={0.42 * mapUnit}
+                        rx={(marker.compact ? 1.85 : 2.2) * mapUnit}
+                        fill={markerFill}
+                        stroke={markerStroke}
+                        strokeWidth={0.34 * mapUnit}
+                        filter="url(#sector-label-shadow)"
                       />
                       <text
                         x={marker.x}
-                        y={marker.y + (marker.compact ? 0.95 : 1.08) * mapUnit}
+                        y={marker.y + (marker.compact ? 0.62 : 0.72) * mapUnit}
                         textAnchor="middle"
-                        fontSize={(marker.compact ? 1.95 : 2.18) * mapUnit}
-                        fill={isHighlighted ? '#ffffff' : '#13112B'}
+                        fontSize={(marker.compact ? 1.55 : 1.72) * mapUnit}
+                        fill={markerText}
                         fontWeight="700"
+                        letterSpacing={marker.compact ? '0.01em' : '0.015em'}
                       >
                         {marker.label}
                       </text>

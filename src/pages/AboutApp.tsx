@@ -24,7 +24,7 @@ const AboutApp = () => {
       const updateInfo = await checkForUpdates();
       setHasUpdate(updateInfo.hasUpdate);
     } catch {
-      toast.error('Update-Pr\u00FCfung fehlgeschlagen');
+      toast.error('Update-Prüfung fehlgeschlagen');
     } finally {
       setCheckingUpdate(false);
     }
@@ -41,11 +41,11 @@ const AboutApp = () => {
                   type="button"
                   onClick={() => navigate(-1)}
                   className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F1F4EE] text-[#6E7487] transition-transform active:scale-[0.98]"
-                  aria-label="Zur\u00FCck"
+                  aria-label="Zurück"
                 >
                   <ArrowLeft className="h-5 w-5" strokeWidth={2} />
                 </button>
-                <h1 className="text-[2rem] font-semibold tracking-[-0.04em] text-[#13112B]">\u00DCber die App</h1>
+                <h1 className="text-[2rem] font-semibold tracking-[-0.04em] text-[#13112B]">Über die App</h1>
               </div>
 
               <section className="rounded-2xl border border-[#DDE7DF] bg-white px-6 py-6 shadow-[0_8px_24px_rgba(19,17,43,0.04)]">
@@ -68,13 +68,13 @@ const AboutApp = () => {
 
                 {hasUpdate ? (
                   <div className="mt-5 flex items-center justify-between rounded-xl border border-[#DDE7DF] bg-[#F9FAF9] px-4 py-4">
-                    <span className="font-medium text-[#36B531]">Neue Version verf\u00FCgbar</span>
+                    <span className="font-medium text-[#36B531]">Neue Version verfügbar</span>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={async () => {
                         if (Capacitor.isNativePlatform()) {
-                          toast.info('App-Update verf\u00FCgbar', {
+                          toast.info('App-Update verfügbar', {
                             description: 'Bitte installiere die neue Version der App manuell.',
                             duration: 5000,
                           });
@@ -93,17 +93,17 @@ const AboutApp = () => {
                     {checkingUpdate ? (
                       <>
                         <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                        Pr\u00FCfe...
+                        Prüfe...
                       </>
                     ) : (
-                      'Auf Updates pr\u00FCfen'
+                      'Auf Updates prüfen'
                     )}
                   </Button>
 
                   <Button
                     variant="outline"
                     onClick={async () => {
-                      if (!confirm('M\u00F6chtest du wirklich alle Caches leeren? Die App wird danach neu geladen.')) return;
+                      if (!confirm('Möchtest du wirklich alle Caches leeren? Die App wird danach neu geladen.')) return;
                       setClearingCache(true);
                       try {
                         await clearAllCaches(queryClient);

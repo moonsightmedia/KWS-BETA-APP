@@ -1,79 +1,59 @@
-# E-Mail-Vorlage für Registrierung anpassen
+# E-Mail-Vorlage für die Registrierung anpassen
 
-Die E-Mail-Vorlage für die Registrierung wird in Supabase konfiguriert. Du kannst sie über das Supabase Dashboard anpassen.
+Die Registrierungs-Mail wird in Supabase gepflegt. Im Repo liegen die Vorlagen als saubere Quelle, damit wir Änderungen versionieren und später leichter wiederverwenden können.
 
-## Schritte zur Anpassung:
+## Welche Datei du in Supabase einfügst
 
-1. **Öffne das Supabase Dashboard**
-   - Gehe zu https://supabase.com/dashboard
-   - Wähle dein Projekt aus
+- Für Supabase `Authentication > Email Templates > Confirm signup`:
+  - nutze in der Regel `email-template-supabase-body-only.html`
+- Die vollständige Vorschau mit `html`, `head` und `body` findest du in:
+  - `email-template-confirm-signup.html`
 
-2. **Navigiere zu Authentication > Email Templates**
-   - Im linken Menü: `Authentication` → `Email Templates`
-   - Oder direkt: `https://supabase.com/dashboard/project/[PROJECT_ID]/auth/templates`
+## So passt du die Vorlage an
 
-3. **Wähle die Vorlage "Confirm signup"**
-   - Diese Vorlage wird verwendet, wenn sich ein neuer Benutzer registriert
+1. Öffne das Supabase Dashboard.
+2. Gehe zu `Authentication` → `Email Templates`.
+3. Wähle `Confirm signup`.
+4. Ersetze den HTML-Inhalt durch die Vorlage aus `email-template-supabase-body-only.html`.
+5. Speichere die Vorlage und teste den Flow mit einer echten Registrierung.
 
-4. **Passe die Vorlage an**
-   - Du kannst HTML verwenden
-   - Verfügbare Variablen:
-     - `{{ .Email }}` - Die E-Mail-Adresse des Benutzers
-     - `{{ .ConfirmationURL }}` - Der Bestätigungslink
-     - `{{ .Token }}` - Der Bestätigungstoken (falls benötigt)
-     - `{{ .TokenHash }}` - Hash des Tokens (falls benötigt)
-     - `{{ .SiteURL }}` - Die URL deiner App
-     - `{{ .RedirectTo }}` - Die Redirect-URL nach Bestätigung
+## Verfügbare Variablen
 
-5. **Beispiel-Vorlage (bereits vorhanden)**
-   - Eine Beispiel-Vorlage findest du in `email-template-confirm-signup.html`
-   - Du kannst diese als Basis verwenden
+- `{{ .Email }}` – E-Mail-Adresse des Benutzers
+- `{{ .ConfirmationURL }}` – Bestätigungslink
+- `{{ .Token }}`
+- `{{ .TokenHash }}`
+- `{{ .SiteURL }}`
+- `{{ .RedirectTo }}`
 
-## Aktuelle Vorlage
+## Was an der aktuellen Vorlage verbessert wurde
 
-Die aktuelle Vorlage enthält:
-- Header mit Logo/Branding
-- Persönliche Begrüßung
-- Klarer Call-to-Action Button
-- Alternativer Link (falls Button nicht funktioniert)
-- Sicherheitshinweise
+- ruhigeres Layout, näher an der App-Sprache
+- nur ein aktives Grün: `#36B531`
+- robuster CTA-Button ohne Verlauf, damit Mail-Clients den Button zuverlässiger darstellen
+- klarere Textführung
+- kompaktere Fallback-Link-Box
+- konsistente Formulierungen mit echten Umlauten
 
-## Weitere E-Mail-Vorlagen
+## Empfohlene Betreffzeile
 
-Du kannst auch andere Vorlagen anpassen:
-- **Magic Link** - Für Magic Link Anmeldung
-- **Change Email Address** - Für E-Mail-Änderungen
-- **Reset Password** - Für Passwort-Zurücksetzung
-- **Invite User** - Für Benutzereinladungen (Admin)
+- `Bitte bestätige deine E-Mail-Adresse`
 
-## Tipps
+Oder etwas persönlicher:
 
-- Verwende responsive HTML (funktioniert auf Desktop und Mobile)
-- Teste die E-Mail-Vorlage nach Änderungen
-- Stelle sicher, dass Links korrekt funktionieren
-- Verwende klare, freundliche Sprache
-- Füge dein Branding hinzu (Farben, Logo, etc.)
+- `Willkommen bei Kletterwelt Sauerland Beta – bestätige jetzt dein Konto`
 
-## Beispiel-Anpassungen
+## Hinweise für Tests
 
-### Text ändern:
-```html
-<p>schön, dass du dabei bist! Um dein Konto zu aktivieren...</p>
-```
-Kann geändert werden zu:
-```html
-<p>Willkommen in der Kletterwelt Sauerland Beta App! Bestätige deine E-Mail...</p>
-```
+- Prüfe die Mail in mindestens einem Desktop- und einem mobilen Client.
+- Achte besonders darauf, dass der grüne Button sichtbar ist und nicht als weiße Fläche erscheint.
+- Prüfe, ob `{{ .ConfirmationURL }}` korrekt auf eure Live-Domain zurückführt.
+- Teste auch den Fallback-Link in der grauen Box.
 
-### Button-Text ändern:
-```html
-<a href="{{ .ConfirmationURL }}">E-Mail bestätigen</a>
-```
-Kann geändert werden zu:
-```html
-<a href="{{ .ConfirmationURL }}">Konto aktivieren</a>
-```
+## Weitere Vorlagen, die wir danach angleichen sollten
 
-### Farben anpassen:
-Die grünen Farben (`#22c55e`, `#16a34a`) können durch deine Brand-Farben ersetzt werden.
+- `Reset Password`
+- `Magic Link`
+- `Change Email Address`
 
+So bleibt die komplette Mail-Kommunikation visuell konsistent.

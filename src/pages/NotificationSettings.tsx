@@ -121,7 +121,7 @@ const NotificationSettings = () => {
     {
       key: 'admin_announcement' as const,
       icon: <Megaphone className="h-4 w-4 text-primary" strokeWidth={1.9} />,
-      title: 'Ank\u00FCndigungen',
+      title: 'Ankündigungen',
       subtitle: 'Allgemeine Neuigkeiten und Updates der Halle',
     },
   ];
@@ -133,7 +133,7 @@ const NotificationSettings = () => {
           type="button"
           onClick={() => navigate(-1)}
           className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary transition-colors active:scale-95"
-          aria-label="Zur\u00FCck"
+          aria-label="Zurück"
         >
           <ArrowLeft className="h-4 w-4 text-muted-foreground" />
         </button>
@@ -253,16 +253,16 @@ const NotificationSettings = () => {
                     ? 'Verweigert'
                     : pushPermissionStatus === 'prompt'
                       ? 'Noch nicht gefragt'
-                      : '\u2013'}
+                      : '–'}
               </p>
               <p><strong>Push in Einstellungen:</strong> {notificationPreferences?.push_enabled ? 'Aktiviert' : 'Deaktiviert'}</p>
-              <p><strong>Registrierte Ger\u00E4te:</strong> {pushTokensList?.length ?? 0}</p>
+              <p><strong>Registrierte Geräte:</strong> {pushTokensList?.length ?? 0}</p>
             </div>
           </div>
         ) : null}
 
         <p className="px-1 text-xs text-muted-foreground">
-          Benachrichtigungen werden auf diesem Ger\u00E4t und in deinem Konto gespeichert.
+          Benachrichtigungen werden auf diesem Gerät und in deinem Konto gespeichert.
         </p>
       </div>
     </SetupAreaLayout>

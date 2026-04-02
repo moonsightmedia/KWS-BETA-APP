@@ -131,7 +131,7 @@ const Profile = () => {
   const statsTiles = [
     { icon: Trophy, value: stats.topped, label: 'Tops' },
     { icon: Flame, value: stats.totalSessions, label: 'Sessions' },
-    { icon: Mountain, value: stats.highestGrade, label: 'H\u00F6chster Grad' },
+    { icon: Mountain, value: stats.highestGrade, label: 'Höchster Grad' },
   ];
 
   const settingsGroups = [
@@ -140,7 +140,7 @@ const Profile = () => {
       { icon: UserCog, label: 'Profil bearbeiten', path: '/profile/edit' },
       { icon: Bell, label: 'Benachrichtigungen', path: '/profile/notifications' },
     ],
-    [{ icon: Info, label: '\u00DCber die App', path: '/profile/about' }],
+    [{ icon: Info, label: 'Über die App', path: '/profile/about' }],
   ];
 
   return (
@@ -150,7 +150,7 @@ const Profile = () => {
           type="button"
           onClick={() => navigate(-1)}
           className="h-10 w-10 rounded-xl bg-secondary flex items-center justify-center transition-colors active:scale-95"
-          aria-label={'Zur\u00FCck'}
+          aria-label={'Zurück'}
         >
           <ArrowLeft className="h-4 w-4 text-muted-foreground" />
         </button>
