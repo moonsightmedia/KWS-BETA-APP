@@ -1975,8 +1975,21 @@ export async function uploadBetaVideo(
  * Resizes to max 1920px width (Full HD) and compresses to JPEG with 85% quality
  * Maintains aspect ratio and corrects EXIF orientation
  */
-async function compressSectorImage(file: File, onProgress?: (progress: number) => void): Promise<File> {
+type ImageCompressionOptions = {
+  maxWidth?: number;
+  maxHeight?: number;
+  quality?: number;
+};
+
+async function compressSectorImage(
+  file: File,
+  onProgress?: (progress: number) => void,
+  options: ImageCompressionOptions = {},
+): Promise<File> {
   const orientation = await getExifOrientation(file);
+  const maxWidth = options.maxWidth ?? 1920;
+  const maxHeight = options.maxHeight ?? 1080;
+  const quality = options.quality ?? 0.85;
 
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -1988,9 +2001,7 @@ async function compressSectorImage(file: File, onProgress?: (progress: number) =
         const imgWidth = img.width;
         const imgHeight = img.height;
 
-        // Calculate optimal dimensions (max 1920px width, maintain aspect ratio)
-        const maxWidth = 1920;
-        const maxHeight = 1080;
+        // Calculate optimal dimensions while preserving aspect ratio
         let width = imgWidth;
         let height = imgHeight;
 
@@ -2048,7 +2059,7 @@ async function compressSectorImage(file: File, onProgress?: (progress: number) =
             resolve(compressedFile);
           },
           'image/jpeg',
-          0.85 // 85% quality
+          quality
         );
       } catch (error) {
         URL.revokeObjectURL(objectUrl);
@@ -2384,6 +2395,10 @@ export async function uploadProfileAvatar(
     if (onProgress) onProgress(5);
     imageToUpload = await compressSectorImage(file, (progress) => {
       if (onProgress) onProgress(5 + progress * 0.4);
+    }, {
+      maxWidth: 512,
+      maxHeight: 512,
+      quality: 0.72,
     });
     if (onProgress) onProgress(45);
   } catch (error) {
