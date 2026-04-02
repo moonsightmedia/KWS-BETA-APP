@@ -16,6 +16,7 @@ import { fetchProfileRecord, updateProfileRecord } from '@/lib/profileCompat';
 const AUTH_UPDATE_TIMEOUT_MS = 10_000;
 const AVATAR_UPLOAD_TIMEOUT_MS = 20_000;
 const PROFILE_SAVE_TIMEOUT_MS = 12_000;
+const AVATAR_CLEANUP_TIMEOUT_MS = 5_000;
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
   let timeoutId: number | undefined;
@@ -39,19 +40,41 @@ async function updateAuthUserWithTimeout(
   update: Parameters<typeof supabase.auth.updateUser>[0],
   timeoutMessage: string,
 ) {
+  let timeoutId: number | undefined;
+
   const timeoutPromise = new Promise<never>((_, reject) => {
-    window.setTimeout(() => {
+    timeoutId = window.setTimeout(() => {
       reject(new Error(timeoutMessage));
     }, AUTH_UPDATE_TIMEOUT_MS);
   });
 
-  const result = await Promise.race([
-    supabase.auth.updateUser(update),
-    timeoutPromise,
-  ]);
+  try {
+    const result = await Promise.race([
+      supabase.auth.updateUser(update),
+      timeoutPromise,
+    ]);
 
-  if (result.error) {
-    throw result.error;
+    if (result.error) {
+      throw result.error;
+    }
+  } finally {
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+    }
+  }
+}
+
+async function cleanupAvatarBestEffort(imageUrl: string | null) {
+  if (!imageUrl) return;
+
+  try {
+    await withTimeout(
+      deleteProfileAvatar(imageUrl),
+      AVATAR_CLEANUP_TIMEOUT_MS,
+      'Die Bereinigung des alten Profilbilds hat zu lange gedauert.',
+    );
+  } catch (error) {
+    console.warn('[Profile Avatar Cleanup] Cleanup skipped:', error);
   }
 }
 
@@ -204,6 +227,7 @@ const ProfileEdit = () => {
       const lastName = nameParts.slice(1).join(' ').trim() || null;
       let nextAvatarUrl = form.avatarUrl;
       const emailChanged = trimmedEmail !== (user.email || '');
+      const avatarChanged = nextAvatarUrl !== initialAvatarUrl || Boolean(avatarFile);
 
       if (avatarFile) {
         uploadedAvatarUrl = await withTimeout(
@@ -245,7 +269,12 @@ const ProfileEdit = () => {
         'Das Profil konnte nicht rechtzeitig gespeichert werden. Bitte versuche es erneut.',
       );
 
-      if (!emailChanged) {
+      if (!emailChanged && avatarChanged) {
+        await updateAuthUserWithTimeout(
+          { data: { ...metadata, email: trimmedEmail } },
+          'Das Profilbild konnte nicht rechtzeitig synchronisiert werden.',
+        );
+      } else if (!emailChanged) {
         void updateAuthUserWithTimeout(
           { data: { ...metadata, email: trimmedEmail } },
           'Die Kontodaten konnten nicht rechtzeitig synchronisiert werden.',
@@ -255,14 +284,14 @@ const ProfileEdit = () => {
       }
 
       if (initialAvatarUrl && initialAvatarUrl !== nextAvatarUrl) {
-        await deleteProfileAvatar(initialAvatarUrl);
+        void cleanupAvatarBestEffort(initialAvatarUrl);
       }
 
       toast.success('Profil gespeichert', {
         description:
           emailChanged
-                ? 'Bitte bestätige gegebenenfalls deine neue E-Mail-Adresse.'
-                : 'Deine Änderungen wurden gespeichert.',
+            ? 'Bitte bestätige gegebenenfalls deine neue E-Mail-Adresse.'
+            : 'Deine Änderungen wurden gespeichert.',
       });
 
       setInitialAvatarUrl(nextAvatarUrl);
@@ -271,7 +300,7 @@ const ProfileEdit = () => {
       navigate('/profile', { replace: true });
     } catch (error: unknown) {
       if (uploadedAvatarUrl && uploadedAvatarUrl !== initialAvatarUrl) {
-        await deleteProfileAvatar(uploadedAvatarUrl);
+        void cleanupAvatarBestEffort(uploadedAvatarUrl);
       }
 
       toast.error('Speichern fehlgeschlagen', {
@@ -287,7 +316,7 @@ const ProfileEdit = () => {
 
     if (!email) {
       toast.error('Keine E-Mail-Adresse gefunden.', {
-            description: 'Bitte hinterlege zuerst eine gültige E-Mail-Adresse.',
+        description: 'Bitte hinterlege zuerst eine gültige E-Mail-Adresse.',
       });
       return;
     }
@@ -307,7 +336,7 @@ const ProfileEdit = () => {
             type="button"
             onClick={() => navigate(-1)}
             className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary transition-colors active:scale-95"
-          aria-label={'Zurück'}
+            aria-label="Zurück"
           >
             <ArrowLeft className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -350,7 +379,7 @@ const ProfileEdit = () => {
               onClick={() => fileInputRef.current?.click()}
             >
               <Camera className="mr-2 h-4 w-4" />
-                {displayAvatarUrl ? 'Bild ersetzen' : 'Bild auswählen'}
+              {displayAvatarUrl ? 'Bild ersetzen' : 'Bild auswählen'}
             </Button>
 
             {displayAvatarUrl ? (
@@ -416,7 +445,7 @@ const ProfileEdit = () => {
             disabled={loadingProfile || saving}
             className="h-12 w-full rounded-xl font-medium"
           >
-                  {'Passwort ändern'}
+            Passwort ändern
           </Button>
         </div>
       </div>
