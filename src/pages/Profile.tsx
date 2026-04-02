@@ -18,19 +18,12 @@ import { Button } from '@/components/ui/button';
 import { SetupAreaLayout } from '@/components/SetupAreaLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderCommunity';
-import { supabase } from '@/integrations/supabase/client';
 import { formatDifficulty } from '@/lib/difficulty';
-
-interface ProfileRow {
-  first_name: string | null;
-  last_name: string | null;
-  full_name: string | null;
-  avatar_url: string | null;
-}
+import { fetchProfileRecord } from '@/lib/profileCompat';
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user, signOut, loading } = useAuth();
+  const { user, session, signOut, loading } = useAuth();
   const { data: trackedBoulders } = useMyTrackedBoulders(null);
   const { data: trackingSessions } = useMyTrackingSessions();
   const [profileName, setProfileName] = useState<string | null>(null);
@@ -47,14 +40,8 @@ const Profile = () => {
 
     const loadProfileName = async () => {
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('first_name,last_name,full_name,avatar_url')
-          .eq('id', user.id)
-          .maybeSingle<ProfileRow>();
-
+        const data = await fetchProfileRecord(user.id, session?.access_token);
         if (cancelled) return;
-        if (error) throw error;
 
         const nextProfileName =
           data?.full_name?.trim() ||
@@ -76,7 +63,7 @@ const Profile = () => {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [session?.access_token, user]);
 
   const displayName = useMemo(() => {
     const meta = user?.user_metadata as Record<string, unknown> | undefined;

@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { deleteProfileAvatar, uploadProfileAvatar } from '@/integrations/supabase/storage';
-import { supabaseRestRequest } from '@/lib/supabaseRest';
+import { fetchProfileRecord, updateProfileRecord } from '@/lib/profileCompat';
 
 const AUTH_UPDATE_TIMEOUT_MS = 10_000;
 const AVATAR_UPLOAD_TIMEOUT_MS = 20_000;
@@ -106,26 +106,17 @@ const ProfileEdit = () => {
 
       try {
         if (cancelled) return;
-        const data = await supabaseRestRequest<Array<{
-          first_name: string | null;
-          last_name: string | null;
-          full_name: string | null;
-          email: string | null;
-          avatar_url: string | null;
-        }>>(
-          `/rest/v1/profiles?id=eq.${user.id}&select=first_name,last_name,full_name,email,avatar_url&limit=1`,
-          { accessToken: session?.access_token },
-        );
+        const data = await fetchProfileRecord(user.id, session?.access_token);
 
         const profileName =
-          data[0]?.full_name?.trim() ||
-          [data[0]?.first_name, data[0]?.last_name].filter(Boolean).join(' ').trim() ||
+          data?.full_name?.trim() ||
+          [data?.first_name, data?.last_name].filter(Boolean).join(' ').trim() ||
           fallbackName;
-        const nextAvatarUrl = metadataAvatarUrl || data[0]?.avatar_url || null;
+        const nextAvatarUrl = metadataAvatarUrl || data?.avatar_url || null;
 
         setForm({
           name: profileName,
-          email: data[0]?.email || user.email || '',
+          email: data?.email || user.email || '',
           avatarUrl: nextAvatarUrl,
         });
         setInitialAvatarUrl(nextAvatarUrl);
@@ -239,20 +230,16 @@ const ProfileEdit = () => {
       }
 
       await withTimeout(
-        supabaseRestRequest(
-          `/rest/v1/profiles?id=eq.${user.id}`,
+        updateProfileRecord(
+          user.id,
           {
-            accessToken: session?.access_token,
-            method: 'PATCH',
-            prefer: 'return=minimal',
-            body: {
-              first_name: firstName,
-              last_name: lastName,
-              full_name: trimmedName,
-              email: trimmedEmail,
-              avatar_url: nextAvatarUrl,
-            },
+            first_name: firstName,
+            last_name: lastName,
+            full_name: trimmedName,
+            email: trimmedEmail,
+            avatar_url: nextAvatarUrl,
           },
+          session?.access_token,
         ),
         PROFILE_SAVE_TIMEOUT_MS,
         'Das Profil konnte nicht rechtzeitig gespeichert werden. Bitte versuche es erneut.',
