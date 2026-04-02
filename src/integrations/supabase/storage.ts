@@ -2383,6 +2383,7 @@ export async function uploadHallMapImage(
 export async function uploadProfileAvatar(
   file: File,
   userId: string,
+  accessToken?: string | null,
   onProgress?: (progress: number) => void,
 ): Promise<string> {
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
@@ -2390,28 +2391,25 @@ export async function uploadProfileAvatar(
     throw new Error(`Ungueltiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
   }
 
-  let imageToUpload = file;
-  try {
-    if (onProgress) onProgress(5);
-    imageToUpload = await compressSectorImage(file, (progress) => {
-      if (onProgress) onProgress(5 + progress * 0.4);
-    }, {
-      maxWidth: 512,
-      maxHeight: 512,
-      quality: 0.72,
-    });
-    if (onProgress) onProgress(45);
-  } catch (error) {
-    console.warn('[Profile Avatar Upload] Compression failed, using original image:', error);
-    imageToUpload = file;
-  }
-
-  const ext = 'jpg';
+  // Profile avatars need to be extra robust on mobile. The heavier canvas-based
+  // compression path proved brittle in the real browser flow, so avatar uploads
+  // now use the original file directly instead of blocking on client-side
+  // recompression.
+  const imageToUpload = file;
+  const typeToExt: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+  };
+  const ext = typeToExt[file.type] || getFileExt(file.name).toLowerCase() || 'jpg';
   const objectPath = `${userId}/${randomId()}.${ext}`;
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
   const simulateProgress = () => {
     if (!onProgress) return null;
-    let progress = 45;
+    let progress = 15;
     const interval = setInterval(() => {
       progress += Math.random() * 10;
       if (progress >= 95) {
@@ -2426,20 +2424,57 @@ export async function uploadProfileAvatar(
   const progressInterval = simulateProgress();
 
   try {
-    const { error } = await supabase.storage
-      .from(PROFILE_AVATARS_BUCKET)
-      .upload(objectPath, imageToUpload, {
-        cacheControl: '604800',
-        upsert: true,
-        contentType: 'image/jpeg',
-      });
+    if (onProgress) onProgress(10);
+    console.log('[Profile Avatar Upload] Starting upload:', {
+      userId,
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+      bucket: PROFILE_AVATARS_BUCKET,
+      objectPath,
+    });
+
+    if (!supabaseUrl || !publishableKey) {
+      throw new Error('Supabase-Konfiguration für Profilbild-Uploads fehlt.');
+    }
+
+    const resolvedAccessToken = accessToken;
+    if (!resolvedAccessToken) {
+      throw new Error('Keine gültige Sitzung für den Profilbild-Upload gefunden.');
+    }
+
+    const response = await fetch(
+      `${supabaseUrl}/storage/v1/object/${PROFILE_AVATARS_BUCKET}/${objectPath}`,
+      {
+        method: 'POST',
+        headers: {
+          apikey: publishableKey,
+          Authorization: `Bearer ${resolvedAccessToken}`,
+          'x-upsert': 'true',
+          'content-type': imageToUpload.type || 'application/octet-stream',
+          'cache-control': '604800',
+        },
+        body: imageToUpload,
+      },
+    );
 
     if (progressInterval) clearInterval(progressInterval);
-    if (error) throw error;
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      throw new Error(
+        `Profilbild-Upload fehlgeschlagen (${response.status}). ${errorBody || response.statusText}`.trim(),
+      );
+    }
 
     if (onProgress) onProgress(100);
 
     const { data } = supabase.storage.from(PROFILE_AVATARS_BUCKET).getPublicUrl(objectPath);
+    console.log('[Profile Avatar Upload] Upload succeeded:', {
+      userId,
+      objectPath,
+      publicUrl: data.publicUrl,
+    });
     return data.publicUrl;
   } catch (error) {
     if (progressInterval) clearInterval(progressInterval);

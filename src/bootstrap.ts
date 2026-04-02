@@ -2,6 +2,7 @@ declare global {
   interface Window {
     __KWS_VERBOSE?: boolean;
     __KWS_FETCH_OVERRIDE_INSTALLED?: boolean;
+    __KWS_NATIVE_FETCH?: typeof window.fetch;
   }
 }
 
@@ -65,7 +66,8 @@ function installFetchOverride() {
     return;
   }
 
-  const originalFetch = window.fetch.bind(window);
+  const nativeFetch = window.__KWS_NATIVE_FETCH ?? window.fetch.bind(window);
+  window.__KWS_NATIVE_FETCH = nativeFetch;
 
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const urlString =
@@ -84,9 +86,15 @@ function installFetchOverride() {
         || urlObj.hostname.includes('supabase.io')
         || urlObj.hostname.includes('.supabase.co')
         || urlObj.hostname.includes('.supabase.io');
+      const isSupabaseStorageRequest =
+        isSupabaseRequest && urlObj.pathname.includes('/storage/v1/object/');
 
       if (!isSupabaseRequest) {
-        return originalFetch(input, init);
+        return nativeFetch(input, init);
+      }
+
+      if (isSupabaseStorageRequest) {
+        return nativeFetch(input, init);
       }
 
       let headers: HeadersInit | undefined = init?.headers;
@@ -136,7 +144,7 @@ function installFetchOverride() {
 
       const requestUrl = input instanceof Request ? input.url : input;
 
-      return originalFetch(requestUrl, {
+      return nativeFetch(requestUrl, {
         ...init,
         method: init?.method || (input instanceof Request ? input.method : 'GET'),
         headers: finalHeaders,
@@ -144,7 +152,7 @@ function installFetchOverride() {
         cache: 'no-store',
       });
     } catch {
-      return originalFetch(input, init);
+      return nativeFetch(input, init);
     }
   };
 

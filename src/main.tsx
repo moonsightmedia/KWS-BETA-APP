@@ -56,7 +56,8 @@ if (KWS_VERBOSE) console.log('[Main] 🚀 Loading application v3 - Cache busted'
 if (KWS_VERBOSE) console.log('[Main] 🔍 Checking if fetch was already overridden in index.html:', { windowFetch: typeof window.fetch, hasIndexOverride: window.fetch?.toString?.()?.includes('Index HTML Fetch Override') });
 
 // Keep the override in main.tsx as a backup, but index.html should have already done it
-const originalFetch = window.fetch;
+const originalFetch = window.__KWS_NATIVE_FETCH ?? window.fetch.bind(window);
+window.__KWS_NATIVE_FETCH = originalFetch;
 let fetchCallCount = 0;
 
 window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {

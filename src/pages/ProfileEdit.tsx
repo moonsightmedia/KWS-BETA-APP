@@ -233,7 +233,7 @@ const ProfileEdit = () => {
       if (avatarFile) {
         saveStage = 'Profilbild hochladen';
         uploadedAvatarUrl = await withTimeout(
-          uploadProfileAvatar(avatarFile, user.id),
+          uploadProfileAvatar(avatarFile, user.id, session?.access_token),
           AVATAR_UPLOAD_TIMEOUT_MS,
           'Das Profilbild konnte nicht rechtzeitig hochgeladen werden. Bitte versuche es erneut.',
         );
@@ -273,16 +273,12 @@ const ProfileEdit = () => {
         'Das Profil konnte nicht rechtzeitig gespeichert werden. Bitte versuche es erneut.',
       );
 
-      if (!emailChanged && avatarChanged) {
-        saveStage = 'Profilbild-Metadaten synchronisieren';
-        await updateAuthUserWithTimeout(
-          { data: { ...metadata, email: trimmedEmail } },
-          'Das Profilbild konnte nicht rechtzeitig synchronisiert werden.',
-        );
-      } else if (!emailChanged) {
+      if (!emailChanged) {
         void updateAuthUserWithTimeout(
           { data: { ...metadata, email: trimmedEmail } },
-          'Die Kontodaten konnten nicht rechtzeitig synchronisiert werden.',
+          avatarChanged
+            ? 'Das Profilbild konnte nicht rechtzeitig synchronisiert werden.'
+            : 'Die Kontodaten konnten nicht rechtzeitig synchronisiert werden.',
         ).catch(() => {
           // Das sichtbare Profil kommt aus `profiles`; ein hängender Metadaten-Sync darf den Flow nicht blockieren.
         });
@@ -448,7 +444,7 @@ const ProfileEdit = () => {
           <Button
             onClick={handleSave}
             disabled={saving || loadingProfile}
-            className="h-12 w-full rounded-xl bg-[#69B545] font-semibold text-white hover:bg-[#5FA039]"
+            className="h-12 w-full rounded-xl bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
           >
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Speichern
