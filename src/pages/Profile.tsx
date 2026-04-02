@@ -15,6 +15,7 @@ import {
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { SetupAreaLayout } from '@/components/SetupAreaLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderCommunity';
@@ -28,17 +29,26 @@ const Profile = () => {
   const { data: trackingSessions } = useMyTrackingSessions();
   const [profileName, setProfileName] = useState<string | null>(null);
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
+  const [profileIdentityLoading, setProfileIdentityLoading] = useState(true);
 
   useEffect(() => {
     if (!user) {
       setProfileName(null);
       setProfileAvatarUrl(null);
+      setProfileIdentityLoading(false);
       return;
     }
 
     let cancelled = false;
 
     const loadProfileName = async () => {
+      setProfileIdentityLoading(true);
+
+      const metadataAvatarUrl =
+        typeof user.user_metadata?.avatar_url === 'string' && user.user_metadata.avatar_url.trim().length > 0
+          ? user.user_metadata.avatar_url
+          : null;
+
       try {
         const data = await fetchProfileRecord(user.id, session?.access_token);
         if (cancelled) return;
@@ -49,11 +59,15 @@ const Profile = () => {
           null;
 
         setProfileName(nextProfileName);
-        setProfileAvatarUrl(data?.avatar_url?.trim() || null);
+        setProfileAvatarUrl(data?.avatar_url?.trim() || metadataAvatarUrl || null);
       } catch {
         if (!cancelled) {
           setProfileName(null);
-          setProfileAvatarUrl(null);
+          setProfileAvatarUrl(metadataAvatarUrl);
+        }
+      } finally {
+        if (!cancelled) {
+          setProfileIdentityLoading(false);
         }
       }
     };
@@ -146,14 +160,24 @@ const Profile = () => {
 
       <div className="px-4 pt-5">
         <div className="flex flex-col items-center text-center">
-          <Avatar className="mb-3 h-16 w-16 rounded-xl">
-            {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} className="rounded-xl object-cover" /> : null}
-            <AvatarFallback className="rounded-xl bg-primary/10 text-primary text-3xl font-semibold">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          <h1 className="text-[1.2rem] font-bold leading-none text-foreground">{displayName}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{memberSinceLabel}</p>
+          {profileIdentityLoading ? (
+            <div className="flex flex-col items-center text-center">
+              <Skeleton className="mb-3 h-16 w-16 rounded-xl" />
+              <Skeleton className="h-6 w-40 rounded-lg" />
+              <Skeleton className="mt-2 h-4 w-28 rounded-lg" />
+            </div>
+          ) : (
+            <>
+              <Avatar className="mb-3 h-16 w-16 rounded-xl">
+                {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} className="rounded-xl object-cover" /> : null}
+                <AvatarFallback className="rounded-xl bg-primary/10 text-primary text-3xl font-semibold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <h1 className="text-[1.2rem] font-bold leading-none text-foreground">{displayName}</h1>
+              <p className="mt-2 text-sm text-muted-foreground">{memberSinceLabel}</p>
+            </>
+          )}
         </div>
 
         <div className="mt-6 grid grid-cols-3 gap-2">
