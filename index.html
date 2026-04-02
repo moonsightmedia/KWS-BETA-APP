@@ -2,16 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>Beta Dashboard - Kletterwelt Sauerland</title>
-    <meta name="description" content="Aktuelle Boulder-Übersicht der Kletterwelt Sauerland mit Beta-Videos, Schwierigkeitsgraden und Statistiken" />
+    <meta
+      name="description"
+      content="Aktuelle Boulder-Übersicht der Kletterwelt Sauerland mit Beta-Videos, Schwierigkeitsgraden und Statistiken"
+    />
     <meta name="author" content="Kletterwelt Sauerland" />
 
     <meta property="og:title" content="Beta Dashboard - Kletterwelt Sauerland" />
-    <meta property="og:description" content="Entdecke alle aktuellen Boulder mit Beta-Videos und detaillierten Informationen" />
+    <meta
+      property="og:description"
+      content="Entdecke alle aktuellen Boulder mit Beta-Videos und detaillierten Informationen"
+    />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
@@ -19,363 +28,32 @@
     <meta name="twitter:site" content="@lovable_dev" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Teko:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    
-    <!-- Google Material Icons -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Teko:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png" />
-    <link rel="apple-touch-icon" href="/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+    />
+
+    <link
+      rel="icon"
+      type="image/png"
+      href="/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png"
+    />
     <meta name="theme-color" content="#36B531" />
   </head>
 
   <body>
     <div id="root"></div>
-    <!-- Global error handler - must be loaded before any other scripts -->
-    <script>
-      (function() {
-        'use strict';
-        
-        // Catch ALL unhandled promise rejections (runs first, before main.tsx)
-        window.addEventListener('unhandledrejection', function(event) {
-          var error = event.reason;
-          var errorMessage = '';
-          var stack = '';
-          var fileName = '';
-          
-          try {
-            if (error) {
-              if (typeof error === 'string') {
-                errorMessage = error;
-              } else if (error.message) {
-                errorMessage = error.message;
-              } else if (error.toString && typeof error.toString === 'function') {
-                errorMessage = error.toString();
-              } else {
-                errorMessage = String(error);
-              }
-              if (error.stack) stack = String(error.stack);
-              if (error.fileName) fileName = String(error.fileName);
-            }
-            
-            errorMessage = (errorMessage || '').toLowerCase();
-            stack = (stack || '').toLowerCase();
-            fileName = (fileName || '').toLowerCase();
-            var reasonStr = (error ? String(error) : '').toLowerCase();
-            
-            // Suppress service worker / extension related rejections (e.g. "serviceWorker.js:1" "Frame with ID ... was removed")
-            // Also catch empty/minimal messages where browser only reports script URL (serviceWorker.js:1)
-            var emptyMessage = !errorMessage || errorMessage.length <= 2;
-            var frameRemoved = (errorMessage.indexOf('frame') !== -1 && errorMessage.indexOf('was removed') !== -1);
-            var fromServiceWorker = (
-              errorMessage.indexOf('service worker') !== -1 ||
-              errorMessage.indexOf('serviceworker') !== -1 ||
-              errorMessage.indexOf('service-worker') !== -1 ||
-              errorMessage.indexOf('sw.js') !== -1 ||
-              errorMessage.indexOf('failed to register') !== -1 ||
-              (errorMessage.indexOf('registration') !== -1 && (errorMessage.indexOf('script') !== -1 || errorMessage.indexOf('404') !== -1)) ||
-              errorMessage.indexOf('script has an error') !== -1 ||
-              frameRemoved ||
-              (errorMessage.indexOf('frame with id') !== -1 && errorMessage.indexOf('was removed') !== -1) ||
-              stack.indexOf('serviceworker') !== -1 ||
-              stack.indexOf('service-worker') !== -1 ||
-              stack.indexOf('sw.js') !== -1 ||
-              stack.indexOf('serviceworker.js') !== -1 ||
-              fileName.indexOf('serviceworker') !== -1 ||
-              fileName.indexOf('service-worker') !== -1 ||
-              fileName.indexOf('sw.js') !== -1 ||
-              fileName.indexOf('serviceworker.js') !== -1 ||
-              reasonStr.indexOf('serviceworker') !== -1 ||
-              reasonStr.indexOf('sw.js') !== -1 ||
-              (reasonStr.indexOf('frame') !== -1 && reasonStr.indexOf('was removed') !== -1) ||
-              (reasonStr.indexOf('frame with id') !== -1 && reasonStr.indexOf('was removed') !== -1) ||
-              (reasonStr.length <= 2 && (stack.indexOf('serviceworker') !== -1 || stack.indexOf('sw.js') !== -1)) ||
-              (emptyMessage && (stack.indexOf('serviceworker') !== -1 || stack.indexOf('sw.js') !== -1))
-            );
-            if (fromServiceWorker) {
-              event.preventDefault();
-              event.stopPropagation();
-              event.stopImmediatePropagation();
-              return;
-            }
-            
-            // Ignore storage-related errors - these are expected in some contexts
-            if (
-              errorMessage.indexOf('storage') !== -1 ||
-              errorMessage.indexOf('access to storage') !== -1 ||
-              errorMessage.indexOf('not allowed from this context') !== -1 ||
-              errorMessage.indexOf('access to') !== -1 && errorMessage.indexOf('context') !== -1
-            ) {
-              // Prevent the error from being logged to console
-              event.preventDefault();
-              event.stopPropagation();
-              event.stopImmediatePropagation();
-              // Also suppress console.error for this error
-              if (console && console.error) {
-                var originalError = console.error;
-                console.error = function() {
-                  var args = Array.prototype.slice.call(arguments);
-                  var msg = args.join(' ').toLowerCase();
-                  if (msg.indexOf('storage') === -1 && msg.indexOf('access to') === -1) {
-                    originalError.apply(console, args);
-                  }
-                };
-                setTimeout(function() {
-                  console.error = originalError;
-                }, 0);
-              }
-              return false;
-            }
-          } catch (e) {
-            // Ignore errors in error handler
-          }
-        }, true); // Use capture phase
-        
-        // Also catch regular errors
-        window.addEventListener('error', function(event) {
-          var error = event.error;
-          var errorMessage = '';
-          
-          try {
-            if (error && error.message) {
-              errorMessage = error.message.toLowerCase();
-            } else if (event.message) {
-              errorMessage = event.message.toLowerCase();
-            }
-            
-            // Ignore storage-related errors
-            if (
-              errorMessage.indexOf('storage') !== -1 ||
-              errorMessage.indexOf('access to storage') !== -1 ||
-              errorMessage.indexOf('not allowed from this context') !== -1
-            ) {
-              event.preventDefault();
-              event.stopPropagation();
-              return false;
-            }
-          } catch (e) {
-            // Ignore errors in error handler
-          }
-        }, true); // Use capture phase
-      })();
-    </script>
-    <!-- CRITICAL: Override fetch BEFORE any module imports to ensure Supabase requests are intercepted -->
-    <script>
-      (function() {
-        'use strict';
-        try { window.__KWS_VERBOSE = localStorage.getItem('KWS_DEBUG') === '1'; } catch (e) { window.__KWS_VERBOSE = false; }
-        // Verbose logs (fetch override, etc.) only when localStorage KWS_DEBUG=1. In Konsole: localStorage.setItem('KWS_DEBUG','1'); location.reload();
-        if (window.__KWS_VERBOSE) console.log('[Index HTML] 🔧 Overriding fetch BEFORE module imports...');
-        
-        const originalFetch = window.fetch;
-        let fetchCallCount = 0;
-        
-        window.fetch = async function(input, init) {
-          const urlString = typeof input === 'string' ? input : input instanceof URL ? input.href : (input instanceof Request ? input.url : String(input));
-          const hostname = window.location.hostname;
-          if (window.__KWS_VERBOSE) console.log('[Index HTML Fetch Override] 📞📞📞 FETCH CALLED:', {
-            url: urlString,
-            hostname: hostname,
-            isLocalhost: hostname === 'localhost' || hostname === '127.0.0.1',
-            inputType: typeof input,
-            isString: typeof input === 'string',
-            isURL: input instanceof URL,
-            isRequest: input instanceof Request,
-            method: init?.method || 'GET',
-            stackTrace: new Error().stack?.substring(0, 500), // Show where fetch is called from
-          });
-          
-          try {
-            const urlObj = new URL(urlString, window.location.origin);
-            if (window.__KWS_VERBOSE) console.log('[Index HTML Fetch Override] 🔍 Parsed URL object:', { hostname: urlObj.hostname, href: urlObj.href });
-            const isSupabaseRequest = urlObj.hostname.includes('supabase.co') || urlObj.hostname.includes('supabase.io') || urlObj.hostname.includes('.supabase.co') || urlObj.hostname.includes('.supabase.io');
-            if (window.__KWS_VERBOSE) console.log('[Index HTML Fetch Override] 🔍 Is Supabase request?', isSupabaseRequest, 'hostname:', urlObj.hostname);
-            
-            if (isSupabaseRequest) {
-              fetchCallCount++;
-              const callId = fetchCallCount;
-              const startTime = Date.now();
-              
-              // Extract method from input or init
-              let method = init?.method;
-              if (input instanceof Request && !method) {
-                method = input.method;
-              }
-              method = method || 'GET';
-              
-              // Preserve all headers
-              let headers = init?.headers;
-              if (headers instanceof Headers) {
-                const headersObj = {};
-                headers.forEach(function(value, key) {
-                  headersObj[key] = value;
-                });
-                headers = headersObj;
-              }
-              
-              if (Array.isArray(headers)) {
-                const headersObj = {};
-                headers.forEach(function(entry) {
-                  headersObj[entry[0]] = entry[1];
-                });
-                headers = headersObj;
-              }
-              
-              const finalHeaders = Object.assign({}, headers || {}, init?.headers && typeof init.headers === 'object' && !(init.headers instanceof Headers) && !Array.isArray(init.headers) ? init.headers : {});
-              
-              if (input instanceof Request) {
-                input.headers.forEach(function(value, key) {
-                  if (!finalHeaders[key]) {
-                    finalHeaders[key] = value;
-                  }
-                });
-              }
-              
-              if (window.__KWS_VERBOSE) console.log('[Index HTML Fetch Override] 🚀 [' + callId + '] Starting Supabase request:', { url: urlObj.href, pathname: urlObj.pathname, method: method, hasAuth: !!(finalHeaders['Authorization'] || finalHeaders['authorization']), hasApiKey: !!(finalHeaders['apikey'] || finalHeaders['apiKey'] || finalHeaders['x-api-key']), timestamp: new Date().toISOString() });
-              if (window.__KWS_VERBOSE) console.log('[Index HTML Fetch Override] 📞 About to call originalFetch with:', { url: urlObj.href, method: method });
-              
-              try {
-                const requestInit = Object.assign({}, init || {}, {
-                  method: method,
-                  headers: finalHeaders,
-                  cache: 'no-store'
-                });
-                
-                // Handle Request objects properly - don't try to clone if already used
-                // CRITICAL FIX for Firefox: Preserve body correctly
-                let request;
-                if (input instanceof Request) {
-                  // CRITICAL: Use body from init first (Supabase puts it there)
-                  // Only fall back to extracting from Request if init.body is not available
-                  let body = requestInit.body;
-                  
-                  // If body is not in init and Request body hasn't been consumed, extract it
-                  if (!body && input.body && !input.bodyUsed) {
-                    try {
-                      // Clone the request to read the body without consuming the original
-                      const cloned = input.clone();
-                      body = cloned.body; // Use the body stream directly, don't read it
-                    } catch (e) {
-                      // If cloning fails, body might be a stream or already consumed
-                      body = null;
-                    }
-                  }
-                  
-                  // CRITICAL: For Firefox, we must use the URL as string and pass body explicitly
-                  // Creating a new Request from a Request object doesn't preserve body in Firefox
-                  request = new Request(input.url, {
-                    method: method,
-                    headers: finalHeaders,
-                    body: body, // Explicitly set body for Firefox compatibility
-                    cache: requestInit.cache || input.cache,
-                    credentials: requestInit.credentials || input.credentials,
-                    mode: requestInit.mode || input.mode,
-                    redirect: requestInit.redirect || input.redirect,
-                    referrer: requestInit.referrer || input.referrer,
-                    referrerPolicy: requestInit.referrerPolicy || input.referrerPolicy,
-                    integrity: requestInit.integrity || input.integrity,
-                    keepalive: requestInit.keepalive || input.keepalive,
-                    signal: requestInit.signal || input.signal,
-                  });
-                } else {
-                  request = new Request(input, requestInit);
-                }
-                
-                const response = await originalFetch(request);
-                
-                const duration = Date.now() - startTime;
-                if (window.__KWS_VERBOSE) console.log('[Index HTML Fetch Override] ✅ [' + callId + '] Response received:', { url: urlObj.href, status: response.status, statusText: response.statusText, duration: duration + 'ms' });
-                return response;
-              } catch (error) {
-                const duration = Date.now() - startTime;
-                if (window.__KWS_VERBOSE) console.error('[Index HTML Fetch Override] ❌ [' + callId + '] Request failed:', { url: urlObj.href, error: error?.message || error, duration: duration + 'ms' });
-                throw error;
-              }
-            }
-            
-            // For non-Supabase requests, use original fetch
-            return originalFetch(input, init);
-          } catch (error) {
-            // Fallback to original fetch if URL parsing fails
-            return originalFetch(input, init);
-          }
-        };
-        
-        if (window.__KWS_VERBOSE) console.log('[Index HTML] ✅ Fetch overridden successfully BEFORE module imports');
-        if (window.__KWS_VERBOSE) console.log('[Index HTML] 🔍 Fetch override check:', { originalFetch: typeof originalFetch, windowFetch: typeof window.fetch, isOverridden: window.fetch !== originalFetch });
-        const originalXHR = window.XMLHttpRequest;
-        const XHROverride = function() {
-          const xhr = new originalXHR();
-          const originalOpen = xhr.open;
-          const originalSend = xhr.send;
-          xhr.open = function(method, url, async, user, password) {
-            if (window.__KWS_VERBOSE) console.log('[Index HTML XHR Override] 📞 XHR.open called:', { method: method, url: url });
-            if (window.__KWS_VERBOSE && url && (url.includes('supabase.co') || url.includes('supabase.io'))) console.log('[Index HTML XHR Override] 🚀 Supabase XHR request detected:', url);
-            return originalOpen.apply(this, arguments);
-          };
-          xhr.send = function(data) {
-            if (window.__KWS_VERBOSE) console.log('[Index HTML XHR Override] 📤 XHR.send called:', { url: this._url || 'unknown', method: this._method || 'unknown' });
-            return originalSend.apply(this, arguments);
-          };
-          return xhr;
-        };
-        XHROverride.prototype = originalXHR.prototype;
-        Object.setPrototypeOf(XHROverride, originalXHR);
-        window.XMLHttpRequest = XHROverride;
-        if (window.__KWS_VERBOSE) console.log('[Index HTML] ✅ XMLHttpRequest also overridden');
-      })();
-    </script>
-    <script>
-      (function() {
-        var isLocalhost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
-        var devEntryVersion = '4';
-
-        function mountAppScript() {
-          var script = document.createElement('script');
-          script.type = 'module';
-          script.src = '/src/main.tsx?v=' + devEntryVersion;
-          document.body.appendChild(script);
-        }
-
-        if (!isLocalhost) {
-          mountAppScript();
-          return;
-        }
-
-        var cleanupTasks = [];
-
-        if ('serviceWorker' in navigator) {
-          cleanupTasks.push(
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-              return Promise.allSettled(
-                registrations.map(function(registration) {
-                  return registration.unregister();
-                })
-              );
-            })
-          );
-        }
-
-        if ('caches' in window) {
-          cleanupTasks.push(
-            caches.keys().then(function(cacheNames) {
-              return Promise.allSettled(
-                cacheNames.map(function(cacheName) {
-                  return caches.delete(cacheName);
-                })
-              );
-            })
-          );
-        }
-
-        Promise.allSettled(cleanupTasks).finally(function() {
-          mountAppScript();
-        });
-      })();
-    </script>
+    <script type="module" src="/src/bootstrap.ts"></script>
   </body>
 </html>
