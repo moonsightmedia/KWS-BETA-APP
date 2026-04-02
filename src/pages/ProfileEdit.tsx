@@ -14,6 +14,26 @@ import { deleteProfileAvatar, uploadProfileAvatar } from '@/integrations/supabas
 import { supabaseRestRequest } from '@/lib/supabaseRest';
 
 const AUTH_UPDATE_TIMEOUT_MS = 10_000;
+const AVATAR_UPLOAD_TIMEOUT_MS = 20_000;
+const PROFILE_SAVE_TIMEOUT_MS = 12_000;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+  let timeoutId: number | undefined;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+    }
+  }
+}
 
 async function updateAuthUserWithTimeout(
   update: Parameters<typeof supabase.auth.updateUser>[0],
@@ -91,8 +111,9 @@ const ProfileEdit = () => {
           last_name: string | null;
           full_name: string | null;
           email: string | null;
+          avatar_url: string | null;
         }>>(
-          `/rest/v1/profiles?id=eq.${user.id}&select=first_name,last_name,full_name,email&limit=1`,
+          `/rest/v1/profiles?id=eq.${user.id}&select=first_name,last_name,full_name,email,avatar_url&limit=1`,
           { accessToken: session?.access_token },
         );
 
@@ -100,7 +121,7 @@ const ProfileEdit = () => {
           data[0]?.full_name?.trim() ||
           [data[0]?.first_name, data[0]?.last_name].filter(Boolean).join(' ').trim() ||
           fallbackName;
-        const nextAvatarUrl = metadataAvatarUrl || null;
+        const nextAvatarUrl = metadataAvatarUrl || data[0]?.avatar_url || null;
 
         setForm({
           name: profileName,
@@ -194,7 +215,11 @@ const ProfileEdit = () => {
       const emailChanged = trimmedEmail !== (user.email || '');
 
       if (avatarFile) {
-        uploadedAvatarUrl = await uploadProfileAvatar(avatarFile, user.id);
+        uploadedAvatarUrl = await withTimeout(
+          uploadProfileAvatar(avatarFile, user.id),
+          AVATAR_UPLOAD_TIMEOUT_MS,
+          'Das Profilbild konnte nicht rechtzeitig hochgeladen werden. Bitte versuche es erneut.',
+        );
         nextAvatarUrl = uploadedAvatarUrl;
       }
 
@@ -213,19 +238,24 @@ const ProfileEdit = () => {
         );
       }
 
-      await supabaseRestRequest(
-        `/rest/v1/profiles?id=eq.${user.id}`,
-        {
-          accessToken: session?.access_token,
-          method: 'PATCH',
-          prefer: 'return=minimal',
-          body: {
-          first_name: firstName,
-          last_name: lastName,
-          full_name: trimmedName,
-          email: trimmedEmail,
+      await withTimeout(
+        supabaseRestRequest(
+          `/rest/v1/profiles?id=eq.${user.id}`,
+          {
+            accessToken: session?.access_token,
+            method: 'PATCH',
+            prefer: 'return=minimal',
+            body: {
+              first_name: firstName,
+              last_name: lastName,
+              full_name: trimmedName,
+              email: trimmedEmail,
+              avatar_url: nextAvatarUrl,
+            },
           },
-        },
+        ),
+        PROFILE_SAVE_TIMEOUT_MS,
+        'Das Profil konnte nicht rechtzeitig gespeichert werden. Bitte versuche es erneut.',
       );
 
       if (!emailChanged) {

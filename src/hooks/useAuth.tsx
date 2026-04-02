@@ -699,7 +699,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signUp = async (email: string, password: string, meta?: { firstName?: string; lastName?: string; birthDate?: string }) => {
-    const redirectUrl = `${window.location.origin}/auth`;
+    const redirectUrl = `${window.location.origin}/auth/callback?next=/`;
     
     // Validate email format before sending to Supabase
     const emailTrimmed = email.trim();
@@ -787,9 +787,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.error('Bitte E-Mail-Adresse eingeben.');
       return;
     }
+    const redirectUrl = `${window.location.origin}/auth/callback?next=/`;
     const { data, error } = await supabase.auth.resend({
       type: 'signup',
       email: emailTrimmed,
+      options: {
+        emailRedirectTo: redirectUrl,
+      },
     });
     if (error) {
       const msg = error.message.toLowerCase();

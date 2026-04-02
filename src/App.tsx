@@ -17,6 +17,7 @@ import Sectors from "./pages/Sectors";
 import Boulders from "./pages/Boulders";
 import BoulderDetail from "./pages/BoulderDetail";
 import Auth from "./pages/Auth";
+import AuthCallback from "./pages/AuthCallback";
 import Profile from "./pages/Profile";
 import ProfileEdit from "./pages/ProfileEdit";
 import NotificationSettings from "./pages/NotificationSettings";
@@ -117,6 +118,7 @@ const ConditionalSidebar = () => {
   // Hide app navigation on public/read-only routes.
   if (
     location.pathname === '/auth' ||
+    location.pathname === '/auth/callback' ||
     location.pathname === '/competition' ||
     location.pathname === '/guest'
   ) {
@@ -243,6 +245,7 @@ const Root = () => {
   // Show loading screen during initial load, BUT allow public routes to render immediately.
   const isPublicRoute =
     location.pathname === '/auth' ||
+    location.pathname === '/auth/callback' ||
     location.pathname === '/competition' ||
     location.pathname === '/guest';
   
@@ -278,7 +281,7 @@ const restoreRouteOnInit = () => {
     const currentPath = window.location.pathname;
     
     // Don't restore route if we're on /auth - user might be trying to log in
-    if (currentPath === '/auth') {
+    if (currentPath.startsWith('/auth')) {
       if (preserveRoute) {
         console.log(`[RouterInit] On /auth page, clearing preserved route: ${preserveRoute}`);
         sessionStorage.removeItem('preserveRoute');
@@ -329,6 +332,7 @@ const router = createBrowserRouter([
         </RequireAuth>
       ) },
       { path: "auth", element: <Auth /> },
+      { path: "auth/callback", element: <AuthCallback /> },
       { path: "profile", element: (
         <RequireAuth>
           <Profile />

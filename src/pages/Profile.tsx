@@ -25,6 +25,7 @@ interface ProfileRow {
   first_name: string | null;
   last_name: string | null;
   full_name: string | null;
+  avatar_url: string | null;
 }
 
 const Profile = () => {
@@ -48,7 +49,7 @@ const Profile = () => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('first_name,last_name,full_name')
+          .select('first_name,last_name,full_name,avatar_url')
           .eq('id', user.id)
           .maybeSingle<ProfileRow>();
 
@@ -61,7 +62,7 @@ const Profile = () => {
           null;
 
         setProfileName(nextProfileName);
-        setProfileAvatarUrl(null);
+        setProfileAvatarUrl(data?.avatar_url?.trim() || null);
       } catch {
         if (!cancelled) {
           setProfileName(null);
