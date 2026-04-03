@@ -5,12 +5,15 @@ const DEV_LOG_PREFIXES = [
   '[Root]',
   '[Index]',
   '[Route]',
+  '[RouterInit]',
+  '[RequireAuth]',
   '[Supabase Client]',
   '[useBoulders]',
   '[useSectors]',
   '[useNotifications]',
   '[UploadContext]',
   '[CacheUtils]',
+  '[PullToRefresh]',
   '[PushNotifications]',
   '[useColors]',
   '[PreloadSectorImages]',
@@ -22,7 +25,7 @@ const DEV_LOG_SUBSTRINGS = [
   'Service Worker unregistered',
 ];
 
-if (import.meta.env.DEV && !KWS_VERBOSE && typeof window !== 'undefined') {
+if (!KWS_VERBOSE && typeof window !== 'undefined') {
   const shouldSuppress = (args: unknown[]) => {
     const first = args[0];
     if (typeof first !== 'string') {
@@ -35,6 +38,7 @@ if (import.meta.env.DEV && !KWS_VERBOSE && typeof window !== 'undefined') {
 
   const originalLog = console.log.bind(console);
   const originalDebug = console.debug.bind(console);
+  const originalInfo = console.info.bind(console);
   const originalWarn = console.warn.bind(console);
 
   console.log = (...args: unknown[]) => {
@@ -45,6 +49,11 @@ if (import.meta.env.DEV && !KWS_VERBOSE && typeof window !== 'undefined') {
   console.debug = (...args: unknown[]) => {
     if (shouldSuppress(args)) return;
     originalDebug(...args);
+  };
+
+  console.info = (...args: unknown[]) => {
+    if (shouldSuppress(args)) return;
+    originalInfo(...args);
   };
 
   console.warn = (...args: unknown[]) => {
