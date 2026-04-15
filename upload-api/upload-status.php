@@ -1,11 +1,22 @@
 <?php
 // upload-status.php - Check upload status for resume capability
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Access-Control-Max-Age: 86400");
+// Replace inherited CORS headers to ensure Authorization is allowed in preflight.
+if (function_exists('header_remove')) {
+    @header_remove('Access-Control-Allow-Origin');
+    @header_remove('Access-Control-Allow-Methods');
+    @header_remove('Access-Control-Allow-Headers');
+    @header_remove('Access-Control-Expose-Headers');
+    @header_remove('Access-Control-Max-Age');
+}
+
+header('Content-Type: application/json', true);
+header('Access-Control-Allow-Origin: *', true);
+header('Access-Control-Allow-Methods: GET, OPTIONS', true);
+header('Access-Control-Allow-Headers: Content-Type, Authorization', true);
+header('Access-Control-Max-Age: 86400', true);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
     exit(0);
 }
 
