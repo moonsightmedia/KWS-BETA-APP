@@ -363,6 +363,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 const originalUrl = await resumableUpload(upload.file, API_URL, {
                     sessionId: upload.sessionId,
                     sectorId: upload.sectorId,
+                    accessToken: currentSession.access_token,
                     onProgress: (p) => {
                         // Upload progress: 0-100%
                         setUploads(prev => {
@@ -419,6 +420,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 {
                     sessionId: upload.sessionId,
                     sectorId: upload.sectorId,
+                    accessToken: currentSession.access_token,
                     onProgress: uploadProgressCallback,
                     abortSignal: abortSignal || controller?.signal
                 }

@@ -11,6 +11,7 @@ interface UploadOptions {
   sectorId?: string;
   onProgress?: (progress: number) => void;
   abortSignal?: AbortSignal;
+  accessToken?: string;
 }
 
 interface UploadStatus {
@@ -60,6 +61,14 @@ async function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs)
+  );
+
+  return Promise.race([promise, timeoutPromise]);
+}
+
 export async function resumableUpload(
   file: File,
   apiUrl: string,
@@ -73,7 +82,7 @@ export async function resumableUpload(
     apiUrl
   });
   
-  const { sessionId, sectorId, onProgress, abortSignal } = options;
+  const { sessionId, sectorId, onProgress, abortSignal, accessToken: providedAccessToken } = options;
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
   console.log('[resumableUpload] 📊 Total chunks:', totalChunks);
   
@@ -82,8 +91,17 @@ export async function resumableUpload(
   console.log('[resumableUpload] ✅ Wake lock acquired');
 
   try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData.session?.access_token;
+    let accessToken = providedAccessToken ?? null;
+
+    if (!accessToken) {
+      const sessionResult = await withTimeout(
+        supabase.auth.getSession(),
+        5000,
+        'Session timeout after 5s while starting upload'
+      );
+      accessToken = sessionResult.data.session?.access_token ?? null;
+    }
+
     if (!accessToken) {
       throw new Error('Nicht authentifiziert: Upload benötigt eine gültige Sitzung.');
     }
@@ -188,7 +206,7 @@ export async function resumableUpload(
             response = await Promise.race([fetchPromise, timeoutPromise]);
             const uploadDuration = Date.now() - uploadStartTime;
             console.log(`[resumableUpload] ✅ Chunk ${chunkIndex + 1} upload completed in ${uploadDuration}ms`);
-          } catch (error: any) {
+          } catch (error: unknown) {
             const uploadDuration = Date.now() - uploadStartTime;
             console.error(`[resumableUpload] ❌ Chunk ${chunkIndex + 1} upload failed after ${uploadDuration}ms:`, error);
             throw error;
