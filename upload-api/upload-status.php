@@ -12,7 +12,7 @@ if (function_exists('header_remove')) {
 header('Content-Type: application/json', true);
 header('Access-Control-Allow-Origin: *', true);
 header('Access-Control-Allow-Methods: GET, OPTIONS', true);
-header('Access-Control-Allow-Headers: Content-Type, Authorization', true);
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Upload-Auth', true);
 header('Access-Control-Max-Age: 86400', true);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {

@@ -119,7 +119,7 @@ export async function resumableUpload(
       const statusRes = await fetch(statusUrl, {
         signal: abortSignal,
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          'X-Upload-Auth': `Bearer ${accessToken}`,
         },
       });
       if (statusRes.ok) {
@@ -172,7 +172,7 @@ export async function resumableUpload(
             'X-File-Name': file.name,
             'X-File-Size': file.size.toString(),
             'X-File-Type': file.type,
-            'Authorization': `Bearer ${accessToken}`
+            'X-Upload-Auth': `Bearer ${accessToken}`,
           };
           
           if (sectorId) {

@@ -11,6 +11,16 @@ function send_json_error(int $status, string $message): void {
 }
 
 function get_bearer_token(): string {
+    $uploadAuthHeader = $_SERVER['HTTP_X_UPLOAD_AUTH'] ?? '';
+    if (!$uploadAuthHeader && function_exists('getallheaders')) {
+        $headers = getallheaders();
+        $uploadAuthHeader = $headers['X-Upload-Auth'] ?? $headers['x-upload-auth'] ?? '';
+    }
+
+    if ($uploadAuthHeader && stripos($uploadAuthHeader, 'Bearer ') === 0) {
+        return trim(substr($uploadAuthHeader, 7));
+    }
+
     $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
     if (!$authHeader && function_exists('getallheaders')) {
         $headers = getallheaders();

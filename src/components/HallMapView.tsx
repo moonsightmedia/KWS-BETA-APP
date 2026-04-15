@@ -22,6 +22,8 @@ interface HallMapViewProps {
   onClose?: () => void;
   compact?: boolean;
   frameless?: boolean;
+  showCounts?: boolean;
+  disablePanZoom?: boolean;
   lockAspectRatio?: boolean;
   viewportClassName?: string;
 }
@@ -102,6 +104,7 @@ function buildMarkerLayout({
   mapUnit,
   mapWidth,
   mapHeight,
+  showCounts,
 }: {
   region: SectorMapRegion;
   sectorName: string;
@@ -110,12 +113,15 @@ function buildMarkerLayout({
   mapUnit: number;
   mapWidth: number;
   mapHeight: number;
+  showCounts: boolean;
 }): MarkerLayout {
   const centroid = getCentroid(region);
   const centroidX = (centroid.x / 100) * mapWidth;
   const centroidY = (centroid.y / 100) * mapHeight;
   const compact = crowded || sectorName.length > 14;
-  const label = `${shortenSectorName(sectorName, compact)} · ${count}`;
+  const label = showCounts
+    ? `${shortenSectorName(sectorName, compact)} · ${count}`
+    : shortenSectorName(sectorName, compact);
   const width = clamp(
     label.length * (compact ? 1.02 : 1.12) * mapUnit + 4.8 * mapUnit,
     10.8 * mapUnit,
@@ -144,6 +150,8 @@ export function HallMapView({
   onClose,
   compact = false,
   frameless = false,
+  showCounts = true,
+  disablePanZoom = false,
   lockAspectRatio = true,
   viewportClassName,
 }: HallMapViewProps) {
@@ -306,6 +314,7 @@ export function HallMapView({
             )}
             compact={compact}
             lockAspectRatio={lockAspectRatio}
+            disablePanZoom={disablePanZoom}
             panPadding={frameless ? 180 : 0}
             honeycombBackground={frameless}
           >
@@ -349,6 +358,7 @@ export function HallMapView({
                   mapUnit,
                   mapWidth,
                   mapHeight,
+                  showCounts,
                 });
                 const regionFill = isHighlighted ? 'rgba(54, 181, 49, 0.20)' : 'rgba(54, 181, 49, 0.08)';
                 const regionStroke = isHighlighted ? 'rgba(54, 181, 49, 0.76)' : 'rgba(19, 17, 43, 0.18)';

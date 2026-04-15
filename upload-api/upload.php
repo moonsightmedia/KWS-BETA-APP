@@ -13,7 +13,7 @@ header('Content-Type: application/json', true);
 header('Access-Control-Allow-Origin: *', true);
 header('Access-Control-Allow-Methods: POST, OPTIONS', true);
 header(
-    'Access-Control-Allow-Headers: Content-Type, Authorization, X-File-Name, X-File-Size, X-File-Type, X-Chunk-Number, X-Total-Chunks, X-Upload-Session-Id, X-Sector-Id',
+    'Access-Control-Allow-Headers: Content-Type, Authorization, X-Upload-Auth, X-File-Name, X-File-Size, X-File-Type, X-Chunk-Number, X-Total-Chunks, X-Upload-Session-Id, X-Sector-Id',
     true
 );
 header('Access-Control-Max-Age: 86400', true);
