@@ -107,10 +107,17 @@ if ($allChunksUploaded) {
     }
     fclose($fp);
 
-    // Cleanup session dir
-    // Recursively delete session dir
-    array_map('unlink', glob("$sessionDir/*.*"));
-    rmdir($sessionDir);
+    // Cleanup session dir (chunk files are named "part_0", "part_1", ... without file extension)
+    // Use "*" instead of "*.*" so all chunk files are removed reliably.
+    $sessionFiles = glob($sessionDir . '/*');
+    if ($sessionFiles !== false) {
+        foreach ($sessionFiles as $sessionFile) {
+            if (is_file($sessionFile)) {
+                @unlink($sessionFile);
+            }
+        }
+    }
+    @rmdir($sessionDir);
 
     // Return public URL
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
