@@ -116,7 +116,7 @@ jobs:
           })' > "$API_KEY_JSON"
           echo "APP_STORE_CONNECT_API_KEY_PATH=$API_KEY_JSON" >> "$GITHUB_ENV"
           fastlane run get_certificates api_key_path:"$API_KEY_JSON" development:false force:true
-          fastlane run get_provisioning_profile api_key_path:"$API_KEY_JSON" app_identifier:"$BUNDLE_ID" force:true adhoc:false development:false skip_install:false
+          fastlane run get_provisioning_profile api_key_path:"$API_KEY_JSON" app_identifier:"$BUNDLE_ID" force:true skip_install:false
 
       - name: Build App Store IPA with Fastlane
         env:
