@@ -98,8 +98,29 @@ jobs:
       - name: Install Fastlane
         run: gem install fastlane --no-document
 
+      - name: Prepare App Store code signing
+        env:
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+          APP_STORE_CONNECT_API_KEY_IS_KEY_CONTENT_BASE64: "false"
+        run: |
+          set -eo pipefail
+          API_KEY_JSON="$RUNNER_TEMP/app_store_connect_api_key.json"
+          ruby -rjson -e 'puts JSON.pretty_generate({
+            key_id: ENV.fetch("APP_STORE_CONNECT_API_KEY_KEY_ID"),
+            issuer_id: ENV.fetch("APP_STORE_CONNECT_API_KEY_ISSUER_ID"),
+            key: ENV.fetch("APP_STORE_CONNECT_API_KEY_KEY"),
+            duration: 1200,
+            in_house: false
+          })' > "$API_KEY_JSON"
+          echo "APP_STORE_CONNECT_API_KEY_PATH=$API_KEY_JSON" >> "$GITHUB_ENV"
+          fastlane run get_certificates api_key_path:"$API_KEY_JSON" development:false force:true
+          fastlane run get_provisioning_profile api_key_path:"$API_KEY_JSON" app_identifier:"$BUNDLE_ID" force:true adhoc:false development:false skip_install:false
+
       - name: Build App Store IPA with Fastlane
         env:
+          APP_STORE_CONNECT_API_KEY_PATH: ${{ env.APP_STORE_CONNECT_API_KEY_PATH }}
           APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
           APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
@@ -119,6 +140,7 @@ jobs:
             include_symbols:true \
             include_bitcode:false \
             export_team_id:"$APPLE_TEAM_ID" \
+            api_key_path:"$APP_STORE_CONNECT_API_KEY_PATH" \
             xcargs:"-allowProvisioningUpdates DEVELOPMENT_TEAM=$APPLE_TEAM_ID CODE_SIGN_STYLE=Automatic" \
             export_xcargs:"-allowProvisioningUpdates"
 
