@@ -73,7 +73,7 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "16.4"
+          xcode-version: latest-stable
 
       - name: Configure App Store Connect API key
         env:
