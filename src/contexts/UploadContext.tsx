@@ -6,6 +6,11 @@ import { toast } from 'sonner';
 import { reportError } from '@/utils/feedbackUtils';
 import { useAuth } from '@/hooks/useAuth';
 import { compressThumbnail } from '@/integrations/supabase/storage';
+import {
+  isNativeVideoPipelineAvailable,
+  nativeBackgroundVideoUpload,
+  prepareNativeVideoForUpload,
+} from '@/utils/nativeVideoUpload';
 
 export interface ActiveUpload {
   sessionId: string;
@@ -334,6 +339,46 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         let url: string;
         
         if (upload.type === 'video') {
+            if (isNativeVideoPipelineAvailable()) {
+                console.log('[UploadContext] 📱 Native video pipeline: compress + background upload');
+
+                try {
+                    const prepared = await prepareNativeVideoForUpload(upload.file, (p) => {
+                        const compressionProgress = Math.floor(p * 0.35);
+                        setUploads(prev => {
+                            const current = prev.find(u => u.sessionId === upload.sessionId);
+                            if (current?.status === 'cancelled') return prev;
+                            return prev.map(u => u.sessionId === upload.sessionId ? { ...u, progress: compressionProgress } : u);
+                        });
+                        updateLog('uploading', compressionProgress);
+                    });
+
+                    const originalUrl = await nativeBackgroundVideoUpload(prepared, {
+                        sessionId: upload.sessionId,
+                        sectorId: upload.sectorId,
+                        fileName: prepared.fileName,
+                        mimeType: prepared.mimeType,
+                        authToken: currentSession.access_token,
+                        onProgress: (p) => {
+                            const overallProgress = 35 + Math.floor(p * 0.65);
+                            setUploads(prev => {
+                                const current = prev.find(u => u.sessionId === upload.sessionId);
+                                if (current?.status === 'cancelled') return prev;
+                                return prev.map(u => u.sessionId === upload.sessionId ? { ...u, progress: overallProgress } : u);
+                            });
+                            updateLog('uploading', overallProgress);
+                        },
+                        abortSignal: abortSignal || controller?.signal,
+                    });
+
+                    videoUrls = { hd: originalUrl };
+                    url = originalUrl;
+                    console.log('[UploadContext] ✅ Native video upload completed:', originalUrl);
+                } catch (uploadError: any) {
+                    console.error('[UploadContext] ❌ Native video upload failed:', uploadError);
+                    throw new Error(`Video-Upload fehlgeschlagen: ${uploadError.message || 'Unbekannter Fehler'}`);
+                }
+            } else {
             console.log('[UploadContext] 🎬 Uploading original video...');
             
             try {
@@ -363,6 +408,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             } catch (uploadError: any) {
                 console.error('[UploadContext] ❌ Video upload failed:', uploadError);
                 throw new Error(`Video-Upload fehlgeschlagen: ${uploadError.message || 'Unbekannter Fehler'}`);
+            }
             }
         }
 

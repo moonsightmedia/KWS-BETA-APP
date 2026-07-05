@@ -329,20 +329,11 @@
         if (window.__KWS_VERBOSE) console.log('[Index HTML] ✅ XMLHttpRequest also overridden');
       })();
     </script>
+    <script type="module" src="/src/main.tsx"></script>
     <script>
       (function() {
         var isLocalhost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
-        var devEntryVersion = '4';
-
-        function mountAppScript() {
-          var script = document.createElement('script');
-          script.type = 'module';
-          script.src = '/src/main.tsx?v=' + devEntryVersion;
-          document.body.appendChild(script);
-        }
-
         if (!isLocalhost) {
-          mountAppScript();
           return;
         }
 
@@ -372,9 +363,7 @@
           );
         }
 
-        Promise.allSettled(cleanupTasks).finally(function() {
-          mountAppScript();
-        });
+        Promise.allSettled(cleanupTasks);
       })();
     </script>
   </body>
