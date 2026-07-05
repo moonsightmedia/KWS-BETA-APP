@@ -1,159 +1,179 @@
 name: Build and Upload to TestFlight
 
 on:
-  workflow_dispatch: # Nur manuell über GitHub UI starten
+  workflow_dispatch:
     inputs:
       branch:
-        description: 'Branch to build from'
-        required: true
-        default: 'main'
-        type: choice
-        options:
-          - main
-          - ios-build
+        description: Git branch to build
+        required: false
+        default: codex/v2-design-refresh
+        type: string
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  XCODE_WORKSPACE: ios/App/App.xcworkspace
+  XCODE_SCHEME: App
+  BUNDLE_ID: com.kletterwelt.beta
 
 jobs:
-  build-and-upload:
+  testflight:
+    name: iOS TestFlight
     runs-on: macos-latest
-    
+    timeout-minutes: 60
+
     steps:
-      - name: Checkout code
+      - name: Validate required secrets
+        run: |
+          set -eo pipefail
+          missing=0
+          for name in APPLE_TEAM_ID APPSTORE_ISSUER_ID APPSTORE_API_KEY_ID APPSTORE_API_PRIVATE_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing GitHub secret: $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo ""
+            echo "Add secrets at: Settings -> Secrets and variables -> Actions"
+            echo "Guide: TESTFLIGHT_SETUP_MIT_ACCOUNT.md"
+            exit 1
+          fi
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          APPSTORE_API_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.branch || 'main' }}
+          ref: ${{ github.event.inputs.branch || github.ref_name }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install npm dependencies
+        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
-      - name: Build web app and sync Capacitor
-        run: npm run cap:sync
-
-      - name: Install CocoaPods dependencies
+      - name: Build web app and sync Capacitor iOS
         run: |
-          cd ios/App
-          pod install
-          cd ../..
+          npm run build
+          npx cap sync ios
+
+      - name: Install CocoaPods
+        run: pod install --project-directory=ios/App
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
 
-      - name: Import Apple Certificate
+      - name: Configure App Store Connect API key
         env:
-          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          APPSTORE_API_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
         run: |
-          # Create variables
-          CERTIFICATES_PATH=$RUNNER_TEMP/certificates
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          
-          # Create certificates directory
-          mkdir -p $CERTIFICATES_PATH
-          
-          # Decode certificate
-          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > $CERTIFICATES_PATH/certificate.p12
-          
-          # Create temporary keychain
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          
-          # Import certificate to keychain
-          security import $CERTIFICATES_PATH/certificate.p12 -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          security list-keychain -d user -s $KEYCHAIN_PATH
+          set -eo pipefail
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${APPSTORE_API_KEY_ID}.p8"
+          printf '%s\n' "$APPSTORE_API_PRIVATE_KEY" > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          echo "APP_STORE_CONNECT_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
 
-      - name: Install Provisioning Profile
-        env:
-          APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+      - name: Set unique build number
         run: |
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "$APPLE_PROVISIONING_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" ios/App/App/Info.plist
+          echo "Build number set to ${{ github.run_number }}"
 
-      - name: Build and Archive iOS app
+      - name: Archive iOS app
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
         run: |
-          cd ios/App
-          xcodebuild -workspace App.xcworkspace \
-            -scheme App \
+          set -eo pipefail
+          xcodebuild archive \
+            -workspace "$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
             -configuration Release \
             -destination 'generic/platform=iOS' \
-            -archivePath ./build/App.xcarchive \
-            CODE_SIGN_IDENTITY="iPhone Distribution" \
-            CODE_SIGNING_REQUIRED=YES \
-            CODE_SIGNING_ALLOWED=YES \
-            PROVISIONING_PROFILE_SPECIFIER="$APPLE_PROVISIONING_PROFILE_BASE64" \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -authenticationKeyPath "$APP_STORE_CONNECT_KEY_PATH" \
+            -authenticationKeyID "$APPSTORE_API_KEY_ID" \
+            -authenticationKeyIssuerID "$APPSTORE_ISSUER_ID" \
+            -allowProvisioningUpdates \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            archive
+            CODE_SIGN_STYLE=Automatic
 
       - name: Export IPA
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
         run: |
-          cd ios/App
-          
-          # Create exportOptions.plist
-          cat > exportOptions.plist << EOF
+          set -eo pipefail
+          EXPORT_PLIST="$RUNNER_TEMP/ExportOptions.plist"
+          cat > "$EXPORT_PLIST" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-              <key>method</key>
-              <string>app-store</string>
-              <key>teamID</key>
-              <string>$APPLE_TEAM_ID</string>
-              <key>uploadBitcode</key>
-              <false/>
-              <key>uploadSymbols</key>
-              <true/>
-              <key>compileBitcode</key>
-              <false/>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>compileBitcode</key>
+            <false/>
+            <key>signingStyle</key>
+            <string>automatic</string>
           </dict>
           </plist>
           EOF
-          
-          # Export IPA
+          mkdir -p ios/App/build/ipa
           xcodebuild -exportArchive \
-            -archivePath ./build/App.xcarchive \
-            -exportPath ./build/ipa \
-            -exportOptionsPlist exportOptions.plist
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportPath ios/App/build/ipa \
+            -exportOptionsPlist "$EXPORT_PLIST" \
+            -authenticationKeyPath "$APP_STORE_CONNECT_KEY_PATH" \
+            -authenticationKeyID "$APPSTORE_API_KEY_ID" \
+            -authenticationKeyIssuerID "$APPSTORE_ISSUER_ID" \
+            -allowProvisioningUpdates
+
+      - name: Resolve IPA path
+        id: ipa
+        run: |
+          set -eo pipefail
+          IPA_PATH="$(find ios/App/build/ipa -maxdepth 1 -name '*.ipa' | head -1)"
+          if [ -z "$IPA_PATH" ]; then
+            echo "::error::No IPA found after export"
+            ls -la ios/App/build/ipa || true
+            exit 1
+          fi
+          echo "path=$IPA_PATH" >> "$GITHUB_OUTPUT"
+          echo "Exporting $IPA_PATH"
 
       - name: Upload to TestFlight
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-        run: |
-          cd ios/App/build/ipa
-          
-          # Install altool (part of Xcode Command Line Tools)
-          xcrun altool --validate-app \
-            -f *.ipa \
-            -t ios \
-            -u "$APPLE_ID" \
-            -p "$APPLE_APP_SPECIFIC_PASSWORD" || echo "Validation failed, continuing..."
-          
-          # Upload to App Store Connect
-          xcrun altool --upload-app \
-            -f *.ipa \
-            -t ios \
-            -u "$APPLE_ID" \
-            -p "$APPLE_APP_SPECIFIC_PASSWORD"
+        uses: apple-actions/upload-testflight-build@v3
+        with:
+          app-path: ${{ steps.ipa.outputs.path }}
+          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
 
-      - name: Upload build artifacts (backup)
+      - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-build-backup
-          path: |
-            ios/App/build/**/*.ipa
-            ios/App/build/**/*.xcarchive
+          name: ios-testflight-ipa-${{ github.run_number }}
+          path: ios/App/build/ipa/*.ipa
           retention-days: 7
-
