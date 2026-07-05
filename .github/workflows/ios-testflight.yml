@@ -24,9 +24,6 @@ jobs:
     name: iOS TestFlight
     runs-on: macos-latest
     timeout-minutes: 60
-    permissions:
-      contents: read
-      secrets: write
 
     steps:
       - name: Validate required secrets
@@ -109,7 +106,6 @@ jobs:
           APP_STORE_CONNECT_API_KEY_IS_KEY_CONTENT_BASE64: "false"
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -eo pipefail
           API_KEY_JSON="$RUNNER_TEMP/app_store_connect_api_key.json"
@@ -137,9 +133,8 @@ jobs:
             fastlane run get_certificates api_key_path:"$API_KEY_JSON" development:false
             CERT_PASSWORD=$(openssl rand -base64 18)
             security export -t identities -f pkcs12 -P "$CERT_PASSWORD" -o "$RUNNER_TEMP/distribution.p12"
-            gh secret set APPLE_CERTIFICATE_BASE64 --repo "$GITHUB_REPOSITORY" --body "$(base64 -i "$RUNNER_TEMP/distribution.p12" | tr -d '\n')"
-            gh secret set APPLE_CERTIFICATE_PASSWORD --repo "$GITHUB_REPOSITORY" --body "$CERT_PASSWORD"
-            echo "Saved distribution certificate to GitHub secrets for future builds"
+            echo "CERT_EXPORT_PASSWORD=$CERT_PASSWORD" >> "$GITHUB_ENV"
+            echo "Created distribution certificate. Add it to GitHub secrets if this is your first successful cert export."
           fi
 
           fastlane run get_provisioning_profile api_key_path:"$API_KEY_JSON" app_identifier:"$BUNDLE_ID" force:true skip_install:false
@@ -214,6 +209,14 @@ jobs:
             codesigning_identity:"Apple Distribution" \
             export_options:"$EXPORT_PLIST" \
             xcargs:"PROVISIONING_PROFILE_SPECIFIER=$IOS_PROVISIONING_PROFILE_UUID CODE_SIGN_IDENTITY=Apple Distribution CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=$APPLE_TEAM_ID"
+
+      - name: Upload signing certificate backup
+        if: env.CERT_EXPORT_PASSWORD != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-distribution-cert-backup
+          path: ${{ runner.temp }}/distribution.p12
+          retention-days: 3
 
       - name: Resolve IPA path
         id: ipa
