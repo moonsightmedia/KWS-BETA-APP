@@ -1,0 +1,111 @@
+format_version: "13"
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+
+app:
+  envs:
+    - BITRISE_PROJECT_PATH: ios/App/App.xcworkspace
+    - BITRISE_SCHEME: App
+    - NODE_VERSION: "20"
+    - NPM_CONFIG_LEGACY_PEER_DEPS: "true"
+    - APP_BUNDLE_ID: com.kletterwelt.beta
+
+workflows:
+  primary:
+    description: Quick iOS simulator build to verify the Capacitor pipeline.
+    steps:
+      - activate-ssh-key@4: {}
+      - git-clone@8: {}
+      - nvm@1:
+          inputs:
+            - node_version: $NODE_VERSION
+      - script@1:
+          title: Install npm dependencies
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+      - script@1:
+          title: Build web app and sync Capacitor iOS
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                npm run build
+                npx cap sync ios
+      - cocoapods-install@2:
+          inputs:
+            - source_root_path: ios/App
+      - recreate-user-schemes@1:
+          inputs:
+            - project_path: $BITRISE_PROJECT_PATH
+      - deploy-to-bitrise-io@2: {}
+
+  ios-testflight:
+    description: Build a signed App Store IPA and upload to TestFlight.
+    steps:
+      - activate-ssh-key@4: {}
+      - git-clone@8: {}
+      - nvm@1:
+          inputs:
+            - node_version: $NODE_VERSION
+      - script@1:
+          title: Install npm dependencies
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+      - script@1:
+          title: Build web app and sync Capacitor iOS
+          inputs:
+            - content: |
+                #!/usr/bin/env bash
+                set -ex
+                npm run build
+                npx cap sync ios
+      - cocoapods-install@2:
+          inputs:
+            - source_root_path: ios/App
+      - recreate-user-schemes@1:
+          inputs:
+            - project_path: $BITRISE_PROJECT_PATH
+      - set-xcode-build-number@2:
+          title: Set unique build number for TestFlight
+          inputs:
+            - plist_path: ios/App/App/Info.plist
+            - build_version: $BITRISE_BUILD_NUMBER
+      - xcode-archive@5:
+          title: Archive and export App Store IPA
+          inputs:
+            - project_path: $BITRISE_PROJECT_PATH
+            - scheme: $BITRISE_SCHEME
+            - distribution_method: app-store
+            - automatic_code_signing: api-key
+            - export_options_plist_content: |
+                <?xml version="1.0" encoding="UTF-8"?>
+                <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+                <plist version="1.0">
+                <dict>
+                    <key>method</key>
+                    <string>app-store</string>
+                    <key>uploadBitcode</key>
+                    <false/>
+                    <key>uploadSymbols</key>
+                    <true/>
+                    <key>compileBitcode</key>
+                    <false/>
+                    <key>signingStyle</key>
+                    <string>automatic</string>
+                </dict>
+                </plist>
+      - deploy-to-itunesconnect-deliver@2:
+          title: Upload to TestFlight
+          inputs:
+            - connection: api-key
+            - bundle_id: $APP_BUNDLE_ID
+            - submit_for_review: "no"
+            - skip_metadata: "yes"
+            - skip_screenshots: "yes"
+            - phased_release: "no"
+      - deploy-to-bitrise-io@2: {}
