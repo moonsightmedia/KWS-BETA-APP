@@ -1,18 +1,13 @@
-# CORS headers are set by PHP files themselves (upload.php, delete.php, video-proxy.php)
-# Explicitly unset any CORS headers that might be set by parent .htaccess or server config
+# CORS for upload-api (Apache may answer OPTIONS before PHP runs on All-Inkl)
 <IfModule mod_headers.c>
-    <FilesMatch "\.(php)$">
-        Header unset Access-Control-Allow-Origin
-        Header unset Access-Control-Allow-Methods
-        Header unset Access-Control-Allow-Headers
-        Header unset Access-Control-Expose-Headers
-        Header unset Access-Control-Max-Age
-    </FilesMatch>
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, DELETE, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Upload-Auth, X-File-Name, X-File-Size, X-File-Type, X-Chunk-Number, X-Total-Chunks, X-Upload-Session-Id, X-Sector-Id"
+    Header always set Access-Control-Max-Age "86400"
 </IfModule>
 
 # Increase upload limits (only if allowed by server)
 # Note: For chunked uploads, each chunk is only 3-5MB, so these limits apply per chunk
-# The total file size limit is handled in upload.php (500MB)
 <IfModule mod_php.c>
     php_value upload_max_filesize 100M
     php_value post_max_size 100M
@@ -29,4 +24,3 @@ Options -Indexes
     Order Allow,Deny
     Allow from all
 </Files>
-
