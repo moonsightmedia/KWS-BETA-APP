@@ -117,6 +117,22 @@ jobs:
           echo "APP_STORE_CONNECT_API_KEY_PATH=$API_KEY_JSON" >> "$GITHUB_ENV"
           fastlane run get_certificates api_key_path:"$API_KEY_JSON" development:false
           fastlane run get_provisioning_profile api_key_path:"$API_KEY_JSON" app_identifier:"$BUNDLE_ID" force:true skip_install:false
+          for f in "$HOME/Library/MobileDevice/Provisioning Profiles/"*.mobileprovision; do
+            [ -f "$f" ] || continue
+            TMP="$RUNNER_TEMP/profile.plist"
+            security cms -D -i "$f" 2>/dev/null > "$TMP" || continue
+            BUNDLE=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$TMP" 2>/dev/null | sed 's/^.*\.//')
+            if [ "$BUNDLE" = "$BUNDLE_ID" ]; then
+              PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$TMP")
+              echo "IOS_PROVISIONING_PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
+              echo "Using provisioning profile UUID: $PROFILE_UUID"
+              break
+            fi
+          done
+          if [ -z "${IOS_PROVISIONING_PROFILE_UUID:-}" ]; then
+            echo "::error::App Store provisioning profile for $BUNDLE_ID was not found after install"
+            exit 1
+          fi
 
       - name: Build App Store IPA with Fastlane
         env:
@@ -126,9 +142,36 @@ jobs:
           APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
           APP_STORE_CONNECT_API_KEY_IS_KEY_CONTENT_BASE64: "false"
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          IOS_PROVISIONING_PROFILE_UUID: ${{ env.IOS_PROVISIONING_PROFILE_UUID }}
         run: |
           set -eo pipefail
           mkdir -p ios/App/build/ipa
+          EXPORT_PLIST="$RUNNER_TEMP/ExportOptions.plist"
+          cat > "$EXPORT_PLIST" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${BUNDLE_ID}</key>
+              <string>${IOS_PROVISIONING_PROFILE_UUID}</string>
+            </dict>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>compileBitcode</key>
+            <false/>
+          </dict>
+          </plist>
+          EOF
           fastlane run build_app \
             workspace:"$XCODE_WORKSPACE" \
             scheme:"$XCODE_SCHEME" \
@@ -140,8 +183,9 @@ jobs:
             include_symbols:true \
             include_bitcode:false \
             export_team_id:"$APPLE_TEAM_ID" \
-            xcargs:"-allowProvisioningUpdates DEVELOPMENT_TEAM=$APPLE_TEAM_ID CODE_SIGN_STYLE=Automatic" \
-            export_xcargs:"-allowProvisioningUpdates"
+            codesigning_identity:"Apple Distribution" \
+            export_options:"$EXPORT_PLIST" \
+            xcargs:"PROVISIONING_PROFILE_SPECIFIER=$IOS_PROVISIONING_PROFILE_UUID CODE_SIGN_IDENTITY=Apple Distribution CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=$APPLE_TEAM_ID"
 
       - name: Resolve IPA path
         id: ipa
