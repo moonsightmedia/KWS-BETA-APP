@@ -118,6 +118,8 @@ jobs:
             clean:true \
             include_symbols:true \
             include_bitcode:false \
+            export_team_id:"$APPLE_TEAM_ID" \
+            xcargs:"DEVELOPMENT_TEAM=$APPLE_TEAM_ID CODE_SIGN_STYLE=Automatic" \
             export_xcargs:"-allowProvisioningUpdates"
 
       - name: Resolve IPA path
