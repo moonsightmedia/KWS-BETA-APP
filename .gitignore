@@ -13,6 +13,8 @@ dist-ssr
 *.local
 .env.local
 .env
+upload-api/config.php
+video-server/data/
 
 # Editor directories and files
 .vscode/*
@@ -45,3 +47,7 @@ designbeispiel/
 # Local dev logs
 vite*.log
 vite*.err
+
+# iOS signing material (never commit)
+.secrets/
+*.p12

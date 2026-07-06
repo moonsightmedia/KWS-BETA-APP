@@ -51,10 +51,5 @@
 	<string>Die App benötigt Zugriff auf die Kamera, um Beta-Videos aufzunehmen.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Die App benötigt Zugriff auf das Mikrofon für Videoaufnahmen mit Ton.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-		<string>processing</string>
-	</array>
 </dict>
 </plist>
