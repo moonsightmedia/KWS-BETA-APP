@@ -80,7 +80,8 @@ async function deleteCachedFile(path: string): Promise<void> {
 
 /**
  * Compress video on-device (hardware encoder) and return native file path for upload.
- * Progress callback covers 0–100 for the compression phase.
+ * NOTE: Do not call from upload flow with gallery File blobs — loading large videos
+ * into JS memory via base64 can crash iOS. Use chunked resumableUpload instead.
  */
 export async function prepareNativeVideoForUpload(
   file: File,
