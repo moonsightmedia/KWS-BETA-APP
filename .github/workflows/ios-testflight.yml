@@ -140,14 +140,19 @@ jobs:
           fastlane run get_provisioning_profile api_key_path:"$API_KEY_JSON" app_identifier:"$BUNDLE_ID" force:true skip_install:false
 
           PROFILE_UUID=""
-          for f in "$HOME/Library/MobileDevice/Provisioning Profiles/"*.mobileprovision; do
+          PROFILE_FILE=""
+          for f in "$PWD"/AppStore_${BUNDLE_ID}.mobileprovision \
+                   "$PWD"/*.mobileprovision \
+                   "$HOME/Library/MobileDevice/Provisioning Profiles/"*.mobileprovision; do
             [ -f "$f" ] || continue
             TMP="$RUNNER_TEMP/profile.plist"
             security cms -D -i "$f" 2>/dev/null > "$TMP" || continue
-            BUNDLE=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$TMP" 2>/dev/null | sed 's/^.*\.//')
+            APP_ID=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$TMP" 2>/dev/null || true)
+            BUNDLE="${APP_ID#*.}"
             if [ "$BUNDLE" = "$BUNDLE_ID" ]; then
               PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$TMP")
-              echo "Using provisioning profile UUID: $PROFILE_UUID"
+              PROFILE_FILE="$f"
+              echo "Using provisioning profile UUID: $PROFILE_UUID (from $f)"
               break
             fi
           done
@@ -155,6 +160,8 @@ jobs:
             echo "::error::App Store provisioning profile for $BUNDLE_ID was not found after install"
             exit 1
           fi
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$PROFILE_FILE" "$HOME/Library/MobileDevice/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"
           echo "IOS_PROVISIONING_PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
 
       - name: Build App Store IPA with Fastlane
