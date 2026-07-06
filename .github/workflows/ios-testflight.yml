@@ -213,9 +213,8 @@ jobs:
             include_symbols:true \
             include_bitcode:false \
             export_team_id:"$APPLE_TEAM_ID" \
-            codesigning_identity:"Apple Distribution" \
             export_options:"$EXPORT_PLIST" \
-            xcargs:"PROVISIONING_PROFILE_SPECIFIER=$IOS_PROVISIONING_PROFILE_UUID CODE_SIGN_IDENTITY=Apple Distribution CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=$APPLE_TEAM_ID"
+            xcargs:"PROVISIONING_PROFILE_SPECIFIER=$IOS_PROVISIONING_PROFILE_UUID CODE_SIGN_IDENTITY='Apple Distribution' CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=$APPLE_TEAM_ID"
 
       - name: Upload signing certificate backup
         if: env.CERT_EXPORT_PASSWORD != ''
