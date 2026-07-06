@@ -7,8 +7,13 @@ const RETRY_DELAY_BASE = 1000; // Start with 1s delay
 interface UploadOptions {
   sessionId: string;
   sectorId?: string;
+  authToken: string;
   onProgress?: (progress: number) => void;
   abortSignal?: AbortSignal;
+}
+
+function uploadAuthHeaders(authToken: string): Record<string, string> {
+  return { 'X-Upload-Auth': `Bearer ${authToken}` };
 }
 
 interface UploadStatus {
@@ -71,7 +76,11 @@ export async function resumableUpload(
     apiUrl
   });
   
-  const { sessionId, sectorId, onProgress, abortSignal } = options;
+  const { sessionId, sectorId, authToken, onProgress, abortSignal } = options;
+
+  if (!authToken) {
+    throw new Error('Upload-Authentifizierung fehlt. Bitte erneut anmelden.');
+  }
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
   console.log('[resumableUpload] 📊 Total chunks:', totalChunks);
   
@@ -90,7 +99,10 @@ export async function resumableUpload(
     let uploadedChunks: number[] = [];
     
     try {
-      const statusRes = await fetch(statusUrl, { signal: abortSignal });
+      const statusRes = await fetch(statusUrl, {
+        signal: abortSignal,
+        headers: uploadAuthHeaders(authToken),
+      });
       if (statusRes.ok) {
         const statusData: UploadStatus = await statusRes.json();
         uploadedChunks = statusData.uploaded_chunks || [];
@@ -135,6 +147,7 @@ export async function resumableUpload(
           await waitForNetwork();
 
           const headers: Record<string, string> = {
+            ...uploadAuthHeaders(authToken),
             'X-Upload-Session-Id': sessionId,
             'X-Chunk-Number': chunkIndex.toString(),
             'X-Total-Chunks': totalChunks.toString(),

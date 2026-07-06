@@ -45,7 +45,20 @@ function readFileAsBase64(file: File): Promise<string> {
   });
 }
 
+async function ensureCacheUploadDir(): Promise<void> {
+  try {
+    await Filesystem.mkdir({
+      path: 'kws-upload',
+      directory: Directory.Cache,
+      recursive: true,
+    });
+  } catch {
+    // Directory may already exist
+  }
+}
+
 async function writeFileToCache(file: File, suffix: string): Promise<{ uri: string; path: string }> {
+  await ensureCacheUploadDir();
   const safeName = file.name.replace(/[^\w.-]+/g, '_') || 'video.mp4';
   const path = `kws-upload/${Date.now()}-${suffix}-${safeName}`;
   const data = await readFileAsBase64(file);
