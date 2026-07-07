@@ -29,7 +29,7 @@ export function getNativeVideoApiBase(): string {
   const raw = import.meta.env.VITE_NATIVE_VIDEO_API_URL
     || import.meta.env.VITE_ALLINKL_API_URL
     || 'https://video.kletterwelt-sauerland.de';
-  return raw.replace(/\/$/, '').replace(/\/upload-api$/, '');
+  return raw.replace(/\/$/, '');
 }
 
 function readFileAsBase64(file: File): Promise<string> {
