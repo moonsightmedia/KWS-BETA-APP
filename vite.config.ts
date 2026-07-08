@@ -66,8 +66,8 @@ const versionPlugin = () => {
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // Use relative base path for better compatibility
-  base: './',
+  // Use absolute asset URLs so deployed deep links like /tv/schedule load JS/CSS from /assets.
+  base: '/',
   server: {
     host: "::",
     port: 8080,
