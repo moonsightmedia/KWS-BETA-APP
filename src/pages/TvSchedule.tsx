@@ -389,7 +389,9 @@ const TvSchedule = () => {
             <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[#DDE7DF] px-[clamp(1rem,2vw,2rem)] py-[clamp(0.9rem,1.6vh,1.4rem)]">
               <div>
                 <p className="text-[0.76rem] font-bold uppercase tracking-[0.22em] text-[#6E806A]">Nächste Termine</p>
-                <p className="mt-1 font-heading text-[clamp(1.9rem,3vw,3.4rem)] leading-none">{groups.length} Tage</p>
+                <p className="mt-1 font-heading text-[clamp(1.9rem,3vw,3.4rem)] leading-none">
+                  {groups.length} {groups.length === 1 ? 'Termintag' : 'Termintage'}
+                </p>
                 <p className="mt-1 text-sm font-semibold text-[#13112B]/52">
                   {sectorOrderById.size} {sectorOrderById.size === 1 ? 'Sektor' : 'Sektoren'} in Reihenfolge
                 </p>
