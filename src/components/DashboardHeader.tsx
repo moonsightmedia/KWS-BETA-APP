@@ -127,10 +127,7 @@ export const DashboardHeader = ({
 
   return (
     <div
-      className="sticky top-0 z-10 border-b border-border bg-background/80 px-4 pt-12 pb-3 backdrop-blur-xl"
-      style={{
-        paddingTop: 'max(3rem, calc(3rem + env(safe-area-inset-top, 0px)))',
-      }}
+      className="app-header-safe sticky top-0 z-10 border-b border-border bg-background/80 px-4 pb-3 backdrop-blur-xl"
     >
       <div className="flex items-center justify-between">
         <div className="flex min-w-0 items-center gap-3">

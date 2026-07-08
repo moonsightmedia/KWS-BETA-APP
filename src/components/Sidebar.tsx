@@ -525,7 +525,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
       {location.pathname !== '/auth' && location.pathname !== '/competition' && (
         <nav
           className="fixed inset-x-0 bottom-0 z-[110] border-t border-border bg-card/90 backdrop-blur-xl md:hidden"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+          style={{ paddingBottom: 'var(--app-safe-area-bottom)' }}
         >
           <div className="flex items-stretch">
             {mobileNavItems.map((item) => {
@@ -566,7 +566,6 @@ export const Sidebar = ({ className }: SidebarProps) => {
               );
             })}
           </div>
-          <div className="h-[env(safe-area-inset-bottom)]" />
         </nav>
       )}
     </>

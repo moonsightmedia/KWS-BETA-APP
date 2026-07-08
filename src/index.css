@@ -8,6 +8,12 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
+    --app-safe-area-top: env(safe-area-inset-top, 0px);
+    --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --mobile-nav-content-height: 72px;
+    --mobile-nav-floating-offset: calc(var(--mobile-nav-content-height) + var(--app-safe-area-bottom) + 16px);
+    --mobile-page-bottom-padding: calc(var(--mobile-nav-content-height) + var(--app-safe-area-bottom) + 32px);
+
     --background: 0 0% 100%;
     --foreground: 118 15% 20%;
 
@@ -106,6 +112,42 @@ All colors MUST be HSL.
     --shadow-soft: 0 2px 12px hsl(0 0% 0% / 0.3);
     --shadow-medium: 0 4px 20px hsl(0 0% 0% / 0.4);
     --shadow-strong: 0 8px 32px hsl(0 0% 0% / 0.5);
+  }
+}
+
+@layer utilities {
+  .app-header-safe {
+    padding-top: calc(1.25rem + var(--app-safe-area-top));
+  }
+
+  .mobile-page-bottom-safe {
+    padding-bottom: var(--mobile-page-bottom-padding);
+  }
+
+  .upload-overview-trigger {
+    bottom: var(--mobile-nav-floating-offset);
+  }
+
+  .setter-floating-actions {
+    bottom: var(--mobile-nav-floating-offset);
+  }
+
+  @media (min-width: 768px) {
+    .app-header-safe {
+      padding-top: 3rem;
+    }
+
+    .mobile-page-bottom-safe {
+      padding-bottom: 2.5rem;
+    }
+
+    .upload-overview-trigger {
+      bottom: 2rem;
+    }
+
+    .setter-floating-actions {
+      bottom: calc(176px + var(--app-safe-area-bottom));
+    }
   }
 }
 

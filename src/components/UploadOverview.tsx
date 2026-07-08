@@ -40,8 +40,9 @@ export const UploadOverview = () => {
     try {
       await resumeUpload(sessionId, file);
       toast.success('Datei ausgewählt. Upload wird fortgesetzt...');
-    } catch (error: any) {
-      toast.error('Fehler beim Fortsetzen: ' + error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
+      toast.error('Fehler beim Fortsetzen: ' + message);
     }
     
     // Reset input
@@ -82,12 +83,11 @@ export const UploadOverview = () => {
           variant="default"
           size="lg"
           className={cn(
-            "fixed left-4 md:left-auto md:right-8 md:bottom-8 z-50 rounded-2xl shadow-[0_14px_36px_rgba(19,17,43,0.10)] transition-all duration-300 flex items-center justify-center gap-3 border border-[#DDE7DF]",
+            "upload-overview-trigger fixed left-4 md:left-auto md:right-8 z-50 rounded-2xl shadow-[0_14px_36px_rgba(19,17,43,0.10)] transition-all duration-300 flex items-center justify-center gap-3 border border-[#DDE7DF]",
             hasActiveUploads && (uploadingCount > 0 || restoringCount > 0 || errorCount > 0) ? "px-4 h-14 max-w-[calc(100vw-12rem)] md:max-w-none" : "h-14 w-14 p-0",
             "bg-white text-[#13112B] hover:bg-[#F7FAF7]",
             errorCount > 0 && "border-[#E7B7B0] bg-[#FFF4F2] text-[#B64332] hover:bg-[#FFF0ED]"
           )}
-          style={{ bottom: 'calc(104px + env(safe-area-inset-bottom, 0px))' }}
         >
           {errorCount > 0 ? (
             <div className="relative">

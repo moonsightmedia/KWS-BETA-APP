@@ -448,7 +448,7 @@ export function BatchUpload() {
       </section>
 
       {!isDialogOpen ? (
-        <div className="fixed bottom-[calc(104px+env(safe-area-inset-bottom,0px))] right-4 z-[125] flex flex-col items-end gap-3 md:bottom-[calc(176px+env(safe-area-inset-bottom,0px))] md:right-8">
+        <div className="setter-floating-actions fixed right-4 z-[125] flex flex-col items-end gap-3 md:right-8">
           {boulders.length > 0 ? (
             <Button
               type="button"

@@ -108,7 +108,7 @@ export const SetterAreaLayout = () => {
         )}
       >
         <DashboardHeader />
-        <main className="min-w-0 w-full flex-1 overflow-x-hidden px-4 pb-28 pt-6 md:px-8 md:pb-10">
+        <main className="mobile-page-bottom-safe min-w-0 w-full flex-1 overflow-x-hidden px-4 pt-6 md:px-8">
           <Outlet />
         </main>
       </div>
