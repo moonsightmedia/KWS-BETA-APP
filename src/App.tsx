@@ -28,6 +28,7 @@ import SetterCreatePage from "./pages/setter/SetterCreatePage";
 import SetterEditPage from "./pages/setter/SetterEditPage";
 import SetterSchedulePage from "./pages/setter/SetterSchedulePage";
 import SetterStatusPage from "./pages/setter/SetterStatusPage";
+import TvSchedule from "./pages/TvSchedule";
 import Guest from "./pages/Guest";
 import Competition from "./pages/Competition";
 import NotFound from "./pages/NotFound";
@@ -311,6 +312,7 @@ const restoreRouteOnInit = () => {
 restoreRouteOnInit();
 
 const router = createBrowserRouter([
+  { path: "/tv/schedule", element: <TvSchedule /> },
   {
     path: "/",
     element: <Root />,
