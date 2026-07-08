@@ -8,6 +8,13 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const TV_REFETCH_INTERVAL = 60_000;
 
+const tvQueryOptions = {
+  refetchInterval: TV_REFETCH_INTERVAL,
+  refetchIntervalInBackground: true,
+  refetchOnWindowFocus: false,
+  retry: 2,
+} as const;
+
 export interface PublicSectorSchedule {
   id: string;
   sector_id: string;
@@ -99,8 +106,7 @@ function normalizeRegion(row: any): SectorMapRegion {
 export const usePublicTvSchedule = () =>
   useQuery({
     queryKey: ['tv', 'sector_schedule'],
-    refetchInterval: TV_REFETCH_INTERVAL,
-    retry: 2,
+    ...tvQueryOptions,
     queryFn: async () => {
       const nowIso = new Date().toISOString();
       return publicRestRequest<PublicSectorSchedule[]>(
@@ -112,8 +118,7 @@ export const usePublicTvSchedule = () =>
 export const usePublicTvSectors = () =>
   useQuery({
     queryKey: ['tv', 'sectors'],
-    refetchInterval: TV_REFETCH_INTERVAL,
-    retry: 2,
+    ...tvQueryOptions,
     queryFn: async () => {
       const rows = await publicRestRequest<PublicSectorRow[]>('sectors?select=*&order=name.asc');
       return rows.map(transformSector) as FrontendSector[];
@@ -123,8 +128,7 @@ export const usePublicTvSectors = () =>
 export const usePublicActiveHallMap = () =>
   useQuery({
     queryKey: ['tv', 'hall_maps', 'active'],
-    refetchInterval: TV_REFETCH_INTERVAL,
-    retry: 2,
+    ...tvQueryOptions,
     queryFn: async () => {
       const rows = await publicRestRequest<HallMap[]>('hall_maps?select=*&is_active=eq.true&limit=1');
       return rows[0] ?? null;
@@ -135,8 +139,7 @@ export const usePublicSectorMapRegions = (hallMapId?: string | null) =>
   useQuery({
     queryKey: ['tv', 'sector_map_regions', hallMapId],
     enabled: !!hallMapId,
-    refetchInterval: TV_REFETCH_INTERVAL,
-    retry: 2,
+    ...tvQueryOptions,
     queryFn: async () => {
       const rows = await publicRestRequest<any[]>(
         `sector_map_regions?select=*&hall_map_id=eq.${hallMapId}&order=z_index.asc,created_at.asc`,
