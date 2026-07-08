@@ -17,7 +17,7 @@ import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/hooks/useAuth';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { cn } from '@/lib/utils';
-import { sendPushNotificationForNotification } from '@/services/pushNotifications';
+import { sendNewBoulderNotifications } from '@/services/pushNotifications';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
 
 const devWarn = (...args: unknown[]) => { if (import.meta.env.DEV) console.warn(...args); };
@@ -27,87 +27,12 @@ const canQueueBoulder = (boulder: SetterBoulderDraft) => canSubmitSetterBoulderD
 
 async function createBatchNotifications(
   boulderIds: string[],
-  sectors: Array<{ id: string; name: string }>,
-  supabaseUrl: string,
-  supabaseKey: string,
   accessToken: string,
 ) {
   if (!boulderIds.length) return;
 
   try {
-    const boulderDetailsResponse = await fetch(
-      `${supabaseUrl}/rest/v1/boulders?id=in.(${boulderIds.join(',')})&select=id,name,sector_id`,
-      {
-        method: 'GET',
-        headers: { apikey: supabaseKey, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      },
-    );
-
-    if (!boulderDetailsResponse.ok) {
-      devError('[BatchUpload] Notification prep failed while loading boulders:', await boulderDetailsResponse.text());
-      return;
-    }
-
-    const boulderDetails = (await boulderDetailsResponse.json()) as Array<{ sector_id?: string | null }>;
-    const usersResponse = await fetch(`${supabaseUrl}/rest/v1/notification_preferences?boulder_new=eq.true&select=user_id`, {
-      method: 'GET',
-      headers: { apikey: supabaseKey, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    });
-
-    if (!usersResponse.ok) {
-      devError('[BatchUpload] Error fetching notification preferences:', await usersResponse.text());
-      return;
-    }
-
-    const users = (await usersResponse.json()) as Array<{ user_id: string }>;
-    const sectorIds = [...new Set(boulderDetails.map((item) => item.sector_id).filter(Boolean))] as string[];
-    const sectorNames = sectorIds
-      .map((sectorId) => sectors.find((sector) => sector.id === sectorId)?.name)
-      .filter(Boolean) as string[];
-    const sectorLabel =
-      sectorNames.length === 1
-        ? `in ${sectorNames[0]}`
-        : sectorNames.length > 1
-          ? `in ${sectorNames.join(', ')}`
-          : '';
-
-    await Promise.all(users.map(async (user) => {
-      try {
-        const response = await fetch(`${supabaseUrl}/rest/v1/notifications`, {
-          method: 'POST',
-          headers: {
-            apikey: supabaseKey,
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-            Prefer: 'return=representation',
-          },
-          body: JSON.stringify({
-            user_id: user.user_id,
-            type: 'boulder_new',
-            title: boulderIds.length === 1 ? 'Neuer Boulder' : `${boulderIds.length} neue Boulder`,
-            message:
-              boulderIds.length === 1
-                ? `Ein neuer Boulder ist jetzt verfügbar${sectorLabel ? ` ${sectorLabel}` : ''}.`
-                : `${boulderIds.length} neue Boulder sind jetzt verfügbar${sectorLabel ? ` ${sectorLabel}` : ''}.`,
-            action_url: '/boulders',
-            data: { boulder_count: boulderIds.length, boulder_ids: boulderIds },
-          }),
-        });
-
-        if (!response.ok) {
-          devError(`[BatchUpload] Error creating notification for ${user.user_id}:`, await response.text());
-          return;
-        }
-
-        const created = await response.json();
-        const notification = Array.isArray(created) ? created[0] : created;
-        if (notification?.id) {
-          await sendPushNotificationForNotification(notification.id, { access_token: accessToken });
-        }
-      } catch (error) {
-        devError(`[BatchUpload] Error sending notification for ${user.user_id}:`, error);
-      }
-    }));
+    await sendNewBoulderNotifications(boulderIds, { access_token: accessToken });
   } catch (error) {
     devError('[BatchUpload] Error creating batch notifications:', error);
   }
@@ -305,7 +230,7 @@ export function BatchUpload() {
 
     if (successfulIds.length) {
       toast.success(`${successfulIds.length} Boulder in die Upload-Warteschlange gestellt.`, { duration: 3200 });
-      await createBatchNotifications(createdIds, sectors, supabaseUrl, supabaseKey, session.access_token);
+      await createBatchNotifications(createdIds, session.access_token);
     }
 
     if (failures.length) {

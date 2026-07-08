@@ -79,7 +79,7 @@ export const PushNotificationTest = () => {
 
     try {
       console.log('[PushNotificationTest] Sending test notification...');
-      await sendPushNotification(user.id, {
+      const delivery = await sendPushNotification(user.id, {
         title: title || 'Test-Benachrichtigung',
         body: body || 'Dies ist eine Test-Push-Benachrichtigung',
         data: {
@@ -89,13 +89,24 @@ export const PushNotificationTest = () => {
         action_url: '/',
       }, session);
 
-      setLastResult({
-        success: true,
-        message: `Push-Benachrichtigung erfolgreich gesendet an ${pushTokens.length} Token(s)`,
-      });
-      toast.success('Test-Benachrichtigung gesendet!', {
-        description: `Gesendet an ${pushTokens.length} Token(s)`,
-      });
+      const sent = delivery?.sent ?? 0;
+      const failed = delivery?.failed ?? 0;
+      const skipped = delivery?.skipped ? ` (${delivery.reason || 'übersprungen'})` : '';
+      const success = !!delivery?.success && failed === 0 && !delivery?.skipped;
+      const message = success
+        ? `Push-Benachrichtigung erfolgreich gesendet an ${sent} Token(s)`
+        : `Push-Ergebnis: ${sent} gesendet, ${failed} fehlgeschlagen${skipped}`;
+
+      setLastResult({ success, message });
+      if (success) {
+        toast.success('Test-Benachrichtigung gesendet!', {
+          description: `Gesendet an ${sent} Token(s)`,
+        });
+      } else {
+        toast.error('Push-Test nicht vollständig erfolgreich', {
+          description: message,
+        });
+      }
     } catch (error: any) {
       console.error('[PushNotificationTest] Error:', error);
       setLastResult({

@@ -1,5 +1,5 @@
 import { PushNotifications } from '@capacitor/push-notifications';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -8,6 +8,12 @@ const devWarn = (...args: unknown[]) => { if (import.meta.env.DEV) console.warn(
 const devError = (...args: unknown[]) => { if (import.meta.env.DEV) console.error(...args); };
 
 let isInitialized = false;
+let listenerHandles: PluginListenerHandle[] = [];
+
+const removePushListeners = async () => {
+  await Promise.all(listenerHandles.map((handle) => handle.remove().catch(() => undefined)));
+  listenerHandles = [];
+};
 
 /** Reset so next enable runs full init and register() fires again (call when user disables push). */
 export const resetPushInitializationState = () => {
@@ -18,7 +24,7 @@ export const resetPushInitializationState = () => {
 export const unregisterPushOnDevice = async (): Promise<void> => {
   if (!Capacitor.isNativePlatform()) return;
   try {
-    await PushNotifications.removeAllListeners();
+    await removePushListeners();
     devLog('[PushNotifications] All listeners removed');
     await PushNotifications.unregister();
     devLog('[PushNotifications] Unregistered on device (FCM token invalidated)');
@@ -69,34 +75,36 @@ export const initializePushNotifications = async (sessionOverride?: SessionForPu
       isInitialized = false;
     }
 
+    await removePushListeners();
+
     // Add listeners BEFORE register() so we don't miss the 'registration' event
     // Pass sessionOverride so registerPushToken doesn't hang on getSession() when re-enabling from Profile
-    PushNotifications.addListener('registration', async (token) => {
+    listenerHandles.push(await PushNotifications.addListener('registration', async (token) => {
       devLog('[PushNotifications] Registration token:', token.value);
       await registerPushToken(token.value, sessionOverride);
-    });
+    }));
 
-    PushNotifications.addListener('registrationError', (error) => {
+    listenerHandles.push(await PushNotifications.addListener('registrationError', (error) => {
       devError('[PushNotifications] Registration error:', error);
       toast.error('Fehler bei Push-Benachrichtigungen', {
         description: error.error,
       });
-    });
+    }));
 
-    PushNotifications.addListener('pushNotificationReceived', (notification) => {
+    listenerHandles.push(await PushNotifications.addListener('pushNotificationReceived', (notification) => {
       devLog('[PushNotifications] Push notification received:', notification);
       toast.info(notification.title || 'Neue Benachrichtigung', {
         description: notification.body,
         duration: 5000,
       });
-    });
+    }));
 
-    PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+    listenerHandles.push(await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
       devLog('[PushNotifications] Push notification action performed:', action);
       if (action.notification.data?.action_url) {
         window.location.href = action.notification.data.action_url;
       }
-    });
+    }));
 
     // Register AFTER listeners so 'registration' event is received
     devLog('[PushNotifications] Registering for push notifications...');

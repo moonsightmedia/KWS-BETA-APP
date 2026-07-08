@@ -29,9 +29,11 @@ export const UploadOverview = () => {
   const totalProgress = hasActiveUploads 
     ? activeUploads.reduce((acc, curr) => acc + (curr.progress || 0), 0) / activeUploads.length 
     : 0;
-  const uploadingCount = activeUploads.filter(u => u.status === 'uploading' || u.status === 'pending').length;
-  const errorCount = activeUploads.filter(u => u.status === 'error').length;
+  const uploadingCount = activeUploads.filter(u => ['uploading', 'pending', 'queued', 'compressing', 'retrying'].includes(u.status)).length;
+  const waitingCount = activeUploads.filter(u => u.status === 'waiting_network').length;
+  const errorCount = activeUploads.filter(u => u.status === 'error' || u.status === 'failed').length;
   const restoringCount = activeUploads.filter(u => u.status === 'restoring').length;
+  const attentionCount = uploadingCount + restoringCount + errorCount + waitingCount;
 
   const handleFileSelect = async (sessionId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -84,7 +86,7 @@ export const UploadOverview = () => {
           size="lg"
           className={cn(
             "upload-overview-trigger fixed left-4 md:left-auto md:right-8 z-50 rounded-2xl shadow-[0_14px_36px_rgba(19,17,43,0.10)] transition-all duration-300 flex items-center justify-center gap-3 border border-[#DDE7DF]",
-            hasActiveUploads && (uploadingCount > 0 || restoringCount > 0 || errorCount > 0) ? "px-4 h-14 max-w-[calc(100vw-12rem)] md:max-w-none" : "h-14 w-14 p-0",
+            hasActiveUploads && attentionCount > 0 ? "px-4 h-14 max-w-[calc(100vw-12rem)] md:max-w-none" : "h-14 w-14 p-0",
             "bg-white text-[#13112B] hover:bg-[#F7FAF7]",
             errorCount > 0 && "border-[#E7B7B0] bg-[#FFF4F2] text-[#B64332] hover:bg-[#FFF0ED]"
           )}
@@ -100,10 +102,10 @@ export const UploadOverview = () => {
                 {uploadingCount > 0 && <span className="absolute -bottom-1 -right-1 h-2 w-2 rounded-full bg-[#69B545] animate-ping" />}
             </div>
           )}
-          {hasActiveUploads && (uploadingCount > 0 || restoringCount > 0 || errorCount > 0) && (
+          {hasActiveUploads && attentionCount > 0 && (
             <div className="flex flex-col items-start text-sm">
               <span className="font-bold tracking-tight">
-                  {uploadingCount + restoringCount + errorCount} Upload{(uploadingCount + restoringCount + errorCount) !== 1 ? 's' : ''} {uploadingCount > 0 ? 'aktiv' : 'wartend'}
+                  {attentionCount} Upload{attentionCount !== 1 ? 's' : ''} {uploadingCount > 0 ? 'aktiv' : 'wartend'}
               </span>
               {uploadingCount > 0 && (
                 <span className="text-[#13112B]/58 text-xs font-medium">{totalProgress.toFixed(0)}% abgeschlossen</span>
@@ -135,7 +137,9 @@ export const UploadOverview = () => {
             {activeUploads.map((upload) => (
               <div key={upload.sessionId} className={cn(
                   "p-4 rounded-2xl border transition-all",
-                  upload.status === 'error' ? "border-[#E7B7B0] bg-[#FFF4F2]" : "border-[#DDE7DF] bg-[#FCFDFC]"
+                  (upload.status === 'error' || upload.status === 'failed') ? "border-[#E7B7B0] bg-[#FFF4F2]" :
+                  upload.status === 'waiting_network' ? "border-[#E9D9A8] bg-[#FFFBEA]" :
+                  "border-[#DDE7DF] bg-[#FCFDFC]"
               )}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -150,11 +154,16 @@ export const UploadOverview = () => {
                             {upload.fileName}
                         </h4>
                         <span className="text-xs text-muted-foreground capitalize flex items-center gap-1">
-                            {upload.status === 'uploading' && <Loader2 className="w-3 h-3 animate-spin" />}
+                            {['uploading', 'compressing', 'queued', 'retrying', 'pending'].includes(upload.status) && <Loader2 className="w-3 h-3 animate-spin" />}
+                            {upload.status === 'waiting_network' && <RefreshCw className="w-3 h-3" />}
                             {upload.status === 'restoring' && <RefreshCw className="w-3 h-3" />}
-                            {upload.status === 'error' && <AlertCircle className="w-3 h-3" />}
+                            {(upload.status === 'error' || upload.status === 'failed') && <AlertCircle className="w-3 h-3" />}
                             {upload.status === 'cancelled' && <X className="w-3 h-3" />}
-                            {upload.status === 'restoring' ? 'Wartet auf Datei' : 
+                            {upload.status === 'restoring' ? 'Wartet auf Datei' :
+                             upload.status === 'compressing' ? 'Komprimiere Video' :
+                             upload.status === 'waiting_network' ? 'Warte auf Verbindung' :
+                             upload.status === 'queued' ? 'In Warteschlange' :
+                             upload.status === 'retrying' ? 'Versuche erneut' :
                              upload.status === 'cancelled' ? 'Abgebrochen' : upload.status}
                         </span>
                     </div>
@@ -164,7 +173,7 @@ export const UploadOverview = () => {
                     {upload.status === 'completed' && <div className="rounded-xl bg-[#EEF6E1] p-1 text-[#4E8A31]"><CheckCircle2 className="w-6 h-6" /></div>}
                     {upload.status === 'error' && <div className="rounded-xl bg-[#FFF4F2] p-1 text-[#B64332]"><AlertCircle className="w-6 h-6" /></div>}
                     
-                    {(upload.status === 'uploading' || upload.status === 'pending') && (
+                    {(['uploading', 'pending', 'queued', 'compressing', 'retrying', 'waiting_network'].includes(upload.status)) && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -176,7 +185,7 @@ export const UploadOverview = () => {
                       </Button>
                     )}
                     
-                    {(upload.status === 'error' || upload.status === 'restoring' || upload.status === 'completed' || upload.status === 'cancelled') && (
+                    {(upload.status === 'error' || upload.status === 'failed' || upload.status === 'restoring' || upload.status === 'completed' || upload.status === 'cancelled') && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -202,7 +211,7 @@ export const UploadOverview = () => {
                       className={cn(
                         "relative h-full overflow-hidden rounded-xl transition-all duration-500 ease-out",
                         upload.status === 'completed' ? "bg-[#69B545]" :
-                        upload.status === 'error' ? "bg-[#E55A4E]" :
+                        (upload.status === 'error' || upload.status === 'failed') ? "bg-[#E55A4E]" :
                         "bg-[#13112B]"
                       )}
                       style={{ width: `${upload.progress || 0}%` }}
@@ -220,7 +229,7 @@ export const UploadOverview = () => {
                       <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                       <p>{upload.error}</p>
                     </div>
-                    {(upload.status === 'restoring' || upload.status === 'error') && (
+                    {(upload.status === 'restoring' || upload.status === 'error' || upload.status === 'failed') && (
                       <div className="flex gap-2">
                         <input
                           type="file"

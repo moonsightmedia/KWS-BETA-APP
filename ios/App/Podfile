@@ -13,6 +13,7 @@ def capacitor_pods
   pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
   pod 'CapacitorFilesystem', :path => '../../node_modules/@capacitor/filesystem'
   pod 'CapacitorPushNotifications', :path => '../../node_modules/@capacitor/push-notifications'
+  pod 'CapawesomeCapacitorFilePicker', :path => '../../node_modules/@capawesome/capacitor-file-picker'
   pod 'CapgoCapacitorUploader', :path => '../../node_modules/@capgo/capacitor-uploader'
   pod 'HonemNativeVideoCompressor', :path => '../../node_modules/@honem/native-video-compressor'
 end
@@ -20,6 +21,7 @@ end
 target 'App' do
   capacitor_pods
   # Add your Pods here
+  pod 'FirebaseMessaging'
 end
 
 post_install do |installer|

@@ -35,7 +35,21 @@ if (empty($sessionId)) {
 }
 
 $sessionDir = $tempDir . '/' . $sessionId;
+$completedStatusPath = $tempDir . '/' . $sessionId . '.completed.json';
 $uploadedChunks = [];
+
+if (is_file($completedStatusPath)) {
+    $completed = json_decode(file_get_contents($completedStatusPath), true);
+    if (is_array($completed) && !empty($completed['url'])) {
+        echo json_encode([
+            'session_id' => $sessionId,
+            'status' => 'completed',
+            'url' => $completed['url'],
+            'uploaded_chunks' => []
+        ]);
+        exit;
+    }
+}
 
 if (is_dir($sessionDir)) {
     $files = scandir($sessionDir);
@@ -50,6 +64,7 @@ if (is_dir($sessionDir)) {
 
 echo json_encode([
     'session_id' => $sessionId,
+    'status' => 'uploading',
     'uploaded_chunks' => $uploadedChunks
 ]);
 ?>

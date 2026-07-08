@@ -154,6 +154,13 @@ if ($allChunksUploaded) {
         'url' => $publicUrl,
         'message' => 'Upload finished successfully'
     ]);
+
+    $completedStatusPath = $tempDir . '/' . $sessionId . '.completed.json';
+    @file_put_contents($completedStatusPath, json_encode([
+        'status' => 'completed',
+        'url' => $publicUrl,
+        'completed_at' => date('c')
+    ]));
 } else {
     echo json_encode([
         'status' => 'chunk_uploaded',

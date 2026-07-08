@@ -138,31 +138,7 @@ export const useNotifications = () => {
             duration: 5000,
           });
 
-          // CRITICAL: Skip automatic push notifications for boulder_new events
-          // Push notifications are now sent manually by BatchUpload component after batch upload completes
-          // This ensures reliable batching and prevents duplicate notifications
-          const boulderCount = notification.data?.boulder_count || 1;
-          
-          if (notification.type === 'boulder_new') {
-            if (boulderCount > 1) {
-              devLog('[useNotifications] ⏭️ Skipping push notification for batch notification (boulder_count:', boulderCount, ') - BatchUpload will send push notification manually');
-            } else {
-              devLog('[useNotifications] ⏭️ Skipping push notification for single boulder notification - notifications are now handled manually by BatchUpload component');
-            }
-            return;
-          }
-          
-          // For other notification types, send push notification normally
-          setTimeout(async () => {
-            try {
-              const { sendPushNotificationForNotification } = await import('@/services/pushNotifications');
-              await sendPushNotificationForNotification(notification.id, session);
-              devLog('[useNotifications] ✅ Push notification sent successfully for notification:', notification.id);
-            } catch (error) {
-              devError('[useNotifications] ❌ Error sending push notification:', error);
-              // Don't throw - push notifications are optional
-            }
-          }, 500);
+          devLog('[useNotifications] In-app notification handled; native push delivery is handled server-side.');
         }
       )
       .on(

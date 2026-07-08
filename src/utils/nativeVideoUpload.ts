@@ -21,6 +21,13 @@ export interface NativeVideoPrepareResult {
   cleanup: () => Promise<void>;
 }
 
+export interface NativeVideoPathInput {
+  path: string;
+  fileName: string;
+  fileSize: number;
+  mimeType?: string;
+}
+
 export function isNativeVideoPipelineAvailable(): boolean {
   return Capacitor.isNativePlatform();
 }
@@ -76,6 +83,52 @@ async function deleteCachedFile(path: string): Promise<void> {
   } catch {
     // ignore cleanup errors
   }
+}
+
+export async function deleteNativeVideoFile(path: string): Promise<void> {
+  try {
+    await VideoCompressor.deleteFile({ path });
+  } catch {
+    // ignore cleanup errors
+  }
+}
+
+function toMp4FileName(fileName: string): string {
+  const safeName = fileName.replace(/[^\w.-]+/g, '_') || 'video.mov';
+  return safeName.replace(/\.[^.]+$/, '') + '.mp4';
+}
+
+/**
+ * Compress an already-native video path. This avoids reading large gallery
+ * videos into JS memory and is the preferred iOS/Android upload path.
+ */
+export async function prepareNativeVideoPathForUpload(
+  input: NativeVideoPathInput,
+  onProgress?: (progress: number) => void,
+): Promise<NativeVideoPrepareResult> {
+  if (!isNativeVideoPipelineAvailable()) {
+    throw new Error('Native video pipeline is only available in the Capacitor app');
+  }
+
+  onProgress?.(5);
+
+  const compressed = await VideoCompressor.compressVideo({
+    inputPath: input.path,
+    quality: 'medium',
+    format: 'mp4',
+  });
+
+  onProgress?.(100);
+
+  return {
+    filePath: compressed.outputPath,
+    fileSize: compressed.compressedSize,
+    fileName: toMp4FileName(input.fileName),
+    mimeType: 'video/mp4',
+    cleanup: async () => {
+      await deleteNativeVideoFile(compressed.outputPath);
+    },
+  };
 }
 
 /**

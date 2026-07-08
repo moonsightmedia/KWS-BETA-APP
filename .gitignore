@@ -30,6 +30,7 @@ video-server/data/
 # Firebase Service Account Keys (sensitive!)
 *-*.json
 !google-services.json
+ios/App/App/GoogleService-Info.plist
 service-account*.json
 
 # Temporary video processing files

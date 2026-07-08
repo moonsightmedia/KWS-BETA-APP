@@ -53,6 +53,18 @@ jobs:
         with:
           ref: ${{ github.event.inputs.branch || github.ref_name }}
 
+      - name: Configure Firebase iOS plist
+        env:
+          GOOGLE_SERVICE_INFO_PLIST_BASE64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
+        run: |
+          set -eo pipefail
+          if [ -z "$GOOGLE_SERVICE_INFO_PLIST_BASE64" ]; then
+            echo "::error::Missing GitHub secret: GOOGLE_SERVICE_INFO_PLIST_BASE64"
+            echo "Create the iOS Firebase app for com.kletterwelt.beta, download GoogleService-Info.plist, base64 encode it, and add it as this secret."
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICE_INFO_PLIST_BASE64" | base64 --decode > ios/App/App/GoogleService-Info.plist
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:

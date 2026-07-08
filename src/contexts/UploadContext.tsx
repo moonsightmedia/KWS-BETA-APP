@@ -7,19 +7,31 @@ import { reportError } from '@/utils/feedbackUtils';
 import { useAuth } from '@/hooks/useAuth';
 import { compressThumbnail } from '@/integrations/supabase/storage';
 import {
+  deleteNativeVideoFile,
   getNativeVideoApiBase,
+  nativeBackgroundVideoUpload,
+  prepareNativeVideoPathForUpload,
   isNativeVideoPipelineAvailable,
 } from '@/utils/nativeVideoUpload';
+import {
+  getUploadInputName,
+  getUploadInputSize,
+  isNativeVideoUploadFile,
+  type NativeVideoUploadFile,
+  type UploadFileInput,
+  type UploadStatus,
+} from '@/types/upload';
 
 export interface ActiveUpload {
   sessionId: string;
   boulderId: string;
   file: File | null;
+  nativeFile?: NativeVideoUploadFile;
   fileName: string;
   fileSize: number;
   type: 'video' | 'thumbnail';
   progress: number;
-  status: 'pending' | 'uploading' | 'completed' | 'error' | 'restoring' | 'cancelled';
+  status: UploadStatus;
   error?: string;
   sectorId?: string;
   abortController?: AbortController;
@@ -27,8 +39,8 @@ export interface ActiveUpload {
 
 interface UploadContextType {
   uploads: ActiveUpload[];
-  startUpload: (boulderId: string, file: File, type: 'video' | 'thumbnail', sectorId?: string) => Promise<string>;
-  resumeUpload: (sessionId: string, file: File) => Promise<void>;
+  startUpload: (boulderId: string, file: UploadFileInput, type: 'video' | 'thumbnail', sectorId?: string) => Promise<string>;
+  resumeUpload: (sessionId: string, file: UploadFileInput) => Promise<void>;
   cancelUpload: (sessionId: string) => void;
   removeUpload: (sessionId: string) => void;
   isUploading: boolean;
@@ -59,6 +71,66 @@ async function compressVideoInBackground(
   console.log('[UploadContext] ℹ️ Background compression disabled - quality versions are created manually');
 }
 
+const NATIVE_UPLOADS_STORAGE_KEY = 'kws-native-video-upload-queue';
+
+type PersistedNativeUpload = {
+  sessionId: string;
+  boulderId: string;
+  nativeFile: NativeVideoUploadFile;
+  fileName: string;
+  fileSize: number;
+  progress: number;
+  status: UploadStatus;
+  sectorId?: string;
+  error?: string;
+};
+
+function isNetworkError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error || '').toLowerCase();
+  return (
+    !navigator.onLine ||
+    message.includes('network') ||
+    message.includes('offline') ||
+    message.includes('internet') ||
+    message.includes('timed out') ||
+    message.includes('timeout') ||
+    message.includes('connection')
+  );
+}
+
+function readPersistedNativeUploads(): PersistedNativeUpload[] {
+  try {
+    const raw = localStorage.getItem(NATIVE_UPLOADS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePersistedNativeUploads(uploads: ActiveUpload[]) {
+  const nativeUploads: PersistedNativeUpload[] = uploads
+    .filter((upload) => upload.nativeFile && !['completed', 'cancelled'].includes(upload.status))
+    .map((upload) => ({
+      sessionId: upload.sessionId,
+      boulderId: upload.boulderId,
+      nativeFile: upload.nativeFile!,
+      fileName: upload.fileName,
+      fileSize: upload.fileSize,
+      progress: upload.progress,
+      status: upload.status,
+      sectorId: upload.sectorId,
+      error: upload.error,
+    }));
+
+  if (nativeUploads.length) {
+    localStorage.setItem(NATIVE_UPLOADS_STORAGE_KEY, JSON.stringify(nativeUploads));
+  } else {
+    localStorage.removeItem(NATIVE_UPLOADS_STORAGE_KEY);
+  }
+}
+
 export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session } = useAuth(); // CRITICAL: Get session from useAuth for RLS after reload
   const [uploads, setUploads] = useState<ActiveUpload[]>([]);
@@ -78,7 +150,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         activeCount, 
         maxConcurrent: MAX_CONCURRENT_UPLOADS,
         pendingUploads: prev.filter(u => u.status === 'pending').length,
-        pendingWithFile: prev.filter(u => u.status === 'pending' && u.file).length
+        pendingWithFile: prev.filter(u => u.status === 'pending' && (u.file || u.nativeFile)).length
       });
       
       if (activeCount >= MAX_CONCURRENT_UPLOADS) {
@@ -88,7 +160,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       // Find next pending upload that's not being processed
       const nextUpload = prev.find(u => 
-        u.status === 'pending' && u.file && !processingRef.current.has(u.sessionId)
+        u.status === 'pending' && (u.file || u.nativeFile) && !processingRef.current.has(u.sessionId)
       );
 
       if (nextUpload) {
@@ -96,7 +168,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           sessionId: nextUpload.sessionId, 
           fileName: nextUpload.fileName, 
           type: nextUpload.type,
-          hasFile: !!nextUpload.file
+          hasFile: !!nextUpload.file,
+          hasNativeFile: !!nextUpload.nativeFile
         });
         // Mark as being processed
         processingRef.current.add(nextUpload.sessionId);
@@ -106,7 +179,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           processingRef.current.delete(nextUpload.sessionId);
         });
       } else {
-        const pendingWithoutFile = prev.filter(u => u.status === 'pending' && !u.file);
+        const pendingWithoutFile = prev.filter(u => u.status === 'pending' && !u.file && !u.nativeFile);
         if (pendingWithoutFile.length > 0) {
           console.warn('[UploadContext] ⚠️ Found pending uploads without file:', pendingWithoutFile.map(u => ({ sessionId: u.sessionId, fileName: u.fileName })));
         }
@@ -123,6 +196,24 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setTimeout(() => processQueue(), 0);
       return updated;
     });
+  }, [processQueue]);
+
+  useEffect(() => {
+    writePersistedNativeUploads(uploads);
+  }, [uploads]);
+
+  useEffect(() => {
+    const resumeWaitingNativeUploads = () => {
+      setUploads(prev => prev.map(upload => (
+        upload.nativeFile && upload.status === 'waiting_network'
+          ? { ...upload, status: 'pending' as const, error: undefined }
+          : upload
+      )));
+      setTimeout(() => processQueue(), 0);
+    };
+
+    window.addEventListener('online', resumeWaitingNativeUploads);
+    return () => window.removeEventListener('online', resumeWaitingNativeUploads);
   }, [processQueue]);
 
   // Helper function to update upload log using direct fetch
@@ -170,10 +261,11 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       fileName: upload.fileName, 
       type: upload.type,
       hasFile: !!upload.file,
+      hasNativeFile: !!upload.nativeFile,
       status: upload.status
     });
     
-    if (!upload.file) {
+    if (!upload.file && !upload.nativeFile) {
       console.error('[UploadContext] ❌ No file in upload, cannot process:', upload.sessionId);
       processingRef.current.delete(upload.sessionId);
       return;
@@ -189,7 +281,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     console.log('[UploadContext] 🚀 Starting upload:', upload.sessionId);
     // Update status to uploading
     console.log('[UploadContext] 📝 Updating upload status to "uploading"...');
-    updateUpload(upload.sessionId, { status: 'uploading', progress: 0, error: undefined });
+    updateUpload(upload.sessionId, { status: upload.nativeFile ? 'queued' : 'uploading', progress: 0, error: undefined });
     console.log('[UploadContext] ✅ Upload status updated');
 
     try {
@@ -310,6 +402,9 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // CRITICAL: Compress thumbnails before uploading to reduce file size
         let fileToUpload = upload.file;
         if (upload.type === 'thumbnail') {
+            if (!upload.file) {
+                throw new Error('Thumbnail-Datei fehlt. Bitte Datei neu waehlen.');
+            }
             console.log('[UploadContext] 🗜️ Compressing thumbnail before upload...', {
                 originalSize: upload.file.size,
                 fileName: upload.fileName
@@ -338,6 +433,83 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         let url: string;
         
         if (upload.type === 'video') {
+            if (upload.nativeFile && isNativeVideoPipelineAvailable()) {
+                if (!navigator.onLine) {
+                    updateUpload(upload.sessionId, {
+                        status: 'waiting_network',
+                        error: 'Warte auf Internetverbindung.',
+                    });
+                    await updateLog('uploading', upload.progress, 'Warte auf Internetverbindung');
+                    throw new Error('offline');
+                }
+
+                let preparedNativeFile;
+                try {
+                    updateUpload(upload.sessionId, { status: 'compressing', progress: Math.max(upload.progress, 1), error: undefined });
+                    await updateLog('compressing', Math.max(upload.progress, 1));
+                    preparedNativeFile = await prepareNativeVideoPathForUpload(
+                        {
+                            path: upload.nativeFile.path,
+                            fileName: upload.nativeFile.name,
+                            fileSize: upload.nativeFile.size,
+                            mimeType: upload.nativeFile.mimeType,
+                        },
+                        (compressionProgress) => {
+                            const progress = Math.max(1, Math.floor(compressionProgress * 0.35));
+                            updateUpload(upload.sessionId, { status: 'compressing', progress });
+                            updateLog('compressing', progress);
+                        },
+                    );
+                } catch (compressError) {
+                    console.warn('[UploadContext] Native compression failed, uploading original file:', compressError);
+                    preparedNativeFile = {
+                        filePath: upload.nativeFile.path,
+                        fileSize: upload.nativeFile.size,
+                        fileName: upload.nativeFile.name.replace(/\.[^.]+$/, '') + '.mp4',
+                        mimeType: upload.nativeFile.mimeType || 'video/mp4',
+                        cleanup: async () => undefined,
+                    };
+                }
+
+                try {
+                    updateUpload(upload.sessionId, { status: 'uploading', progress: Math.max(upload.progress, 35), error: undefined });
+                    const nativeUrl = await nativeBackgroundVideoUpload(preparedNativeFile, {
+                        sessionId: upload.sessionId,
+                        sectorId: upload.sectorId,
+                        fileName: preparedNativeFile.fileName,
+                        mimeType: preparedNativeFile.mimeType,
+                        authToken: currentSession.access_token,
+                        abortSignal: abortSignal || controller?.signal,
+                        onProgress: (p) => {
+                            const progress = 35 + Math.floor(p * 0.65);
+                            setUploads(prev => {
+                                const current = prev.find(u => u.sessionId === upload.sessionId);
+                                if (current?.status === 'cancelled') return prev;
+                                return prev.map(u => u.sessionId === upload.sessionId ? { ...u, status: 'uploading', progress } : u);
+                            });
+                            updateLog('uploading', progress);
+                        },
+                    });
+
+                    videoUrls = { hd: nativeUrl };
+                    url = nativeUrl;
+                    console.log('[UploadContext] Native video upload completed:', nativeUrl);
+                } catch (uploadError) {
+                    if (isNetworkError(uploadError)) {
+                        updateUpload(upload.sessionId, {
+                            status: 'waiting_network',
+                            error: 'Warte auf Internetverbindung. Upload wird automatisch fortgesetzt.',
+                        });
+                        await updateLog('uploading', upload.progress, 'Warte auf Internetverbindung');
+                    }
+                    throw uploadError;
+                }
+            }
+
+            if (!videoUrls) {
+            if (!upload.file) {
+                throw new Error('Video-Datei fehlt. Bitte Datei neu waehlen.');
+            }
             const videoApiUrl = isNativeVideoPipelineAvailable()
                 ? getNativeVideoApiBase()
                 : API_URL;
@@ -365,6 +537,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             } catch (uploadError: any) {
                 console.error('[UploadContext] ❌ Video upload failed:', uploadError);
                 throw new Error(`Video-Upload fehlgeschlagen: ${uploadError.message || 'Unbekannter Fehler'}`);
+            }
             }
         }
 
@@ -465,6 +638,10 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateUpload(upload.sessionId, { status: 'completed', progress: 100 });
         toast.success(`${upload.type === 'video' ? 'Video' : 'Thumbnail'} hochgeladen!`);
 
+        if (upload.nativeFile?.cached) {
+            await deleteNativeVideoFile(upload.nativeFile.path);
+        }
+
         // Clean up
         delete abortControllersRef.current[upload.sessionId];
         processingRef.current.delete(upload.sessionId);
@@ -489,6 +666,31 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             uploadType: upload.type
         });
         
+        if (upload.nativeFile && isNetworkError(error)) {
+            const waitingMessage = 'Warte auf Internetverbindung. Upload wird automatisch fortgesetzt.';
+            updateUpload(upload.sessionId, { status: 'waiting_network', error: waitingMessage });
+            await updateUploadLog(upload.sessionId, {
+                status: 'uploading',
+                error: waitingMessage,
+                progress: upload.progress,
+            });
+            delete abortControllersRef.current[upload.sessionId];
+            processingRef.current.delete(upload.sessionId);
+
+            const retryWhenOnline = () => {
+                window.removeEventListener('online', retryWhenOnline);
+                setUploads(prev => prev.map(u => (
+                    u.sessionId === upload.sessionId
+                        ? { ...u, status: 'pending' as const, error: undefined }
+                        : u
+                )));
+                setTimeout(() => processQueue(), 0);
+            };
+
+            window.addEventListener('online', retryWhenOnline, { once: true });
+            return;
+        }
+
         // Check if it was cancelled
         if (error.name === 'AbortError' || upload.status === 'cancelled') {
             console.log('[UploadContext] ⏸️ Upload was explicitly cancelled:', upload.sessionId);
@@ -537,7 +739,10 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const startUpload = useCallback(async (boulderId: string, file: File, type: 'video' | 'thumbnail', sectorId?: string) => {
+  const startUpload = useCallback(async (boulderId: string, file: UploadFileInput, type: 'video' | 'thumbnail', sectorId?: string) => {
+    const isNativeVideo = type === 'video' && isNativeVideoUploadFile(file);
+    const fileName = getUploadInputName(file);
+    const fileSize = getUploadInputSize(file);
     console.log('[UploadContext] 🚀 startUpload called:', { boulderId, fileName: file.name, fileSize: file.size, type, sectorId });
     
     if (!file) {
@@ -552,9 +757,10 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const newUpload: ActiveUpload = {
         sessionId,
         boulderId,
-        file,
-        fileName: file.name,
-        fileSize: file.size,
+        file: isNativeVideo ? null : file as File,
+        nativeFile: isNativeVideo ? file : undefined,
+        fileName,
+        fileSize,
         type,
         progress: 0,
         status: 'pending',
@@ -593,11 +799,12 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           maxConcurrent: MAX_CONCURRENT_UPLOADS,
           canStart: activeCount < MAX_CONCURRENT_UPLOADS,
           hasFile: !!uploadToProcess.file,
+          hasNativeFile: !!uploadToProcess.nativeFile,
           status: uploadToProcess.status,
           isProcessing: processingRef.current.has(uploadToProcess.sessionId)
         });
         
-        if (activeCount < MAX_CONCURRENT_UPLOADS && uploadToProcess.file && uploadToProcess.status === 'pending' && !processingRef.current.has(uploadToProcess.sessionId)) {
+        if (activeCount < MAX_CONCURRENT_UPLOADS && (uploadToProcess.file || uploadToProcess.nativeFile) && uploadToProcess.status === 'pending' && !processingRef.current.has(uploadToProcess.sessionId)) {
           console.log('[UploadContext] ✅ Can start upload immediately:', uploadToProcess.sessionId);
           processingRef.current.add(uploadToProcess.sessionId);
           processUpload(uploadToProcess).catch(err => {
@@ -618,13 +825,22 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return sessionId;
   }, [processQueue]);
 
-  const resumeUpload = useCallback(async (sessionId: string, file: File) => {
+  const resumeUpload = useCallback(async (sessionId: string, file: UploadFileInput) => {
      let targetUpload: ActiveUpload | undefined;
+     const nativeFile = isNativeVideoUploadFile(file) ? file : undefined;
      
      setUploads(prev => {
          return prev.map(u => {
              if (u.sessionId === sessionId) {
-                 targetUpload = { ...u, file, status: 'pending', error: undefined };
+                 targetUpload = {
+                   ...u,
+                   file: nativeFile ? null : file as File,
+                   nativeFile,
+                   fileName: getUploadInputName(file),
+                   fileSize: getUploadInputSize(file),
+                   status: 'pending',
+                   error: undefined,
+                 };
                  return targetUpload;
              }
              return u;
@@ -644,6 +860,10 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setUploads(prev => {
         const upload = prev.find(u => u.sessionId === sessionId);
         if (!upload) return prev;
+
+        if (upload.nativeFile?.cached) {
+            deleteNativeVideoFile(upload.nativeFile.path).catch(() => undefined);
+        }
 
         // Abort if uploading
         if (upload.status === 'uploading' || upload.status === 'pending') {
@@ -678,6 +898,10 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (controller) {
             controller.abort();
         }
+    }
+
+    if (upload?.nativeFile?.cached) {
+        await deleteNativeVideoFile(upload.nativeFile.path);
     }
 
     // Try to delete from DB log first
@@ -730,6 +954,9 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Initial Restore
   useEffect(() => {
     const restore = async () => {
+        const persistedNativeUploads = new Map(
+            readPersistedNativeUploads().map((upload) => [upload.sessionId, upload]),
+        );
         const { data: logs, error } = await supabase
             .from('upload_logs')
             .select('*')
@@ -757,6 +984,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     return !shouldExclude;
                 })
                 .map(log => {
+                    const persistedNative = persistedNativeUploads.get(log.session_id);
                     console.log('[UploadContext] Restoring upload log:', {
                         session_id: log.session_id,
                         file_name: log.file_name,
@@ -764,9 +992,23 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                         progress: log.progress
                     });
                     
-                    // CRITICAL: Always set status to 'restoring' for restored uploads
-                    // because File objects cannot be serialized and are lost after reload
-                    // The user must re-select the file to continue the upload
+                    if (persistedNative && log.file_type === 'video') {
+                        const restoredStatus: UploadStatus = navigator.onLine ? 'pending' : 'waiting_network';
+                        return {
+                            sessionId: log.session_id,
+                            boulderId: log.boulder_id || persistedNative.boulderId || '',
+                            file: null,
+                            nativeFile: persistedNative.nativeFile,
+                            fileName: persistedNative.fileName || log.file_name,
+                            fileSize: persistedNative.fileSize || log.file_size,
+                            type: 'video' as const,
+                            progress: log.progress || persistedNative.progress || 0,
+                            status: restoredStatus,
+                            error: restoredStatus === 'waiting_network' ? 'Warte auf Internetverbindung.' : undefined,
+                            sectorId: log.sector_id || persistedNative.sectorId,
+                        };
+                    }
+
                     return {
                         sessionId: log.session_id,
                         boulderId: log.boulder_id || '',
@@ -788,7 +1030,9 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 const newUploads = restored.filter(r => !existingIds.has(r.sessionId));
                 const updated = [...prev, ...newUploads];
                 console.log('[UploadContext] Total uploads after restore:', updated.length);
-                // DON'T process queue - these uploads need files to be re-selected first
+                if (newUploads.some((upload) => upload.nativeFile && upload.status === 'pending')) {
+                    setTimeout(() => processQueue(), 0);
+                }
                 return updated;
             });
         } else {
