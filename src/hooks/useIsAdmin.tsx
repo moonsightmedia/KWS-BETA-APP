@@ -44,10 +44,10 @@ const getStoredAdmin = (userId: string | undefined): boolean | null => {
 };
 
 // Check admin status via direct REST on user_roles (avoids has_role RPC overload ambiguity)
-const checkAdminOnce = async (userId: string, accessToken: string): Promise<boolean> => {
+const checkAdminOnce = async (userId: string, accessToken: string): Promise<boolean | null> => {
   const url = import.meta.env.VITE_SUPABASE_URL;
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return false;
+  if (!url || !key) return null;
   try {
     const res = await window.fetch(
       `${url}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.admin&select=user_id`,
@@ -62,7 +62,7 @@ const checkAdminOnce = async (userId: string, accessToken: string): Promise<bool
     );
     if (!res.ok) {
       console.error('[useIsAdmin] user_roles fetch failed:', res.status, await res.text());
-      return false;
+      return null;
     }
     const data = await res.json();
     const isAdmin = Array.isArray(data) && data.length > 0;
@@ -77,7 +77,7 @@ const checkAdminOnce = async (userId: string, accessToken: string): Promise<bool
     return isAdmin;
   } catch (error) {
     console.error('[useIsAdmin] Exception checking admin status:', error);
-    return false;
+    return null;
   }
 };
 
@@ -110,10 +110,16 @@ export const useIsAdmin = () => {
     setLoading(true);
     try {
       const result = await checkAdminOnce(user.id, accessToken);
-      setIsAdmin(result);
+      if (result !== null) {
+        setIsAdmin(result);
+      } else if (stored !== null) {
+        setIsAdmin(stored);
+      }
     } catch (error) {
       console.error('[useIsAdmin] Error refreshing admin status:', error);
-      setIsAdmin(false);
+      if (stored !== null) {
+        setIsAdmin(stored);
+      }
     } finally {
       setLoading(false);
     }

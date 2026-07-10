@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSidebar } from '@/components/SidebarContext';
 import { useAuth } from '@/hooks/useAuth';
-import { useHasRole } from '@/hooks/useHasRole';
+import { useHasRole, hasStoredSetterOrAdminAccess } from '@/hooks/useHasRole';
 import { cn } from '@/lib/utils';
 
 export const setterLegacyViewToPath = (view: string | null | undefined) => {
@@ -28,12 +28,12 @@ export const SetterAreaLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isExpanded } = useSidebar();
-  const { session, loading: authLoading } = useAuth();
+  const { session, user, loading: authLoading } = useAuth();
   const { hasRole: isSetter, loading: setterLoading } = useHasRole('setter');
   const { hasRole: isAdmin, loading: adminLoading } = useHasRole('admin');
 
   useEffect(() => {
-    if (!authLoading && !session) {
+    if (!authLoading && !session && !user) {
       try {
         const currentRoute = `${location.pathname}${location.search}`;
         if (currentRoute !== '/auth') {
@@ -45,12 +45,16 @@ export const SetterAreaLayout = () => {
 
       navigate('/auth', { replace: true });
     }
-  }, [authLoading, location.pathname, location.search, navigate, session]);
+  }, [authLoading, location.pathname, location.search, navigate, session, user]);
 
-  const isLoading = authLoading || setterLoading || adminLoading;
-  const canAccess = !!session && (isSetter || isAdmin);
+  const storedAccess = hasStoredSetterOrAdminAccess(session?.user?.id);
+  const hasApiAccess = isSetter || isAdmin;
+  const roleChecksPending = setterLoading || adminLoading;
 
-  if (isLoading || !session) {
+  const isLoading = authLoading || (!session && !!user) || !session || (roleChecksPending && !storedAccess && !hasApiAccess);
+  const showDenied = !!session && !roleChecksPending && !hasApiAccess;
+
+  if (isLoading) {
     return (
       <div
         className={cn(
@@ -73,7 +77,7 @@ export const SetterAreaLayout = () => {
     );
   }
 
-  if (!canAccess) {
+  if (showDenied) {
     return (
       <div
         className={cn(

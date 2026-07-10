@@ -512,6 +512,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Re-check session when tab becomes visible (after initial mount)
   // Only check current session, don't refresh it (refreshSession can invalidate valid sessions)
+  const restoreSessionAfterResume = async (): Promise<Session | null> => {
+    const retryDelaysMs = [0, 400, 1200];
+
+    for (const delayMs of retryDelaysMs) {
+      if (delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+
+      const { data: { session: existingSession }, error } = await supabase.auth.getSession();
+      if (!error && existingSession) {
+        return existingSession;
+      }
+    }
+
+    const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+    if (!refreshError && refreshedSession) {
+      return refreshedSession;
+    }
+
+    return null;
+  };
+
   useEffect(() => {
     if (loading) return; // Don't interfere with initial loading
     
@@ -599,8 +621,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               }
             }, 500);
           } else if (user) {
-            // Session is null but we have a user - session expired or logged out
-            console.log('[Auth] Session is null on visibility change, clearing state');
+            console.log('[Auth] Session missing on visibility change, attempting restore before logout');
+            const restoredSession = await restoreSessionAfterResume();
+            if (restoredSession) {
+              setSession(restoredSession);
+              setUser(restoredSession.user);
+              await checkAndStoreRoles(restoredSession.user.id, restoredSession.access_token ?? '');
+              setUser((prevUser) => (prevUser ? { ...prevUser } : restoredSession.user));
+              return;
+            }
+
+            console.log('[Auth] Session could not be restored on visibility change, clearing state');
             setSession(null);
             setUser(null);
           }

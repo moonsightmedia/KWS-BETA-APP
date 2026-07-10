@@ -86,11 +86,11 @@ const checkRoleOnce = async (
   role: 'admin' | 'user' | 'setter',
   userId: string,
   accessToken: string
-): Promise<boolean> => {
+): Promise<boolean | null> => {
   if (role === 'user') return true;
   const url = import.meta.env.VITE_SUPABASE_URL;
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return false;
+  if (!url || !key) return null;
   try {
     const res = await window.fetch(
       `${url}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.${role}&select=user_id`,
@@ -105,7 +105,7 @@ const checkRoleOnce = async (
     );
     if (!res.ok) {
       console.error(`[useHasRole] user_roles fetch "${role}" failed:`, res.status, await res.text());
-      return false;
+      return null;
     }
     const data = await res.json();
     const hasRole = Array.isArray(data) && data.length > 0;
@@ -113,8 +113,15 @@ const checkRoleOnce = async (
     return hasRole;
   } catch (error) {
     console.error(`[useHasRole] Exception checking role "${role}":`, error);
-    return false;
+    return null;
   }
+};
+
+export const hasStoredSetterOrAdminAccess = (userId: string | undefined): boolean => {
+  if (!userId) return false;
+  const storedSetter = getStoredRole('setter', userId);
+  const storedAdmin = getStoredRole('admin', userId);
+  return storedSetter === true || storedAdmin === true;
 };
 
 export const useHasRole = (role: 'admin' | 'user' | 'setter') => {
@@ -151,10 +158,16 @@ export const useHasRole = (role: 'admin' | 'user' | 'setter') => {
     setLoading(true);
     try {
       const result = await checkRoleOnce(role, user.id, session?.access_token ?? '');
-      setHasRole(result);
+      if (result !== null) {
+        setHasRole(result);
+      } else if (stored !== null) {
+        setHasRole(stored);
+      }
     } catch (error) {
       console.error(`[useHasRole] Error refreshing role "${role}":`, error);
-      setHasRole(false);
+      if (stored !== null) {
+        setHasRole(stored);
+      }
     } finally {
       setLoading(false);
     }
