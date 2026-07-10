@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Check,
   FileVideo,
@@ -111,6 +111,7 @@ function EditorMediaDrop({
   onChange,
   onPick,
   useCustomPicker = false,
+  onPickerEngage,
 }: {
   label: string;
   accept: string;
@@ -121,6 +122,7 @@ function EditorMediaDrop({
   onChange: (file: File) => void;
   onPick?: () => void | Promise<void>;
   useCustomPicker?: boolean;
+  onPickerEngage?: () => void;
 }) {
   const statusText = fileName ?? existingLabel ?? 'Datei aus der Galerie wählen';
   const isSelected = Boolean(fileName || existingLabel || previewUrl);
@@ -132,16 +134,21 @@ function EditorMediaDrop({
           type="button"
           className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
           aria-label={`${label} waehlen`}
-          onClick={() => void onPick?.()}
+          onClick={() => {
+            onPickerEngage?.();
+            void onPick?.();
+          }}
         />
       ) : (
         <input
           type="file"
           accept={accept}
           className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+          onClick={() => onPickerEngage?.()}
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (file) onChange(file);
+            onPickerEngage?.();
           }}
         />
       )}
@@ -197,6 +204,25 @@ export function SetterBoulderEditorDialog({
   const [primarySectorSearch, setPrimarySectorSearch] = useState('');
   const [secondarySectorSearch, setSecondarySectorSearch] = useState('');
   const [thumbPreviewUrl, setThumbPreviewUrl] = useState<string | null>(null);
+  const suppressDialogCloseUntilRef = useRef(0);
+  const isNativeApp = isNativeVideoPipelineAvailable();
+
+  const extendDialogCloseSuppression = (durationMs = 1500) => {
+    suppressDialogCloseUntilRef.current = Date.now() + durationMs;
+  };
+
+  const shouldSuppressDialogClose = () => Date.now() < suppressDialogCloseUntilRef.current;
+
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && shouldSuppressDialogClose()) {
+      return;
+    }
+    onOpenChange(nextOpen);
+  };
+
+  const engageNativeMediaPicker = () => {
+    extendDialogCloseSuppression(8000);
+  };
 
   useEffect(() => {
     if (!open) {
@@ -299,6 +325,7 @@ export function SetterBoulderEditorDialog({
   };
 
   const handleNativeVideoSelect = async () => {
+    engageNativeMediaPicker();
     try {
       const nativeVideo = await pickNativeVideoForUpload();
       if (!nativeVideo) return;
@@ -307,6 +334,8 @@ export function SetterBoulderEditorDialog({
       const message = error instanceof Error ? error.message : 'Video konnte nicht gewaehlt werden.';
       console.error('[SetterBoulderEditorDialog] Native video picker failed:', error);
       toast.error(message);
+    } finally {
+      extendDialogCloseSuppression(1000);
     }
   };
 
@@ -324,8 +353,16 @@ export function SetterBoulderEditorDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none border-0 bg-white p-0 shadow-none sm:h-[90vh] sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl sm:border sm:border-[#DDE7DF] sm:shadow-[0_18px_45px_rgba(19,17,43,0.12)]">
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+      <DialogContent
+        className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none border-0 bg-white p-0 shadow-none sm:h-[90vh] sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl sm:border sm:border-[#DDE7DF] sm:shadow-[0_18px_45px_rgba(19,17,43,0.12)]"
+        onInteractOutside={(event) => {
+          if (isNativeApp) event.preventDefault();
+        }}
+        onPointerDownOutside={(event) => {
+          if (isNativeApp) event.preventDefault();
+        }}
+      >
         <div className="shrink-0 border-b border-[#E7F0E8] bg-white/96 px-4 py-4 backdrop-blur sm:px-6">
           <DialogHeader className="space-y-0">
             <DialogTitle className="text-[#13112B]">{title}</DialogTitle>
@@ -344,7 +381,8 @@ export function SetterBoulderEditorDialog({
                 existingLabel={draft.existingVideoUrl ? 'Video vorhanden' : null}
                 onChange={(file) => handleFileSelect('video', file)}
                 onPick={handleNativeVideoSelect}
-                useCustomPicker={isNativeVideoPipelineAvailable()}
+                useCustomPicker={isNativeApp}
+                onPickerEngage={engageNativeMediaPicker}
               />
               <EditorMediaDrop
                 label="Thumbnail"
@@ -354,6 +392,7 @@ export function SetterBoulderEditorDialog({
                 fileName={draft.thumbFile?.name}
                 existingLabel={draft.existingThumbnailUrl ? 'Thumbnail vorhanden' : null}
                 onChange={(file) => handleFileSelect('thumb', file)}
+                onPickerEngage={engageNativeMediaPicker}
               />
             </div>
             {dialogErrors.video || dialogErrors.thumb ? (

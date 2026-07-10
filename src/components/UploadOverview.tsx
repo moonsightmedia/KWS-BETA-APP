@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -14,6 +15,19 @@ export const UploadOverview = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const suppressDialogCloseUntilRef = useRef(0);
+  const isNativeApp = Capacitor.isNativePlatform();
+
+  const extendDialogCloseSuppression = (durationMs = 1500) => {
+    suppressDialogCloseUntilRef.current = Date.now() + durationMs;
+  };
+
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && Date.now() < suppressDialogCloseUntilRef.current) {
+      return;
+    }
+    setIsOpen(nextOpen);
+  };
 
   const isSetterCreate = location.pathname === '/setter/create';
 
@@ -51,9 +65,11 @@ export const UploadOverview = () => {
     if (fileInputRefs.current[sessionId]) {
       fileInputRefs.current[sessionId]!.value = '';
     }
+    extendDialogCloseSuppression(1000);
   };
 
   const triggerFileSelect = (sessionId: string) => {
+    extendDialogCloseSuppression(8000);
     fileInputRefs.current[sessionId]?.click();
   };
 
@@ -79,7 +95,7 @@ export const UploadOverview = () => {
 
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
       <DialogTrigger asChild>
         <Button
           variant="default"
@@ -115,7 +131,15 @@ export const UploadOverview = () => {
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="sm:max-w-[500px] w-full bottom-4 right-0 left-0 translate-y-0 top-auto translate-x-0 data-[state=open]:slide-in-from-bottom-10 p-0 gap-0 overflow-hidden rounded-2xl border border-[#DDE7DF] bg-white shadow-[0_18px_45px_rgba(19,17,43,0.12)] sm:left-auto sm:right-4 sm:w-[95vw]">
+      <DialogContent
+        className="sm:max-w-[500px] w-full bottom-4 right-0 left-0 translate-y-0 top-auto translate-x-0 data-[state=open]:slide-in-from-bottom-10 p-0 gap-0 overflow-hidden rounded-2xl border border-[#DDE7DF] bg-white shadow-[0_18px_45px_rgba(19,17,43,0.12)] sm:left-auto sm:right-4 sm:w-[95vw]"
+        onInteractOutside={(event) => {
+          if (isNativeApp) event.preventDefault();
+        }}
+        onPointerDownOutside={(event) => {
+          if (isNativeApp) event.preventDefault();
+        }}
+      >
         <div className="flex flex-row items-center justify-between border-b border-[#E7F0E8] bg-white p-4 text-[#13112B]">
           <div className="flex items-center gap-2">
             <CloudUpload className="w-6 h-6 text-[#69B545]" />
