@@ -17,6 +17,7 @@ import { useHasRole } from '@/hooks/useHasRole';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { cn } from '@/lib/utils';
+import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
 import { Boulder } from '@/types/boulder';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
 import {
@@ -26,24 +27,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-const LIGHT_TEXT_COLORS = new Set(['Grün', 'Blau', 'Rot', 'Schwarz', 'Lila']);
-
-const getDifficultyTextColor = (colorName: string, colorHex?: string) => {
-  if (colorHex) {
-    const hex = colorHex.replace('#', '');
-    if (hex.length === 6) {
-      const r = parseInt(hex.slice(0, 2), 16);
-      const g = parseInt(hex.slice(2, 4), 16);
-      const b = parseInt(hex.slice(4, 6), 16);
-      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-      return luminance > 0.72 ? 'text-black' : 'text-white';
-    }
-  }
-
-  return LIGHT_TEXT_COLORS.has(colorName) ? 'text-white' : 'text-black';
-};
-
 
 const STORAGE_KEY_ADMIN = 'nav_isAdmin';
 const STORAGE_KEY_SETTER = 'nav_isSetter';
@@ -710,18 +693,12 @@ const Boulders = () => {
                           }
                         }}
                       />
-                      <span
-                        className={cn(
-                          'absolute bottom-1 right-1 rounded px-1.5 py-0.5 text-[10px] font-bold backdrop-blur-sm',
-                          getDifficultyTextColor(boulder.color, boulder.colorHex)
-                        )}
-                        style={{
-                          ...(getColorBackgroundStyle(boulder.color, colors) || {}),
-                          color: undefined,
-                        }}
-                      >
-                        {boulder.difficulty === null ? '?' : boulder.difficulty}
-                      </span>
+                      <DifficultyBadge
+                        color={boulder.color}
+                        colorHex={boulder.colorHex}
+                        difficulty={boulder.difficulty}
+                        colors={colors}
+                      />
                     </div>
 
                     <div className="min-w-0 flex-1">

@@ -4,11 +4,16 @@
  * This script:
  * 1. Finds all boulders with thumbnail URLs
  * 2. Downloads thumbnails from CDN
- * 3. Compresses them (max 800px, JPEG 85% quality)
+ * 3. Compresses them (max 400px, JPEG 75% quality)
  * 4. Uploads compressed versions back to CDN
  * 5. Updates the database with new URLs
  * 
  * Usage: node scripts/compress-thumbnails.js [--dry-run]
+ *
+ * Auth (required for non-dry-run uploads): one of these in .env.local
+ * - UPLOAD_AUTH_TOKEN=<supabase access token from admin/setter session>
+ * - UPLOAD_AUTH_EMAIL + UPLOAD_AUTH_PASSWORD (admin or setter account)
+ * - SUPABASE_SERVICE_ROLE_KEY (script bootstraps a short-lived admin/setter token automatically)
  * 
  * Note: This script requires sharp, node-fetch and form-data packages
  * Install with: npm install sharp node-fetch form-data
@@ -31,7 +36,11 @@ config({ path: join(__dirname, '../.env.local') });
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const ALLINKL_API_URL = process.env.VITE_ALLINKL_API_URL || 'https://cdn.kletterwelt-sauerland.de/upload-api';
+const UPLOAD_AUTH_TOKEN = process.env.UPLOAD_AUTH_TOKEN;
+const UPLOAD_AUTH_EMAIL = process.env.UPLOAD_AUTH_EMAIL;
+const UPLOAD_AUTH_PASSWORD = process.env.UPLOAD_AUTH_PASSWORD;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('❌ Missing Supabase environment variables!');
@@ -46,8 +55,126 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   }
 });
 
+const authClient = SUPABASE_ANON_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+  : null;
+
+let cachedUploadAuthToken = UPLOAD_AUTH_TOKEN || null;
+
+async function findUploadAuthEmail() {
+  const { data: roleRows, error: roleError } = await supabase
+    .from('user_roles')
+    .select('user_id, role')
+    .in('role', ['admin', 'setter'])
+    .order('role', { ascending: true });
+
+  if (roleError) {
+    throw new Error(`Failed to resolve upload user roles: ${roleError.message}`);
+  }
+
+  const orderedUserIds = (roleRows || [])
+    .sort((a, b) => {
+      if (a.role === b.role) return 0;
+      return a.role === 'admin' ? -1 : 1;
+    })
+    .map((row) => row.user_id);
+
+  for (const userId of orderedUserIds) {
+    const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
+    if (!userError && userData.user?.email) {
+      return userData.user.email;
+    }
+  }
+
+  throw new Error('No admin/setter user with email found for upload auth');
+}
+
+async function createUploadAuthTokenFromServiceRole() {
+  if (!authClient) {
+    throw new Error('Missing VITE_SUPABASE_PUBLISHABLE_KEY for upload auth bootstrap');
+  }
+
+  const email = await findUploadAuthEmail();
+  const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+    type: 'magiclink',
+    email,
+  });
+
+  if (linkError || !linkData?.properties?.hashed_token) {
+    throw new Error(`Failed to generate upload auth link: ${linkError?.message || 'No token hash'}`);
+  }
+
+  const { data: sessionData, error: verifyError } = await authClient.auth.verifyOtp({
+    type: 'magiclink',
+    token_hash: linkData.properties.hashed_token,
+  });
+
+  if (verifyError || !sessionData.session?.access_token) {
+    throw new Error(`Failed to verify upload auth token: ${verifyError?.message || 'No session'}`);
+  }
+
+  console.log(`🔐 Upload auth bootstrapped for ${email}`);
+  return sessionData.session.access_token;
+}
+
+async function resolveUploadAuthToken() {
+  if (cachedUploadAuthToken) {
+    return cachedUploadAuthToken;
+  }
+
+  if (UPLOAD_AUTH_EMAIL && UPLOAD_AUTH_PASSWORD && authClient) {
+    const { data, error } = await authClient.auth.signInWithPassword({
+      email: UPLOAD_AUTH_EMAIL,
+      password: UPLOAD_AUTH_PASSWORD,
+    });
+
+    if (error || !data.session?.access_token) {
+      throw new Error(`Upload auth sign-in failed: ${error?.message || 'No session token'}`);
+    }
+
+    cachedUploadAuthToken = data.session.access_token;
+    return cachedUploadAuthToken;
+  }
+
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    cachedUploadAuthToken = await createUploadAuthTokenFromServiceRole();
+    return cachedUploadAuthToken;
+  }
+
+  throw new Error(
+    'Missing upload auth. Set UPLOAD_AUTH_TOKEN, UPLOAD_AUTH_EMAIL + UPLOAD_AUTH_PASSWORD, or SUPABASE_SERVICE_ROLE_KEY in .env.local',
+  );
+}
+
+function withUploadAuth(headers = {}) {
+  return {
+    ...headers,
+    Authorization: `Bearer ${cachedUploadAuthToken}`,
+    'X-Upload-Auth': `Bearer ${cachedUploadAuthToken}`,
+  };
+}
+
 // Check for dry-run flag
 const isDryRun = process.argv.includes('--dry-run');
+
+const TARGET_MAX_DIMENSION = 380;
+
+/**
+ * Returns the larger side of the image in pixels (after EXIF orientation).
+ */
+async function getImageMaxDimension(imageBuffer) {
+  const metadata = await sharp(imageBuffer).metadata();
+  let { width, height, orientation } = metadata;
+  if (orientation === 6 || orientation === 8) {
+    [width, height] = [height, width];
+  }
+  return Math.max(width || 0, height || 0);
+}
 
 /**
  * Download thumbnail from CDN
@@ -103,9 +230,8 @@ async function compressThumbnail(imageBuffer) {
       console.log(`  🔄 Rotating landscape image to portrait: ${width}x${height} → ${newWidth}x${newHeight}`);
     }
     
-    // Calculate optimal dimensions (max 200px for thumbnails - 2x for Retina displays)
-    // Thumbnails are displayed as 80-96px, so 200px is perfect for Retina (2x)
-    const maxDimension = 200;
+    // Max 400px: list thumbnails (~64px) and dashboard cards (~138px) at up to 3x Retina
+    const maxDimension = 400;
     let finalWidth = newWidth;
     let finalHeight = newHeight;
     
@@ -116,6 +242,13 @@ async function compressThumbnail(imageBuffer) {
       } else {
         finalWidth = Math.round((finalWidth / finalHeight) * maxDimension);
         finalHeight = maxDimension;
+      }
+    } else {
+      const longestSide = Math.max(finalWidth, finalHeight);
+      if (longestSide < maxDimension) {
+        const scale = maxDimension / longestSide;
+        finalWidth = Math.round(finalWidth * scale);
+        finalHeight = Math.round(finalHeight * scale);
       }
     }
     
@@ -136,7 +269,7 @@ async function compressThumbnail(imageBuffer) {
     const compressedBuffer = await pipeline
       .resize(finalWidth, finalHeight, {
         fit: 'inside',
-        withoutEnlargement: true,
+        withoutEnlargement: false,
       })
       .jpeg({
         quality: 75, // Reduced from 85% - still good quality but much smaller files
@@ -181,7 +314,7 @@ async function uploadThumbnailToAllInkl(imageBuffer, originalUrl) {
     });
     
     // Get headers from FormData (form-data package provides getHeaders())
-    const headers = formData.getHeaders();
+    const headers = withUploadAuth(formData.getHeaders());
     headers['X-File-Name'] = fileName;
     headers['X-File-Size'] = imageBuffer.length.toString();
     headers['X-File-Type'] = 'image/jpeg';
@@ -227,9 +360,9 @@ async function deleteThumbnailFromCdn(thumbnailUrl) {
     
     const response = await fetch(`${ALLINKL_API_URL}/delete.php`, {
       method: 'POST',
-      headers: {
+      headers: withUploadAuth({
         'Content-Type': 'application/json',
-      },
+      }),
       body: JSON.stringify({ url: thumbnailUrl }),
     });
     
@@ -252,6 +385,8 @@ async function compressThumbnails() {
   
   if (isDryRun) {
     console.log('🔍 DRY RUN MODE - No changes will be made\n');
+  } else {
+    await resolveUploadAuthToken();
   }
   
   // Fetch all boulders with thumbnails
@@ -311,6 +446,13 @@ async function compressThumbnails() {
       console.log(`  📥 Downloading thumbnail...`);
       const imageBuffer = await downloadThumbnail(boulder.thumbnail_url);
       console.log(`  ✅ Downloaded ${(imageBuffer.length / 1024).toFixed(1)} KB`);
+
+      const currentMaxDimension = await getImageMaxDimension(imageBuffer);
+      if (currentMaxDimension >= TARGET_MAX_DIMENSION) {
+        console.log(`  ⏭️  Skipping - already ${currentMaxDimension}px (>= ${TARGET_MAX_DIMENSION}px target)`);
+        skippedCount++;
+        continue;
+      }
       
       // Compress thumbnail (and convert to portrait if needed)
       console.log(`  🗜️  Compressing thumbnail...`);

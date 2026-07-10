@@ -232,10 +232,8 @@ export async function compressThumbnail(file: File, onProgress?: (progress: numb
         }
         // If already portrait, keep dimensions as-is
 
-        // Calculate optimal dimensions (max 200px for thumbnails - 2x for Retina displays)
-        // Thumbnails are displayed as 80-96px, so 200px is perfect for Retina (2x)
-        // This is much smaller than before (800px) for better performance
-        const maxDimension = 200;
+        // Max 400px covers dashboard cards (~138px CSS) at 3x Retina plus list thumbnails
+        const maxDimension = 400;
         let width = canvasWidth;
         let height = canvasHeight;
 
@@ -331,7 +329,7 @@ export async function compressThumbnail(file: File, onProgress?: (progress: numb
         // For thumbnails, we use lower quality (75%) for smaller file sizes
         const maxSize = 5 * 1024 * 1024; // 5MB
         const qualityLevels = [0.75, 0.65, 0.55, 0.45, 0.35, 0.25, 0.15]; // Start at 75% for thumbnails
-        const dimensionLevels = [maxDimension, 150, 120, 100]; // Progressive dimension reduction (smaller steps for thumbnails)
+        const dimensionLevels = [maxDimension, 300, 240, 200];
         
         let currentQualityIndex = 0;
         let currentDimensionIndex = 0;

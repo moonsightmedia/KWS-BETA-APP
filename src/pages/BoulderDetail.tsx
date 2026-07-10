@@ -5,24 +5,23 @@ import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 import { BoulderBetaTab, BoulderInfoTab, BoulderTrackTab } from '@/components/boulder/BoulderDetailSections';
+import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
+import {
+  BoulderVideoPlayer,
+  getVimeoEmbedUrl,
+  getYouTubeEmbedUrl,
+  isVimeoUrl,
+  isYouTubeUrl,
+} from '@/components/boulder/BoulderVideoPlayer';
 import { useSidebar } from '@/components/SidebarContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
+import { useColors } from '@/hooks/useColors';
 import { cn } from '@/lib/utils';
 import type { Boulder } from '@/types/boulder';
 
 const tabs = ['Info', 'Track', 'Beta'] as const;
 type DetailTab = (typeof tabs)[number];
-
-const gradeTextByColor: Record<string, string> = {
-  'Grün': 'text-white',
-  'Gelb': 'text-black',
-  'Blau': 'text-white',
-  'Orange': 'text-black',
-  'Rot': 'text-white',
-  'Weiß': 'text-black',
-  'Lila': 'text-white',
-};
 
 
 function getThumbnailUrl(boulder: Boulder) {
@@ -42,6 +41,7 @@ export default function BoulderDetail() {
   const navigate = useNavigate();
   const { isExpanded } = useSidebar();
   const { user, loading: authLoading } = useAuth();
+  const { data: colors } = useColors();
   const { data: boulders, isLoading } = useBouldersWithSectors(!authLoading);
   const [activeTab, setActiveTab] = useState<DetailTab>('Info');
   const [tabContentMinHeight, setTabContentMinHeight] = useState<number>(0);
@@ -50,6 +50,9 @@ export default function BoulderDetail() {
 
   const boulder = useMemo(() => boulders?.find((entry) => entry.id === id), [boulders, id]);
   const videoUrl = boulder?.betaVideoUrls?.hd || boulder?.betaVideoUrls?.sd || boulder?.betaVideoUrls?.low || boulder?.betaVideoUrl;
+  const isYouTube = videoUrl ? isYouTubeUrl(videoUrl) : false;
+  const isVimeo = videoUrl ? isVimeoUrl(videoUrl) : false;
+  const isDirectVideo = Boolean(videoUrl && !isYouTube && !isVimeo);
   const availableTabs = useMemo(() => (user ? tabs : (['Info', 'Beta'] as const)), [user]);
 
   const getScrollContainer = () => {
@@ -201,12 +204,13 @@ export default function BoulderDetail() {
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-lg font-bold text-foreground">{boulder.name}</h1>
               <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={cn('rounded-md px-2 py-0.5 text-xs font-bold', gradeTextByColor[boulder.color] || 'text-white')}
-                  style={{ backgroundColor: `${boulder.colorHex || '#36B531'}33` }}
-                >
-                  {boulder.difficulty === null ? '?' : boulder.difficulty}
-                </span>
+                <DifficultyBadge
+                  color={boulder.color}
+                  colorHex={boulder.colorHex}
+                  difficulty={boulder.difficulty}
+                  colors={colors}
+                  variant="detail"
+                />
                 <span className="text-xs text-muted-foreground">·</span>
                 <span className="text-xs text-muted-foreground">{boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}</span>
                 <span className="text-xs text-muted-foreground">·</span>
@@ -221,14 +225,33 @@ export default function BoulderDetail() {
         <div className="px-4">
           <div className="relative mx-auto flex aspect-[9/16] max-h-[60vh] items-center justify-center overflow-hidden rounded-2xl bg-secondary sm:max-w-md">
             {videoUrl ? (
-              <video
-                src={videoUrl}
-                controls
-                playsInline
-                preload="metadata"
-                poster={getThumbnailUrl(boulder)}
-                className="h-full w-full object-cover"
-              />
+              isYouTube ? (
+                <iframe
+                  src={getYouTubeEmbedUrl(videoUrl)}
+                  className="h-full w-full"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                  allowFullScreen
+                  title="YouTube video player"
+                />
+              ) : isVimeo ? (
+                <iframe
+                  src={getVimeoEmbedUrl(videoUrl)}
+                  className="h-full w-full"
+                  frameBorder="0"
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowFullScreen
+                  title="Vimeo video player"
+                />
+              ) : (
+                <BoulderVideoPlayer
+                  betaVideoUrls={boulder.betaVideoUrls}
+                  betaVideoUrl={boulder.betaVideoUrl}
+                  poster={getThumbnailUrl(boulder)}
+                  isVisible={isDirectVideo}
+                  className="h-full w-full"
+                />
+              )
             ) : (
               <>
                 <div

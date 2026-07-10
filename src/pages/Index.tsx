@@ -489,11 +489,26 @@ const Index = () => {
                 >
                   <div className="relative h-[104px] w-full overflow-hidden">
                     <img
-                      className="h-full w-full object-cover object-center"
+                      className="h-full w-full object-cover object-center transition-opacity duration-300"
                       src={getThumbnailUrl(boulder.thumbnailUrl)}
                       alt={boulder.name}
                       loading="lazy"
                       decoding="async"
+                      style={{ opacity: 0 }}
+                      onLoad={(event) => {
+                        const image = event.currentTarget;
+                        if (image.naturalWidth > image.naturalHeight) {
+                          image.style.transform = 'rotate(90deg)';
+                        }
+                        image.style.opacity = '1';
+                      }}
+                      onError={(event) => {
+                        const placeholder = getThumbnailUrl(null);
+                        if (event.currentTarget.src !== placeholder) {
+                          event.currentTarget.src = placeholder;
+                          event.currentTarget.style.opacity = '1';
+                        }
+                      }}
                     />
                     <span className="absolute bottom-2 right-2 rounded-xl bg-[#13112B]/90 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white">
                       {formatDifficulty(boulder.difficulty ?? null)}
