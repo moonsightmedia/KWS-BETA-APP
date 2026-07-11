@@ -491,7 +491,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                         },
                     });
 
-                    videoUrls = { hd: nativeUrl };
+                    videoUrls = { sd: nativeUrl };
                     url = nativeUrl;
                     console.log('[UploadContext] Native video upload completed:', nativeUrl);
                 } catch (uploadError) {
@@ -531,7 +531,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     abortSignal: abortSignal || controller?.signal,
                 });
 
-                videoUrls = { hd: originalUrl };
+                videoUrls = { sd: originalUrl };
                 url = originalUrl;
                 console.log('[UploadContext] ✅ Video upload completed:', originalUrl);
             } catch (uploadError: any) {
@@ -581,7 +581,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         } else if (!videoUrls && upload.type === 'video') {
             // Fallback: use original URL if compression failed
             console.warn('[UploadContext] ⚠️ No videoUrls available, using original URL as fallback');
-            videoUrls = { hd: url };
+            videoUrls = { sd: url };
         }
 
         await updateLog('completed', 100);

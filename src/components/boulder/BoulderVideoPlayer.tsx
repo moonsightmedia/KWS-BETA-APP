@@ -14,7 +14,12 @@ import {
 import { cn } from '@/lib/utils';
 import { VideoQualities } from '@/types/boulder';
 import { detectNetworkSpeed, getOptimalVideoQualityWithDataSaver } from '@/utils/networkUtils';
-import { getVideoUrl } from '@/utils/videoUtils';
+import {
+  getAvailableVideoQualities,
+  getPreferredVideoQuality,
+  getVideoUrl,
+  hasMultipleVideoQualities,
+} from '@/utils/videoUtils';
 
 export const isYouTubeUrl = (url: string): boolean => /youtube\.com|youtu\.be/.test(url);
 export const isVimeoUrl = (url: string): boolean => /vimeo\.com/.test(url);
@@ -53,8 +58,9 @@ export function BoulderVideoPlayer({
   const [isBuffering, setIsBuffering] = useState(false);
   const [bufferProgress, setBufferProgress] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [currentQuality, setCurrentQuality] = useState<'hd' | 'sd' | 'low'>('hd');
+  const [currentQuality, setCurrentQuality] = useState<'hd' | 'sd' | 'low'>('sd');
   const [hasError, setHasError] = useState(false);
+  const showQualitySelector = hasMultipleVideoQualities(betaVideoUrls, betaVideoUrl);
   const bufferingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasStartedPlayingRef = useRef(false);
   const playStartTimeRef = useRef<number | null>(null);
@@ -67,14 +73,23 @@ export function BoulderVideoPlayer({
   useEffect(() => {
     if (!isVisible) return;
 
+    const availableQualities = getAvailableVideoQualities(betaVideoUrls, betaVideoUrl);
+    if (availableQualities.length <= 1) {
+      setCurrentQuality(availableQualities[0] ?? 'sd');
+      retryCountRef.current = 0;
+      bufferingCountRef.current = 0;
+      lastBufferingTimeRef.current = null;
+      return;
+    }
+
     const networkSpeed = detectNetworkSpeed();
     const optimalQuality = getOptimalVideoQualityWithDataSaver(networkSpeed);
-    setCurrentQuality(optimalQuality);
+    setCurrentQuality(getPreferredVideoQuality(betaVideoUrls, betaVideoUrl, optimalQuality));
     retryCountRef.current = 0;
     bufferingCountRef.current = 0;
     lastBufferingTimeRef.current = null;
     console.log('[VideoPlayer] Network speed:', networkSpeed, 'Selected quality:', optimalQuality);
-  }, [isVisible]);
+  }, [isVisible, betaVideoUrls, betaVideoUrl]);
 
   const currentVideoUrl = getVideoUrl(betaVideoUrls, betaVideoUrl, currentQuality);
 
@@ -507,7 +522,7 @@ export function BoulderVideoPlayer({
       </video>
 
       <div className="absolute right-2 top-2 z-30 flex items-center gap-2">
-        {betaVideoUrls && (betaVideoUrls.hd || betaVideoUrls.sd || betaVideoUrls.low) ? (
+        {showQualitySelector && betaVideoUrls ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button

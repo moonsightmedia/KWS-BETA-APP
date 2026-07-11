@@ -1,5 +1,9 @@
 import { VideoQualities } from '@/types/boulder';
 
+export type VideoQualityLevel = 'hd' | 'sd' | 'low';
+
+const QUALITY_ORDER: VideoQualityLevel[] = ['hd', 'sd', 'low'];
+
 /**
  * Get the best available video URL based on quality preferences
  * @param betaVideoUrls - Object containing video URLs for different quality levels
@@ -10,7 +14,7 @@ import { VideoQualities } from '@/types/boulder';
 export function getVideoUrl(
   betaVideoUrls?: VideoQualities | null,
   betaVideoUrl?: string | null,
-  preferredQuality: 'hd' | 'sd' | 'low' = 'hd'
+  preferredQuality: VideoQualityLevel = 'sd',
 ): string | undefined {
   // Use new structure if available
   if (betaVideoUrls) {
@@ -20,14 +24,10 @@ export function getVideoUrl(
     }
     
     // Fallback to best available quality (hd > sd > low)
-    if (betaVideoUrls.hd) {
-      return betaVideoUrls.hd;
-    }
-    if (betaVideoUrls.sd) {
-      return betaVideoUrls.sd;
-    }
-    if (betaVideoUrls.low) {
-      return betaVideoUrls.low;
+    for (const quality of QUALITY_ORDER) {
+      if (betaVideoUrls[quality]) {
+        return betaVideoUrls[quality];
+      }
     }
   }
   
@@ -49,11 +49,49 @@ export function getAllVideoUrls(
     return betaVideoUrls;
   }
   
-  // Legacy: map single URL to hd
+  // Legacy: map single URL to sd (typical phone upload quality)
   if (betaVideoUrl) {
-    return { hd: betaVideoUrl };
+    return { sd: betaVideoUrl };
   }
   
   return {};
+}
+
+export function getAvailableVideoQualities(
+  betaVideoUrls?: VideoQualities | null,
+  betaVideoUrl?: string | null,
+): VideoQualityLevel[] {
+  const urls = getAllVideoUrls(betaVideoUrls, betaVideoUrl);
+  return QUALITY_ORDER.filter((quality) => Boolean(urls[quality]));
+}
+
+export function hasMultipleVideoQualities(
+  betaVideoUrls?: VideoQualities | null,
+  betaVideoUrl?: string | null,
+): boolean {
+  return getAvailableVideoQualities(betaVideoUrls, betaVideoUrl).length > 1;
+}
+
+export function getPreferredVideoQuality(
+  betaVideoUrls?: VideoQualities | null,
+  betaVideoUrl?: string | null,
+  preferredQuality: VideoQualityLevel = 'sd',
+): VideoQualityLevel {
+  const available = getAvailableVideoQualities(betaVideoUrls, betaVideoUrl);
+  if (available.length === 0) {
+    return preferredQuality;
+  }
+
+  if (available.includes(preferredQuality)) {
+    return preferredQuality;
+  }
+
+  for (const quality of ['sd', 'hd', 'low'] as const) {
+    if (available.includes(quality)) {
+      return quality;
+    }
+  }
+
+  return available[0];
 }
 
