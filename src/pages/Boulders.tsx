@@ -69,7 +69,6 @@ const Boulders = () => {
   const [showOnlyHanging, setShowOnlyHanging] = useState(true);
   const [showNew, setShowNew] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
-  const [showBetaOnly, setShowBetaOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showSort, setShowSort] = useState(false);
   const [showMap, setShowMap] = useState(false);
@@ -99,7 +98,6 @@ const Boulders = () => {
     setSectorFilter(sectorParam || 'all');
     setShowNew(showParam === 'new');
     setShowSaved(showParam === 'saved');
-    setShowBetaOnly(showParam === 'beta');
     setShowOnlyHanging(statusParam !== 'all');
   }, [searchParams]);
 
@@ -153,8 +151,7 @@ const Boulders = () => {
       const matchesStatus = showOnlyHanging ? boulder.status === 'haengt' : true;
       const matchesNew = !showNew || boulder.createdAt >= sevenDaysAgo;
       const matchesSaved = !showSaved || favoriteBoulderIds.has(boulder.id);
-      const matchesBeta = !showBetaOnly || !!boulder.betaVideoUrl;
-      return matchesSearch && matchesSector && matchesDifficulty && matchesColor && matchesStatus && matchesNew && matchesSaved && matchesBeta;
+      return matchesSearch && matchesSector && matchesDifficulty && matchesColor && matchesStatus && matchesNew && matchesSaved;
     });
 
     filtered.sort((a, b) => {
@@ -179,7 +176,7 @@ const Boulders = () => {
     });
 
     return filtered;
-  }, [boulders, colorFilter, difficultyFilter, myTrackedBoulders, searchQuery, sectorFilter, showBetaOnly, showNew, showOnlyHanging, showSaved, sortBy, sortOrder]);
+  }, [boulders, colorFilter, difficultyFilter, myTrackedBoulders, searchQuery, sectorFilter, showNew, showOnlyHanging, showSaved, sortBy, sortOrder]);
 
   const hallMapCounts = useMemo(() => {
     if (!boulders) return {};
@@ -193,8 +190,7 @@ const Boulders = () => {
         const matchesDifficulty = difficultyFilter === 'all' || (boulder.difficulty === null ? '?' : String(boulder.difficulty)) === difficultyFilter;
         const matchesColor = colorFilter === 'all' || boulder.color === colorFilter;
         const matchesStatus = showOnlyHanging ? boulder.status === 'haengt' : true;
-        const matchesBeta = !showBetaOnly || !!boulder.betaVideoUrl;
-        return matchesSearch && matchesDifficulty && matchesColor && matchesStatus && matchesBeta;
+        return matchesSearch && matchesDifficulty && matchesColor && matchesStatus;
       })
       .reduce<Record<string, number>>((accumulator, boulder) => {
         const primarySector = sectors?.find((sector) => sector.name === boulder.sector)?.id;
@@ -204,10 +200,10 @@ const Boulders = () => {
         if (secondarySector) accumulator[secondarySector] = (accumulator[secondarySector] ?? 0) + 1;
         return accumulator;
       }, {});
-  }, [boulders, colorFilter, difficultyFilter, searchQuery, sectors, showBetaOnly, showOnlyHanging]);
+  }, [boulders, colorFilter, difficultyFilter, searchQuery, sectors, showOnlyHanging]);
 
   const activeSectorLabel = sectorFilter === 'all' ? 'Alle Sektoren' : sectorFilter;
-  const activeFilterCount = [sectorFilter !== 'all', difficultyFilter !== 'all', colorFilter !== 'all', showNew, showSaved, showBetaOnly, !showOnlyHanging].filter(Boolean).length;
+  const activeFilterCount = [sectorFilter !== 'all', difficultyFilter !== 'all', colorFilter !== 'all', showNew, showSaved, !showOnlyHanging].filter(Boolean).length;
   const hasCustomSorting = sortBy !== 'date' || sortOrder !== 'desc';
 
   const clearFilters = () => {
@@ -216,8 +212,41 @@ const Boulders = () => {
     setColorFilter('all');
     setShowNew(false);
     setShowSaved(false);
-    setShowBetaOnly(false);
     setShowOnlyHanging(true);
+  };
+
+  const scrollPageToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.documentElement.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const toggleToolbarPanel = (panel: 'filters' | 'sort' | 'map') => {
+    if (panel === 'filters') {
+      setShowFilters((prev) => {
+        if (!prev) scrollPageToTop();
+        return !prev;
+      });
+      setShowSort(false);
+      setShowMap(false);
+      return;
+    }
+
+    if (panel === 'sort') {
+      setShowSort((prev) => {
+        if (!prev) scrollPageToTop();
+        return !prev;
+      });
+      setShowFilters(false);
+      setShowMap(false);
+      return;
+    }
+
+    setShowMap((prev) => {
+      if (!prev) scrollPageToTop();
+      return !prev;
+    });
+    setShowFilters(false);
+    setShowSort(false);
   };
 
   const handleBoulderClick = (boulderId: string) => {
@@ -333,11 +362,7 @@ const Boulders = () => {
         <div className='flex shrink-0 gap-2'>
           <button
             type='button'
-            onClick={() => {
-              setShowMap((prev) => !prev);
-              setShowFilters(false);
-              setShowSort(false);
-            }}
+            onClick={() => toggleToolbarPanel('map')}
             className={cn(
               'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors',
               showMap ? 'bg-primary' : 'bg-secondary'
@@ -348,11 +373,7 @@ const Boulders = () => {
           </button>
           <button
             type='button'
-            onClick={() => {
-              setShowSort((prev) => !prev);
-              setShowFilters(false);
-              setShowMap(false);
-            }}
+            onClick={() => toggleToolbarPanel('sort')}
             className={cn(
               'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors',
               showSort ? 'bg-primary' : 'bg-secondary'
@@ -368,11 +389,7 @@ const Boulders = () => {
           </button>
           <button
             type='button'
-            onClick={() => {
-              setShowFilters((prev) => !prev);
-              setShowSort(false);
-              setShowMap(false);
-            }}
+            onClick={() => toggleToolbarPanel('filters')}
             className={cn(
               'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors',
               showFilters ? 'bg-primary' : 'bg-secondary'
@@ -422,17 +439,6 @@ const Boulders = () => {
         >
           <Bookmark className='h-3 w-3' />
           Gespeichert
-        </button>
-        <button
-          type='button'
-          onClick={() => setShowBetaOnly((prev) => !prev)}
-            className={cn(
-              'flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all',
-              showBetaOnly ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'
-            )}
-        >
-          <Sparkles className='h-3 w-3' />
-          Mit Beta
         </button>
         {sectorFilter !== 'all' && (
           <button type='button' onClick={() => setSectorFilter('all')} className='flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground'>
