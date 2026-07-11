@@ -506,69 +506,71 @@ export function BoulderVideoPlayer({
         Dein Browser unterstuetzt keine Videos.
       </video>
 
-      {betaVideoUrls && (betaVideoUrls.hd || betaVideoUrls.sd || betaVideoUrls.low) && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="absolute left-2 top-2 z-30 flex cursor-pointer items-center gap-1 rounded-md border-0 bg-black/70 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm transition-all hover:bg-black/80 sm:text-sm"
-              onClick={(event) => {
-                event.stopPropagation();
-                event.preventDefault();
-              }}
-              onMouseDown={(event) => {
-                event.stopPropagation();
-              }}
-            >
-              <Settings className="h-3 w-3" />
-              {currentQuality.toUpperCase()}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            className="z-[120] w-32"
-            onPointerDownOutside={(event) => {
-              const target = event.target as HTMLElement;
-              if (target.closest('[role="dialog"]')) {
-                event.preventDefault();
-              }
-            }}
-          >
-            <DropdownMenuLabel>Qualitaet</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuRadioGroup
-              value={currentQuality}
-              onValueChange={(value) => {
-                const newQuality = value as 'hd' | 'sd' | 'low';
-                if (newQuality === currentQuality) return;
-
-                const video = videoRef.current;
-                if (video && video.duration > 0) {
-                  playbackStateRef.current = {
-                    time: video.currentTime,
-                    wasPlaying: !video.paused,
-                  };
+      <div className="absolute right-2 top-2 z-30 flex items-center gap-2">
+        {betaVideoUrls && (betaVideoUrls.hd || betaVideoUrls.sd || betaVideoUrls.low) ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex cursor-pointer items-center gap-1 rounded-md border-0 bg-black/70 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm transition-all hover:bg-black/80 sm:text-sm"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  event.preventDefault();
+                }}
+                onMouseDown={(event) => {
+                  event.stopPropagation();
+                }}
+              >
+                <Settings className="h-3 w-3" />
+                {currentQuality.toUpperCase()}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="z-[120] w-32"
+              onPointerDownOutside={(event) => {
+                const target = event.target as HTMLElement;
+                if (target.closest('[role="dialog"]')) {
+                  event.preventDefault();
                 }
-
-                setCurrentQuality(newQuality);
               }}
             >
-              {betaVideoUrls.hd && <DropdownMenuRadioItem value="hd">HD (1920p)</DropdownMenuRadioItem>}
-              {betaVideoUrls.sd && <DropdownMenuRadioItem value="sd">SD (1280p)</DropdownMenuRadioItem>}
-              {betaVideoUrls.low && <DropdownMenuRadioItem value="low">Low (640p)</DropdownMenuRadioItem>}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+              <DropdownMenuLabel>Qualitaet</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuRadioGroup
+                value={currentQuality}
+                onValueChange={(value) => {
+                  const newQuality = value as 'hd' | 'sd' | 'low';
+                  if (newQuality === currentQuality) return;
 
-      <button
-        onClick={toggleFullscreen}
-        className="absolute right-2 top-2 z-20 rounded-lg bg-black/60 p-2 text-white backdrop-blur-sm transition-all hover:bg-black/80"
-        aria-label={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
-        title={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
-      >
-        {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-      </button>
+                  const video = videoRef.current;
+                  if (video && video.duration > 0) {
+                    playbackStateRef.current = {
+                      time: video.currentTime,
+                      wasPlaying: !video.paused,
+                    };
+                  }
+
+                  setCurrentQuality(newQuality);
+                }}
+              >
+                {betaVideoUrls.hd && <DropdownMenuRadioItem value="hd">HD (1920p)</DropdownMenuRadioItem>}
+                {betaVideoUrls.sd && <DropdownMenuRadioItem value="sd">SD (1280p)</DropdownMenuRadioItem>}
+                {betaVideoUrls.low && <DropdownMenuRadioItem value="low">Low (640p)</DropdownMenuRadioItem>}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+
+        <button
+          onClick={toggleFullscreen}
+          className="rounded-lg bg-black/60 p-2 text-white backdrop-blur-sm transition-all hover:bg-black/80"
+          aria-label={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
+          title={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
+        >
+          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </button>
+      </div>
 
       {isBuffering && bufferProgress < 100 && (
         <div className="pointer-events-none absolute inset-x-4 bottom-4 rounded-full bg-black/45 px-3 py-2 text-center text-xs font-medium text-white backdrop-blur-sm">

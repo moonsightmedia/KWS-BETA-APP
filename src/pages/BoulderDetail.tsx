@@ -172,7 +172,7 @@ export default function BoulderDetail() {
               </div>
             </div>
           </div>
-          <div className="px-4 pb-24 lg:px-8">
+          <div className="px-4 pb-24 pt-5 sm:pt-6 lg:px-8 lg:pt-8">
             <div className="mx-auto w-full max-w-7xl">
               <div className="lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start lg:gap-x-10 xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] xl:gap-x-12">
                 <div className="aspect-[9/16] max-h-[min(60vh,720px)] animate-pulse rounded-2xl bg-secondary sm:mx-auto sm:max-w-md lg:mx-0 lg:max-h-[calc(100vh-8rem)] lg:max-w-none" />
@@ -230,7 +230,7 @@ export default function BoulderDetail() {
           </div>
         </div>
 
-        <div className="mx-auto w-full max-w-7xl px-4 lg:px-8">
+        <div className="mx-auto w-full max-w-7xl px-4 pt-5 sm:pt-6 lg:px-8 lg:pt-8">
           <div className="lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start lg:gap-x-10 xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] xl:gap-x-12">
             <section className="lg:sticky lg:top-28 lg:self-start">
               <div className="relative mx-auto flex aspect-[9/16] max-h-[min(60vh,720px)] w-full max-w-md items-center justify-center overflow-hidden rounded-2xl bg-secondary lg:mx-0 lg:max-h-[calc(100vh-8rem)] lg:max-w-none">
