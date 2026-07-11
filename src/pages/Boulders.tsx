@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, Check, ChevronRight, LayoutDashboard, Map, Search, Settings, Shield, SlidersHorizontal, Sparkles, Star, User, Wrench, X } from 'lucide-react';
@@ -72,6 +72,8 @@ const Boulders = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showSort, setShowSort] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const openPanelsRef = useRef({ filters: false, sort: false, map: false });
 
   const { data: colors } = useColors();
   const { user, loading: authLoading } = useAuth();
@@ -129,6 +131,38 @@ const Boulders = () => {
       return () => clearTimeout(timeoutId);
     }
   }, [authLoading, user, queryClient]);
+
+  const scrollPageToTop = () => {
+    const scrollTargets = [
+      document.scrollingElement,
+      document.documentElement,
+      document.body,
+    ].filter((element): element is Element => element instanceof Element);
+
+    scrollTargets.forEach((element) => {
+      element.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    headerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  useLayoutEffect(() => {
+    const justOpened =
+      (showFilters && !openPanelsRef.current.filters) ||
+      (showSort && !openPanelsRef.current.sort) ||
+      (showMap && !openPanelsRef.current.map);
+
+    openPanelsRef.current = { filters: showFilters, sort: showSort, map: showMap };
+
+    if (!justOpened) return;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollPageToTop();
+      });
+    });
+  }, [showFilters, showSort, showMap]);
 
   const filteredAndSortedBoulders = useMemo(() => {
     if (!boulders) return [];
@@ -215,36 +249,22 @@ const Boulders = () => {
     setShowOnlyHanging(true);
   };
 
-  const scrollPageToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    document.documentElement.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   const toggleToolbarPanel = (panel: 'filters' | 'sort' | 'map') => {
     if (panel === 'filters') {
-      setShowFilters((prev) => {
-        if (!prev) scrollPageToTop();
-        return !prev;
-      });
+      setShowFilters((prev) => !prev);
       setShowSort(false);
       setShowMap(false);
       return;
     }
 
     if (panel === 'sort') {
-      setShowSort((prev) => {
-        if (!prev) scrollPageToTop();
-        return !prev;
-      });
+      setShowSort((prev) => !prev);
       setShowFilters(false);
       setShowMap(false);
       return;
     }
 
-    setShowMap((prev) => {
-      if (!prev) scrollPageToTop();
-      return !prev;
-    });
+    setShowMap((prev) => !prev);
     setShowFilters(false);
     setShowSort(false);
   };
@@ -302,7 +322,7 @@ const Boulders = () => {
   };
 
   const pageHeader = (
-    <div className="sticky top-0 z-10 border-b border-border bg-background/80 px-4 pt-12 pb-3 backdrop-blur-xl">
+    <div ref={headerRef} id="boulder-page-header" className="sticky top-0 z-10 border-b border-border bg-background/80 px-4 pt-12 pb-3 backdrop-blur-xl">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <DropdownMenu>
