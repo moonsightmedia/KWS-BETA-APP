@@ -296,7 +296,7 @@ async function compressThumbnail(imageBuffer) {
 /**
  * Upload thumbnail to All-Inkl
  */
-async function uploadThumbnailToAllInkl(imageBuffer, originalUrl) {
+async function uploadThumbnailToAllInkl(imageBuffer, originalUrl, sectorId) {
   try {
     // Extract filename from URL
     const urlParts = originalUrl.split('/');
@@ -321,6 +321,9 @@ async function uploadThumbnailToAllInkl(imageBuffer, originalUrl) {
     headers['X-Chunk-Number'] = '0';
     headers['X-Total-Chunks'] = '1';
     headers['X-Upload-Session-Id'] = uploadSessionId;
+    if (sectorId) {
+      headers['X-Sector-Id'] = sectorId;
+    }
     
     const response = await fetch(`${ALLINKL_API_URL}/upload.php`, {
       method: 'POST',
@@ -338,6 +341,11 @@ async function uploadThumbnailToAllInkl(imageBuffer, originalUrl) {
     // The API returns 'status' and 'url' for completed uploads
     if (result.status !== 'completed' || !result.url) {
       throw new Error(`Upload failed: ${JSON.stringify(result)}`);
+    }
+
+    const verifyResponse = await fetch(result.url, { method: 'GET' });
+    if (!verifyResponse.ok) {
+      throw new Error(`Uploaded URL not reachable: ${verifyResponse.status} ${result.url}`);
     }
     
     return result.url;
@@ -393,7 +401,7 @@ async function compressThumbnails() {
   console.log('📥 Fetching boulders with thumbnails...');
   const { data: boulders, error } = await supabase
     .from('boulders')
-    .select('id, name, thumbnail_url')
+    .select('id, name, thumbnail_url, sector_id')
     .not('thumbnail_url', 'is', null);
   
   if (error) {
@@ -477,7 +485,7 @@ async function compressThumbnails() {
       
       // Upload compressed thumbnail
       console.log(`  📤 Uploading compressed thumbnail...`);
-      const newUrl = await uploadThumbnailToAllInkl(compressedBuffer, boulder.thumbnail_url);
+      const newUrl = await uploadThumbnailToAllInkl(compressedBuffer, boulder.thumbnail_url, boulder.sector_id);
       
       // Update database
       console.log(`  💾 Updating database...`);

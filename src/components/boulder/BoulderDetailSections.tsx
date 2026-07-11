@@ -461,11 +461,11 @@ function SessionSheet({
 
 function AttributeGrid({ attributes }: { attributes: BoulderCommunityAttribute[] }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4">
       {attributes.map((attribute) => {
         const Icon = getBoulderAttributeIcon(attribute);
         return (
-          <span key={attribute.id} className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-secondary px-3 py-2.5 text-muted-foreground">
+          <span key={attribute.id} className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-secondary px-3 py-2.5 text-center text-muted-foreground">
             <Icon className="h-4 w-4" />
             <span className="text-[10px] font-semibold text-foreground">{attribute.label}</span>
           </span>
@@ -1247,7 +1247,7 @@ export function BoulderBetaTab({ boulder }: { boulder: Boulder }) {
     <div className="space-y-4">
       <div>
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Beta Videos</h4>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2 lg:grid-cols-4 xl:grid-cols-5">
           {betaCards.map((beta) => (
             <button
               key={beta.id}
