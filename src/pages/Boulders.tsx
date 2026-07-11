@@ -201,12 +201,12 @@ const Boulders = () => {
           break;
         }
         case 'date':
-          result = b.createdAt.getTime() - a.createdAt.getTime();
+          result = a.createdAt.getTime() - b.createdAt.getTime();
           break;
         default:
           result = 0;
       }
-      return sortOrder === 'asc' ? -result : result;
+      return sortOrder === 'asc' ? result : -result;
     });
 
     return filtered;
