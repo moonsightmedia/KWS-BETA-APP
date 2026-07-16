@@ -59,7 +59,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { session } = useAuth(); // CRITICAL: Get session from useAuth for RLS after reload
   const [uploads, setUploads] = useState<ActiveUpload[]>([]);
   const abortControllersRef = useRef<Record<string, AbortController>>({});
-  const MAX_CONCURRENT_UPLOADS = 4; // Maximum number of simultaneous uploads
+  const MAX_CONCURRENT_UPLOADS = 1; // Keep mobile uploads stable; videos can exhaust memory/network when parallel.
   const processingRef = useRef<Set<string>>(new Set()); // Track which uploads are being processed
 
   const withTimeout = useCallback(async <T,>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> => {
@@ -212,6 +212,37 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (logError) {
       console.warn('[UploadContext] ⚠️ Failed to update upload log (non-critical):', logError);
     }
+  }, [getFreshSession]);
+
+  const deleteUploadLog = useCallback(async (sessionId: string): Promise<boolean> => {
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+      console.warn('[UploadContext] ⚠️ Cannot delete log - missing config');
+      return false;
+    }
+
+    const activeSession = await getFreshSession();
+    const response = await window.fetch(
+      `${SUPABASE_URL}/rest/v1/upload_logs?session_id=eq.${sessionId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${activeSession.access_token}`,
+          'Prefer': 'return=minimal',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.warn('[UploadContext] Failed to delete upload log:', response.status, errorText);
+      return false;
+    }
+
+    return true;
   }, [getFreshSession]);
 
   const processUpload = async (upload: ActiveUpload, abortSignal?: AbortSignal) => {
@@ -637,26 +668,23 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [processQueue]);
 
   const resumeUpload = useCallback(async (sessionId: string, file: File) => {
-     let targetUpload: ActiveUpload | undefined;
+     const existingUpload = uploads.find(u => u.sessionId === sessionId);
+     if (!existingUpload) {
+       throw new Error('Upload nicht gefunden');
+     }
+
+     const targetUpload: ActiveUpload = { ...existingUpload, file, status: 'pending', error: undefined };
      
      setUploads(prev => {
-         return prev.map(u => {
-             if (u.sessionId === sessionId) {
-                 targetUpload = { ...u, file, status: 'pending', error: undefined };
-                 return targetUpload;
-             }
-             return u;
-         });
+         return prev.map(u => u.sessionId === sessionId ? targetUpload : u);
      });
      
-     if (targetUpload) {
-         processingRef.current.add(targetUpload.sessionId);
-         processUpload(targetUpload).catch(err => {
-           console.error('Error resuming upload:', err);
-           processingRef.current.delete(targetUpload.sessionId);
-         });
-     }
-  }, []);
+     processingRef.current.add(targetUpload.sessionId);
+     processUpload(targetUpload).catch(err => {
+       console.error('Error resuming upload:', err);
+       processingRef.current.delete(targetUpload.sessionId);
+     });
+  }, [uploads]);
 
   const cancelUpload = useCallback(async (sessionId: string) => {
     setUploads(prev => {
@@ -698,52 +726,27 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
     }
 
-    // Try to delete from DB log first
-    const { data: deletedData, error: deleteError } = await supabase
-        .from('upload_logs')
-        .delete()
-        .eq('session_id', sessionId)
-        .select();
-
-    if (deleteError) {
-        // If delete fails (e.g., RLS policy), mark it as deleted so it won't be restored
-        console.warn('[UploadContext] Failed to delete upload log, marking as removed:', deleteError);
-        const { error: updateError } = await supabase
-            .from('upload_logs')
-            .update({ 
-                status: 'failed', 
-                error: 'Upload entfernt',
-                updated_at: new Date().toISOString()
-            })
-            .eq('session_id', sessionId);
-        
-        if (updateError) {
-            console.error('[UploadContext] Failed to mark upload as removed:', updateError);
-        } else {
-            console.log('[UploadContext] Upload marked as removed in DB');
+    try {
+        const deleted = await deleteUploadLog(sessionId);
+        if (!deleted) {
+            await updateUploadLog(sessionId, {
+                status: 'failed',
+                error: 'Upload entfernt'
+            });
         }
-    } else {
-        if (deletedData && deletedData.length > 0) {
-            console.log('[UploadContext] Upload log deleted from DB:', sessionId);
-        } else {
-            console.warn('[UploadContext] No upload log found to delete, marking as removed:', sessionId);
-            // If nothing was deleted, try to mark it anyway
-            await supabase
-                .from('upload_logs')
-                .update({ 
-                    status: 'failed', 
-                    error: 'Upload entfernt',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('session_id', sessionId);
-        }
+    } catch (error) {
+        console.warn('[UploadContext] Failed to remove upload log, marking as removed:', error);
+        await updateUploadLog(sessionId, {
+            status: 'failed',
+            error: 'Upload entfernt'
+        });
     }
 
     delete abortControllersRef.current[sessionId];
     
     // Remove from local state
     setUploads(prev => prev.filter(u => u.sessionId !== sessionId));
-  }, [uploads]);
+  }, [deleteUploadLog, updateUploadLog, uploads]);
 
   // Initial Restore
   useEffect(() => {
@@ -829,4 +832,3 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     </UploadContext.Provider>
   );
 };
-

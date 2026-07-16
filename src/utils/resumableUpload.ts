@@ -140,6 +140,11 @@ export async function resumableUpload(
         onProgress(percent);
     }
 
+    const shouldForceCompletion = uploadedChunks.length === totalChunks && totalChunks > 0;
+    if (shouldForceCompletion) {
+      console.log('[Upload] All chunks already present, re-sending last chunk to force completion...');
+    }
+
     // 2. Upload missing chunks
     for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
       // Check if aborted before each chunk
@@ -147,7 +152,8 @@ export async function resumableUpload(
         throw new DOMException('Upload aborted', 'AbortError');
       }
 
-      if (uploadedChunks.includes(chunkIndex)) {
+      const isCompletionRetry = shouldForceCompletion && chunkIndex === totalChunks - 1;
+      if (uploadedChunks.includes(chunkIndex) && !isCompletionRetry) {
         continue;
       }
 
@@ -233,12 +239,10 @@ export async function resumableUpload(
           if (onProgress) {
             // Recalculate progress based on completed chunks + this one
             // Note: This is a simple progress, valid for sequential upload
-            const currentProgress = ((uploadedChunks.length + 1) / totalChunks) * 100;
-            // We don't add to uploadedChunks array here to keep loop simple, 
-            // but logic holds if we assume success means it's done.
-            // Better: track locally
-            uploadedChunks.push(chunkIndex);
-             onProgress((uploadedChunks.length / totalChunks) * 100);
+            if (!uploadedChunks.includes(chunkIndex)) {
+              uploadedChunks.push(chunkIndex);
+            }
+            onProgress((uploadedChunks.length / totalChunks) * 100);
           }
           
           break; // Success, move to next chunk
@@ -265,12 +269,9 @@ export async function resumableUpload(
     // In our PHP script, sending the last chunk triggers merge.
     // If we resumed and all chunks are already there, we might need a specific "complete" endpoint or just re-send last chunk.
     
-    // Edge case: All chunks already uploaded but we didn't get the URL (e.g. browser crashed right before receiving response)
-    // We can try to send the last chunk again to force merge/response.
+    // Edge case: all chunks were present and the final retry still did not return a URL.
     if (uploadedChunks.length === totalChunks) {
-         console.log('[Upload] All chunks present, re-sending last chunk to trigger completion...');
-         // Re-upload last chunk logic... (simplified: just throw error for now or rely on user retry)
-         throw new Error('Upload seems complete but no URL received. Please retry.');
+         throw new Error('Upload scheint vollständig zu sein, aber der Server hat keine finale URL zurückgegeben. Bitte erneut versuchen.');
     }
 
     throw new Error('Upload finished but no URL returned');
@@ -279,4 +280,3 @@ export async function resumableUpload(
     releaseWakeLock();
   }
 }
-
