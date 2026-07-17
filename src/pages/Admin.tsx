@@ -69,6 +69,7 @@ const Admin = () => {
     "min-w-0 h-10 rounded-lg border border-[#DDE7DF] bg-white px-4 text-sm text-[#13112B] data-[state=active]:border-[#36B531] data-[state=active]:bg-[#F7FBF7] data-[state=active]:text-[#13112B]";
   const settingsTabTriggerClassName =
     "min-w-0 h-10 rounded-lg border border-[#DDE7DF] bg-white px-4 text-sm text-[#13112B] data-[state=active]:border-[#36B531] data-[state=active]:bg-[#F7FBF7] data-[state=active]:text-[#13112B]";
+  const isCompetitionEnabled = import.meta.env.VITE_ENABLE_COMPETITION === 'true';
 
   if (loading) {
     return (
@@ -144,7 +145,7 @@ const Admin = () => {
             </TabsContent>
 
             {/* Temporarily hidden */}
-            {false && (
+            {isCompetitionEnabled && (
               <TabsContent value="competition" className="mt-0">
                 <CompetitionBoulderManagement />
               </TabsContent>
@@ -201,7 +202,7 @@ const Admin = () => {
               </div>
             )}
             {/* Temporarily hidden */}
-            {false && searchParams.get('tab') === 'competition' && (
+            {isCompetitionEnabled && searchParams.get('tab') === 'competition' && (
               <div className="mt-0">
                 <CompetitionBoulderManagement />
               </div>

@@ -18,6 +18,7 @@ import type { HallMap, MapPoint, SectorMapRegion } from '@/types/hallMap';
 type ScheduleEntry = PublicSectorSchedule & {
   sectorName: string;
   sector: Sector | null;
+  sequenceNumber: number;
 };
 
 type ScheduleGroup = {
@@ -129,7 +130,7 @@ function buildScheduleGroups(schedule: PublicSectorSchedule[] | undefined, secto
   (schedule ?? [])
     .filter((item) => new Date(item.scheduled_at).getTime() >= now.getTime())
     .sort((left, right) => new Date(left.scheduled_at).getTime() - new Date(right.scheduled_at).getTime())
-    .forEach((item) => {
+    .forEach((item, index) => {
       const date = new Date(item.scheduled_at);
       const key = getDateKey(date);
       const group =
@@ -146,6 +147,7 @@ function buildScheduleGroups(schedule: PublicSectorSchedule[] | undefined, secto
         ...item,
         sector,
         sectorName: sector?.name ?? 'Unbekannter Sektor',
+        sequenceNumber: index + 1,
       });
       groups.set(key, group);
     });
@@ -175,10 +177,10 @@ function buildFallbackRegions(sectors: Sector[]): SectorMapRegion[] {
 
 function TvScheduleMap({
   sectors,
-  activeSectorIds,
+  sectorOrderById,
 }: {
   sectors: Sector[];
-  activeSectorIds: Set<string>;
+  sectorOrderById: Map<string, number>;
 }) {
   const [imageError, setImageError] = useState(false);
   const { data: activeMap, isLoading: isLoadingMap } = usePublicActiveHallMap();
@@ -246,11 +248,14 @@ function TvScheduleMap({
       />
       <svg viewBox={`0 0 ${mapWidth} ${mapHeight}`} preserveAspectRatio="xMidYMid meet" className="absolute inset-0 h-full w-full">
         {renderedRegions.map(({ region, sector }) => {
-          const isActive = activeSectorIds.has(sector.id);
+          const sequenceNumber = sectorOrderById.get(sector.id);
+          const isActive = sequenceNumber !== undefined;
           const centroid = getCentroid(region);
           const x = (centroid.x / 100) * mapWidth;
           const y = (centroid.y / 100) * mapHeight;
-          const labelWidth = Math.max(17 * mapUnit, Math.min(34 * mapUnit, sector.name.length * 1.45 * mapUnit + 8 * mapUnit));
+          const labelWidth = Math.max(21 * mapUnit, Math.min(40 * mapUnit, sector.name.length * 1.35 * mapUnit + 13 * mapUnit));
+          const labelX = x - labelWidth / 2;
+          const badgeX = labelX + 4.3 * mapUnit;
 
           return (
             <g key={region.id}>
@@ -263,7 +268,7 @@ function TvScheduleMap({
               {isActive ? (
                 <g>
                   <rect
-                    x={x - labelWidth / 2}
+                    x={labelX}
                     y={y - 3.7 * mapUnit}
                     width={labelWidth}
                     height={7.4 * mapUnit}
@@ -272,11 +277,27 @@ function TvScheduleMap({
                     stroke="rgba(105, 181, 69, 0.8)"
                     strokeWidth={0.38 * mapUnit}
                   />
+                  <circle
+                    cx={badgeX}
+                    cy={y}
+                    r={2.55 * mapUnit}
+                    fill="#69B545"
+                  />
                   <text
-                    x={x}
-                    y={y + 1.15 * mapUnit}
+                    x={badgeX}
+                    y={y + 0.82 * mapUnit}
                     textAnchor="middle"
-                    fontSize={2.45 * mapUnit}
+                    fontSize={2.25 * mapUnit}
+                    fill="#ffffff"
+                    fontWeight="900"
+                  >
+                    {sequenceNumber}
+                  </text>
+                  <text
+                    x={labelX + 8.2 * mapUnit}
+                    y={y + 1.15 * mapUnit}
+                    textAnchor="start"
+                    fontSize={2.3 * mapUnit}
                     fill="#ffffff"
                     fontWeight="800"
                   >
@@ -319,8 +340,16 @@ const TvSchedule = () => {
   }, []);
 
   const groups = useMemo(() => buildScheduleGroups(schedule, sectors), [schedule, sectors]);
-  const activeSectorIds = useMemo(
-    () => new Set(groups.flatMap((group) => group.entries.map((entry) => entry.sector_id))),
+  const sectorOrderById = useMemo(
+    () =>
+      groups
+        .flatMap((group) => group.entries)
+        .reduce((orderMap, entry) => {
+          if (!orderMap.has(entry.sector_id)) {
+            orderMap.set(entry.sector_id, entry.sequenceNumber);
+          }
+          return orderMap;
+        }, new Map<string, number>()),
     [groups],
   );
   const hasError = !!sectorsError || !!scheduleError;
@@ -353,18 +382,19 @@ const TvSchedule = () => {
 
         <section className="grid min-h-0 grid-cols-1 xl:grid-cols-[minmax(0,1.35fr)_minmax(420px,0.65fr)]">
           <div className="relative min-h-[42vh] overflow-hidden border-b border-[#DDE7DF] bg-[#F9FAF9] xl:min-h-0 xl:border-b-0 xl:border-r">
-            <TvScheduleMap sectors={sectors} activeSectorIds={activeSectorIds} />
-            <div className="pointer-events-none absolute left-6 top-6 rounded-lg border border-[#DDE7DF] bg-white/92 px-4 py-3 text-[#13112B] shadow-[0_8px_24px_rgba(19,17,43,0.06)] backdrop-blur">
-              <p className="text-[0.72rem] font-bold uppercase tracking-[0.22em] text-[#6E806A]">Geplante Sektoren</p>
-              <p className="mt-1 font-heading text-[clamp(2rem,3.5vw,3.7rem)] leading-none">{activeSectorIds.size}</p>
-            </div>
+            <TvScheduleMap sectors={sectors} sectorOrderById={sectorOrderById} />
           </div>
 
           <aside className="flex min-h-0 flex-col bg-white text-[#13112B]">
             <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[#DDE7DF] px-[clamp(1rem,2vw,2rem)] py-[clamp(0.9rem,1.6vh,1.4rem)]">
               <div>
                 <p className="text-[0.76rem] font-bold uppercase tracking-[0.22em] text-[#6E806A]">Nächste Termine</p>
-                <p className="mt-1 font-heading text-[clamp(1.9rem,3vw,3.4rem)] leading-none">{groups.length} Tage</p>
+                <p className="mt-1 font-heading text-[clamp(1.9rem,3vw,3.4rem)] leading-none">
+                  {groups.length} {groups.length === 1 ? 'Termintag' : 'Termintage'}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-[#13112B]/52">
+                  {sectorOrderById.size} {sectorOrderById.size === 1 ? 'Sektor' : 'Sektoren'} in Reihenfolge
+                </p>
               </div>
               <div className={cn('flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold', isFetching ? 'border-[#69B545]/35 bg-[#EAF5E7] text-[#347D2F]' : 'border-[#DDE7DF] bg-[#F9FAF9] text-[#6E806A]')}>
                 <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
@@ -415,7 +445,10 @@ const TvSchedule = () => {
 
                       <div className="mt-[clamp(0.55rem,1vh,0.9rem)] grid gap-[clamp(0.5rem,0.85vh,0.75rem)]">
                         {group.entries.slice(0, groupIndex === 0 ? 5 : 3).map((entry) => (
-                          <article key={entry.id} className="grid grid-cols-[auto_minmax(0,1fr)] gap-4 rounded-lg border border-[#DDE7DF] bg-[#F9FAF9] px-[clamp(0.8rem,1.2vw,1.25rem)] py-[clamp(0.7rem,1vh,1rem)]">
+                          <article key={entry.id} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-4 rounded-lg border border-[#DDE7DF] bg-[#F9FAF9] px-[clamp(0.8rem,1.2vw,1.25rem)] py-[clamp(0.7rem,1vh,1rem)]">
+                            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#69B545] text-lg font-extrabold text-white">
+                              {entry.sequenceNumber}
+                            </div>
                             <div className="flex min-w-[5.4rem] items-center gap-2 text-[#17641D]">
                               <Clock className="h-5 w-5" />
                               <span className="font-heading text-[clamp(1.7rem,2.6vw,2.8rem)] leading-none">{formatTime(entry.scheduled_at)}</span>

@@ -97,6 +97,13 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
     setIsOpen(true);
   };
 
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      localStorage.setItem('hasSeenOnboarding', 'true');
+    }
+  };
+
   const handleNext = () => {
     if (currentStep < ONBOARDING_STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
@@ -123,7 +130,7 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
           currentStep={currentStep}
           onNext={handleNext}
           onFinish={handleFinish}
-          onOpenChange={setIsOpen}
+          onOpenChange={handleOpenChange}
         />
       )}
     </OnboardingContext.Provider>

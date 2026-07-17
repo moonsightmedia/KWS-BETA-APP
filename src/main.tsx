@@ -5,12 +5,15 @@ const DEV_LOG_PREFIXES = [
   '[Root]',
   '[Index]',
   '[Route]',
+  '[RouterInit]',
+  '[RequireAuth]',
   '[Supabase Client]',
   '[useBoulders]',
   '[useSectors]',
   '[useNotifications]',
   '[UploadContext]',
   '[CacheUtils]',
+  '[PullToRefresh]',
   '[PushNotifications]',
   '[useColors]',
   '[PreloadSectorImages]',
@@ -22,7 +25,7 @@ const DEV_LOG_SUBSTRINGS = [
   'Service Worker unregistered',
 ];
 
-if (import.meta.env.DEV && !KWS_VERBOSE && typeof window !== 'undefined') {
+if (!KWS_VERBOSE && typeof window !== 'undefined') {
   const shouldSuppress = (args: unknown[]) => {
     const first = args[0];
     if (typeof first !== 'string') {
@@ -35,6 +38,7 @@ if (import.meta.env.DEV && !KWS_VERBOSE && typeof window !== 'undefined') {
 
   const originalLog = console.log.bind(console);
   const originalDebug = console.debug.bind(console);
+  const originalInfo = console.info.bind(console);
   const originalWarn = console.warn.bind(console);
 
   console.log = (...args: unknown[]) => {
@@ -47,6 +51,11 @@ if (import.meta.env.DEV && !KWS_VERBOSE && typeof window !== 'undefined') {
     originalDebug(...args);
   };
 
+  console.info = (...args: unknown[]) => {
+    if (shouldSuppress(args)) return;
+    originalInfo(...args);
+  };
+
   console.warn = (...args: unknown[]) => {
     if (shouldSuppress(args)) return;
     originalWarn(...args);
@@ -56,20 +65,34 @@ if (KWS_VERBOSE) console.log('[Main] 🚀 Loading application v3 - Cache busted'
 if (KWS_VERBOSE) console.log('[Main] 🔍 Checking if fetch was already overridden in index.html:', { windowFetch: typeof window.fetch, hasIndexOverride: window.fetch?.toString?.()?.includes('Index HTML Fetch Override') });
 
 // Keep the override in main.tsx as a backup, but index.html should have already done it
-const originalFetch = window.fetch;
+const originalFetch = window.__KWS_NATIVE_FETCH ?? window.fetch.bind(window);
+window.__KWS_NATIVE_FETCH = originalFetch;
 let fetchCallCount = 0;
 
 window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const urlString = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
   const urlObj = new URL(urlString, window.location.origin);
+  const requestMethod = init?.method || (input instanceof Request ? input.method : 'GET');
   
   // Only intercept Supabase requests
   const isSupabaseRequest = urlObj.hostname.includes('supabase.co') || 
                             urlObj.hostname.includes('supabase.io') ||
                             urlObj.hostname.includes('.supabase.co') ||
                             urlObj.hostname.includes('.supabase.io');
+
+  const isSupabaseStorageRequest = isSupabaseRequest && urlObj.pathname.includes('/storage/v1/object/');
   
   if (isSupabaseRequest) {
+    if (isSupabaseStorageRequest) {
+      if (KWS_VERBOSE) {
+        console.log('[Main Fetch Override] Bypassing Supabase storage request:', {
+          url: urlObj.href,
+          method: requestMethod,
+        });
+      }
+      return originalFetch(input, init);
+    }
+
     fetchCallCount++;
     const callId = fetchCallCount;
     const startTime = Date.now();
@@ -143,7 +166,7 @@ window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Pro
       
       // Build requestInit with all properties explicitly set
       const requestInit: RequestInit = {
-        method: init?.method || (input instanceof Request ? input.method : 'GET'),
+        method: requestMethod,
         headers: finalHeaders, // Use processed headers
         body: body, // CRITICAL: Explicitly set body for Firefox compatibility
         cache: 'no-store' as RequestCache,

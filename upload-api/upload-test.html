@@ -284,7 +284,7 @@
         function showResult(type, message) {
             const resultDiv = document.getElementById('result');
             resultDiv.className = `result ${type}`;
-            resultDiv.innerHTML = message;
+            resultDiv.textContent = message;
         }
 
         function formatBytes(bytes) {

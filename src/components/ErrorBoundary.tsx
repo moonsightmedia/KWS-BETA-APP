@@ -45,7 +45,25 @@ export class ErrorBoundary extends Component<Props, State> {
     }
   }
 
-  static getDerivedStateFromError(error: Error): Partial<State> {
+  /**
+   * Checks if an error is an AbortError (expected during navigation).
+   */
+  private static isAbortError(error: Error): boolean {
+    return (
+      error.name === 'AbortError' ||
+      error.message?.includes('AbortError') ||
+      error.message?.includes('The operation was aborted')
+    );
+  }
+
+  static getDerivedStateFromError(error: Error): Partial<State> | null {
+    // Skip AbortErrors - these are expected during navigation/component unmount
+    if (ErrorBoundary.isAbortError(error)) {
+      if (import.meta.env.DEV) {
+        console.log('[ErrorBoundary] Ignoring AbortError (expected during navigation)');
+      }
+      return null; // Don't update state, let the error pass through silently
+    }
     return {
       hasError: true,
       error,
@@ -53,6 +71,14 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    // Skip AbortErrors - these are expected during navigation
+    if (ErrorBoundary.isAbortError(error)) {
+      if (import.meta.env.DEV) {
+        console.log('[ErrorBoundary] Ignoring AbortError in componentDidCatch (expected during navigation)');
+      }
+      return;
+    }
+
     // Log error to console in development
     if (import.meta.env.DEV) {
       console.error('[ErrorBoundary] Caught error:', error, errorInfo);

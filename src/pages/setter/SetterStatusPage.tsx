@@ -379,9 +379,9 @@ const SetterStatusPage = () => {
     try {
       await bulkStatusUpdate.mutateAsync({ ids, status });
       applySelectionBehavior(ids, selectionBehavior);
-      toast.success(status === 'haengt' ? 'Boulder h\u00E4ngen wieder.' : 'Boulder wurden abgeschraubt.');
+      toast.success(status === 'haengt' ? 'Boulder hängen wieder.' : 'Boulder wurden abgeschraubt.');
     } catch (error) {
-      toast.error('Fehler beim \u00C4ndern des Status');
+      toast.error('Fehler beim Ändern des Status');
       console.error('[SetterStatusPage] status update failed', error);
     } finally {
       setActiveAction(null);
@@ -804,7 +804,7 @@ const SetterStatusPage = () => {
         <div className="fixed inset-x-4 bottom-[calc(88px+env(safe-area-inset-bottom,0px))] z-[125] md:bottom-6 md:left-auto md:right-6 md:w-auto">
           <div className={cn('rounded-2xl border border-border bg-card p-2', surfaceShadowClassName)}>
             <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-              {`${selectedIds.size} ausgew\u00E4hlt`}
+              {`${selectedIds.size} ausgewählt`}
             </div>
             <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2">
               <Button
@@ -819,7 +819,7 @@ const SetterStatusPage = () => {
                 ) : (
                   <CheckCircle2 className="h-4 w-4" />
                 )}
-                {'H\u00E4ngt'}
+                    {'Hängt'}
               </Button>
               <Button
                 type="button"

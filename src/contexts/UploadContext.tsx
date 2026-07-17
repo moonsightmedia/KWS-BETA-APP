@@ -135,8 +135,66 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { session } = useAuth(); // CRITICAL: Get session from useAuth for RLS after reload
   const [uploads, setUploads] = useState<ActiveUpload[]>([]);
   const abortControllersRef = useRef<Record<string, AbortController>>({});
-  const MAX_CONCURRENT_UPLOADS = 4; // Maximum number of simultaneous uploads
+  const MAX_CONCURRENT_UPLOADS = 1; // Keep mobile uploads stable; videos can exhaust memory/network when parallel.
   const processingRef = useRef<Set<string>>(new Set()); // Track which uploads are being processed
+
+  const withTimeout = useCallback(async <T,>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> => {
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs)
+    );
+
+    return Promise.race([promise, timeoutPromise]);
+  }, []);
+
+  const getFreshSession = useCallback(async () => {
+    let currentSession = session ?? null;
+
+    try {
+      const sessionResult = await withTimeout(
+        supabase.auth.getSession(),
+        5000,
+        'Session timeout after 5s'
+      );
+      const fetchedSession = sessionResult?.data?.session ?? null;
+      if (fetchedSession?.access_token) {
+        currentSession = fetchedSession;
+      }
+    } catch (error) {
+      console.warn('[UploadContext] ⚠️ Could not refresh session via getSession():', error);
+    }
+
+    if (!currentSession?.access_token) {
+      throw new Error('Keine aktive Session. Bitte melde dich an.');
+    }
+
+    const expiresAt = currentSession.expires_at ? currentSession.expires_at * 1000 : null;
+    const isExpiringSoon = expiresAt !== null && expiresAt - Date.now() < 60_000;
+
+    if (isExpiringSoon) {
+      try {
+        console.log('[UploadContext] 🔄 Session expiring soon, refreshing token...');
+        const refreshResult = await withTimeout(
+          supabase.auth.refreshSession(),
+          8000,
+          'Session refresh timeout after 8s'
+        );
+        const refreshedSession = refreshResult?.data?.session ?? null;
+
+        if (refreshedSession?.access_token) {
+          currentSession = refreshedSession;
+          console.log('[UploadContext] ✅ Session token refreshed');
+        }
+      } catch (error) {
+        console.warn('[UploadContext] ⚠️ Session refresh failed, using current token:', error);
+      }
+    }
+
+    if (!currentSession?.access_token) {
+      throw new Error('Keine aktive Session. Bitte melde dich an.');
+    }
+
+    return currentSession;
+  }, [session, withTimeout]);
 
   // Helper function to check and start queued uploads
   const processQueue = useCallback(() => {
@@ -218,11 +276,6 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Helper function to update upload log using direct fetch
   const updateUploadLog = useCallback(async (sessionId: string, updates: { status?: string; error?: string | null; progress?: number }) => {
-    if (!session?.access_token) {
-      console.warn('[UploadContext] ⚠️ Cannot update log - no session');
-      return;
-    }
-
     const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
     const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
@@ -232,6 +285,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     try {
+      const activeSession = await getFreshSession();
       const updateData: any = { updated_at: new Date().toISOString() };
       if (updates.status !== undefined) updateData.status = updates.status;
       if (updates.error !== undefined) updateData.error = updates.error;
@@ -243,7 +297,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           method: 'PATCH',
           headers: {
             'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${activeSession.access_token}`,
             'Content-Type': 'application/json',
             'Prefer': 'return=minimal',
           },
@@ -253,7 +307,38 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (logError) {
       console.warn('[UploadContext] ⚠️ Failed to update upload log (non-critical):', logError);
     }
-  }, [session]);
+  }, [getFreshSession]);
+
+  const deleteUploadLog = useCallback(async (sessionId: string): Promise<boolean> => {
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+      console.warn('[UploadContext] ⚠️ Cannot delete log - missing config');
+      return false;
+    }
+
+    const activeSession = await getFreshSession();
+    const response = await window.fetch(
+      `${SUPABASE_URL}/rest/v1/upload_logs?session_id=eq.${sessionId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${activeSession.access_token}`,
+          'Prefer': 'return=minimal',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.warn('[UploadContext] Failed to delete upload log:', response.status, errorText);
+      return false;
+    }
+
+    return true;
+  }, [getFreshSession]);
 
   const processUpload = async (upload: ActiveUpload, abortSignal?: AbortSignal) => {
     console.log('[UploadContext] 🔵 processUpload called:', { 
@@ -285,42 +370,10 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     console.log('[UploadContext] ✅ Upload status updated');
 
     try {
-        // CRITICAL: Get session at runtime (not from render-time) to avoid stale session
-        // This session will be used throughout the entire upload process
-        console.log('[UploadContext] 🔍 Getting session for upload process...');
-        let currentSession = session;
-        
-        // If session is not available, try to get it with timeout
-        if (!currentSession?.access_token) {
-            console.log('[UploadContext] ⚠️ Session not available from useAuth, fetching...');
-            const sessionPromise = supabase.auth.getSession();
-            const timeoutPromise = new Promise<never>((_, reject) => 
-                setTimeout(() => reject(new Error('Session timeout after 5s')), 5000)
-            );
-            
-            try {
-                const sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
-                const { data: { session: fetchedSession }, error: sessionError } = sessionResult as any;
-                
-                if (sessionError) {
-                    console.error('[UploadContext] ❌ Error getting session:', sessionError);
-                    throw new Error(`Session error: ${sessionError.message}`);
-                }
-                
-                if (!fetchedSession?.access_token) {
-                    console.error('[UploadContext] ❌ No session available after fetch');
-                    throw new Error('Keine aktive Session. Bitte melde dich an.');
-                }
-                
-                currentSession = fetchedSession;
-                console.log('[UploadContext] ✅ Session fetched successfully');
-            } catch (timeoutError: any) {
-                console.error('[UploadContext] ❌ Session timeout or error:', timeoutError);
-                throw new Error('Keine aktive Session. Bitte melde dich an.');
-            }
-        }
-        
-        console.log('[UploadContext] ✅ Session available for upload process');
+        // CRITICAL: Always ensure we use a fresh session for REST calls.
+        console.log('[UploadContext] 🔍 Getting fresh session for upload process...');
+        const currentSession = await getFreshSession();
+        console.log('[UploadContext] ✅ Fresh session available for upload process');
         
         // Helper to update DB logs
         const updateLog = async (status: string, progress?: number, error?: string) => {
@@ -595,11 +648,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             throw new Error('Supabase-Konfiguration fehlt');
         }
 
-        // Use currentSession (already fetched at the start of processUpload)
-        if (!currentSession?.access_token) {
-            console.error('[UploadContext] ❌ No session available for boulder update');
-            throw new Error('Keine aktive Session. Bitte melde dich an.');
-        }
+        // Ensure token is still valid after potentially long upload duration.
+        const finalSession = await getFreshSession();
 
         // Build update data: use beta_video_urls if available, otherwise fallback to beta_video_url
         const updateData = upload.type === 'video' 
@@ -619,7 +669,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 method: 'PATCH',
                 headers: {
                     'apikey': SUPABASE_KEY,
-                    'Authorization': `Bearer ${currentSession.access_token}`,
+                    'Authorization': `Bearer ${finalSession.access_token}`,
                     'Content-Type': 'application/json',
                     'Prefer': 'return=minimal',
                 },
@@ -826,35 +876,32 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [processQueue]);
 
   const resumeUpload = useCallback(async (sessionId: string, file: UploadFileInput) => {
-     let targetUpload: ActiveUpload | undefined;
+     const existingUpload = uploads.find(u => u.sessionId === sessionId);
+     if (!existingUpload) {
+       throw new Error('Upload nicht gefunden');
+     }
+
      const nativeFile = isNativeVideoUploadFile(file) ? file : undefined;
-     
+     const targetUpload: ActiveUpload = {
+       ...existingUpload,
+       file: nativeFile ? null : file as File,
+       nativeFile,
+       fileName: getUploadInputName(file),
+       fileSize: getUploadInputSize(file),
+       status: 'pending',
+       error: undefined,
+     };
+
      setUploads(prev => {
-         return prev.map(u => {
-             if (u.sessionId === sessionId) {
-                 targetUpload = {
-                   ...u,
-                   file: nativeFile ? null : file as File,
-                   nativeFile,
-                   fileName: getUploadInputName(file),
-                   fileSize: getUploadInputSize(file),
-                   status: 'pending',
-                   error: undefined,
-                 };
-                 return targetUpload;
-             }
-             return u;
-         });
+         return prev.map(u => u.sessionId === sessionId ? targetUpload : u);
      });
      
-     if (targetUpload) {
-         processingRef.current.add(targetUpload.sessionId);
-         processUpload(targetUpload).catch(err => {
-           console.error('Error resuming upload:', err);
-           processingRef.current.delete(targetUpload.sessionId);
-         });
-     }
-  }, []);
+     processingRef.current.add(targetUpload.sessionId);
+     processUpload(targetUpload).catch(err => {
+       console.error('Error resuming upload:', err);
+       processingRef.current.delete(targetUpload.sessionId);
+     });
+  }, [uploads]);
 
   const cancelUpload = useCallback(async (sessionId: string) => {
     setUploads(prev => {
@@ -904,52 +951,27 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         await deleteNativeVideoFile(upload.nativeFile.path);
     }
 
-    // Try to delete from DB log first
-    const { data: deletedData, error: deleteError } = await supabase
-        .from('upload_logs')
-        .delete()
-        .eq('session_id', sessionId)
-        .select();
-
-    if (deleteError) {
-        // If delete fails (e.g., RLS policy), mark it as deleted so it won't be restored
-        console.warn('[UploadContext] Failed to delete upload log, marking as removed:', deleteError);
-        const { error: updateError } = await supabase
-            .from('upload_logs')
-            .update({ 
-                status: 'failed', 
-                error: 'Upload entfernt',
-                updated_at: new Date().toISOString()
-            })
-            .eq('session_id', sessionId);
-        
-        if (updateError) {
-            console.error('[UploadContext] Failed to mark upload as removed:', updateError);
-        } else {
-            console.log('[UploadContext] Upload marked as removed in DB');
+    try {
+        const deleted = await deleteUploadLog(sessionId);
+        if (!deleted) {
+            await updateUploadLog(sessionId, {
+                status: 'failed',
+                error: 'Upload entfernt'
+            });
         }
-    } else {
-        if (deletedData && deletedData.length > 0) {
-            console.log('[UploadContext] Upload log deleted from DB:', sessionId);
-        } else {
-            console.warn('[UploadContext] No upload log found to delete, marking as removed:', sessionId);
-            // If nothing was deleted, try to mark it anyway
-            await supabase
-                .from('upload_logs')
-                .update({ 
-                    status: 'failed', 
-                    error: 'Upload entfernt',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('session_id', sessionId);
-        }
+    } catch (error) {
+        console.warn('[UploadContext] Failed to remove upload log, marking as removed:', error);
+        await updateUploadLog(sessionId, {
+            status: 'failed',
+            error: 'Upload entfernt'
+        });
     }
 
     delete abortControllersRef.current[sessionId];
     
     // Remove from local state
     setUploads(prev => prev.filter(u => u.sessionId !== sessionId));
-  }, [uploads]);
+  }, [deleteUploadLog, updateUploadLog, uploads]);
 
   // Initial Restore
   useEffect(() => {
@@ -1055,4 +1077,3 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     </UploadContext.Provider>
   );
 };
-

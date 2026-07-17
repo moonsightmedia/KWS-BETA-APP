@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
+
+type UserMetadata = Record<string, unknown>;
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -26,10 +28,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient(); // Get queryClient at component level
 
   // Sync function to transfer user_metadata to profiles table
-  const syncMetadataToProfiles = async (userId: string, metadata: any) => {
+  const syncMetadataToProfiles = async (userId: string, metadata: UserMetadata | null | undefined) => {
     if (!userId) return;
     
-    const payload: any = {};
+    const payload: Record<string, unknown> = {};
     // Sync first_name if it exists and is not empty
     if (metadata?.first_name !== undefined && metadata.first_name !== null && String(metadata.first_name).trim() !== '') {
       payload.first_name = String(metadata.first_name).trim();
@@ -116,7 +118,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Versuche zuerst ein Update (falls es zwischenzeitlich erstellt wurde), dann Insert
           console.warn('[Profile Sync] Profil existiert immer noch nicht nach Retry. Versuche es selbst zu erstellen...');
           
-          const createPayload: any = {
+          const createPayload: Record<string, unknown> = {
             id: userId,
             email: metadata?.email || null,
             ...payload
@@ -278,7 +280,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 setTimeout(async () => {
                   try {
                     const { refetchOnVisibilityChange } = await import('@/utils/cacheUtils');
-                    const queryClient = (window as any).__queryClient;
+                    const queryClient = (window as Window & { __queryClient?: { clear: () => void } }).__queryClient;
                     if (queryClient) {
                       await refetchOnVisibilityChange(queryClient);
                     }
@@ -297,7 +299,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // Sync user_metadata to profiles table when session becomes available
             // This happens on SIGNED_IN, TOKEN_REFRESHED, and INITIAL_SESSION events
             if (session?.user) {
-              const meta = session.user.user_metadata as any;
+              const meta = session.user.user_metadata as UserMetadata;
               // Always try to sync - even if metadata is empty, we might need to update email
               // Add email to metadata if not present
               const metadataWithEmail = {
@@ -343,7 +345,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               
               console.log('[Auth] Critical data prefetch initiated');
             }
-          } catch (error: any) {
+          } catch (error: unknown) {
             // Ignore storage access errors
             if (error?.message?.includes('storage') || error?.message?.includes('Storage')) {
               console.warn('[Auth] Storage error in auth state change (ignored):', error.message);
@@ -364,7 +366,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       );
       subscription = sub;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Ignore storage access errors when setting up auth state listener
       if (error?.message?.includes('storage') || error?.message?.includes('Storage')) {
         console.warn('[Auth] Storage error setting up auth listener (ignored):', error.message);
@@ -428,7 +430,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         // Also sync on initial session load
         if (session?.user) {
-          const meta = session.user.user_metadata as any;
+          const meta = session.user.user_metadata as UserMetadata;
           // Always try to sync - even if metadata is empty, we might need to update email
           // Add email to metadata if not present
           const metadataWithEmail = {
@@ -461,7 +463,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             await checkAndStoreRoles(session.user.id, session.access_token ?? '');
           }
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (!mounted) return;
         
         // Ignore storage-related errors
@@ -612,7 +614,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setTimeout(async () => {
               try {
                 const { refetchOnVisibilityChange } = await import('@/utils/cacheUtils');
-                const queryClient = (window as any).__queryClient;
+                const queryClient = (window as Window & { __queryClient?: { clear: () => void } }).__queryClient;
                 if (queryClient) {
                   await refetchOnVisibilityChange(queryClient);
                 }
@@ -682,11 +684,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  async function withSingleRetry<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch (error: any) {
+      const msg = String(error?.message || '').toLowerCase();
+      const looksTransient = msg.includes('network') || msg.includes('fetch') || msg.includes('timeout') || msg.includes('failed to fetch');
+      if (!looksTransient) throw error;
+      // one short retry for intermittent network/backend hiccups
+      await new Promise((resolve) => setTimeout(resolve, 450));
+      return await operation();
+    }
+  }
+
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await withSingleRetry(() => supabase.auth.signInWithPassword({
       email,
       password,
-    });
+    }));
     
     if (error) {
       // User-friendly German error messages
@@ -715,7 +730,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signUp = async (email: string, password: string, meta?: { firstName?: string; lastName?: string; birthDate?: string }) => {
-    const redirectUrl = `${window.location.origin}/auth`;
+    const redirectUrl = `${window.location.origin}/auth/callback?next=/`;
     
     // Validate email format before sending to Supabase
     const emailTrimmed = email.trim();
@@ -732,7 +747,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const fullName = [firstName, lastName].filter(Boolean).join(' ').trim() || undefined;
     const birthDate = meta?.birthDate?.trim() || undefined;
     
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await withSingleRetry(() => supabase.auth.signUp({
       email: emailTrimmed,
       password,
       options: {
@@ -744,13 +759,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           birth_date: birthDate || null,
         }
       }
-    });
+    }));
     
     if (error) {
       // User-friendly error messages with more specific checks
       let errorMessage = 'Registrierung fehlgeschlagen';
       const errorMsgLower = error.message.toLowerCase();
-      const errorCode = (error as any).status || (error as any).code;
+      const authError = error as { status?: number; code?: string | number };
+      const errorCode = authError.status || authError.code;
       
       // Check for specific error types
       if (errorMsgLower.includes('already registered') || 
@@ -802,9 +818,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.error('Bitte E-Mail-Adresse eingeben.');
       return;
     }
+    const redirectUrl = `${window.location.origin}/auth/callback?next=/`;
     const { data, error } = await supabase.auth.resend({
       type: 'signup',
       email: emailTrimmed,
+      options: {
+        emailRedirectTo: redirectUrl,
+      },
     });
     if (error) {
       const msg = error.message.toLowerCase();
@@ -833,7 +853,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await Promise.race([signOutPromise, timeoutPromise]);
       signOutSuccess = true;
       console.log('[Auth] ✅ Supabase sign out successful');
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If timeout or error, we'll continue with local logout anyway
       console.warn('[Auth] Sign out timeout or error (continuing with local logout):', error);
     }
@@ -907,9 +927,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const resetPassword = async (email: string) => {
     const redirectUrl = `${window.location.origin}/auth`;
     
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await withSingleRetry(() => supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl
-    });
+    }));
     
     if (error) {
       // User-friendly German error messages

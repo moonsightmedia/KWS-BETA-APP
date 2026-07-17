@@ -426,6 +426,8 @@ export function SetterBoulderEditorDialog({
                   }}
                   compact
                   frameless
+                  showCounts={false}
+                  disablePanZoom
                 />
               ) : (
                 <div className="rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FCFDFC] px-4 py-5 text-sm text-[#13112B]/58">
@@ -614,6 +616,8 @@ export function SetterBoulderEditorDialog({
                     }}
                     compact
                     frameless
+                    showCounts={false}
+                    disablePanZoom
                   />
                 ) : (
                   <div className="rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FCFDFC] px-4 py-5 text-sm text-[#13112B]/58">

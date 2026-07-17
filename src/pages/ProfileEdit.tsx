@@ -11,27 +11,70 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { deleteProfileAvatar, uploadProfileAvatar } from '@/integrations/supabase/storage';
-import { supabaseRestRequest } from '@/lib/supabaseRest';
+import { fetchProfileRecord, updateProfileRecord } from '@/lib/profileCompat';
 
 const AUTH_UPDATE_TIMEOUT_MS = 10_000;
+const AVATAR_UPLOAD_TIMEOUT_MS = 45_000;
+const PROFILE_SAVE_TIMEOUT_MS = 12_000;
+const AVATAR_CLEANUP_TIMEOUT_MS = 5_000;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+  let timeoutId: number | undefined;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+    }
+  }
+}
 
 async function updateAuthUserWithTimeout(
   update: Parameters<typeof supabase.auth.updateUser>[0],
   timeoutMessage: string,
 ) {
+  let timeoutId: number | undefined;
+
   const timeoutPromise = new Promise<never>((_, reject) => {
-    window.setTimeout(() => {
+    timeoutId = window.setTimeout(() => {
       reject(new Error(timeoutMessage));
     }, AUTH_UPDATE_TIMEOUT_MS);
   });
 
-  const result = await Promise.race([
-    supabase.auth.updateUser(update),
-    timeoutPromise,
-  ]);
+  try {
+    const result = await Promise.race([
+      supabase.auth.updateUser(update),
+      timeoutPromise,
+    ]);
 
-  if (result.error) {
-    throw result.error;
+    if (result.error) {
+      throw result.error;
+    }
+  } finally {
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+    }
+  }
+}
+
+async function cleanupAvatarBestEffort(imageUrl: string | null) {
+  if (!imageUrl) return;
+
+  try {
+    await withTimeout(
+      deleteProfileAvatar(imageUrl),
+      AVATAR_CLEANUP_TIMEOUT_MS,
+      'Die Bereinigung des alten Profilbilds hat zu lange gedauert.',
+    );
+  } catch (error) {
+    console.warn('[Profile Avatar Cleanup] Cleanup skipped:', error);
   }
 }
 
@@ -86,25 +129,17 @@ const ProfileEdit = () => {
 
       try {
         if (cancelled) return;
-        const data = await supabaseRestRequest<Array<{
-          first_name: string | null;
-          last_name: string | null;
-          full_name: string | null;
-          email: string | null;
-        }>>(
-          `/rest/v1/profiles?id=eq.${user.id}&select=first_name,last_name,full_name,email&limit=1`,
-          { accessToken: session?.access_token },
-        );
+        const data = await fetchProfileRecord(user.id, session?.access_token);
 
         const profileName =
-          data[0]?.full_name?.trim() ||
-          [data[0]?.first_name, data[0]?.last_name].filter(Boolean).join(' ').trim() ||
+          data?.full_name?.trim() ||
+          [data?.first_name, data?.last_name].filter(Boolean).join(' ').trim() ||
           fallbackName;
-        const nextAvatarUrl = metadataAvatarUrl || null;
+        const nextAvatarUrl = metadataAvatarUrl || data?.avatar_url || null;
 
         setForm({
           name: profileName,
-          email: data[0]?.email || user.email || '',
+          email: data?.email || user.email || '',
           avatarUrl: nextAvatarUrl,
         });
         setInitialAvatarUrl(nextAvatarUrl);
@@ -185,6 +220,7 @@ const ProfileEdit = () => {
     setSaving(true);
 
     let uploadedAvatarUrl: string | null = null;
+    let saveStage = 'initialisieren';
 
     try {
       const nameParts = trimmedName.split(' ').filter(Boolean);
@@ -192,9 +228,15 @@ const ProfileEdit = () => {
       const lastName = nameParts.slice(1).join(' ').trim() || null;
       let nextAvatarUrl = form.avatarUrl;
       const emailChanged = trimmedEmail !== (user.email || '');
+      const avatarChanged = nextAvatarUrl !== initialAvatarUrl || Boolean(avatarFile);
 
       if (avatarFile) {
-        uploadedAvatarUrl = await uploadProfileAvatar(avatarFile, user.id);
+        saveStage = 'Profilbild hochladen';
+        uploadedAvatarUrl = await withTimeout(
+          uploadProfileAvatar(avatarFile, user.id, session?.access_token),
+          AVATAR_UPLOAD_TIMEOUT_MS,
+          'Das Profilbild konnte nicht rechtzeitig hochgeladen werden. Bitte versuche es erneut.',
+        );
         nextAvatarUrl = uploadedAvatarUrl;
       }
 
@@ -207,45 +249,52 @@ const ProfileEdit = () => {
       };
 
       if (emailChanged) {
+        saveStage = 'E-Mail aktualisieren';
         await updateAuthUserWithTimeout(
           { email: trimmedEmail, data: { ...metadata, email: trimmedEmail } },
           'Die neue E-Mail-Adresse konnte nicht rechtzeitig gespeichert werden.',
         );
       }
 
-      await supabaseRestRequest(
-        `/rest/v1/profiles?id=eq.${user.id}`,
-        {
-          accessToken: session?.access_token,
-          method: 'PATCH',
-          prefer: 'return=minimal',
-          body: {
-          first_name: firstName,
-          last_name: lastName,
-          full_name: trimmedName,
-          email: trimmedEmail,
+      saveStage = 'Profil speichern';
+      await withTimeout(
+        updateProfileRecord(
+          user.id,
+          {
+            first_name: firstName,
+            last_name: lastName,
+            full_name: trimmedName,
+            email: trimmedEmail,
+            avatar_url: nextAvatarUrl,
           },
-        },
+          session?.access_token,
+        ),
+        PROFILE_SAVE_TIMEOUT_MS,
+        'Das Profil konnte nicht rechtzeitig gespeichert werden. Bitte versuche es erneut.',
       );
 
       if (!emailChanged) {
         void updateAuthUserWithTimeout(
           { data: { ...metadata, email: trimmedEmail } },
-          'Die Kontodaten konnten nicht rechtzeitig synchronisiert werden.',
+          avatarChanged
+            ? 'Das Profilbild konnte nicht rechtzeitig synchronisiert werden.'
+            : 'Die Kontodaten konnten nicht rechtzeitig synchronisiert werden.',
         ).catch(() => {
           // Das sichtbare Profil kommt aus `profiles`; ein hängender Metadaten-Sync darf den Flow nicht blockieren.
         });
       }
 
       if (initialAvatarUrl && initialAvatarUrl !== nextAvatarUrl) {
-        await deleteProfileAvatar(initialAvatarUrl);
+        saveStage = 'Altes Profilbild bereinigen';
+        void cleanupAvatarBestEffort(initialAvatarUrl);
       }
 
+      saveStage = 'Abschließen';
       toast.success('Profil gespeichert', {
         description:
           emailChanged
-            ? 'Bitte best\u00E4tige gegebenenfalls deine neue E-Mail-Adresse.'
-            : 'Deine \u00C4nderungen wurden gespeichert.',
+            ? 'Bitte bestätige gegebenenfalls deine neue E-Mail-Adresse.'
+            : 'Deine Änderungen wurden gespeichert.',
       });
 
       setInitialAvatarUrl(nextAvatarUrl);
@@ -253,8 +302,17 @@ const ProfileEdit = () => {
       setAvatarFile(null);
       navigate('/profile', { replace: true });
     } catch (error: unknown) {
+      console.error('[Profile Edit] Save failed:', {
+        stage: saveStage,
+        userId: user.id,
+        hasAvatarFile: Boolean(avatarFile),
+        initialAvatarUrl,
+        uploadedAvatarUrl,
+        error,
+      });
+
       if (uploadedAvatarUrl && uploadedAvatarUrl !== initialAvatarUrl) {
-        await deleteProfileAvatar(uploadedAvatarUrl);
+        void cleanupAvatarBestEffort(uploadedAvatarUrl);
       }
 
       toast.error('Speichern fehlgeschlagen', {
@@ -270,7 +328,7 @@ const ProfileEdit = () => {
 
     if (!email) {
       toast.error('Keine E-Mail-Adresse gefunden.', {
-        description: 'Bitte hinterlege zuerst eine g\u00FCltige E-Mail-Adresse.',
+        description: 'Bitte hinterlege zuerst eine gültige E-Mail-Adresse.',
       });
       return;
     }
@@ -290,7 +348,7 @@ const ProfileEdit = () => {
             type="button"
             onClick={() => navigate(-1)}
             className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary transition-colors active:scale-95"
-            aria-label={'Zur\u00FCck'}
+            aria-label="Zurück"
           >
             <ArrowLeft className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -333,7 +391,7 @@ const ProfileEdit = () => {
               onClick={() => fileInputRef.current?.click()}
             >
               <Camera className="mr-2 h-4 w-4" />
-              {displayAvatarUrl ? 'Bild ersetzen' : 'Bild ausw\u00E4hlen'}
+              {displayAvatarUrl ? 'Bild ersetzen' : 'Bild auswählen'}
             </Button>
 
             {displayAvatarUrl ? (
@@ -386,7 +444,7 @@ const ProfileEdit = () => {
           <Button
             onClick={handleSave}
             disabled={saving || loadingProfile}
-            className="h-12 w-full rounded-xl bg-[#69B545] font-semibold text-white hover:bg-[#5FA039]"
+            className="h-12 w-full rounded-xl bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
           >
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Speichern
@@ -399,7 +457,7 @@ const ProfileEdit = () => {
             disabled={loadingProfile || saving}
             className="h-12 w-full rounded-xl font-medium"
           >
-            {'Passwort \u00E4ndern'}
+            Passwort ändern
           </Button>
         </div>
       </div>

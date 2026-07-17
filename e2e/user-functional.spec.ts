@@ -3,6 +3,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const testEmail = process.env.E2E_TEST_EMAIL;
 const testPassword = process.env.E2E_TEST_PASSWORD;
+const resetTestEmail = process.env.E2E_RESET_EMAIL || testEmail;
 const envFile = readFileSync('.env.local', 'utf8');
 
 function getEnvValue(key: string) {
@@ -37,6 +38,18 @@ async function login(page: Page) {
 
   await expect(page).toHaveURL(/\/$/, { timeout: 20_000 });
   await expect(page.getByRole('heading', { name: /Bereit f.r deine Session\?/i })).toBeVisible();
+}
+
+function canRunPasswordResetCheck(email: string | undefined) {
+  if (!email) return false;
+
+  const normalized = email.trim().toLowerCase();
+  return (
+    normalized.length > 0 &&
+    !normalized.endsWith('@example.com') &&
+    !normalized.endsWith('@example.org') &&
+    !normalized.endsWith('@example.net')
+  );
 }
 
 async function openFirstBoulder(page: Page) {
@@ -182,8 +195,20 @@ test.describe('Authenticated user functional area', () => {
     await expect(saveButton).toBeEnabled({ timeout: 20_000 });
     await expect(resetPasswordButton).toBeEnabled({ timeout: 20_000 });
 
-    await resetPasswordButton.click();
-    await expect(page.getByText(/Passwort-Link wurde an deine E-Mail gesendet!/i)).toBeVisible();
+    const shouldVerifyReset = canRunPasswordResetCheck(resetTestEmail);
+
+    if (shouldVerifyReset) {
+      await page.locator('#email').fill(resetTestEmail!);
+      await resetPasswordButton.click();
+      await expect(page.getByText(/Passwort-Link wurde an deine E-Mail gesendet!/i)).toBeVisible();
+    } else {
+      test.info().annotations.push({
+        type: 'info',
+        description:
+          'Reset-Mail wurde übersprungen, weil keine zustellbare E2E_RESET_EMAIL gesetzt ist.',
+      });
+    }
+
     await page.getByRole('button', { name: 'Zur\u00fcck' }).click();
     await expect(page).toHaveURL(/\/profile$/);
 
