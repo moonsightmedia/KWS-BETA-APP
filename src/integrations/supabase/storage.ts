@@ -247,8 +247,8 @@ export async function compressThumbnail(file: File, onProgress?: (progress: numb
         }
         // If already portrait, keep dimensions as-is
 
-        // Max 400px covers dashboard cards (~138px CSS) at 3x Retina plus list thumbnails
-        const maxDimension = 400;
+        // Max 480px covers dashboard cards (~138px CSS) at 3x Retina plus list thumbnails
+        const maxDimension = 480;
         let width = canvasWidth;
         let height = canvasHeight;
 
@@ -259,6 +259,13 @@ export async function compressThumbnail(file: File, onProgress?: (progress: numb
           } else {
             width = Math.round((width / height) * maxDimension);
             height = maxDimension;
+          }
+        } else {
+          const longestSide = Math.max(width, height);
+          if (longestSide < maxDimension) {
+            const scale = maxDimension / longestSide;
+            width = Math.round(width * scale);
+            height = Math.round(height * scale);
           }
         }
 
@@ -341,10 +348,9 @@ export async function compressThumbnail(file: File, onProgress?: (progress: numb
         if (onProgress) onProgress(50);
 
         // Convert to JPEG with adaptive quality to ensure file is under 5MB
-        // For thumbnails, we use lower quality (75%) for smaller file sizes
         const maxSize = 5 * 1024 * 1024; // 5MB
-        const qualityLevels = [0.75, 0.65, 0.55, 0.45, 0.35, 0.25, 0.15]; // Start at 75% for thumbnails
-        const dimensionLevels = [maxDimension, 300, 240, 200];
+        const qualityLevels = [0.82, 0.72, 0.62, 0.52, 0.42, 0.32, 0.22];
+        const dimensionLevels = [maxDimension, 400, 320];
         
         let currentQualityIndex = 0;
         let currentDimensionIndex = 0;

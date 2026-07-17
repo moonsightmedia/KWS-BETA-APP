@@ -162,7 +162,7 @@ function withUploadAuth(headers = {}) {
 // Check for dry-run flag
 const isDryRun = process.argv.includes('--dry-run');
 
-const TARGET_MAX_DIMENSION = 380;
+const TARGET_MAX_DIMENSION = 420;
 
 /**
  * Returns the larger side of the image in pixels (after EXIF orientation).
@@ -230,8 +230,8 @@ async function compressThumbnail(imageBuffer) {
       console.log(`  🔄 Rotating landscape image to portrait: ${width}x${height} → ${newWidth}x${newHeight}`);
     }
     
-    // Max 400px: list thumbnails (~64px) and dashboard cards (~138px) at up to 3x Retina
-    const maxDimension = 400;
+    // Max 480px: dashboard cards (~138px CSS) at 3x Retina plus list thumbnails
+    const maxDimension = 480;
     let finalWidth = newWidth;
     let finalHeight = newHeight;
     
@@ -272,9 +272,9 @@ async function compressThumbnail(imageBuffer) {
         withoutEnlargement: false,
       })
       .jpeg({
-        quality: 75, // Reduced from 85% - still good quality but much smaller files
-        mozjpeg: true, // Better compression
-        progressive: true, // Progressive JPEG for better perceived performance
+        quality: 82,
+        mozjpeg: true,
+        progressive: true,
       })
       .toBuffer();
     
@@ -293,6 +293,16 @@ async function compressThumbnail(imageBuffer) {
   }
 }
 
+const CDN_FINAL_PREFIX = '/upload-api/uploads/final/';
+const SECTOR_SUBFOLDER_PATTERN = /\/upload-api\/uploads\/final\/[0-9a-f-]{36}\//i;
+
+function shouldUploadToSectorFolder(originalUrl, sectorId) {
+  if (!sectorId) return false;
+  // Only keep sector subfolders when the thumbnail already lives there (e.g. Kahlwinkel).
+  // Flat /final/IMG_xxxx.jpg paths must stay flat — sector uploads were returning 404 on CDN.
+  return SECTOR_SUBFOLDER_PATTERN.test(originalUrl);
+}
+
 /**
  * Upload thumbnail to All-Inkl
  */
@@ -302,6 +312,7 @@ async function uploadThumbnailToAllInkl(imageBuffer, originalUrl, sectorId) {
     const urlParts = originalUrl.split('/');
     const originalFileName = urlParts[urlParts.length - 1];
     const fileName = originalFileName.replace(/\.[^/.]+$/, '.jpg'); // Always use .jpg for compressed
+    const uploadToSectorFolder = shouldUploadToSectorFolder(originalUrl, sectorId);
     
     // Generate a unique session ID for this upload
     const uploadSessionId = randomUUID();
@@ -321,7 +332,7 @@ async function uploadThumbnailToAllInkl(imageBuffer, originalUrl, sectorId) {
     headers['X-Chunk-Number'] = '0';
     headers['X-Total-Chunks'] = '1';
     headers['X-Upload-Session-Id'] = uploadSessionId;
-    if (sectorId) {
+    if (uploadToSectorFolder) {
       headers['X-Sector-Id'] = sectorId;
     }
     
@@ -383,6 +394,35 @@ async function deleteThumbnailFromCdn(thumbnailUrl) {
   } catch (error) {
     console.warn(`  ⚠️  Delete error (continuing anyway):`, error.message);
   }
+}
+
+function toFlatThumbnailUrl(url) {
+  if (!url || !url.includes(CDN_FINAL_PREFIX)) return url;
+  const fileName = url.split('/').pop();
+  return `https://cdn.kletterwelt-sauerland.de${CDN_FINAL_PREFIX}${fileName}`;
+}
+
+async function isThumbnailReachable(url) {
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function resolveWorkingThumbnailUrl(url) {
+  if (await isThumbnailReachable(url)) {
+    return url;
+  }
+
+  const flatUrl = toFlatThumbnailUrl(url);
+  if (flatUrl !== url && await isThumbnailReachable(flatUrl)) {
+    console.log(`  ↩️  Using flat fallback URL: ${flatUrl}`);
+    return flatUrl;
+  }
+
+  return url;
 }
 
 /**
@@ -452,7 +492,8 @@ async function compressThumbnails() {
       
       // Download thumbnail
       console.log(`  📥 Downloading thumbnail...`);
-      const imageBuffer = await downloadThumbnail(boulder.thumbnail_url);
+      const sourceUrl = await resolveWorkingThumbnailUrl(boulder.thumbnail_url);
+      const imageBuffer = await downloadThumbnail(sourceUrl);
       console.log(`  ✅ Downloaded ${(imageBuffer.length / 1024).toFixed(1)} KB`);
 
       const currentMaxDimension = await getImageMaxDimension(imageBuffer);
@@ -483,9 +524,9 @@ async function compressThumbnails() {
         continue;
       }
       
-      // Upload compressed thumbnail
+      // Upload compressed thumbnail (preserve flat vs sector folder layout)
       console.log(`  📤 Uploading compressed thumbnail...`);
-      const newUrl = await uploadThumbnailToAllInkl(compressedBuffer, boulder.thumbnail_url, boulder.sector_id);
+      const newUrl = await uploadThumbnailToAllInkl(compressedBuffer, sourceUrl, boulder.sector_id);
       
       // Update database
       console.log(`  💾 Updating database...`);
@@ -498,7 +539,7 @@ async function compressThumbnails() {
         throw new Error(`Database update failed: ${updateError.message}`);
       }
       
-      // Delete old thumbnail (optional, but recommended to save space)
+      // Delete old thumbnail only when URL path actually changed
       if (boulder.thumbnail_url !== newUrl) {
         await deleteThumbnailFromCdn(boulder.thumbnail_url);
       }

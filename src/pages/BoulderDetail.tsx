@@ -157,11 +157,16 @@ export default function BoulderDetail() {
     return <BoulderInfoTab boulder={boulder} />;
   };
 
+  const detailHeaderClassName = cn(
+    'fixed inset-x-0 top-0 z-10 border-b border-border bg-background/80 pb-3 pt-12 backdrop-blur-xl md:pt-4',
+    isExpanded ? 'md:left-64' : 'md:left-20',
+  );
+
   if (isLoading || authLoading) {
     return (
       <div className="flex min-h-screen bg-background">
         <div className={cn('flex min-w-0 flex-1 flex-col bg-background', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
-          <div className="sticky top-0 z-10 border-b border-border bg-background/80 pb-3 pt-12 backdrop-blur-xl">
+          <div className={detailHeaderClassName}>
             <div className="mx-auto w-full max-w-7xl px-4 lg:px-8">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 animate-pulse rounded-xl bg-secondary" />
@@ -172,7 +177,7 @@ export default function BoulderDetail() {
               </div>
             </div>
           </div>
-          <div className="px-4 pb-24 pt-5 sm:pt-6 lg:px-8 lg:pt-8">
+          <div className="px-4 pb-24 pt-28 md:pt-20 lg:px-8">
             <div className="mx-auto w-full max-w-7xl">
               <div className="lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start lg:gap-x-10 xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] xl:gap-x-12">
                 <div className="aspect-[9/16] max-h-[min(60vh,720px)] animate-pulse rounded-2xl bg-secondary sm:mx-auto sm:max-w-md lg:mx-0 lg:max-h-[calc(100vh-8rem)] lg:max-w-none" />
@@ -199,13 +204,13 @@ export default function BoulderDetail() {
   return (
     <div className="flex min-h-screen bg-background">
       <div className={cn('flex min-w-0 flex-1 flex-col bg-background', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
-        <div className="sticky top-0 z-10 border-b border-border bg-background/80 pb-3 pt-12 backdrop-blur-xl">
+        <div className={detailHeaderClassName}>
           <div className="mx-auto w-full max-w-7xl px-4 lg:px-8">
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => navigate('/boulders')}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary md:hidden"
                 aria-label="Zurück"
               >
                 <ArrowLeft className="h-4 w-4 text-foreground" />
@@ -230,9 +235,11 @@ export default function BoulderDetail() {
           </div>
         </div>
 
-        <div className="mx-auto w-full max-w-7xl px-4 pt-5 sm:pt-6 lg:px-8 lg:pt-8">
+        <div className="pt-28 md:pt-20" />
+
+        <div className="mx-auto w-full max-w-7xl px-4 lg:px-8">
           <div className="lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start lg:gap-x-10 xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] xl:gap-x-12">
-            <section className="lg:sticky lg:top-28 lg:self-start">
+            <section className="lg:sticky lg:top-20 lg:self-start">
               <div className="relative mx-auto flex aspect-[9/16] max-h-[min(60vh,720px)] w-full max-w-md items-center justify-center overflow-hidden rounded-2xl bg-secondary lg:mx-0 lg:max-h-[calc(100vh-8rem)] lg:max-w-none">
                 {videoUrl ? (
                   isYouTube ? (
@@ -294,7 +301,7 @@ export default function BoulderDetail() {
             </section>
 
             <section className="mt-4 min-w-0 lg:mt-0">
-              <div ref={tabBarRef} data-detail-tab-bar className="sticky top-[6.75rem] z-[9] bg-background pb-2 pt-2 lg:top-28">
+              <div ref={tabBarRef} data-detail-tab-bar className="sticky top-[6.75rem] z-[9] bg-background pb-2 pt-2 md:top-20">
                 <div className="flex gap-1 rounded-xl bg-secondary p-1">
                   {availableTabs.map((tab) => (
                     <button
