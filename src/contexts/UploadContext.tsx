@@ -21,6 +21,7 @@ import {
   type UploadFileInput,
   type UploadStatus,
 } from '@/types/upload';
+import { canStartUploadSlot, getProcessingCount } from '@/utils/uploadQueue';
 
 export interface ActiveUpload {
   sessionId: string;
@@ -199,21 +200,28 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Helper function to check and start queued uploads
   const processQueue = useCallback(() => {
     setUploads(prev => {
-      const activeCount = prev.filter(u => 
-        (u.status === 'uploading' || u.status === 'pending') && processingRef.current.has(u.sessionId)
-      ).length;
-      
-      console.log('[UploadContext] 🔄 processQueue called:', { 
-        totalUploads: prev.length, 
-        activeCount, 
+      // Gate on processingRef, not status: native videos spend most time in
+      // `queued` / `compressing`, which must still occupy the single slot.
+      const processingCount = getProcessingCount(processingRef.current);
+      const activeStatuses = prev
+        .filter((u) => processingRef.current.has(u.sessionId))
+        .map((u) => ({ sessionId: u.sessionId, status: u.status, type: u.type }));
+
+      console.log('[UploadContext] 🔄 processQueue called:', {
+        totalUploads: prev.length,
+        processingCount,
         maxConcurrent: MAX_CONCURRENT_UPLOADS,
+        activeStatuses,
         pendingUploads: prev.filter(u => u.status === 'pending').length,
         pendingWithFile: prev.filter(u => u.status === 'pending' && (u.file || u.nativeFile)).length
       });
-      
-      if (activeCount >= MAX_CONCURRENT_UPLOADS) {
-        console.log('[UploadContext] ⏸️ Already at max concurrent uploads, waiting...');
-        return prev; // Already at max concurrent uploads
+
+      if (!canStartUploadSlot(processingCount, MAX_CONCURRENT_UPLOADS)) {
+        console.log('[UploadContext] ⏸️ Already at max concurrent uploads, waiting...', {
+          processingCount,
+          activeStatuses,
+        });
+        return prev;
       }
 
       // Find next pending upload that's not being processed
@@ -840,21 +848,20 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return currentUploads;
         }
         
-        const activeCount = currentUploads.filter(u => 
-          (u.status === 'uploading' || u.status === 'pending') && processingRef.current.has(u.sessionId)
-        ).length;
-        
+        const processingCount = getProcessingCount(processingRef.current);
+        const canStart = canStartUploadSlot(processingCount, MAX_CONCURRENT_UPLOADS);
+
         console.log('[UploadContext] 🔍 Queue check:', {
-          activeCount,
+          processingCount,
           maxConcurrent: MAX_CONCURRENT_UPLOADS,
-          canStart: activeCount < MAX_CONCURRENT_UPLOADS,
+          canStart,
           hasFile: !!uploadToProcess.file,
           hasNativeFile: !!uploadToProcess.nativeFile,
           status: uploadToProcess.status,
           isProcessing: processingRef.current.has(uploadToProcess.sessionId)
         });
-        
-        if (activeCount < MAX_CONCURRENT_UPLOADS && (uploadToProcess.file || uploadToProcess.nativeFile) && uploadToProcess.status === 'pending' && !processingRef.current.has(uploadToProcess.sessionId)) {
+
+        if (canStart && (uploadToProcess.file || uploadToProcess.nativeFile) && uploadToProcess.status === 'pending' && !processingRef.current.has(uploadToProcess.sessionId)) {
           console.log('[UploadContext] ✅ Can start upload immediately:', uploadToProcess.sessionId);
           processingRef.current.add(uploadToProcess.sessionId);
           processUpload(uploadToProcess).catch(err => {

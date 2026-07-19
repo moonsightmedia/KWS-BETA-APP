@@ -13,6 +13,7 @@
     "build:dev": "vite build --mode development",
     "build:capacitor": "vite build --mode capacitor --base ./",
     "lint": "eslint .",
+    "test:unit": "node --experimental-strip-types --test src/utils/uploadQueue.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "preview": "vite preview",
