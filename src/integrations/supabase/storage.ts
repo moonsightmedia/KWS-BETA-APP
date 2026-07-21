@@ -215,10 +215,12 @@ function applyExifOrientation(ctx: CanvasRenderingContext2D, orientation: number
  * Avoids full-resolution canvas retry storms that OOM iOS WebViews.
  */
 export async function compressThumbnail(file: File, onProgress?: (progress: number) => void): Promise<File> {
+  // Bisect baseline: match early iOS-stable thumbs (pre 0e6db10 / ec5f349 size bumps).
+  // Keep bounded createImageBitmap decode from later hardening — only restore size/quality.
   const DECODE_MAX = 960;
   const maxSize = 5 * 1024 * 1024;
-  const qualityLevels = [0.82, 0.65, 0.5];
-  const dimensionLevels = [480, 320];
+  const qualityLevels = [0.75, 0.65, 0.5];
+  const dimensionLevels = [200, 150];
 
   const toJpegFile = (blob: Blob) =>
     new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
