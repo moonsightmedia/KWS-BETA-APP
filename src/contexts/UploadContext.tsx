@@ -26,6 +26,8 @@ import {
   canStartUploadSlot,
   getProcessingCount,
 } from '@/utils/uploadQueue';
+import { addSentryBreadcrumb, captureSentryException } from '@/utils/sentry';
+import { trackTelemetryEvent } from '@/utils/telemetry';
 
 export interface ActiveUpload {
   sessionId: string;
@@ -379,6 +381,12 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     console.log('[UploadContext] 🚀 Starting upload:', upload.sessionId);
+    addSentryBreadcrumb('upload_start', 'upload', {
+      type: upload.type,
+      boulderId: upload.boulderId,
+      sessionId: upload.sessionId,
+    });
+    trackTelemetryEvent('upload_start', { boulderId: upload.boulderId, props: { type: upload.type } });
     // Update status to uploading
     console.log('[UploadContext] 📝 Updating upload status to "uploading"...');
     updateUpload(upload.sessionId, { status: upload.nativeFile ? 'queued' : 'uploading', progress: 0, error: undefined });
@@ -515,6 +523,11 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 try {
                     updateUpload(upload.sessionId, { status: 'compressing', progress: Math.max(upload.progress, 1), error: undefined });
                     await updateLog('compressing', Math.max(upload.progress, 1));
+                    addSentryBreadcrumb('upload_compressing', 'upload', {
+                      type: upload.type,
+                      boulderId: upload.boulderId,
+                      sessionId: upload.sessionId,
+                    });
                     preparedNativeFile = await prepareNativeVideoPathForUpload(
                         {
                             path: upload.nativeFile.path,
@@ -707,6 +720,11 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           nativeFile: undefined,
         });
         toast.success(`${upload.type === 'video' ? 'Video' : 'Thumbnail'} hochgeladen!`);
+        addSentryBreadcrumb('upload_completed', 'upload', {
+          type: upload.type,
+          boulderId: upload.boulderId,
+          sessionId: upload.sessionId,
+        });
 
         if (upload.nativeFile?.cached) {
             await deleteNativeVideoFile(upload.nativeFile.path);
@@ -778,6 +796,16 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const errorMessage = error?.message || 'Unbekannter Upload-Fehler';
         console.error('[UploadContext] ❌ Setting upload status to error:', errorMessage);
         updateUpload(upload.sessionId, { status: 'error', error: errorMessage });
+        addSentryBreadcrumb('upload_failed', 'upload', {
+          type: upload.type,
+          boulderId: upload.boulderId,
+          sessionId: upload.sessionId,
+        }, 'error');
+        trackTelemetryEvent('upload_fail', {
+          boulderId: upload.boulderId,
+          props: { type: upload.type },
+        });
+        captureSentryException(error, { tags: { source: 'upload', upload_type: upload.type } });
         
         await updateUploadLog(upload.sessionId, { 
             status: 'failed', 

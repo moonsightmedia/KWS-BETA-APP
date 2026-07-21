@@ -94,6 +94,8 @@ import { SidebarProvider } from '@/components/SidebarContext';
 import { UploadOverview } from '@/components/UploadOverview';
 import { UploadProvider } from '@/contexts/UploadContext';
 import { initializeErrorHandler, setErrorHandlerUserContext } from '@/utils/errorHandler';
+import { initSentry, setSentryUser } from '@/utils/sentry';
+import { startTelemetry, stopTelemetry, setTelemetryUser } from '@/utils/telemetry';
 import { OnboardingProvider } from '@/components/Onboarding';
 import { RoleTabProvider } from '@/contexts/RoleTabContext';
 import { initializePushNotifications } from '@/utils/pushNotifications';
@@ -137,9 +139,14 @@ const Root = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [authTimeout, setAuthTimeout] = useState(false);
   
-  // Initialize error handler on mount
+  // Initialize error handler + optional Sentry/telemetry (fail-open, flag-gated)
   useEffect(() => {
+    initSentry();
     initializeErrorHandler();
+    startTelemetry();
+    return () => {
+      stopTelemetry();
+    };
   }, []);
 
   // Pass user context to global error handler so reports from logged-in users include user_id/email
@@ -147,6 +154,8 @@ const Root = () => {
     setErrorHandlerUserContext(
       user ? { user_id: user.id, user_email: user.email ?? null } : null
     );
+    setSentryUser(user ? { id: user.id, email: user.email ?? null } : null);
+    setTelemetryUser(user ? { id: user.id } : null);
   }, [user]);
 
   // Log when Root component is mounted

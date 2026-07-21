@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { reportError, type ReportErrorUserContext } from './feedbackUtils';
+import { captureSentryException, setSentryUser } from './sentry';
 
 let errorHandlerInitialized = false;
 let currentUserContext: ReportErrorUserContext | null = null;
@@ -48,6 +49,7 @@ function shouldReportError(error: unknown): boolean {
  */
 export function setErrorHandlerUserContext(ctx: ReportErrorUserContext | null): void {
   currentUserContext = ctx;
+  setSentryUser(ctx ? { id: ctx.user_id, email: ctx.user_email } : null);
 }
 
 /**
@@ -87,6 +89,7 @@ export function initializeErrorHandler(): void {
       .catch(() => {
         // Silently fail
       });
+    captureSentryException(error, { tags: { source: 'window.error' } });
   });
 
   // Handle unhandled promise rejections
@@ -110,6 +113,7 @@ export function initializeErrorHandler(): void {
       .catch(() => {
         // Silently fail
       });
+    captureSentryException(error, { tags: { source: 'unhandledrejection' } });
   });
 }
 

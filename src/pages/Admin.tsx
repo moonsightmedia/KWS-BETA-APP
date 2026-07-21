@@ -12,6 +12,7 @@ import { HallMapManagement } from "@/components/admin/HallMapManagement";
 import { BoulderOperationLogs } from "@/components/admin/BoulderOperationLogs";
 import { CompetitionBoulderManagement } from "@/components/competition/CompetitionBoulderManagement";
 import { FeedbackManagement } from "@/components/admin/FeedbackManagement";
+import { MonitoringDashboard } from "@/components/admin/MonitoringDashboard";
 import { PushNotificationTest } from "@/components/admin/PushNotificationTest";
 import { useSidebar } from "@/components/SidebarContext";
 import { cn } from "@/lib/utils";
@@ -57,6 +58,7 @@ const Admin = () => {
       'settings': 'EINSTELLUNGEN',
       // 'competition': 'WETTKAMPF', // Temporarily hidden
       'feedback': 'FEEDBACK',
+      'monitoring': 'MONITORING',
       'logs': 'LOGS',
       'tests': 'TESTS',
     };
@@ -109,6 +111,7 @@ const Admin = () => {
               <TabsTrigger value="settings" className={adminTabTriggerClassName}>Einstellungen</TabsTrigger>
               {/* <TabsTrigger value="competition" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Wettkampf</TabsTrigger> */}
               <TabsTrigger value="feedback" className={adminTabTriggerClassName}>Feedback</TabsTrigger>
+              <TabsTrigger value="monitoring" className={adminTabTriggerClassName}>Monitoring</TabsTrigger>
               <TabsTrigger value="logs" className={adminTabTriggerClassName}>Logs</TabsTrigger>
               <TabsTrigger value="tests" className={adminTabTriggerClassName}>Tests</TabsTrigger>
             </TabsList>
@@ -153,6 +156,10 @@ const Admin = () => {
 
             <TabsContent value="feedback" className="mt-0">
               <FeedbackManagement />
+            </TabsContent>
+
+            <TabsContent value="monitoring" className="mt-0">
+              <MonitoringDashboard />
             </TabsContent>
 
             <TabsContent value="logs" className="mt-0">
@@ -210,6 +217,11 @@ const Admin = () => {
             {searchParams.get('tab') === 'feedback' && (
               <div className="mt-0">
                 <FeedbackManagement />
+              </div>
+            )}
+            {searchParams.get('tab') === 'monitoring' && (
+              <div className="mt-0">
+                <MonitoringDashboard />
               </div>
             )}
             {searchParams.get('tab') === 'logs' && (

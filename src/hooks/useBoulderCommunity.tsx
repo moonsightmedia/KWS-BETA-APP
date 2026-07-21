@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 
 import { useAuth } from '@/hooks/useAuth';
 import { supabaseRestRequest } from '@/lib/supabaseRest';
+import { trackTelemetryEvent } from '@/utils/telemetry';
 import type {
   BoulderAttributeOption,
   BoulderComment,
@@ -463,6 +464,7 @@ export function useUpsertBoulderTrackingSession(boulderId: string) {
       });
     },
     onSuccess: () => {
+      trackTelemetryEvent('boulder_tick', { boulderId });
       queryClient.invalidateQueries({ queryKey: ['boulder-tracking-sessions', boulderId] });
       queryClient.invalidateQueries({ queryKey: ['boulder-community', boulderId] });
     },

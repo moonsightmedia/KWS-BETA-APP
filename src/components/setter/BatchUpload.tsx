@@ -11,6 +11,7 @@ import {
 } from '@/components/setter/SetterBoulderEditorDialog';
 import { Button } from '@/components/ui/button';
 import { useUpload } from '@/contexts/UploadContext';
+import { addSentryBreadcrumb } from '@/utils/sentry';
 import { useBoulderAttributeCatalog, useSetBoulderAttributes } from '@/hooks/useBoulderCommunity';
 import { logBoulderOperation } from '@/hooks/useBoulders';
 import { useColors } from '@/hooks/useColors';
@@ -217,6 +218,9 @@ export function BatchUpload() {
 
         const thumbSessionId = await startUpload(created.id, boulder.thumbFile!, 'thumbnail', boulder.sectorId);
         const videoSessionId = await startUpload(created.id, boulder.videoFile!, 'video', boulder.sectorId);
+        addSentryBreadcrumb('batch_boulder_queued', 'upload', {
+          boulderId: created.id,
+        });
 
         // Drop local media refs immediately so the batch loop does not pin N files in RAM.
         const previewUrl = queueThumbPreviewUrls.get(boulder.id);
@@ -233,6 +237,9 @@ export function BatchUpload() {
 
         // Finish this boulder's uploads before creating/queueing the next one.
         await waitForUploadSessions([thumbSessionId, videoSessionId]);
+        addSentryBreadcrumb('batch_boulder_finished', 'upload', {
+          boulderId: created.id,
+        });
 
         successfulIds.push(boulder.id);
       } catch (error) {

@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, RefreshCw, Send } from 'lucide-react';
 import { reportError, type ReportErrorUserContext } from '@/utils/feedbackUtils';
+import { captureSentryException } from '@/utils/sentry';
 import { toast } from 'sonner';
 
 interface Props {
@@ -94,6 +95,7 @@ export class ErrorBoundary extends Component<Props, State> {
     reportError(error, errorInfo, undefined, this.props.userContext ?? undefined).catch(() => {
       // Silently fail
     });
+    captureSentryException(error, { tags: { source: 'error_boundary' } });
     
     // Auto-reset after 30 seconds if user doesn't interact
     if (this.autoResetTimer) {

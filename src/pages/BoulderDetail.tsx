@@ -19,6 +19,7 @@ import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useColors } from '@/hooks/useColors';
 import { cn } from '@/lib/utils';
 import type { Boulder } from '@/types/boulder';
+import { trackTelemetryEvent } from '@/utils/telemetry';
 
 const tabs = ['Info', 'Track', 'Beta'] as const;
 type DetailTab = (typeof tabs)[number];
@@ -54,6 +55,11 @@ export default function BoulderDetail() {
   const isVimeo = videoUrl ? isVimeoUrl(videoUrl) : false;
   const isDirectVideo = Boolean(videoUrl && !isYouTube && !isVimeo);
   const availableTabs = useMemo(() => (user ? tabs : (['Info', 'Beta'] as const)), [user]);
+
+  useEffect(() => {
+    if (!boulder?.id) return;
+    trackTelemetryEvent('boulder_view', { boulderId: boulder.id });
+  }, [boulder?.id]);
 
   const getScrollContainer = () => {
     const candidates = [
