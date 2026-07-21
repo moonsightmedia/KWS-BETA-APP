@@ -175,10 +175,7 @@ export function BatchUpload() {
           payload.sector_id_2 = boulder.sectorId2;
         }
 
-        if (typeof boulder.mapX === 'number' && typeof boulder.mapY === 'number') {
-          payload.map_x = Math.min(100, Math.max(0, boulder.mapX));
-          payload.map_y = Math.min(100, Math.max(0, boulder.mapY));
-        }
+        // map_x/map_y omitted: setters only choose a sector today, not a map pin.
 
         const response = await fetch(`${supabaseUrl}/rest/v1/boulders`, {
           method: 'POST',

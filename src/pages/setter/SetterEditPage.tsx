@@ -179,8 +179,7 @@ export default function SetterEditPage() {
       beta_video_url: editorDraft.videoFile ? null : editorDraft.existingVideoUrl ?? null,
       thumbnail_url: editorDraft.thumbFile ? null : editorDraft.existingThumbnailUrl ?? null,
       note: editorDraft.note.trim() || null,
-      map_x: typeof editorDraft.mapX === 'number' ? editorDraft.mapX : null,
-      map_y: typeof editorDraft.mapY === 'number' ? editorDraft.mapY : null,
+      // map_x/map_y intentionally omitted: pin-on-map is unused; columns not required.
     } as any);
 
     await setBoulderAttributes.mutateAsync({
