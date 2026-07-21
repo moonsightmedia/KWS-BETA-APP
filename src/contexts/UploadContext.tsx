@@ -21,7 +21,11 @@ import {
   type UploadFileInput,
   type UploadStatus,
 } from '@/types/upload';
-import { canStartUploadSlot, getProcessingCount } from '@/utils/uploadQueue';
+import {
+  areUploadSessionsFinished,
+  canStartUploadSlot,
+  getProcessingCount,
+} from '@/utils/uploadQueue';
 
 export interface ActiveUpload {
   sessionId: string;
@@ -44,6 +48,7 @@ interface UploadContextType {
   resumeUpload: (sessionId: string, file: UploadFileInput) => Promise<void>;
   cancelUpload: (sessionId: string) => void;
   removeUpload: (sessionId: string) => void;
+  waitForUploadSessions: (sessionIds: string[], timeoutMs?: number) => Promise<void>;
   isUploading: boolean;
 }
 
@@ -138,6 +143,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const abortControllersRef = useRef<Record<string, AbortController>>({});
   const MAX_CONCURRENT_UPLOADS = 1; // Keep mobile uploads stable; videos can exhaust memory/network when parallel.
   const processingRef = useRef<Set<string>>(new Set()); // Track which uploads are being processed
+  const uploadsRef = useRef<ActiveUpload[]>([]);
+  uploadsRef.current = uploads;
 
   const withTimeout = useCallback(async <T,>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> => {
     const timeoutPromise = new Promise<never>((_, reject) =>
@@ -693,7 +700,12 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         console.log('[UploadContext] ✅ Boulder record updated successfully');
 
-        updateUpload(upload.sessionId, { status: 'completed', progress: 100 });
+        updateUpload(upload.sessionId, {
+          status: 'completed',
+          progress: 100,
+          file: null,
+          nativeFile: undefined,
+        });
         toast.success(`${upload.type === 'video' ? 'Video' : 'Thumbnail'} hochgeladen!`);
 
         if (upload.nativeFile?.cached) {
@@ -902,13 +914,46 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
      setUploads(prev => {
          return prev.map(u => u.sessionId === sessionId ? targetUpload : u);
      });
-     
+
+     // Same concurrency gate as startUpload/processQueue — never bypass the slot.
+     if (!canStartUploadSlot(getProcessingCount(processingRef.current), MAX_CONCURRENT_UPLOADS)) {
+       console.log('[UploadContext] ⏸️ resumeUpload queued behind active slot:', sessionId);
+       setTimeout(() => processQueue(), 0);
+       return;
+     }
+
      processingRef.current.add(targetUpload.sessionId);
      processUpload(targetUpload).catch(err => {
        console.error('Error resuming upload:', err);
        processingRef.current.delete(targetUpload.sessionId);
+       setTimeout(() => processQueue(), 0);
      });
-  }, [uploads]);
+  }, [uploads, processQueue]);
+
+  const waitForUploadSessions = useCallback(async (sessionIds: string[], timeoutMs = 30 * 60 * 1000) => {
+    const uniqueIds = [...new Set(sessionIds.filter(Boolean))];
+    if (uniqueIds.length === 0) return;
+
+    const startedAt = Date.now();
+    await new Promise<void>((resolve, reject) => {
+      const tick = () => {
+        const snapshot = uploadsRef.current.map((u) => ({
+          sessionId: u.sessionId,
+          status: u.status,
+        }));
+        if (areUploadSessionsFinished(snapshot, uniqueIds)) {
+          resolve();
+          return;
+        }
+        if (Date.now() - startedAt > timeoutMs) {
+          reject(new Error('Upload-Timeout: Boulder-Medien wurden nicht rechtzeitig fertig.'));
+          return;
+        }
+        setTimeout(tick, 400);
+      };
+      tick();
+    });
+  }, []);
 
   const cancelUpload = useCallback(async (sessionId: string) => {
     setUploads(prev => {
@@ -1078,7 +1123,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         resumeUpload,
         cancelUpload,
         removeUpload,
-        isUploading: uploads.some(u => u.status === 'uploading')
+        waitForUploadSessions,
+        isUploading: uploads.some(u => u.status === 'uploading' || u.status === 'compressing' || u.status === 'queued')
     }}>
       {children}
     </UploadContext.Provider>

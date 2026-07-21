@@ -98,6 +98,12 @@ function toMp4FileName(fileName: string): string {
   return safeName.replace(/\.[^.]+$/, '') + '.mp4';
 }
 
+const LARGE_NATIVE_VIDEO_BYTES = 80 * 1024 * 1024;
+
+function pickNativeCompressQuality(fileSize: number): 'low' | 'medium' {
+  return fileSize > LARGE_NATIVE_VIDEO_BYTES ? 'low' : 'medium';
+}
+
 /**
  * Compress an already-native video path. This avoids reading large gallery
  * videos into JS memory and is the preferred iOS/Android upload path.
@@ -112,9 +118,14 @@ export async function prepareNativeVideoPathForUpload(
 
   onProgress?.(5);
 
+  const quality = pickNativeCompressQuality(input.fileSize);
+  console.log('[nativeVideoUpload] Compressing with quality:', quality, {
+    fileSize: input.fileSize,
+  });
+
   const compressed = await VideoCompressor.compressVideo({
     inputPath: input.path,
-    quality: 'medium',
+    quality,
     format: 'mp4',
   });
 
@@ -150,7 +161,7 @@ export async function prepareNativeVideoForUpload(
 
   const compressed = await VideoCompressor.compressVideo({
     inputPath: source.uri,
-    quality: 'medium',
+    quality: pickNativeCompressQuality(file.size),
     format: 'mp4',
   });
 

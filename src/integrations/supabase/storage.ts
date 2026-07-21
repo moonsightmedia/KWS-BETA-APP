@@ -210,326 +210,161 @@ function applyExifOrientation(ctx: CanvasRenderingContext2D, orientation: number
 }
 
 /**
- * Compress and resize thumbnail image for optimal performance
- * Resizes to max 200px width/height (optimized for 80-96px display size with 2x Retina)
- * Compresses to JPEG with 75% quality for smaller file sizes (10-30 KB instead of 50-200 KB)
- * Automatically corrects EXIF orientation so portrait images are saved as portrait
+ * Compress and resize thumbnail for upload.
+ * Decodes via createImageBitmap (bounded), forces portrait, JPEG with a short quality ladder.
+ * Avoids full-resolution canvas retry storms that OOM iOS WebViews.
  */
 export async function compressThumbnail(file: File, onProgress?: (progress: number) => void): Promise<File> {
-  const orientation = await getExifOrientation(file);
+  const DECODE_MAX = 960;
+  const maxSize = 5 * 1024 * 1024;
+  const qualityLevels = [0.82, 0.65, 0.5];
+  const dimensionLevels = [480, 320];
 
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-    img.src = objectUrl;
+  const toJpegFile = (blob: Blob) =>
+    new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
+      type: 'image/jpeg',
+      lastModified: Date.now(),
+    });
 
-    img.onload = () => {
-      try {
-        // Browser automatically applies EXIF orientation when displaying
-        // So img.width/height are already corrected for display
-        const imgWidth = img.width;
-        const imgHeight = img.height;
+  const canvasToBlob = (canvas: HTMLCanvasElement, quality: number) =>
+    new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality);
+    });
 
-        // Determine if image is landscape (width > height) or portrait (height > width)
-        const isLandscape = imgWidth > imgHeight;
-        
-        // ALWAYS save as portrait (height > width)
-        // If landscape, we'll rotate it 90° clockwise to make it portrait
-        let canvasWidth = imgWidth;
-        let canvasHeight = imgHeight;
-        let needsRotation = false;
-        
-        if (isLandscape) {
-          // Landscape image: swap dimensions and rotate 90° clockwise
-          canvasWidth = imgHeight;
-          canvasHeight = imgWidth;
-          needsRotation = true;
-        }
-        // If already portrait, keep dimensions as-is
+  const fitPortraitSize = (srcW: number, srcH: number, maxSide: number) => {
+    const isLandscape = srcW > srcH;
+    let width = isLandscape ? srcH : srcW;
+    let height = isLandscape ? srcW : srcH;
+    const longest = Math.max(width, height);
+    if (longest > maxSide) {
+      const scale = maxSide / longest;
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+    }
+    return { width, height, needsRotation: isLandscape };
+  };
 
-        // Max 480px covers dashboard cards (~138px CSS) at 3x Retina plus list thumbnails
-        const maxDimension = 480;
-        let width = canvasWidth;
-        let height = canvasHeight;
+  const drawPortrait = (
+    source: ImageBitmap,
+    width: number,
+    height: number,
+    needsRotation: boolean,
+  ) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Canvas not supported');
+    }
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    if (needsRotation) {
+      ctx.translate(width / 2, height / 2);
+      ctx.rotate(Math.PI / 2);
+      ctx.translate(-height / 2, -width / 2);
+      ctx.drawImage(source, 0, 0, height, width);
+    } else {
+      ctx.drawImage(source, 0, 0, width, height);
+    }
+    return canvas;
+  };
 
-        if (width > maxDimension || height > maxDimension) {
-          if (width > height) {
-            height = Math.round((height / width) * maxDimension);
-            width = maxDimension;
-          } else {
-            width = Math.round((width / height) * maxDimension);
-            height = maxDimension;
-          }
-        } else {
-          const longestSide = Math.max(width, height);
-          if (longestSide < maxDimension) {
-            const scale = maxDimension / longestSide;
-            width = Math.round(width * scale);
-            height = Math.round(height * scale);
-          }
-        }
+  let bitmap: ImageBitmap | null = null;
 
-        // Create canvas for resizing (always portrait orientation)
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
+  try {
+    onProgress?.(5);
 
-        if (!ctx) {
-          URL.revokeObjectURL(objectUrl);
-          // Canvas not supported - try to reduce dimensions further and retry
-          if (maxDimension > 400) {
-            // Retry with smaller dimension
-            const smallerDimension = 400;
-            let retryWidth = canvasWidth;
-            let retryHeight = canvasHeight;
-            if (retryWidth > smallerDimension || retryHeight > smallerDimension) {
-              if (retryWidth > retryHeight) {
-                retryHeight = Math.round((retryHeight / retryWidth) * smallerDimension);
-                retryWidth = smallerDimension;
-              } else {
-                retryWidth = Math.round((retryWidth / retryHeight) * smallerDimension);
-                retryHeight = smallerDimension;
-              }
-            }
-            canvas.width = retryWidth;
-            canvas.height = retryHeight;
-            const retryCtx = canvas.getContext('2d');
-            if (retryCtx) {
-              // Retry with smaller canvas
-              retryCtx.imageSmoothingEnabled = true;
-              retryCtx.imageSmoothingQuality = 'high';
-              retryCtx.drawImage(img, 0, 0, retryWidth, retryHeight);
-              // Continue with compression...
-            } else {
-              resolve(file); // Canvas truly not supported
-              return;
-            }
-          } else {
-            resolve(file); // Already at minimum, canvas not supported
-            return;
-          }
-        }
+    if (typeof createImageBitmap !== 'function') {
+      console.warn('[Thumbnail Compression] createImageBitmap unavailable, using original file');
+      onProgress?.(100);
+      return file;
+    }
 
-        // Use high-quality image rendering
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
+    bitmap = await createImageBitmap(file);
+    onProgress?.(20);
 
-        // Save context state
-        ctx.save();
+    // Immediately downscale so full-res pixels are not kept around during JPEG retries.
+    const decodeLongest = Math.max(bitmap.width, bitmap.height);
+    if (decodeLongest > DECODE_MAX) {
+      const scale = DECODE_MAX / decodeLongest;
+      const rw = Math.max(1, Math.round(bitmap.width * scale));
+      const rh = Math.max(1, Math.round(bitmap.height * scale));
+      const shrinkCanvas = document.createElement('canvas');
+      shrinkCanvas.width = rw;
+      shrinkCanvas.height = rh;
+      const shrinkCtx = shrinkCanvas.getContext('2d');
+      if (!shrinkCtx) {
+        onProgress?.(100);
+        return file;
+      }
+      shrinkCtx.imageSmoothingEnabled = true;
+      shrinkCtx.imageSmoothingQuality = 'high';
+      shrinkCtx.drawImage(bitmap, 0, 0, rw, rh);
+      bitmap.close();
+      bitmap = await createImageBitmap(shrinkCanvas);
+    }
 
-        // Apply transformations to ensure portrait orientation
-        if (needsRotation) {
-          // Landscape image: rotate 90° clockwise to make it portrait
-          ctx.translate(width / 2, height / 2);
-          ctx.rotate(Math.PI / 2); // 90° clockwise
-          ctx.translate(-height / 2, -width / 2);
-          // Draw with swapped dimensions
-          ctx.drawImage(img, 0, 0, height, width);
-        } else {
-          // Already portrait: apply EXIF orientation correction if needed
-          // But only if it doesn't make it landscape again
-          applyExifOrientation(ctx, orientation, width, height);
-          
-          // For EXIF orientations 6 and 8, we need to handle them specially
-          if (orientation === 6 || orientation === 8) {
-            // These are portrait images stored as landscape in EXIF
-            // The browser already corrected them, so we just draw normally
-            ctx.drawImage(img, 0, 0, width, height);
-          } else {
-            // Normal portrait or other orientations
-            ctx.drawImage(img, 0, 0, width, height);
-          }
+    onProgress?.(40);
+
+    let bestBlob: Blob | null = null;
+
+    for (let d = 0; d < dimensionLevels.length; d++) {
+      const { width, height, needsRotation } = fitPortraitSize(
+        bitmap.width,
+        bitmap.height,
+        dimensionLevels[d],
+      );
+      const canvas = drawPortrait(bitmap, width, height, needsRotation);
+
+      for (let q = 0; q < qualityLevels.length; q++) {
+        const blob = await canvasToBlob(canvas, qualityLevels[q]);
+        if (!blob) continue;
+
+        if (!bestBlob || blob.size < bestBlob.size) {
+          bestBlob = blob;
         }
 
-        // Restore context state
-        ctx.restore();
+        onProgress?.(
+          50 +
+            Math.floor(
+              ((d * qualityLevels.length + q + 1) /
+                (dimensionLevels.length * qualityLevels.length)) *
+                45,
+            ),
+        );
 
-        if (onProgress) onProgress(50);
-
-        // Convert to JPEG with adaptive quality to ensure file is under 5MB
-        const maxSize = 5 * 1024 * 1024; // 5MB
-        const qualityLevels = [0.82, 0.72, 0.62, 0.52, 0.42, 0.32, 0.22];
-        const dimensionLevels = [maxDimension, 400, 320];
-        
-        let currentQualityIndex = 0;
-        let currentDimensionIndex = 0;
-        let bestResult: { blob: Blob; quality: number; dimension: number } | null = null;
-        
-        const tryCompress = (quality: number, dimension: number, retryWithSmallerDimension: boolean = false) => {
-          // If we need to retry with smaller dimension, recreate canvas
-          if (retryWithSmallerDimension && currentDimensionIndex < dimensionLevels.length - 1) {
-            currentDimensionIndex++;
-            const newDimension = dimensionLevels[currentDimensionIndex];
-            let newWidth = canvasWidth;
-            let newHeight = canvasHeight;
-            
-            if (newWidth > newDimension || newHeight > newDimension) {
-              if (newWidth > newHeight) {
-                newHeight = Math.round((newHeight / newWidth) * newDimension);
-                newWidth = newDimension;
-              } else {
-                newWidth = Math.round((newWidth / newHeight) * newDimension);
-                newHeight = newDimension;
-              }
-            }
-            
-            canvas.width = newWidth;
-            canvas.height = newHeight;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            
-            // Redraw image with new dimensions
-            if (needsRotation) {
-              ctx.save();
-              ctx.translate(newWidth / 2, newHeight / 2);
-              ctx.rotate(Math.PI / 2);
-              ctx.translate(-newHeight / 2, -newWidth / 2);
-              ctx.drawImage(img, 0, 0, newHeight, newWidth);
-              ctx.restore();
-            } else {
-              applyExifOrientation(ctx, orientation, newWidth, newHeight);
-              ctx.drawImage(img, 0, 0, newWidth, newHeight);
-            }
-            
-            dimension = newDimension;
-          }
-          
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) {
-                // If conversion fails, try next quality level
-                if (currentQualityIndex < qualityLevels.length - 1) {
-                  currentQualityIndex++;
-                  tryCompress(qualityLevels[currentQualityIndex], dimension, false);
-                } else if (currentDimensionIndex < dimensionLevels.length - 1) {
-                  // Try with smaller dimension
-                  currentQualityIndex = 0; // Reset quality
-                  tryCompress(qualityLevels[0], dimension, true);
-                } else {
-                  // All options exhausted - use best result or original
-                  URL.revokeObjectURL(objectUrl);
-                  if (bestResult && bestResult.blob.size < file.size) {
-                    const compressedFile = new File(
-                      [bestResult.blob],
-                      file.name.replace(/\.[^/.]+$/, '.jpg'),
-                      { type: 'image/jpeg', lastModified: Date.now() }
-                    );
-                    if (onProgress) onProgress(100);
-                    resolve(compressedFile);
-                  } else {
-                    resolve(file); // Return original if all attempts fail
-                  }
-                }
-                return;
-              }
-
-              // Track best result (smallest that's still smaller than original)
-              if (blob.size < file.size && (!bestResult || blob.size < bestResult.blob.size)) {
-                bestResult = { blob, quality, dimension };
-              }
-
-              // If compressed version is under 5MB, use it
-              if (blob.size <= maxSize) {
-                const compressedFile = new File(
-                  [blob],
-                  file.name.replace(/\.[^/.]+$/, '.jpg'),
-                  { type: 'image/jpeg', lastModified: Date.now() }
-                );
-                URL.revokeObjectURL(objectUrl);
-                if (onProgress) onProgress(100);
-                resolve(compressedFile);
-              } else if (blob.size < file.size && currentQualityIndex < qualityLevels.length - 1) {
-                // Compressed version is smaller than original but still too large
-                // Try lower quality
-                currentQualityIndex++;
-                tryCompress(qualityLevels[currentQualityIndex], dimension, false);
-              } else if (blob.size < file.size && currentDimensionIndex < dimensionLevels.length - 1) {
-                // Try with smaller dimension
-                currentQualityIndex = 0; // Reset quality
-                tryCompress(qualityLevels[0], dimension, true);
-              } else if (bestResult && bestResult.blob.size < file.size) {
-                // Use best result we found
-                const compressedFile = new File(
-                  [bestResult.blob],
-                  file.name.replace(/\.[^/.]+$/, '.jpg'),
-                  { type: 'image/jpeg', lastModified: Date.now() }
-                );
-                URL.revokeObjectURL(objectUrl);
-                if (onProgress) onProgress(100);
-                resolve(compressedFile);
-              } else {
-                // Compressed version is larger than original or no improvement
-                // Try lower quality or smaller dimension
-                if (currentQualityIndex < qualityLevels.length - 1) {
-                  currentQualityIndex++;
-                  tryCompress(qualityLevels[currentQualityIndex], dimension, false);
-                } else if (currentDimensionIndex < dimensionLevels.length - 1) {
-                  currentQualityIndex = 0;
-                  tryCompress(qualityLevels[0], dimension, true);
-                } else {
-                  // All options exhausted
-                  URL.revokeObjectURL(objectUrl);
-                  if (bestResult && bestResult.blob.size < file.size) {
-                    const compressedFile = new File(
-                      [bestResult.blob],
-                      file.name.replace(/\.[^/.]+$/, '.jpg'),
-                      { type: 'image/jpeg', lastModified: Date.now() }
-                    );
-                    if (onProgress) onProgress(100);
-                    resolve(compressedFile);
-                  } else {
-                    resolve(file); // Return original if compression doesn't help
-                  }
-                }
-              }
-            },
-            'image/jpeg',
-            quality
-          );
-        };
-        
-        // Start with first quality level
-        tryCompress(qualityLevels[0], maxDimension, false);
-      } catch (error) {
-        URL.revokeObjectURL(objectUrl);
-        console.warn('[Thumbnail Compression] Error during compression:', error);
-        // Try a last-ditch effort: create a very small version
-        try {
-          const fallbackCanvas = document.createElement('canvas');
-          fallbackCanvas.width = 400;
-          fallbackCanvas.height = 400;
-          const fallbackCtx = fallbackCanvas.getContext('2d');
-          if (fallbackCtx) {
-            fallbackCtx.drawImage(img, 0, 0, 400, 400);
-            fallbackCanvas.toBlob((blob) => {
-              if (blob && blob.size < file.size && blob.size <= 5 * 1024 * 1024) {
-                const compressedFile = new File(
-                  [blob],
-                  file.name.replace(/\.[^/.]+$/, '.jpg'),
-                  { type: 'image/jpeg', lastModified: Date.now() }
-                );
-                resolve(compressedFile);
-              } else {
-                resolve(file); // Return original if fallback also fails
-              }
-            }, 'image/jpeg', 0.3);
-          } else {
-            resolve(file); // Canvas not supported
-          }
-        } catch (fallbackError) {
-          resolve(file); // Return original if all attempts fail
+        if (blob.size <= maxSize) {
+          bitmap.close();
+          bitmap = null;
+          onProgress?.(100);
+          return toJpegFile(blob);
         }
       }
-    };
+    }
 
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      console.warn('[Thumbnail Compression] Failed to load image for compression');
-      resolve(file); // Return original on error
-    };
-  });
+    bitmap.close();
+    bitmap = null;
+    onProgress?.(100);
+
+    if (bestBlob && bestBlob.size < file.size) {
+      return toJpegFile(bestBlob);
+    }
+
+    return file;
+  } catch (error) {
+    console.warn('[Thumbnail Compression] Error during compression:', error);
+    onProgress?.(100);
+    return file;
+  } finally {
+    if (bitmap) {
+      try {
+        bitmap.close();
+      } catch {
+        // ignore
+      }
+    }
+  }
 }
 
 /**
