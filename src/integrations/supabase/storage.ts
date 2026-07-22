@@ -1,4 +1,4 @@
-﻿import { supabase } from './client';
+import { supabase } from './client';
 import exifr from 'exifr';
 
 const DEFAULT_BUCKET = 'beta-videos';
