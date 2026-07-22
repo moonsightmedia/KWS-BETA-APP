@@ -984,6 +984,9 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const cancelUpload = useCallback(async (sessionId: string) => {
+    // Always free the concurrency slot — otherwise MAX_CONCURRENT=1 deadlocks the queue.
+    processingRef.current.delete(sessionId);
+
     setUploads(prev => {
         const upload = prev.find(u => u.sessionId === sessionId);
         if (!upload) return prev;
@@ -992,8 +995,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             deleteNativeVideoFile(upload.nativeFile.path).catch(() => undefined);
         }
 
-        // Abort if uploading
-        if (upload.status === 'uploading' || upload.status === 'pending') {
+        // Abort any in-flight work (including compressing/queued native uploads).
+        if (['uploading', 'pending', 'queued', 'compressing', 'retrying'].includes(upload.status)) {
             const controller = abortControllersRef.current[sessionId] || upload.abortController;
             if (controller) {
                 controller.abort();
@@ -1010,17 +1013,21 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setTimeout(() => {
             setUploads(prev => prev.filter(u => u.sessionId !== sessionId));
             delete abortControllersRef.current[sessionId];
+            processingRef.current.delete(sessionId);
+            setTimeout(() => processQueue(), 0);
         }, 1000);
 
         return prev.map(u => u.sessionId === sessionId ? { ...u, status: 'cancelled' as const } : u);
     });
-  }, []);
+  }, [processQueue]);
 
   const removeUpload = useCallback(async (sessionId: string) => {
     const upload = uploads.find(u => u.sessionId === sessionId);
+
+    processingRef.current.delete(sessionId);
     
     // Cancel if active
-    if (upload && (upload.status === 'uploading' || upload.status === 'pending')) {
+    if (upload && ['uploading', 'pending', 'queued', 'compressing', 'retrying'].includes(upload.status ?? '')) {
         const controller = abortControllersRef.current[sessionId] || upload.abortController;
         if (controller) {
             controller.abort();
@@ -1048,10 +1055,12 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     delete abortControllersRef.current[sessionId];
+    processingRef.current.delete(sessionId);
     
     // Remove from local state
     setUploads(prev => prev.filter(u => u.sessionId !== sessionId));
-  }, [deleteUploadLog, updateUploadLog, uploads]);
+    setTimeout(() => processQueue(), 0);
+  }, [deleteUploadLog, updateUploadLog, uploads, processQueue]);
 
   // Initial Restore
   useEffect(() => {

@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils';
 
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
+import { isNativeVideoPipelineAvailable } from '@/utils/nativeVideoUpload';
+import { pickNativeVideoForUpload } from '@/utils/nativeVideoPicker';
 
 export const UploadOverview = () => {
   const { uploads, isUploading, resumeUpload, cancelUpload, removeUpload } = useUpload();
@@ -17,6 +19,7 @@ export const UploadOverview = () => {
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const suppressDialogCloseUntilRef = useRef(0);
   const isNativeApp = Capacitor.isNativePlatform();
+  const useNativeVideoPicker = isNativeVideoPipelineAvailable();
 
   const extendDialogCloseSuppression = (durationMs = 1500) => {
     suppressDialogCloseUntilRef.current = Date.now() + durationMs;
@@ -29,9 +32,10 @@ export const UploadOverview = () => {
     setIsOpen(nextOpen);
   };
 
-  const isSetterCreate = location.pathname === '/setter/create';
+  // Show on all setter routes so interrupted uploads can be resumed after edit/reopen.
+  const isSetterArea = location.pathname.startsWith('/setter');
 
-  if (!isSetterCreate) return null;
+  if (!isSetterArea) return null;
 
   const activeUploads = uploads;
   const hasActiveUploads = activeUploads.length > 0;
@@ -68,8 +72,25 @@ export const UploadOverview = () => {
     extendDialogCloseSuppression(1000);
   };
 
-  const triggerFileSelect = (sessionId: string) => {
+  const triggerFileSelect = async (sessionId: string) => {
     extendDialogCloseSuppression(8000);
+    const upload = uploads.find((item) => item.sessionId === sessionId);
+
+    // On iOS, re-picking video via <input> breaks the native upload path.
+    // Use the same Capgo/native picker as create flow.
+    if (upload?.type === 'video' && useNativeVideoPicker) {
+      try {
+        const nativeVideo = await pickNativeVideoForUpload();
+        if (!nativeVideo) return;
+        await resumeUpload(sessionId, nativeVideo);
+        toast.success('Datei ausgewählt. Upload wird fortgesetzt...');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
+        toast.error('Fehler beim Fortsetzen: ' + message);
+      }
+      return;
+    }
+
     fileInputRefs.current[sessionId]?.click();
   };
 

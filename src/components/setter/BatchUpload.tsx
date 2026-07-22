@@ -159,6 +159,7 @@ export function BatchUpload() {
     const createdIds: string[] = [];
     const failures: Array<{ name: string; error: string }> = [];
 
+    try {
     for (const boulder of [...boulders]) {
       try {
         const colorName = colors.find((color) => color.id === boulder.colorId)?.name ?? 'Unbekannt';
@@ -257,8 +258,9 @@ export function BatchUpload() {
     if (failures.length) {
       toast.error(`${failures.length} Boulder konnten nicht vorbereitet werden.`, { duration: 3200 });
     }
-
-    setIsProcessing(false);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
