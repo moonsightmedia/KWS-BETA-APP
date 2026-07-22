@@ -1,8 +1,17 @@
 import { toast } from 'sonner';
 import { reportError, type ReportErrorUserContext } from './feedbackUtils';
+import { captureSentryException } from './sentry';
 
 let errorHandlerInitialized = false;
 let currentUserContext: ReportErrorUserContext | null = null;
+
+function isAbortError(error: unknown): boolean {
+  if (!error) return false;
+  if (error instanceof DOMException && error.name === 'AbortError') return true;
+  if (error instanceof Error && error.name === 'AbortError') return true;
+  const message = String((error as { message?: string })?.message || error || '').toLowerCase();
+  return message.includes('aborterror') || message.includes('signal is aborted');
+}
 
 /**
  * Sets the current user context for error reports (e.g. from App/useAuth).
@@ -31,6 +40,10 @@ export function initializeErrorHandler(): void {
     }
 
     const error = event.error || new Error(event.message || 'Unknown error');
+    if (isAbortError(error)) {
+      return;
+    }
+
     reportError(error, {
       componentStack: event.error?.stack || '',
     }, undefined, currentUserContext ?? undefined)
@@ -40,6 +53,7 @@ export function initializeErrorHandler(): void {
       .catch(() => {
         // Silently fail
       });
+    captureSentryException(error, { tags: { source: 'window.error' } });
   });
 
   // Handle unhandled promise rejections
@@ -48,6 +62,10 @@ export function initializeErrorHandler(): void {
       ? event.reason
       : new Error(String(event.reason || 'Unhandled promise rejection'));
 
+    if (isAbortError(error)) {
+      return;
+    }
+
     reportError(error, undefined, undefined, currentUserContext ?? undefined)
       .then(() => {
         toast.info('Ein Fehler ist aufgetreten und wurde automatisch gemeldet.');
@@ -55,6 +73,7 @@ export function initializeErrorHandler(): void {
       .catch(() => {
         // Silently fail
       });
+    captureSentryException(error, { tags: { source: 'unhandledrejection' } });
   });
 }
 
@@ -65,4 +84,3 @@ export function cleanupErrorHandler(): void {
   errorHandlerInitialized = false;
   // Note: We don't remove listeners as they're global
 }
-

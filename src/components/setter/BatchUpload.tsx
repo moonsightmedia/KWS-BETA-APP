@@ -145,7 +145,7 @@ export function BatchUpload() {
   const { data: attributeCatalog = [] } = useBoulderAttributeCatalog();
   const setBoulderAttributes = useSetBoulderAttributes();
   const { session } = useAuth();
-  const { startUpload } = useUpload();
+  const { startUpload, waitForUploadSessions } = useUpload();
 
   const [boulders, setBoulders] = useState<SetterBoulderDraft[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -249,11 +249,6 @@ export function BatchUpload() {
           payload.sector_id_2 = boulder.sectorId2;
         }
 
-        if (typeof boulder.mapX === 'number' && typeof boulder.mapY === 'number') {
-          payload.map_x = Math.min(100, Math.max(0, boulder.mapX));
-          payload.map_y = Math.min(100, Math.max(0, boulder.mapY));
-        }
-
         const response = await fetch(`${supabaseUrl}/rest/v1/boulders`, {
           method: 'POST',
           headers: {
@@ -290,8 +285,18 @@ export function BatchUpload() {
           .then((logged) => logged && queryClient.invalidateQueries({ queryKey: ['boulder-operation-logs'] }))
           .catch(() => undefined);
 
-        await startUpload(created.id, boulder.thumbFile!, 'thumbnail', boulder.sectorId);
-        await startUpload(created.id, boulder.videoFile!, 'video', boulder.sectorId);
+        const thumbSessionId = await startUpload(created.id, boulder.thumbFile!, 'thumbnail', boulder.sectorId);
+        const videoSessionId = await startUpload(created.id, boulder.videoFile!, 'video', boulder.sectorId);
+
+        setBoulders((prev) =>
+          prev.map((item) =>
+            item.id === boulder.id
+              ? { ...item, thumbFile: null, videoFile: null }
+              : item,
+          ),
+        );
+
+        await waitForUploadSessions([thumbSessionId, videoSessionId]);
         successfulIds.push(boulder.id);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
@@ -304,7 +309,7 @@ export function BatchUpload() {
     setBoulders((prev) => prev.filter((boulder) => !successfulIds.includes(boulder.id)));
 
     if (successfulIds.length) {
-      toast.success(`${successfulIds.length} Boulder in die Upload-Warteschlange gestellt.`, { duration: 3200 });
+      toast.success(`${successfulIds.length} Boulder hochgeladen.`, { duration: 3200 });
       await createBatchNotifications(createdIds, sectors, supabaseUrl, supabaseKey, session.access_token);
     }
 

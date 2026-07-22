@@ -19,6 +19,7 @@ import {
   type UploadFileInput,
   type UploadStatus,
 } from '@/types/upload';
+import { areUploadSessionsFinished } from '@/utils/uploadQueue';
 
 export interface ActiveUpload {
   sessionId: string;
@@ -39,6 +40,7 @@ interface UploadContextType {
   uploads: ActiveUpload[];
   startUpload: (boulderId: string, file: UploadFileInput, type: 'video' | 'thumbnail', sectorId?: string) => Promise<string>;
   resumeUpload: (sessionId: string, file: UploadFileInput) => Promise<void>;
+  waitForUploadSessions: (sessionIds: string[], timeoutMs?: number) => Promise<void>;
   cancelUpload: (sessionId: string) => void;
   removeUpload: (sessionId: string) => void;
   isUploading: boolean;
@@ -72,9 +74,14 @@ async function compressVideoInBackground(
 export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session } = useAuth(); // CRITICAL: Get session from useAuth for RLS after reload
   const [uploads, setUploads] = useState<ActiveUpload[]>([]);
+  const uploadsRef = useRef<ActiveUpload[]>([]);
   const abortControllersRef = useRef<Record<string, AbortController>>({});
   const MAX_CONCURRENT_UPLOADS = 1; // Phase 1: serialize iOS uploads to avoid memory kills
   const processingRef = useRef<Set<string>>(new Set()); // Track which uploads are being processed
+
+  useEffect(() => {
+    uploadsRef.current = uploads;
+  }, [uploads]);
 
   // Helper function to check and start queued uploads
   const processQueue = useCallback(() => {
@@ -685,6 +692,31 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
      });
   }, [uploads, processQueue]);
 
+  const waitForUploadSessions = useCallback(async (sessionIds: string[], timeoutMs = 30 * 60 * 1000) => {
+    const uniqueIds = [...new Set(sessionIds.filter(Boolean))];
+    if (uniqueIds.length === 0) return;
+
+    const startedAt = Date.now();
+    await new Promise<void>((resolve, reject) => {
+      const tick = () => {
+        const snapshot = uploadsRef.current.map((u) => ({
+          sessionId: u.sessionId,
+          status: u.status,
+        }));
+        if (areUploadSessionsFinished(snapshot, uniqueIds)) {
+          resolve();
+          return;
+        }
+        if (Date.now() - startedAt > timeoutMs) {
+          reject(new Error('Upload-Timeout: Boulder-Medien wurden nicht rechtzeitig fertig.'));
+          return;
+        }
+        setTimeout(tick, 400);
+      };
+      tick();
+    });
+  }, []);
+
   const cancelUpload = useCallback(async (sessionId: string) => {
     processingRef.current.delete(sessionId);
     setUploads(prev => {
@@ -852,10 +884,11 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         uploads, 
         startUpload, 
         resumeUpload,
+        waitForUploadSessions,
         cancelUpload,
         removeUpload,
         isUploading: uploads.some(u => u.status === 'uploading' || u.status === 'compressing' || u.status === 'pending')
-    }}>
+      }}>
       {children}
     </UploadContext.Provider>
   );

@@ -14,8 +14,11 @@ export type UploadFileInput = File | NativeVideoUploadFile;
 
 export type UploadStatus =
   | 'pending'
-  | 'uploading'
+  | 'queued'
   | 'compressing'
+  | 'waiting_network'
+  | 'uploading'
+  | 'retrying'
   | 'completed'
   | 'error'
   | 'failed'

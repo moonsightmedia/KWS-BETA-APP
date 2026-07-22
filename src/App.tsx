@@ -92,6 +92,7 @@ import { SidebarProvider } from '@/components/SidebarContext';
 import { UploadOverview } from '@/components/UploadOverview';
 import { UploadProvider } from '@/contexts/UploadContext';
 import { initializeErrorHandler, setErrorHandlerUserContext } from '@/utils/errorHandler';
+import { initSentry } from '@/utils/sentry';
 import { OnboardingProvider } from '@/components/Onboarding';
 import { RoleTabProvider } from '@/contexts/RoleTabContext';
 import { initializePushNotifications } from '@/utils/pushNotifications';
@@ -136,6 +137,7 @@ const Root = () => {
   
   // Initialize error handler on mount
   useEffect(() => {
+    initSentry();
     initializeErrorHandler();
   }, []);
 

@@ -177,3 +177,12 @@ export async function prepareVideoFileForChunkedUpload(
     }
   }
 }
+
+/**
+ * Phase 3 Capgo background upload is intentionally not wired yet.
+ * Keep chunked foreground upload until Phase 1+2 are proven on device.
+ * Enable later behind VITE_NATIVE_BACKGROUND_UPLOAD=true.
+ */
+export function isNativeBackgroundUploadEnabled(): boolean {
+  return import.meta.env.VITE_NATIVE_BACKGROUND_UPLOAD === 'true';
+}
