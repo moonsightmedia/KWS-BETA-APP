@@ -9,17 +9,27 @@ import { compressThumbnail } from '@/integrations/supabase/storage';
 import {
   getNativeVideoApiBase,
   isNativeVideoPipelineAvailable,
+  prepareVideoFileForChunkedUpload,
 } from '@/utils/nativeVideoUpload';
+import {
+  getUploadInputName,
+  getUploadInputSize,
+  isNativeVideoUploadFile,
+  type NativeVideoUploadFile,
+  type UploadFileInput,
+  type UploadStatus,
+} from '@/types/upload';
 
 export interface ActiveUpload {
   sessionId: string;
   boulderId: string;
   file: File | null;
+  nativeFile?: NativeVideoUploadFile;
   fileName: string;
   fileSize: number;
   type: 'video' | 'thumbnail';
   progress: number;
-  status: 'pending' | 'uploading' | 'completed' | 'error' | 'restoring' | 'cancelled';
+  status: UploadStatus;
   error?: string;
   sectorId?: string;
   abortController?: AbortController;
@@ -27,8 +37,8 @@ export interface ActiveUpload {
 
 interface UploadContextType {
   uploads: ActiveUpload[];
-  startUpload: (boulderId: string, file: File, type: 'video' | 'thumbnail', sectorId?: string) => Promise<string>;
-  resumeUpload: (sessionId: string, file: File) => Promise<void>;
+  startUpload: (boulderId: string, file: UploadFileInput, type: 'video' | 'thumbnail', sectorId?: string) => Promise<string>;
+  resumeUpload: (sessionId: string, file: UploadFileInput) => Promise<void>;
   cancelUpload: (sessionId: string) => void;
   removeUpload: (sessionId: string) => void;
   isUploading: boolean;
@@ -63,22 +73,20 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { session } = useAuth(); // CRITICAL: Get session from useAuth for RLS after reload
   const [uploads, setUploads] = useState<ActiveUpload[]>([]);
   const abortControllersRef = useRef<Record<string, AbortController>>({});
-  const MAX_CONCURRENT_UPLOADS = 4; // Maximum number of simultaneous uploads
+  const MAX_CONCURRENT_UPLOADS = 1; // Phase 1: serialize iOS uploads to avoid memory kills
   const processingRef = useRef<Set<string>>(new Set()); // Track which uploads are being processed
 
   // Helper function to check and start queued uploads
   const processQueue = useCallback(() => {
     setUploads(prev => {
-      const activeCount = prev.filter(u => 
-        (u.status === 'uploading' || u.status === 'pending') && processingRef.current.has(u.sessionId)
-      ).length;
+      const activeCount = processingRef.current.size;
       
       console.log('[UploadContext] 🔄 processQueue called:', { 
         totalUploads: prev.length, 
         activeCount, 
         maxConcurrent: MAX_CONCURRENT_UPLOADS,
         pendingUploads: prev.filter(u => u.status === 'pending').length,
-        pendingWithFile: prev.filter(u => u.status === 'pending' && u.file).length
+        pendingWithFile: prev.filter(u => u.status === 'pending' && (u.file || u.nativeFile)).length
       });
       
       if (activeCount >= MAX_CONCURRENT_UPLOADS) {
@@ -88,7 +96,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       // Find next pending upload that's not being processed
       const nextUpload = prev.find(u => 
-        u.status === 'pending' && u.file && !processingRef.current.has(u.sessionId)
+        u.status === 'pending' && (u.file || u.nativeFile) && !processingRef.current.has(u.sessionId)
       );
 
       if (nextUpload) {
@@ -96,7 +104,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           sessionId: nextUpload.sessionId, 
           fileName: nextUpload.fileName, 
           type: nextUpload.type,
-          hasFile: !!nextUpload.file
+          hasFile: !!nextUpload.file,
+          hasNativeFile: !!nextUpload.nativeFile,
         });
         // Mark as being processed
         processingRef.current.add(nextUpload.sessionId);
@@ -106,7 +115,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           processingRef.current.delete(nextUpload.sessionId);
         });
       } else {
-        const pendingWithoutFile = prev.filter(u => u.status === 'pending' && !u.file);
+        const pendingWithoutFile = prev.filter(u => u.status === 'pending' && !u.file && !u.nativeFile);
         if (pendingWithoutFile.length > 0) {
           console.warn('[UploadContext] ⚠️ Found pending uploads without file:', pendingWithoutFile.map(u => ({ sessionId: u.sessionId, fileName: u.fileName })));
         }
@@ -173,7 +182,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       status: upload.status
     });
     
-    if (!upload.file) {
+    if (!upload.file && !upload.nativeFile) {
       console.error('[UploadContext] ❌ No file in upload, cannot process:', upload.sessionId);
       processingRef.current.delete(upload.sessionId);
       return;
@@ -310,6 +319,9 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // CRITICAL: Compress thumbnails before uploading to reduce file size
         let fileToUpload = upload.file;
         if (upload.type === 'thumbnail') {
+            if (!upload.file) {
+              throw new Error('Thumbnail-Datei fehlt.');
+            }
             console.log('[UploadContext] 🗜️ Compressing thumbnail before upload...', {
                 originalSize: upload.file.size,
                 fileName: upload.fileName
@@ -341,30 +353,46 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const videoApiUrl = isNativeVideoPipelineAvailable()
                 ? getNativeVideoApiBase()
                 : API_URL;
-            console.log('[UploadContext] 🎬 Uploading video via chunked upload...', { videoApiUrl });
+            console.log('[UploadContext] 🎬 Preparing video for chunked upload...', { videoApiUrl });
 
+            let cleanup = async () => undefined;
             try {
-                const originalUrl = await resumableUpload(upload.file, videoApiUrl, {
+                updateUpload(upload.sessionId, { status: 'compressing', progress: Math.max(upload.progress, 1) });
+                await updateLog('compressing', Math.max(upload.progress, 1));
+
+                const input: UploadFileInput = upload.nativeFile
+                  ?? upload.file!;
+                const prepared = await prepareVideoFileForChunkedUpload(input, (p) => {
+                  updateUpload(upload.sessionId, { status: 'compressing', progress: Math.min(40, p) });
+                  updateLog('compressing', Math.min(40, p));
+                });
+                cleanup = prepared.cleanup;
+
+                updateUpload(upload.sessionId, { status: 'uploading', progress: Math.max(40, upload.progress) });
+                const originalUrl = await resumableUpload(prepared.file, videoApiUrl, {
                     sessionId: upload.sessionId,
                     sectorId: upload.sectorId,
                     authToken: currentSession.access_token,
                     onProgress: (p) => {
+                        const overall = 40 + Math.floor(p * 0.6);
                         setUploads(prev => {
                             const current = prev.find(u => u.sessionId === upload.sessionId);
                             if (current?.status === 'cancelled') return prev;
-                            return prev.map(u => u.sessionId === upload.sessionId ? { ...u, progress: p } : u);
+                            return prev.map(u => u.sessionId === upload.sessionId ? { ...u, progress: overall } : u);
                         });
-                        updateLog('uploading', p);
+                        updateLog('uploading', overall);
                     },
                     abortSignal: abortSignal || controller?.signal,
                 });
 
                 videoUrls = { hd: originalUrl };
                 url = originalUrl;
-                console.log('[UploadContext] ✅ Video upload completed:', originalUrl);
+                console.log('[UploadContext] ✅ Video upload completed:', originalUrl, { compressed: prepared.compressed });
             } catch (uploadError: any) {
                 console.error('[UploadContext] ❌ Video upload failed:', uploadError);
                 throw new Error(`Video-Upload fehlgeschlagen: ${uploadError.message || 'Unbekannter Fehler'}`);
+            } finally {
+                await cleanup().catch(() => undefined);
             }
         }
 
@@ -537,45 +565,55 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const startUpload = useCallback(async (boulderId: string, file: File, type: 'video' | 'thumbnail', sectorId?: string) => {
-    console.log('[UploadContext] 🚀 startUpload called:', { boulderId, fileName: file.name, fileSize: file.size, type, sectorId });
+  const startUpload = useCallback(async (boulderId: string, file: UploadFileInput, type: 'video' | 'thumbnail', sectorId?: string) => {
+    console.log('[UploadContext] 🚀 startUpload called:', {
+      boulderId,
+      fileName: getUploadInputName(file),
+      fileSize: getUploadInputSize(file),
+      type,
+      sectorId,
+    });
     
     if (!file) {
       console.error('[UploadContext] ❌ No file provided to startUpload');
       throw new Error('No file provided');
+    }
+
+    if (type === 'thumbnail' && isNativeVideoUploadFile(file)) {
+      throw new Error('Thumbnail muss eine Bilddatei sein');
     }
     
     const sessionId = type === 'video' 
         ? Math.random().toString(36).substring(2) + Date.now().toString(36)
         : `thumb_${Math.random().toString(36).substring(2) + Date.now().toString(36)}`;
 
+    const nativeFile = isNativeVideoUploadFile(file) ? file : undefined;
+    const webFile = nativeFile ? null : (file as File);
+
     const newUpload: ActiveUpload = {
         sessionId,
         boulderId,
-        file,
-        fileName: file.name,
-        fileSize: file.size,
+        file: webFile,
+        nativeFile,
+        fileName: getUploadInputName(file),
+        fileSize: getUploadInputSize(file),
         type,
         progress: 0,
         status: 'pending',
         sectorId
     };
 
-    console.log('[UploadContext] ✅ Adding upload to queue:', { sessionId, boulderId, fileName: file.name, type, status: 'pending' });
+    console.log('[UploadContext] ✅ Adding upload to queue:', { sessionId, boulderId, fileName: newUpload.fileName, type, status: 'pending' });
     
-    // CRITICAL: Add upload and immediately check if we can process it
     setUploads(prev => {
       const updated = [...prev, newUpload];
       console.log('[UploadContext] 📊 Total uploads in queue:', updated.length);
       return updated;
     });
     
-    // CRITICAL: Process queue after state update
-    // Use setTimeout to ensure state is updated before processing
     setTimeout(() => {
       console.log('[UploadContext] 🔄 Processing queue after adding upload:', sessionId);
       
-      // Check if we can start this upload immediately
       setUploads(currentUploads => {
         const uploadToProcess = currentUploads.find(u => u.sessionId === sessionId);
         
@@ -584,20 +622,18 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return currentUploads;
         }
         
-        const activeCount = currentUploads.filter(u => 
-          (u.status === 'uploading' || u.status === 'pending') && processingRef.current.has(u.sessionId)
-        ).length;
+        const activeCount = processingRef.current.size;
         
         console.log('[UploadContext] 🔍 Queue check:', {
           activeCount,
           maxConcurrent: MAX_CONCURRENT_UPLOADS,
           canStart: activeCount < MAX_CONCURRENT_UPLOADS,
-          hasFile: !!uploadToProcess.file,
+          hasFile: !!uploadToProcess.file || !!uploadToProcess.nativeFile,
           status: uploadToProcess.status,
           isProcessing: processingRef.current.has(uploadToProcess.sessionId)
         });
         
-        if (activeCount < MAX_CONCURRENT_UPLOADS && uploadToProcess.file && uploadToProcess.status === 'pending' && !processingRef.current.has(uploadToProcess.sessionId)) {
+        if (activeCount < MAX_CONCURRENT_UPLOADS && (uploadToProcess.file || uploadToProcess.nativeFile) && uploadToProcess.status === 'pending' && !processingRef.current.has(uploadToProcess.sessionId)) {
           console.log('[UploadContext] ✅ Can start upload immediately:', uploadToProcess.sessionId);
           processingRef.current.add(uploadToProcess.sessionId);
           processUpload(uploadToProcess).catch(err => {
@@ -611,42 +647,52 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return currentUploads;
       });
       
-      // Also call processQueue to handle other uploads
       processQueue();
     }, 0);
     
     return sessionId;
   }, [processQueue]);
 
-  const resumeUpload = useCallback(async (sessionId: string, file: File) => {
-     let targetUpload: ActiveUpload | undefined;
-     
-     setUploads(prev => {
-         return prev.map(u => {
-             if (u.sessionId === sessionId) {
-                 targetUpload = { ...u, file, status: 'pending', error: undefined };
-                 return targetUpload;
-             }
-             return u;
-         });
-     });
-     
-     if (targetUpload) {
-         processingRef.current.add(targetUpload.sessionId);
-         processUpload(targetUpload).catch(err => {
-           console.error('Error resuming upload:', err);
-           processingRef.current.delete(targetUpload.sessionId);
-         });
+  const resumeUpload = useCallback(async (sessionId: string, file: UploadFileInput) => {
+     const existingUpload = uploads.find(u => u.sessionId === sessionId);
+     if (!existingUpload) {
+       throw new Error('Upload nicht gefunden');
      }
-  }, []);
+
+     const nativeFile = isNativeVideoUploadFile(file) ? file : undefined;
+     const targetUpload: ActiveUpload = {
+       ...existingUpload,
+       file: nativeFile ? null : (file as File),
+       nativeFile,
+       fileName: getUploadInputName(file),
+       fileSize: getUploadInputSize(file),
+       status: 'pending',
+       error: undefined,
+     };
+     
+     setUploads(prev => prev.map(u => (u.sessionId === sessionId ? targetUpload : u)));
+
+     if (processingRef.current.size >= MAX_CONCURRENT_UPLOADS) {
+       setTimeout(() => processQueue(), 0);
+       return;
+     }
+     
+     processingRef.current.add(targetUpload.sessionId);
+     processUpload(targetUpload).catch(err => {
+       console.error('Error resuming upload:', err);
+       processingRef.current.delete(targetUpload.sessionId);
+       setTimeout(() => processQueue(), 0);
+     });
+  }, [uploads, processQueue]);
 
   const cancelUpload = useCallback(async (sessionId: string) => {
+    processingRef.current.delete(sessionId);
     setUploads(prev => {
         const upload = prev.find(u => u.sessionId === sessionId);
         if (!upload) return prev;
 
         // Abort if uploading
-        if (upload.status === 'uploading' || upload.status === 'pending') {
+        if (upload.status === 'uploading' || upload.status === 'pending' || upload.status === 'compressing') {
             const controller = abortControllersRef.current[sessionId] || upload.abortController;
             if (controller) {
                 controller.abort();
@@ -663,17 +709,20 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setTimeout(() => {
             setUploads(prev => prev.filter(u => u.sessionId !== sessionId));
             delete abortControllersRef.current[sessionId];
+            processingRef.current.delete(sessionId);
+            setTimeout(() => processQueue(), 0);
         }, 1000);
 
         return prev.map(u => u.sessionId === sessionId ? { ...u, status: 'cancelled' as const } : u);
     });
-  }, []);
+  }, [processQueue]);
 
   const removeUpload = useCallback(async (sessionId: string) => {
     const upload = uploads.find(u => u.sessionId === sessionId);
+    processingRef.current.delete(sessionId);
     
     // Cancel if active
-    if (upload && (upload.status === 'uploading' || upload.status === 'pending')) {
+    if (upload && (upload.status === 'uploading' || upload.status === 'pending' || upload.status === 'compressing')) {
         const controller = abortControllersRef.current[sessionId] || upload.abortController;
         if (controller) {
             controller.abort();
@@ -805,7 +854,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         resumeUpload,
         cancelUpload,
         removeUpload,
-        isUploading: uploads.some(u => u.status === 'uploading')
+        isUploading: uploads.some(u => u.status === 'uploading' || u.status === 'compressing' || u.status === 'pending')
     }}>
       {children}
     </UploadContext.Provider>

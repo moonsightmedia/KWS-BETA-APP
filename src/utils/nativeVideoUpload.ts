@@ -1,17 +1,8 @@
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Uploader } from '@capgo/capacitor-uploader';
 import { VideoCompressor } from '@honem/native-video-compressor';
 
-export interface NativeVideoUploadOptions {
-  sessionId: string;
-  sectorId?: string;
-  fileName: string;
-  mimeType?: string;
-  authToken: string;
-  onProgress?: (progress: number) => void;
-  abortSignal?: AbortSignal;
-}
+import type { NativeVideoUploadFile, UploadFileInput } from '@/types/upload';
+import { isNativeVideoUploadFile } from '@/types/upload';
 
 export interface NativeVideoPrepareResult {
   filePath: string;
@@ -19,6 +10,13 @@ export interface NativeVideoPrepareResult {
   fileName: string;
   mimeType: string;
   cleanup: () => Promise<void>;
+}
+
+export interface NativeVideoPathInput {
+  path: string;
+  fileName: string;
+  fileSize: number;
+  mimeType?: string;
 }
 
 export function isNativeVideoPipelineAvailable(): boolean {
@@ -32,221 +30,150 @@ export function getNativeVideoApiBase(): string {
   return raw.replace(/\/$/, '');
 }
 
-function readFileAsBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = String(reader.result || '');
-      const comma = result.indexOf(',');
-      resolve(comma >= 0 ? result.slice(comma + 1) : result);
-    };
-    reader.onerror = () => reject(reader.error || new Error('Datei konnte nicht gelesen werden'));
-    reader.readAsDataURL(file);
-  });
-}
-
-async function ensureCacheUploadDir(): Promise<void> {
+export async function deleteNativeVideoFile(path: string): Promise<void> {
   try {
-    await Filesystem.mkdir({
-      path: 'kws-upload',
-      directory: Directory.Cache,
-      recursive: true,
-    });
+    await VideoCompressor.deleteFile({ path });
   } catch {
-    // Directory may already exist
+    // ignore
   }
 }
 
-async function writeFileToCache(file: File, suffix: string): Promise<{ uri: string; path: string }> {
-  await ensureCacheUploadDir();
-  const safeName = file.name.replace(/[^\w.-]+/g, '_') || 'video.mp4';
-  const path = `kws-upload/${Date.now()}-${suffix}-${safeName}`;
-  const data = await readFileAsBase64(file);
-  const result = await Filesystem.writeFile({
-    path,
-    data,
-    directory: Directory.Cache,
-  });
-  return { uri: result.uri, path };
+function toMp4FileName(fileName: string): string {
+  const safeName = fileName.replace(/[^\w.-]+/g, '_') || 'video.mov';
+  return safeName.replace(/\.[^.]+$/, '') + '.mp4';
 }
 
-async function deleteCachedFile(path: string): Promise<void> {
-  try {
-    await Filesystem.deleteFile({ path, directory: Directory.Cache });
-  } catch {
-    // ignore cleanup errors
-  }
+const LARGE_NATIVE_VIDEO_BYTES = 80 * 1024 * 1024;
+
+function pickNativeCompressQuality(fileSize: number): 'low' | 'medium' {
+  return fileSize > LARGE_NATIVE_VIDEO_BYTES ? 'low' : 'medium';
 }
 
 /**
- * Compress video on-device (hardware encoder) and return native file path for upload.
- * NOTE: Do not call from upload flow with gallery File blobs — loading large videos
- * into JS memory via base64 can crash iOS. Use chunked resumableUpload instead.
+ * Compress an already-native video path. Avoids reading gallery videos into JS as base64.
  */
-export async function prepareNativeVideoForUpload(
-  file: File,
+export async function prepareNativeVideoPathForUpload(
+  input: NativeVideoPathInput,
   onProgress?: (progress: number) => void,
 ): Promise<NativeVideoPrepareResult> {
   if (!isNativeVideoPipelineAvailable()) {
     throw new Error('Native video pipeline is only available in the Capacitor app');
   }
 
-  onProgress?.(2);
-  const source = await writeFileToCache(file, 'src');
-  onProgress?.(8);
+  onProgress?.(5);
+  const quality = pickNativeCompressQuality(input.fileSize);
+  console.log('[nativeVideoUpload] Compressing with quality:', quality, { fileSize: input.fileSize });
 
   const compressed = await VideoCompressor.compressVideo({
-    inputPath: source.uri,
-    quality: 'medium',
+    inputPath: input.path,
+    quality,
     format: 'mp4',
   });
 
   onProgress?.(100);
 
-  const mimeType = 'video/mp4';
-  const fileName = file.name.replace(/\.[^.]+$/, '') + '.mp4';
-
   return {
     filePath: compressed.outputPath,
     fileSize: compressed.compressedSize,
-    fileName,
-    mimeType,
+    fileName: toMp4FileName(input.fileName),
+    mimeType: 'video/mp4',
     cleanup: async () => {
-      await deleteCachedFile(source.path);
-      try {
-        await VideoCompressor.deleteFile({ path: compressed.outputPath });
-      } catch {
-        // ignore
-      }
+      await deleteNativeVideoFile(compressed.outputPath);
     },
   };
 }
 
-async function waitForUploadResult(
-  apiBase: string,
-  sessionId: string,
-  authToken: string,
-  signal?: AbortSignal,
-): Promise<{ url: string; urls?: { hd?: string; sd?: string; low?: string } }> {
-  const statusUrl = `${apiBase}/upload-status.php?session_id=${encodeURIComponent(sessionId)}`;
-  for (let attempt = 0; attempt < 60; attempt++) {
-    if (signal?.aborted) {
-      throw new DOMException('Upload aborted', 'AbortError');
-    }
-    const res = await fetch(statusUrl, {
-      headers: { 'X-Upload-Auth': `Bearer ${authToken}` },
-      signal,
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.status === 'completed' && data.url) {
-        return { url: data.url, urls: data.urls };
-      }
-    }
-    await new Promise((r) => setTimeout(r, 1000));
+async function nativePathToFile(path: string, fileName: string, mimeType: string): Promise<File> {
+  const src = Capacitor.convertFileSrc(path);
+  const response = await fetch(src);
+  if (!response.ok) {
+    throw new Error(`Compressed video konnte nicht gelesen werden (${response.status})`);
   }
-  throw new Error('Upload abgeschlossen, aber Server-Antwort fehlt');
+  const blob = await response.blob();
+  return new File([blob], fileName, { type: mimeType || blob.type || 'video/mp4' });
 }
 
-/**
- * Background-capable single-chunk upload via native uploader plugin.
- * Works when the screen is locked (OS-level upload task).
- */
-export async function nativeBackgroundVideoUpload(
-  prepared: NativeVideoPrepareResult,
-  options: NativeVideoUploadOptions,
-): Promise<string> {
-  const apiBase = getNativeVideoApiBase();
-  const uploadUrl = `${apiBase}/upload.php`;
-  const {
-    sessionId,
-    sectorId,
-    authToken,
-    onProgress,
-    abortSignal,
-  } = options;
+export type PreparedChunkedVideo = {
+  file: File;
+  cleanup: () => Promise<void>;
+  compressed: boolean;
+};
 
-  const headers: Record<string, string> = {
-    'X-Upload-Auth': `Bearer ${authToken}`,
-    'X-Upload-Session-Id': sessionId,
-    'X-Chunk-Number': '0',
-    'X-Total-Chunks': '1',
-    'X-File-Name': prepared.fileName,
-    'X-File-Size': String(prepared.fileSize),
-    'X-File-Type': prepared.mimeType,
-  };
-  if (sectorId) {
-    headers['X-Sector-Id'] = sectorId;
+/**
+ * Phase 1: optional on-device compress, then return a File for existing chunked upload.
+ * Fail-open: any compress error returns the original web File when available.
+ */
+export async function prepareVideoFileForChunkedUpload(
+  input: UploadFileInput,
+  onProgress?: (progress: number) => void,
+): Promise<PreparedChunkedVideo> {
+  const noopCleanup = async () => undefined;
+
+  if (!isNativeVideoPipelineAvailable()) {
+    if (isNativeVideoUploadFile(input)) {
+      throw new Error('Native video is only supported in the Capacitor app');
+    }
+    return { file: input, cleanup: noopCleanup, compressed: false };
   }
 
-  const uploadPromise = new Promise<string>((resolve, reject) => {
-    let uploadId = '';
-    let settled = false;
+  if (!isNativeVideoUploadFile(input)) {
+    // Web File without a native path: skip compress (no base64 copy) — keep working chunked path.
+    console.log('[nativeVideoUpload] Skipping compress for web File (no native path)');
+    return { file: input, cleanup: noopCleanup, compressed: false };
+  }
 
-    const fail = (error: Error) => {
-      if (settled) return;
-      settled = true;
-      reject(error);
-    };
-
-    const succeed = (url: string) => {
-      if (settled) return;
-      settled = true;
-      resolve(url);
-    };
-
-    void (async () => {
-      const listener = await Uploader.addListener('events', (event) => {
-        if (event.id !== uploadId) return;
-
-        if (event.name === 'uploading' && typeof event.payload.percent === 'number') {
-          onProgress?.(event.payload.percent);
-        }
-
-        if (event.name === 'failed') {
-          listener.remove().catch(() => undefined);
-          fail(new Error(event.payload.error || 'Native Upload fehlgeschlagen'));
-        }
-
-        if (event.name === 'completed') {
-          listener.remove().catch(() => undefined);
-          if (event.payload.statusCode && event.payload.statusCode >= 400) {
-            fail(new Error(`Native Upload HTTP ${event.payload.statusCode}`));
-            return;
-          }
-          void waitForUploadResult(apiBase, sessionId, authToken, abortSignal)
-            .then((result) => succeed(result.url))
-            .catch(fail);
-        }
-      });
-
-      if (abortSignal) {
-        abortSignal.addEventListener('abort', () => {
-          if (uploadId) {
-            Uploader.removeUpload({ id: uploadId }).catch(() => undefined);
-          }
-          listener.remove().catch(() => undefined);
-          fail(new DOMException('Upload aborted', 'AbortError'));
-        }, { once: true });
-      }
-
-      const started = await Uploader.startUpload({
-        filePath: prepared.filePath,
-        serverUrl: uploadUrl,
-        headers,
-        method: 'POST',
-        uploadType: 'multipart',
-        fileField: 'chunk',
-        mimeType: prepared.mimeType,
-        maxRetries: 3,
-      });
-      uploadId = started.id;
-    })().catch(fail);
-  });
+  const source: NativeVideoUploadFile = input;
+  let prepared: NativeVideoPrepareResult | null = null;
 
   try {
-    return await uploadPromise;
-  } finally {
-    await prepared.cleanup();
+    prepared = await prepareNativeVideoPathForUpload(
+      {
+        path: source.path,
+        fileName: source.name,
+        fileSize: source.size,
+        mimeType: source.mimeType,
+      },
+      (p) => onProgress?.(Math.min(40, Math.floor(p * 0.4))),
+    );
+
+    const file = await nativePathToFile(prepared.filePath, prepared.fileName, prepared.mimeType);
+    const preparedCleanup = prepared.cleanup;
+    const sourcePath = source.cached ? source.path : null;
+
+    return {
+      file,
+      compressed: true,
+      cleanup: async () => {
+        await preparedCleanup();
+        if (sourcePath) {
+          // Best-effort: cached copy under app cache may be file:// URI — ignore failures.
+          try {
+            await deleteNativeVideoFile(sourcePath);
+          } catch {
+            // ignore
+          }
+        }
+      },
+    };
+  } catch (error) {
+    console.warn('[nativeVideoUpload] Compress failed, fail-open to original path read:', error);
+    if (prepared) {
+      await prepared.cleanup().catch(() => undefined);
+    }
+    try {
+      const file = await nativePathToFile(source.path, source.name, source.mimeType);
+      return {
+        file,
+        compressed: false,
+        cleanup: async () => {
+          if (source.cached) {
+            await deleteNativeVideoFile(source.path).catch(() => undefined);
+          }
+        },
+      };
+    } catch (readError) {
+      console.error('[nativeVideoUpload] Could not read original native video either:', readError);
+      throw error instanceof Error ? error : new Error(String(error));
+    }
   }
 }

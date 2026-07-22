@@ -23,6 +23,10 @@ import { cn } from '@/lib/utils';
 import type { BoulderAttributeOption } from '@/types/community';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
 import { generateBoulderName } from '@/utils/nameGenerator';
+import { isNativeVideoPipelineAvailable } from '@/utils/nativeVideoUpload';
+import { pickNativeVideoForUpload } from '@/utils/nativeVideoPicker';
+import { getUploadInputName, type UploadFileInput } from '@/types/upload';
+import { toast } from 'sonner';
 
 export interface SetterBoulderDraft {
   id: string;
@@ -34,7 +38,7 @@ export interface SetterBoulderDraft {
   difficulty: number | null;
   note: string;
   attributeIds: string[];
-  videoFile: File | null;
+  videoFile: UploadFileInput | null;
   thumbFile: File | null;
   existingThumbnailUrl?: string | null;
   existingVideoUrl?: string | null;
@@ -104,6 +108,8 @@ function EditorMediaDrop({
   fileName,
   existingLabel,
   onChange,
+  onPick,
+  useCustomPicker = false,
 }: {
   label: string;
   accept: string;
@@ -112,21 +118,32 @@ function EditorMediaDrop({
   fileName?: string | null;
   existingLabel?: string | null;
   onChange: (file: File) => void;
+  onPick?: () => void;
+  useCustomPicker?: boolean;
 }) {
   const statusText = fileName ?? existingLabel ?? 'Datei aus der Galerie wählen';
   const isSelected = Boolean(fileName || existingLabel || previewUrl);
 
   return (
     <label className="relative block aspect-[9/16] overflow-hidden rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FCFDFC]">
-      <input
-        type="file"
-        accept={accept}
-        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (file) onChange(file);
-        }}
-      />
+      {useCustomPicker ? (
+        <button
+          type="button"
+          className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+          aria-label={label}
+          onClick={() => onPick?.()}
+        />
+      ) : (
+        <input
+          type="file"
+          accept={accept}
+          className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) onChange(file);
+          }}
+        />
+      )}
       {previewUrl ? <img src={previewUrl} alt={label} className="absolute inset-0 h-full w-full object-cover" /> : null}
       <div
         className={cn(
@@ -276,8 +293,22 @@ export function SetterBoulderEditorDialog({
     selectSecondarySector(sector.id);
   };
 
+  const isNativeApp = isNativeVideoPipelineAvailable();
+
   const handleFileSelect = (kind: 'video' | 'thumb', file: File) => {
     updateDraft(kind === 'video' ? { videoFile: file } : { thumbFile: file });
+  };
+
+  const handleNativeVideoSelect = async () => {
+    try {
+      const nativeVideo = await pickNativeVideoForUpload();
+      if (!nativeVideo) return;
+      updateDraft({ videoFile: nativeVideo });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Video konnte nicht gewählt werden.';
+      console.error('[SetterBoulderEditorDialog] Native video picker failed:', error);
+      toast.error(message);
+    }
   };
 
   const selectedSectorName = sectors.find((sector) => sector.id === draft.sectorId)?.name ?? null;
@@ -295,7 +326,15 @@ export function SetterBoulderEditorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none border-0 bg-white p-0 shadow-none sm:h-[90vh] sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl sm:border sm:border-[#DDE7DF] sm:shadow-[0_18px_45px_rgba(19,17,43,0.12)]">
+      <DialogContent
+        className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none border-0 bg-white p-0 shadow-none sm:h-[90vh] sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl sm:border sm:border-[#DDE7DF] sm:shadow-[0_18px_45px_rgba(19,17,43,0.12)]"
+        onInteractOutside={(event) => {
+          if (isNativeApp) event.preventDefault();
+        }}
+        onPointerDownOutside={(event) => {
+          if (isNativeApp) event.preventDefault();
+        }}
+      >
         <div className="shrink-0 border-b border-[#E7F0E8] bg-white/96 px-4 py-4 backdrop-blur sm:px-6">
           <DialogHeader className="space-y-0">
             <DialogTitle className="text-[#13112B]">{title}</DialogTitle>
@@ -310,9 +349,11 @@ export function SetterBoulderEditorDialog({
                 label="Video"
                 accept="video/*"
                 icon={<FileVideo className="mb-2 h-6 w-6 text-[#6C6A7E]" />}
-                fileName={draft.videoFile?.name}
+                fileName={draft.videoFile ? getUploadInputName(draft.videoFile) : null}
                 existingLabel={draft.existingVideoUrl ? 'Video vorhanden' : null}
                 onChange={(file) => handleFileSelect('video', file)}
+                onPick={handleNativeVideoSelect}
+                useCustomPicker={isNativeApp}
               />
               <EditorMediaDrop
                 label="Thumbnail"

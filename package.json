@@ -39,6 +39,7 @@
     "@capacitor/filesystem": "^7.1.8",
     "@capacitor/ios": "^7.4.4",
     "@capacitor/push-notifications": "^7.0.4",
+    "@capawesome/capacitor-file-picker": "^7.2.0",
     "@capgo/capacitor-uploader": "^7.3.10",
     "@ffmpeg/ffmpeg": "^0.12.10",
     "@ffmpeg/util": "^0.12.1",
