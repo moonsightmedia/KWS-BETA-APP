@@ -1,4 +1,4 @@
-import { supabase } from './client';
+﻿import { supabase } from './client';
 import exifr from 'exifr';
 
 const DEFAULT_BUCKET = 'beta-videos';
@@ -36,11 +36,11 @@ function setupUploadKeepAlive(): () => void {
       try {
         const lock = await (navigator as any).wakeLock.request('screen');
         wakeLock = lock;
-        console.log('[Upload] ✅ Wake lock acquired to keep uploads running');
+        console.log('[Upload] âœ… Wake lock acquired to keep uploads running');
         
         // Handle wake lock release (e.g., when user manually locks screen or display turns off)
         lock.addEventListener('release', () => {
-          console.log('[Upload] ⚠️ Wake lock released (display may be off), attempting to reacquire...');
+          console.log('[Upload] âš ï¸ Wake lock released (display may be off), attempting to reacquire...');
           // Try to reacquire if upload is still active
           // Use a small delay to avoid rapid re-acquisition attempts
           if (isActive) {
@@ -56,11 +56,11 @@ function setupUploadKeepAlive(): () => void {
         });
       } catch (err: any) {
         // Wake lock may not be available (e.g., in some browsers, when battery saver is on)
-        console.warn('[Upload] ⚠️ Wake lock not available:', err.message || err);
-        console.log('[Upload] ℹ️ Uploads will continue, but device may sleep. This is usually fine.');
+        console.warn('[Upload] âš ï¸ Wake lock not available:', err.message || err);
+        console.log('[Upload] â„¹ï¸ Uploads will continue, but device may sleep. This is usually fine.');
       }
     } else {
-      console.log('[Upload] ℹ️ Wake Lock API not supported. Uploads will continue normally.');
+      console.log('[Upload] â„¹ï¸ Wake Lock API not supported. Uploads will continue normally.');
     }
   };
 
@@ -83,7 +83,7 @@ function setupUploadKeepAlive(): () => void {
             // Ignore errors - this is just a keep-alive
           });
         }, 30000); // Every 30 seconds
-        console.log('[Upload] ℹ️ Tab switched/minimized - keeping uploads alive in background');
+        console.log('[Upload] â„¹ï¸ Tab switched/minimized - keeping uploads alive in background');
       }
       
       // Try to reacquire wake lock if it was released
@@ -91,7 +91,7 @@ function setupUploadKeepAlive(): () => void {
         setTimeout(() => {
           if (isActive && !wakeLock) {
             requestWakeLock().catch((err) => {
-              console.warn('[Upload] ⚠️ Failed to reacquire wake lock after tab switch:', err);
+              console.warn('[Upload] âš ï¸ Failed to reacquire wake lock after tab switch:', err);
             });
           }
         }, 1000); // Wait 1 second before retry
@@ -102,7 +102,7 @@ function setupUploadKeepAlive(): () => void {
         clearInterval(keepAliveInterval);
         keepAliveInterval = null;
       }
-      console.log('[Upload] ✅ Tab visible - normal operation resumed');
+      console.log('[Upload] âœ… Tab visible - normal operation resumed');
     }
   };
 
@@ -110,7 +110,7 @@ function setupUploadKeepAlive(): () => void {
   const handlePageHide = () => {
     // Keep uploads running even when navigating away
     if (keepAliveInterval === null && isActive) {
-      console.log('[Upload] ℹ️ Page hiding, starting keep-alive for background uploads');
+      console.log('[Upload] â„¹ï¸ Page hiding, starting keep-alive for background uploads');
       keepAliveInterval = window.setInterval(() => {
         // Use XMLHttpRequest for better background support
         const xhr = new XMLHttpRequest();
@@ -126,7 +126,7 @@ function setupUploadKeepAlive(): () => void {
   // Cleanup function
   return () => {
     isActive = false;
-    console.log('[Upload] 🧹 Cleaning up keep-alive and wake lock');
+    console.log('[Upload] ðŸ§¹ Cleaning up keep-alive and wake lock');
     document.removeEventListener('visibilitychange', handleVisibilityChange);
     window.removeEventListener('pagehide', handlePageHide);
     if (keepAliveInterval !== null) {
@@ -164,7 +164,7 @@ function applyExifOrientation(ctx: CanvasRenderingContext2D, orientation: number
       ctx.transform(-1, 0, 0, 1, width, 0);
       break;
     case 3:
-      // 180° rotation
+      // 180Â° rotation
       ctx.transform(-1, 0, 0, -1, width, height);
       break;
     case 4:
@@ -172,19 +172,19 @@ function applyExifOrientation(ctx: CanvasRenderingContext2D, orientation: number
       ctx.transform(1, 0, 0, -1, 0, height);
       break;
     case 5:
-      // 90° clockwise + horizontal flip
+      // 90Â° clockwise + horizontal flip
       ctx.transform(0, 1, 1, 0, 0, 0);
       break;
     case 6:
-      // 90° clockwise (portrait images taken with phone rotated)
+      // 90Â° clockwise (portrait images taken with phone rotated)
       ctx.transform(0, 1, -1, 0, height, 0);
       break;
     case 7:
-      // 90° counter-clockwise + horizontal flip
+      // 90Â° counter-clockwise + horizontal flip
       ctx.transform(0, -1, -1, 0, height, width);
       break;
     case 8:
-      // 90° counter-clockwise (portrait images taken with phone rotated)
+      // 90Â° counter-clockwise (portrait images taken with phone rotated)
       ctx.transform(0, -1, 1, 0, 0, width);
       break;
     default:
@@ -194,324 +194,163 @@ function applyExifOrientation(ctx: CanvasRenderingContext2D, orientation: number
 }
 
 /**
- * Compress and resize thumbnail image for optimal performance
- * Resizes to max 200px width/height (optimized for 80-96px display size with 2x Retina)
- * Compresses to JPEG with 75% quality for smaller file sizes (10-30 KB instead of 50-200 KB)
- * Automatically corrects EXIF orientation so portrait images are saved as portrait
+/**
+ * Compress and resize thumbnail for upload.
+ * Decodes via createImageBitmap (bounded), forces portrait, JPEG with a short quality ladder.
+ * Phase 2: keep ~200px / 75% targets (baseline size) with memory-safe decode.
  */
 export async function compressThumbnail(file: File, onProgress?: (progress: number) => void): Promise<File> {
-  return new Promise(async (resolve, reject) => {
-    // Read EXIF orientation first
-    const orientation = await getExifOrientation(file);
-    
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-    img.src = objectUrl;
+  const DECODE_MAX = 960;
+  const maxSize = 5 * 1024 * 1024;
+  const qualityLevels = [0.75, 0.65, 0.5];
+  const dimensionLevels = [200, 150];
 
-    img.onload = () => {
-      try {
-        // Browser automatically applies EXIF orientation when displaying
-        // So img.width/height are already corrected for display
-        let imgWidth = img.width;
-        let imgHeight = img.height;
+  const toJpegFile = (blob: Blob) =>
+    new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
+      type: 'image/jpeg',
+      lastModified: Date.now(),
+    });
 
-        // Determine if image is landscape (width > height) or portrait (height > width)
-        const isLandscape = imgWidth > imgHeight;
-        
-        // ALWAYS save as portrait (height > width)
-        // If landscape, we'll rotate it 90° clockwise to make it portrait
-        let canvasWidth = imgWidth;
-        let canvasHeight = imgHeight;
-        let needsRotation = false;
-        
-        if (isLandscape) {
-          // Landscape image: swap dimensions and rotate 90° clockwise
-          canvasWidth = imgHeight;
-          canvasHeight = imgWidth;
-          needsRotation = true;
-        }
-        // If already portrait, keep dimensions as-is
+  const canvasToBlob = (canvas: HTMLCanvasElement, quality: number) =>
+    new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality);
+    });
 
-        // Calculate optimal dimensions (max 200px for thumbnails - 2x for Retina displays)
-        // Thumbnails are displayed as 80-96px, so 200px is perfect for Retina (2x)
-        // This is much smaller than before (800px) for better performance
-        const maxDimension = 200;
-        let width = canvasWidth;
-        let height = canvasHeight;
+  const fitPortraitSize = (srcW: number, srcH: number, maxSide: number) => {
+    const isLandscape = srcW > srcH;
+    let width = isLandscape ? srcH : srcW;
+    let height = isLandscape ? srcW : srcH;
+    const longest = Math.max(width, height);
+    if (longest > maxSide) {
+      const scale = maxSide / longest;
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+    }
+    return { width, height, needsRotation: isLandscape };
+  };
 
-        if (width > maxDimension || height > maxDimension) {
-          if (width > height) {
-            height = Math.round((height / width) * maxDimension);
-            width = maxDimension;
-          } else {
-            width = Math.round((width / height) * maxDimension);
-            height = maxDimension;
-          }
-        }
+  const drawPortrait = (
+    source: ImageBitmap,
+    width: number,
+    height: number,
+    needsRotation: boolean,
+  ) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Canvas not supported');
+    }
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    if (needsRotation) {
+      ctx.translate(width / 2, height / 2);
+      ctx.rotate(Math.PI / 2);
+      ctx.translate(-height / 2, -width / 2);
+      ctx.drawImage(source, 0, 0, height, width);
+    } else {
+      ctx.drawImage(source, 0, 0, width, height);
+    }
+    return canvas;
+  };
 
-        // Create canvas for resizing (always portrait orientation)
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
+  let bitmap: ImageBitmap | null = null;
 
-        if (!ctx) {
-          URL.revokeObjectURL(objectUrl);
-          // Canvas not supported - try to reduce dimensions further and retry
-          if (maxDimension > 400) {
-            // Retry with smaller dimension
-            const smallerDimension = 400;
-            let retryWidth = canvasWidth;
-            let retryHeight = canvasHeight;
-            if (retryWidth > smallerDimension || retryHeight > smallerDimension) {
-              if (retryWidth > retryHeight) {
-                retryHeight = Math.round((retryHeight / retryWidth) * smallerDimension);
-                retryWidth = smallerDimension;
-              } else {
-                retryWidth = Math.round((retryWidth / retryHeight) * smallerDimension);
-                retryHeight = smallerDimension;
-              }
-            }
-            canvas.width = retryWidth;
-            canvas.height = retryHeight;
-            const retryCtx = canvas.getContext('2d');
-            if (retryCtx) {
-              // Retry with smaller canvas
-              retryCtx.imageSmoothingEnabled = true;
-              retryCtx.imageSmoothingQuality = 'high';
-              retryCtx.drawImage(img, 0, 0, retryWidth, retryHeight);
-              // Continue with compression...
-            } else {
-              resolve(file); // Canvas truly not supported
-              return;
-            }
-          } else {
-            resolve(file); // Already at minimum, canvas not supported
-            return;
-          }
-        }
+  try {
+    onProgress?.(5);
 
-        // Use high-quality image rendering
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
+    if (typeof createImageBitmap !== 'function') {
+      console.warn('[Thumbnail Compression] createImageBitmap unavailable, using original file');
+      onProgress?.(100);
+      return file;
+    }
 
-        // Save context state
-        ctx.save();
+    bitmap = await createImageBitmap(file);
+    onProgress?.(20);
 
-        // Apply transformations to ensure portrait orientation
-        if (needsRotation) {
-          // Landscape image: rotate 90° clockwise to make it portrait
-          ctx.translate(width / 2, height / 2);
-          ctx.rotate(Math.PI / 2); // 90° clockwise
-          ctx.translate(-height / 2, -width / 2);
-          // Draw with swapped dimensions
-          ctx.drawImage(img, 0, 0, height, width);
-        } else {
-          // Already portrait: apply EXIF orientation correction if needed
-          // But only if it doesn't make it landscape again
-          applyExifOrientation(ctx, orientation, width, height);
-          
-          // For EXIF orientations 6 and 8, we need to handle them specially
-          if (orientation === 6 || orientation === 8) {
-            // These are portrait images stored as landscape in EXIF
-            // The browser already corrected them, so we just draw normally
-            ctx.drawImage(img, 0, 0, width, height);
-          } else {
-            // Normal portrait or other orientations
-            ctx.drawImage(img, 0, 0, width, height);
-          }
+    const decodeLongest = Math.max(bitmap.width, bitmap.height);
+    if (decodeLongest > DECODE_MAX) {
+      const scale = DECODE_MAX / decodeLongest;
+      const rw = Math.max(1, Math.round(bitmap.width * scale));
+      const rh = Math.max(1, Math.round(bitmap.height * scale));
+      const shrinkCanvas = document.createElement('canvas');
+      shrinkCanvas.width = rw;
+      shrinkCanvas.height = rh;
+      const shrinkCtx = shrinkCanvas.getContext('2d');
+      if (!shrinkCtx) {
+        onProgress?.(100);
+        return file;
+      }
+      shrinkCtx.imageSmoothingEnabled = true;
+      shrinkCtx.imageSmoothingQuality = 'high';
+      shrinkCtx.drawImage(bitmap, 0, 0, rw, rh);
+      bitmap.close();
+      bitmap = await createImageBitmap(shrinkCanvas);
+    }
+
+    onProgress?.(40);
+
+    let bestBlob: Blob | null = null;
+
+    for (let d = 0; d < dimensionLevels.length; d++) {
+      const { width, height, needsRotation } = fitPortraitSize(
+        bitmap.width,
+        bitmap.height,
+        dimensionLevels[d],
+      );
+      const canvas = drawPortrait(bitmap, width, height, needsRotation);
+
+      for (let q = 0; q < qualityLevels.length; q++) {
+        const blob = await canvasToBlob(canvas, qualityLevels[q]);
+        if (!blob) continue;
+
+        if (!bestBlob || blob.size < bestBlob.size) {
+          bestBlob = blob;
         }
 
-        // Restore context state
-        ctx.restore();
+        onProgress?.(
+          50 +
+            Math.floor(
+              ((d * qualityLevels.length + q + 1) /
+                (dimensionLevels.length * qualityLevels.length)) *
+                45,
+            ),
+        );
 
-        if (onProgress) onProgress(50);
-
-        // Convert to JPEG with adaptive quality to ensure file is under 5MB
-        // For thumbnails, we use lower quality (75%) for smaller file sizes
-        const maxSize = 5 * 1024 * 1024; // 5MB
-        const qualityLevels = [0.75, 0.65, 0.55, 0.45, 0.35, 0.25, 0.15]; // Start at 75% for thumbnails
-        const dimensionLevels = [maxDimension, 150, 120, 100]; // Progressive dimension reduction (smaller steps for thumbnails)
-        
-        let currentQualityIndex = 0;
-        let currentDimensionIndex = 0;
-        let bestResult: { blob: Blob; quality: number; dimension: number } | null = null;
-        
-        const tryCompress = (quality: number, dimension: number, retryWithSmallerDimension: boolean = false) => {
-          // If we need to retry with smaller dimension, recreate canvas
-          if (retryWithSmallerDimension && currentDimensionIndex < dimensionLevels.length - 1) {
-            currentDimensionIndex++;
-            const newDimension = dimensionLevels[currentDimensionIndex];
-            let newWidth = canvasWidth;
-            let newHeight = canvasHeight;
-            
-            if (newWidth > newDimension || newHeight > newDimension) {
-              if (newWidth > newHeight) {
-                newHeight = Math.round((newHeight / newWidth) * newDimension);
-                newWidth = newDimension;
-              } else {
-                newWidth = Math.round((newWidth / newHeight) * newDimension);
-                newHeight = newDimension;
-              }
-            }
-            
-            canvas.width = newWidth;
-            canvas.height = newHeight;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            
-            // Redraw image with new dimensions
-            if (needsRotation) {
-              ctx.save();
-              ctx.translate(newWidth / 2, newHeight / 2);
-              ctx.rotate(Math.PI / 2);
-              ctx.translate(-newHeight / 2, -newWidth / 2);
-              ctx.drawImage(img, 0, 0, newHeight, newWidth);
-              ctx.restore();
-            } else {
-              applyExifOrientation(ctx, orientation, newWidth, newHeight);
-              ctx.drawImage(img, 0, 0, newWidth, newHeight);
-            }
-            
-            dimension = newDimension;
-          }
-          
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) {
-                // If conversion fails, try next quality level
-                if (currentQualityIndex < qualityLevels.length - 1) {
-                  currentQualityIndex++;
-                  tryCompress(qualityLevels[currentQualityIndex], dimension, false);
-                } else if (currentDimensionIndex < dimensionLevels.length - 1) {
-                  // Try with smaller dimension
-                  currentQualityIndex = 0; // Reset quality
-                  tryCompress(qualityLevels[0], dimension, true);
-                } else {
-                  // All options exhausted - use best result or original
-                  URL.revokeObjectURL(objectUrl);
-                  if (bestResult && bestResult.blob.size < file.size) {
-                    const compressedFile = new File(
-                      [bestResult.blob],
-                      file.name.replace(/\.[^/.]+$/, '.jpg'),
-                      { type: 'image/jpeg', lastModified: Date.now() }
-                    );
-                    if (onProgress) onProgress(100);
-                    resolve(compressedFile);
-                  } else {
-                    resolve(file); // Return original if all attempts fail
-                  }
-                }
-                return;
-              }
-
-              // Track best result (smallest that's still smaller than original)
-              if (blob.size < file.size && (!bestResult || blob.size < bestResult.blob.size)) {
-                bestResult = { blob, quality, dimension };
-              }
-
-              // If compressed version is under 5MB, use it
-              if (blob.size <= maxSize) {
-                const compressedFile = new File(
-                  [blob],
-                  file.name.replace(/\.[^/.]+$/, '.jpg'),
-                  { type: 'image/jpeg', lastModified: Date.now() }
-                );
-                URL.revokeObjectURL(objectUrl);
-                if (onProgress) onProgress(100);
-                resolve(compressedFile);
-              } else if (blob.size < file.size && currentQualityIndex < qualityLevels.length - 1) {
-                // Compressed version is smaller than original but still too large
-                // Try lower quality
-                currentQualityIndex++;
-                tryCompress(qualityLevels[currentQualityIndex], dimension, false);
-              } else if (blob.size < file.size && currentDimensionIndex < dimensionLevels.length - 1) {
-                // Try with smaller dimension
-                currentQualityIndex = 0; // Reset quality
-                tryCompress(qualityLevels[0], dimension, true);
-              } else if (bestResult && bestResult.blob.size < file.size) {
-                // Use best result we found
-                const compressedFile = new File(
-                  [bestResult.blob],
-                  file.name.replace(/\.[^/.]+$/, '.jpg'),
-                  { type: 'image/jpeg', lastModified: Date.now() }
-                );
-                URL.revokeObjectURL(objectUrl);
-                if (onProgress) onProgress(100);
-                resolve(compressedFile);
-              } else {
-                // Compressed version is larger than original or no improvement
-                // Try lower quality or smaller dimension
-                if (currentQualityIndex < qualityLevels.length - 1) {
-                  currentQualityIndex++;
-                  tryCompress(qualityLevels[currentQualityIndex], dimension, false);
-                } else if (currentDimensionIndex < dimensionLevels.length - 1) {
-                  currentQualityIndex = 0;
-                  tryCompress(qualityLevels[0], dimension, true);
-                } else {
-                  // All options exhausted
-                  URL.revokeObjectURL(objectUrl);
-                  if (bestResult && bestResult.blob.size < file.size) {
-                    const compressedFile = new File(
-                      [bestResult.blob],
-                      file.name.replace(/\.[^/.]+$/, '.jpg'),
-                      { type: 'image/jpeg', lastModified: Date.now() }
-                    );
-                    if (onProgress) onProgress(100);
-                    resolve(compressedFile);
-                  } else {
-                    resolve(file); // Return original if compression doesn't help
-                  }
-                }
-              }
-            },
-            'image/jpeg',
-            quality
-          );
-        };
-        
-        // Start with first quality level
-        tryCompress(qualityLevels[0], maxDimension, false);
-      } catch (error) {
-        URL.revokeObjectURL(objectUrl);
-        console.warn('[Thumbnail Compression] Error during compression:', error);
-        // Try a last-ditch effort: create a very small version
-        try {
-          const fallbackCanvas = document.createElement('canvas');
-          fallbackCanvas.width = 400;
-          fallbackCanvas.height = 400;
-          const fallbackCtx = fallbackCanvas.getContext('2d');
-          if (fallbackCtx) {
-            fallbackCtx.drawImage(img, 0, 0, 400, 400);
-            fallbackCanvas.toBlob((blob) => {
-              if (blob && blob.size < file.size && blob.size <= 5 * 1024 * 1024) {
-                const compressedFile = new File(
-                  [blob],
-                  file.name.replace(/\.[^/.]+$/, '.jpg'),
-                  { type: 'image/jpeg', lastModified: Date.now() }
-                );
-                resolve(compressedFile);
-              } else {
-                resolve(file); // Return original if fallback also fails
-              }
-            }, 'image/jpeg', 0.3);
-          } else {
-            resolve(file); // Canvas not supported
-          }
-        } catch (fallbackError) {
-          resolve(file); // Return original if all attempts fail
+        if (blob.size <= maxSize) {
+          bitmap.close();
+          bitmap = null;
+          onProgress?.(100);
+          return toJpegFile(blob);
         }
       }
-    };
+    }
 
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      console.warn('[Thumbnail Compression] Failed to load image for compression');
-      resolve(file); // Return original on error
-    };
-  });
+    bitmap.close();
+    bitmap = null;
+    onProgress?.(100);
+
+    if (bestBlob && bestBlob.size < file.size) {
+      return toJpegFile(bestBlob);
+    }
+
+    return file;
+  } catch (error) {
+    console.warn('[Thumbnail Compression] Error during compression:', error);
+    onProgress?.(100);
+    return file;
+  } finally {
+    if (bitmap) {
+      try {
+        bitmap.close();
+      } catch {
+        // ignore
+      }
+    }
+  }
 }
+
 
 /**
  * Remove audio track from video file
@@ -531,7 +370,7 @@ async function removeAudioFromVideo(file: File, onProgress?: (progress: number) 
   // Check if MediaRecorder is available
   if (!MediaRecorder.isTypeSupported('video/webm;codecs=vp9') && 
       !MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
-    console.warn('MediaRecorder nicht unterstützt, verwende Original-Video (mit möglichem Audio)');
+    console.warn('MediaRecorder nicht unterstÃ¼tzt, verwende Original-Video (mit mÃ¶glichem Audio)');
     if (onProgress) onProgress(100);
     return file;
   }
@@ -763,7 +602,7 @@ async function getFFmpeg(onProgress?: (progress: number) => void): Promise<any> 
     import('@ffmpeg/util'),
   ]);
 
-  console.log('[FFmpeg] ✅ FFmpeg modules imported');
+  console.log('[FFmpeg] âœ… FFmpeg modules imported');
   if (onProgress) onProgress(30);
 
   // Store fetchFile globally so it can be used in compression functions
@@ -781,11 +620,11 @@ async function getFFmpeg(onProgress?: (progress: number) => void): Promise<any> 
     if (onProgress) onProgress(50);
     
     const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
-    console.log('[FFmpeg] ✅ Core JS loaded');
+    console.log('[FFmpeg] âœ… Core JS loaded');
     if (onProgress) onProgress(70);
     
     const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
-    console.log('[FFmpeg] ✅ WASM file loaded');
+    console.log('[FFmpeg] âœ… WASM file loaded');
     if (onProgress) onProgress(90);
     
     await ffmpeg.load({
@@ -793,7 +632,7 @@ async function getFFmpeg(onProgress?: (progress: number) => void): Promise<any> 
       wasmURL,
     });
     
-    console.log('[FFmpeg] ✅ FFmpeg fully loaded and ready');
+    console.log('[FFmpeg] âœ… FFmpeg fully loaded and ready');
     if (onProgress) onProgress(100);
     
     ffmpegInstance = ffmpeg;
@@ -823,11 +662,11 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
     if ('wakeLock' in navigator) {
       try {
         wakeLock = await (navigator as any).wakeLock.request('screen');
-        console.log('[Video Compression] ✅ Wake lock acquired to keep compression running');
+        console.log('[Video Compression] âœ… Wake lock acquired to keep compression running');
         
         // Handle wake lock release
         wakeLock.addEventListener('release', () => {
-          console.log('[Video Compression] ⚠️ Wake lock released, attempting to reacquire...');
+          console.log('[Video Compression] âš ï¸ Wake lock released, attempting to reacquire...');
           if (!isResolved) {
             setTimeout(() => {
               if (!isResolved && !wakeLock) {
@@ -839,8 +678,8 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
           }
         });
       } catch (err: any) {
-        console.warn('[Video Compression] ⚠️ Wake lock not available:', err.message || err);
-        console.log('[Video Compression] ℹ️ Compression will continue, but may be throttled in background');
+        console.warn('[Video Compression] âš ï¸ Wake lock not available:', err.message || err);
+        console.log('[Video Compression] â„¹ï¸ Compression will continue, but may be throttled in background');
       }
     }
   };
@@ -851,7 +690,7 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
   // Monitor visibility changes to reacquire wake lock if needed
   const handleVisibilityChange = () => {
     if (document.visibilityState === 'hidden') {
-      console.log('[Video Compression] ⚠️ Tab switched to background - ensuring compression continues');
+      console.log('[Video Compression] âš ï¸ Tab switched to background - ensuring compression continues');
       // Reacquire wake lock if it was released
       if (!wakeLock && !isResolved && 'wakeLock' in navigator) {
         requestWakeLock().catch((err) => {
@@ -859,7 +698,7 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
         });
       }
     } else {
-      console.log('[Video Compression] ✅ Tab visible again - compression should continue normally');
+      console.log('[Video Compression] âœ… Tab visible again - compression should continue normally');
     }
   };
   
@@ -869,7 +708,7 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
     timeoutId = setTimeout(() => {
       if (!isResolved) {
         isResolved = true;
-        reject(new Error('Video compression timeout: Komprimierung dauerte länger als 15 Minuten'));
+        reject(new Error('Video compression timeout: Komprimierung dauerte lÃ¤nger als 15 Minuten'));
       }
     }, COMPRESSION_TIMEOUT);
   });
@@ -1037,7 +876,7 @@ async function compressVideo(file: File, onProgress?: (progress: number) => void
     if (wakeLock) {
       try {
         await wakeLock.release();
-        console.log('[Video Compression] 🧹 Wake lock released');
+        console.log('[Video Compression] ðŸ§¹ Wake lock released');
       } catch (err) {
         console.warn('[Video Compression] Failed to release wake lock:', err);
       }
@@ -1091,9 +930,9 @@ export async function compressVideoMultiQuality(
   
   // Log iOS detection for debugging
   if (isIOSDevice) {
-    console.log('[Video Multi-Quality Compression] 📱 iOS device detected - using extended timeout');
+    console.log('[Video Multi-Quality Compression] ðŸ“± iOS device detected - using extended timeout');
     if (isLargeFile) {
-      console.warn('[Video Multi-Quality Compression] ⚠️ Large file detected on iOS - compression may take longer');
+      console.warn('[Video Multi-Quality Compression] âš ï¸ Large file detected on iOS - compression may take longer');
     }
   }
   
@@ -1102,7 +941,7 @@ export async function compressVideoMultiQuality(
     if ('wakeLock' in navigator) {
       try {
         wakeLock = await (navigator as any).wakeLock.request('screen');
-        console.log('[Video Multi-Quality Compression] ✅ Wake lock acquired');
+        console.log('[Video Multi-Quality Compression] âœ… Wake lock acquired');
         
         wakeLock.addEventListener('release', () => {
           if (!isResolved) {
@@ -1114,7 +953,7 @@ export async function compressVideoMultiQuality(
           }
         });
       } catch (err: any) {
-        console.warn('[Video Multi-Quality Compression] ⚠️ Wake lock not available:', err.message || err);
+        console.warn('[Video Multi-Quality Compression] âš ï¸ Wake lock not available:', err.message || err);
       }
     }
   };
@@ -1154,7 +993,7 @@ export async function compressVideoMultiQuality(
           onProgress(overallProgress);
         }
       }).then((ffmpegInstance) => {
-        console.log('[Video Multi-Quality Compression] ✅ FFmpeg initialized successfully');
+        console.log('[Video Multi-Quality Compression] âœ… FFmpeg initialized successfully');
         return ffmpegInstance;
       }),
       timeoutPromise,
@@ -1180,14 +1019,14 @@ export async function compressVideoMultiQuality(
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         URL.revokeObjectURL(objectUrl);
-        console.error('[Video Multi-Quality Compression] ❌ Timeout loading video metadata');
+        console.error('[Video Multi-Quality Compression] âŒ Timeout loading video metadata');
         reject(new Error('Timeout loading video metadata'));
       }, 10000); // 10 second timeout for metadata loading
       
       video.onloadedmetadata = () => {
         clearTimeout(timeout);
         URL.revokeObjectURL(objectUrl);
-        console.log('[Video Multi-Quality Compression] ✅ Video metadata loaded:', {
+        console.log('[Video Multi-Quality Compression] âœ… Video metadata loaded:', {
           width: video.videoWidth,
           height: video.videoHeight,
           duration: video.duration
@@ -1197,7 +1036,7 @@ export async function compressVideoMultiQuality(
       video.onerror = (e) => {
         clearTimeout(timeout);
         URL.revokeObjectURL(objectUrl);
-        console.error('[Video Multi-Quality Compression] ❌ Failed to load video metadata:', e);
+        console.error('[Video Multi-Quality Compression] âŒ Failed to load video metadata:', e);
         reject(new Error('Failed to load video metadata'));
       };
     });
@@ -1221,11 +1060,11 @@ export async function compressVideoMultiQuality(
     
     try {
       const fileData = await fetchFileFn(file);
-      console.log('[Video Multi-Quality Compression] ✅ File data loaded, size:', fileData.length);
+      console.log('[Video Multi-Quality Compression] âœ… File data loaded, size:', fileData.length);
       await ffmpeg.writeFile(inputFileName, fileData);
-      console.log('[Video Multi-Quality Compression] ✅ Input file written to FFmpeg');
+      console.log('[Video Multi-Quality Compression] âœ… Input file written to FFmpeg');
     } catch (error) {
-      console.error('[Video Multi-Quality Compression] ❌ Error writing file to FFmpeg:', error);
+      console.error('[Video Multi-Quality Compression] âŒ Error writing file to FFmpeg:', error);
       throw error;
     }
     
@@ -1457,27 +1296,27 @@ async function uploadToAllInkl(
       if ('wakeLock' in navigator) {
         try {
           wakeLock = await (navigator as any).wakeLock.request('screen');
-          console.log('[Upload] ✅ Wake lock acquired for chunked upload');
+          console.log('[Upload] âœ… Wake lock acquired for chunked upload');
           
           // Handle wake lock release (e.g., when display turns off)
           wakeLock.addEventListener('release', () => {
-            console.log('[Upload] ⚠️ Wake lock released during chunked upload, attempting to reacquire...');
+            console.log('[Upload] âš ï¸ Wake lock released during chunked upload, attempting to reacquire...');
             // Try to reacquire after a short delay
             setTimeout(async () => {
               if ('wakeLock' in navigator) {
                 try {
                   wakeLock = await (navigator as any).wakeLock.request('screen');
-                  console.log('[Upload] ✅ Wake lock reacquired');
+                  console.log('[Upload] âœ… Wake lock reacquired');
                 } catch (err: any) {
-                  console.warn('[Upload] ⚠️ Failed to reacquire wake lock:', err.message || err);
+                  console.warn('[Upload] âš ï¸ Failed to reacquire wake lock:', err.message || err);
                   // Continue without wake lock - upload should still work
                 }
               }
             }, 1000);
           });
         } catch (err: any) {
-          console.warn('[Upload] ⚠️ Wake lock not available:', err.message || err);
-          console.log('[Upload] ℹ️ Upload will continue without wake lock');
+          console.warn('[Upload] âš ï¸ Wake lock not available:', err.message || err);
+          console.log('[Upload] â„¹ï¸ Upload will continue without wake lock');
         }
       }
       
@@ -1486,7 +1325,7 @@ async function uploadToAllInkl(
       // Note: We use XMLHttpRequest which works in background, so Service Worker is optional
       const useBackgroundUpload = document.visibilityState === 'hidden' && 'serviceWorker' in navigator;
       if (useBackgroundUpload) {
-        console.log('[Upload] ℹ️ Tab is hidden, using background upload strategy');
+        console.log('[Upload] â„¹ï¸ Tab is hidden, using background upload strategy');
       }
       
       // Track uploaded chunks for resume capability
@@ -1557,9 +1396,9 @@ async function uploadToAllInkl(
             // Monitor visibility - warn but don't abort (uploads continue in background)
             const handleVisibilityChange = () => {
               if (document.visibilityState === 'hidden' && !isResolved) {
-                console.log('[Upload] ℹ️ Tab wurde gewechselt während Chunk-Upload. Upload läuft im Hintergrund weiter.');
+                console.log('[Upload] â„¹ï¸ Tab wurde gewechselt wÃ¤hrend Chunk-Upload. Upload lÃ¤uft im Hintergrund weiter.');
               } else if (document.visibilityState === 'visible' && !isResolved) {
-                console.log('[Upload] ✅ Tab wieder sichtbar. Upload läuft weiter.');
+                console.log('[Upload] âœ… Tab wieder sichtbar. Upload lÃ¤uft weiter.');
               }
             };
             
@@ -1573,7 +1412,7 @@ async function uploadToAllInkl(
                 if (document.visibilityState === 'hidden') {
                   // Log progress updates in background for debugging
                   if (chunkProgress % 10 === 0 || chunkProgress === 100) {
-                    console.log(`[Upload] 📊 Background progress: Chunk ${i + 1}/${totalChunks} (${Math.round(chunkProgress)}%)`);
+                    console.log(`[Upload] ðŸ“Š Background progress: Chunk ${i + 1}/${totalChunks} (${Math.round(chunkProgress)}%)`);
                   }
                 }
                 onProgress(chunkProgress);
@@ -1743,27 +1582,27 @@ async function uploadToAllInkl(
       if ('wakeLock' in navigator) {
         try {
           wakeLock = await (navigator as any).wakeLock.request('screen');
-          console.log('[Upload] ✅ Wake lock acquired for single file upload');
+          console.log('[Upload] âœ… Wake lock acquired for single file upload');
           
           // Handle wake lock release (e.g., when display turns off)
           wakeLock.addEventListener('release', () => {
-            console.log('[Upload] ⚠️ Wake lock released during upload, attempting to reacquire...');
+            console.log('[Upload] âš ï¸ Wake lock released during upload, attempting to reacquire...');
             // Try to reacquire after a short delay
             setTimeout(async () => {
               if ('wakeLock' in navigator) {
                 try {
                   wakeLock = await (navigator as any).wakeLock.request('screen');
-                  console.log('[Upload] ✅ Wake lock reacquired');
+                  console.log('[Upload] âœ… Wake lock reacquired');
                 } catch (err: any) {
-                  console.warn('[Upload] ⚠️ Failed to reacquire wake lock:', err.message || err);
+                  console.warn('[Upload] âš ï¸ Failed to reacquire wake lock:', err.message || err);
                   // Continue without wake lock - upload should still work
                 }
               }
             }, 1000);
           });
         } catch (err: any) {
-          console.warn('[Upload] ⚠️ Wake lock not available:', err.message || err);
-          console.log('[Upload] ℹ️ Upload will continue without wake lock');
+          console.warn('[Upload] âš ï¸ Wake lock not available:', err.message || err);
+          console.log('[Upload] â„¹ï¸ Upload will continue without wake lock');
         }
       }
       
@@ -1810,9 +1649,9 @@ async function uploadToAllInkl(
         // Monitor visibility - inform but don't abort (uploads continue in background)
         const handleVisibilityChange = () => {
           if (document.visibilityState === 'hidden' && !isResolved) {
-            console.log('[Upload] ℹ️ Tab wurde gewechselt während Upload. Upload läuft im Hintergrund weiter.');
+            console.log('[Upload] â„¹ï¸ Tab wurde gewechselt wÃ¤hrend Upload. Upload lÃ¤uft im Hintergrund weiter.');
           } else if (document.visibilityState === 'visible' && !isResolved) {
-            console.log('[Upload] ✅ Tab wieder sichtbar. Upload läuft weiter.');
+            console.log('[Upload] âœ… Tab wieder sichtbar. Upload lÃ¤uft weiter.');
           }
         };
         
@@ -1839,7 +1678,7 @@ async function uploadToAllInkl(
             if (document.visibilityState === 'hidden') {
               // Log progress updates in background for debugging
               if (progress % 10 === 0 || progress === 100) {
-                console.log(`[Upload] 📊 Background progress: ${Math.round(progress)}%`);
+                console.log(`[Upload] ðŸ“Š Background progress: ${Math.round(progress)}%`);
               }
             }
             onProgress(progress);
@@ -1946,7 +1785,7 @@ export async function uploadBetaVideo(
   onProgress?: (progress: number) => void,
   boulderId?: string | null
 ): Promise<string> {
-  throw new Error('Upload-Funktionalität wurde entfernt');
+  throw new Error('Upload-FunktionalitÃ¤t wurde entfernt');
 }
 
 /**
@@ -2054,7 +1893,7 @@ export async function uploadSectorImage(
   // Validate file type
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
   if (!allowedTypes.includes(file.type)) {
-    throw new Error(`Ungültiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
+    throw new Error(`UngÃ¼ltiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
   }
 
   // Compress image before upload to reduce size and improve loading performance
@@ -2079,7 +1918,7 @@ export async function uploadSectorImage(
     const originalSizeMB = (file.size / (1024 * 1024)).toFixed(2);
     const compressedSizeMB = (imageToUpload.size / (1024 * 1024)).toFixed(2);
     throw new Error(
-      `Datei zu groß. Original: ${originalSizeMB}MB, nach Kompression: ${compressedSizeMB}MB. ` +
+      `Datei zu groÃŸ. Original: ${originalSizeMB}MB, nach Kompression: ${compressedSizeMB}MB. ` +
       `Maximum: ${Math.round(maxSize / (1024 * 1024))}MB. Bitte verwende ein kleineres Bild.`
     );
   }
@@ -2286,7 +2125,7 @@ export async function uploadHallMapImage(
 ): Promise<string> {
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
   if (!allowedTypes.includes(file.type)) {
-    throw new Error(`Ungültiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
+    throw new Error(`UngÃ¼ltiger Dateityp. Erlaubt sind: ${allowedTypes.join(', ')}`);
   }
 
   let imageToUpload = file;
@@ -2439,7 +2278,7 @@ export async function uploadThumbnail(
   onProgress?: (progress: number) => void,
   boulderId?: string | null
 ): Promise<string> {
-  throw new Error('Upload-Funktionalität wurde entfernt');
+  throw new Error('Upload-FunktionalitÃ¤t wurde entfernt');
 }
 
 /**
