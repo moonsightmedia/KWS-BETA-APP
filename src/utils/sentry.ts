@@ -1,4 +1,5 @@
-import * as Sentry from '@sentry/react';
+import * as Sentry from '@sentry/capacitor';
+import { init as sentryReactInit } from '@sentry/react';
 import { Capacitor } from '@capacitor/core';
 import { APP_VERSION } from '@/utils/version';
 
@@ -15,6 +16,7 @@ export function isSentryEnabled(): boolean {
 
 /**
  * Initialize Sentry only when VITE_SENTRY_DSN is set. Fail-open: never throw.
+ * Uses @sentry/capacitor so native iOS crashes and OOM/watchdog heuristics are captured.
  */
 export function initSentry(): void {
   if (initialized) return;
@@ -24,26 +26,34 @@ export function initSentry(): void {
 
   try {
     const environment =
-      import.meta.env.VITE_SENTRY_ENVIRONMENT
-      || (Capacitor.isNativePlatform() ? 'testflight' : import.meta.env.MODE);
+      import.meta.env.VITE_SENTRY_ENVIRONMENT ||
+      (Capacitor.isNativePlatform() ? 'testflight' : import.meta.env.MODE);
 
-    Sentry.init({
-      dsn,
-      environment,
-      release: `kws-beta-app@${APP_VERSION}`,
-      tracesSampleRate: 0,
-      replaysSessionSampleRate: 0,
-      replaysOnErrorSampleRate: 0,
-      sendDefaultPii: false,
-      beforeSend(event) {
-        // Strip potentially sensitive request bodies if any
-        if (event.request) {
-          delete event.request.cookies;
-          delete event.request.data;
-        }
-        return event;
+    Sentry.init(
+      {
+        dsn,
+        environment,
+        release: `kws-beta-app@${APP_VERSION}`,
+        tracesSampleRate: 0,
+        // Session Replay stays off — especially important during video compress/upload.
+        replaysSessionSampleRate: 0,
+        replaysOnErrorSampleRate: 0,
+        sendDefaultPii: false,
+        enableNative: true,
+        enableNativeCrashHandling: true,
+        enableAutoSessionTracking: true,
+        enableOutOfMemoryTracking: true,
+        beforeSend(event) {
+          if (event.request) {
+            delete event.request.cookies;
+            delete event.request.data;
+          }
+          return event;
+        },
       },
-    });
+      // Sibling JS SDK init (required by @sentry/capacitor)
+      sentryReactInit,
+    );
 
     Sentry.setTag('platform', Capacitor.getPlatform());
     Sentry.setTag('app_version', APP_VERSION);
@@ -53,7 +63,9 @@ export function initSentry(): void {
   }
 }
 
-export function setSentryUser(user: { id: string; email?: string | null; role?: string | null } | null): void {
+export function setSentryUser(
+  user: { id: string; email?: string | null; role?: string | null } | null,
+): void {
   if (!isSentryEnabled() || !initialized) return;
   try {
     if (!user) {
@@ -82,7 +94,6 @@ export function addSentryBreadcrumb(
     if (data) {
       for (const [key, value] of Object.entries(data)) {
         if (value === undefined || value === null) continue;
-        // Never attach long paths or tokens
         if (typeof value === 'string' && (value.includes('Bearer ') || value.length > 200)) continue;
         safeData[key] = value;
       }
@@ -116,6 +127,16 @@ export function captureSentryException(
       }
       Sentry.captureException(err);
     });
+  } catch {
+    // fail-open
+  }
+}
+
+/** Best-effort flush before risky native/compress steps. */
+export async function flushSentry(timeoutMs = 2000): Promise<void> {
+  if (!isSentryEnabled() || !initialized) return;
+  try {
+    await Sentry.flush(timeoutMs);
   } catch {
     // fail-open
   }

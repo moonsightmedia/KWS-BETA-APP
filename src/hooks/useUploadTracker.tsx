@@ -1,14 +1,15 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { UploadLogger, getActiveUploads } from '@/utils/uploadLogger';
+import { useAuth } from '@/hooks/useAuth';
+import { getActiveUploads } from '@/utils/uploadLogger';
 
 export interface UploadLogItem {
   id: string;
   session_id: string;
   boulder_id: string | null;
   file_type: 'video' | 'thumbnail';
-  status: 'pending' | 'uploading' | 'completed' | 'failed';
+  status: 'pending' | 'uploading' | 'compressing' | 'completed' | 'failed' | 'aborted_suspected_oom';
   progress: number;
   error: string | null;
   file_name: string;
@@ -17,18 +18,16 @@ export interface UploadLogItem {
 
 export function useUploadTracker() {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
 
-  // Initial fetch of active uploads
   const { data: activeUploads = [], isLoading } = useQuery({
-    queryKey: ['active-uploads'],
-    queryFn: getActiveUploads,
-    // Refetch often or rely on realtime? Realtime is better.
-    // But keep refetch as fallback.
-    refetchInterval: 5000, 
+    queryKey: ['active-uploads', session?.access_token],
+    enabled: Boolean(session?.access_token),
+    queryFn: () => getActiveUploads(session),
+    refetchInterval: 5000,
   });
 
   useEffect(() => {
-    // Subscribe to realtime changes
     const channel = supabase
       .channel('upload-tracker')
       .on(
@@ -36,12 +35,11 @@ export function useUploadTracker() {
         {
           event: '*',
           schema: 'public',
-          table: 'upload_logs'
+          table: 'upload_logs',
         },
-        (payload) => {
-          // Invalidate query to refresh list
+        () => {
           queryClient.invalidateQueries({ queryKey: ['active-uploads'] });
-        }
+        },
       )
       .subscribe();
 
@@ -53,8 +51,6 @@ export function useUploadTracker() {
   return {
     activeUploads: activeUploads as UploadLogItem[],
     isLoading,
-    hasActiveUploads: activeUploads.length > 0
+    hasActiveUploads: activeUploads.length > 0,
   };
 }
-
-

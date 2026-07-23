@@ -249,6 +249,31 @@ jobs:
           api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
           api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
 
+      - name: Upload dSYMs to Sentry (native crash symbolication)
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        run: |
+          set -eo pipefail
+          if [ -z "${SENTRY_AUTH_TOKEN:-}" ]; then
+            echo "SENTRY_AUTH_TOKEN not set — skipping dSYM upload"
+            exit 0
+          fi
+          ORG="${SENTRY_ORG:-moonsight-media}"
+          PROJECT="${SENTRY_PROJECT:-javascript-react}"
+          curl -sL https://sentry.io/get-cli/ | bash
+          DSYM_DIR="$(find ios/App/build -type d -name '*.dSYM' 2>/dev/null | head -1 || true)"
+          if [ -z "$DSYM_DIR" ]; then
+            DSYM_DIR="$(find ios/App/build/ipa -type d -name '*.dSYM' 2>/dev/null | head -1 || true)"
+          fi
+          if [ -z "$DSYM_DIR" ]; then
+            echo "No dSYM found — skipping (native stacks may stay unsymbolicated)"
+            exit 0
+          fi
+          echo "Uploading dSYM: $DSYM_DIR"
+          sentry-cli debug-files upload --org "$ORG" --project "$PROJECT" "$DSYM_DIR"
+
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:

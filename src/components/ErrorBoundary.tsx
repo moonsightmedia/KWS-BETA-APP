@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, RefreshCw, Send } from 'lucide-react';
 import { reportError, type ReportErrorUserContext } from '@/utils/feedbackUtils';
+import { captureSentryException } from '@/utils/sentry';
 import { toast } from 'sonner';
 
 interface Props {
@@ -62,6 +63,11 @@ export class ErrorBoundary extends Component<Props, State> {
       error,
       errorInfo,
       showReportDialog: true,
+    });
+
+    captureSentryException(error, {
+      tags: { source: 'error_boundary' },
+      extra: { componentStack: errorInfo.componentStack },
     });
 
     // Automatically report error in background (userContext from props to avoid getSession())

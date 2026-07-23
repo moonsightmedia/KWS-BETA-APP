@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { UploadLogger } from '@/utils/uploadLogger';
+import { UploadLogger, markStaleUploadsAsSuspectedOom } from '@/utils/uploadLogger';
 import { resumableUpload } from '@/utils/resumableUpload';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -20,6 +20,18 @@ import {
   type UploadStatus,
 } from '@/types/upload';
 import { areUploadSessionsFinished } from '@/utils/uploadQueue';
+import {
+  addSentryBreadcrumb,
+  captureSentryException,
+  flushSentry,
+} from '@/utils/sentry';
+import {
+  clearRememberedOpenUploadSessions,
+  forgetOpenUploadSession,
+  getRememberedOpenUploadSessions,
+  rememberOpenUploadSession,
+  trackTelemetryEvent,
+} from '@/utils/telemetry';
 
 export interface ActiveUpload {
   sessionId: string;
@@ -78,10 +90,50 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const abortControllersRef = useRef<Record<string, AbortController>>({});
   const MAX_CONCURRENT_UPLOADS = 1; // Phase 1: serialize iOS uploads to avoid memory kills
   const processingRef = useRef<Set<string>>(new Set()); // Track which uploads are being processed
+  const suspectedOomCheckedRef = useRef(false);
 
   useEffect(() => {
     uploadsRef.current = uploads;
   }, [uploads]);
+
+  // After unexpected restart: open upload sessions → suspected OOM
+  useEffect(() => {
+    if (!session?.access_token || suspectedOomCheckedRef.current) return;
+    suspectedOomCheckedRef.current = true;
+
+    const openSessions = getRememberedOpenUploadSessions();
+    if (openSessions.length === 0) return;
+
+    void (async () => {
+      try {
+        for (const open of openSessions) {
+          trackTelemetryEvent('suspected_oom_resume', {
+            boulderId: open.boulderId,
+            props: {
+              session_id: open.sessionId,
+              started_at: open.at,
+            },
+            immediate: true,
+          });
+          addSentryBreadcrumb('suspected_oom_resume', 'upload', {
+            session_id: open.sessionId,
+            boulder_id: open.boulderId ?? undefined,
+          }, 'warning');
+        }
+
+        const count = await markStaleUploadsAsSuspectedOom(
+          session,
+          openSessions.map((s) => s.sessionId),
+        );
+        clearRememberedOpenUploadSessions();
+        if (count > 0) {
+          console.warn('[UploadContext] Marked stale uploads as suspected OOM:', count);
+        }
+      } catch (error) {
+        console.warn('[UploadContext] suspected OOM resume check failed:', error);
+      }
+    })();
+  }, [session]);
 
   // Helper function to check and start queued uploads
   const processQueue = useCallback(() => {
@@ -188,10 +240,28 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       hasFile: !!upload.file,
       status: upload.status
     });
+
+    rememberOpenUploadSession(upload.sessionId, upload.boulderId);
+    trackTelemetryEvent('upload_start', {
+      boulderId: upload.boulderId,
+      props: {
+        session_id: upload.sessionId,
+        file_type: upload.type,
+        file_size_mb: Number((upload.fileSize / (1024 * 1024)).toFixed(2)),
+      },
+      immediate: true,
+    });
+    addSentryBreadcrumb('upload_start', 'upload', {
+      session_id: upload.sessionId,
+      boulder_id: upload.boulderId,
+      file_type: upload.type,
+      file_size: upload.fileSize,
+    });
     
     if (!upload.file && !upload.nativeFile) {
       console.error('[UploadContext] ❌ No file in upload, cannot process:', upload.sessionId);
       processingRef.current.delete(upload.sessionId);
+      forgetOpenUploadSession(upload.sessionId);
       return;
     }
 
@@ -367,6 +437,21 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 updateUpload(upload.sessionId, { status: 'compressing', progress: Math.max(upload.progress, 1) });
                 await updateLog('compressing', Math.max(upload.progress, 1));
 
+                trackTelemetryEvent('compress_start', {
+                  boulderId: upload.boulderId,
+                  props: {
+                    session_id: upload.sessionId,
+                    file_type: upload.type,
+                    file_size_mb: Number((upload.fileSize / (1024 * 1024)).toFixed(2)),
+                  },
+                  immediate: true,
+                });
+                addSentryBreadcrumb('compress_start', 'upload', {
+                  session_id: upload.sessionId,
+                  file_type: upload.type,
+                });
+                await flushSentry();
+
                 const input: UploadFileInput = upload.nativeFile
                   ?? upload.file!;
                 const prepared = await prepareVideoFileForChunkedUpload(input, (p) => {
@@ -375,7 +460,23 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 });
                 cleanup = prepared.cleanup;
 
+                trackTelemetryEvent('compress_done', {
+                  boulderId: upload.boulderId,
+                  props: {
+                    session_id: upload.sessionId,
+                    compressed: Boolean(prepared.compressed),
+                    out_size_mb: Number((prepared.file.size / (1024 * 1024)).toFixed(2)),
+                  },
+                  immediate: true,
+                });
+                addSentryBreadcrumb('compress_done', 'upload', {
+                  session_id: upload.sessionId,
+                  compressed: Boolean(prepared.compressed),
+                  out_size: prepared.file.size,
+                });
+
                 updateUpload(upload.sessionId, { status: 'uploading', progress: Math.max(40, upload.progress) });
+                let lastChunkBucket = -1;
                 const originalUrl = await resumableUpload(prepared.file, videoApiUrl, {
                     sessionId: upload.sessionId,
                     sectorId: upload.sectorId,
@@ -388,6 +489,22 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                             return prev.map(u => u.sessionId === upload.sessionId ? { ...u, progress: overall } : u);
                         });
                         updateLog('uploading', overall);
+                        const bucket = Math.floor(p / 25);
+                        if (bucket !== lastChunkBucket) {
+                          lastChunkBucket = bucket;
+                          trackTelemetryEvent('chunk_progress', {
+                            boulderId: upload.boulderId,
+                            props: {
+                              session_id: upload.sessionId,
+                              progress: overall,
+                            },
+                            immediate: true,
+                          });
+                          addSentryBreadcrumb('chunk_progress', 'upload', {
+                            session_id: upload.sessionId,
+                            progress: overall,
+                          });
+                        }
                     },
                     abortSignal: abortSignal || controller?.signal,
                 });
@@ -500,6 +617,20 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateUpload(upload.sessionId, { status: 'completed', progress: 100 });
         toast.success(`${upload.type === 'video' ? 'Video' : 'Thumbnail'} hochgeladen!`);
 
+        trackTelemetryEvent('upload_done', {
+          boulderId: upload.boulderId,
+          props: {
+            session_id: upload.sessionId,
+            file_type: upload.type,
+          },
+          immediate: true,
+        });
+        addSentryBreadcrumb('upload_done', 'upload', {
+          session_id: upload.sessionId,
+          file_type: upload.type,
+        });
+        forgetOpenUploadSession(upload.sessionId);
+
         // Clean up
         delete abortControllersRef.current[upload.sessionId];
         processingRef.current.delete(upload.sessionId);
@@ -532,6 +663,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 status: 'failed', 
                 error: 'Upload abgebrochen' 
             });
+            forgetOpenUploadSession(upload.sessionId);
             delete abortControllersRef.current[upload.sessionId];
             processingRef.current.delete(upload.sessionId);
             processQueue(); // Start next upload
@@ -546,6 +678,33 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             status: 'failed', 
             error: errorMessage 
         });
+
+        trackTelemetryEvent('upload_fail', {
+          boulderId: upload.boulderId,
+          props: {
+            session_id: upload.sessionId,
+            file_type: upload.type,
+            error: errorMessage.slice(0, 180),
+          },
+          immediate: true,
+        });
+        addSentryBreadcrumb('upload_fail', 'upload', {
+          session_id: upload.sessionId,
+          file_type: upload.type,
+        }, 'error');
+        captureSentryException(error, {
+          tags: {
+            source: 'upload',
+            upload_type: upload.type,
+            upload_session_id: upload.sessionId,
+          },
+          extra: {
+            boulderId: upload.boulderId,
+            fileName: upload.fileName,
+            fileSize: upload.fileSize,
+          },
+        });
+        forgetOpenUploadSession(upload.sessionId);
         
         // Automatically report upload error to feedback system
         try {
@@ -611,6 +770,23 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     console.log('[UploadContext] ✅ Adding upload to queue:', { sessionId, boulderId, fileName: newUpload.fileName, type, status: 'pending' });
+
+    rememberOpenUploadSession(sessionId, boulderId);
+    trackTelemetryEvent('upload_queued', {
+      boulderId,
+      props: {
+        session_id: sessionId,
+        file_type: type,
+        file_size_mb: Number((newUpload.fileSize / (1024 * 1024)).toFixed(2)),
+      },
+      immediate: true,
+    });
+    addSentryBreadcrumb('upload_queued', 'upload', {
+      session_id: sessionId,
+      boulder_id: boulderId,
+      file_type: type,
+      file_size: newUpload.fileSize,
+    });
     
     setUploads(prev => {
       const updated = [...prev, newUpload];
