@@ -63,7 +63,7 @@ export default function SetterEditPage() {
   const updateBoulder = useUpdateBoulder();
   const deleteBoulder = useDeleteBoulder();
   const setBoulderAttributes = useSetBoulderAttributes();
-  const { startUpload } = useUpload();
+  const { startUpload, waitForUploadSessions } = useUpload();
 
   const [search, setSearch] = useState('');
   const [sectorFilter, setSectorFilter] = useState('all');
@@ -166,35 +166,68 @@ export default function SetterEditPage() {
       return;
     }
 
-    await updateBoulder.mutateAsync({
-      id: editorDraft.id,
-      name: editorDraft.name.trim(),
-      sector_id: editorDraft.sectorId,
-      sector_id_2:
-        editorDraft.spansMultipleSectors && editorDraft.sectorId2
-          ? editorDraft.sectorId2
-          : null,
-      difficulty: editorDraft.difficulty,
-      color: colorName,
-      beta_video_url: editorDraft.videoFile ? null : editorDraft.existingVideoUrl ?? null,
-      thumbnail_url: editorDraft.thumbFile ? null : editorDraft.existingThumbnailUrl ?? null,
-      note: editorDraft.note.trim() || null,
-    } as any);
+    try {
+      // Never send map_x/map_y — columns are not on the live DB (PGRST204).
+      const updates: Record<string, unknown> = {
+        id: editorDraft.id,
+        name: editorDraft.name.trim(),
+        sector_id: editorDraft.sectorId,
+        sector_id_2:
+          editorDraft.spansMultipleSectors && editorDraft.sectorId2
+            ? editorDraft.sectorId2
+            : null,
+        difficulty: editorDraft.difficulty,
+        color: colorName,
+        note: editorDraft.note.trim() || null,
+      };
 
-    await setBoulderAttributes.mutateAsync({
-      boulderId: editorDraft.id,
-      attributeIds: editorDraft.attributeIds,
-    });
+      // Keep existing media URLs while a new file uploads (upload job sets the new URL).
+      if (!editorDraft.videoFile) {
+        updates.beta_video_url = editorDraft.existingVideoUrl ?? null;
+      }
+      if (!editorDraft.thumbFile) {
+        updates.thumbnail_url = editorDraft.existingThumbnailUrl ?? null;
+      }
 
-    if (editorDraft.thumbFile) {
-      await startUpload(editorDraft.id, editorDraft.thumbFile, 'thumbnail', editorDraft.sectorId);
+      await updateBoulder.mutateAsync(updates as any);
+
+      await setBoulderAttributes.mutateAsync({
+        boulderId: editorDraft.id,
+        attributeIds: editorDraft.attributeIds,
+      });
+
+      const uploadSessionIds: string[] = [];
+
+      if (editorDraft.thumbFile) {
+        const thumbSessionId = await startUpload(
+          editorDraft.id,
+          editorDraft.thumbFile,
+          'thumbnail',
+          editorDraft.sectorId,
+        );
+        uploadSessionIds.push(thumbSessionId);
+      }
+
+      if (editorDraft.videoFile) {
+        const videoSessionId = await startUpload(
+          editorDraft.id,
+          editorDraft.videoFile,
+          'video',
+          editorDraft.sectorId,
+        );
+        uploadSessionIds.push(videoSessionId);
+      }
+
+      if (uploadSessionIds.length > 0) {
+        await waitForUploadSessions(uploadSessionIds);
+      }
+
+      setEditorDraft(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Speichern fehlgeschlagen.';
+      console.error('[SetterEditPage] saveEditor failed:', error);
+      toast.error(message);
     }
-
-    if (editorDraft.videoFile) {
-      await startUpload(editorDraft.id, editorDraft.videoFile, 'video', editorDraft.sectorId);
-    }
-
-    setEditorDraft(null);
   };
 
   const deleteFromEditor = async () => {

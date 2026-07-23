@@ -1,39 +1,33 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from './useAuth';
 
-// Storage keys (same as in Sidebar and RoleTabs)
-// CRITICAL: Use localStorage instead of sessionStorage for native apps
-// sessionStorage is cleared when app is closed, localStorage persists
 const STORAGE_KEY_ADMIN = 'nav_isAdmin';
 const STORAGE_KEY_USER_ID = 'nav_userId';
 
-// Helper to get stored admin status
+type AdminCheckResult =
+  | { status: 'ok'; isAdmin: boolean }
+  | { status: 'error' };
+
 const getStoredAdmin = (userId: string | undefined): boolean | null => {
   if (!userId) return null;
-  
+
   try {
-    // Try localStorage first (persists across app restarts)
     let storedUserId = localStorage.getItem(STORAGE_KEY_USER_ID);
     if (storedUserId === null) {
-      // Fallback to sessionStorage for backward compatibility
       storedUserId = sessionStorage.getItem(STORAGE_KEY_USER_ID);
       if (storedUserId !== null) {
-        // Migrate to localStorage
         localStorage.setItem(STORAGE_KEY_USER_ID, storedUserId);
       }
     }
-    
+
     if (storedUserId !== userId) {
-      // Different user - return null to trigger check
       return null;
     }
-    
+
     let stored = localStorage.getItem(STORAGE_KEY_ADMIN);
     if (stored === null) {
-      // Fallback to sessionStorage for backward compatibility
       stored = sessionStorage.getItem(STORAGE_KEY_ADMIN);
       if (stored !== null) {
-        // Migrate to localStorage
         localStorage.setItem(STORAGE_KEY_ADMIN, stored);
       }
     }
@@ -43,11 +37,27 @@ const getStoredAdmin = (userId: string | undefined): boolean | null => {
   }
 };
 
-// Check admin status via direct REST on user_roles (avoids has_role RPC overload ambiguity)
-const checkAdminOnce = async (userId: string, accessToken: string): Promise<boolean> => {
+const storeAdmin = (value: boolean, userId: string) => {
+  try {
+    localStorage.setItem(STORAGE_KEY_ADMIN, String(value));
+    localStorage.setItem(STORAGE_KEY_USER_ID, userId);
+    sessionStorage.setItem(STORAGE_KEY_ADMIN, String(value));
+    sessionStorage.setItem(STORAGE_KEY_USER_ID, userId);
+  } catch {
+    // ignore
+  }
+};
+
+const checkAdminOnce = async (
+  userId: string,
+  accessToken: string,
+): Promise<AdminCheckResult> => {
   const url = import.meta.env.VITE_SUPABASE_URL;
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return false;
+  if (!url || !key || !accessToken) {
+    return { status: 'error' };
+  }
+
   try {
     const res = await window.fetch(
       `${url}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.admin&select=user_id`,
@@ -58,35 +68,29 @@ const checkAdminOnce = async (userId: string, accessToken: string): Promise<bool
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-      }
+      },
     );
+
     if (!res.ok) {
       console.error('[useIsAdmin] user_roles fetch failed:', res.status, await res.text());
-      return false;
+      return { status: 'error' };
     }
+
     const data = await res.json();
     const isAdmin = Array.isArray(data) && data.length > 0;
-    try {
-      localStorage.setItem(STORAGE_KEY_ADMIN, String(isAdmin));
-      localStorage.setItem(STORAGE_KEY_USER_ID, userId);
-      sessionStorage.setItem(STORAGE_KEY_ADMIN, String(isAdmin));
-      sessionStorage.setItem(STORAGE_KEY_USER_ID, userId);
-    } catch (storageError) {
-      console.warn('[useIsAdmin] Error storing admin status:', storageError);
-    }
-    return isAdmin;
+    storeAdmin(isAdmin, userId);
+    return { status: 'ok', isAdmin };
   } catch (error) {
     console.error('[useIsAdmin] Exception checking admin status:', error);
-    return false;
+    return { status: 'error' };
   }
 };
 
 export const useIsAdmin = () => {
   const { user, session } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    return getStoredAdmin(user?.id) ?? false;
-  });
-  const [loading, setLoading] = useState(false);
+  const initialStored = getStoredAdmin(user?.id);
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => initialStored ?? false);
+  const [loading, setLoading] = useState(() => initialStored === null && Boolean(user?.id));
 
   const refreshAdminStatus = useCallback(async () => {
     if (!user?.id) {
@@ -103,17 +107,29 @@ export const useIsAdmin = () => {
     const accessToken = session?.access_token;
     if (!accessToken) {
       setIsAdmin(stored ?? false);
-      setLoading(false);
+      setLoading(stored === null);
       return;
     }
 
-    setLoading(true);
+    if (stored === null) {
+      setLoading(true);
+    }
+
     try {
       const result = await checkAdminOnce(user.id, accessToken);
-      setIsAdmin(result);
+      if (result.status === 'ok') {
+        setIsAdmin(result.isAdmin);
+      } else {
+        console.warn('[useIsAdmin] Keeping previous admin status after check failure');
+        if (stored !== null) {
+          setIsAdmin(stored);
+        }
+      }
     } catch (error) {
       console.error('[useIsAdmin] Error refreshing admin status:', error);
-      setIsAdmin(false);
+      if (stored !== null) {
+        setIsAdmin(stored);
+      }
     } finally {
       setLoading(false);
     }
@@ -123,7 +139,6 @@ export const useIsAdmin = () => {
     refreshAdminStatus();
   }, [refreshAdminStatus]);
 
-  // CRITICAL: Also refresh when app becomes visible again
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && user?.id) {

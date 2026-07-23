@@ -479,7 +479,10 @@ export const useUpdateBoulder = () => {
       }
 
       // Update boulder (with timeout)
-      console.log('[useUpdateBoulder] Updating boulder with data:', updates);
+      // Strip map_x/map_y — not present on live schema (PGRST204).
+      const { map_x: _mapX, map_y: _mapY, mapX: _mapXCamel, mapY: _mapYCamel, ...safeUpdates } =
+        updates as Record<string, unknown>;
+      console.log('[useUpdateBoulder] Updating boulder with data:', safeUpdates);
       const updateTimeout = new Promise<never>((_, reject) => 
         setTimeout(() => reject(new Error('Update timeout after 20s')), 20000)
       );
@@ -495,7 +498,7 @@ export const useUpdateBoulder = () => {
               'Content-Type': 'application/json',
               'Prefer': 'return=representation',
             },
-            body: JSON.stringify(updates),
+            body: JSON.stringify(safeUpdates),
           }
         ),
         updateTimeout
