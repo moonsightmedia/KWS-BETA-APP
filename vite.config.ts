@@ -66,8 +66,9 @@ const versionPlugin = () => {
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // Use relative base path for better compatibility
-  base: './',
+  // Absolute base for web deep links (/tv/schedule, /boulders/:id).
+  // Relative base only for Capacitor file:// builds (npm run build:native).
+  base: mode === 'capacitor' ? './' : '/',
   server: {
     host: "::",
     port: 8080,
