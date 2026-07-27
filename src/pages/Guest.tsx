@@ -12,9 +12,10 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search, Palette, Map as MapIcon, BarChart3, ArrowUpDown, X, ArrowUp, ArrowDown, Trophy } from 'lucide-react';
+import { Search, Palette, Map as MapIcon, BarChart3, ArrowUpDown, X, ArrowUp, ArrowDown, Trophy, ChevronRight } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { BoulderDetailDialog } from '@/components/BoulderDetailDialog';
+import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
 import { Boulder } from '@/types/boulder';
 import { useOnboarding } from '@/components/Onboarding';
 // Use a data URL for placeholder to ensure it always works
@@ -33,17 +34,6 @@ const COLOR_HEX: Record<string, string> = {
   'Weiß': '#ffffff',
   'Lila': '#a855f7',
 };
-const TEXT_ON_COLOR: Record<string, string> = {
-  'Grün': 'text-white',
-  'Gelb': 'text-black',
-  'Blau': 'text-white',
-  'Orange': 'text-black',
-  'Rot': 'text-white',
-  'Schwarz': 'text-white',
-  'Weiß': 'text-black',
-  'Lila': 'text-white',
-};
-
 const Guest = () => {
   const isCompetitionEnabled = import.meta.env.VITE_ENABLE_COMPETITION === 'true';
   const [searchParams] = useSearchParams();
@@ -218,6 +208,12 @@ const Guest = () => {
     return thumbnailUrlMap.get(boulder.id) || placeholder;
   };
 
+  const isNewBoulder = (boulder: Boulder) => {
+    const threshold = new Date();
+    threshold.setDate(threshold.getDate() - 7);
+    return boulder.createdAt >= threshold;
+  };
+
   // Thumbnails are loaded lazily using native browser lazy loading
   // No blocking preloading - page shows immediately
 
@@ -374,90 +370,75 @@ const Guest = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
         {filtered.map((b, index) => (
-          <Card 
-            key={b.id} 
-            className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm hover:bg-muted/50 cursor-pointer transition-colors group h-[100px] sm:h-[112px] overflow-hidden"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
+          <button
+            key={b.id}
+            type="button"
+            onClick={() => {
               console.log('[Guest] Boulder clicked:', b.id, b.name);
               setSelectedBoulder(b);
               setDialogOpen(true);
             }}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setSelectedBoulder(b);
-                setDialogOpen(true);
-              }
-            }}
+            className="w-full rounded-2xl border border-[#E7F7E9] bg-white p-3.5 text-left shadow-sm transition-transform active:scale-[0.98] hover:bg-[#F9FAF9]"
           >
-            <CardContent className="p-0 pointer-events-none flex h-full items-center gap-3 px-4">
-              {/* Thumbnail links - quadratisch */}
-              <div className="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0 rounded-xl overflow-hidden bg-muted">
-                <img 
-                  className="w-full h-full object-cover pointer-events-none transition-opacity duration-300" 
-                  src={getThumbnailUrl(b)} 
+            <div className="flex items-center gap-3.5">
+              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-muted">
+                <img
+                  className="h-full w-full object-cover object-center transition-opacity duration-300"
+                  src={getThumbnailUrl(b)}
                   alt={b.name}
-                  loading={index < 12 ? "eager" : "lazy"}
+                  loading={index < 12 ? 'eager' : 'lazy'}
                   decoding="async"
-                  fetchpriority={index < 6 ? "high" : index < 12 ? "auto" : "low"}
-                  style={{ 
-                    objectFit: 'cover',
-                    objectPosition: 'center'
-                  }}
-                  onLoad={(e) => {
-                    const img = e.currentTarget;
+                  fetchPriority={index < 6 ? 'high' : index < 12 ? 'auto' : 'low'}
+                  style={{ opacity: 0 }}
+                  onLoad={(event) => {
+                    const image = event.currentTarget;
                     const thumbnailUrl = getThumbnailUrl(b);
-                    
-                    // Check if image is landscape (width > height) and rotate it to portrait
-                    if (img.naturalWidth > img.naturalHeight) {
-                      // Landscape image: rotate 90° clockwise to make it portrait
-                      img.style.transform = 'rotate(90deg)';
-                      console.log(`[Guest] Rotating landscape thumbnail to portrait: ${img.naturalWidth}x${img.naturalHeight}`);
+
+                    if (image.naturalWidth > image.naturalHeight) {
+                      image.style.transform = 'rotate(90deg)';
                     }
-                    
-                    // Track loaded thumbnail (skip placeholder)
+                    image.style.opacity = '1';
+
                     if (thumbnailUrl !== placeholder) {
-                      setLoadedThumbnails(prev => {
+                      setLoadedThumbnails((prev) => {
                         const next = new Set(prev);
                         next.add(thumbnailUrl);
                         return next;
                       });
                     }
                   }}
-                  onError={(e) => {
-                    // Fallback to placeholder if image fails to load
-                    if (e.currentTarget.src !== placeholder) {
-                      e.currentTarget.src = placeholder;
-                      e.currentTarget.style.opacity = '1';
+                  onError={(event) => {
+                    if (event.currentTarget.src !== placeholder) {
+                      event.currentTarget.src = placeholder;
+                      event.currentTarget.style.opacity = '1';
                     }
                   }}
                 />
+                <DifficultyBadge
+                  color={b.color}
+                  colorHex={b.colorHex}
+                  difficulty={b.difficulty}
+                  colors={colors}
+                />
               </div>
-              {/* Content Mitte */}
-              <div className="flex-1 min-w-0 flex flex-col justify-center">
-                <h4 className="font-heading text-base sm:text-lg font-semibold text-[#13112B] truncate mb-0.5">{b.name}</h4>
-                <span className="text-xs sm:text-sm text-[#13112B]/60 truncate">
-                  {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
-                </span>
-              </div>
-              {/* Difficulty Badge rechts - quadratisch */}
-              <div className="flex-shrink-0">
-                <span 
-                  className={cn(
-                    "w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-xl text-base sm:text-lg font-semibold",
-                    TEXT_ON_COLOR[b.color] || 'text-white'
+
+              <div className="min-w-0 flex-1">
+                <div className="mb-0.5 flex items-center gap-2">
+                  <span className="truncate text-sm font-semibold text-[#13112B]">{b.name}</span>
+                  {isNewBoulder(b) && (
+                    <span className="shrink-0 rounded-md bg-[#36B531]/15 px-2 py-0.5 text-[10px] font-bold text-[#217a28]">
+                      NEU
+                    </span>
                   )}
-                  style={getColorBackgroundStyle(b.color, colors)}
-                >
-                  {formatDifficulty(b.difficulty)}
-                </span>
+                </div>
+                <div className="text-xs text-[#13112B]/60 truncate">
+                  {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
+                </div>
               </div>
-            </CardContent>
-          </Card>
+
+              <ChevronRight className="h-4 w-4 shrink-0 text-[#13112B]/40" />
+            </div>
+          </button>
         ))}
       </div>
 
