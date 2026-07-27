@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, Check, ChevronRight, LayoutDashboard, Map, Search, Settings, Shield, SlidersHorizontal, Sparkles, Star, User, Wrench, X } from 'lucide-react';
@@ -17,6 +17,7 @@ import { useHasRole } from '@/hooks/useHasRole';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { cn } from '@/lib/utils';
+import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
 import { Boulder } from '@/types/boulder';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
 import {
@@ -26,24 +27,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-const LIGHT_TEXT_COLORS = new Set(['Grün', 'Blau', 'Rot', 'Schwarz', 'Lila']);
-
-const getDifficultyTextColor = (colorName: string, colorHex?: string) => {
-  if (colorHex) {
-    const hex = colorHex.replace('#', '');
-    if (hex.length === 6) {
-      const r = parseInt(hex.slice(0, 2), 16);
-      const g = parseInt(hex.slice(2, 4), 16);
-      const b = parseInt(hex.slice(4, 6), 16);
-      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-      return luminance > 0.72 ? 'text-black' : 'text-white';
-    }
-  }
-
-  return LIGHT_TEXT_COLORS.has(colorName) ? 'text-white' : 'text-black';
-};
-
 
 const STORAGE_KEY_ADMIN = 'nav_isAdmin';
 const STORAGE_KEY_SETTER = 'nav_isSetter';
@@ -86,10 +69,11 @@ const Boulders = () => {
   const [showOnlyHanging, setShowOnlyHanging] = useState(true);
   const [showNew, setShowNew] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
-  const [showBetaOnly, setShowBetaOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showSort, setShowSort] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const openPanelsRef = useRef({ filters: false, sort: false, map: false });
 
   const { data: colors } = useColors();
   const { user, loading: authLoading } = useAuth();
@@ -116,7 +100,6 @@ const Boulders = () => {
     setSectorFilter(sectorParam || 'all');
     setShowNew(showParam === 'new');
     setShowSaved(showParam === 'saved');
-    setShowBetaOnly(showParam === 'beta');
     setShowOnlyHanging(statusParam !== 'all');
   }, [searchParams]);
 
@@ -149,6 +132,38 @@ const Boulders = () => {
     }
   }, [authLoading, user, queryClient]);
 
+  const scrollPageToTop = () => {
+    const scrollTargets = [
+      document.scrollingElement,
+      document.documentElement,
+      document.body,
+    ].filter((element): element is Element => element instanceof Element);
+
+    scrollTargets.forEach((element) => {
+      element.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    headerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  useLayoutEffect(() => {
+    const justOpened =
+      (showFilters && !openPanelsRef.current.filters) ||
+      (showSort && !openPanelsRef.current.sort) ||
+      (showMap && !openPanelsRef.current.map);
+
+    openPanelsRef.current = { filters: showFilters, sort: showSort, map: showMap };
+
+    if (!justOpened) return;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollPageToTop();
+      });
+    });
+  }, [showFilters, showSort, showMap]);
+
   const filteredAndSortedBoulders = useMemo(() => {
     if (!boulders) return [];
     const favoriteBoulderIds = new Set(
@@ -170,8 +185,7 @@ const Boulders = () => {
       const matchesStatus = showOnlyHanging ? boulder.status === 'haengt' : true;
       const matchesNew = !showNew || boulder.createdAt >= sevenDaysAgo;
       const matchesSaved = !showSaved || favoriteBoulderIds.has(boulder.id);
-      const matchesBeta = !showBetaOnly || !!boulder.betaVideoUrl;
-      return matchesSearch && matchesSector && matchesDifficulty && matchesColor && matchesStatus && matchesNew && matchesSaved && matchesBeta;
+      return matchesSearch && matchesSector && matchesDifficulty && matchesColor && matchesStatus && matchesNew && matchesSaved;
     });
 
     filtered.sort((a, b) => {
@@ -187,16 +201,16 @@ const Boulders = () => {
           break;
         }
         case 'date':
-          result = b.createdAt.getTime() - a.createdAt.getTime();
+          result = a.createdAt.getTime() - b.createdAt.getTime();
           break;
         default:
           result = 0;
       }
-      return sortOrder === 'asc' ? -result : result;
+      return sortOrder === 'asc' ? result : -result;
     });
 
     return filtered;
-  }, [boulders, colorFilter, difficultyFilter, myTrackedBoulders, searchQuery, sectorFilter, showBetaOnly, showNew, showOnlyHanging, showSaved, sortBy, sortOrder]);
+  }, [boulders, colorFilter, difficultyFilter, myTrackedBoulders, searchQuery, sectorFilter, showNew, showOnlyHanging, showSaved, sortBy, sortOrder]);
 
   const hallMapCounts = useMemo(() => {
     if (!boulders) return {};
@@ -210,8 +224,7 @@ const Boulders = () => {
         const matchesDifficulty = difficultyFilter === 'all' || (boulder.difficulty === null ? '?' : String(boulder.difficulty)) === difficultyFilter;
         const matchesColor = colorFilter === 'all' || boulder.color === colorFilter;
         const matchesStatus = showOnlyHanging ? boulder.status === 'haengt' : true;
-        const matchesBeta = !showBetaOnly || !!boulder.betaVideoUrl;
-        return matchesSearch && matchesDifficulty && matchesColor && matchesStatus && matchesBeta;
+        return matchesSearch && matchesDifficulty && matchesColor && matchesStatus;
       })
       .reduce<Record<string, number>>((accumulator, boulder) => {
         const primarySector = sectors?.find((sector) => sector.name === boulder.sector)?.id;
@@ -221,10 +234,10 @@ const Boulders = () => {
         if (secondarySector) accumulator[secondarySector] = (accumulator[secondarySector] ?? 0) + 1;
         return accumulator;
       }, {});
-  }, [boulders, colorFilter, difficultyFilter, searchQuery, sectors, showBetaOnly, showOnlyHanging]);
+  }, [boulders, colorFilter, difficultyFilter, searchQuery, sectors, showOnlyHanging]);
 
   const activeSectorLabel = sectorFilter === 'all' ? 'Alle Sektoren' : sectorFilter;
-  const activeFilterCount = [sectorFilter !== 'all', difficultyFilter !== 'all', colorFilter !== 'all', showNew, showSaved, showBetaOnly, !showOnlyHanging].filter(Boolean).length;
+  const activeFilterCount = [sectorFilter !== 'all', difficultyFilter !== 'all', colorFilter !== 'all', showNew, showSaved, !showOnlyHanging].filter(Boolean).length;
   const hasCustomSorting = sortBy !== 'date' || sortOrder !== 'desc';
 
   const clearFilters = () => {
@@ -233,8 +246,27 @@ const Boulders = () => {
     setColorFilter('all');
     setShowNew(false);
     setShowSaved(false);
-    setShowBetaOnly(false);
     setShowOnlyHanging(true);
+  };
+
+  const toggleToolbarPanel = (panel: 'filters' | 'sort' | 'map') => {
+    if (panel === 'filters') {
+      setShowFilters((prev) => !prev);
+      setShowSort(false);
+      setShowMap(false);
+      return;
+    }
+
+    if (panel === 'sort') {
+      setShowSort((prev) => !prev);
+      setShowFilters(false);
+      setShowMap(false);
+      return;
+    }
+
+    setShowMap((prev) => !prev);
+    setShowFilters(false);
+    setShowSort(false);
   };
 
   const handleBoulderClick = (boulderId: string) => {
@@ -290,7 +322,7 @@ const Boulders = () => {
   };
 
   const pageHeader = (
-    <div className="sticky top-0 z-10 border-b border-border bg-background/80 px-4 pt-12 pb-3 backdrop-blur-xl">
+    <div ref={headerRef} id="boulder-page-header" className="sticky top-0 z-10 border-b border-border bg-background/80 px-4 pt-12 pb-3 backdrop-blur-xl">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <DropdownMenu>
@@ -350,11 +382,7 @@ const Boulders = () => {
         <div className='flex shrink-0 gap-2'>
           <button
             type='button'
-            onClick={() => {
-              setShowMap((prev) => !prev);
-              setShowFilters(false);
-              setShowSort(false);
-            }}
+            onClick={() => toggleToolbarPanel('map')}
             className={cn(
               'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors',
               showMap ? 'bg-primary' : 'bg-secondary'
@@ -365,11 +393,7 @@ const Boulders = () => {
           </button>
           <button
             type='button'
-            onClick={() => {
-              setShowSort((prev) => !prev);
-              setShowFilters(false);
-              setShowMap(false);
-            }}
+            onClick={() => toggleToolbarPanel('sort')}
             className={cn(
               'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors',
               showSort ? 'bg-primary' : 'bg-secondary'
@@ -385,11 +409,7 @@ const Boulders = () => {
           </button>
           <button
             type='button'
-            onClick={() => {
-              setShowFilters((prev) => !prev);
-              setShowSort(false);
-              setShowMap(false);
-            }}
+            onClick={() => toggleToolbarPanel('filters')}
             className={cn(
               'relative flex h-10 w-10 items-center justify-center rounded-xl transition-colors',
               showFilters ? 'bg-primary' : 'bg-secondary'
@@ -439,17 +459,6 @@ const Boulders = () => {
         >
           <Bookmark className='h-3 w-3' />
           Gespeichert
-        </button>
-        <button
-          type='button'
-          onClick={() => setShowBetaOnly((prev) => !prev)}
-            className={cn(
-              'flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all',
-              showBetaOnly ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'
-            )}
-        >
-          <Sparkles className='h-3 w-3' />
-          Mit Beta
         </button>
         {sectorFilter !== 'all' && (
           <button type='button' onClick={() => setSectorFilter('all')} className='flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground'>
@@ -710,18 +719,12 @@ const Boulders = () => {
                           }
                         }}
                       />
-                      <span
-                        className={cn(
-                          'absolute bottom-1 right-1 rounded px-1.5 py-0.5 text-[10px] font-bold backdrop-blur-sm',
-                          getDifficultyTextColor(boulder.color, boulder.colorHex)
-                        )}
-                        style={{
-                          ...(getColorBackgroundStyle(boulder.color, colors) || {}),
-                          color: undefined,
-                        }}
-                      >
-                        {boulder.difficulty === null ? '?' : boulder.difficulty}
-                      </span>
+                      <DifficultyBadge
+                        color={boulder.color}
+                        colorHex={boulder.colorHex}
+                        difficulty={boulder.difficulty}
+                        colors={colors}
+                      />
                     </div>
 
                     <div className="min-w-0 flex-1">
