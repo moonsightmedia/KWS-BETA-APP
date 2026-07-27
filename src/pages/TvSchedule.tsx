@@ -115,6 +115,47 @@ function getCentroid(region: SectorMapRegion) {
   return getPolygonCentroid(region.points_json);
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function buildTvMarkerLayout({
+  region,
+  sectorName,
+  mapUnit,
+  mapWidth,
+  mapHeight,
+}: {
+  region: SectorMapRegion;
+  sectorName: string;
+  mapUnit: number;
+  mapWidth: number;
+  mapHeight: number;
+}) {
+  const centroid = getCentroid(region);
+  const rawX = (centroid.x / 100) * mapWidth;
+  const rawY = (centroid.y / 100) * mapHeight;
+  const labelWidth = Math.max(
+    21 * mapUnit,
+    Math.min(40 * mapUnit, sectorName.length * 1.35 * mapUnit + 13 * mapUnit),
+  );
+  const labelHeight = 7.4 * mapUnit;
+  const edgeInset = 1.4 * mapUnit;
+  const x = clamp(rawX, labelWidth / 2 + edgeInset, mapWidth - labelWidth / 2 - edgeInset);
+  const y = clamp(rawY, labelHeight / 2 + edgeInset, mapHeight - labelHeight / 2 - edgeInset);
+  const labelX = x - labelWidth / 2;
+  const badgeX = labelX + 4.3 * mapUnit;
+
+  return {
+    x,
+    y,
+    labelWidth,
+    labelHeight,
+    labelX,
+    badgeX,
+  };
+}
+
 function formatTime(value: string) {
   return new Date(value).toLocaleTimeString('de-DE', {
     hour: '2-digit',
@@ -256,12 +297,15 @@ function TvScheduleMap({
         {renderedRegions.map(({ region, sector }) => {
           const sequenceNumber = sectorOrderById.get(sector.id);
           const isActive = sequenceNumber !== undefined;
-          const centroid = getCentroid(region);
-          const x = (centroid.x / 100) * mapWidth;
-          const y = (centroid.y / 100) * mapHeight;
-          const labelWidth = Math.max(21 * mapUnit, Math.min(40 * mapUnit, sector.name.length * 1.35 * mapUnit + 13 * mapUnit));
-          const labelX = x - labelWidth / 2;
-          const badgeX = labelX + 4.3 * mapUnit;
+          const marker = isActive
+            ? buildTvMarkerLayout({
+                region,
+                sectorName: sector.name,
+                mapUnit,
+                mapWidth,
+                mapHeight,
+              })
+            : null;
 
           return (
             <g key={region.id}>
@@ -271,27 +315,27 @@ function TvScheduleMap({
                 stroke={isActive ? 'rgba(23, 100, 29, 0.92)' : 'rgba(19, 17, 43, 0.16)'}
                 strokeWidth={isActive ? 1.45 * mapUnit : 0.55 * mapUnit}
               />
-              {isActive ? (
+              {marker ? (
                 <g>
                   <rect
-                    x={labelX}
-                    y={y - 3.7 * mapUnit}
-                    width={labelWidth}
-                    height={7.4 * mapUnit}
+                    x={marker.labelX}
+                    y={marker.y - marker.labelHeight / 2}
+                    width={marker.labelWidth}
+                    height={marker.labelHeight}
                     rx={2.4 * mapUnit}
                     fill="rgba(19, 17, 43, 0.94)"
                     stroke="rgba(105, 181, 69, 0.8)"
                     strokeWidth={0.38 * mapUnit}
                   />
                   <circle
-                    cx={badgeX}
-                    cy={y}
+                    cx={marker.badgeX}
+                    cy={marker.y}
                     r={2.55 * mapUnit}
                     fill="#69B545"
                   />
                   <text
-                    x={badgeX}
-                    y={y + 0.82 * mapUnit}
+                    x={marker.badgeX}
+                    y={marker.y + 0.82 * mapUnit}
                     textAnchor="middle"
                     fontSize={2.25 * mapUnit}
                     fill="#ffffff"
@@ -300,8 +344,8 @@ function TvScheduleMap({
                     {sequenceNumber}
                   </text>
                   <text
-                    x={labelX + 8.2 * mapUnit}
-                    y={y + 1.15 * mapUnit}
+                    x={marker.labelX + 8.2 * mapUnit}
+                    y={marker.y + 1.15 * mapUnit}
                     textAnchor="start"
                     fontSize={2.3 * mapUnit}
                     fill="#ffffff"
