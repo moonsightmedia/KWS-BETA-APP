@@ -12,6 +12,17 @@ export interface NativeVideoUploadFile {
 
 export type UploadFileInput = File | NativeVideoUploadFile;
 
+/** Byte source for resumable chunked upload (avoids loading whole native videos into JS). */
+export type ResumableUploadSource =
+  | { kind: 'file'; file: File }
+  | {
+      kind: 'native-path';
+      path: string;
+      fileName: string;
+      fileSize: number;
+      mimeType: string;
+    };
+
 export type UploadStatus =
   | 'pending'
   | 'queued'

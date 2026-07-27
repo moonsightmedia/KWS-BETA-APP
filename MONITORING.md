@@ -40,6 +40,8 @@ Im Supabase SQL Editor ausführen bzw. `npx supabase db push` (MCP hatte keine A
 
 `upload_queued` → `upload_start` → `compress_start` → `compress_done` → `chunk_progress` → `upload_done` / `upload_fail`
 
+Native Video: nach Compress wird der Dateipfad in 5‑MB-Chunks via `Filesystem.readFileInChunks` gelesen und an `upload.php` gesendet — nicht als Ganzes in die WebView (`convertFileSrc`/`fetch`). `compress_done` kommt direkt nach Compress (Pfad steht), danach `chunk_progress`.
+
 Bei App-Restart mit offenen lokalen Sessions: `suspected_oom_resume` + Status `aborted_suspected_oom`.
 
 ## TestFlight / dSYM

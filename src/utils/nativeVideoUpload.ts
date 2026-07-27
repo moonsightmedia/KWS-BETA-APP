@@ -24,9 +24,10 @@ export function isNativeVideoPipelineAvailable(): boolean {
 }
 
 export function getNativeVideoApiBase(): string {
-  const raw = import.meta.env.VITE_NATIVE_VIDEO_API_URL
-    || import.meta.env.VITE_ALLINKL_API_URL
-    || 'https://video.kletterwelt-sauerland.de';
+  const raw =
+    import.meta.env.VITE_NATIVE_VIDEO_API_URL ||
+    import.meta.env.VITE_ALLINKL_API_URL ||
+    'https://video.kletterwelt-sauerland.de';
   return raw.replace(/\/$/, '');
 }
 
@@ -83,25 +84,27 @@ export async function prepareNativeVideoPathForUpload(
   };
 }
 
-async function nativePathToFile(path: string, fileName: string, mimeType: string): Promise<File> {
-  const src = Capacitor.convertFileSrc(path);
-  const response = await fetch(src);
-  if (!response.ok) {
-    throw new Error(`Compressed video konnte nicht gelesen werden (${response.status})`);
-  }
-  const blob = await response.blob();
-  return new File([blob], fileName, { type: mimeType || blob.type || 'video/mp4' });
-}
-
-export type PreparedChunkedVideo = {
-  file: File;
-  cleanup: () => Promise<void>;
-  compressed: boolean;
-};
+export type PreparedChunkedVideo =
+  | {
+      kind: 'file';
+      file: File;
+      cleanup: () => Promise<void>;
+      compressed: boolean;
+    }
+  | {
+      kind: 'native-path';
+      path: string;
+      fileName: string;
+      fileSize: number;
+      mimeType: string;
+      cleanup: () => Promise<void>;
+      compressed: boolean;
+    };
 
 /**
- * Phase 1: optional on-device compress, then return a File for existing chunked upload.
- * Fail-open: any compress error returns the original web File when available.
+ * Prepare video for chunked upload.
+ * Native: compress on device, return filesystem path (never load whole file into JS).
+ * Web File: return as-is for existing File chunked path.
  */
 export async function prepareVideoFileForChunkedUpload(
   input: UploadFileInput,
@@ -113,17 +116,24 @@ export async function prepareVideoFileForChunkedUpload(
     if (isNativeVideoUploadFile(input)) {
       throw new Error('Native video is only supported in the Capacitor app');
     }
-    return { file: input, cleanup: noopCleanup, compressed: false };
+    return { kind: 'file', file: input, cleanup: noopCleanup, compressed: false };
   }
 
   if (!isNativeVideoUploadFile(input)) {
-    // Web File without a native path: skip compress (no base64 copy) — keep working chunked path.
     console.log('[nativeVideoUpload] Skipping compress for web File (no native path)');
-    return { file: input, cleanup: noopCleanup, compressed: false };
+    return { kind: 'file', file: input, cleanup: noopCleanup, compressed: false };
   }
 
   const source: NativeVideoUploadFile = input;
   let prepared: NativeVideoPrepareResult | null = null;
+  const sourcePath = source.cached ? source.path : null;
+
+  const withSourceCleanup = (cleanup: () => Promise<void>) => async () => {
+    await cleanup().catch(() => undefined);
+    if (sourcePath) {
+      await deleteNativeVideoFile(sourcePath).catch(() => undefined);
+    }
+  };
 
   try {
     prepared = await prepareNativeVideoPathForUpload(
@@ -136,52 +146,37 @@ export async function prepareVideoFileForChunkedUpload(
       (p) => onProgress?.(Math.min(40, Math.floor(p * 0.4))),
     );
 
-    const file = await nativePathToFile(prepared.filePath, prepared.fileName, prepared.mimeType);
-    const preparedCleanup = prepared.cleanup;
-    const sourcePath = source.cached ? source.path : null;
-
     return {
-      file,
+      kind: 'native-path',
+      path: prepared.filePath,
+      fileName: prepared.fileName,
+      fileSize: prepared.fileSize,
+      mimeType: prepared.mimeType,
       compressed: true,
-      cleanup: async () => {
-        await preparedCleanup();
-        if (sourcePath) {
-          // Best-effort: cached copy under app cache may be file:// URI — ignore failures.
-          try {
-            await deleteNativeVideoFile(sourcePath);
-          } catch {
-            // ignore
-          }
-        }
-      },
+      cleanup: withSourceCleanup(prepared.cleanup),
     };
   } catch (error) {
-    console.warn('[nativeVideoUpload] Compress failed, fail-open to original path read:', error);
+    console.warn('[nativeVideoUpload] Compress failed, fail-open to original native path:', error);
     if (prepared) {
       await prepared.cleanup().catch(() => undefined);
     }
-    try {
-      const file = await nativePathToFile(source.path, source.name, source.mimeType);
-      return {
-        file,
-        compressed: false,
-        cleanup: async () => {
-          if (source.cached) {
-            await deleteNativeVideoFile(source.path).catch(() => undefined);
-          }
-        },
-      };
-    } catch (readError) {
-      console.error('[nativeVideoUpload] Could not read original native video either:', readError);
-      throw error instanceof Error ? error : new Error(String(error));
-    }
+
+    // Fail-open: upload original path in chunks (still no full JS File load).
+    return {
+      kind: 'native-path',
+      path: source.path,
+      fileName: source.name,
+      fileSize: source.size,
+      mimeType: source.mimeType || 'video/quicktime',
+      compressed: false,
+      cleanup: withSourceCleanup(noopCleanup),
+    };
   }
 }
 
 /**
- * Phase 3 Capgo background upload is intentionally not wired yet.
- * Keep chunked foreground upload until Phase 1+2 are proven on device.
- * Enable later behind VITE_NATIVE_BACKGROUND_UPLOAD=true.
+ * Capgo background upload remains optional / unwired.
+ * Native path + Filesystem chunked upload is the foreground architecture.
  */
 export function isNativeBackgroundUploadEnabled(): boolean {
   return import.meta.env.VITE_NATIVE_BACKGROUND_UPLOAD === 'true';

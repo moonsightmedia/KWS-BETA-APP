@@ -460,24 +460,41 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 });
                 cleanup = prepared.cleanup;
 
+                const outSizeMb =
+                  prepared.kind === 'file'
+                    ? Number((prepared.file.size / (1024 * 1024)).toFixed(2))
+                    : Number((prepared.fileSize / (1024 * 1024)).toFixed(2));
+
                 trackTelemetryEvent('compress_done', {
                   boulderId: upload.boulderId,
                   props: {
                     session_id: upload.sessionId,
                     compressed: Boolean(prepared.compressed),
-                    out_size_mb: Number((prepared.file.size / (1024 * 1024)).toFixed(2)),
+                    out_size_mb: outSizeMb,
+                    source_kind: prepared.kind,
                   },
                   immediate: true,
                 });
                 addSentryBreadcrumb('compress_done', 'upload', {
                   session_id: upload.sessionId,
                   compressed: Boolean(prepared.compressed),
-                  out_size: prepared.file.size,
+                  out_size: prepared.kind === 'file' ? prepared.file.size : prepared.fileSize,
+                  source_kind: prepared.kind,
                 });
 
                 updateUpload(upload.sessionId, { status: 'uploading', progress: Math.max(40, upload.progress) });
                 let lastChunkBucket = -1;
-                const originalUrl = await resumableUpload(prepared.file, videoApiUrl, {
+                const uploadSource =
+                  prepared.kind === 'file'
+                    ? prepared.file
+                    : {
+                        kind: 'native-path' as const,
+                        path: prepared.path,
+                        fileName: prepared.fileName,
+                        fileSize: prepared.fileSize,
+                        mimeType: prepared.mimeType,
+                      };
+                const originalUrl = await resumableUpload(uploadSource, videoApiUrl, {
                     sessionId: upload.sessionId,
                     sectorId: upload.sectorId,
                     authToken: currentSession.access_token,
@@ -511,7 +528,10 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
                 videoUrls = { hd: originalUrl };
                 url = originalUrl;
-                console.log('[UploadContext] ✅ Video upload completed:', originalUrl, { compressed: prepared.compressed });
+                console.log('[UploadContext] ✅ Video upload completed:', originalUrl, {
+                  compressed: prepared.compressed,
+                  source_kind: prepared.kind,
+                });
             } catch (uploadError: any) {
                 console.error('[UploadContext] ❌ Video upload failed:', uploadError);
                 throw new Error(`Video-Upload fehlgeschlagen: ${uploadError.message || 'Unbekannter Fehler'}`);
