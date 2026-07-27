@@ -315,11 +315,6 @@ function TvScheduleMap({
           );
         })}
       </svg>
-      {usesFallbackMap ? (
-        <div className="absolute bottom-4 left-4 rounded-lg border border-[#DDE7DF] bg-white/92 px-3 py-2 text-[0.78rem] font-semibold text-[#13112B]/58 shadow-[0_8px_24px_rgba(19,17,43,0.06)]">
-          Standardkarte aktiv
-        </div>
-      ) : null}
     </InteractiveMapStage>
   );
 }
