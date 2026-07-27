@@ -190,9 +190,15 @@ function TvScheduleMap({
   } = usePublicSectorMapRegions(activeMap?.id);
 
   const sectorById = useMemo(() => new Map(sectors.map((sector) => [sector.id, sector])), [sectors]);
-  const mapData = activeMap ?? fallbackMap;
+  // Match HallMapView frameless mode: regions come from the active DB map,
+  // but the visible base image is always the official Boulderkarte asset.
+  const mapData: TvMapData = {
+    name: activeMap?.name ?? fallbackMap.name,
+    image_url: fallbackHallMap,
+    width: activeMap?.width ?? fallbackMap.width,
+    height: activeMap?.height ?? fallbackMap.height,
+  };
   const mapRegions = activeMap && regions.length > 0 ? regions : buildFallbackRegions(sectors);
-  const usesFallbackMap = !activeMap || regions.length === 0;
 
   const renderedRegions = useMemo(
     () =>
