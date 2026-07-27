@@ -15,45 +15,43 @@ import {
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { SetupAreaLayout } from '@/components/SetupAreaLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderCommunity';
-import { supabase } from '@/integrations/supabase/client';
 import { formatDifficulty } from '@/lib/difficulty';
-
-interface ProfileRow {
-  first_name: string | null;
-  last_name: string | null;
-  full_name: string | null;
-}
+import { fetchProfileRecord } from '@/lib/profileCompat';
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user, signOut, loading } = useAuth();
+  const { user, session, signOut, loading } = useAuth();
   const { data: trackedBoulders } = useMyTrackedBoulders(null);
   const { data: trackingSessions } = useMyTrackingSessions();
   const [profileName, setProfileName] = useState<string | null>(null);
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
+  const [profileIdentityLoading, setProfileIdentityLoading] = useState(true);
 
   useEffect(() => {
     if (!user) {
       setProfileName(null);
       setProfileAvatarUrl(null);
+      setProfileIdentityLoading(false);
       return;
     }
 
     let cancelled = false;
 
     const loadProfileName = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('first_name,last_name,full_name')
-          .eq('id', user.id)
-          .maybeSingle<ProfileRow>();
+      setProfileIdentityLoading(true);
 
+      const metadataAvatarUrl =
+        typeof user.user_metadata?.avatar_url === 'string' && user.user_metadata.avatar_url.trim().length > 0
+          ? user.user_metadata.avatar_url
+          : null;
+
+      try {
+        const data = await fetchProfileRecord(user.id, session?.access_token);
         if (cancelled) return;
-        if (error) throw error;
 
         const nextProfileName =
           data?.full_name?.trim() ||
@@ -61,11 +59,15 @@ const Profile = () => {
           null;
 
         setProfileName(nextProfileName);
-        setProfileAvatarUrl(null);
+        setProfileAvatarUrl(data?.avatar_url?.trim() || metadataAvatarUrl || null);
       } catch {
         if (!cancelled) {
           setProfileName(null);
-          setProfileAvatarUrl(null);
+          setProfileAvatarUrl(metadataAvatarUrl);
+        }
+      } finally {
+        if (!cancelled) {
+          setProfileIdentityLoading(false);
         }
       }
     };
@@ -75,7 +77,7 @@ const Profile = () => {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [session?.access_token, user]);
 
   const displayName = useMemo(() => {
     const meta = user?.user_metadata as Record<string, unknown> | undefined;
@@ -131,7 +133,7 @@ const Profile = () => {
   const statsTiles = [
     { icon: Trophy, value: stats.topped, label: 'Tops' },
     { icon: Flame, value: stats.totalSessions, label: 'Sessions' },
-    { icon: Mountain, value: stats.highestGrade, label: 'H\u00F6chster Grad' },
+    { icon: Mountain, value: stats.highestGrade, label: 'Höchster Grad' },
   ];
 
   const settingsGroups = [
@@ -140,7 +142,7 @@ const Profile = () => {
       { icon: UserCog, label: 'Profil bearbeiten', path: '/profile/edit' },
       { icon: Bell, label: 'Benachrichtigungen', path: '/profile/notifications' },
     ],
-    [{ icon: Info, label: '\u00DCber die App', path: '/profile/about' }],
+    [{ icon: Info, label: 'Über die App', path: '/profile/about' }],
   ];
 
   return (
@@ -150,7 +152,7 @@ const Profile = () => {
           type="button"
           onClick={() => navigate(-1)}
           className="h-10 w-10 rounded-xl bg-secondary flex items-center justify-center transition-colors active:scale-95"
-          aria-label={'Zur\u00FCck'}
+          aria-label={'Zurück'}
         >
           <ArrowLeft className="h-4 w-4 text-muted-foreground" />
         </button>
@@ -158,14 +160,24 @@ const Profile = () => {
 
       <div className="px-4 pt-5">
         <div className="flex flex-col items-center text-center">
-          <Avatar className="mb-3 h-16 w-16 rounded-xl">
-            {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} className="rounded-xl object-cover" /> : null}
-            <AvatarFallback className="rounded-xl bg-primary/10 text-primary text-3xl font-semibold">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          <h1 className="text-[1.2rem] font-bold leading-none text-foreground">{displayName}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{memberSinceLabel}</p>
+          {profileIdentityLoading ? (
+            <div className="flex flex-col items-center text-center">
+              <Skeleton className="mb-3 h-16 w-16 rounded-xl" />
+              <Skeleton className="h-6 w-40 rounded-lg" />
+              <Skeleton className="mt-2 h-4 w-28 rounded-lg" />
+            </div>
+          ) : (
+            <>
+              <Avatar className="mb-3 h-16 w-16 rounded-xl">
+                {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} className="rounded-xl object-cover" /> : null}
+                <AvatarFallback className="rounded-xl bg-primary/10 text-primary text-3xl font-semibold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <h1 className="text-[1.2rem] font-bold leading-none text-foreground">{displayName}</h1>
+              <p className="mt-2 text-sm text-muted-foreground">{memberSinceLabel}</p>
+            </>
+          )}
         </div>
 
         <div className="mt-6 grid grid-cols-3 gap-2">
