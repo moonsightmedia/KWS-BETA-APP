@@ -197,13 +197,14 @@ function applyExifOrientation(ctx: CanvasRenderingContext2D, orientation: number
 /**
  * Compress and resize thumbnail for upload.
  * Decodes via createImageBitmap (bounded), forces portrait, JPEG with a short quality ladder.
- * Phase 2: keep ~200px / 75% targets (baseline size) with memory-safe decode.
+ * Longest edge ~480px @ ~85% JPEG — enough for retina dashboard cards without the
+ * old 200px mush, while still staying far below original multi-MB phone photos.
  */
 export async function compressThumbnail(file: File, onProgress?: (progress: number) => void): Promise<File> {
-  const DECODE_MAX = 960;
-  const maxSize = 5 * 1024 * 1024;
-  const qualityLevels = [0.75, 0.65, 0.5];
-  const dimensionLevels = [200, 150];
+  const DECODE_MAX = 1280;
+  const maxSize = 400 * 1024; // soft cap; step down quality/size only if exceeded
+  const qualityLevels = [0.85, 0.78, 0.7];
+  const dimensionLevels = [480, 360];
 
   const toJpegFile = (blob: Blob) =>
     new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
@@ -305,7 +306,7 @@ export async function compressThumbnail(file: File, onProgress?: (progress: numb
         const blob = await canvasToBlob(canvas, qualityLevels[q]);
         if (!blob) continue;
 
-        if (!bestBlob || blob.size < bestBlob.size) {
+        if (!bestBlob) {
           bestBlob = blob;
         }
 

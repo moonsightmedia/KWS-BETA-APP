@@ -103,9 +103,8 @@ async function compressThumbnail(imageBuffer) {
       console.log(`  🔄 Rotating landscape image to portrait: ${width}x${height} → ${newWidth}x${newHeight}`);
     }
     
-    // Calculate optimal dimensions (max 200px for thumbnails - 2x for Retina displays)
-    // Thumbnails are displayed as 80-96px, so 200px is perfect for Retina (2x)
-    const maxDimension = 200;
+    // Calculate optimal dimensions (max 480px — covers retina dashboard cards ~138–276 CSS px)
+    const maxDimension = 480;
     let finalWidth = newWidth;
     let finalHeight = newHeight;
     
@@ -139,9 +138,9 @@ async function compressThumbnail(imageBuffer) {
         withoutEnlargement: true,
       })
       .jpeg({
-        quality: 75, // Reduced from 85% - still good quality but much smaller files
-        mozjpeg: true, // Better compression
-        progressive: true, // Progressive JPEG for better perceived performance
+        quality: 85,
+        mozjpeg: true,
+        progressive: true,
       })
       .toBuffer();
     
