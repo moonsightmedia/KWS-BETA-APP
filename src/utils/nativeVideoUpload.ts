@@ -44,10 +44,19 @@ function toMp4FileName(fileName: string): string {
   return safeName.replace(/\.[^.]+$/, '') + '.mp4';
 }
 
-const LARGE_NATIVE_VIDEO_BYTES = 80 * 1024 * 1024;
+/**
+ * iOS `medium`/`low` map to AVAssetExportPresetMedium/LowQuality — Apple's old
+ * MMS-grade presets. They ignore the documented bitrate and routinely crush
+ * ~20 MB phone videos to ~50 KB. Only `high` uses HighestQuality and is usable.
+ */
+const NATIVE_COMPRESS_QUALITY = 'high' as const;
 
-function pickNativeCompressQuality(fileSize: number): 'low' | 'medium' {
-  return fileSize > LARGE_NATIVE_VIDEO_BYTES ? 'low' : 'medium';
+/** Reject compress output that is clearly destroyed (seen: 23 MB → 0.05 MB). */
+function isSuspiciouslySmallCompress(originalSize: number, compressedSize: number): boolean {
+  if (compressedSize <= 0) return true;
+  if (originalSize >= 5 * 1024 * 1024 && compressedSize < 200 * 1024) return true;
+  if (originalSize >= 1024 * 1024 && compressedSize < originalSize * 0.02) return true;
+  return false;
 }
 
 /**
@@ -62,14 +71,27 @@ export async function prepareNativeVideoPathForUpload(
   }
 
   onProgress?.(5);
-  const quality = pickNativeCompressQuality(input.fileSize);
-  console.log('[nativeVideoUpload] Compressing with quality:', quality, { fileSize: input.fileSize });
+  console.log('[nativeVideoUpload] Compressing with quality:', NATIVE_COMPRESS_QUALITY, {
+    fileSize: input.fileSize,
+  });
 
   const compressed = await VideoCompressor.compressVideo({
     inputPath: input.path,
-    quality,
+    quality: NATIVE_COMPRESS_QUALITY,
     format: 'mp4',
   });
+
+  if (isSuspiciouslySmallCompress(input.fileSize, compressed.compressedSize)) {
+    console.warn('[nativeVideoUpload] Compress output unusable, falling back to original', {
+      originalSize: input.fileSize,
+      compressedSize: compressed.compressedSize,
+      outputPath: compressed.outputPath,
+    });
+    await deleteNativeVideoFile(compressed.outputPath).catch(() => undefined);
+    throw new Error(
+      `Compress output too small (${compressed.compressedSize} bytes from ${input.fileSize})`,
+    );
+  }
 
   onProgress?.(100);
 

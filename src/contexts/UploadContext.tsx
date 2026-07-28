@@ -197,7 +197,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const updateUploadLog = useCallback(async (sessionId: string, updates: { status?: string; error?: string | null; progress?: number }) => {
     if (!session?.access_token) {
       console.warn('[UploadContext] ⚠️ Cannot update log - no session');
-      return;
+      return false;
     }
 
     const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -205,16 +205,16 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (!SUPABASE_URL || !SUPABASE_KEY) {
       console.warn('[UploadContext] ⚠️ Cannot update log - missing config');
-      return;
+      return false;
     }
 
-    try {
-      const updateData: any = { updated_at: new Date().toISOString() };
-      if (updates.status !== undefined) updateData.status = updates.status;
-      if (updates.error !== undefined) updateData.error = updates.error;
-      if (updates.progress !== undefined) updateData.progress = updates.progress;
+    const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.error !== undefined) updateData.error = updates.error;
+    if (updates.progress !== undefined) updateData.progress = updates.progress;
 
-      await window.fetch(
+    const attempt = async () => {
+      const response = await window.fetch(
         `${SUPABASE_URL}/rest/v1/upload_logs?session_id=eq.${sessionId}`,
         {
           method: 'PATCH',
@@ -225,10 +225,30 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             'Prefer': 'return=minimal',
           },
           body: JSON.stringify(updateData),
-        }
+        },
       );
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+      return true;
+    };
+
+    try {
+      return await attempt();
     } catch (logError) {
+      // Terminal states matter for the upload overview — retry once.
+      if (updates.status === 'completed' || updates.status === 'failed') {
+        try {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+          return await attempt();
+        } catch (retryError) {
+          console.warn('[UploadContext] ⚠️ Failed to update upload log after retry (non-critical):', retryError);
+          return false;
+        }
+      }
       console.warn('[UploadContext] ⚠️ Failed to update upload log (non-critical):', logError);
+      return false;
     }
   }, [session]);
 
@@ -316,11 +336,11 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         
         console.log('[UploadContext] ✅ Session available for upload process');
         
-        // Helper to update DB logs
+        // Helper to update DB logs (uses runtime session, not render-time hook session)
         const updateLog = async (status: string, progress?: number, error?: string) => {
              if (!currentSession?.access_token) {
                  console.warn('[UploadContext] ⚠️ No session for updateLog, skipping');
-                 return;
+                 return false;
              }
              
              const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -328,16 +348,16 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
              if (!SUPABASE_URL || !SUPABASE_KEY) {
                  console.warn('[UploadContext] ⚠️ Cannot update log - missing config');
-                 return;
+                 return false;
              }
 
-             try {
-                 const updateData: any = { updated_at: new Date().toISOString() };
-                 if (status !== undefined) updateData.status = status;
-                 if (error !== undefined) updateData.error = error;
-                 if (progress !== undefined) updateData.progress = progress;
+             const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
+             if (status !== undefined) updateData.status = status;
+             if (error !== undefined) updateData.error = error;
+             if (progress !== undefined) updateData.progress = progress;
 
-                 await window.fetch(
+             const attempt = async () => {
+                 const response = await window.fetch(
                      `${SUPABASE_URL}/rest/v1/upload_logs?session_id=eq.${upload.sessionId}`,
                      {
                          method: 'PATCH',
@@ -350,8 +370,27 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                          body: JSON.stringify(updateData),
                      }
                  );
+                 if (!response.ok) {
+                     const errorText = await response.text().catch(() => '');
+                     throw new Error(`HTTP ${response.status}: ${errorText}`);
+                 }
+                 return true;
+             };
+
+             try {
+                 return await attempt();
              } catch (logError) {
+                 if (status === 'completed' || status === 'failed') {
+                     try {
+                         await new Promise((resolve) => setTimeout(resolve, 400));
+                         return await attempt();
+                     } catch (retryError) {
+                         console.warn('[UploadContext] ⚠️ Failed to update upload log after retry (non-critical):', retryError);
+                         return false;
+                     }
+                 }
                  console.warn('[UploadContext] ⚠️ Failed to update upload log (non-critical):', logError);
+                 return false;
              }
         };
 
