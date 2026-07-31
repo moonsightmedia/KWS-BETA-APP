@@ -196,8 +196,6 @@ export default function SetterEditPage() {
         attributeIds: editorDraft.attributeIds,
       });
 
-      const uploadSessionIds: string[] = [];
-
       if (editorDraft.thumbFile) {
         const thumbSessionId = await startUpload(
           editorDraft.id,
@@ -205,7 +203,7 @@ export default function SetterEditPage() {
           'thumbnail',
           editorDraft.sectorId,
         );
-        uploadSessionIds.push(thumbSessionId);
+        await waitForUploadSessions([thumbSessionId]);
       }
 
       if (editorDraft.videoFile) {
@@ -215,11 +213,7 @@ export default function SetterEditPage() {
           'video',
           editorDraft.sectorId,
         );
-        uploadSessionIds.push(videoSessionId);
-      }
-
-      if (uploadSessionIds.length > 0) {
-        await waitForUploadSessions(uploadSessionIds);
+        await waitForUploadSessions([videoSessionId]);
       }
 
       setEditorDraft(null);

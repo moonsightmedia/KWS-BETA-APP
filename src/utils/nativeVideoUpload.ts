@@ -110,7 +110,7 @@ export type PreparedChunkedVideo =
   | {
       kind: 'file';
       file: File;
-      cleanup: () => Promise<void>;
+      cleanup: (deleteSource?: boolean) => Promise<void>;
       compressed: boolean;
     }
   | {
@@ -119,7 +119,7 @@ export type PreparedChunkedVideo =
       fileName: string;
       fileSize: number;
       mimeType: string;
-      cleanup: () => Promise<void>;
+      cleanup: (deleteSource?: boolean) => Promise<void>;
       compressed: boolean;
     };
 
@@ -132,7 +132,7 @@ export async function prepareVideoFileForChunkedUpload(
   input: UploadFileInput,
   onProgress?: (progress: number) => void,
 ): Promise<PreparedChunkedVideo> {
-  const noopCleanup = async () => undefined;
+  const noopCleanup = async (_deleteSource = false) => undefined;
 
   if (!isNativeVideoPipelineAvailable()) {
     if (isNativeVideoUploadFile(input)) {
@@ -150,9 +150,9 @@ export async function prepareVideoFileForChunkedUpload(
   let prepared: NativeVideoPrepareResult | null = null;
   const sourcePath = source.cached ? source.path : null;
 
-  const withSourceCleanup = (cleanup: () => Promise<void>) => async () => {
+  const withSourceCleanup = (cleanup: () => Promise<void>) => async (deleteSource = false) => {
     await cleanup().catch(() => undefined);
-    if (sourcePath) {
+    if (deleteSource && sourcePath) {
       await deleteNativeVideoFile(sourcePath).catch(() => undefined);
     }
   };

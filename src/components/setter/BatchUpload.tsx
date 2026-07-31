@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Check, CloudUpload, Image as ImageIcon, Loader2, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -149,9 +149,11 @@ export function BatchUpload() {
 
   const [boulders, setBoulders] = useState<SetterBoulderDraft[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadingBoulderId, setUploadingBoulderId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentBoulder, setCurrentBoulder] = useState<SetterBoulderDraft | null>(null);
+  const createdBoulderIdsRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     if (!colors.length || currentBoulder) return;
@@ -159,6 +161,10 @@ export function BatchUpload() {
   }, [colors, currentBoulder]);
 
   const readyCount = useMemo(() => boulders.filter(canQueueBoulder).length, [boulders]);
+  const queuedCount = useMemo(
+    () => boulders.filter((boulder) => boulder.id !== uploadingBoulderId && canQueueBoulder(boulder)).length,
+    [boulders, uploadingBoulderId],
+  );
   const queueThumbPreviewUrls = useMemo(() => {
     const previews = new Map<string, string>();
     boulders.forEach((boulder) => {
@@ -229,95 +235,107 @@ export function BatchUpload() {
     }
 
     setIsProcessing(true);
-    const successfulIds: string[] = [];
-    const createdIds: string[] = [];
-    const failures: Array<{ name: string; error: string }> = [];
+    try {
+      const successfulIds: string[] = [];
+      const createdIds: string[] = [];
+      const failures: Array<{ name: string; error: string }> = [];
 
-    for (const boulder of [...boulders]) {
-      try {
-        const colorName = colors.find((color) => color.id === boulder.colorId)?.name ?? 'Unbekannt';
-        const payload: Record<string, unknown> = {
-          name: boulder.name.trim(),
-          sector_id: boulder.sectorId,
-          color: colorName,
-          difficulty: boulder.difficulty,
-          note: boulder.note.trim() || null,
-          status: 'haengt',
-        };
+      for (const boulder of [...boulders]) {
+        setUploadingBoulderId(boulder.id);
 
-        if (boulder.spansMultipleSectors && boulder.sectorId2) {
-          payload.sector_id_2 = boulder.sectorId2;
-        }
+        try {
+          const colorName = colors.find((color) => color.id === boulder.colorId)?.name ?? 'Unbekannt';
+          const payload: Record<string, unknown> = {
+            name: boulder.name.trim(),
+            sector_id: boulder.sectorId,
+            color: colorName,
+            difficulty: boulder.difficulty,
+            note: boulder.note.trim() || null,
+            status: 'haengt',
+          };
 
-        const response = await fetch(`${supabaseUrl}/rest/v1/boulders`, {
-          method: 'POST',
-          headers: {
-            apikey: supabaseKey,
-            Authorization: `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-            Prefer: 'return=representation',
-          },
-          body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-          throw new Error(await response.text());
-        }
-
-        const data = await response.json();
-        const created = Array.isArray(data) ? data[0] : data;
-
-        if (!created?.id) {
-          throw new Error('Boulder konnte nicht erstellt werden.');
-        }
-
-        createdIds.push(created.id);
-
-        if (boulder.attributeIds.length) {
-          try {
-            await setBoulderAttributes.mutateAsync({ boulderId: created.id, attributeIds: boulder.attributeIds });
-          } catch (error) {
-            devWarn('[BatchUpload] Attribute konnten nicht gespeichert werden:', error);
+          if (boulder.spansMultipleSectors && boulder.sectorId2) {
+            payload.sector_id_2 = boulder.sectorId2;
           }
+
+          const existingBoulderId = createdBoulderIdsRef.current.get(boulder.id);
+          const response = await fetch(
+            existingBoulderId
+              ? `${supabaseUrl}/rest/v1/boulders?id=eq.${encodeURIComponent(existingBoulderId)}`
+              : `${supabaseUrl}/rest/v1/boulders`,
+            {
+              method: existingBoulderId ? 'PATCH' : 'POST',
+              headers: {
+                apikey: supabaseKey,
+                Authorization: `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json',
+                Prefer: 'return=representation',
+              },
+              body: JSON.stringify(payload),
+            },
+          );
+
+          if (!response.ok) {
+            throw new Error(await response.text());
+          }
+
+          const data = await response.json();
+          const created = Array.isArray(data) ? data[0] : data;
+          const createdBoulderId = created?.id ?? existingBoulderId;
+
+          if (!createdBoulderId) {
+            throw new Error('Boulder konnte nicht erstellt werden.');
+          }
+
+          if (!existingBoulderId) {
+            createdBoulderIdsRef.current.set(boulder.id, createdBoulderId);
+          }
+
+          if (boulder.attributeIds.length) {
+            try {
+              await setBoulderAttributes.mutateAsync({ boulderId: createdBoulderId, attributeIds: boulder.attributeIds });
+            } catch (error) {
+              devWarn('[BatchUpload] Attribute konnten nicht gespeichert werden:', error);
+            }
+          }
+
+          if (!existingBoulderId) {
+            logBoulderOperation('create', createdBoulderId, created?.name ?? boulder.name, created ?? payload, undefined, session.access_token)
+              .then((logged) => logged && queryClient.invalidateQueries({ queryKey: ['boulder-operation-logs'] }))
+              .catch(() => undefined);
+          }
+
+          const thumbSessionId = await startUpload(createdBoulderId, boulder.thumbFile!, 'thumbnail', boulder.sectorId);
+          await waitForUploadSessions([thumbSessionId]);
+
+          const videoSessionId = await startUpload(createdBoulderId, boulder.videoFile!, 'video', boulder.sectorId);
+          await waitForUploadSessions([videoSessionId]);
+
+          createdBoulderIdsRef.current.delete(boulder.id);
+          createdIds.push(createdBoulderId);
+          successfulIds.push(boulder.id);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
+          devError('[BatchUpload] Fehler beim Upload:', error);
+          failures.push({ name: boulder.name, error: message });
+          toast.error(`Fehler bei "${boulder.name}": ${message}`);
         }
-
-        logBoulderOperation('create', created.id, created.name ?? null, created, undefined, session.access_token)
-          .then((logged) => logged && queryClient.invalidateQueries({ queryKey: ['boulder-operation-logs'] }))
-          .catch(() => undefined);
-
-        const thumbSessionId = await startUpload(created.id, boulder.thumbFile!, 'thumbnail', boulder.sectorId);
-        const videoSessionId = await startUpload(created.id, boulder.videoFile!, 'video', boulder.sectorId);
-
-        setBoulders((prev) =>
-          prev.map((item) =>
-            item.id === boulder.id
-              ? { ...item, thumbFile: null, videoFile: null }
-              : item,
-          ),
-        );
-
-        await waitForUploadSessions([thumbSessionId, videoSessionId]);
-        successfulIds.push(boulder.id);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
-        devError('[BatchUpload] Fehler beim Queueing:', error);
-        failures.push({ name: boulder.name, error: message });
-        toast.error(`Fehler bei "${boulder.name}": ${message}`);
       }
+
+      setBoulders((prev) => prev.filter((boulder) => !successfulIds.includes(boulder.id)));
+
+      if (successfulIds.length) {
+        toast.success(`${successfulIds.length} Boulder hochgeladen.`, { duration: 3200 });
+        await createBatchNotifications(createdIds, sectors, supabaseUrl, supabaseKey, session.access_token);
+      }
+
+      if (failures.length) {
+        toast.error(`${failures.length} Boulder konnten nicht hochgeladen werden.`, { duration: 3200 });
+      }
+    } finally {
+      setUploadingBoulderId(null);
+      setIsProcessing(false);
     }
-
-    setBoulders((prev) => prev.filter((boulder) => !successfulIds.includes(boulder.id)));
-
-    if (successfulIds.length) {
-      toast.success(`${successfulIds.length} Boulder hochgeladen.`, { duration: 3200 });
-      await createBatchNotifications(createdIds, sectors, supabaseUrl, supabaseKey, session.access_token);
-    }
-
-    if (failures.length) {
-      toast.error(`${failures.length} Boulder konnten nicht vorbereitet werden.`, { duration: 3200 });
-    }
-
-    setIsProcessing(false);
   };
 
   return (
@@ -350,7 +368,11 @@ export function BatchUpload() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#13112B]">Entwürfe</h2>
-          {boulders.length > 0 ? <span className="text-xs text-[#13112B]/45">{readyCount} uploadbereit</span> : null}
+          {boulders.length > 0 ? (
+            <span className="text-xs text-[#13112B]/45">
+              {isProcessing ? `${queuedCount} in Warteschlange` : `${readyCount} uploadbereit`}
+            </span>
+          ) : null}
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-[#DDE7DF] bg-white shadow-[0_8px_24px_rgba(19,17,43,0.05)]">
@@ -368,6 +390,7 @@ export function BatchUpload() {
                   : null;
                 const colorName = colors.find((color) => color.id === boulder.colorId)?.name ?? 'Farbe?';
                 const previewUrl = queueThumbPreviewUrls.get(boulder.id);
+                const isUploading = uploadingBoulderId === boulder.id;
 
                 return (
                   <article key={boulder.id} className="px-4 py-4 sm:px-5">
@@ -402,6 +425,7 @@ export function BatchUpload() {
                               variant="ghost"
                               size="icon"
                               className="h-9 w-9 rounded-xl text-[#6C6A7E]"
+                              disabled={isProcessing}
                               onClick={() => openEditDialog(boulder)}
                             >
                               <Pencil className="h-4 w-4" />
@@ -411,7 +435,11 @@ export function BatchUpload() {
                               variant="ghost"
                               size="icon"
                               className="h-9 w-9 rounded-xl text-[#6C6A7E] hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => setBoulders((prev) => prev.filter((item) => item.id !== boulder.id))}
+                              disabled={isProcessing}
+                              onClick={() => {
+                                createdBoulderIdsRef.current.delete(boulder.id);
+                                setBoulders((prev) => prev.filter((item) => item.id !== boulder.id));
+                              }}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -436,11 +464,20 @@ export function BatchUpload() {
                         {boulder.note ? <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#13112B]/60">{boulder.note}</p> : null}
 
                         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                          <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#CFE4B8] bg-[#EEF6E1] px-3 py-1 text-xs font-semibold text-[#4E8A31]">
-                            <Check className="h-3.5 w-3.5" />
-                            Bereit für Upload
+                          {isUploading ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#CFE4B8] bg-[#EEF6E1] px-3 py-1 text-xs font-semibold text-[#4E8A31]">
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              Wird hochgeladen
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#CFE4B8] bg-[#EEF6E1] px-3 py-1 text-xs font-semibold text-[#4E8A31]">
+                              <Check className="h-3.5 w-3.5" />
+                              Bereit für Upload
+                            </span>
+                          )}
+                          <span className="text-xs text-[#13112B]/45">
+                            {isUploading ? 'Medien werden verarbeitet.' : 'Video und Thumbnail sind zugeordnet.'}
                           </span>
-                          <span className="text-xs text-[#13112B]/45">Video und Thumbnail sind zugeordnet.</span>
                         </div>
                       </div>
                     </div>
@@ -450,26 +487,27 @@ export function BatchUpload() {
             </div>
           )}
         </div>
+
+        {boulders.length > 0 ? (
+          <Button
+            type="button"
+            className="mt-4 h-14 w-full rounded-2xl bg-[#69B545] px-5 text-white shadow-[0_12px_28px_rgba(105,181,69,0.22)] hover:bg-[#5fa039] disabled:opacity-100 sm:ml-auto sm:flex sm:w-auto"
+            disabled={isProcessing}
+            onClick={() => void uploadAll()}
+          >
+            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CloudUpload className="mr-2 h-4 w-4" />}
+            Alle hochladen
+          </Button>
+        ) : null}
       </section>
 
       {!isDialogOpen ? (
-        <div className="setter-floating-actions fixed right-4 z-[125] flex flex-col items-end gap-3 md:right-8">
-          {boulders.length > 0 ? (
-            <Button
-              type="button"
-              className="h-14 rounded-2xl bg-[#69B545] px-5 text-white shadow-[0_16px_40px_rgba(105,181,69,0.28)] hover:bg-[#5fa039]"
-              disabled={isProcessing}
-              onClick={() => void uploadAll()}
-            >
-              {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CloudUpload className="mr-2 h-4 w-4" />}
-              Alle hochladen
-            </Button>
-          ) : null}
-
+        <div className="setter-floating-actions fixed right-4 z-[125] md:right-8">
           <Button
             type="button"
             variant="outline"
             className="h-14 rounded-2xl border-[#DDE7DF] bg-white px-5 text-[#13112B] shadow-[0_14px_36px_rgba(19,17,43,0.10)] hover:bg-[#F7FAF7]"
+            disabled={isProcessing}
             onClick={openAddDialog}
           >
             <Plus className="mr-2 h-4 w-4" />
