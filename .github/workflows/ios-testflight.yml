@@ -124,6 +124,7 @@ jobs:
           security default-keychain -s "$BUILD_KEYCHAIN"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$BUILD_KEYCHAIN"
           security set-keychain-settings -lut 21600 "$BUILD_KEYCHAIN"
+          security list-keychains -d user -s "$BUILD_KEYCHAIN"
 
           if [ -n "$APPLE_CERTIFICATE_BASE64" ]; then
             echo "Importing stored distribution certificate from GitHub secrets"
@@ -139,6 +140,11 @@ jobs:
             security export -t identities -f pkcs12 -P "$CERT_PASSWORD" -o "$RUNNER_TEMP/distribution.p12" "$BUILD_KEYCHAIN"
             echo "CERT_EXPORT_PASSWORD=$CERT_PASSWORD" >> "$GITHUB_ENV"
             echo "Created distribution certificate. Save ios-distribution-cert-backup artifact as GitHub secrets."
+          fi
+
+          if ! security find-identity -v -p codesigning "$BUILD_KEYCHAIN" | grep -q "Apple Distribution"; then
+            echo "::error::The build keychain does not contain a valid Apple Distribution signing identity."
+            exit 1
           fi
 
           fastlane run get_provisioning_profile api_key_path:"$API_KEY_JSON" app_identifier:"$BUNDLE_ID" force:true skip_install:false
