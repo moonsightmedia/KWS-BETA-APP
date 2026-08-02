@@ -8,6 +8,11 @@ on:
         required: false
         default: main
         type: string
+      renew_distribution_certificate:
+        description: Create and persist a new Apple Distribution certificate
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ios-testflight
@@ -106,6 +111,7 @@ jobs:
           APP_STORE_CONNECT_API_KEY_IS_KEY_CONTENT_BASE64: "false"
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          RENEW_DISTRIBUTION_CERTIFICATE: ${{ github.event.inputs.renew_distribution_certificate || 'false' }}
         run: |
           set -eo pipefail
           API_KEY_JSON="$RUNNER_TEMP/app_store_connect_api_key.json"
@@ -126,7 +132,17 @@ jobs:
           security set-keychain-settings -lut 21600 "$BUILD_KEYCHAIN"
           security list-keychains -d user -s "$BUILD_KEYCHAIN"
 
-          if [ -n "$APPLE_CERTIFICATE_BASE64" ]; then
+          if [ "$RENEW_DISTRIBUTION_CERTIFICATE" = "true" ]; then
+            if [ -z "$APPLE_CERTIFICATE_PASSWORD" ]; then
+              echo "::error::APPLE_CERTIFICATE_PASSWORD is required to renew the distribution certificate."
+              exit 1
+            fi
+            echo "Creating a new Apple Distribution certificate"
+            fastlane run get_certificates api_key_path:"$API_KEY_JSON" development:false keychain_path:"$BUILD_KEYCHAIN" keychain_password:"$KEYCHAIN_PASSWORD"
+            security export -t identities -f pkcs12 -P "$APPLE_CERTIFICATE_PASSWORD" -o "$RUNNER_TEMP/distribution.p12" "$BUILD_KEYCHAIN"
+            echo "CERTIFICATE_REGENERATED=true" >> "$GITHUB_ENV"
+            echo "Created a new distribution certificate for secure persistence."
+          elif [ -n "$APPLE_CERTIFICATE_BASE64" ]; then
             echo "Importing stored distribution certificate from GitHub secrets"
             echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > "$RUNNER_TEMP/distribution.p12"
             security import "$RUNNER_TEMP/distribution.p12" -k "$BUILD_KEYCHAIN" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
@@ -134,12 +150,8 @@ jobs:
           elif security find-identity -v -p codesigning "$BUILD_KEYCHAIN" | grep -q "Apple Distribution"; then
             echo "Apple Distribution certificate already present in build keychain"
           else
-            echo "Creating a new Apple Distribution certificate"
-            fastlane run get_certificates api_key_path:"$API_KEY_JSON" development:false keychain_path:"$BUILD_KEYCHAIN" keychain_password:"$KEYCHAIN_PASSWORD"
-            CERT_PASSWORD=$(openssl rand -base64 18)
-            security export -t identities -f pkcs12 -P "$CERT_PASSWORD" -o "$RUNNER_TEMP/distribution.p12" "$BUILD_KEYCHAIN"
-            echo "CERT_EXPORT_PASSWORD=$CERT_PASSWORD" >> "$GITHUB_ENV"
-            echo "Created distribution certificate. Save ios-distribution-cert-backup artifact as GitHub secrets."
+            echo "::error::APPLE_CERTIFICATE_BASE64 is missing. Run the workflow once with certificate renewal enabled."
+            exit 1
           fi
 
           if ! security find-identity -v -p codesigning "$BUILD_KEYCHAIN" | grep -q "Apple Distribution"; then
@@ -175,7 +187,7 @@ jobs:
           echo "IOS_PROVISIONING_PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
 
       - name: Upload signing certificate backup
-        if: env.CERT_EXPORT_PASSWORD != ''
+        if: env.CERTIFICATE_REGENERATED == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ios-distribution-cert-backup
