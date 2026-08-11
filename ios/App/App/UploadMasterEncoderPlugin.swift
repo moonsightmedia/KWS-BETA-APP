@@ -193,7 +193,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                                                    sourceDisplaySize: sourceDisplaySize,
                                                    outputSize: outputSize,
                                                    sourceFrameRate: sourceFrameRate)
-            let videoOutput = AVAssetReaderVideoCompositionOutput(videoTracks: [videoTrack], outputSettings: [
+            let videoOutput = AVAssetReaderVideoCompositionOutput(videoTracks: [videoTrack], videoSettings: [
                 kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
             ])
             videoOutput.videoComposition = composition
