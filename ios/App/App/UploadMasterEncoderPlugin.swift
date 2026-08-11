@@ -403,7 +403,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private func sourceAudioFormat(_ track: AVAssetTrack) throws -> (channels: Int, sampleRate: Double) {
-        guard let description = track.formatDescriptions.first as? CMAudioFormatDescription,
+        guard let description = (track.formatDescriptions as! [CMAudioFormatDescription]).first,
               let stream = CMAudioFormatDescriptionGetStreamBasicDescription(description)?.pointee,
               stream.mChannelsPerFrame > 0, stream.mSampleRate > 0 else {
             throw EncoderError.invalidAudioFormat
