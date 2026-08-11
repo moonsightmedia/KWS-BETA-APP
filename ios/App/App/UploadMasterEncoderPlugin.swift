@@ -560,7 +560,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private func codec(of track: AVAssetTrack) -> FourCharCode? {
-        guard let description = track.formatDescriptions.first else { return nil }
+        guard let description = (track.formatDescriptions as! [CMFormatDescription]).first else { return nil }
         return CMFormatDescriptionGetMediaSubType(description)
     }
 
