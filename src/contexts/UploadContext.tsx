@@ -7,8 +7,7 @@ import { reportError } from '@/utils/feedbackUtils';
 import { useAuth } from '@/hooks/useAuth';
 import { compressThumbnail } from '@/integrations/supabase/storage';
 import {
-  getNativeVideoApiBase,
-  isNativeVideoPipelineAvailable,
+  getVideoApiBase,
   prepareVideoFileForChunkedUpload,
 } from '@/utils/nativeVideoUpload';
 import {
@@ -466,9 +465,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         let url: string;
         
         if (upload.type === 'video') {
-            const videoApiUrl = isNativeVideoPipelineAvailable()
-                ? getNativeVideoApiBase()
-                : API_URL;
+            const videoApiUrl = getVideoApiBase();
             console.log('[UploadContext] 🎬 Preparing video for chunked upload...', { videoApiUrl });
 
             let cleanup = async () => undefined;
@@ -493,10 +490,11 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
                 const input: UploadFileInput = upload.nativeFile
                   ?? upload.file!;
+                const preparationSignal = abortSignal || controller?.signal;
                 const prepared = await prepareVideoFileForChunkedUpload(input, (p) => {
                   updateUpload(upload.sessionId, { status: 'compressing', progress: Math.min(40, p) });
                   updateLog('compressing', Math.min(40, p));
-                });
+                }, preparationSignal);
                 cleanup = prepared.cleanup;
 
                 const outSizeMb =
@@ -533,7 +531,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                         fileSize: prepared.fileSize,
                         mimeType: prepared.mimeType,
                       };
-                const originalUrl = await resumableUpload(uploadSource, videoApiUrl, {
+                const uploadResult = await resumableUpload(uploadSource, videoApiUrl, {
                     sessionId: upload.sessionId,
                     sectorId: upload.sectorId,
                     authToken: currentSession.access_token,
@@ -565,14 +563,19 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     abortSignal: abortSignal || controller?.signal,
                 });
 
-                videoUrls = { hd: originalUrl };
-                url = originalUrl;
-                console.log('[UploadContext] ✅ Video upload completed:', originalUrl, {
+                videoUrls = Object.keys(uploadResult.urls).length > 0
+                  ? uploadResult.urls
+                  : { hd: uploadResult.url };
+                url = videoUrls.hd || uploadResult.url;
+                console.log('[UploadContext] ✅ Video upload completed:', url, {
                   compressed: prepared.compressed,
                   source_kind: prepared.kind,
                 });
             } catch (uploadError: any) {
                 console.error('[UploadContext] ❌ Video upload failed:', uploadError);
+                if ((abortSignal || controller?.signal)?.aborted || uploadError?.name === 'AbortError') {
+                    throw new DOMException('Video-Upload abgebrochen', 'AbortError');
+                }
                 throw new Error(`Video-Upload fehlgeschlagen: ${uploadError.message || 'Unbekannter Fehler'}`);
             } finally {
                 await cleanup().catch(() => undefined);
@@ -604,7 +607,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 updateLog('uploading', overallProgress);
             };
 
-            url = await resumableUpload(
+            const uploadResult = await resumableUpload(
                 fileToUpload,
                 API_URL,
                 {
@@ -615,6 +618,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     abortSignal: abortSignal || controller?.signal
                 }
             );
+            url = uploadResult.url;
             console.log('[UploadContext] ✅ Thumbnail upload completed, URL:', url);
         } else if (!videoUrls && upload.type === 'video') {
             // Fallback: use original URL if compression failed
@@ -622,10 +626,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             videoUrls = { hd: url };
         }
 
-        await updateLog('completed', 100);
-        
-        // Update Boulder Record using direct fetch (QueryBuilder hangs after reload)
-        console.log('[UploadContext] 📝 Updating boulder record in database...');
+        // Persist the uploaded asset through the established Boulder PATCH flow.
+        console.log('[UploadContext] 📝 Persisting upload result in database...');
         const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
         const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
@@ -639,18 +641,13 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             throw new Error('Keine aktive Session. Bitte melde dich an.');
         }
 
-        // Build update data: use beta_video_urls if available, otherwise fallback to beta_video_url
-        const updateData = upload.type === 'video' 
-            ? videoUrls 
-                ? { 
-                    beta_video_url: url, // HD URL for backward compatibility
-                    beta_video_urls: videoUrls // New multi-quality structure
-                  }
-                : { beta_video_url: url }
-            : { thumbnail_url: url };
-
+        const updateData = upload.type === 'video'
+          ? {
+              beta_video_url: videoUrls?.hd || url,
+              beta_video_urls: videoUrls || { hd: url },
+            }
+          : { thumbnail_url: url };
         console.log('[UploadContext] 📝 Updating boulder:', upload.boulderId, 'with:', updateData);
-
         const updateResponse = await window.fetch(
             `${SUPABASE_URL}/rest/v1/boulders?id=eq.${upload.boulderId}`,
             {
@@ -662,7 +659,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     'Prefer': 'return=minimal',
                 },
                 body: JSON.stringify(updateData),
-            }
+            },
         );
 
         if (!updateResponse.ok) {
@@ -670,8 +667,9 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             console.error('[UploadContext] ❌ Error updating boulder:', updateResponse.status, errorText);
             throw new Error(`HTTP ${updateResponse.status}: ${errorText}`);
         }
-
         console.log('[UploadContext] ✅ Boulder record updated successfully');
+
+        await updateLog('completed', 100);
 
         updateUpload(upload.sessionId, { status: 'completed', progress: 100 });
         toast.success(`${upload.type === 'video' ? 'Video' : 'Thumbnail'} hochgeladen!`);

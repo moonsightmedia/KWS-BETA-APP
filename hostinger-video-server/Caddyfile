@@ -1,0 +1,11 @@
+# Domain anpassen, z. B. video.kletterwelt-sauerland.de
+# Caddy holt und erneuert das TLS-Zertifikat automatisch (Let's Encrypt).
+video.kletterwelt-sauerland.de {
+	encode gzip
+	reverse_proxy video-server:3000
+
+	# Uploads: großzügiges Body-Limit pro Chunk
+	request_body {
+		max_size 20MB
+	}
+}

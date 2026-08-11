@@ -12,6 +12,24 @@ export interface NativeVideoUploadFile {
 
 export type UploadFileInput = File | NativeVideoUploadFile;
 
+export interface UploadRenditionUrls {
+  hd?: string;
+  sd?: string;
+  low?: string;
+}
+
+/** Final response returned by both the Hostinger and legacy All-Inkl upload APIs. */
+export interface UploadResult {
+  /** Primary URL returned by the upload API (normally the HD rendition). */
+  url: string;
+  /** Any server-generated video renditions that were included in the response. */
+  urls: UploadRenditionUrls;
+  /** Hostinger processing job for queued video uploads. */
+  jobId?: string;
+  /** Upload or processing status returned by the selected storage service. */
+  status?: string;
+}
+
 /** Byte source for resumable chunked upload (avoids loading whole native videos into JS). */
 export type ResumableUploadSource =
   | { kind: 'file'; file: File }
