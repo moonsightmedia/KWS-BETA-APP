@@ -76,3 +76,6 @@ export async function requireSupabaseUser(req, res, next) {
 
 export function isAdmin(req) { return Array.isArray(req.roles) && req.roles.includes('admin'); }
 export function canAccessOwner(req, ownerId) { return isAdmin(req) || (ownerId && ownerId === req.userId); }
+export function canManageBoulderMedia(req) {
+  return Array.isArray(req.roles) && (req.roles.includes('admin') || req.roles.includes('setter'));
+}

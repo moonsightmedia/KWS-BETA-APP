@@ -10,7 +10,7 @@ export function loadConfig() {
   const port = positiveInt('PORT', 3000);
   if (port > 65535) throw new Error('PORT must be <= 65535');
   const dataDir = path.resolve(process.env.DATA_DIR || 'data');
-  const maxChunkBytes = positiveInt('MAX_CHUNK_BYTES', 5 * 1024 * 1024);
+  const maxChunkBytes = positiveInt('MAX_CHUNK_BYTES', 6 * 1024 * 1024);
   const maxUploadBytes = positiveInt('MAX_UPLOAD_BYTES', 512 * 1024 * 1024);
   const maxTotalChunks = positiveInt('MAX_TOTAL_CHUNKS', 1024);
   if (maxTotalChunks < Math.ceil(maxUploadBytes / maxChunkBytes)) {

@@ -2077,7 +2077,10 @@ export async function deleteThumbnail(thumbnailUrl: string | null): Promise<void
 /**
  * Delete a beta video from All-Inkl or Supabase Storage
  */
-export async function deleteBetaVideo(videoUrl: string | null): Promise<void> {
+export async function deleteBetaVideo(
+  videoUrl: string | null,
+  accessToken?: string,
+): Promise<void> {
   if (!videoUrl) return;
 
   try {
@@ -2104,9 +2107,7 @@ export async function deleteBetaVideo(videoUrl: string | null): Promise<void> {
 
     const parsedVideoUrl = new URL(videoUrl);
     if (getHostingerVideoOrigins().has(parsedVideoUrl.origin)) {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (sessionError || !accessToken) {
+      if (!accessToken) {
         throw new Error('Keine aktive Session zum Löschen des Hostinger-Videos');
       }
 

@@ -22,11 +22,11 @@ The authenticated chunk upload remains `POST /upload.php`. Completed video uploa
 - FFmpeg maps optional audio, strips metadata/chapters, outputs H.264/yuv420p at at most 30 fps, and avoids upscaling. Caps are HD 4 Mbit/s + 128 kbit/s AAC, SD 2 Mbit/s + 96 kbit/s AAC, and Low 640-pixel edge at 600 kbit/s + 64 kbit/s AAC.
 - All three renditions are encoded and ffprobe-validated privately. A single atomic ready marker gates public visibility. Pending new families return `404`/`no-store`; a complete set is served with one-year immutable caching.
 
-Video deletion is exact-family only and changes its persisted job state to `deleted`. New families require their owner or an admin. Older files without ownership metadata are intentionally admin-only. Automatic cleanup removes stale upload sessions only; it never removes published finals. A processing job cannot be deleted via a not-yet-public URL.
+Video deletion is exact-family only and changes its persisted job state to `deleted`. Any authenticated `setter` or `admin` can manage completed and legacy KWS boulder-media families; ownership does not restrict this shared editorial workflow. Automatic cleanup removes stale upload sessions only; it never removes published finals. A processing job cannot be deleted via a not-yet-public URL.
 
 ## Configuration
 
-Copy `.env.example` to `.env` only on the deployment host and populate values from the approved secret store. Never commit `.env`. Defaults support 512 MiB uploads split into 5 MiB chunks (`MAX_TOTAL_CHUNKS=1024`, at least 103 required). Set `MAX_DATA_BYTES` and `MIN_FREE_BYTES` for the actual volume.
+Copy `.env.example` to `.env` only on the deployment host and populate values from the approved secret store. Never commit `.env`. Defaults support 512 MiB uploads with a 6 MiB server chunk limit (`MAX_TOTAL_CHUNKS=1024`, at least 86 required); the one-byte native iOS chunk-read boundary remains accepted. Set `MAX_DATA_BYTES` and `MIN_FREE_BYTES` for the actual volume.
 
 ## Verification and deployment runbook
 
@@ -45,7 +45,7 @@ For a separately authorized deployment:
 2. Run the commands above on a deployment candidate.
 3. Rebuild/restart during a maintenance window; do not delete `data/jobs`, `data/staging`, `data/temp`, or `data/final`.
 4. Verify `/health`, upload one small video with audio and one without, poll each job to `completed`, and fetch all three immutable URLs.
-5. Confirm a non-owner cannot read status/jobs or delete the family, while an admin can.
+5. Confirm a non-owner cannot read status/jobs, while an authenticated setter or admin can delete a completed/legacy family.
 
 Production rollout completed on 11 August 2026 after the same 11-test suite passed inside the built Alpine/FFmpeg container. The existing `.env` and data volume were retained unchanged; public health, authentication rejection and playback of an existing video were smoke-tested. The VPS keeps a code/image rollback and a byte-matched data snapshot from the rollout. An authenticated upload from the new app and the physical-iPhone/Xcode check remain release acceptance steps.
 

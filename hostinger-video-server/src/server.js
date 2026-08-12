@@ -5,7 +5,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { promises as fs, createReadStream } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { requireSupabaseUser, canAccessOwner, isAdmin } from './auth.js';
+import { requireSupabaseUser, canAccessOwner, canManageBoulderMedia } from './auth.js';
 import { loadConfig } from './config.js';
 import { JobQueue, QUALITIES } from './transcode.js';
 import { assertNoSymlinkAncestors, inside, managedBytes, readManagedJson } from './path-safety.js';
@@ -134,11 +134,11 @@ export async function createApp({ config = loadConfig(), authMiddleware = requir
     const dir = path.dirname(target); const name = path.basename(target); const match = name.match(/^(.*)_(hd|sd|low)\.mp4$/); const deleted = [];
     let legacy = false;
     if (match) {
-      const marker = inside(dir, `.${match[1]}.ready.json`); const metadata = await readManagedJson(finalDir, marker); const pending = metadata ? null : await queue.findByFamily(path.basename(dir), match[1]); if (pending && !['deleted', 'failed'].includes(pending.status)) return res.status(409).json({ error: 'Video is still processing' }); if (metadata ? !canAccessOwner(req, metadata.owner_id) : !isAdmin(req)) return res.status(403).json({ error: metadata ? 'Video belongs to another user' : 'Legacy video deletion requires admin' });
+      const marker = inside(dir, `.${match[1]}.ready.json`); const metadata = await readManagedJson(finalDir, marker); const pending = metadata ? null : await queue.findByFamily(path.basename(dir), match[1]); if (pending && !['deleted', 'failed'].includes(pending.status)) return res.status(409).json({ error: 'Video is still processing' }); if (!canManageBoulderMedia(req)) return res.status(403).json({ error: 'Setter or admin role required' });
       if (metadata) return queue.withJobLock(metadata.job_id, async () => {
         const currentMetadata = await readManagedJson(finalDir, marker); const job = await queue.get(metadata.job_id);
         if (!currentMetadata || currentMetadata.job_id !== metadata.job_id || !job || job.owner_id !== currentMetadata.owner_id) return res.status(409).json({ error: 'Video lifecycle changed; retry' });
-        if (!canAccessOwner(req, currentMetadata.owner_id)) return res.status(403).json({ error: 'Video belongs to another user' });
+        if (!canManageBoulderMedia(req)) return res.status(403).json({ error: 'Setter or admin role required' });
         if (job.status !== 'completed') return res.status(409).json({ error: 'Video is still processing' });
         for (const quality of QUALITIES) { const file = inside(dir, `${match[1]}_${quality.suffix}.mp4`); if ((await fs.lstat(file).catch(() => null))?.isFile()) { await fs.unlink(file); deleted.push(path.basename(file)); } }
         await fs.unlink(marker); await fs.unlink(inside(dir, `.${match[1]}.claim.json`)).catch(() => {});
@@ -149,7 +149,7 @@ export async function createApp({ config = loadConfig(), authMiddleware = requir
       for (const quality of QUALITIES) { const file = inside(dir, `${match[1]}_${quality.suffix}.mp4`); if ((await fs.lstat(file).catch(() => null))?.isFile()) { await fs.unlink(file); deleted.push(path.basename(file)); } }
       if (!metadata) for (const entry of await fs.readdir(dir)) if (entry.startsWith(`${match[1]}.orig.`)) { const file = inside(dir, entry); if ((await fs.lstat(file)).isFile()) { await fs.unlink(file); deleted.push(entry); } }
     } else {
-      const metadataFile = inside(dir, `.${name}.owner.json`); const metadata = await readManagedJson(finalDir, metadataFile); if (metadata ? !canAccessOwner(req, metadata.owner_id) : !isAdmin(req)) return res.status(403).json({ error: metadata ? 'File belongs to another user' : 'Legacy file deletion requires admin' }); legacy = !metadata; await fs.unlink(target); await fs.unlink(metadataFile).catch(() => {}); deleted.push(name);
+      const metadataFile = inside(dir, `.${name}.owner.json`); const metadata = await readManagedJson(finalDir, metadataFile); if (!canManageBoulderMedia(req)) return res.status(403).json({ error: 'Setter or admin role required' }); legacy = !metadata; await fs.unlink(target); await fs.unlink(metadataFile).catch(() => {}); deleted.push(name);
     }
     res.json({ status: 'deleted', files: deleted, legacy });
   });
@@ -165,6 +165,10 @@ export async function createApp({ config = loadConfig(), authMiddleware = requir
     res.set('Cache-Control', immutable ? 'public, max-age=31536000, immutable' : 'no-store'); res.set('Access-Control-Allow-Origin', '*'); res.sendFile(file);
   });
   app.get('/health', async (_req, res) => { const stats = await fs.statfs(config.dataDir); const queueDepth = queue.depth(); const queueCapacity = queue.capacity(); res.json({ ok: true, queue: queueDepth, queue_capacity: queueCapacity, queue_details: { depth: queueDepth, capacity: queueCapacity }, uploads: { multipart_active: multipartActive, multipart_capacity: config.maxMultipartConcurrency, sessions_per_user_capacity: config.maxActiveSessionsPerUser }, storage: { managed_bytes: await managedBytes(config.dataDir), quota_bytes: config.maxDataBytes, available_bytes: Number(stats.bavail) * Number(stats.bsize), required_headroom_bytes: config.minFreeBytes, max_upload_bytes: config.maxUploadBytes } }); });
+  app.use((error, _req, res, next) => {
+    if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'Chunk exceeds maximum size' });
+    next(error);
+  });
 
   async function cleanup() { const cutoff = Date.now() - config.tempSessionMaxAgeMs; for (const entry of await fs.readdir(tempDir, { withFileTypes: true }).catch(() => [])) { if (!entry.isDirectory() || entry.isSymbolicLink() || !SESSION_ID.test(entry.name)) continue; await sessionLocks.run(entry.name, async () => { const dir = inside(tempDir, entry.name); const manifest = await loadManifest(entry.name); const activeJob = manifest?.job_id ? await queue.get(manifest.job_id) : await queue.findBySession(entry.name, { schedule: false }); if (activeJob && ['reserved', 'queued', 'processing'].includes(activeJob.status)) return; if ((await fs.stat(dir)).mtimeMs < cutoff) await fs.rm(dir, { recursive: true, force: true }); }); } }
   for (const job of await queue.list()) if (['reserved', 'queued', 'processing'].includes(job.status) && job.declared_size) diskReservations.set(job.job_id, job.declared_size * 4);

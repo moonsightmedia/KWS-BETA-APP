@@ -1,4 +1,5 @@
 import { Filesystem } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
 
 import type { ResumableUploadSource, UploadResult } from '@/types/upload';
 
@@ -9,6 +10,31 @@ const RETRY_DELAY_BASE = 1000; // Start with 1s delay
 const CHUNK_UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
 const MAX_PROCESSING_POLL_INTERVAL = 5000;
 const PROCESSING_TIMEOUT_MS = 30 * 60 * 1000;
+
+/**
+ * Capacitor iOS rounds `readFileInChunks` byte-buffer requests up to the next
+ * multiple of three (and adds three bytes for an already aligned request).
+ * Keep the request below the server's payload cap, then use the resulting
+ * byte count for the native upload protocol.
+ */
+export function getNativeFilesystemReadChunkSize(maxChunkBytes = CHUNK_SIZE): number {
+  if (!Number.isSafeInteger(maxChunkBytes) || maxChunkBytes < 3) {
+    throw new Error('Native chunk limit must be at least 3 bytes');
+  }
+
+  return maxChunkBytes - (maxChunkBytes % 3) - 1;
+}
+
+/** The actual byte-buffer size emitted by Capacitor iOS for a given request. */
+export function getNativeFilesystemChunkByteSize(requestedChunkSize: number): number {
+  return requestedChunkSize - (requestedChunkSize % 3) + 3;
+}
+
+export function getNativeUploadChunkSize(maxChunkBytes = CHUNK_SIZE): number {
+  return getNativeFilesystemChunkByteSize(
+    getNativeFilesystemReadChunkSize(maxChunkBytes),
+  );
+}
 
 interface UploadOptions {
   sessionId: string;
@@ -429,7 +455,17 @@ export async function resumableUpload(
     throw new Error('Ungültige Dateigröße für Upload.');
   }
 
-  const totalChunks = Math.ceil(meta.fileSize / CHUNK_SIZE);
+  // iOS emits a slightly larger byte buffer than requested. Its actual chunk
+  // size must drive both the read request and X-Total-Chunks, otherwise exact
+  // 5 MiB boundaries can exceed the server limit or drop a final chunk.
+  const usesIosFilesystemChunks = source.kind === 'native-path' && Capacitor.getPlatform() === 'ios';
+  const nativeReadChunkSize = usesIosFilesystemChunks
+    ? getNativeFilesystemReadChunkSize()
+    : CHUNK_SIZE;
+  const uploadChunkSize = usesIosFilesystemChunks
+    ? getNativeFilesystemChunkByteSize(nativeReadChunkSize)
+    : CHUNK_SIZE;
+  const totalChunks = Math.ceil(meta.fileSize / uploadChunkSize);
   console.log('[resumableUpload] Total chunks:', totalChunks);
 
   await requestWakeLock();
@@ -533,7 +569,7 @@ export async function resumableUpload(
       for await (const chunk of iterateNativePathChunks(
         source.path,
         meta.mimeType,
-        CHUNK_SIZE,
+        nativeReadChunkSize,
         abortSignal,
       )) {
         if (abortSignal?.aborted) {

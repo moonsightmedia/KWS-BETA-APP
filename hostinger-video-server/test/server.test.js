@@ -6,11 +6,27 @@ import { promises as fs } from 'node:fs';
 import { createApp } from '../src/server.js';
 import { JobQueue, QUALITIES } from '../src/transcode.js';
 
-function auth(req, _res, next) { req.userId = String(req.headers['x-test-user'] || 'owner-a'); req.roles = String(req.headers['x-test-role'] || 'setter').split(','); next(); }
-async function upload(base, { user = 'owner-a', session = 'session-1234', index, total = 2, bytes, declared = 6, fileName = 'clip.mp4', sector = 'sector' }) {
-  const form = new FormData(); form.append('chunk', new Blob([bytes]), 'chunk');
-  return fetch(`${base}/upload.php`, { method: 'POST', headers: { 'x-test-user': user, 'x-upload-session-id': session, 'x-chunk-number': String(index), 'x-total-chunks': String(total), 'x-file-name': fileName, 'x-file-size': String(declared), 'x-file-type': 'video/mp4', 'x-sector-id': sector }, body: form });
+function auth(req, res, next) {
+  const userId = req.headers['x-test-user'];
+  if (!userId) return res.status(401).json({ error: 'Missing bearer token' });
+  const roles = String(req.headers['x-test-role'] || 'setter').split(',');
+  if (!roles.includes('admin') && !roles.includes('setter')) return res.status(403).json({ error: 'Insufficient permissions' });
+  req.userId = String(userId); req.roles = roles; next();
 }
+async function upload(base, { user = 'owner-a', session = 'session-1234', index, total = 2, bytes, declared = 6, fileName = 'clip.mp4', fileType = 'video/mp4', sector = 'sector' }) {
+  const form = new FormData(); form.append('chunk', new Blob([bytes]), 'chunk');
+  return fetch(`${base}/upload.php`, { method: 'POST', headers: { 'x-test-user': user, 'x-upload-session-id': session, 'x-chunk-number': String(index), 'x-total-chunks': String(total), 'x-file-name': fileName, 'x-file-size': String(declared), 'x-file-type': fileType, 'x-sector-id': sector }, body: form });
+}
+
+test('server accepts the native 5 MiB plus one-byte boundary and rejects chunks above 6 MiB', { timeout: 20_000 }, async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'kws-chunk-boundary-')); let server; let close;
+  try {
+    const maxChunkBytes = 6 * 1024 * 1024; const config = { port: 3000, dataDir: root, publicBaseUrl: 'http://example.invalid', maxChunkBytes, maxUploadBytes: 20 * 1024 * 1024, maxTotalChunks: 20, maxQueueJobs: 1, maxDataBytes: 100_000_000, minFreeBytes: 1, maxMultipartConcurrency: 2, maxActiveSessionsPerUser: 2, tempSessionMaxAgeMs: 60_000 };
+    const created = await createApp({ config, authMiddleware: auth }); close = created.close; server = created.app.listen(0); await new Promise((resolve) => server.once('listening', resolve)); const base = `http://127.0.0.1:${server.address().port}`;
+    const nativeBoundary = Buffer.alloc(5 * 1024 * 1024 + 1); const accepted = await upload(base, { session: 'boundary-ok', index: 0, total: 1, bytes: nativeBoundary, declared: nativeBoundary.length, fileName: 'chunk.png', fileType: 'image/png' }); assert.equal(accepted.status, 200);
+    const tooLarge = Buffer.alloc(maxChunkBytes + 1); const rejected = await upload(base, { session: 'boundary-too-large', index: 0, total: 1, bytes: tooLarge, declared: tooLarge.length }); assert.equal(rejected.status, 413);
+  } finally { if (server) await new Promise((resolve) => server.close(resolve)); close?.(); await fs.rm(root, { recursive: true, force: true }); }
+});
 
 test('session lock, SHA retry, queue backpressure and ownership remain safe', { timeout: 20_000 }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'kws-server-')); let server; let close;
@@ -31,16 +47,21 @@ test('session lock, SHA retry, queue backpressure and ownership remain safe', { 
   } finally { if (server) await new Promise((resolve) => server.close(resolve)); close?.(); await fs.rm(root, { recursive: true, force: true }); }
 });
 
-test('new-family deletion is owner/admin bound and exact', async () => {
+test('setters can delete completed and legacy families across ownership, but auth and path safety remain enforced', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'kws-delete-')); let server; let close;
   try {
     const config = { port: 3000, dataDir: root, publicBaseUrl: 'http://example.invalid', maxChunkBytes: 5, maxUploadBytes: 100, maxTotalChunks: 20, maxQueueJobs: 1, maxDataBytes: 100_000_000, minFreeBytes: 1, maxMultipartConcurrency: 2, maxActiveSessionsPerUser: 2, tempSessionMaxAgeMs: 60_000 };
-    const created = await createApp({ config, authMiddleware: auth }); close = created.close; const dir = path.join(root, 'final', 'sector'); await fs.mkdir(dir); for (const q of ['hd', 'sd', 'low']) { await fs.writeFile(path.join(dir, `family_${q}.mp4`), q); await fs.writeFile(path.join(dir, `family-neighbor_${q}.mp4`), q); } const familyJobId = '30000000-0000-4000-8000-000000000001'; await fs.writeFile(path.join(dir, '.family.ready.json'), JSON.stringify({ job_id: familyJobId, owner_id: 'owner-a' })); await fs.writeFile(path.join(root, 'jobs', `${familyJobId}.json`), JSON.stringify({ job_id: familyJobId, status: 'completed', owner_id: 'owner-a', sector: 'sector', base_name: 'family' }));
+    const created = await createApp({ config, authMiddleware: auth }); close = created.close; const dir = path.join(root, 'final', 'sector'); await fs.mkdir(dir); for (const q of ['hd', 'sd', 'low']) { await fs.writeFile(path.join(dir, `family_${q}.mp4`), q); await fs.writeFile(path.join(dir, `family-neighbor_${q}.mp4`), q); await fs.writeFile(path.join(dir, `legacy_${q}.mp4`), q); } const familyJobId = '30000000-0000-4000-8000-000000000001'; await fs.writeFile(path.join(dir, '.family.ready.json'), JSON.stringify({ job_id: familyJobId, owner_id: 'owner-a' })); await fs.writeFile(path.join(root, 'jobs', `${familyJobId}.json`), JSON.stringify({ job_id: familyJobId, status: 'completed', owner_id: 'owner-a', sector: 'sector', base_name: 'family' }));
     await fs.writeFile(path.join(dir, 'pending_hd.mp4'), 'pending'); const pendingId = '00000000-0000-4000-8000-000000000001'; await fs.writeFile(path.join(root, 'jobs', `${pendingId}.json`), JSON.stringify({ job_id: pendingId, status: 'processing', owner_id: 'owner-a', sector: 'sector', base_name: 'pending' }));
     server = created.app.listen(0); await new Promise((resolve) => server.once('listening', resolve)); const base = `http://127.0.0.1:${server.address().port}`;
     const pending = await fetch(`${base}/videos/sector/pending_hd.mp4`); assert.equal(pending.status, 404); assert.equal(pending.headers.get('cache-control'), 'no-store'); const ready = await fetch(`${base}/videos/sector/family_hd.mp4`); assert.equal(ready.status, 200); assert.match(ready.headers.get('cache-control'), /immutable/);
-    const request = (user, role) => fetch(`${base}/delete.php`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-test-user': user, 'x-test-role': role }, body: JSON.stringify({ url: 'http://example.invalid/videos/sector/family_hd.mp4' }) });
-    assert.equal((await request('owner-b', 'setter')).status, 403); assert.equal((await request('owner-a', 'setter')).status, 200); assert.equal(await fs.readFile(path.join(dir, 'family-neighbor_hd.mp4'), 'utf8'), 'hd');
+    const request = (url, headers = {}) => fetch(`${base}/delete.php`, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify({ url }) });
+    assert.equal((await request('http://example.invalid/videos/sector/family_hd.mp4')).status, 401);
+    assert.equal((await request('http://example.invalid/videos/sector/family_hd.mp4', { 'x-test-user': 'viewer', 'x-test-role': 'viewer' })).status, 403);
+    assert.equal((await request('http://example.invalid/videos/sector/family_hd.mp4%2f..', { 'x-test-user': 'owner-b', 'x-test-role': 'setter' })).status, 400);
+    assert.equal((await request('http://example.invalid/videos/sector/family_hd.mp4', { 'x-test-user': 'owner-b', 'x-test-role': 'setter' })).status, 200);
+    assert.equal((await request('http://example.invalid/videos/sector/legacy_hd.mp4', { 'x-test-user': 'owner-b', 'x-test-role': 'setter' })).status, 200);
+    assert.equal(await fs.readFile(path.join(dir, 'family-neighbor_hd.mp4'), 'utf8'), 'hd');
   } finally { if (server) await new Promise((resolve) => server.close(resolve)); close?.(); await fs.rm(root, { recursive: true, force: true }); }
 });
 

@@ -788,7 +788,7 @@ export const useDeleteBoulder = () => {
       if (boulderData.beta_video_url) {
         console.log('[useDeleteBoulder] Deleting beta video:', boulderData.beta_video_url);
         try {
-          await deleteBetaVideo(boulderData.beta_video_url);
+          await deleteBetaVideo(boulderData.beta_video_url, currentSession.access_token);
           console.log('[useDeleteBoulder] Beta video deleted successfully');
         } catch (error) {
           console.error('[useDeleteBoulder] Error deleting beta video (continuing anyway):', error);
