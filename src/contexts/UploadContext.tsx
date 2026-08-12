@@ -18,7 +18,11 @@ import {
   type UploadFileInput,
   type UploadStatus,
 } from '@/types/upload';
-import { areUploadSessionsFinished } from '@/utils/uploadQueue';
+import {
+  getUploadSessionsWaitResult,
+  isTerminalUploadStatus,
+  TerminalUploadRegistry,
+} from '@/utils/uploadQueue';
 import {
   addSentryBreadcrumb,
   captureSentryException,
@@ -46,6 +50,8 @@ export interface ActiveUpload {
   sectorId?: string;
   abortController?: AbortController;
 }
+
+const TERMINAL_UPLOAD_OUTCOME_TTL_MS = 30 * 60 * 1000;
 
 interface UploadContextType {
   uploads: ActiveUpload[];
@@ -89,11 +95,42 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const abortControllersRef = useRef<Record<string, AbortController>>({});
   const MAX_CONCURRENT_UPLOADS = 1; // Phase 1: serialize iOS uploads to avoid memory kills
   const processingRef = useRef<Set<string>>(new Set()); // Track which uploads are being processed
+  const terminalUploadRegistryRef = useRef(new TerminalUploadRegistry(TERMINAL_UPLOAD_OUTCOME_TTL_MS));
+  const terminalCleanupTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const suspectedOomCheckedRef = useRef(false);
 
   useEffect(() => {
     uploadsRef.current = uploads;
   }, [uploads]);
+
+  const clearTerminalCleanupTimer = useCallback((sessionId: string) => {
+    const timer = terminalCleanupTimersRef.current[sessionId];
+    if (timer) clearTimeout(timer);
+    delete terminalCleanupTimersRef.current[sessionId];
+  }, []);
+
+  const scheduleTerminalCleanup = useCallback((sessionId: string) => {
+    clearTerminalCleanupTimer(sessionId);
+    terminalCleanupTimersRef.current[sessionId] = setTimeout(() => {
+      terminalUploadRegistryRef.current.pruneExpired().forEach(clearTerminalCleanupTimer);
+    }, TERMINAL_UPLOAD_OUTCOME_TTL_MS + 100);
+  }, [clearTerminalCleanupTimer]);
+
+  const rememberTerminalUploadStatus = useCallback((sessionId: string, status: UploadStatus) => {
+    terminalUploadRegistryRef.current.record(sessionId, status);
+    scheduleTerminalCleanup(sessionId);
+  }, [scheduleTerminalCleanup]);
+
+  const clearTerminalUploadStatus = useCallback((sessionId: string) => {
+    terminalUploadRegistryRef.current.clear(sessionId);
+    clearTerminalCleanupTimer(sessionId);
+  }, [clearTerminalCleanupTimer]);
+
+  useEffect(() => () => {
+    Object.values(terminalCleanupTimersRef.current).forEach(clearTimeout);
+    terminalCleanupTimersRef.current = {};
+    terminalUploadRegistryRef.current.clearAll();
+  }, []);
 
   // After unexpected restart: open upload sessions → suspected OOM
   useEffect(() => {
@@ -184,13 +221,16 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const updateUpload = useCallback((sessionId: string, updates: Partial<ActiveUpload>) => {
+    if (updates.status && isTerminalUploadStatus(updates.status)) {
+      rememberTerminalUploadStatus(sessionId, updates.status);
+    }
     setUploads(prev => {
       const updated = prev.map(u => u.sessionId === sessionId ? { ...u, ...updates } : u);
       // After updating, check if we can start more uploads
       setTimeout(() => processQueue(), 0);
       return updated;
     });
-  }, [processQueue]);
+  }, [processQueue, rememberTerminalUploadStatus]);
 
   // Helper function to update upload log using direct fetch
   const updateUploadLog = useCallback(async (sessionId: string, updates: { status?: string; error?: string | null; progress?: number }) => {
@@ -900,17 +940,18 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
      }
 
      const nativeFile = isNativeVideoUploadFile(file) ? file : undefined;
-     const targetUpload: ActiveUpload = {
-       ...existingUpload,
+      const targetUpload: ActiveUpload = {
+        ...existingUpload,
        file: nativeFile ? null : (file as File),
        nativeFile,
        fileName: getUploadInputName(file),
        fileSize: getUploadInputSize(file),
        status: 'pending',
-       error: undefined,
-     };
-     
-     setUploads(prev => prev.map(u => (u.sessionId === sessionId ? targetUpload : u)));
+        error: undefined,
+      };
+
+      clearTerminalUploadStatus(sessionId);
+      setUploads(prev => prev.map(u => (u.sessionId === sessionId ? targetUpload : u)));
 
      if (processingRef.current.size >= MAX_CONCURRENT_UPLOADS) {
        setTimeout(() => processQueue(), 0);
@@ -923,35 +964,55 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
        processingRef.current.delete(targetUpload.sessionId);
        setTimeout(() => processQueue(), 0);
      });
-  }, [uploads, processQueue]);
+  }, [uploads, processQueue, clearTerminalUploadStatus]);
 
   const waitForUploadSessions = useCallback(async (sessionIds: string[], timeoutMs = 30 * 60 * 1000) => {
     const uniqueIds = [...new Set(sessionIds.filter(Boolean))];
     if (uniqueIds.length === 0) return;
 
     const startedAt = Date.now();
-    await new Promise<void>((resolve, reject) => {
-      const tick = () => {
-        const snapshot = uploadsRef.current.map((u) => ({
-          sessionId: u.sessionId,
-          status: u.status,
-        }));
-        if (areUploadSessionsFinished(snapshot, uniqueIds)) {
-          resolve();
-          return;
-        }
-        if (Date.now() - startedAt > timeoutMs) {
-          reject(new Error('Upload-Timeout: Boulder-Medien wurden nicht rechtzeitig fertig.'));
-          return;
-        }
-        setTimeout(tick, 400);
-      };
-      tick();
-    });
-  }, []);
+    terminalUploadRegistryRef.current.startWaiting(uniqueIds);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const tick = () => {
+          const snapshotById = new Map<string, string>(
+            uploadsRef.current.map((upload) => [upload.sessionId, upload.status]),
+          );
+          // A render can lag behind updateUpload. Terminal outcomes therefore
+          // win over a stale non-terminal row until the waiter has observed it.
+          terminalUploadRegistryRef.current.getStatuses().forEach((status, sessionId) => {
+            snapshotById.set(sessionId, status);
+          });
+          const snapshot = Array.from(snapshotById, ([sessionId, status]) => ({
+            sessionId,
+            status,
+          }));
+          const result = getUploadSessionsWaitResult(snapshot, uniqueIds);
+          if (result.state === 'completed') {
+            resolve();
+            return;
+          }
+          if (result.state === 'failed') {
+            reject(new Error(`Upload fehlgeschlagen (${result.status}) für Session ${result.sessionId}.`));
+            return;
+          }
+          if (Date.now() - startedAt > timeoutMs) {
+            reject(new Error('Upload-Timeout: Boulder-Medien wurden nicht rechtzeitig fertig.'));
+            return;
+          }
+          setTimeout(tick, 400);
+        };
+        tick();
+      });
+    } finally {
+      terminalUploadRegistryRef.current.stopWaiting(uniqueIds);
+      terminalUploadRegistryRef.current.pruneExpired().forEach(clearTerminalCleanupTimer);
+    }
+  }, [clearTerminalCleanupTimer]);
 
   const cancelUpload = useCallback(async (sessionId: string) => {
     processingRef.current.delete(sessionId);
+    rememberTerminalUploadStatus(sessionId, 'cancelled');
     setUploads(prev => {
         const upload = prev.find(u => u.sessionId === sessionId);
         if (!upload) return prev;
@@ -980,11 +1041,12 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         return prev.map(u => u.sessionId === sessionId ? { ...u, status: 'cancelled' as const } : u);
     });
-  }, [processQueue]);
+  }, [processQueue, rememberTerminalUploadStatus]);
 
   const removeUpload = useCallback(async (sessionId: string) => {
     const upload = uploads.find(u => u.sessionId === sessionId);
     processingRef.current.delete(sessionId);
+    rememberTerminalUploadStatus(sessionId, 'cancelled');
     
     // Cancel if active
     if (upload && (upload.status === 'uploading' || upload.status === 'pending' || upload.status === 'compressing')) {
@@ -1039,7 +1101,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     // Remove from local state
     setUploads(prev => prev.filter(u => u.sessionId !== sessionId));
-  }, [uploads]);
+  }, [uploads, rememberTerminalUploadStatus]);
 
   // Initial Restore
   useEffect(() => {
