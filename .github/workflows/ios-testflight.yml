@@ -263,16 +263,13 @@ jobs:
           ORG="${SENTRY_ORG:-moonsight-media}"
           PROJECT="${SENTRY_PROJECT:-javascript-react}"
           curl -sL https://sentry.io/get-cli/ | bash
-          DSYM_DIR="$(find ios/App/build -type d -name '*.dSYM' 2>/dev/null | head -1 || true)"
-          if [ -z "$DSYM_DIR" ]; then
-            DSYM_DIR="$(find ios/App/build/ipa -type d -name '*.dSYM' 2>/dev/null | head -1 || true)"
+          DSYM_ZIP="ios/App/build/ipa/App.app.dSYM.zip"
+          if [ ! -s "$DSYM_ZIP" ]; then
+            echo "::error::Expected dSYM archive was not created: $DSYM_ZIP"
+            exit 1
           fi
-          if [ -z "$DSYM_DIR" ]; then
-            echo "No dSYM found — skipping (native stacks may stay unsymbolicated)"
-            exit 0
-          fi
-          echo "Uploading dSYM: $DSYM_DIR"
-          sentry-cli debug-files upload --org "$ORG" --project "$PROJECT" "$DSYM_DIR"
+          echo "Uploading dSYM archive to Sentry"
+          sentry-cli debug-files upload --org "$ORG" --project "$PROJECT" "$DSYM_ZIP"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
