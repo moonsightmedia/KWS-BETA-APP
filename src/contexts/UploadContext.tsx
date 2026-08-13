@@ -335,13 +335,14 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Update status to uploading
     console.log('[UploadContext] 📝 Updating upload status to "uploading"...');
     updateUpload(upload.sessionId, { status: 'uploading', progress: 0, error: undefined });
+    let currentSession = session;
+    let videoQueuedOnServer = false;
     console.log('[UploadContext] ✅ Upload status updated');
 
     try {
         // CRITICAL: Get session at runtime (not from render-time) to avoid stale session
         // This session will be used throughout the entire upload process
         console.log('[UploadContext] 🔍 Getting session for upload process...');
-        let currentSession = session;
         
         // If session is not available, try to get it with timeout
         if (!currentSession?.access_token) {
@@ -502,9 +503,32 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         // For videos: upload original and then create quality versions on server
         let videoUrls: { hd?: string; sd?: string; low?: string } | undefined = undefined;
-        let url: string;
+        let url: string | undefined;
         
-        if (upload.type === 'video') {
+        if (upload.type === 'video' && !videoQueuedOnServer) {
+            const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+            const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+            if (!SUPABASE_URL || !SUPABASE_KEY) {
+                throw new Error('Supabase-Konfiguration fehlt');
+            }
+            const beginResponse = await window.fetch(
+              `${SUPABASE_URL}/rest/v1/rpc/begin_boulder_video_upload`,
+              {
+                method: 'POST',
+                headers: {
+                  apikey: SUPABASE_KEY,
+                  'Authorization': `Bearer ${currentSession.access_token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ p_boulder_id: upload.boulderId, p_upload_session_id: upload.sessionId }),
+              },
+            );
+            if (!beginResponse.ok) {
+              throw new Error(`Video konnte nicht zur Verarbeitung vorgemerkt werden: ${await beginResponse.text()}`);
+            }
+            if ((await beginResponse.json()) !== true) {
+              throw new Error('Der Boulder existiert nicht mehr oder konnte nicht vorgemerkt werden.');
+            }
             const videoApiUrl = getVideoApiBase();
             console.log('[UploadContext] 🎬 Preparing video for chunked upload...', { videoApiUrl });
 
@@ -574,6 +598,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 const uploadResult = await resumableUpload(uploadSource, videoApiUrl, {
                     sessionId: upload.sessionId,
                     sectorId: upload.sectorId,
+                    boulderId: upload.boulderId,
                     authToken: currentSession.access_token,
                     onProgress: (p) => {
                         const overall = 40 + Math.floor(p * 0.6);
@@ -603,10 +628,18 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     abortSignal: abortSignal || controller?.signal,
                 });
 
-                videoUrls = Object.keys(uploadResult.urls).length > 0
-                  ? uploadResult.urls
-                  : { hd: uploadResult.url };
-                url = videoUrls.hd || uploadResult.url;
+                videoQueuedOnServer =
+                  (uploadResult.status === 'queued' || uploadResult.status === 'processing') &&
+                  Boolean(uploadResult.jobId);
+                if (videoQueuedOnServer) {
+                  console.log('[UploadContext] Video safely queued on Hostinger:', uploadResult.jobId);
+                } else {
+                  videoUrls = uploadResult.urls && Object.keys(uploadResult.urls).length > 0
+                    ? uploadResult.urls
+                    : uploadResult.url ? { hd: uploadResult.url } : undefined;
+                  url = videoUrls?.hd || uploadResult.url;
+                  if (!url) throw new Error('Video-Upload beendet, aber keine Video-URL erhalten.');
+                }
                 console.log('[UploadContext] ✅ Video upload completed:', url, {
                   compressed: prepared.compressed,
                   source_kind: prepared.kind,
@@ -659,8 +692,9 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 }
             );
             url = uploadResult.url;
+            if (!url) throw new Error('Thumbnail-Upload beendet, aber keine URL erhalten.');
             console.log('[UploadContext] ✅ Thumbnail upload completed, URL:', url);
-        } else if (!videoUrls && upload.type === 'video') {
+        } else if (!videoUrls && upload.type === 'video' && !videoQueuedOnServer) {
             // Fallback: use original URL if compression failed
             console.warn('[UploadContext] ⚠️ No videoUrls available, using original URL as fallback');
             videoUrls = { hd: url };
@@ -682,12 +716,13 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         const updateData = upload.type === 'video'
-          ? {
+          ? (videoQueuedOnServer ? null : {
               beta_video_url: videoUrls?.hd || url,
               beta_video_urls: videoUrls || { hd: url },
-            }
+            })
           : { thumbnail_url: url };
         console.log('[UploadContext] 📝 Updating boulder:', upload.boulderId, 'with:', updateData);
+        if (updateData) {
         const updateResponse = await window.fetch(
             `${SUPABASE_URL}/rest/v1/boulders?id=eq.${upload.boulderId}`,
             {
@@ -709,10 +744,16 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
         console.log('[UploadContext] ✅ Boulder record updated successfully');
 
+        }
+
         await updateLog('completed', 100);
 
         updateUpload(upload.sessionId, { status: 'completed', progress: 100 });
-        toast.success(`${upload.type === 'video' ? 'Video' : 'Thumbnail'} hochgeladen!`);
+        toast.success(
+          videoQueuedOnServer
+            ? 'Video sicher auf dem Server – Qualitätsstufen werden erstellt.'
+            : `${upload.type === 'video' ? 'Video' : 'Thumbnail'} hochgeladen!`,
+        );
 
         trackTelemetryEvent('upload_done', {
           boulderId: upload.boulderId,
@@ -752,6 +793,26 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             uploadType: upload.type
         });
         
+        if (upload.type === 'video' && !videoQueuedOnServer) {
+            const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+            const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+            if (SUPABASE_URL && SUPABASE_KEY && currentSession?.access_token) {
+                await window.fetch(`${SUPABASE_URL}/rest/v1/rpc/fail_boulder_video_upload`, {
+                    method: 'POST',
+                    headers: {
+                        apikey: SUPABASE_KEY,
+                        Authorization: `Bearer ${currentSession.access_token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        p_boulder_id: upload.boulderId,
+                        p_upload_session_id: upload.sessionId,
+                        p_error: error?.name === 'AbortError' ? 'Upload cancelled before server queue' : String(error?.message || 'Upload failed').slice(0, 500),
+                    }),
+                }).catch(() => undefined);
+            }
+        }
+
         // Check if it was cancelled
         if (error.name === 'AbortError' || upload.status === 'cancelled') {
             console.log('[UploadContext] ⏸️ Upload was explicitly cancelled:', upload.sessionId);
@@ -847,7 +908,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     
     const sessionId = type === 'video' 
-        ? Math.random().toString(36).substring(2) + Date.now().toString(36)
+        ? globalThis.crypto.randomUUID()
         : `thumb_${Math.random().toString(36).substring(2) + Date.now().toString(36)}`;
 
     const nativeFile = isNativeVideoUploadFile(file) ? file : undefined;
@@ -1010,7 +1071,30 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [clearTerminalCleanupTimer]);
 
+  const failPendingBoulderVideoUpload = useCallback(async (boulderId: string, error: string) => {
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    if (!SUPABASE_URL || !SUPABASE_KEY) return;
+
+    const { data: { session: activeSession } } = await supabase.auth.getSession();
+    if (!activeSession?.access_token) return;
+
+    await window.fetch(`${SUPABASE_URL}/rest/v1/rpc/fail_pending_boulder_video_upload`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${activeSession.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        p_boulder_id: boulderId,
+        p_error: error.slice(0, 500),
+      }),
+    }).catch(() => undefined);
+  }, []);
+
   const cancelUpload = useCallback(async (sessionId: string) => {
+    const targetUpload = uploadsRef.current.find((upload) => upload.sessionId === sessionId);
     processingRef.current.delete(sessionId);
     rememberTerminalUploadStatus(sessionId, 'cancelled');
     setUploads(prev => {
@@ -1041,7 +1125,10 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         return prev.map(u => u.sessionId === sessionId ? { ...u, status: 'cancelled' as const } : u);
     });
-  }, [processQueue, rememberTerminalUploadStatus]);
+    if (targetUpload?.type === 'video') {
+      await failPendingBoulderVideoUpload(targetUpload.boulderId, 'Upload cancelled before server queue');
+    }
+  }, [failPendingBoulderVideoUpload, processQueue, rememberTerminalUploadStatus]);
 
   const removeUpload = useCallback(async (sessionId: string) => {
     const upload = uploads.find(u => u.sessionId === sessionId);

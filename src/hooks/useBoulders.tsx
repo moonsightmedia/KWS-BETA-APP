@@ -127,6 +127,11 @@ export interface Boulder {
   color: string;
   beta_video_url: string | null;
   beta_video_urls: VideoQualities | null;
+  beta_video_status?: 'none' | 'uploading' | 'queued' | 'processing' | 'ready' | 'failed' | null;
+  beta_video_job_id?: string | null;
+  beta_video_upload_session_id?: string | null;
+  beta_video_error?: string | null;
+  beta_video_updated_at?: string | null;
   thumbnail_url: string | null;
   note: string | null;
   status?: 'haengt' | 'abgeschraubt';
@@ -138,6 +143,14 @@ export const useBoulders = (enabled: boolean = true) => {
   return useQuery({
     queryKey: ['boulders'],
     enabled: enabled, // Only run query if enabled (e.g., after auth loading is complete)
+    // Setter views see queued/processing rows. Poll only while one exists so
+    // the server-side completion callback becomes visible without a relaunch.
+    refetchInterval: (query) => {
+      const rows = query.state.data as Boulder[] | undefined;
+      return rows?.some((boulder) => ['uploading', 'queued', 'processing'].includes(boulder.beta_video_status || ''))
+        ? 5_000
+        : false;
+    },
     queryFn: async () => {
       console.log('[useBoulders] 🔵 STARTING fetch from Supabase... (enabled:', enabled, ')');
       console.log('[useBoulders] 🔍 Query function called - this means enabled=true and React Query is executing the query');

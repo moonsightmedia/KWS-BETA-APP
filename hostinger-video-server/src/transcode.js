@@ -10,6 +10,8 @@ export const QUALITIES = [
   { suffix: 'sd', box: 1280, crf: 24, maxrate: '2M', bufsize: '4M', audioBitrate: '96k' },
   { suffix: 'low', box: 640, crf: 27, maxrate: '600k', bufsize: '1200k', audioBitrate: '64k' },
 ];
+const H264_PROFILES = new Set(['Constrained Baseline', 'Baseline', 'Main', 'High']);
+const MP4_FORMATS = new Set(['mov', 'mp4', 'm4a', '3gp', '3g2', 'mj2']);
 
 async function writeAtomic(file, value) {
   const tmp = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
@@ -27,6 +29,8 @@ function parseRate(value) {
   return denominator ? numerator / denominator : 0;
 }
 function bitrateLimit(value) { const match = String(value).match(/^(\d+(?:\.\d+)?)([kM])?$/); if (!match) return 0; return Number(match[1]) * (match[2] === 'M' ? 1_000_000 : match[2] === 'k' ? 1_000 : 1); }
+const HD_PASSTHROUGH_VIDEO_MAX = bitrateLimit(QUALITIES[0].maxrate) * 1.15;
+const HD_PASSTHROUGH_AUDIO_MAX = bitrateLimit(QUALITIES[0].audioBitrate) * 1.15;
 function run(command, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] }); let stdout = '', stderr = '';
@@ -47,10 +51,31 @@ export async function probeRendition(file, quality, ffprobe = 'ffprobe') {
   return { bytes: stat.size, duration, width: video.width, height: video.height, fps, video_bitrate: videoBitrate, audio: audio?.codec_name || null, audio_bitrate: audio ? audioBitrate : null };
 }
 
+// This checks decoded container metadata, never a filename. It is deliberately
+// stricter than the rendition check because stream-copying keeps source codecs.
+export async function probeHdPassthroughSource(file, ffprobe = 'ffprobe') {
+  const raw = await run(ffprobe, ['-v', 'error', '-show_entries', 'format=format_name,duration,bit_rate:stream=codec_type,codec_name,profile,width,height,r_frame_rate,pix_fmt,bit_rate', '-of', 'json', file]);
+  const info = JSON.parse(raw); const videos = (info.streams || []).filter((stream) => stream.codec_type === 'video'); const audios = (info.streams || []).filter((stream) => stream.codec_type === 'audio');
+  const video = videos[0]; const duration = Number(info.format?.duration); const fps = parseRate(video?.r_frame_rate); const videoBitrate = Number(video?.bit_rate); const audio = audios[0]; const audioBitrate = Number(audio?.bit_rate);
+  const formats = String(info.format?.format_name || '').split(','); const containerOK = formats.some((format) => MP4_FORMATS.has(format));
+  const stat = await fs.stat(file);
+  if (!containerOK || videos.length !== 1 || audios.length > 1 || video?.codec_name !== 'h264' || !H264_PROFILES.has(video?.profile) || video?.pix_fmt !== 'yuv420p' || !Number.isInteger(video?.width) || !Number.isInteger(video?.height) || Math.max(video.width, video.height) > 1920 || !Number.isFinite(duration) || duration <= 0 || !fps || fps > 30.01 || !Number.isFinite(videoBitrate) || videoBitrate <= 0 || videoBitrate > HD_PASSTHROUGH_VIDEO_MAX || stat.size <= 0) return null;
+  if (audio && (audio.codec_name !== 'aac' || !Number.isFinite(audioBitrate) || audioBitrate <= 0 || audioBitrate > HD_PASSTHROUGH_AUDIO_MAX)) return null;
+  return { bytes: stat.size, duration, width: video.width, height: video.height, fps, video_bitrate: videoBitrate, audio: audio?.codec_name || null, audio_bitrate: audio ? audioBitrate : null, profile: video.profile };
+}
+
 export class JobQueue {
   constructor({ jobsDir, stagingDir, finalDir, tempDir = null, maxQueue = 8, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe', onAccepted = () => {}, onTerminal = () => {} }) {
     this.jobsDir = jobsDir; this.stagingDir = stagingDir; this.finalDir = finalDir; this.tempDir = tempDir; this.maxQueue = maxQueue; this.ffmpeg = ffmpeg; this.ffprobe = ffprobe;
     this.queue = []; this.running = null; this.maintenance = false; this.reservations = new Map(); this.jobLocks = new Map(); this.onAccepted = onAccepted; this.onTerminal = onTerminal;
+  }
+  addTerminalListener(listener) {
+    const previous = this.onTerminal;
+    this.onTerminal = async (job) => { await previous(job); await listener(job); };
+  }
+  addAcceptedListener(listener) {
+    const previous = this.onAccepted;
+    this.onAccepted = async (job) => { await previous(job); await listener(job); };
   }
   async initialize() { await Promise.all([fs.mkdir(this.jobsDir, { recursive: true }), fs.mkdir(this.stagingDir, { recursive: true })]); }
   depth() { return this.queue.length + (this.running ? 1 : 0) + this.reservations.size; }
@@ -74,7 +99,7 @@ export class JobQueue {
       const job = await this.get(entry.name.slice(0, -5));
       if (job?.session_id === sessionId) {
         if (schedule && ['reserved', 'queued'].includes(job.status) && this.running?.job_id !== job.job_id && !this.queue.some((queued) => queued.job_id === job.job_id)) {
-          this.reservations.delete(job.job_id); job.status = 'queued'; await this.save(job); this.onAccepted(job); this.queue.push(job); this.start();
+          this.reservations.delete(job.job_id); job.status = 'queued'; await this.save(job); await this.onAccepted(job); this.queue.push(job); this.start();
         }
         return job;
       }
@@ -97,7 +122,7 @@ export class JobQueue {
   async commit(job) {
     if (this.reservations.get(job.job_id) !== job) throw new Error('unknown queue reservation');
     try { await this.save(job); } catch (error) { this.reservations.delete(job.job_id); throw error; }
-    try { job.status = 'queued'; await this.save(job); this.reservations.delete(job.job_id); this.onAccepted(job); this.queue.push(job); this.start(); return job; }
+    try { job.status = 'queued'; await this.save(job); this.reservations.delete(job.job_id); await this.onAccepted(job); this.queue.push(job); this.start(); return job; }
     catch (error) { job.status = 'reserved'; await this.save(job).catch(() => {}); throw error; }
   }
   cancel(job) { this.reservations.delete(job?.job_id); }
@@ -175,7 +200,20 @@ export class JobQueue {
       await fs.rm(stage, { recursive: true, force: true }).catch(() => {}); return;
     }
     const input = await this.materializeOriginal(job, stage); const outputs = {};
+    const hd = QUALITIES[0]; const hdTmp = inside(stage, `${hd.suffix}.tmp.mp4`); const hdStaged = inside(stage, `${hd.suffix}.mp4`);
+    // A remux retains the eligible streams but enforces the output MP4's
+    // faststart and metadata policy. It remains staged until every rendition
+    // is valid, so no partial family becomes public.
+    if (await probeHdPassthroughSource(input, this.ffprobe)) {
+      await fs.unlink(hdTmp).catch(() => {});
+      await run(this.ffmpeg, ['-y', '-i', input, '-map', '0:v:0', '-map', '0:a:0?', '-map_metadata', '-1', '-map_chapters', '-1', '-c:v', 'copy', '-c:a', 'copy', '-movflags', '+faststart', '-f', 'mp4', hdTmp]);
+      outputs[hd.suffix] = await probeRendition(hdTmp, hd, this.ffprobe); await fs.rename(hdTmp, hdStaged);
+      job.hd_passthrough = true; await this.save(job);
+    } else {
+      job.hd_passthrough = false; await this.save(job);
+    }
     for (const quality of QUALITIES) {
+      if (quality.suffix === 'hd' && outputs.hd) continue;
       const staged = inside(stage, `${quality.suffix}.mp4`); const tmp = inside(stage, `${quality.suffix}.tmp.mp4`);
       await fs.unlink(tmp).catch(() => {});
       const scale = `scale=w='min(iw,${quality.box})':h='min(ih,${quality.box})':force_original_aspect_ratio=decrease:force_divisible_by=2`;
@@ -194,7 +232,7 @@ export class JobQueue {
       if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
       const job = await this.get(entry.name.slice(0, -5));
       if (!job || !['reserved', 'queued', 'processing'].includes(job.status)) continue;
-      job.status = 'queued'; await this.save(job); this.onAccepted(job); this.queue.push(job);
+      job.status = 'queued'; await this.save(job); await this.onAccepted(job); this.queue.push(job);
     }
     await this.recoverLegacyOrigins(); this.start();
   }

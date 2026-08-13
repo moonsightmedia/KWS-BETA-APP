@@ -13,17 +13,31 @@ function auth(req, res, next) {
   if (!roles.includes('admin') && !roles.includes('setter')) return res.status(403).json({ error: 'Insufficient permissions' });
   req.userId = String(userId); req.roles = roles; next();
 }
-async function upload(base, { user = 'owner-a', session = 'session-1234', index, total = 2, bytes, declared = 6, fileName = 'clip.mp4', fileType = 'video/mp4', sector = 'sector' }) {
+async function upload(base, { user = 'owner-a', session = 'session-1234', index, total = 2, bytes, declared = 6, fileName = 'clip.mp4', fileType = 'video/mp4', sector = 'sector', boulderId = null }) {
   const form = new FormData(); form.append('chunk', new Blob([bytes]), 'chunk');
-  return fetch(`${base}/upload.php`, { method: 'POST', headers: { 'x-test-user': user, 'x-upload-session-id': session, 'x-chunk-number': String(index), 'x-total-chunks': String(total), 'x-file-name': fileName, 'x-file-size': String(declared), 'x-file-type': fileType, 'x-sector-id': sector }, body: form });
+  const headers = { 'x-test-user': user, 'x-upload-session-id': session, 'x-chunk-number': String(index), 'x-total-chunks': String(total), 'x-file-name': fileName, 'x-file-size': String(declared), 'x-file-type': fileType, 'x-sector-id': sector }; if (boulderId) headers['x-boulder-id'] = boulderId;
+  return fetch(`${base}/upload.php`, { method: 'POST', headers, body: form });
 }
+
+test('async boulder upload returns no URLs and its boulder binding is immutable', { timeout: 20_000 }, async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'kws-async-upload-')); let server; let close; let created;
+  try {
+    const config = { port: 3000, dataDir: root, publicBaseUrl: 'http://example.invalid', maxChunkBytes: 5, maxUploadBytes: 100, maxTotalChunks: 20, maxQueueJobs: 1, maxDataBytes: 100_000_000, minFreeBytes: 1, maxMultipartConcurrency: 2, maxActiveSessionsPerUser: 2, tempSessionMaxAgeMs: 60_000, supabaseUrl: 'https://supabase.example.invalid', supabaseServiceRoleKey: 'test-only', publisherRetryBaseMs: 1, publisherRetryMaxMs: 10 };
+    const published = []; const publisher = { enabled: true, schedule: async (job) => { published.push(job); } };
+    created = await createApp({ config, authMiddleware: auth, publisher }); close = created.close; server = created.app.listen(0); await new Promise((resolve) => server.once('listening', resolve)); const base = `http://127.0.0.1:${server.address().port}`;
+    const boulderId = '11111111-1111-4111-8111-111111111111'; const first = await upload(base, { session: 'async-session', index: 0, total: 1, bytes: 'abc', declared: 3, boulderId }); assert.equal(first.status, 200); const response = await first.json(); assert.equal(response.status, 'queued'); assert.equal(response.session_id, 'async-session'); assert.equal(response.url, null); assert.equal(response.urls, null); assert.ok(response.job_id); assert.equal(published.length, 1);
+    const changed = await upload(base, { session: 'async-session', index: 0, total: 1, bytes: 'abc', declared: 3, boulderId: '22222222-2222-4222-8222-222222222222' }); assert.equal(changed.status, 409);
+    const jobStatus = await fetch(`${base}/jobs/${response.job_id}`, { headers: { 'x-test-user': 'owner-a' } }); const job = await jobStatus.json(); assert.equal(job.url, null); assert.equal(job.urls, null);
+  } finally { if (server) await new Promise((resolve) => server.close(resolve)); await created?.queue.waitForIdle(); close?.(); await fs.rm(root, { recursive: true, force: true }); }
+});
 
 test('server accepts the native 5 MiB plus one-byte boundary and rejects chunks above 6 MiB', { timeout: 20_000 }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'kws-chunk-boundary-')); let server; let close;
   try {
     const maxChunkBytes = 6 * 1024 * 1024; const config = { port: 3000, dataDir: root, publicBaseUrl: 'http://example.invalid', maxChunkBytes, maxUploadBytes: 20 * 1024 * 1024, maxTotalChunks: 20, maxQueueJobs: 1, maxDataBytes: 100_000_000, minFreeBytes: 1, maxMultipartConcurrency: 2, maxActiveSessionsPerUser: 2, tempSessionMaxAgeMs: 60_000 };
     const created = await createApp({ config, authMiddleware: auth }); close = created.close; server = created.app.listen(0); await new Promise((resolve) => server.once('listening', resolve)); const base = `http://127.0.0.1:${server.address().port}`;
-    const nativeBoundary = Buffer.alloc(5 * 1024 * 1024 + 1); const accepted = await upload(base, { session: 'boundary-ok', index: 0, total: 1, bytes: nativeBoundary, declared: nativeBoundary.length, fileName: 'chunk.png', fileType: 'image/png' }); assert.equal(accepted.status, 200);
+    const nativeBoundary = Buffer.alloc(5 * 1024 * 1024 + 1); const accepted = await upload(base, { session: 'boundary-ok', index: 0, total: 1, bytes: nativeBoundary, declared: nativeBoundary.length, fileName: 'chunk.png', fileType: 'image/png' }); assert.equal(accepted.status, 200); const acceptedBody = await accepted.json(); assert.ok(acceptedBody.url);
+    const completedImageStatus = await fetch(`${base}/upload-status.php?session_id=boundary-ok`, { headers: { 'x-test-user': 'owner-a' } }); assert.equal(completedImageStatus.status, 200); assert.equal((await completedImageStatus.json()).url, acceptedBody.url);
     const tooLarge = Buffer.alloc(maxChunkBytes + 1); const rejected = await upload(base, { session: 'boundary-too-large', index: 0, total: 1, bytes: tooLarge, declared: tooLarge.length }); assert.equal(rejected.status, 413);
   } finally { if (server) await new Promise((resolve) => server.close(resolve)); close?.(); await fs.rm(root, { recursive: true, force: true }); }
 });

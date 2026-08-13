@@ -1,7 +1,7 @@
 import AVFoundation
 import Capacitor
 
-/** KWS Upload Master Encoder v1.1.0. App-local and registered by KWSBridgeViewController. */
+/** KWS Upload Master Encoder v1.2.0. App-local and registered by KWSBridgeViewController. */
 @objc(UploadMasterEncoderPlugin)
 public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "UploadMasterEncoderPlugin"
@@ -12,12 +12,14 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "deleteFile", returnType: CAPPluginReturnPromise)
     ]
 
-    private let encoderVersion = "1.1.0"
-    private let targetVideoBitrate = 5_000_000
+    private let encoderVersion = "1.2.0"
+    // Matches the server HD contract. The validation headroom permits normal
+    // encoder variance without allowing an unexpectedly expensive upload.
+    private let targetVideoBitrate = 4_000_000
     private let targetAudioBitrate = 128_000
     private let maxFrameRate = 30.0
-    private let maximumVideoBitrate = 6_500_000.0
-    private let maximumTotalBitrate = 7_000_000.0
+    private let maximumVideoBitrate = 4_600_000.0
+    private let maximumTotalBitrate = 4_800_000.0
     private let workQueue = DispatchQueue(label: "de.kletterwelt.upload-master-encoder", qos: .userInitiated)
     private let registryLock = NSLock()
     private var jobs: [String: EncodingJob] = [:]
@@ -169,7 +171,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
         let sourceFrameCount = sourceStats.frameCount
         if max(sourceDisplaySize.width, sourceDisplaySize.height) <= 1920,
            sourceFrameRate > 0, sourceFrameRate <= maxFrameRate + 0.25,
-           sourceVideoBitrate > 0, sourceVideoBitrate <= 5_500_000,
+           sourceVideoBitrate > 0, sourceVideoBitrate <= maximumVideoBitrate,
            sourceTotalBitrate > 0, sourceTotalBitrate <= maximumTotalBitrate {
             guard !job.isCancelled else { finish(job); rejectCancelled(call); return }
             finish(job)
@@ -477,7 +479,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                           sampleStats.frameCount <= maximumFrameCount,
                           sampleStats.videoBitrate > 100_000,
                           sampleStats.videoBitrate <= self.maximumVideoBitrate,
-                          (!expectedAudio || (audioBitrate >= 32_000 && audioBitrate <= 192_000)),
+                          (!expectedAudio || (audioBitrate >= 32_000 && audioBitrate <= 147_200)),
                           totalBitrate > 100_000, totalBitrate <= self.maximumTotalBitrate else {
                         throw EncoderError.invalidBitrateOrFrameRate
                     }

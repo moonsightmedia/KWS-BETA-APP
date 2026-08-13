@@ -73,10 +73,10 @@ function isPlausibleUploadMaster(originalSize: number, output: Awaited<ReturnTyp
     Number.isFinite(output.width) && Number.isFinite(output.height) && output.width > 0 && output.height > 0 &&
     output.width % 2 === 0 && output.height % 2 === 0 && Math.max(output.width, output.height) <= 1920 &&
     output.videoTrackCount === 1 && Number.isFinite(output.averageBitrate) &&
-    output.averageBitrate > 100_000 && output.averageBitrate <= 7_000_000 &&
-    Number.isFinite(output.videoBitrate) && output.videoBitrate > 100_000 && output.videoBitrate <= 6_500_000 &&
+    output.averageBitrate > 100_000 && output.averageBitrate <= 4_800_000 &&
+    Number.isFinite(output.videoBitrate) && output.videoBitrate > 100_000 && output.videoBitrate <= 4_600_000 &&
     Number.isFinite(output.audioBitrate) && (output.audioTrackCount === 0 ||
-      (output.audioTrackCount === 1 && output.audioBitrate >= 32_000 && output.audioBitrate <= 192_000)) &&
+      (output.audioTrackCount === 1 && output.audioBitrate >= 32_000 && output.audioBitrate <= 147_200)) &&
     Number.isFinite(output.frameRate) && output.frameRate > 0 && output.frameRate <= 30.25 &&
     Number.isFinite(output.sourceDurationSeconds) &&
     Math.abs(output.durationSeconds - output.sourceDurationSeconds) <= Math.max(0.5, output.sourceDurationSeconds * 0.03);
@@ -130,7 +130,7 @@ export async function prepareNativeVideoPathForUpload(
     };
   }
 
-  console.log('[nativeVideoUpload] Preparing controlled iOS upload master v1.1.0:', {
+  console.log('[nativeVideoUpload] Preparing controlled iOS upload master v1.2.0:', {
     fileSize: input.fileSize,
   });
 

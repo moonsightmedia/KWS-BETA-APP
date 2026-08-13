@@ -39,13 +39,18 @@ export function getNativeUploadChunkSize(maxChunkBytes = CHUNK_SIZE): number {
 interface UploadOptions {
   sessionId: string;
   sectorId?: string;
+  /** Enables the asynchronous Boulder contract on the Hostinger video server. */
+  boulderId?: string;
   authToken: string;
   onProgress?: (progress: number) => void;
   abortSignal?: AbortSignal;
 }
 
-function uploadAuthHeaders(authToken: string): Record<string, string> {
-  return { 'X-Upload-Auth': `Bearer ${authToken}` };
+function uploadAuthHeaders(authToken: string, boulderId?: string): Record<string, string> {
+  return {
+    'X-Upload-Auth': `Bearer ${authToken}`,
+    ...(boulderId ? { 'X-Boulder-Id': boulderId } : {}),
+  };
 }
 
 interface UploadStatus {
@@ -96,7 +101,17 @@ function parseUploadResponse(payload: unknown): UploadResponse | null {
 
 export function getUploadResult(payload: unknown): UploadResult | null {
   const response = parseUploadResponse(payload);
-  return response?.url ? { ...response, url: response.url } : null;
+  if (!response) return null;
+  // Boulder uploads are complete from the phone's perspective once Hostinger
+  // has durably queued a named job. URLs stay intentionally absent until the
+  // server-side callback marks the Boulder ready.
+  if (
+    response.url ||
+    (response.jobId && ['queued', 'processing', 'completed'].includes(response.status || ''))
+  ) {
+    return response;
+  }
+  return null;
 }
 
 // Wake Lock Helper
@@ -312,7 +327,7 @@ async function uploadChunkBlob(
   await waitForNetwork(abortSignal);
 
   const headers: Record<string, string> = {
-    ...uploadAuthHeaders(authToken),
+    ...uploadAuthHeaders(authToken, options.boulderId),
     'X-Upload-Session-Id': sessionId,
     'X-Chunk-Number': chunkIndex.toString(),
     'X-Total-Chunks': totalChunks.toString(),
@@ -393,7 +408,7 @@ async function waitForProcessedUpload(
     try {
       response = await fetch(statusUrl, {
         signal: abortSignal,
-        headers: uploadAuthHeaders(authToken),
+        headers: uploadAuthHeaders(authToken, options.boulderId),
       });
     } catch (error) {
       if (abortSignal?.aborted) throw createAbortError();
@@ -482,7 +497,7 @@ export async function resumableUpload(
     try {
       const statusRes = await fetch(statusUrl, {
         signal: abortSignal,
-        headers: uploadAuthHeaders(authToken),
+        headers: uploadAuthHeaders(authToken, options.boulderId),
       });
       if (statusRes.ok) {
         statusData = await statusRes.json();
@@ -509,6 +524,7 @@ export async function resumableUpload(
         (pendingResult?.status === 'queued' || pendingResult?.status === 'processing') &&
         pendingResult.jobId
       ) {
+        if (options.boulderId) return pendingResult;
         return waitForProcessedUpload(apiUrl, options);
       }
       uploadedChunks = statusData.uploaded_chunks || [];
@@ -634,7 +650,12 @@ export async function resumableUpload(
       if (!finalResponse.jobId) {
         throw new Error('Video processing was queued without a job ID');
       }
+      if (options.boulderId) return finalResponse;
       return waitForProcessedUpload(apiUrl, options);
+    }
+
+    if (options.boulderId && finalResponse?.status === 'completed' && finalResponse.jobId) {
+      return finalResponse;
     }
 
     if (finalResponse?.status === 'failed' || finalResponse?.status === 'error') {

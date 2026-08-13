@@ -19,6 +19,10 @@ export function loadConfig() {
   return Object.freeze({
     port, dataDir,
     publicBaseUrl: (process.env.PUBLIC_BASE_URL || `http://localhost:${port}`).replace(/\/+$/, ''),
+    supabaseUrl: String(process.env.SUPABASE_URL || '').replace(/\/+$/, ''),
+    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    publisherRetryBaseMs: positiveInt('PUBLISHER_RETRY_BASE_MS', 1000),
+    publisherRetryMaxMs: positiveInt('PUBLISHER_RETRY_MAX_MS', 60000),
     maxChunkBytes, maxUploadBytes, maxTotalChunks,
     maxQueueJobs: positiveInt('MAX_QUEUE_JOBS', 8),
     maxDataBytes: positiveInt('MAX_DATA_BYTES', 20 * 1024 * 1024 * 1024),

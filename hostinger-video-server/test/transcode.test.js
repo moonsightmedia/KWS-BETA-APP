@@ -4,16 +4,47 @@ import os from 'node:os';
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { spawn } from 'node:child_process';
-import { JobQueue, QUALITIES, probeRendition } from '../src/transcode.js';
+import { JobQueue, QUALITIES, probeHdPassthroughSource, probeRendition } from '../src/transcode.js';
 
 function command(bin, args) { return new Promise((resolve, reject) => { const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] }); let stderr = ''; child.stderr.on('data', (d) => { stderr += d; }); child.on('error', reject); child.on('close', (code) => code === 0 ? resolve() : reject(new Error(`${bin} failed: ${stderr.slice(-1000)}`))); }); }
 function capture(bin, args) { return new Promise((resolve, reject) => { const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] }); let stdout = '', stderr = ''; child.stdout.on('data', (d) => { stdout += d; }); child.stderr.on('data', (d) => { stderr += d; }); child.on('error', reject); child.on('close', (code) => code === 0 ? resolve(stdout) : reject(new Error(`${bin} failed: ${stderr.slice(-1000)}`))); }); }
 async function waitForJob(queue, id) { for (let attempt = 0; attempt < 600; attempt++) { const job = await queue.get(id); if (['completed', 'failed'].includes(job?.status)) return job; await new Promise((resolve) => setTimeout(resolve, 25)); } throw new Error('job timeout'); }
-async function fixture(root, name, audio) {
-  const file = path.join(root, name); const args = ['-y', '-f', 'lavfi', '-i', 'testsrc2=size=320x240:rate=60:duration=0.6'];
+async function fixture(root, name, audio, rate = 60) {
+  const file = path.join(root, name); const args = ['-y', '-f', 'lavfi', '-i', `testsrc2=size=320x240:rate=${rate}:duration=0.6`];
   if (audio) args.push('-f', 'lavfi', '-i', 'sine=frequency=1000:duration=0.6', '-shortest');
   args.push('-metadata', 'title=must-not-survive', '-c:v', 'libx264', '-pix_fmt', 'yuv420p'); if (audio) args.push('-c:a', 'aac'); args.push(file); await command('ffmpeg', args); return file;
 }
+
+test('eligible MP4 H.264 source is remuxed as staged HD while SD and Low encode', { timeout: 60_000 }, async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'kws-hd-copy-'));
+  try {
+    const finalDir = path.join(root, 'final'); await fs.mkdir(finalDir); const queue = new JobQueue({ jobsDir: path.join(root, 'jobs'), stagingDir: path.join(root, 'staging'), finalDir, maxQueue: 1 }); await queue.initialize();
+    const input = await fixture(root, 'eligible.mov', true, 30); assert.ok(await probeHdPassthroughSource(input), 'fixture must meet source policy despite its extension');
+    const submitted = await enqueueFixture(queue, root, input, 'eligible'); const job = await waitForJob(queue, submitted.job_id); assert.equal(job.status, 'completed', job.error); assert.equal(job.hd_passthrough, true);
+    const hd = await probeRendition(path.join(finalDir, 'sector', 'eligible_hd.mp4'), QUALITIES[0]); assert.equal(hd.audio, 'aac');
+    for (const quality of QUALITIES) assert.equal(await fs.stat(path.join(finalDir, 'sector', `eligible_${quality.suffix}.mp4`)).then((stat) => stat.size > 0), true);
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+
+test('ineligible source falls back to HD re-encoding', { timeout: 60_000 }, async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'kws-hd-fallback-'));
+  try {
+    const finalDir = path.join(root, 'final'); await fs.mkdir(finalDir); const queue = new JobQueue({ jobsDir: path.join(root, 'jobs'), stagingDir: path.join(root, 'staging'), finalDir, maxQueue: 1 }); await queue.initialize();
+    const input = await fixture(root, 'too-fast.mp4', false, 60); assert.equal(await probeHdPassthroughSource(input), null);
+    const submitted = await enqueueFixture(queue, root, input, 'fallback'); const job = await waitForJob(queue, submitted.job_id); assert.equal(job.status, 'completed', job.error); assert.equal(job.hd_passthrough, false); await probeRendition(path.join(finalDir, 'sector', 'fallback_hd.mp4'), QUALITIES[0]);
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+
+test('a failure after staged HD passthrough publishes no partial family', { timeout: 60_000 }, async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'kws-hd-atomic-')); const originalRename = fs.rename; const originalError = console.error; console.error = () => {};
+  try {
+    const finalDir = path.join(root, 'final'); await fs.mkdir(finalDir); const queue = new JobQueue({ jobsDir: path.join(root, 'jobs'), stagingDir: path.join(root, 'staging'), finalDir, maxQueue: 1 }); await queue.initialize();
+    const input = await fixture(root, 'atomic.mp4', false, 30); fs.rename = async (from, to) => { if (String(from).endsWith(`${path.sep}sd.tmp.mp4`)) throw new Error('injected staged SD failure'); return originalRename(from, to); };
+    const submitted = await enqueueFixture(queue, root, input, 'atomic'); const job = await waitForJob(queue, submitted.job_id); assert.equal(job.status, 'failed'); assert.equal(job.hd_passthrough, true);
+    assert.equal(await fs.stat(path.join(finalDir, 'sector', '.atomic.ready.json')).then(() => true).catch(() => false), false);
+    for (const quality of QUALITIES) assert.equal(await fs.stat(path.join(finalDir, 'sector', `atomic_${quality.suffix}.mp4`)).then(() => true).catch(() => false), false);
+  } finally { fs.rename = originalRename; console.error = originalError; await fs.rm(root, { recursive: true, force: true }); }
+});
 async function enqueueFixture(queue, root, source, baseName, owner = 'owner-a') {
   const session = path.join(root, `session-${baseName}`); await fs.mkdir(session); await fs.copyFile(source, path.join(session, 'part_0')); const size = (await fs.stat(source)).size;
   const urls = Object.fromEntries(QUALITIES.map((quality) => [quality.suffix, `https://example.invalid/videos/sector/${baseName}_${quality.suffix}.mp4`]));

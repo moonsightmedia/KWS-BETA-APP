@@ -8,12 +8,14 @@ import { fileURLToPath } from 'node:url';
 import { requireSupabaseUser, canAccessOwner, canManageBoulderMedia } from './auth.js';
 import { loadConfig } from './config.js';
 import { JobQueue, QUALITIES } from './transcode.js';
+import { SupabasePublisher } from './supabase-publisher.js';
 import { assertNoSymlinkAncestors, inside, managedBytes, readManagedJson } from './path-safety.js';
 import { mergeFiles } from './file-merge.js';
 
 const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif']);
 const SESSION_ID = /^[A-Za-z0-9_-]{8,128}$/;
 const SAFE_SEGMENT = /^[A-Za-z0-9_-]{1,128}$/;
+const BOULDER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 class KeyedLock {
   constructor() { this.tails = new Map(); }
@@ -39,11 +41,15 @@ async function sha256File(file) {
   const hash = crypto.createHash('sha256'); for await (const chunk of createReadStream(file)) hash.update(chunk); return hash.digest('hex');
 }
 
-export async function createApp({ config = loadConfig(), authMiddleware = requireSupabaseUser, queue: suppliedQueue } = {}) {
+export async function createApp({ config = loadConfig(), authMiddleware = requireSupabaseUser, queue: suppliedQueue, publisher: suppliedPublisher } = {}) {
   const tempDir = inside(config.dataDir, 'temp'); const finalDir = inside(config.dataDir, 'final'); const jobsDir = inside(config.dataDir, 'jobs'); const stagingDir = inside(config.dataDir, 'staging');
   await Promise.all([tempDir, finalDir, jobsDir, stagingDir].map(async (dir) => { await assertNoSymlinkAncestors(config.dataDir, dir); await fs.mkdir(dir, { recursive: true }); }));
   const diskReservations = new Map();
   const queue = suppliedQueue || new JobQueue({ jobsDir, stagingDir, finalDir, tempDir, maxQueue: config.maxQueueJobs, onAccepted: (job) => { if (job.declared_size) diskReservations.set(job.job_id, job.declared_size * 4); }, onTerminal: (job) => { diskReservations.delete(job.job_id); } }); await queue.initialize();
+  const readyMarkerExists = async (job) => fs.stat(inside(finalDir, job.sector, `.${job.base_name}.ready.json`)).then((stat) => stat.isFile()).catch(() => false);
+  const publisher = suppliedPublisher || new SupabasePublisher({ queue, supabaseUrl: config.supabaseUrl, serviceRoleKey: config.supabaseServiceRoleKey, readyMarkerExists, retryBaseMs: config.publisherRetryBaseMs, retryMaxMs: config.publisherRetryMaxMs });
+  if (typeof queue.addAcceptedListener === 'function') queue.addAcceptedListener((job) => publisher.schedule(job));
+  if (typeof queue.addTerminalListener === 'function') queue.addTerminalListener((job) => publisher.schedule(job));
   const sessionLocks = new KeyedLock(); const userLocks = new KeyedLock(); const diskLock = new KeyedLock(); let multipartActive = 0;
   const publicUrl = (...segments) => `${config.publicBaseUrl}/videos/${segments.map(encodeURIComponent).join('/')}`;
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.maxChunkBytes } });
@@ -67,7 +73,7 @@ export async function createApp({ config = loadConfig(), authMiddleware = requir
 
   const app = express(); app.disable('x-powered-by'); app.use(express.json({ limit: '1mb' }));
   app.use((req, res, next) => {
-    res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Upload-Auth, X-File-Name, X-File-Size, X-File-Type, X-Chunk-Number, X-Total-Chunks, X-Upload-Session-Id, X-Sector-Id', 'Access-Control-Max-Age': '86400' });
+    res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Upload-Auth, X-File-Name, X-File-Size, X-File-Type, X-Chunk-Number, X-Total-Chunks, X-Upload-Session-Id, X-Sector-Id, X-Boulder-Id', 'Access-Control-Max-Age': '86400' });
     if (req.method === 'OPTIONS') return res.sendStatus(200); next();
   });
 
@@ -77,17 +83,20 @@ export async function createApp({ config = loadConfig(), authMiddleware = requir
     try {
       await userLocks.run(req.userId, () => sessionLocks.run(sessionId, async () => {
         const chunkIndex = Number(req.headers['x-chunk-number']); const totalChunks = Number(req.headers['x-total-chunks']); const declaredSize = Number(req.headers['x-file-size']);
-        const fileName = String(req.headers['x-file-name'] || 'upload'); const fileType = String(req.headers['x-file-type'] || '').slice(0, 128); const sector = String(req.headers['x-sector-id'] || 'unsorted');
+        const fileName = String(req.headers['x-file-name'] || 'upload'); const fileType = String(req.headers['x-file-type'] || '').slice(0, 128); const sector = String(req.headers['x-sector-id'] || 'unsorted'); const boulderId = String(req.headers['x-boulder-id'] || '');
         if (!Number.isInteger(chunkIndex) || chunkIndex < 0 || !Number.isInteger(totalChunks) || totalChunks < 1 || totalChunks > config.maxTotalChunks || chunkIndex >= totalChunks) return res.status(400).json({ error: 'Invalid chunk headers' });
         if (!Number.isSafeInteger(declaredSize) || declaredSize <= 0 || declaredSize > config.maxUploadBytes || !req.file?.buffer) return res.status(413).json({ error: 'Invalid upload size' });
         if (!SAFE_SEGMENT.test(sector) || sector === '.' || sector === '..') return res.status(400).json({ error: 'Invalid sector id' });
+        if (boulderId && !BOULDER_ID.test(boulderId)) return res.status(400).json({ error: 'Invalid boulder id' });
+        if (boulderId && !publisher.enabled) return res.status(503).json({ error: 'Async boulder publishing is temporarily unavailable' });
         const dir = await sessionDir(sessionId); let manifest = await loadManifest(sessionId); const immutable = { total_chunks: totalChunks, declared_size: declaredSize, file_name: fileName.slice(0, 255), file_type: fileType, sector };
+        if (boulderId) immutable.boulder_id = boulderId;
         if (manifest && !canAccessOwner(req, manifest.owner_id)) return res.status(403).json({ error: 'Session belongs to another user' });
         if (manifest && JSON.stringify(manifest.immutable) !== JSON.stringify(immutable)) return res.status(409).json({ error: 'Upload manifest mismatch' });
-        if (manifest?.response) { const incomingHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex'); const prior = manifest.chunks[String(chunkIndex)]; if (!prior || prior.sha256 !== incomingHash || prior.bytes !== req.file.size) return res.status(409).json({ error: 'Completed chunk retry mismatch' }); const job = manifest.job_id ? await queue.get(manifest.job_id) : null; if (job && !canAccessOwner(req, job.owner_id)) return res.status(403).json({ error: 'Job belongs to another user' }); return res.json(job ? { ...manifest.response, status: job.status, error: job.status === 'failed' ? job.error : undefined } : manifest.response); }
+        if (manifest?.response) { const incomingHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex'); const prior = manifest.chunks[String(chunkIndex)]; if (!prior || prior.sha256 !== incomingHash || prior.bytes !== req.file.size) return res.status(409).json({ error: 'Completed chunk retry mismatch' }); const job = manifest.job_id ? await queue.get(manifest.job_id) : null; if (job && !canAccessOwner(req, job.owner_id)) return res.status(403).json({ error: 'Job belongs to another user' }); return res.json(job ? { ...manifest.response, status: job.status, ...(manifest.boulder_id ? statusUrls(job) : {}), error: job.status === 'failed' ? job.error : undefined } : manifest.response); }
         if (!manifest) {
           if (await countUserSessions(req.userId) >= config.maxActiveSessionsPerUser) return res.status(429).json({ error: 'Too many active upload sessions' });
-          await fs.mkdir(dir, { recursive: false }); manifest = { session_id: sessionId, owner_id: req.userId, immutable, chunks: {}, created_at: new Date().toISOString() };
+          await fs.mkdir(dir, { recursive: false }); manifest = { session_id: sessionId, owner_id: req.userId, immutable, boulder_id: boulderId || null, chunks: {}, created_at: new Date().toISOString() };
         }
         const incomingHash = crypto.createHash('sha256').update(req.file.buffer).digest('hex'); const prior = manifest.chunks[String(chunkIndex)]; const chunkPath = inside(dir, `part_${chunkIndex}`);
         if (prior) {
@@ -101,7 +110,7 @@ export async function createApp({ config = loadConfig(), authMiddleware = requir
         if (!complete) return res.json({ status: 'chunk_received', job_id: null, url: null, urls: null, chunk: chunkIndex, received: indices.length, total: totalChunks });
         const totalBytes = Object.values(manifest.chunks).reduce((sum, chunk) => sum + chunk.bytes, 0); if (totalBytes !== declaredSize) return res.status(409).json({ error: 'Upload size integrity check failed' });
         const existingJob = manifest.job_id ? await queue.get(manifest.job_id) : await queue.findBySession(sessionId);
-        if (existingJob) { if (!canAccessOwner(req, existingJob.owner_id)) return res.status(403).json({ error: 'Job belongs to another user' }); manifest.job_id = existingJob.job_id; manifest.response ||= { status: existingJob.status, job_id: existingJob.job_id, url: existingJob.urls?.hd, urls: existingJob.urls }; await writeJsonAtomic(inside(dir, 'manifest.json'), manifest); return res.json({ ...manifest.response, status: existingJob.status }); }
+        if (existingJob) { if (!canAccessOwner(req, existingJob.owner_id)) return res.status(403).json({ error: 'Job belongs to another user' }); manifest.job_id = existingJob.job_id; manifest.response ||= manifest.boulder_id ? { status: 'queued', job_id: existingJob.job_id, session_id: sessionId, url: null, urls: null } : { status: existingJob.status, job_id: existingJob.job_id, url: existingJob.urls?.hd, urls: existingJob.urls }; await writeJsonAtomic(inside(dir, 'manifest.json'), manifest); if (manifest.boulder_id) await publisher.schedule(existingJob); return res.json({ ...manifest.response, status: existingJob.status, ...(manifest.boulder_id ? statusUrls(existingJob) : {}) }); }
         const { stem, ext } = splitName(fileName); const baseName = `${stem}-${crypto.randomUUID()}`; const isImage = IMAGE_EXTENSIONS.has(ext) || fileType.startsWith('image/');
         if (isImage) {
           const outputDir = inside(finalDir, sector); await assertNoSymlinkAncestors(finalDir, outputDir); await fs.mkdir(outputDir, { recursive: true }); const targetName = `${baseName}.${ext}`; const target = inside(outputDir, targetName); const partial = `${target}.partial`;
@@ -109,21 +118,22 @@ export async function createApp({ config = loadConfig(), authMiddleware = requir
           await writeJsonAtomic(inside(outputDir, `.${targetName}.owner.json`), { owner_id: req.userId }); const url = publicUrl(sector, targetName); manifest.response = { status: 'completed', job_id: null, url, urls: { original: url } }; for (let index = 0; index < totalChunks; index++) await fs.unlink(inside(dir, `part_${index}`)); await writeJsonAtomic(inside(dir, 'manifest.json'), manifest); return res.json(manifest.response);
         }
         const urls = Object.fromEntries(QUALITIES.map((quality) => [quality.suffix, publicUrl(sector, `${baseName}_${quality.suffix}.mp4`)]));
-        const job = queue.reserve({ session_id: sessionId, session_dir: dir, owner_id: req.userId, sector, base_name: baseName, original_ext: ext, total_chunks: totalChunks, declared_size: declaredSize, urls });
+        const job = queue.reserve({ session_id: sessionId, session_dir: dir, owner_id: req.userId, sector, base_name: baseName, original_ext: ext, total_chunks: totalChunks, declared_size: declaredSize, urls, boulder_id: boulderId || null });
         try { await diskLock.run('disk', async () => { const reservedBytes = declaredSize * 4; await ensureDiskCapacity(reservedBytes); diskReservations.set(job.job_id, reservedBytes); }); await queue.commit(job); }
         catch (error) { if (!await queue.get(job.job_id)) { queue.cancel(job); diskReservations.delete(job.job_id); } throw error; }
-        manifest.job_id = job.job_id; manifest.response = { status: 'queued', job_id: job.job_id, url: urls.hd, urls }; await writeJsonAtomic(inside(dir, 'manifest.json'), manifest); return res.json(manifest.response);
+        manifest.job_id = job.job_id; manifest.response = boulderId ? { status: 'queued', job_id: job.job_id, session_id: sessionId, url: null, urls: null } : { status: 'queued', job_id: job.job_id, url: urls.hd, urls }; await writeJsonAtomic(inside(dir, 'manifest.json'), manifest); return res.json(manifest.response);
       }));
     } catch (error) {
       console.error('[upload] error:', error.message); const status = error.code === 'QUEUE_FULL' ? 429 : error.code === 'DISK_QUOTA' ? 507 : 500; if (!res.headersSent) { if (status === 429) res.set('Retry-After', '5'); res.status(status).json({ error: status < 500 || status === 507 ? error.message : 'Upload failed' }); }
     }
   });
 
+  function statusUrls(job) { return job?.status === 'completed' ? { url: job.urls?.hd || null, urls: job.urls || null, outputs: job.outputs } : { url: null, urls: null }; }
   app.get('/upload-status.php', authMiddleware, async (req, res) => {
     const sessionId = String(req.query.session_id || ''); if (!SESSION_ID.test(sessionId)) return res.status(400).json({ error: 'Invalid session_id' });
-    res.set('Cache-Control', 'no-store'); await sessionLocks.run(sessionId, async () => { const manifest = await loadManifest(sessionId); if (!manifest) return res.status(404).json({ error: 'Session not found' }); if (!canAccessOwner(req, manifest.owner_id)) return res.status(403).json({ error: 'Session belongs to another user' }); const job = manifest.job_id ? await queue.get(manifest.job_id) : null; res.json({ session_id: sessionId, uploaded_chunks: await listChunks(await sessionDir(sessionId)), ...(manifest.response || {}), ...(job ? { status: job.status, job_id: job.job_id, error: job.status === 'failed' ? job.error : undefined } : {}) }); });
+    res.set('Cache-Control', 'no-store'); await sessionLocks.run(sessionId, async () => { const manifest = await loadManifest(sessionId); if (!manifest) return res.status(404).json({ error: 'Session not found' }); if (!canAccessOwner(req, manifest.owner_id)) return res.status(403).json({ error: 'Session belongs to another user' }); const job = manifest.job_id ? await queue.get(manifest.job_id) : null; const base = manifest.response ? (manifest.boulder_id ? { ...manifest.response, url: null, urls: null } : { ...manifest.response }) : {}; res.json({ session_id: sessionId, uploaded_chunks: await listChunks(await sessionDir(sessionId)), ...base, ...(job ? { status: job.status, job_id: job.job_id, ...statusUrls(job), error: job.status === 'failed' ? job.error : undefined } : {}) }); });
   });
-  app.get('/jobs/:jobId', authMiddleware, async (req, res) => { res.set('Cache-Control', 'no-store'); const job = await queue.get(req.params.jobId); if (!job) return res.status(404).json({ error: 'Job not found' }); if (!canAccessOwner(req, job.owner_id)) return res.status(403).json({ error: 'Job belongs to another user' }); res.json({ job_id: job.job_id, status: job.status, url: job.urls?.hd, urls: job.urls, outputs: job.outputs, error: job.status === 'failed' ? job.error : undefined }); });
+  app.get('/jobs/:jobId', authMiddleware, async (req, res) => { res.set('Cache-Control', 'no-store'); const job = await queue.get(req.params.jobId); if (!job) return res.status(404).json({ error: 'Job not found' }); if (!canAccessOwner(req, job.owner_id)) return res.status(403).json({ error: 'Job belongs to another user' }); res.json({ job_id: job.job_id, status: job.status, ...statusUrls(job), error: job.status === 'failed' ? job.error : undefined }); });
 
   function resolveVideoPath(url) {
     try { const pathname = decodeURIComponent(new URL(String(url), config.publicBaseUrl).pathname); if (!pathname.startsWith('/videos/')) return null; const parts = pathname.slice(8).split('/'); if (parts.length !== 2 || !SAFE_SEGMENT.test(parts[0]) || !/^[A-Za-z0-9_.-]+$/.test(parts[1]) || parts[1].startsWith('.')) return null; return inside(finalDir, ...parts); } catch { return null; }
@@ -172,8 +182,8 @@ export async function createApp({ config = loadConfig(), authMiddleware = requir
 
   async function cleanup() { const cutoff = Date.now() - config.tempSessionMaxAgeMs; for (const entry of await fs.readdir(tempDir, { withFileTypes: true }).catch(() => [])) { if (!entry.isDirectory() || entry.isSymbolicLink() || !SESSION_ID.test(entry.name)) continue; await sessionLocks.run(entry.name, async () => { const dir = inside(tempDir, entry.name); const manifest = await loadManifest(entry.name); const activeJob = manifest?.job_id ? await queue.get(manifest.job_id) : await queue.findBySession(entry.name, { schedule: false }); if (activeJob && ['reserved', 'queued', 'processing'].includes(activeJob.status)) return; if ((await fs.stat(dir)).mtimeMs < cutoff) await fs.rm(dir, { recursive: true, force: true }); }); } }
   for (const job of await queue.list()) if (['reserved', 'queued', 'processing'].includes(job.status) && job.declared_size) diskReservations.set(job.job_id, job.declared_size * 4);
-  await queue.recover(); await cleanup(); const timer = setInterval(cleanup, 6 * 60 * 60 * 1000); timer.unref();
-  return { app, queue, config, close: () => clearInterval(timer) };
+  await queue.recover(); await publisher.start?.(); await cleanup(); const timer = setInterval(cleanup, 6 * 60 * 60 * 1000); timer.unref();
+  return { app, queue, config, publisher, close: () => { clearInterval(timer); publisher.close?.(); } };
 }
 
 async function main() { const { app, config } = await createApp(); app.listen(config.port, () => console.log(`[server] listening on :${config.port}`)); }
