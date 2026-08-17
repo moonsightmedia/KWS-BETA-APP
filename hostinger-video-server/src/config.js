@@ -6,6 +6,44 @@ function positiveInt(name, fallback) {
   return value;
 }
 
+function containsWhitespaceOrControlCharacters(value) {
+  return /\s|[\u0000-\u001F\u007F-\u009F]/u.test(value);
+}
+
+function validateSupabaseUrl(rawValue) {
+  const value = String(rawValue || '');
+  if (!value) return '';
+  if (containsWhitespaceOrControlCharacters(value)) {
+    throw new Error('SUPABASE_URL contains whitespace or control characters');
+  }
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error('SUPABASE_URL must be a valid HTTP(S) URL');
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) {
+    throw new Error('SUPABASE_URL must be a valid HTTP(S) URL');
+  }
+  return value.replace(/\/+$/, '');
+}
+
+function validateSupabaseServiceRoleKey(rawValue) {
+  const value = String(rawValue || '');
+  if (!value) return '';
+  if (containsWhitespaceOrControlCharacters(value)) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY contains whitespace or control characters');
+  }
+
+  const isSecretKey = /^sb_secret_[A-Za-z0-9_-]+$/u.test(value);
+  const jwtParts = value.split('.');
+  const isJwt = jwtParts.length === 3 && jwtParts.every((part) => /^[A-Za-z0-9_-]+$/u.test(part));
+  if (!isSecretKey && !isJwt) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY must be a JWT or an sb_secret_ key');
+  }
+  return value;
+}
+
 export function loadConfig() {
   const port = positiveInt('PORT', 3000);
   if (port > 65535) throw new Error('PORT must be <= 65535');
@@ -19,8 +57,8 @@ export function loadConfig() {
   return Object.freeze({
     port, dataDir,
     publicBaseUrl: (process.env.PUBLIC_BASE_URL || `http://localhost:${port}`).replace(/\/+$/, ''),
-    supabaseUrl: String(process.env.SUPABASE_URL || '').replace(/\/+$/, ''),
-    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    supabaseUrl: validateSupabaseUrl(process.env.SUPABASE_URL),
+    supabaseServiceRoleKey: validateSupabaseServiceRoleKey(process.env.SUPABASE_SERVICE_ROLE_KEY),
     publisherRetryBaseMs: positiveInt('PUBLISHER_RETRY_BASE_MS', 1000),
     publisherRetryMaxMs: positiveInt('PUBLISHER_RETRY_MAX_MS', 60000),
     maxChunkBytes, maxUploadBytes, maxTotalChunks,

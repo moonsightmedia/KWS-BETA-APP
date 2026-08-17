@@ -30,6 +30,8 @@ Video deletion is exact-family only and changes its persisted job state to `dele
 
 Copy `.env.example` to `.env` only on the deployment host and populate values from the approved secret store. Never commit `.env`. `SUPABASE_SERVICE_ROLE_KEY` is required before rolling out app clients that send `X-Boulder-Id`; configure it on the VPS only. Defaults support 512 MiB uploads with a 6 MiB server chunk limit (`MAX_TOTAL_CHUNKS=1024`, at least 86 required); the one-byte native iOS chunk-read boundary remains accepted. Set `MAX_DATA_BYTES` and `MIN_FREE_BYTES` for the actual volume.
 
+At startup, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are validated without logging their values. The URL must be HTTP(S); the service-role key must be either a three-part JWT or an `sb_secret_...` key. Whitespace and control characters fail fast, so copied secrets are not silently trimmed or repaired.
+
 ## Verification and deployment runbook
 
 ```sh
