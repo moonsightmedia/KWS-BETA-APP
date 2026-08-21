@@ -1,0 +1,11 @@
+services:
+  video-server:
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.kws-video.rule=Host(`video.kletterwelt-sauerland.de`)
+      - traefik.http.routers.kws-video.entrypoints=websecure
+      - traefik.http.routers.kws-video.tls=true
+      - traefik.http.routers.kws-video.tls.certresolver=letsencrypt
+      - traefik.http.services.kws-video.loadbalancer.server.port=3000
+  caddy:
+    profiles: ["disabled"]

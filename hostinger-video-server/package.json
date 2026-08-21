@@ -1,0 +1,5 @@
+{
+  "name": "kws-video-server", "version": "1.2.0", "private": true, "type": "module",
+  "description": "Upload and transcoding service for KWS Beta videos", "scripts": { "start": "node src/server.js", "test": "node --test" },
+  "engines": { "node": ">=20" }, "dependencies": { "dotenv": "^17.2.3", "express": "^4.21.2", "multer": "^2.0.2" }
+}

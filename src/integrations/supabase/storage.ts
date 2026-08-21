@@ -9,6 +9,17 @@ const PROFILE_AVATARS_BUCKET = 'profile-avatars';
 // All-Inkl API Configuration
 const ALLINKL_API_URL = import.meta.env.VITE_ALLINKL_API_URL || 'https://cdn.kletterwelt-sauerland.de/upload-api';
 const USE_ALLINKL_STORAGE = import.meta.env.VITE_USE_ALLINKL_STORAGE === 'true' || false;
+const DEFAULT_VIDEO_API_URL = 'https://video.kletterwelt-sauerland.de';
+
+function getHostingerVideoOrigins(): Set<string> {
+  const configuredVideoApiUrl =
+    import.meta.env.VITE_VIDEO_API_URL || import.meta.env.VITE_NATIVE_VIDEO_API_URL;
+  const candidates = [DEFAULT_VIDEO_API_URL, configuredVideoApiUrl].filter(
+    (value): value is string => Boolean(value),
+  );
+
+  return new Set(candidates.map((value) => new URL(value).origin));
+}
 
 function getFileExt(fileName: string): string {
   const idx = fileName.lastIndexOf('.');
@@ -2066,7 +2077,10 @@ export async function deleteThumbnail(thumbnailUrl: string | null): Promise<void
 /**
  * Delete a beta video from All-Inkl or Supabase Storage
  */
-export async function deleteBetaVideo(videoUrl: string | null): Promise<void> {
+export async function deleteBetaVideo(
+  videoUrl: string | null,
+  accessToken?: string,
+): Promise<void> {
   if (!videoUrl) return;
 
   try {
@@ -2091,8 +2105,29 @@ export async function deleteBetaVideo(videoUrl: string | null): Promise<void> {
       return;
     }
 
+    const parsedVideoUrl = new URL(videoUrl);
+    if (getHostingerVideoOrigins().has(parsedVideoUrl.origin)) {
+      if (!accessToken) {
+        throw new Error('Keine aktive Session zum Löschen des Hostinger-Videos');
+      }
+
+      const response = await fetch(`${parsedVideoUrl.origin}/delete.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Upload-Auth': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ url: videoUrl }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Hostinger video delete failed: HTTP ${response.status}`);
+      }
+      return;
+    }
+
     // Fallback to Supabase Storage
-    const url = new URL(videoUrl);
+    const url = parsedVideoUrl;
     const pathParts = url.pathname.split('/');
     const bucketIndex = pathParts.findIndex(part => part === DEFAULT_BUCKET);
     

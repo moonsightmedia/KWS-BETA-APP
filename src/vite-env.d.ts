@@ -9,6 +9,7 @@ interface ImportMetaEnv {
   readonly VITE_TELEMETRY_ENABLED?: string;
   readonly VITE_NATIVE_BACKGROUND_UPLOAD?: string;
   readonly VITE_ALLINKL_API_URL?: string;
+  readonly VITE_VIDEO_API_URL?: string;
   readonly VITE_NATIVE_VIDEO_API_URL?: string;
   readonly VITE_USE_ALLINKL_STORAGE?: string;
   readonly MODE: string;
