@@ -32,3 +32,5 @@ service-account*.json
 
 # Temporary video processing files
 temp-video-processing/
+.vercel
+.env*.local
