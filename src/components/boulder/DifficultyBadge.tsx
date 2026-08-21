@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { getColorBackgroundStyle } from '@/utils/colorUtils';
+import { getBoulderColorBackgroundStyle, getBoulderColorLabel } from '@/utils/colorUtils';
 
 const LIGHT_TEXT_COLORS = new Set(['Grün', 'Blau', 'Rot', 'Schwarz', 'Lila']);
 
@@ -22,6 +22,7 @@ type GripColor = { name: string; hex: string; secondary_hex?: string | null };
 
 type DifficultyBadgeProps = {
   color: string;
+  color2?: string | null;
   colorHex?: string;
   difficulty: number | null;
   colors?: GripColor[];
@@ -31,6 +32,7 @@ type DifficultyBadgeProps = {
 
 export function DifficultyBadge({
   color,
+  color2,
   colorHex,
   difficulty,
   colors,
@@ -49,11 +51,13 @@ export function DifficultyBadge({
         className,
       )}
       style={{
-        ...(getColorBackgroundStyle(color, colors) || {}),
+        ...(getBoulderColorBackgroundStyle(color, color2, colors) || {}),
         color: undefined,
       }}
+      title={getBoulderColorLabel(color, color2)}
+      aria-label={`Grad ${label}, Farbe ${getBoulderColorLabel(color, color2)}`}
     >
-      {label}
+      {variant === 'detail' ? `${label} · ${getBoulderColorLabel(color, color2)}` : label}
     </span>
   );
 }

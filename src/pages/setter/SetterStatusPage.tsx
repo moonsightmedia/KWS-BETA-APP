@@ -12,7 +12,7 @@ import { useColors } from '@/hooks/useColors';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { cn } from '@/lib/utils';
 import type { Boulder } from '@/types/boulder';
-import { getColorBackgroundStyle } from '@/utils/colorUtils';
+import { getBoulderColorBackgroundStyle } from '@/utils/colorUtils';
 
 import { formatDifficulty, getTextClassForHex, getThumbnailUrl } from './setterPageUtils';
 
@@ -723,11 +723,9 @@ const SetterStatusPage = () => {
                                     'absolute bottom-1 right-1 rounded px-1.5 py-0.5 text-[10px] font-bold backdrop-blur-sm',
                                     getTextClassForHex(color?.hex),
                                   )}
-                                style={{
-                                  background: color
-                                    ? getColorBackgroundStyle(boulder.color, colors ?? [])
-                                    : '#9ca3af',
-                                }}
+                                style={color
+                                  ? getBoulderColorBackgroundStyle(boulder.color, boulder.color2, colors ?? [])
+                                  : { backgroundColor: '#9ca3af' }}
                               >
                                 {formatDifficulty(boulder.difficulty)}
                               </span>

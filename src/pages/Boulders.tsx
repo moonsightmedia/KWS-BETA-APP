@@ -19,7 +19,7 @@ import { useSectorsTransformed } from '@/hooks/useSectors';
 import { cn } from '@/lib/utils';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
 import { Boulder } from '@/types/boulder';
-import { getColorBackgroundStyle } from '@/utils/colorUtils';
+import { getColorBackgroundStyle, matchesBoulderColorFilter } from '@/utils/colorUtils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -181,7 +181,7 @@ const Boulders = () => {
         searchableSector.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesSector = sectorFilter === 'all' || boulder.sector === sectorFilter || boulder.sector2 === sectorFilter;
       const matchesDifficulty = difficultyFilter === 'all' || (boulder.difficulty === null ? '?' : String(boulder.difficulty)) === difficultyFilter;
-      const matchesColor = colorFilter === 'all' || boulder.color === colorFilter;
+      const matchesColor = matchesBoulderColorFilter(boulder.color, boulder.color2, colorFilter);
       const matchesStatus = showOnlyHanging ? boulder.status === 'haengt' : true;
       const matchesNew = !showNew || boulder.createdAt >= sevenDaysAgo;
       const matchesSaved = !showSaved || favoriteBoulderIds.has(boulder.id);
@@ -222,7 +222,7 @@ const Boulders = () => {
           boulder.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           searchableSector.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesDifficulty = difficultyFilter === 'all' || (boulder.difficulty === null ? '?' : String(boulder.difficulty)) === difficultyFilter;
-        const matchesColor = colorFilter === 'all' || boulder.color === colorFilter;
+        const matchesColor = matchesBoulderColorFilter(boulder.color, boulder.color2, colorFilter);
         const matchesStatus = showOnlyHanging ? boulder.status === 'haengt' : true;
         return matchesSearch && matchesDifficulty && matchesColor && matchesStatus;
       })
@@ -721,6 +721,7 @@ const Boulders = () => {
                       />
                       <DifficultyBadge
                         color={boulder.color}
+                        color2={boulder.color2}
                         colorHex={boulder.colorHex}
                         difficulty={boulder.difficulty}
                         colors={colors}

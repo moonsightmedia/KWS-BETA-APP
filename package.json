@@ -14,6 +14,7 @@
     "build:native": "vite build --mode capacitor",
     "lint": "eslint .",
     "test:upload-queue": "node --test test/uploadQueue.test.mjs",
+    "test:boulder-colors": "node --test test/boulderColors.test.mjs",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "preview": "vite preview",

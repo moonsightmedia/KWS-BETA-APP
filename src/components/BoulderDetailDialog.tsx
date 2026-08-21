@@ -25,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { useColors } from '@/hooks/useColors';
 import { cn } from '@/lib/utils';
-import { getColorBackgroundStyle } from '@/utils/colorUtils';
+import { getBoulderColorBackgroundStyle, getBoulderColorLabel } from '@/utils/colorUtils';
 import { Boulder } from '@/types/boulder';
 
 interface BoulderDetailDialogProps {
@@ -160,12 +160,12 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
                 TEXT_ON_COLOR[boulder.color] || 'text-white',
               )}
               style={{
-                ...getColorBackgroundStyle(boulder.color, colors || []),
+                ...getBoulderColorBackgroundStyle(boulder.color, boulder.color2, colors || []),
                 borderColor: 'rgba(0, 0, 0, 0.1)',
               }}
-              title={`${boulder.color} Â· Grad ${boulder.difficulty === null ? '?' : boulder.difficulty}`}
+              title={`${getBoulderColorLabel(boulder.color, boulder.color2)} · Grad ${boulder.difficulty === null ? '?' : boulder.difficulty}`}
             >
-              <span>{boulder.difficulty === null ? '?' : boulder.difficulty}</span>
+              <span>{boulder.difficulty === null ? '?' : boulder.difficulty} · {getBoulderColorLabel(boulder.color, boulder.color2)}</span>
             </span>
           </div>
 
