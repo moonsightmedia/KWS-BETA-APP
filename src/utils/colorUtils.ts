@@ -1,10 +1,10 @@
-import { useColors } from '@/hooks/useColors';
+type GripColor = { name: string; hex?: string | null; secondary_hex?: string | null };
 
 /**
  * Get color hex code(s) for a color name
  * Returns primary hex and optional secondary hex for two-color grips
  */
-export const getColorHex = (colorName: string, colors?: Array<{ name: string; hex: string; secondary_hex?: string | null }>): { primary: string; secondary?: string | null } => {
+export const getColorHex = (colorName: string, colors?: GripColor[]): { primary: string; secondary?: string | null } => {
   if (!colors) {
     // Fallback to default colors if colors not loaded
     const DEFAULT_COLOR_HEX: Record<string, string> = {
@@ -26,7 +26,7 @@ export const getColorHex = (colorName: string, colors?: Array<{ name: string; he
   }
 
   return {
-    primary: color.hex,
+    primary: color.hex || '#9ca3af',
     secondary: color.secondary_hex || null,
   };
 };
@@ -34,7 +34,7 @@ export const getColorHex = (colorName: string, colors?: Array<{ name: string; he
 /**
  * Get CSS background style for a color (supports two-color gradients)
  */
-export const getColorBackgroundStyle = (colorName: string, colors?: Array<{ name: string; hex: string; secondary_hex?: string | null }>): React.CSSProperties => {
+export const getColorBackgroundStyle = (colorName: string, colors?: GripColor[]): React.CSSProperties => {
   const { primary, secondary } = getColorHex(colorName, colors);
   
   if (secondary) {
@@ -49,4 +49,35 @@ export const getColorBackgroundStyle = (colorName: string, colors?: Array<{ name
     backgroundColor: primary,
   };
 };
+
+/** Get a diagonal split for a boulder that uses two distinct grip colors. */
+export const getBoulderColorBackgroundStyle = (
+  primaryColorName: string,
+  secondaryColorName: string | null | undefined,
+  colors?: GripColor[],
+): React.CSSProperties => {
+  if (!secondaryColorName || secondaryColorName === primaryColorName) {
+    return getColorBackgroundStyle(primaryColorName, colors);
+  }
+
+  const primary = getColorHex(primaryColorName, colors).primary;
+  const secondary = getColorHex(secondaryColorName, colors).primary;
+
+  return {
+    background: `linear-gradient(135deg, ${primary} 0%, ${primary} 50%, ${secondary} 50%, ${secondary} 100%)`,
+  };
+};
+
+export const getBoulderColorLabel = (
+  primaryColorName: string,
+  secondaryColorName?: string | null,
+) => secondaryColorName && secondaryColorName !== primaryColorName
+  ? `${primaryColorName} / ${secondaryColorName}`
+  : primaryColorName;
+
+export const matchesBoulderColorFilter = (
+  primaryColorName: string,
+  secondaryColorName: string | null | undefined,
+  filter: string,
+) => filter === 'all' || primaryColorName === filter || secondaryColorName === filter;
 

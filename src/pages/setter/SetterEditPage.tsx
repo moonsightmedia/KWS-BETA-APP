@@ -22,6 +22,11 @@ import { useColors } from '@/hooks/useColors';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { cn } from '@/lib/utils';
 import type { Boulder } from '@/types/boulder';
+import {
+  getBoulderColorBackgroundStyle,
+  getBoulderColorLabel,
+  matchesBoulderColorFilter,
+} from '@/utils/colorUtils';
 
 import { formatDifficulty, getTextClassForHex, getThumbnailUrl } from './setterPageUtils';
 
@@ -35,6 +40,9 @@ function mapBoulderToDraft(
     ? sectors.find((sector) => sector.name === boulder.sector2)?.id
     : undefined;
   const colorId = colors.find((color) => color.name === boulder.color)?.id ?? colors[0]?.id ?? '';
+  const colorId2 = boulder.color2
+    ? colors.find((color) => color.name === boulder.color2)?.id
+    : undefined;
 
   return {
     id: boulder.id,
@@ -43,6 +51,7 @@ function mapBoulderToDraft(
     sectorId2,
     spansMultipleSectors: Boolean(sectorId2),
     colorId,
+    colorId2,
     difficulty: boulder.difficulty,
     note: boulder.note ?? '',
     attributeIds: [],
@@ -111,7 +120,7 @@ export default function SetterEditPage() {
           return false;
         }
 
-        if (colorFilter !== 'all' && boulder.color !== colorFilter) {
+        if (!matchesBoulderColorFilter(boulder.color, boulder.color2, colorFilter)) {
           return false;
         }
 
@@ -160,8 +169,20 @@ export default function SetterEditPage() {
     }
 
     const colorName = colors.find((color) => color.id === editorDraft.colorId)?.name ?? null;
+    const dualColorAttributeId = attributeCatalog.find((attribute) => attribute.key === 'dual_color')?.id;
+    const isDualColor = Boolean(
+      dualColorAttributeId && editorDraft.attributeIds.includes(dualColorAttributeId),
+    );
+    const colorName2 = isDualColor
+      ? colors.find((color) => color.id === editorDraft.colorId2)?.name ?? null
+      : null;
 
-    if (!editorDraft.name.trim() || !editorDraft.sectorId || !colorName) {
+    if (
+      !editorDraft.name.trim() ||
+      !editorDraft.sectorId ||
+      !colorName ||
+      (isDualColor && (!colorName2 || colorName2 === colorName))
+    ) {
       toast.error('Bitte Name, Sektor und Farbe ausfüllen.');
       return;
     }
@@ -178,6 +199,7 @@ export default function SetterEditPage() {
             : null,
         difficulty: editorDraft.difficulty,
         color: colorName,
+        color_2: colorName2,
         note: editorDraft.note.trim() || null,
       };
 
@@ -334,7 +356,8 @@ export default function SetterEditPage() {
                               'absolute bottom-1 right-1 rounded px-1.5 py-0.5 text-[10px] font-semibold shadow-sm',
                               getTextClassForHex(colorHex),
                             )}
-                            style={{ backgroundColor: colorHex }}
+                            style={getBoulderColorBackgroundStyle(boulder.color, boulder.color2, colors)}
+                            title={getBoulderColorLabel(boulder.color, boulder.color2)}
                           >
                             {formatDifficulty(boulder.difficulty)}
                           </span>
@@ -346,6 +369,9 @@ export default function SetterEditPage() {
                           </p>
                           <p className="mt-1 truncate text-sm text-[#13112B]/60">
                             {boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}
+                          </p>
+                          <p className="mt-0.5 truncate text-xs font-medium text-[#4F6A4B]">
+                            {getBoulderColorLabel(boulder.color, boulder.color2)}
                           </p>
                         </div>
                       </div>
@@ -392,7 +418,7 @@ export default function SetterEditPage() {
         onDraftChange={setEditorDraft}
         onSubmit={saveEditor}
         onDelete={deleteFromEditor}
-        isSubmitting={updateBoulder.isPending || setBoulderAttributes.isPending}
+        isSubmitting={updateBoulder.isPending || setBoulderAttributes.isPending || selectedAttributeQuery.isLoading}
         isDeleting={deleteBoulder.isPending}
       />
 

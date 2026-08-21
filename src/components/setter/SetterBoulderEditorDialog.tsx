@@ -35,6 +35,7 @@ export interface SetterBoulderDraft {
   sectorId2?: string;
   spansMultipleSectors: boolean;
   colorId: string;
+  colorId2?: string;
   difficulty: number | null;
   note: string;
   attributeIds: string[];
@@ -73,6 +74,7 @@ export const createEmptySetterBoulderDraft = (colors: EditorColor[]): SetterBoul
     sectorId2: undefined,
     spansMultipleSectors: false,
     colorId: defaultColor?.id ?? '',
+    colorId2: undefined,
     difficulty: defaultDifficulty,
     note: '',
     attributeIds: [],
@@ -85,18 +87,28 @@ export const createEmptySetterBoulderDraft = (colors: EditorColor[]): SetterBoul
   };
 };
 
-export const canSubmitSetterBoulderDraft = (draft: SetterBoulderDraft | null) => {
+export const canSubmitSetterBoulderDraft = (
+  draft: SetterBoulderDraft | null,
+  dualColorAttributeId?: string,
+) => {
   if (!draft) return false;
 
   const hasVideo = Boolean(draft.videoFile || draft.existingVideoUrl);
   const hasThumbnail = Boolean(draft.thumbFile || draft.existingThumbnailUrl);
+  const needsSecondColor = Boolean(
+    dualColorAttributeId && draft.attributeIds.includes(dualColorAttributeId),
+  );
+  const hasValidSecondColor = !needsSecondColor || Boolean(
+    draft.colorId2 && draft.colorId2 !== draft.colorId,
+  );
 
   return Boolean(
     hasVideo &&
     hasThumbnail &&
     draft.name.trim() &&
     draft.sectorId &&
-    draft.colorId,
+    draft.colorId &&
+    hasValidSecondColor,
   );
 };
 
@@ -227,6 +239,10 @@ export function SetterBoulderEditorDialog({
     () => attributeCatalog.filter((attribute) => OPTIONAL_ATTRIBUTE_KEYS.has(attribute.key)),
     [attributeCatalog],
   );
+  const dualColorAttribute = useMemo(
+    () => attributeCatalog.find((attribute) => attribute.key === 'dual_color'),
+    [attributeCatalog],
+  );
   const sectorCountsById = useMemo(
     () =>
       sectors.reduce<Record<string, number>>((accumulator, sector) => {
@@ -259,10 +275,12 @@ export function SetterBoulderEditorDialog({
   };
 
   const toggleAttribute = (attributeId: string) => {
+    const isRemoving = draft.attributeIds.includes(attributeId);
     updateDraft({
-      attributeIds: draft.attributeIds.includes(attributeId)
+      attributeIds: isRemoving
         ? draft.attributeIds.filter((id) => id !== attributeId)
         : [...draft.attributeIds, attributeId],
+      ...(isRemoving && dualColorAttribute?.id === attributeId ? { colorId2: undefined } : {}),
     });
   };
 
@@ -314,6 +332,10 @@ export function SetterBoulderEditorDialog({
   const selectedSectorName = sectors.find((sector) => sector.id === draft.sectorId)?.name ?? null;
   const selectedSecondarySectorName = sectors.find((sector) => sector.id === draft.sectorId2)?.name ?? null;
   const selectedColorName = colors.find((color) => color.id === draft.colorId)?.name ?? 'Farbe';
+  const isDualColorSelected = Boolean(
+    dualColorAttribute && draft.attributeIds.includes(dualColorAttribute.id),
+  );
+  const selectedSecondaryColorName = colors.find((color) => color.id === draft.colorId2)?.name ?? null;
   const hasVideo = Boolean(draft.videoFile || draft.existingVideoUrl);
   const hasThumbnail = Boolean(draft.thumbFile || draft.existingThumbnailUrl);
   const dialogErrors = {
@@ -322,6 +344,7 @@ export function SetterBoulderEditorDialog({
     name: !draft.name.trim(),
     sector: !draft.sectorId,
     color: !draft.colorId,
+    color2: isDualColorSelected && (!draft.colorId2 || draft.colorId2 === draft.colorId),
   };
 
   return (
@@ -418,6 +441,7 @@ export function SetterBoulderEditorDialog({
                     onClick={() =>
                       updateDraft({
                         colorId: color.id,
+                        colorId2: draft.colorId2 === color.id ? undefined : draft.colorId2,
                         name: generateBoulderName(color.name, draft.difficulty),
                       })
                     }
@@ -560,6 +584,48 @@ export function SetterBoulderEditorDialog({
               </div>
             ) : null}
 
+            {isDualColorSelected ? (
+              <div className="space-y-2 rounded-2xl border border-[#DDE7DF] bg-[#FCFDFC] p-3">
+                <div>
+                  <Label>Zweite Farbe</Label>
+                  <p className="mt-1 text-xs text-[#13112B]/58">
+                    Wähle die zweite Grifffarbe. Sie muss sich von der Hauptfarbe unterscheiden.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {colors
+                    .filter((color) => color.id !== draft.colorId)
+                    .map((color) => (
+                      <button
+                        key={color.id}
+                        type="button"
+                        onClick={() => updateDraft({ colorId2: color.id })}
+                        className={cn(
+                          'flex min-h-[52px] items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors',
+                          draft.colorId2 === color.id
+                            ? 'border-[#69B545] bg-[#F4FBF4]'
+                            : 'border-[#DDE7DF] bg-white hover:border-[#69B545]/40',
+                        )}
+                        aria-pressed={draft.colorId2 === color.id}
+                      >
+                        <span
+                          className="h-6 w-6 shrink-0 rounded-[8px] border border-white/70 shadow-sm"
+                          style={getColorBackgroundStyle(color.name, colors)}
+                        />
+                        <span className="min-w-0 flex-1 text-sm font-semibold text-[#13112B]">{color.name}</span>
+                        {draft.colorId2 === color.id ? <Check className="h-4 w-4 shrink-0 text-[#69B545]" /> : null}
+                      </button>
+                    ))}
+                </div>
+                {selectedSecondaryColorName ? (
+                  <p className="text-xs font-medium text-[#4F6A4B]">
+                    Kombination: {selectedColorName} / {selectedSecondaryColorName}
+                  </p>
+                ) : null}
+                {dialogErrors.color2 ? <p className="text-xs text-destructive">Zweite Farbe wählen.</p> : null}
+              </div>
+            ) : null}
+
             {draft.spansMultipleSectors ? (
               <div className="space-y-2">
                 <Label>Endsektor</Label>
@@ -636,7 +702,7 @@ export function SetterBoulderEditorDialog({
             <Button
               type="button"
               onClick={() => void onSubmit()}
-              disabled={isSubmitting || !canSubmitSetterBoulderDraft(draft)}
+              disabled={isSubmitting || !canSubmitSetterBoulderDraft(draft, dualColorAttribute?.id)}
               className="h-11 rounded-xl bg-[#69B545] px-5 text-white hover:bg-[#5fa039] sm:flex-1"
             >
               {isSubmitting ? (

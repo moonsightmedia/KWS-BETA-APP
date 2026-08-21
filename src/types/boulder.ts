@@ -14,6 +14,7 @@ export interface Boulder {
   sector2?: string; // Optional second sector if boulder spans multiple sectors
   difficulty: Difficulty;
   color: BoulderColor;
+  color2?: BoulderColor;
   betaVideoUrl?: string; // Legacy field, maps to hd in betaVideoUrls
   betaVideoUrls?: VideoQualities; // New structure with multiple quality levels
   thumbnailUrl?: string; // URL to manually uploaded thumbnail image showing starting holds

@@ -17,12 +17,13 @@ import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/hooks/useAuth';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { cn } from '@/lib/utils';
-import { getColorBackgroundStyle } from '@/utils/colorUtils';
+import {
+  getBoulderColorBackgroundStyle,
+  getBoulderColorLabel,
+} from '@/utils/colorUtils';
 
 const devWarn = (...args: unknown[]) => { if (import.meta.env.DEV) console.warn(...args); };
 const devError = (...args: unknown[]) => { if (import.meta.env.DEV) console.error(...args); };
-
-const canQueueBoulder = (boulder: SetterBoulderDraft) => canSubmitSetterBoulderDraft(boulder);
 
 function StatChip({
   label,
@@ -63,13 +64,20 @@ export function BatchUpload() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentBoulder, setCurrentBoulder] = useState<SetterBoulderDraft | null>(null);
+  const dualColorAttributeId = useMemo(
+    () => attributeCatalog.find((attribute) => attribute.key === 'dual_color')?.id,
+    [attributeCatalog],
+  );
 
   useEffect(() => {
     if (!colors.length || currentBoulder) return;
     setCurrentBoulder(createEmptySetterBoulderDraft(colors));
   }, [colors, currentBoulder]);
 
-  const readyCount = useMemo(() => boulders.filter(canQueueBoulder).length, [boulders]);
+  const readyCount = useMemo(
+    () => boulders.filter((boulder) => canSubmitSetterBoulderDraft(boulder, dualColorAttributeId)).length,
+    [boulders, dualColorAttributeId],
+  );
   const queueThumbPreviewUrls = useMemo(() => {
     const previews = new Map<string, string>();
     boulders.forEach((boulder) => {
@@ -103,7 +111,7 @@ export function BatchUpload() {
   };
 
   const saveBoulderFromDialog = () => {
-    if (!currentBoulder || !canQueueBoulder(currentBoulder)) {
+    if (!currentBoulder || !canSubmitSetterBoulderDraft(currentBoulder, dualColorAttributeId)) {
       toast.error('Bitte zuerst Video, Thumbnail und alle Pflichtfelder ausfüllen.');
       return;
     }
@@ -122,7 +130,7 @@ export function BatchUpload() {
       return;
     }
 
-    if (!boulders.every(canQueueBoulder)) {
+    if (!boulders.every((boulder) => canSubmitSetterBoulderDraft(boulder, dualColorAttributeId))) {
       toast.error('Bitte für alle Boulder Video, Thumbnail und Pflichtfelder ergänzen.');
       return;
     }
@@ -147,10 +155,17 @@ export function BatchUpload() {
       let createdBoulderId: string | null = null;
       try {
         const colorName = colors.find((color) => color.id === boulder.colorId)?.name ?? 'Unbekannt';
+        const isDualColor = Boolean(
+          dualColorAttributeId && boulder.attributeIds.includes(dualColorAttributeId),
+        );
+        const colorName2 = isDualColor
+          ? colors.find((color) => color.id === boulder.colorId2)?.name ?? null
+          : null;
         const payload: Record<string, unknown> = {
           name: boulder.name.trim(),
           sector_id: boulder.sectorId,
           color: colorName,
+          color_2: colorName2,
           difficulty: boulder.difficulty,
           note: boulder.note.trim() || null,
           status: 'haengt',
@@ -352,8 +367,18 @@ export function BatchUpload() {
                         </div>
 
                         <div className="mt-3 flex flex-wrap gap-2">
-                          <span className="inline-flex rounded-xl px-3 py-1 text-xs font-semibold" style={getColorBackgroundStyle(colorName, colors)}>
-                            {colorName}
+                          <span
+                            className="inline-flex rounded-xl px-3 py-1 text-xs font-semibold"
+                            style={getBoulderColorBackgroundStyle(
+                              colorName,
+                              colors.find((color) => color.id === boulder.colorId2)?.name,
+                              colors,
+                            )}
+                          >
+                            {getBoulderColorLabel(
+                              colorName,
+                              colors.find((color) => color.id === boulder.colorId2)?.name,
+                            )}
                           </span>
                           <span className="rounded-xl border border-[#E7F0E8] bg-[#F7FAF7] px-3 py-1 text-xs font-medium text-[#6C6A7E]">
                             {boulder.attributeIds.length} Attribute

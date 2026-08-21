@@ -5,7 +5,7 @@ import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/hooks/useAuth';
-import { getColorBackgroundStyle } from '@/utils/colorUtils';
+import { getColorBackgroundStyle, matchesBoulderColorFilter } from '@/utils/colorUtils';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -138,7 +138,7 @@ const Guest = () => {
     }
     if (colorFilter !== 'all') {
       const beforeColorFilter = list.length;
-      list = list.filter(b => b.color === colorFilter);
+      list = list.filter(b => matchesBoulderColorFilter(b.color, b.color2, colorFilter));
       console.log('[Guest] After color filter:', list.length, 'of', beforeColorFilter);
     }
     if (searchQuery.trim()) {
@@ -416,6 +416,7 @@ const Guest = () => {
                 />
                 <DifficultyBadge
                   color={b.color}
+                  color2={b.color2}
                   colorHex={b.colorHex}
                   difficulty={b.difficulty}
                   colors={colors}

@@ -220,6 +220,7 @@ export default function BoulderDetail() {
                 <div className="flex flex-wrap items-center gap-2">
                   <DifficultyBadge
                     color={boulder.color}
+                    color2={boulder.color2}
                     colorHex={boulder.colorHex}
                     difficulty={boulder.difficulty}
                     colors={colors}
