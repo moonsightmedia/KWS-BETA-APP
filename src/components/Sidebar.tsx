@@ -128,6 +128,40 @@ export const Sidebar = ({ className }: SidebarProps) => {
   const { user, signOut } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   const { hasRole: isSetter, loading: setterLoading } = useHasRole('setter');
+  const [isMobileNavCompact, setIsMobileNavCompact] = useState(false);
+
+  useEffect(() => {
+    let animationFrame: number | null = null;
+
+    const updateMobileNav = () => {
+      if (animationFrame !== null) {
+        return;
+      }
+
+      animationFrame = window.requestAnimationFrame(() => {
+        const scrollOffset = Math.max(
+          window.scrollY,
+          document.documentElement.scrollTop,
+          document.body.scrollTop
+        );
+
+        setIsMobileNavCompact(scrollOffset > 24);
+        animationFrame = null;
+      });
+    };
+
+    updateMobileNav();
+    window.addEventListener('scroll', updateMobileNav, { passive: true });
+    document.addEventListener('scroll', updateMobileNav, { passive: true, capture: true });
+
+    return () => {
+      window.removeEventListener('scroll', updateMobileNav);
+      document.removeEventListener('scroll', updateMobileNav, true);
+      if (animationFrame !== null) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+    };
+  }, [location.pathname, location.search]);
 
   const navigateToArea = useCallback((path: string) => {
     if (location.pathname + location.search === path) {
@@ -524,10 +558,20 @@ export const Sidebar = ({ className }: SidebarProps) => {
       {/* Mobile Bottom Navigation */}
       {location.pathname !== '/auth' && location.pathname !== '/competition' && (
         <nav
-          className="fixed inset-x-0 bottom-0 z-[110] border-t border-border bg-card/90 backdrop-blur-xl md:hidden"
-          style={{ paddingBottom: 'var(--app-safe-area-bottom)' }}
+          aria-label="Hauptnavigation"
+          data-compact={isMobileNavCompact}
+          className={cn(
+            "fixed left-1/2 z-[110] w-[calc(100%-2.5rem)] -translate-x-1/2 overflow-hidden rounded-[12px] bg-card/95 shadow-[0_5px_15px_rgba(0,33,85,0.10)] backdrop-blur-xl transition-[max-width,height,box-shadow] duration-300 ease-out motion-reduce:transition-none md:hidden",
+            isMobileNavCompact ? "h-14" : "h-[68px]"
+          )}
+          style={{
+            bottom: 'calc(var(--app-safe-area-bottom) + 12px)',
+            maxWidth: isMobileNavCompact
+              ? `${Math.min(480, mobileNavItems.length * 72 + 40)}px`
+              : '440px',
+          }}
         >
-          <div className="flex items-stretch">
+          <div className="flex h-full items-stretch px-1.5">
             {mobileNavItems.map((item) => {
               // Check if active based on pathname and query params
               const searchParams = new URLSearchParams(location.search);
@@ -555,13 +599,36 @@ export const Sidebar = ({ className }: SidebarProps) => {
                 <NavLink
                   key={item.label}
                   to={item.path}
+                  aria-label={item.label}
+                  aria-current={isActive ? 'page' : undefined}
                   className={cn(
-                    "flex min-h-[72px] flex-1 flex-col items-center justify-center gap-1 px-3 py-3 text-center transition-colors",
-                    isActive ? "text-primary" : "text-muted-foreground"
+                    "group flex min-w-0 flex-1 flex-col items-center justify-center px-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+                    isMobileNavCompact ? "gap-0" : "gap-0.5"
                   )}
                 >
-                  <item.icon className="h-5 w-5 flex-shrink-0" />
-                  <span className="max-w-[72px] truncate text-[11px] font-semibold">{item.label}</span>
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "grid h-10 w-10 flex-shrink-0 place-items-center rounded-[8px] transition-[background-color,color,box-shadow,transform] duration-200 motion-reduce:transition-none",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-[0_6px_14px_rgba(54,181,49,0.28)]"
+                        : "text-muted-foreground group-hover:bg-secondary group-hover:text-foreground group-active:scale-95"
+                    )}
+                  >
+                    <item.icon className="h-5 w-5" />
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "max-w-[72px] overflow-hidden truncate text-[11px] font-semibold leading-4 transition-[max-height,opacity,transform] duration-200 motion-reduce:transition-none",
+                      isActive ? "text-primary" : "text-muted-foreground",
+                      isMobileNavCompact
+                        ? "max-h-0 translate-y-1 opacity-0"
+                        : "max-h-4 translate-y-0 opacity-100"
+                    )}
+                  >
+                    {item.label}
+                  </span>
                 </NavLink>
               );
             })}
