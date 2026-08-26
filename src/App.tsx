@@ -116,6 +116,10 @@ const ErrorBoundaryWithAuth = ({ children }: { children: React.ReactNode }) => {
 // itself already limits guests to the public mobile navigation.
 const ConditionalSidebar = () => {
   const location = useLocation();
+  const { loading } = useAuth();
+
+  // Never render guest navigation while the persisted session is unresolved.
+  if (loading) return null;
   
   // Hide app navigation on public/read-only routes.
   if (
@@ -169,6 +173,17 @@ const BouldersOverviewRoute = () => {
   return user
     ? <Boulders />
     : <Navigate to={{ pathname: '/guest', search: location.search }} replace />;
+};
+
+const GuestOverviewRoute = () => {
+  const location = useLocation();
+  const { loading, user } = useAuth();
+
+  if (loading) return <LoadingScreen state="session" />;
+
+  return user
+    ? <Navigate to={{ pathname: '/boulders', search: location.search }} replace />
+    : <Guest />;
 };
 
 const Root = () => {
@@ -297,12 +312,13 @@ const Root = () => {
     );
   }
   
-  // Show loading screen during initial load, BUT allow public routes to render immediately.
+  // Routes that can make sense without knowing the persisted session may render
+  // immediately. The guest overview must wait because an authenticated user is
+  // canonicalized to /boulders and must never see a mixed guest/user shell.
   const isPublicRoute =
     location.pathname === '/auth' ||
     location.pathname === '/auth/callback' ||
-    location.pathname === '/competition' ||
-    location.pathname === '/guest';
+    location.pathname === '/competition';
   
   if ((authLoading || isInitialLoad) && !isPublicRoute) {
     return <LoadingScreen state="app" />;
@@ -427,7 +443,7 @@ const router = createBrowserRouter([
           { path: "schedule", element: <SetterSchedulePage /> },
         ],
       },
-      { path: "guest", element: <Guest /> },
+      { path: "guest", element: <GuestOverviewRoute /> },
       { path: "competition", element: <Competition /> },
 
       // app-prefixed aliases for consistent UX/deeplinks (kletterliga live paths)

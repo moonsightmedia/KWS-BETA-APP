@@ -140,13 +140,19 @@ export const PullToRefreshHandler = () => {
         if (remainingVisibility) await wait(remainingVisibility);
 
         if (result.failedQueries > 0) {
-          toast.warning('Nicht alle Daten konnten aktualisiert werden.');
+          toast.warning('Teilweise aktualisiert', {
+            description: 'Einige Inhalte konnten nicht neu geladen werden. Bitte versuche es gleich noch einmal.',
+          });
         } else {
-          toast.success('Daten sind aktuell.');
+          toast.success('Aktualisiert', {
+            description: 'Alle Inhalte sind aktuell.',
+          });
         }
       } catch (error) {
         console.error('[PullToRefresh] Refresh failed:', error);
-        toast.error('Aktualisieren fehlgeschlagen. Bitte erneut versuchen.');
+        toast.error('Aktualisieren fehlgeschlagen', {
+          description: 'Prüfe deine Verbindung und ziehe die Seite anschließend erneut nach unten.',
+        });
       } finally {
         isRefreshingRef.current = false;
         setIsRefreshing(false);

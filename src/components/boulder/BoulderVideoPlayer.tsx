@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BadgeCheck, Check, ChevronDown, ExternalLink, Maximize2, Minimize2, Settings, Video } from 'lucide-react';
+import { BadgeCheck, Check, ChevronDown, ExternalLink, Loader2, Maximize2, Minimize2, Settings, Video } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -12,6 +12,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import {
+  getNextLowerVideoQuality,
+  HAVE_CURRENT_DATA,
+  HAVE_FUTURE_DATA,
+  isNearVideoEnd,
+  shouldFallbackAfterStall,
+  VIDEO_STALL_FALLBACK_MS,
+  type VideoQualityLevel,
+} from '@/lib/videoPlayback';
 import { VideoQualities } from '@/types/boulder';
 import { detectNetworkSpeed, getOptimalVideoQualityWithDataSaver } from '@/utils/networkUtils';
 import {
@@ -76,19 +85,37 @@ export function BoulderVideoPlayer({
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isBuffering, setIsBuffering] = useState(false);
-  const [bufferProgress, setBufferProgress] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [currentQuality, setCurrentQuality] = useState<'hd' | 'sd' | 'low'>('sd');
+  const [currentQuality, setCurrentQuality] = useState<VideoQualityLevel>('sd');
   const [hasError, setHasError] = useState(false);
+  const [sourceRevision, setSourceRevision] = useState(0);
   const showQualitySelector = hasMultipleVideoQualities(betaVideoUrls, betaVideoUrl);
   const bufferingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasStartedPlayingRef = useRef(false);
-  const playStartTimeRef = useRef<number | null>(null);
-  const retryCountRef = useRef(0);
   const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const bufferingCountRef = useRef(0);
-  const lastBufferingTimeRef = useRef<number | null>(null);
   const playbackStateRef = useRef<{ time: number; wasPlaying: boolean } | null>(null);
+
+  const clearBufferingTimeout = useCallback(() => {
+    if (!bufferingTimeoutRef.current) return;
+    clearTimeout(bufferingTimeoutRef.current);
+    bufferingTimeoutRef.current = null;
+  }, []);
+
+  const clearLoadTimeout = useCallback(() => {
+    if (!loadTimeoutRef.current) return;
+    clearTimeout(loadTimeoutRef.current);
+    loadTimeoutRef.current = null;
+  }, []);
+
+  const rememberPlaybackState = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || !Number.isFinite(video.currentTime)) return;
+
+    playbackStateRef.current = {
+      time: video.currentTime,
+      wasPlaying: !video.paused && !video.ended,
+    };
+  }, []);
 
   useEffect(() => {
     if (!isVisible) return;
@@ -96,49 +123,33 @@ export function BoulderVideoPlayer({
     const availableQualities = getAvailableVideoQualities(betaVideoUrls, betaVideoUrl);
     if (availableQualities.length <= 1) {
       setCurrentQuality(availableQualities[0] ?? 'sd');
-      retryCountRef.current = 0;
-      bufferingCountRef.current = 0;
-      lastBufferingTimeRef.current = null;
       return;
     }
 
     const networkSpeed = detectNetworkSpeed();
     const optimalQuality = getOptimalVideoQualityWithDataSaver(networkSpeed);
     setCurrentQuality(getPreferredVideoQuality(betaVideoUrls, betaVideoUrl, optimalQuality));
-    retryCountRef.current = 0;
-    bufferingCountRef.current = 0;
-    lastBufferingTimeRef.current = null;
     console.log('[VideoPlayer] Network speed:', networkSpeed, 'Selected quality:', optimalQuality);
   }, [isVisible, betaVideoUrls, betaVideoUrl]);
 
   const currentVideoUrl = getVideoUrl(betaVideoUrls, betaVideoUrl, currentQuality);
 
-  const handleQualityFallback = useCallback(() => {
-    if (retryCountRef.current >= 2) {
-      setHasError(true);
-      return;
-    }
+  const handleQualityFallback = useCallback((reason: 'initial-load' | 'stall' | 'error') => {
+    const nextQuality = getNextLowerVideoQuality(currentQuality, betaVideoUrls);
+    if (!nextQuality) return false;
 
-    retryCountRef.current++;
-    const video = videoRef.current;
-    if (!video || !betaVideoUrls) return;
-
-    let nextQuality: 'hd' | 'sd' | 'low' | null = null;
-    if (currentQuality === 'hd' && betaVideoUrls.sd) {
-      nextQuality = 'sd';
-    } else if ((currentQuality === 'hd' || currentQuality === 'sd') && betaVideoUrls.low) {
-      nextQuality = 'low';
+    rememberPlaybackState();
+    if (!hasStartedPlayingRef.current && playbackStateRef.current) {
+      playbackStateRef.current.wasPlaying = true;
     }
-
-    if (nextQuality) {
-      console.log('[VideoPlayer] Falling back to', nextQuality, 'quality');
-      setCurrentQuality(nextQuality);
-      setHasError(false);
-      video.load();
-    } else {
-      setHasError(true);
-    }
-  }, [betaVideoUrls, currentQuality]);
+    clearBufferingTimeout();
+    clearLoadTimeout();
+    console.warn(`[VideoPlayer] ${reason}: switching from ${currentQuality} to ${nextQuality}`);
+    setHasError(false);
+    setIsBuffering(true);
+    setCurrentQuality(nextQuality);
+    return true;
+  }, [betaVideoUrls, clearBufferingTimeout, clearLoadTimeout, currentQuality, rememberPlaybackState]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -167,52 +178,52 @@ export function BoulderVideoPlayer({
       return;
     }
 
-    if (video.src && video.duration > 0) {
-      playbackStateRef.current = {
-        time: video.currentTime,
-        wasPlaying: !video.paused,
-      };
-    }
-
+    const savedPlaybackState = playbackStateRef.current;
     video.src = videoUrl;
-    video.preload = 'metadata';
-
-    if (loadTimeoutRef.current) {
-      clearTimeout(loadTimeoutRef.current);
-    }
+    video.preload = 'auto';
+    clearLoadTimeout();
 
     loadTimeoutRef.current = setTimeout(() => {
-      if (video.readyState === 0) {
-        console.warn('[VideoPlayer] Video loading timeout (10s), trying lower quality');
-        handleQualityFallback();
+      loadTimeoutRef.current = null;
+      if (video.readyState < HAVE_CURRENT_DATA) {
+        const didFallback = handleQualityFallback('initial-load');
+        if (!didFallback && video.readyState === 0) {
+          setIsBuffering(false);
+          setHasError(true);
+        }
       }
     }, 10000);
 
     video.load();
 
     const handleLoadedMetadata = () => {
-      if (playbackStateRef.current) {
-        video.currentTime = playbackStateRef.current.time;
-        if (playbackStateRef.current.wasPlaying) {
-          video.play().catch(() => undefined);
-        }
+      if (savedPlaybackState) {
+        const latestPossibleTime = Number.isFinite(video.duration)
+          ? Math.max(0, video.duration - 0.1)
+          : savedPlaybackState.time;
+        video.currentTime = Math.min(savedPlaybackState.time, latestPossibleTime);
         playbackStateRef.current = null;
       }
+      setHasError(false);
     };
 
-    const handleAutoPlay = () => {
-      if (!playbackStateRef.current && video.readyState >= 3) {
+    const handleCanPlay = () => {
+      clearLoadTimeout();
+      setIsBuffering(false);
+
+      const shouldPlay = savedPlaybackState?.wasPlaying ?? !hasStartedPlayingRef.current;
+      if (shouldPlay) {
         video.play().catch((error) => {
           console.log('[VideoPlayer] Auto-play blocked or failed:', error);
         });
       }
     };
 
-    video.addEventListener('canplaythrough', handleAutoPlay, { once: true });
+    video.addEventListener('canplay', handleCanPlay, { once: true });
     video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
 
-    if (video.readyState >= 3) {
-      handleAutoPlay();
+    if (video.readyState >= HAVE_FUTURE_DATA) {
+      handleCanPlay();
     }
 
     if (video.readyState >= 1) {
@@ -220,129 +231,85 @@ export function BoulderVideoPlayer({
     }
 
     return () => {
-      if (bufferingTimeoutRef.current) {
-        clearTimeout(bufferingTimeoutRef.current);
-        bufferingTimeoutRef.current = null;
+      if (!playbackStateRef.current && Number.isFinite(video.currentTime) && video.currentTime > 0) {
+        playbackStateRef.current = {
+          time: video.currentTime,
+          wasPlaying: !video.paused && !video.ended,
+        };
       }
-      if (loadTimeoutRef.current) {
-        clearTimeout(loadTimeoutRef.current);
-        loadTimeoutRef.current = null;
-      }
-      video.removeEventListener('canplaythrough', handleAutoPlay);
+      clearBufferingTimeout();
+      clearLoadTimeout();
+      video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.pause();
-      video.currentTime = 0;
-      hasStartedPlayingRef.current = false;
-      playStartTimeRef.current = null;
-      playbackStateRef.current = null;
     };
-  }, [isVisible, currentQuality, betaVideoUrls, betaVideoUrl, handleQualityFallback]);
+  }, [
+    betaVideoUrl,
+    betaVideoUrls,
+    clearBufferingTimeout,
+    clearLoadTimeout,
+    currentQuality,
+    handleQualityFallback,
+    isVisible,
+    sourceRevision,
+  ]);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    const updateBufferProgress = () => {
-      if (video.buffered.length > 0 && video.duration > 0) {
-        const bufferedEnd = video.buffered.end(video.buffered.length - 1);
-        const progress = (bufferedEnd / video.duration) * 100;
-        setBufferProgress(progress);
+    const clearBufferingState = () => {
+      clearBufferingTimeout();
+      setIsBuffering(false);
+    };
 
-        if (video.ended) {
-          setIsBuffering(false);
-          return;
+    const scheduleQualityFallback = () => {
+      if (bufferingTimeoutRef.current) return;
+
+      bufferingTimeoutRef.current = setTimeout(() => {
+        bufferingTimeoutRef.current = null;
+        if (shouldFallbackAfterStall({
+          hasStartedPlaying: hasStartedPlayingRef.current,
+          ended: video.ended,
+          paused: video.paused,
+          readyState: video.readyState,
+          duration: video.duration,
+          currentTime: video.currentTime,
+        })) {
+          handleQualityFallback('stall');
         }
-
-        const currentTime = video.currentTime;
-        const bufferAhead = bufferedEnd - currentTime;
-        const timeFromEnd = video.duration - currentTime;
-        const percentRemaining = (timeFromEnd / video.duration) * 100;
-        const isNearEnd = video.duration > 0 && (timeFromEnd <= 5 || percentRemaining <= 10);
-
-        if (isNearEnd) {
-          if (bufferingTimeoutRef.current) {
-            clearTimeout(bufferingTimeoutRef.current);
-            bufferingTimeoutRef.current = null;
-          }
-          setIsBuffering(false);
-        } else if (bufferAhead >= 1 || (bufferAhead < 1 && !video.paused && video.readyState >= 3)) {
-          if (bufferingTimeoutRef.current) {
-            clearTimeout(bufferingTimeoutRef.current);
-            bufferingTimeoutRef.current = null;
-          }
-        }
-
-        const timeSincePlayStart = playStartTimeRef.current ? Date.now() - playStartTimeRef.current : Infinity;
-        const gracePeriodMs = 5000;
-
-        if (bufferAhead < 0.5 && !video.paused && !isNearEnd && hasStartedPlayingRef.current && timeSincePlayStart > gracePeriodMs) {
-          video.pause();
-          setIsBuffering(true);
-        }
-
-        if (bufferAhead > 3 && video.paused && isBuffering && !isNearEnd) {
-          video.play().catch(() => undefined);
-          setIsBuffering(false);
-        }
-      }
+      }, VIDEO_STALL_FALLBACK_MS);
     };
 
     const handleWaiting = () => {
-      if (video.ended) {
-        setIsBuffering(false);
-        return;
-      }
-
-      const timeFromEnd = video.duration - video.currentTime;
-      const percentRemaining = (timeFromEnd / video.duration) * 100;
-      const isNearEnd = video.duration > 0 && (timeFromEnd <= 5 || percentRemaining <= 10);
-      if (isNearEnd) {
-        setIsBuffering(false);
-        return;
-      }
-
-      const now = Date.now();
-      const timeSinceLastBuffering = lastBufferingTimeRef.current ? now - lastBufferingTimeRef.current : Infinity;
-
-      bufferingCountRef.current = timeSinceLastBuffering < 10000 ? bufferingCountRef.current + 1 : 1;
-      lastBufferingTimeRef.current = now;
-
-      if (bufferingCountRef.current >= 2 && hasStartedPlayingRef.current) {
-        console.warn('[VideoPlayer] Video buffering frequently, switching to lower quality');
-        handleQualityFallback();
-        bufferingCountRef.current = 0;
+      if (video.ended || isNearVideoEnd(video.duration, video.currentTime)) {
+        clearBufferingState();
         return;
       }
 
       setIsBuffering(true);
+      scheduleQualityFallback();
     };
 
     const handlePlay = () => {
       hasStartedPlayingRef.current = true;
-      playStartTimeRef.current = Date.now();
+      if (video.readyState < HAVE_FUTURE_DATA && !isNearVideoEnd(video.duration, video.currentTime)) {
+        setIsBuffering(true);
+        scheduleQualityFallback();
+      }
     };
 
     const handlePause = () => {
-      playStartTimeRef.current = null;
+      if (!video.ended) clearBufferingState();
     };
 
     const handleCanPlay = () => {
-      setIsBuffering(false);
-      bufferingCountRef.current = 0;
-      if (bufferingTimeoutRef.current) {
-        clearTimeout(bufferingTimeoutRef.current);
-        bufferingTimeoutRef.current = null;
-      }
+      if (video.readyState >= HAVE_FUTURE_DATA) clearBufferingState();
     };
 
     const handleEnded = () => {
-      setIsBuffering(false);
+      clearBufferingState();
       hasStartedPlayingRef.current = false;
-      playStartTimeRef.current = null;
-      if (bufferingTimeoutRef.current) {
-        clearTimeout(bufferingTimeoutRef.current);
-        bufferingTimeoutRef.current = null;
-      }
     };
 
     const handleError = () => {
@@ -355,36 +322,38 @@ export function BoulderVideoPlayer({
         quality: currentQuality,
       });
 
-      if (error.code === MediaError.MEDIA_ERR_NETWORK || error.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
-        handleQualityFallback();
-      } else {
-        setHasError(true);
+      clearBufferingState();
+      if (
+        (error.code === MediaError.MEDIA_ERR_NETWORK || error.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED)
+        && handleQualityFallback('error')
+      ) {
+        return;
       }
+
+      setHasError(true);
     };
 
     const handleLoadedMetadata = () => {
-      if (loadTimeoutRef.current) {
-        clearTimeout(loadTimeoutRef.current);
-        loadTimeoutRef.current = null;
-      }
       setHasError(false);
     };
 
     const handleStalled = () => {
-      console.warn('[VideoPlayer] Video stalled, checking if fallback needed');
-      if (video.readyState < 2) {
-        setTimeout(() => {
-          if (video.readyState < 2) {
-            handleQualityFallback();
-          }
-        }, 5000);
+      if (shouldFallbackAfterStall({
+        hasStartedPlaying: hasStartedPlayingRef.current,
+        ended: video.ended,
+        paused: video.paused,
+        readyState: video.readyState,
+        duration: video.duration,
+        currentTime: video.currentTime,
+      })) {
+        setIsBuffering(true);
+        scheduleQualityFallback();
       }
     };
 
-    video.addEventListener('progress', updateBufferProgress);
-    video.addEventListener('timeupdate', updateBufferProgress);
     video.addEventListener('waiting', handleWaiting);
     video.addEventListener('play', handlePlay);
+    video.addEventListener('playing', handleCanPlay);
     video.addEventListener('pause', handlePause);
     video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('canplaythrough', handleCanPlay);
@@ -394,10 +363,9 @@ export function BoulderVideoPlayer({
     video.addEventListener('stalled', handleStalled);
 
     return () => {
-      video.removeEventListener('progress', updateBufferProgress);
-      video.removeEventListener('timeupdate', updateBufferProgress);
       video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('play', handlePlay);
+      video.removeEventListener('playing', handleCanPlay);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('canplaythrough', handleCanPlay);
@@ -405,16 +373,9 @@ export function BoulderVideoPlayer({
       video.removeEventListener('error', handleError);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('stalled', handleStalled);
-      if (bufferingTimeoutRef.current) {
-        clearTimeout(bufferingTimeoutRef.current);
-        bufferingTimeoutRef.current = null;
-      }
-      if (loadTimeoutRef.current) {
-        clearTimeout(loadTimeoutRef.current);
-        loadTimeoutRef.current = null;
-      }
+      clearBufferingTimeout();
     };
-  }, [betaVideoUrl, betaVideoUrls, currentQuality, handleQualityFallback, isBuffering]);
+  }, [clearBufferingTimeout, currentQuality, handleQualityFallback]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -475,12 +436,13 @@ export function BoulderVideoPlayer({
             {fallbackUrl && (
               <Button
                 onClick={() => {
+                  const retryQuality = getPreferredVideoQuality(betaVideoUrls, betaVideoUrl, 'low');
+                  playbackStateRef.current = null;
+                  hasStartedPlayingRef.current = false;
                   setHasError(false);
-                  retryCountRef.current = 0;
-                  if (videoRef.current) {
-                    videoRef.current.src = fallbackUrl;
-                    videoRef.current.load();
-                  }
+                  setIsBuffering(true);
+                  setCurrentQuality(retryQuality);
+                  setSourceRevision((revision) => revision + 1);
                 }}
                 variant="outline"
                 size="sm"
@@ -519,13 +481,14 @@ export function BoulderVideoPlayer({
 
       <video
         ref={videoRef}
+        autoPlay
         controls
         muted
         playsInline
         controlsList="nodownload"
         className={cn('h-full w-full object-center', isFullscreen ? 'object-contain' : 'object-cover')}
         poster={poster || undefined}
-        preload="metadata"
+        preload="auto"
       >
         {currentVideoUrl.toLowerCase().endsWith('.mp4') ? (
           <>
@@ -587,17 +550,13 @@ export function BoulderVideoPlayer({
               <DropdownMenuRadioGroup
                 value={currentQuality}
                 onValueChange={(value) => {
-                  const newQuality = value as 'hd' | 'sd' | 'low';
+                  const newQuality = value as VideoQualityLevel;
                   if (newQuality === currentQuality) return;
 
-                  const video = videoRef.current;
-                  if (video && video.duration > 0) {
-                    playbackStateRef.current = {
-                      time: video.currentTime,
-                      wasPlaying: !video.paused,
-                    };
-                  }
-
+                  rememberPlaybackState();
+                  clearBufferingTimeout();
+                  clearLoadTimeout();
+                  setIsBuffering(true);
                   setCurrentQuality(newQuality);
                 }}
               >
@@ -632,9 +591,14 @@ export function BoulderVideoPlayer({
         </button>
       </div>
 
-      {isBuffering && bufferProgress < 100 && (
-        <div className="pointer-events-none absolute inset-x-4 bottom-4 rounded-kws-control bg-[#192436]/85 px-3 py-2 text-center text-xs font-medium text-white backdrop-blur-sm">
-          Buffering {Math.round(bufferProgress)}%
+      {isBuffering && (
+        <div
+          className="pointer-events-none absolute bottom-4 left-1/2 flex min-h-9 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-kws-control bg-[#192436]/88 px-3 py-2 text-xs font-medium text-white shadow-[0_3px_12px_rgba(19,17,43,0.18)] backdrop-blur-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-[#8BDC82] motion-reduce:animate-none" aria-hidden="true" />
+          Video wird geladen …
         </div>
       )}
     </div>

@@ -350,7 +350,11 @@ Alle kurzzeitigen Systemmeldungen verwenden den gemeinsamen Sonner-Toaster.
   konkrete Erklärung oder nächste Handlung, beispielsweise
   `Anmeldung fehlgeschlagen` plus Hinweis zu E-Mail und Passwort.
 - Der Schließenbutton ist `32 × 32px` groß, verwendet den 8-px-Controlradius
-  und besitzt einen sichtbaren markenkonformen Tastaturfokus.
+  und sitzt auf derselben vertikalen Mittelachse wie Statusicon und Inhalt. Er
+  besitzt einen sichtbaren markenkonformen Tastaturfokus.
+- Statusicon, Textblock und Schließenaktion sind vertikal sauber zentriert.
+  Einzeilige Meldungen dürfen nicht am oberen Rand hängen; mehrzeilige
+  Beschreibungen bleiben als kompakter gemeinsamer Textblock lesbar.
 - Meldungen dürfen horizontal weggewischt werden, den Viewport nicht verlassen
   und respektieren `prefers-reduced-motion`.
 
@@ -543,6 +547,9 @@ Die Gastansicht ist keine zweite Designwelt.
 - Filter bleiben Multi-Select,
 - keine Home-Funktion, die eine Anmeldung voraussetzt,
 - Hauptnavigation enthält für Gäste `Boulder` und `Anmelden`,
+- die Gästeübersicht wird erst nach abgeschlossener Sessionprüfung gerendert;
+  eine vorhandene Anmeldung leitet `/guest` ohne gemischte Gast-/Nutzeroberfläche
+  nach `/boulders` weiter,
 - Klick auf einen Boulder öffnet eine funktionierende Gast-Detailansicht,
 - das Zurückziel führt nachvollziehbar zur Gast-Boulderübersicht,
 - Login-Aktionen sind klar, aber ersetzen nicht plötzlich Profilicons oder
@@ -588,6 +595,12 @@ Bedienelemente auf wechselnden Wandfotos lesbar bleiben:
 - die gewählte Qualität erhält eine grüne Fläche, weiße Schrift und ein weißes
   Häkchen. Kreisförmige Radioindikatoren werden in diesem eckigen Toolpanel
   nicht verwendet,
+- der Browser steuert Pause und Fortsetzung beim Puffern nativ. Erst ein
+  anhaltender Lade-Stillstand löst automatisch genau einen Wechsel auf die
+  nächstkleinere vorhandene Qualitätsstufe aus,
+- der sichtbare Ladehinweis nennt knapp `Video wird geladen …` und verwendet
+  keine Prozentzahl des gesamten Videos, da diese nicht den Fortschritt bis zur
+  Fortsetzung beschreibt,
 - im Vollbild wird das Video vollständig mit `object-contain` gezeigt,
 - bei direkten Videos gehören Badge, Qualität und Vollbild in denselben
   Fullscreen-Container. So bleiben sie im Vollbild sichtbar und werden nicht
@@ -704,6 +717,9 @@ Verbindliche Regeln:
   Badges zu überlappen.
 - Touchgesten von Karte, horizontalen Scrollern und Route-Swipe werden sauber
   voneinander getrennt.
+- Route-Swipes dürfen auf normalen Karten und Listenzeilen beginnen. Formfelder,
+  Switches, Dialoge, Hallenkarte und horizontal scrollbare Bereiche bleiben
+  ausgeschlossen; ein erfolgreicher Swipe darf keinen Kartenklick auslösen.
 - Pull-to-Refresh beginnt ausschließlich am oberen Dokumentrand. Nach einer
   kleinen Bewegungsschwelle wird die Richtung gesperrt: horizontale Gesten
   bleiben für Route-Swipe und Scroller frei, vertikale Abwärtsgesten zeigen
@@ -711,6 +727,10 @@ Verbindliche Regeln:
   starten keine Aktualisierung.
 - Der Refresh-Status unterscheidet zwischen Ziehen, Loslassen und Laden. Erfolg,
   Teilerfolg und Fehler werden wahrheitsgemäß und knapp bestätigt.
+- Der sichtbare Pull-to-Refresh-Status gehört zur hellen Toast-Familie: weiße
+  12-px-Fläche, eckige grüne Iconfläche, dunkelblaue Schrift und eine dünne
+  grüne Fortschrittslinie. Ein dunkler Banner und Prozentangaben zum gesamten
+  Daten- oder Videovolumen werden dafür nicht verwendet.
 
 ## 12. Technische Quelle und Wiederverwendung
 
