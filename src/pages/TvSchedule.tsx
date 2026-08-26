@@ -11,13 +11,16 @@ import {
   usePublicTvSchedule,
   usePublicTvSectors,
 } from '@/hooks/usePublicTvSchedule';
+import { resolveSectorArea } from '@/lib/sectorAreas';
 import { cn } from '@/lib/utils';
 import type { Sector } from '@/types/boulder';
 import type { HallMap, MapPoint, SectorMapRegion } from '@/types/hallMap';
 
 type ScheduleEntry = PublicSectorSchedule & {
   sectorName: string;
-  sector: Sector | null;
+  sectors: Sector[];
+  sectorIds: string[];
+  scheduleIds: string[];
   sequenceNumber: number;
 };
 
@@ -29,6 +32,13 @@ type ScheduleGroup = {
 };
 
 type TvMapData = Pick<HallMap, 'name' | 'image_url' | 'width' | 'height'>;
+
+interface FallbackRegionProposal {
+  points_json?: MapPoint[];
+  label_x?: number | null;
+  label_y?: number | null;
+  centroid?: MapPoint;
+}
 
 const REFRESH_INTERVAL_SECONDS = 60;
 
@@ -163,6 +173,12 @@ function formatTime(value: string) {
   });
 }
 
+function formatSubareaCodes(codes: string[]) {
+  if (codes.length <= 1) return codes[0] ?? '';
+  if (codes.length === 2) return `${codes[0]} und ${codes[1]}`;
+  return `${codes.slice(0, -1).join(', ')} und ${codes[codes.length - 1]}`;
+}
+
 function buildScheduleGroups(schedule: PublicSectorSchedule[] | undefined, sectors: Sector[]): ScheduleGroup[] {
   const now = new Date();
   const sectorById = new Map(sectors.map((sector) => [sector.id, sector]));
@@ -171,7 +187,7 @@ function buildScheduleGroups(schedule: PublicSectorSchedule[] | undefined, secto
   (schedule ?? [])
     .filter((item) => new Date(item.scheduled_at).getTime() >= now.getTime())
     .sort((left, right) => new Date(left.scheduled_at).getTime() - new Date(right.scheduled_at).getTime())
-    .forEach((item, index) => {
+    .forEach((item) => {
       const date = new Date(item.scheduled_at);
       const key = getDateKey(date);
       const group =
@@ -184,22 +200,72 @@ function buildScheduleGroups(schedule: PublicSectorSchedule[] | undefined, secto
         } satisfies ScheduleGroup);
 
       const sector = sectorById.get(item.sector_id) ?? null;
-      group.entries.push({
-        ...item,
-        sector,
-        sectorName: sector?.name ?? 'Unbekannter Sektor',
-        sequenceNumber: index + 1,
-      });
+      const resolvedSector = sector ? resolveSectorArea(sector) : null;
+      const logicalAreaKey = resolvedSector?.area?.slug ?? item.sector_id;
+      const scheduleBlockKey = `${item.scheduled_at}:${logicalAreaKey}`;
+      const existingEntry = group.entries.find((entry) => entry.id === scheduleBlockKey);
+
+      if (existingEntry) {
+        if (sector && !existingEntry.sectorIds.includes(sector.id)) {
+          existingEntry.sectors.push(sector);
+          existingEntry.sectorIds.push(sector.id);
+        }
+        existingEntry.scheduleIds.push(item.id);
+      } else {
+        group.entries.push({
+          ...item,
+          id: scheduleBlockKey,
+          sectors: sector ? [sector] : [],
+          sectorIds: sector ? [sector.id] : [item.sector_id],
+          scheduleIds: [item.id],
+          sectorName: sector?.name ?? 'Unbekannter Teilbereich',
+          sequenceNumber: 0,
+        });
+      }
       groups.set(key, group);
     });
 
-  return Array.from(groups.values()).sort((left, right) => left.date.getTime() - right.date.getTime());
+  const sortedGroups = Array.from(groups.values()).sort((left, right) => left.date.getTime() - right.date.getTime());
+  let sequenceNumber = 1;
+
+  sortedGroups.forEach((group) => {
+    group.entries.sort((left, right) => {
+      const timeDifference = new Date(left.scheduled_at).getTime() - new Date(right.scheduled_at).getTime();
+      if (timeDifference !== 0) return timeDifference;
+
+      const leftArea = left.sectors[0] ? resolveSectorArea(left.sectors[0]).area : undefined;
+      const rightArea = right.sectors[0] ? resolveSectorArea(right.sectors[0]).area : undefined;
+      const areaOrderDifference = (leftArea?.sortOrder ?? Number.MAX_SAFE_INTEGER)
+        - (rightArea?.sortOrder ?? Number.MAX_SAFE_INTEGER);
+      if (areaOrderDifference !== 0) return areaOrderDifference;
+
+      return left.sectorName.localeCompare(right.sectorName, 'de-DE');
+    });
+    group.entries.forEach((entry) => {
+      entry.sequenceNumber = sequenceNumber;
+      sequenceNumber += 1;
+
+      const resolvedSectors = entry.sectors.map((sector) => resolveSectorArea(sector));
+      const area = resolvedSectors.find((resolved) => resolved.area)?.area;
+      const codes = [...new Set(resolvedSectors.map((resolved) => resolved.subareaCode).filter((code): code is string => Boolean(code)))]
+        .sort((left, right) => left.localeCompare(right, 'de-DE'));
+
+      if (area && codes.length > 0) {
+        entry.sectorName = `${area.name} · ${formatSubareaCodes(codes)}`;
+      }
+    });
+  });
+
+  return sortedGroups;
 }
 
 function buildFallbackRegions(sectors: Sector[]): SectorMapRegion[] {
-  const proposals = (fallbackRegionData as { proposals?: Array<any> }).proposals ?? [];
+  const proposals = (fallbackRegionData as { proposals?: FallbackRegionProposal[] }).proposals ?? [];
 
-  return sectors.slice(0, proposals.length).map((sector, index) => {
+  return [...sectors]
+    .sort((left, right) => (left.legacyName ?? left.name).localeCompare(right.legacyName ?? right.name, 'de-DE'))
+    .slice(0, proposals.length)
+    .map((sector, index) => {
     const proposal = proposals[index];
     return {
       id: `fallback-${sector.id}`,
@@ -213,7 +279,7 @@ function buildFallbackRegions(sectors: Sector[]): SectorMapRegion[] {
       created_at: '',
       updated_at: '',
     };
-  });
+    });
 }
 
 function TvScheduleMap({
@@ -235,7 +301,7 @@ function TvScheduleMap({
   // but the visible base image is always the official Boulderkarte asset.
   const mapData: TvMapData = {
     name: activeMap?.name ?? fallbackMap.name,
-    image_url: fallbackHallMap,
+    image_url: activeMap?.image_url ?? fallbackHallMap,
     width: activeMap?.width ?? fallbackMap.width,
     height: activeMap?.height ?? fallbackMap.height,
   };
@@ -390,9 +456,9 @@ const TvSchedule = () => {
       groups
         .flatMap((group) => group.entries)
         .reduce((orderMap, entry) => {
-          if (!orderMap.has(entry.sector_id)) {
-            orderMap.set(entry.sector_id, entry.sequenceNumber);
-          }
+          entry.sectorIds.forEach((sectorId) => {
+            if (!orderMap.has(sectorId)) orderMap.set(sectorId, entry.sequenceNumber);
+          });
           return orderMap;
         }, new Map<string, number>()),
     [groups],
@@ -400,6 +466,7 @@ const TvSchedule = () => {
   const hasError = !!sectorsError || !!scheduleError;
   const isLoading = sectorsLoading || scheduleLoading;
   const updatedAt = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
+  const workBlockCount = groups.reduce((total, group) => total + group.entries.length, 0);
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#F9FAF9] text-[#13112B]">
@@ -438,7 +505,7 @@ const TvSchedule = () => {
                   {groups.length} {groups.length === 1 ? 'Termintag' : 'Termintage'}
                 </p>
                 <p className="mt-1 text-sm font-semibold text-[#13112B]/52">
-                  {sectorOrderById.size} {sectorOrderById.size === 1 ? 'Sektor' : 'Sektoren'} in Reihenfolge
+                  {workBlockCount} {workBlockCount === 1 ? 'Arbeitsblock' : 'Arbeitsblöcke'} in Reihenfolge
                 </p>
               </div>
               <div className={cn('flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold', isFetching ? 'border-[#69B545]/35 bg-[#EAF5E7] text-[#347D2F]' : 'border-[#DDE7DF] bg-[#F9FAF9] text-[#6E806A]')}>

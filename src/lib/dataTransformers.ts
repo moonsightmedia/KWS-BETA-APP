@@ -1,5 +1,6 @@
-import { Boulder as SupabaseBoulder, Sector as SupabaseSector, VideoQualities } from '@/hooks/useBoulders';
+import { Boulder as SupabaseBoulder, VideoQualities } from '@/hooks/useBoulders';
 import { Sector as SupabaseSectorHook } from '@/hooks/useSectors';
+import { resolveSectorArea } from '@/lib/sectorAreas';
 import { Boulder, Sector } from '@/types/boulder';
 
 /**
@@ -11,6 +12,11 @@ export const transformBoulder = (
 ): Boulder => {
   const sector = sectors?.find(s => s.id === boulder.sector_id);
   const sector2 = boulder.sector_id_2 ? sectors?.find(s => s.id === boulder.sector_id_2) : null;
+  const resolvedSector = sector ? resolveSectorArea(sector) : undefined;
+  const resolvedSector2 = sector2 ? resolveSectorArea(sector2) : undefined;
+  const publicSecondarySector = resolvedSector2?.publicName !== resolvedSector?.publicName
+    ? resolvedSector2?.publicName
+    : undefined;
   
   // Parse beta_video_urls JSON if available
   let betaVideoUrls: VideoQualities | undefined = undefined;
@@ -36,8 +42,16 @@ export const transformBoulder = (
   return {
     id: boulder.id,
     name: boulder.name,
-    sector: sector?.name || 'Unbekannter Sektor',
-    sector2: sector2?.name || undefined,
+    sector: resolvedSector?.publicName || 'Unbekannter Sektor',
+    sector2: publicSecondarySector,
+    sectorId: boulder.sector_id,
+    sector2Id: boulder.sector_id_2 || undefined,
+    sectorLegacyName: sector?.name || undefined,
+    sector2LegacyName: sector2?.name || undefined,
+    sectorArea: resolvedSector?.area,
+    sector2Area: resolvedSector2?.area,
+    sectorSubareaCode: resolvedSector?.subareaCode,
+    sector2SubareaCode: resolvedSector2?.subareaCode,
     difficulty: boulder.difficulty as Boulder['difficulty'],
     color: boulder.color as Boulder['color'],
     color2: boulder.color_2 as Boulder['color2'] || undefined,
@@ -46,7 +60,7 @@ export const transformBoulder = (
     thumbnailUrl: boulder.thumbnail_url || undefined,
     note: boulder.note || undefined,
     createdAt: new Date(boulder.created_at),
-    status: (boulder as any).status || 'haengt',
+    status: boulder.status || 'haengt',
   };
 };
 
@@ -54,9 +68,16 @@ export const transformBoulder = (
  * Konvertiert Supabase Sector zu Frontend Sector
  */
 export const transformSector = (sector: SupabaseSectorHook): Sector => {
+  const resolvedSector = resolveSectorArea(sector);
+
   return {
     id: sector.id,
-    name: sector.name,
+    name: resolvedSector.publicName,
+    legacyName: sector.name,
+    area: resolvedSector.area,
+    areaId: resolvedSector.area?.id || sector.area_id || undefined,
+    subareaCode: resolvedSector.subareaCode,
+    sortOrder: resolvedSector.sortOrder,
     boulderCount: sector.boulder_count,
     description: sector.description || undefined,
     nextSchraubtermin: sector.next_schraubtermin ? new Date(sector.next_schraubtermin) : undefined,

@@ -145,10 +145,8 @@ const SetterStatusPage = () => {
         }
       }
 
-      const primarySectorId = sectors.find((sector) => sector.name === boulder.sector)?.id;
-      const secondarySectorId = boulder.sector2
-        ? sectors.find((sector) => sector.name === boulder.sector2)?.id
-        : null;
+      const primarySectorId = boulder.sectorId;
+      const secondarySectorId = boulder.sector2Id;
 
       if (primarySectorId) {
         accumulator[primarySectorId] = (accumulator[primarySectorId] ?? 0) + 1;
@@ -159,7 +157,7 @@ const SetterStatusPage = () => {
 
       return accumulator;
     }, {});
-  }, [boulders, query, sectors]);
+  }, [boulders, query]);
 
   const baseFilteredBoulders = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -239,7 +237,7 @@ const SetterStatusPage = () => {
     const grouped = new Map<string, Omit<SectorGroup, 'hangingIds' | 'offIds' | 'hangingCount' | 'offCount'>>();
 
     baseFilteredBoulders.forEach((boulder) => {
-      const groupId = sectors.find((sector) => sector.name === boulder.sector)?.id ?? boulder.sector;
+      const groupId = boulder.sector;
       const current = grouped.get(groupId) ?? {
         id: groupId,
         name: boulder.sector,
@@ -257,7 +255,7 @@ const SetterStatusPage = () => {
     });
 
     filteredBoulders.forEach((boulder) => {
-      const groupId = sectors.find((sector) => sector.name === boulder.sector)?.id ?? boulder.sector;
+      const groupId = boulder.sector;
       const current = grouped.get(groupId);
 
       if (!current) return;
@@ -298,7 +296,7 @@ const SetterStatusPage = () => {
 
         return left.name.localeCompare(right.name, 'de-DE');
       });
-  }, [baseFilteredBoulders, filteredBoulders, sectorFilter, sectors, selectedSectorName]);
+  }, [baseFilteredBoulders, filteredBoulders, sectorFilter, selectedSectorName]);
 
   const filteredBoulderIds = useMemo(
     () => filteredBoulders.map((boulder) => boulder.id),
@@ -388,11 +386,8 @@ const SetterStatusPage = () => {
     }
   };
 
-  const handleMapSectorSelect = (sectorName: string) => {
-    const sector = sectors.find((entry) => entry.name === sectorName);
-    if (!sector) return;
-
-    const nextSectorId = sectorFilter === sector.id ? 'all' : sector.id;
+  const handleMapSectorSelect = (sectorId: string) => {
+    const nextSectorId = sectorFilter === sectorId ? 'all' : sectorId;
     setSectorFilter(nextSectorId);
     setSelectedIds(new Set());
   };
@@ -548,8 +543,9 @@ const SetterStatusPage = () => {
                 <HallMapView
                   sectors={sectors}
                   countsBySectorId={mapCountsBySectorId}
+                  boulderSectorReferences={boulders ?? []}
                   selectedSectorName={selectedSectorName}
-                  onSelectSector={handleMapSectorSelect}
+                  onSelectSectorId={handleMapSectorSelect}
                   onClearSector={clearSectorFilter}
                   compact
                   frameless

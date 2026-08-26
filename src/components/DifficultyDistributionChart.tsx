@@ -87,9 +87,9 @@ export const DifficultyDistributionChart = ({ stats, avgDifficulty }: Difficulty
             </SelectTrigger>
             <SelectContent className="bg-card z-50">
               <SelectItem value="all">Alle Sektoren</SelectItem>
-              {sectors?.map((sector) => (
-                <SelectItem key={sector.id} value={sector.name}>
-                  {sector.name}
+              {[...new Set((sectors ?? []).map((sector) => sector.name))].map((sectorName) => (
+                <SelectItem key={sectorName} value={sectorName}>
+                  {sectorName}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -112,7 +112,7 @@ export const DifficultyDistributionChart = ({ stats, avgDifficulty }: Difficulty
               tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
               allowDecimals={false}
             />
-            <Bar dataKey="value" radius={[12, 12, 12, 12]}>
+            <Bar dataKey="value" radius={[4, 4, 4, 4]}>
               {data.map((entry, index) => (
                 <Cell 
                   key={`cell-${index}`} 

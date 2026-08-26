@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   Bell,
   BellOff,
   CalendarDays,
@@ -14,8 +12,9 @@ import { Capacitor } from '@capacitor/core';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { DashboardPageLayout } from '@/components/DashboardPageLayout';
+import { KwsSurface } from '@/components/ui/kws-surface';
 import { Switch } from '@/components/ui/switch';
-import { SetupAreaLayout } from '@/components/SetupAreaLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotificationPreferences, useUpdateNotificationPreferences } from '@/hooks/useNotificationPreferences';
 import {
@@ -43,22 +42,21 @@ const NotificationRow = ({
   disabled?: boolean;
   onCheckedChange: (checked: boolean) => void | Promise<void>;
 }) => (
-  <div className="flex items-center justify-between border-b border-border px-4 py-4 last:border-b-0">
+  <div className="flex min-h-[72px] items-center justify-between border-b border-[#E7F0E8] px-3.5 py-3.5 last:border-b-0 sm:px-4">
     <div className="mr-3 flex flex-1 items-start gap-3">
-      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-kws-control bg-secondary">
         {icon}
       </div>
-      <div>
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+      <div className="min-w-0">
+        <p className="font-sans text-sm font-semibold text-[#192436]">{title}</p>
+        <p className="mt-0.5 font-sans text-[10px] leading-relaxed text-muted-foreground sm:text-xs">{subtitle}</p>
       </div>
     </div>
-    <Switch checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
+    <Switch aria-label={title} checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
   </div>
 );
 
 const NotificationSettings = () => {
-  const navigate = useNavigate();
   const { user, session } = useAuth();
   const queryClient = useQueryClient();
   const versionInfo = getVersionInfo();
@@ -127,21 +125,11 @@ const NotificationSettings = () => {
   ];
 
   return (
-    <SetupAreaLayout className="bg-background" contentClassName="bg-background">
-      <div className="flex items-center gap-3 px-4 pb-4 pt-12">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary transition-colors active:scale-95"
-          aria-label="Zurück"
-        >
-          <ArrowLeft className="h-4 w-4 text-muted-foreground" />
-        </button>
-        <h1 className="text-lg font-bold text-foreground">Benachrichtigungen</h1>
-      </div>
-
-      <div className="mt-2 space-y-4 px-4">
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <DashboardPageLayout headerBackTo="/profile">
+      <div className="mx-auto max-w-3xl space-y-5">
+        <section>
+          <h2 className="mb-2.5 px-0.5 font-sans text-sm font-semibold text-[#192436]">Kanäle</h2>
+          <KwsSurface className="overflow-hidden">
           <NotificationRow
             icon={<Bell className="h-4 w-4 text-primary" strokeWidth={1.9} />}
             title="In-App Benachrichtigungen"
@@ -201,9 +189,12 @@ const NotificationSettings = () => {
             }}
             />
           ) : null}
-        </div>
+          </KwsSurface>
+        </section>
 
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <section>
+          <h2 className="mb-2.5 px-0.5 font-sans text-sm font-semibold text-[#192436]">Mitteilungen</h2>
+          <KwsSurface className="overflow-hidden">
           {notificationTypes.map((item) => (
             <NotificationRow
               key={item.key}
@@ -214,17 +205,20 @@ const NotificationSettings = () => {
               onCheckedChange={(checked) => updateNotificationPreferences.mutate({ [item.key]: checked })}
             />
           ))}
-        </div>
+          </KwsSurface>
+        </section>
 
         {!isNativePlatform ? (
-          <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
-            <Info className="h-4 w-4 shrink-0" />
-            Browser-Push ist in der Web-Beta deaktiviert. In-App-Benachrichtigungen bleiben aktiv.
-          </div>
+          <KwsSurface className="flex items-start gap-3 px-3.5 py-3.5 font-sans text-xs leading-relaxed text-muted-foreground sm:px-4">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-kws-control bg-secondary text-[#192436]/65">
+              <Info className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <p className="pt-1.5">Browser-Push ist in der Web-Beta deaktiviert. In-App-Benachrichtigungen bleiben aktiv.</p>
+          </KwsSurface>
         ) : null}
 
         {isNativePlatform ? (
-          <div className="space-y-3 rounded-2xl border border-border bg-card px-4 py-4">
+          <KwsSurface className="space-y-3 px-4 py-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-medium text-foreground">Push-Status</p>
               <button
@@ -235,7 +229,7 @@ const NotificationSettings = () => {
                   queryClient.invalidateQueries({ queryKey: ['push_tokens', user?.id] });
                   toast.success('Status aktualisiert');
                 }}
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary"
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-kws-control bg-secondary px-2.5 font-sans text-xs font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 Aktualisieren
@@ -258,14 +252,14 @@ const NotificationSettings = () => {
               <p><strong>Push in Einstellungen:</strong> {notificationPreferences?.push_enabled ? 'Aktiviert' : 'Deaktiviert'}</p>
               <p><strong>Registrierte Geräte:</strong> {pushTokensList?.length ?? 0}</p>
             </div>
-          </div>
+          </KwsSurface>
         ) : null}
 
-        <p className="px-1 text-xs text-muted-foreground">
+        <p className="px-1 font-sans text-[10px] leading-relaxed text-muted-foreground sm:text-xs">
           Benachrichtigungen werden auf diesem Gerät und in deinem Konto gespeichert.
         </p>
       </div>
-    </SetupAreaLayout>
+    </DashboardPageLayout>
   );
 };
 

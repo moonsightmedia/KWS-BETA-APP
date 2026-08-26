@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, BadgeCheck, Play, Video } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { BadgeCheck, Play, Video } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -13,12 +13,12 @@ import {
   isVimeoUrl,
   isYouTubeUrl,
 } from '@/components/boulder/BoulderVideoPlayer';
-import { useSidebar } from '@/components/SidebarContext';
+import { DashboardPageLayout } from '@/components/DashboardPageLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useColors } from '@/hooks/useColors';
-import { cn } from '@/lib/utils';
 import type { Boulder } from '@/types/boulder';
+import { KwsSegmentedControl } from '@/components/ui/kws-segmented-control';
 
 const tabs = ['Info', 'Track', 'Beta'] as const;
 type DetailTab = (typeof tabs)[number];
@@ -38,8 +38,6 @@ function getThumbnailUrl(boulder: Boulder) {
 
 export default function BoulderDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
-  const { isExpanded } = useSidebar();
   const { user, loading: authLoading } = useAuth();
   const { data: colors } = useColors();
   const { data: boulders, isLoading } = useBouldersWithSectors(!authLoading);
@@ -55,7 +53,7 @@ export default function BoulderDetail() {
   const isDirectVideo = Boolean(videoUrl && !isYouTube && !isVimeo);
   const availableTabs = useMemo(() => (user ? tabs : (['Info', 'Beta'] as const)), [user]);
 
-  const getScrollContainer = () => {
+  const getScrollContainer = useCallback(() => {
     const candidates = [
       document.body,
       document.scrollingElement,
@@ -67,9 +65,9 @@ export default function BoulderDetail() {
       const candidateScrollableHeight = candidate.scrollHeight - candidate.clientHeight;
       return candidateScrollableHeight > largestScrollableHeight ? candidate : largest;
     }, candidates[0] ?? document.body);
-  };
+  }, []);
 
-  const scrollPageTo = (top: number, behavior: ScrollBehavior) => {
+  const scrollPageTo = useCallback((top: number, behavior: ScrollBehavior) => {
     const targetTop = Math.max(top, 0);
     const scrollContainer = getScrollContainer();
 
@@ -87,9 +85,9 @@ export default function BoulderDetail() {
       top: targetTop,
       behavior,
     });
-  };
+  }, [getScrollContainer]);
 
-  const scrollTabsIntoView = () => {
+  const scrollTabsIntoView = useCallback(() => {
     const tabBar = tabBarRef.current;
     if (!tabBar) return;
     const scrollContainer = getScrollContainer();
@@ -99,7 +97,7 @@ export default function BoulderDetail() {
     const targetTop = naturalTop - stickyTop;
 
     scrollPageTo(targetTop, 'smooth');
-  };
+  }, [getScrollContainer, scrollPageTo]);
 
   useLayoutEffect(() => {
     const updateTabContentMinHeight = () => {
@@ -138,7 +136,7 @@ export default function BoulderDetail() {
       resizeObserver.disconnect();
       window.removeEventListener('resize', updateTabContentMinHeight);
     };
-  }, [activeTab, id]);
+  }, [activeTab, getScrollContainer, id]);
 
   useEffect(() => {
     if (!availableTabs.includes(activeTab as (typeof availableTabs)[number])) {
@@ -148,7 +146,7 @@ export default function BoulderDetail() {
 
   useLayoutEffect(() => {
     scrollPageTo(0, 'auto');
-  }, [id]);
+  }, [id, scrollPageTo]);
 
   const renderTabContent = () => {
     if (!boulder) return null;
@@ -157,188 +155,171 @@ export default function BoulderDetail() {
     return <BoulderInfoTab boulder={boulder} />;
   };
 
-  const detailHeaderClassName = cn(
-    'fixed inset-x-0 top-0 z-10 border-b border-border bg-background/80 pb-3 pt-12 backdrop-blur-xl md:pt-4',
-    isExpanded ? 'md:left-64' : 'md:left-20',
-  );
+  const backDestination = user ? '/boulders' : '/guest';
 
   if (isLoading || authLoading) {
     return (
-      <div className="flex min-h-screen bg-background">
-        <div className={cn('flex min-w-0 flex-1 flex-col bg-background', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
-          <div className={detailHeaderClassName}>
-            <div className="mx-auto w-full max-w-7xl px-4 lg:px-8">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 animate-pulse rounded-xl bg-secondary" />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div className="h-5 w-40 animate-pulse rounded bg-secondary" />
-                  <div className="h-3 w-32 animate-pulse rounded bg-secondary" />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="px-4 pb-24 pt-28 md:pt-20 lg:px-8">
-            <div className="mx-auto w-full max-w-7xl">
-              <div className="lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start lg:gap-x-10 xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] xl:gap-x-12">
-                <div className="aspect-[9/16] max-h-[min(60vh,720px)] animate-pulse rounded-2xl bg-secondary sm:mx-auto sm:max-w-md lg:mx-0 lg:max-h-[calc(100vh-8rem)] lg:max-w-none" />
-                <div className="mt-4 space-y-4 lg:mt-0">
-                  <div className="h-12 animate-pulse rounded-xl bg-secondary" />
-                  <div className="h-64 animate-pulse rounded-2xl bg-secondary" />
-                </div>
-              </div>
-            </div>
+      <DashboardPageLayout
+        headerBackTo={backDestination}
+        headerBackLabel="Zurück zur Boulderübersicht"
+        mainClassName="pt-4 md:pt-6"
+      >
+        <div className="mb-4 space-y-2">
+          <div className="h-6 w-52 animate-pulse rounded-kws-badge bg-secondary" />
+          <div className="h-4 w-72 max-w-full animate-pulse rounded-kws-badge bg-secondary" />
+        </div>
+        <div className="lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start lg:gap-x-8 xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] xl:gap-x-10">
+          <div className="aspect-[9/16] max-h-[min(60vh,720px)] animate-pulse rounded-kws-card bg-secondary sm:mx-auto sm:max-w-md lg:mx-0 lg:max-h-[calc(100vh-8rem)] lg:max-w-none" />
+          <div className="mt-4 space-y-4 lg:mt-0">
+            <div className="h-12 animate-pulse rounded-kws-card bg-secondary" />
+            <div className="h-64 animate-pulse rounded-kws-card bg-secondary" />
           </div>
         </div>
-      </div>
+      </DashboardPageLayout>
     );
   }
 
   if (!boulder) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-6 text-center text-muted-foreground">
-        Boulder nicht gefunden.
-      </div>
+      <DashboardPageLayout
+        headerBackTo={backDestination}
+        headerBackLabel="Zurück zur Boulderübersicht"
+        mainClassName="flex items-center justify-center"
+      >
+        <div className="w-full max-w-md rounded-kws-card bg-card p-6 text-center text-sm text-muted-foreground shadow-[0_3px_14px_rgba(19,17,43,0.07)]">
+          Boulder nicht gefunden.
+        </div>
+      </DashboardPageLayout>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <div className={cn('flex min-w-0 flex-1 flex-col bg-background', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
-        <div className={detailHeaderClassName}>
-          <div className="mx-auto w-full max-w-7xl px-4 lg:px-8">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => navigate('/boulders')}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary md:hidden"
-                aria-label="Zurück"
-              >
-                <ArrowLeft className="h-4 w-4 text-foreground" />
-              </button>
-              <div className="min-w-0 flex-1">
-                <h1 className="truncate text-lg font-bold text-foreground lg:text-xl">{boulder.name}</h1>
-                <div className="flex flex-wrap items-center gap-2">
-                  <DifficultyBadge
-                    color={boulder.color}
-                    color2={boulder.color2}
-                    colorHex={boulder.colorHex}
-                    difficulty={boulder.difficulty}
-                    colors={colors}
-                    variant="detail"
-                  />
-                  <span className="text-xs text-muted-foreground">·</span>
-                  <span className="text-xs text-muted-foreground">{boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}</span>
-                  <span className="text-xs text-muted-foreground">·</span>
-                  <span className="text-xs text-muted-foreground">{format(boulder.createdAt, 'dd. MMM yyyy', { locale: de })}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+    <DashboardPageLayout
+      headerBackTo={backDestination}
+      headerBackLabel="Zurück zur Boulderübersicht"
+      mainClassName="pt-4 md:pt-6"
+    >
+      <section className="mb-4 min-w-0" aria-labelledby="boulder-detail-title">
+        <h2
+          id="boulder-detail-title"
+          className="truncate font-sans text-xl font-semibold tracking-[-0.03em] text-[#192436] md:text-2xl"
+        >
+          {boulder.name}
+        </h2>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <DifficultyBadge
+            color={boulder.color}
+            color2={boulder.color2}
+            colorHex={boulder.colorHex}
+            difficulty={boulder.difficulty}
+            colors={colors}
+            variant="detail"
+          />
+          <span className="text-xs text-muted-foreground" aria-hidden="true">·</span>
+          <span className="text-xs font-medium text-muted-foreground">
+            {boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}
+          </span>
+          <span className="text-xs text-muted-foreground" aria-hidden="true">·</span>
+          <span className="text-xs text-muted-foreground">{format(boulder.createdAt, 'dd. MMM yyyy', { locale: de })}</span>
         </div>
+      </section>
 
-        <div className="pt-28 md:pt-20" />
-
-        <div className="mx-auto w-full max-w-7xl px-4 lg:px-8">
-          <div className="lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start lg:gap-x-10 xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] xl:gap-x-12">
-            <section className="lg:sticky lg:top-20 lg:self-start">
-              <div className="relative mx-auto flex aspect-[9/16] max-h-[min(60vh,720px)] w-full max-w-md items-center justify-center overflow-hidden rounded-2xl bg-secondary lg:mx-0 lg:max-h-[calc(100vh-8rem)] lg:max-w-none">
-                {videoUrl ? (
-                  isYouTube ? (
-                    <iframe
-                      src={getYouTubeEmbedUrl(videoUrl)}
-                      className="h-full w-full"
-                      frameBorder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                      allowFullScreen
-                      title="YouTube video player"
-                    />
-                  ) : isVimeo ? (
-                    <iframe
-                      src={getVimeoEmbedUrl(videoUrl)}
-                      className="h-full w-full"
-                      frameBorder="0"
-                      allow="autoplay; fullscreen; picture-in-picture"
-                      allowFullScreen
-                      title="Vimeo video player"
-                    />
-                  ) : (
-                    <BoulderVideoPlayer
-                      betaVideoUrls={boulder.betaVideoUrls}
-                      betaVideoUrl={boulder.betaVideoUrl}
-                      poster={getThumbnailUrl(boulder)}
-                      isVisible={isDirectVideo}
-                      className="h-full w-full"
-                    />
-                  )
-                ) : (
-                  <>
-                    <div
-                      className="absolute inset-0 opacity-20"
-                      style={{ background: `linear-gradient(135deg, ${boulder.colorHex || '#36B531'}44, transparent)` }}
-                    />
-                    <div className="relative flex flex-col items-center gap-2">
-                      <button type="button" className="flex h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/30">
-                        <Play className="ml-0.5 h-6 w-6 text-primary-foreground" />
-                      </button>
-                      <span className="text-xs text-muted-foreground">Offizielle Beta</span>
-                    </div>
-                  </>
-                )}
-
-                <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-lg bg-background/70 px-2.5 py-1 backdrop-blur-sm">
-                  <BadgeCheck className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-[10px] font-semibold text-foreground">Offizielle Beta</span>
-                </div>
-
-                {!videoUrl && (
-                  <div className="absolute inset-x-0 bottom-6 flex justify-center">
-                    <div className="flex items-center gap-2 rounded-full bg-background/78 px-3 py-1.5 backdrop-blur-sm">
-                      <Video className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-[10px] font-semibold text-foreground">Noch kein Video vorhanden</span>
-                    </div>
+      <div className="lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start lg:gap-x-8 xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] xl:gap-x-10">
+        <section className="lg:sticky lg:top-[calc(5.75rem+var(--app-safe-area-top))] lg:self-start" aria-label="Boulder-Video">
+          <div className="relative mx-auto flex aspect-[9/16] max-h-[min(60vh,720px)] w-full max-w-md items-center justify-center overflow-hidden rounded-kws-card bg-secondary shadow-[0_3px_14px_rgba(19,17,43,0.08)] lg:mx-0 lg:max-h-[calc(100vh-8rem)] lg:max-w-none">
+            {videoUrl ? (
+              isYouTube ? (
+                <iframe
+                  src={getYouTubeEmbedUrl(videoUrl)}
+                  className="h-full w-full"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                  allowFullScreen
+                  title="YouTube video player"
+                />
+              ) : isVimeo ? (
+                <iframe
+                  src={getVimeoEmbedUrl(videoUrl)}
+                  className="h-full w-full"
+                  frameBorder="0"
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowFullScreen
+                  title="Vimeo video player"
+                />
+              ) : (
+                <BoulderVideoPlayer
+                  betaVideoUrls={boulder.betaVideoUrls}
+                  betaVideoUrl={boulder.betaVideoUrl}
+                  poster={getThumbnailUrl(boulder)}
+                  isVisible={isDirectVideo}
+                  showOfficialBadge
+                  className="h-full w-full"
+                />
+              )
+            ) : (
+              <>
+                <div
+                  className="absolute inset-0 opacity-20"
+                  style={{ background: `linear-gradient(135deg, ${boulder.colorHex || '#36B531'}44, transparent)` }}
+                />
+                <div className="relative flex flex-col items-center gap-2">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-kws-control bg-primary shadow-lg shadow-primary/30">
+                    <Play className="ml-0.5 h-6 w-6 text-primary-foreground" />
                   </div>
-                )}
-              </div>
-            </section>
+                  <span className="text-xs text-muted-foreground">Offizielle Beta</span>
+                </div>
+              </>
+            )}
 
-            <section className="mt-4 min-w-0 lg:mt-0">
-              <div ref={tabBarRef} data-detail-tab-bar className="sticky top-[6.75rem] z-[9] bg-background pb-2 pt-2 md:top-20">
-                <div className="flex gap-1 rounded-xl bg-secondary p-1">
-                  {availableTabs.map((tab) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      className={cn(
-                        'flex-1 rounded-lg py-2 text-sm font-semibold transition-all',
-                        activeTab === tab ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'text-muted-foreground',
-                      )}
-                      onClick={() => {
-                        setActiveTab(tab);
-                        window.requestAnimationFrame(() => {
-                          window.requestAnimationFrame(() => {
-                            scrollTabsIntoView();
-                          });
-                        });
-                      }}
-                    >
-                      {tab}
-                    </button>
-                  ))}
+            {!isDirectVideo ? (
+              <div className="absolute left-2.5 top-2.5 z-20 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.94] px-2.5 text-[#192436] shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm">
+                <BadgeCheck className="h-3.5 w-3.5 text-primary" />
+                <span className="text-[10px] font-semibold">Offizielle Beta</span>
+              </div>
+            ) : null}
+
+            {!videoUrl && (
+              <div className="absolute inset-x-0 bottom-6 flex justify-center">
+                <div className="flex items-center gap-2 rounded-kws-control bg-white/[0.94] px-3 py-1.5 shadow-[0_3px_12px_rgba(19,17,43,0.12)] backdrop-blur-sm">
+                  <Video className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-[10px] font-semibold text-foreground">Noch kein Video vorhanden</span>
                 </div>
               </div>
-
-              <div
-                ref={tabContentRef}
-                className="mt-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]"
-                style={{ minHeight: `${tabContentMinHeight}px` }}
-              >
-                {renderTabContent()}
-              </div>
-            </section>
+            )}
           </div>
-        </div>
+        </section>
+
+        <section className="mt-4 min-w-0 lg:mt-0">
+          <div
+            ref={tabBarRef}
+            data-detail-tab-bar
+            className="sticky top-[calc(4.25rem+var(--app-safe-area-top))] z-20 bg-[#F9FAF9] pb-2 pt-2 md:top-[calc(4.5rem+var(--app-safe-area-top))]"
+          >
+            <KwsSegmentedControl
+              value={activeTab}
+              options={availableTabs.map((tab) => ({ value: tab, label: tab }))}
+              ariaLabel="Boulder-Inhalt"
+              onValueChange={(tab) => {
+                setActiveTab(tab);
+                window.requestAnimationFrame(() => {
+                  window.requestAnimationFrame(() => {
+                    scrollTabsIntoView();
+                  });
+                });
+              }}
+            />
+          </div>
+
+          <div
+            ref={tabContentRef}
+            className="mt-3 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]"
+            style={{ minHeight: `${tabContentMinHeight}px` }}
+          >
+            {renderTabContent()}
+          </div>
+        </section>
       </div>
-    </div>
+    </DashboardPageLayout>
   );
 }
 

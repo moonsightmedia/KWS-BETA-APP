@@ -1,8 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { transformSector } from '@/lib/dataTransformers';
 import { Sector as FrontendSector } from '@/types/boulder';
+
+export interface SectorArea {
+  id: string;
+  name: string;
+  slug: string;
+  sort_order: number;
+  description: string | null;
+  is_active: boolean;
+}
 
 export interface Sector {
   id: string;
@@ -12,9 +22,21 @@ export interface Sector {
   next_schraubtermin: string | null;
   last_schraubtermin: string | null;
   image_url: string | null;
+  area_id?: string | null;
+  subarea_code?: string | null;
+  sort_order?: number;
+  is_active?: boolean;
+  area?: SectorArea | null;
   created_at: string;
   updated_at: string;
 }
+
+type BoulderSectorCountSource = {
+  id: string;
+  sector_id: string | null;
+  sector_id_2: string | null;
+  status: string | null;
+};
 
 export const useSectors = (enabled: boolean = true) => {
   return useQuery({
@@ -89,6 +111,8 @@ export const useSectors = (enabled: boolean = true) => {
           
           // Build the query URL manually
           const queryUrl = `${currentSupabase.supabaseUrl}/rest/v1/sectors?select=*&order=name.asc`;
+          const areasQueryUrl = `${currentSupabase.supabaseUrl}/rest/v1/sector_areas?select=*&order=sort_order.asc,name.asc`;
+          const bouldersQueryUrl = `${currentSupabase.supabaseUrl}/rest/v1/boulders?select=id,sector_id,sector_id_2,status&or=(status.eq.haengt,status.is.null)`;
           console.log('[useSectors] 🔵 Query URL:', queryUrl);
           
           // Use REST client fetch directly
@@ -98,26 +122,77 @@ export const useSectors = (enabled: boolean = true) => {
             throw new Error('Supabase API key not found');
           }
           
-          console.log('[useSectors] 🔵 Calling REST fetch with:', { queryUrl, apiKey: SUPABASE_PUBLISHABLE_KEY.substring(0, 20) + '...' });
+          console.log('[useSectors] 🔵 Calling REST fetch for sector hierarchy:', queryUrl);
           
           // CRITICAL: Use window.fetch directly instead of restFetch
           // restFetch might not trigger our custom fetch override
           // Use window.fetch which is guaranteed to use our override
-          const restPromise = window.fetch(queryUrl, {
+          const requestHeaders = {
+            apikey: SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+            'Content-Type': 'application/json',
+          };
+
+          const fetchSectors = (url: string) => window.fetch(url, {
             method: 'GET',
-            headers: {
-              'apikey': SUPABASE_PUBLISHABLE_KEY,
-              'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
-              'Content-Type': 'application/json',
-            },
-          }).then(async (response: Response) => {
+            headers: requestHeaders,
+          });
+
+          const restPromise = fetchSectors(queryUrl).then(async (response: Response) => {
             console.log('[useSectors] 🔵 REST fetch response:', response.status, response.statusText);
+
             if (!response.ok) {
               const errorText = await response.text();
               throw new Error(`REST fetch failed: ${response.status} ${response.statusText} - ${errorText}`);
             }
-            const data = await response.json();
-            console.log('[useSectors] ✅ REST fetch data:', data);
+
+            const data = await response.json() as Sector[];
+            const hasHierarchyColumns = data.some((sector) => Object.prototype.hasOwnProperty.call(sector, 'area_id'));
+
+            const bouldersResponse = await fetchSectors(bouldersQueryUrl);
+            if (bouldersResponse.ok) {
+              const activeBoulders = await bouldersResponse.json() as BoulderSectorCountSource[];
+              const liveCountsBySectorId = new Map<string, number>();
+
+              activeBoulders.forEach((boulder) => {
+                const relatedSectorIds = new Set([boulder.sector_id, boulder.sector_id_2].filter(Boolean));
+                relatedSectorIds.forEach((sectorId) => {
+                  liveCountsBySectorId.set(sectorId!, (liveCountsBySectorId.get(sectorId!) ?? 0) + 1);
+                });
+              });
+
+              data.forEach((sector) => {
+                sector.boulder_count = liveCountsBySectorId.get(sector.id) ?? 0;
+              });
+            } else {
+              console.warn('[useSectors] Aktuelle Boulder-Zähler konnten nicht geladen werden; verwende gespeicherte Fallback-Zähler.');
+            }
+
+            if (hasHierarchyColumns) {
+              const areasResponse = await fetchSectors(areasQueryUrl);
+              if (areasResponse.ok) {
+                const areas = await areasResponse.json() as SectorArea[];
+                const areaById = new Map(areas.map((area) => [area.id, area]));
+                data.forEach((sector) => {
+                  sector.area = sector.area_id ? areaById.get(sector.area_id) ?? null : null;
+                });
+              } else {
+                console.warn('[useSectors] Bereichsnamen konnten nicht geladen werden; verwende Legacy-Zuordnung.');
+              }
+            }
+
+            data.sort((left, right) => {
+              const areaOrderDifference = (left.area?.sort_order ?? Number.MAX_SAFE_INTEGER)
+                - (right.area?.sort_order ?? Number.MAX_SAFE_INTEGER);
+              if (areaOrderDifference !== 0) return areaOrderDifference;
+
+              const sectorOrderDifference = (left.sort_order ?? Number.MAX_SAFE_INTEGER)
+                - (right.sort_order ?? Number.MAX_SAFE_INTEGER);
+              if (sectorOrderDifference !== 0) return sectorOrderDifference;
+
+              return left.name.localeCompare(right.name, 'de');
+            });
+            console.log('[useSectors] ✅ Fetched sector hierarchy:', data.length, 'sectors');
             return { data, error: null };
           });
           
@@ -127,7 +202,7 @@ export const useSectors = (enabled: boolean = true) => {
           ]);
           
           console.log('[useSectors] 🔵 REST fetch result:', result);
-          const { data, error } = result as { data: any, error: any };
+          const { data, error } = result as { data: Sector[]; error: Error | null };
           
           if (error) {
             throw error;
@@ -166,7 +241,6 @@ export const useSectors = (enabled: boolean = true) => {
           }
           
           const enhancedError = new Error(errorMessage);
-          (enhancedError as any).originalError = error;
           // CRITICAL: Throw error to mark query as error state
           throw enhancedError;
         }
@@ -177,20 +251,22 @@ export const useSectors = (enabled: boolean = true) => {
         
         console.log('[useSectors] ✅ Fetched sectors:', data.length, 'sectors');
         return data as Sector[];
-      } catch (error: any) {
+      } catch (error: unknown) {
         clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
+        const errorName = error instanceof Error ? error.name : '';
+        const errorMessage = error instanceof Error ? error.message : '';
         
         // Check if it's a timeout/abort error
-        if (error?.name === 'AbortError' || error?.message?.includes('timeout')) {
+        if (errorName === 'AbortError' || errorMessage.includes('timeout')) {
           console.error(`[useSectors] ⏱️ TIMEOUT after ${duration}ms:`, error);
           throw new Error('Supabase request timeout after 10s');
         }
         
         // Check for rate limiting errors
-        if (error?.message?.includes('rate limit') || 
-            error?.message?.includes('429') || 
-            error?.message?.includes('Too many requests')) {
+        if (errorMessage.includes('rate limit') ||
+            errorMessage.includes('429') ||
+            errorMessage.includes('Too many requests')) {
           console.error(`[useSectors] ⚠️ RATE LIMIT after ${duration}ms:`, error);
           throw new Error('Rate limit erreicht. Bitte warte einen Moment und versuche es erneut.');
         }
@@ -218,9 +294,14 @@ export const useSectors = (enabled: boolean = true) => {
 export const useSectorsTransformed = (enabled: boolean = true) => {
   const { data: sectors, isLoading, error } = useSectors(enabled);
 
-  const transformedSectors: FrontendSector[] | undefined = sectors
-    ? sectors.map(s => transformSector(s))
-    : undefined;
+  const transformedSectors = useMemo<FrontendSector[] | undefined>(
+    () => sectors
+      ? sectors
+          .filter((sector) => sector.is_active !== false && sector.area?.is_active !== false)
+          .map((sector) => transformSector(sector))
+      : undefined,
+    [sectors],
+  );
 
   return {
     data: transformedSectors,
@@ -236,16 +317,13 @@ export const useUpdateSector = () => {
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Sector> & { id: string }) => {
       // Only allow updating specific fields (exclude computed/read-only fields)
-      const allowedFields = ['name', 'description', 'image_url'];
-      const cleanUpdates: any = {};
-      
-      Object.keys(updates).forEach(key => {
-        if (allowedFields.includes(key)) {
-          const value = (updates as any)[key];
-          // Convert empty strings to null
-          cleanUpdates[key] = value === '' ? null : value;
-        }
-      });
+      const allowedFields = ['name', 'description', 'image_url', 'area_id', 'subarea_code', 'sort_order', 'is_active'] as const;
+      const cleanUpdates = Object.fromEntries(
+        allowedFields.flatMap((key) => {
+          const value = updates[key];
+          return value === undefined ? [] : [[key, value === '' ? null : value]];
+        }),
+      ) as Partial<Pick<Sector, (typeof allowedFields)[number]>>;
 
       // First, check if the sector exists
       const { data: existing, error: checkError } = await supabase
@@ -293,18 +371,15 @@ export const useCreateSector = () => {
   return useMutation({
     mutationFn: async (newSector: Omit<Sector, 'id' | 'created_at' | 'updated_at' | 'boulder_count' | 'last_schraubtermin' | 'next_schraubtermin'>) => {
       // Only allow specific fields for creation
-      const cleanSector: any = {
+      const cleanSector = {
         name: newSector.name?.trim(),
         description: newSector.description?.trim() || null,
         image_url: newSector.image_url || null,
+        area_id: newSector.area_id || null,
+        subarea_code: newSector.subarea_code?.trim().toUpperCase() || null,
+        sort_order: newSector.sort_order ?? 0,
+        is_active: newSector.is_active ?? true,
       };
-
-      // Convert empty strings to null
-      Object.keys(cleanSector).forEach(key => {
-        if (cleanSector[key] === '') {
-          cleanSector[key] = null;
-        }
-      });
 
       const { data, error } = await supabase
         .from('sectors')

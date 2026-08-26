@@ -4,9 +4,7 @@ import {
   ChevronRight,
   ChevronLeft,
   User,
-  LogOut,
   Settings,
-  HelpCircle,
   Shield,
   Edit3,
   BarChart3,
@@ -18,6 +16,7 @@ import {
   Users,
 } from 'lucide-react';
 import { MaterialIcon } from '@/components/MaterialIcon';
+import { ProfileMenu } from '@/components/ProfileMenu';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -28,13 +27,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useHasRole } from '@/hooks/useHasRole';
 import { useSidebar } from './SidebarContext';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 interface SidebarProps {
   className?: string;
@@ -125,7 +117,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
   const { isExpanded, setIsExpanded } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   const { hasRole: isSetter, loading: setterLoading } = useHasRole('setter');
   const [isMobileNavCompact, setIsMobileNavCompact] = useState(false);
@@ -300,21 +292,12 @@ export const Sidebar = ({ className }: SidebarProps) => {
     }
   }, [user?.id, isAdmin, isSetter, adminLoading, setterLoading, stableIsAdmin, stableIsSetter]);
 
-  // Handle sign out
-  const handleSignOut = useCallback(() => {
-    clearStoredRoles();
-    setStableIsAdmin(false);
-    setStableIsSetter(false);
-    rolesInitializedRef.current = false;
-    signOut();
-  }, [signOut]);
-
   // Compute desktop navigation groups - always stable, never changes during navigation
   const desktopNavGroups = useMemo(() => [
     {
       title: 'User Area',
       items: [
-        { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+        { icon: LayoutDashboard, label: 'Home', path: '/' },
         { icon: List, label: 'Boulder', path: '/boulders' },
         { icon: BarChart3, label: 'Statistiken', path: '/statistics' },
       ],
@@ -329,8 +312,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
   const mobileNavItems = useMemo(() => {
     if (!user) {
       return [
-        { icon: LayoutDashboard, label: 'Home', path: '/guest' },
-        { icon: List, label: 'Boulder', path: '/boulders' },
+        { icon: List, label: 'Boulder', path: '/guest' },
         { icon: User, label: 'Anmelden', path: '/auth' },
       ];
     }
@@ -377,75 +359,36 @@ export const Sidebar = ({ className }: SidebarProps) => {
       )}>
         {/* Profile Picture with Dropdown */}
         <div className={cn("mb-6 px-4", isExpanded ? "" : "flex justify-center")}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="cursor-pointer focus:outline-none relative">
-                <Avatar className="w-12 h-12 rounded-xl hover:opacity-80 transition-opacity">
+          <ProfileMenu
+            side="right"
+            align="start"
+            trigger={(
+              <button
+                type="button"
+                className="relative cursor-pointer rounded-kws-control focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+                aria-label="Profil"
+              >
+                <Avatar className="h-12 w-12 rounded-kws-control transition-opacity hover:opacity-80">
                   {avatarUrl ? (
-                    <AvatarImage src={avatarUrl} alt={user?.email || 'Profilbild'} className="rounded-xl object-cover" />
+                    <AvatarImage src={avatarUrl} alt={user?.email || 'Profilbild'} className="rounded-kws-control object-cover" />
                   ) : null}
-                  <AvatarFallback className="bg-primary text-primary-foreground rounded-xl">
-                    {user ? (
-                      user.email?.substring(0, 2).toUpperCase() || 'KS'
-                    ) : (
-                      <HelpCircle className="w-6 h-6" />
-                    )}
+                  <AvatarFallback className="rounded-kws-control bg-primary text-primary-foreground">
+                    {user.email?.substring(0, 2).toUpperCase() || 'KS'}
                   </AvatarFallback>
                 </Avatar>
                 {stableIsAdmin && (
-                  <Badge variant="default" className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center">
+                  <Badge variant="default" className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-kws-badge p-0">
                     <Shield className="h-4 w-4" />
                   </Badge>
                 )}
                 {stableIsSetter && !stableIsAdmin && (
-                  <Badge variant="default" className="absolute -bottom-1 -right-1 h-5 w-5 p-0 flex items-center justify-center">
+                  <Badge variant="default" className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-kws-badge p-0">
                     <MaterialIcon name="build" className="h-4 w-4" size={16} />
                   </Badge>
                 )}
               </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              {user ? (
-                <>
-                  <div className="px-3 py-2.5">
-                    <p className="text-sm font-medium text-[#13112B]">{user.email}</p>
-                  </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => navigate('/profile')}>
-                    <Settings className="w-4 h-4 mr-2 text-[#13112B]/70" />
-                    Profil Einstellungen
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => navigateToArea('/')}>
-                    <LayoutDashboard className="w-4 h-4 mr-2 text-[#13112B]/70" />
-                    User Bereich
-                  </DropdownMenuItem>
-                  {stableIsSetter && (
-                    <DropdownMenuItem onSelect={() => navigateToArea('/setter/create')}>
-                      <Edit3 className="w-4 h-4 mr-2 text-[#13112B]/70" />
-                      Setter Bereich
-                    </DropdownMenuItem>
-                  )}
-                  {stableIsAdmin && (
-                    <DropdownMenuItem onSelect={() => navigateToArea('/admin?tab=users')}>
-                      <Shield className="w-4 h-4 mr-2 text-[#13112B]/70" />
-                      Admin Bereich
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={handleSignOut} className="text-[#E74C3C] data-[highlighted]:bg-red-50 data-[highlighted]:text-[#E74C3C]">
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Abmelden
-                  </DropdownMenuItem>
-                </>
-              ) : (
-                <DropdownMenuItem onSelect={() => navigate('/auth')}>
-                  <User className="w-4 h-4 mr-2" />
-                  Anmelden
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            )}
+          />
         </div>
 
         {/* Navigation */}
@@ -485,7 +428,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                               <NavLink
                                 to={item.path}
                                 className={cn(
-                                  "flex flex-row items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200",
+                                  "flex flex-row items-center gap-3 rounded-kws-control px-3 py-2 transition-all duration-200",
                                   isActive
                                     ? "bg-[#36B531]/10 text-[#36B531] font-medium"
                                     : "text-sidebar-icon hover:bg-sidebar-bg/80 hover:text-sidebar-icon"
@@ -504,7 +447,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                               <NavLink
                                 to={item.path}
                                 className={cn(
-                                  "grid place-items-center w-12 h-12 mx-auto rounded-lg transition-all duration-200",
+                                  "mx-auto grid h-12 w-12 place-items-center rounded-kws-control transition-all duration-200",
                                   isActive
                                     ? "bg-[#36B531]/10 text-[#36B531]"
                                     : "text-sidebar-icon hover:bg-sidebar-bg/80"
@@ -538,7 +481,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
           {isExpanded ? (
             <button
               onClick={toggleExpanded}
-              className="flex flex-row items-center gap-3 px-3 py-2 mx-4 rounded-lg bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 transition-colors duration-150"
+              className="mx-4 flex flex-row items-center gap-3 rounded-kws-control bg-sidebar-bg px-3 py-2 text-sidebar-icon transition-colors duration-150 hover:bg-sidebar-bg/80"
             >
               <ChevronLeft className="w-5 h-5 flex-shrink-0" />
               <span className="text-sm font-medium">Einklappen</span>
@@ -546,7 +489,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
           ) : (
             <button
               onClick={toggleExpanded}
-              className="grid place-items-center w-12 h-12 mx-auto rounded-lg bg-sidebar-bg text-sidebar-icon hover:bg-sidebar-bg/80 transition-colors duration-150"
+              className="mx-auto grid h-12 w-12 place-items-center rounded-kws-control bg-sidebar-bg text-sidebar-icon transition-colors duration-150 hover:bg-sidebar-bg/80"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
@@ -561,7 +504,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
           aria-label="Hauptnavigation"
           data-compact={isMobileNavCompact}
           className={cn(
-            "fixed left-1/2 z-[110] w-[calc(100%-2.5rem)] -translate-x-1/2 overflow-hidden rounded-[12px] bg-card/95 shadow-[0_5px_15px_rgba(0,33,85,0.10)] backdrop-blur-xl transition-[max-width,height,box-shadow] duration-300 ease-out motion-reduce:transition-none md:hidden",
+            "fixed left-1/2 z-[110] w-[calc(100%-2.5rem)] -translate-x-1/2 overflow-hidden rounded-kws-card bg-card/95 shadow-[0_5px_15px_rgba(0,33,85,0.10)] backdrop-blur-xl transition-[max-width,height,box-shadow] duration-300 ease-out motion-reduce:transition-none md:hidden",
             isMobileNavCompact ? "h-14" : "h-[68px]"
           )}
           style={{
@@ -576,7 +519,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
               // Check if active based on pathname and query params
               const searchParams = new URLSearchParams(location.search);
               const isActive = item.path === '/guest'
-                ? location.pathname === '/guest'
+                ? location.pathname === '/guest' || (!user && location.pathname.startsWith('/boulders/'))
                 : item.path === '/'
                   ? location.pathname === '/'
                   : item.path === '/boulders'
@@ -609,7 +552,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                   <span
                     aria-hidden="true"
                     className={cn(
-                      "grid h-10 w-10 flex-shrink-0 place-items-center rounded-[8px] transition-[background-color,color,box-shadow,transform] duration-200 motion-reduce:transition-none",
+                      "grid h-10 w-10 flex-shrink-0 place-items-center rounded-kws-control transition-[background-color,color,box-shadow,transform] duration-200 motion-reduce:transition-none",
                       isActive
                         ? "bg-primary text-primary-foreground shadow-[0_6px_14px_rgba(54,181,49,0.28)]"
                         : "text-muted-foreground group-hover:bg-secondary group-hover:text-foreground group-active:scale-95"

@@ -41,6 +41,8 @@ temp-video-processing/
 .codex-chrome-profile*/
 .codex-logs/
 .codex-screenshots/
+.playwright-cli/
+output/
 
 # Local design/reference material
 references/

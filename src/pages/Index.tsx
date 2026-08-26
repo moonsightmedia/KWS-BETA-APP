@@ -9,7 +9,6 @@ import {
   RefreshCw,
   Trophy,
   Zap,
-  type LucideIcon,
 } from 'lucide-react';
 import { formatDate } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -18,7 +17,9 @@ import { DashboardHeader } from '@/components/DashboardHeader';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { KwsMetricStrip } from '@/components/ui/kws-metric-strip';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
 import { useSidebar } from '@/components/SidebarContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
@@ -27,8 +28,9 @@ import { usePreloadBoulderThumbnails } from '@/hooks/usePreloadBoulderThumbnails
 import { useSectorSchedule } from '@/hooks/useSectorSchedule';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { supabase } from '@/integrations/supabase/client';
-import { formatDifficulty } from '@/lib/difficulty';
 import { cn } from '@/lib/utils';
+import { useHorizontalRouteSwipe } from '@/hooks/useHorizontalRouteSwipe';
+import type { Boulder } from '@/types/boulder';
 
 const getThumbnailUrl = (thumbnailUrl?: string | null) => {
   if (thumbnailUrl) {
@@ -42,8 +44,15 @@ const getThumbnailUrl = (thumbnailUrl?: string | null) => {
   return 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';
 };
 
-const getSectorLabel = (sector: string, sector2?: string | null) =>
-  sector2 ? `${sector} → ${sector2}` : sector;
+const getSectorAreaName = (sectorName: string) => sectorName.replace(/\s+[A-D]$/, '');
+
+const getSectorAreaLabel = ({ sector, sector2 }: Pick<Boulder, 'sector' | 'sector2'>) => {
+  const primaryArea = getSectorAreaName(sector);
+  if (!sector2) return primaryArea;
+
+  const secondaryArea = getSectorAreaName(sector2);
+  return primaryArea === secondaryArea ? primaryArea : `${primaryArea} · ${secondaryArea}`;
+};
 
 const getScheduleTitle = (sectorNames: string[]) => {
   if (sectorNames.length === 1) return `${sectorNames[0]} bekommt neue Boulder`;
@@ -62,63 +71,64 @@ const DashboardSectionHeader = ({
   actionLabel?: string;
   onActionClick?: () => void;
 }) => (
-  <div className="mb-3 flex items-end justify-between gap-3">
+  <div className="mb-2.5 flex items-center justify-between gap-3 px-0.5">
     <div className="min-w-0">
-      <h2 className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">{title}</h2>
-      {description ? <p className="pt-1 text-sm text-[#13112B]/58">{description}</p> : null}
+      <h2 className="font-sans text-sm font-semibold tracking-[-0.01em] text-[#192436]">{title}</h2>
+      {description ? <p className="pt-0.5 text-xs text-muted-foreground">{description}</p> : null}
     </div>
     {actionLabel && onActionClick ? (
       <button
         type="button"
         onClick={onActionClick}
-        className="shrink-0 text-sm font-semibold text-[#36B531]"
+        className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-kws-control px-2 font-sans text-xs font-semibold text-[#192436] transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
       >
         {actionLabel}
+        <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
     ) : null}
   </div>
 );
 
-const DashboardStatCard = ({
-  icon: Icon,
-  value,
-  label,
-}: {
-  icon: LucideIcon;
-  value: number;
-  label: string;
-}) => (
-  <div className="rounded-2xl border border-[#DDE7DF] bg-white px-3 py-4 text-center shadow-[0_8px_24px_rgba(19,17,43,0.05)]">
-    <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#36B531]/10">
-      <Icon className="h-5 w-5 text-[#36B531]" strokeWidth={1.9} />
-    </div>
-    <p className="text-[1.7rem] font-semibold leading-none tracking-[-0.04em] text-[#13112B]">{value}</p>
-    <p className="pt-2 text-sm text-[#13112B]/58">{label}</p>
-  </div>
-);
-
 const HomePreviewCard = ({
-  title,
-  subtitle,
+  boulder,
   meta,
   onClick,
 }: {
-  title: string;
-  subtitle: string;
+  boulder: Boulder;
   meta: string;
   onClick: () => void;
 }) => (
   <button
     type="button"
     onClick={onClick}
-    className="flex w-full items-center justify-between rounded-2xl border border-[#DDE7DF] bg-white px-4 py-4 text-left shadow-[0_8px_24px_rgba(19,17,43,0.05)] transition-transform active:scale-[0.98]"
+    className="flex min-h-[76px] w-full overflow-hidden rounded-kws-card bg-card p-0 text-left shadow-[0_3px_14px_rgba(19,17,43,0.07)] transition-[transform,box-shadow] hover:shadow-[0_6px_20px_rgba(19,17,43,0.11)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2"
   >
-    <div className="min-w-0">
-      <p className="truncate text-[1.02rem] font-semibold tracking-[-0.02em] text-[#13112B]">{title}</p>
-      <p className="truncate pt-1 text-sm text-[#13112B]/58">{subtitle}</p>
-      <p className="pt-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#36B531]">{meta}</p>
+    <div className="relative w-[4.75rem] shrink-0 overflow-hidden bg-muted">
+      <img
+        className="absolute inset-0 h-full w-full object-cover object-center"
+        src={getThumbnailUrl(boulder.thumbnailUrl)}
+        alt=""
+        loading="lazy"
+        decoding="async"
+      />
+      <DifficultyBadge
+        color={boulder.color}
+        color2={boulder.color2}
+        colorHex={boulder.colorHex}
+        difficulty={boulder.difficulty}
+        className="!bottom-1.5 !right-1.5 !h-6 !min-w-6 !text-[10px]"
+      />
     </div>
-    <ArrowRight className="h-4 w-4 shrink-0 text-[#6E806A]" />
+    <div className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2.5">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold tracking-[-0.02em] text-foreground">{boulder.name}</p>
+        <p className="truncate pt-0.5 text-xs text-muted-foreground">{getSectorAreaLabel(boulder)}</p>
+        <p className="truncate pt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">{meta}</p>
+      </div>
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-kws-control bg-secondary">
+        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+    </div>
   </button>
 );
 
@@ -127,6 +137,7 @@ const Index = () => {
   const queryClient = useQueryClient();
   const { isExpanded } = useSidebar();
   const { user, loading: authLoading } = useAuth();
+  const swipeRef = useHorizontalRouteSwipe({ routes: ['/', '/boulders', '/statistics'] });
 
   const queriesEnabled = !authLoading && !!user;
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(queriesEnabled);
@@ -272,14 +283,6 @@ const Index = () => {
     [hangingBoulders, sevenDaysAgo],
   );
 
-  const favoritePreview = useMemo(
-    () =>
-      (myTrackedBoulders ?? [])
-        .filter((item) => item.tick.is_favorite && item.boulder)
-        .slice(0, 2),
-    [myTrackedBoulders],
-  );
-
   const weeklyStats = useMemo(() => {
     const weekStart = new Date();
     weekStart.setDate(weekStart.getDate() - 7);
@@ -318,7 +321,7 @@ const Index = () => {
       }
     }
 
-    return Array.from(deduped.values()).slice(0, 3);
+    return Array.from(deduped.values()).slice(0, 2);
   }, [myTrackedBoulders]);
 
   const progressStats = useMemo(() => {
@@ -332,18 +335,6 @@ const Index = () => {
       triedPercent: Math.round((tried / total) * 100),
     };
   }, [hangingBoulders.length, myTrackedBoulders]);
-
-  const attemptSeries = useMemo(() => {
-    return (myTrackedBoulders ?? [])
-      .filter((item) => item.tick.attempt_count > 0)
-      .slice(0, 5)
-      .reverse()
-      .map((item) => ({
-        key: `${item.tick.id}-${item.tick.updated_at}`,
-        label: formatDate(new Date(item.tick.updated_at), 'd.M.', { locale: de }),
-        value: item.tick.attempt_count,
-      }));
-  }, [myTrackedBoulders]);
 
   const daysUntilLabel = (date: Date) => {
     const startOfToday = new Date();
@@ -365,18 +356,18 @@ const Index = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex bg-[#F9FAF9]">
-        <div className={layoutClassName}>
+        <div ref={swipeRef} className={layoutClassName}>
           <DashboardHeader rightSlot={<NotificationCenter variant="header" />} />
-          <main className="flex-1 px-4 pb-28 pt-6 md:px-8 md:pb-10">
+          <main className="mx-auto w-full max-w-[1180px] flex-1 px-4 pb-28 pt-6 md:px-8 md:pb-10">
             <div className="space-y-4">
-              <Skeleton className="h-20 rounded-2xl" />
+              <Skeleton className="h-20 rounded-kws-card" />
               <div className="grid grid-cols-3 gap-3">
                 {[...Array(3)].map((_, index) => (
-                  <Skeleton key={index} className="h-32 rounded-2xl" />
+                  <Skeleton key={index} className="h-20 rounded-kws-card" />
                 ))}
               </div>
-              <Skeleton className="h-44 rounded-2xl" />
-              <Skeleton className="h-60 rounded-2xl" />
+              <Skeleton className="h-44 rounded-kws-card" />
+              <Skeleton className="h-40 rounded-kws-card" />
             </div>
           </main>
         </div>
@@ -387,9 +378,9 @@ const Index = () => {
   if (error) {
     return (
       <div className="min-h-screen flex bg-[#F9FAF9]">
-        <div className={layoutClassName}>
+        <div ref={swipeRef} className={layoutClassName}>
           <DashboardHeader rightSlot={<NotificationCenter variant="header" />} />
-          <main className="flex-1 p-4 md:p-8">
+          <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
@@ -419,9 +410,9 @@ const Index = () => {
   if (!boulders?.length && !sectors?.length) {
     return (
       <div className="min-h-screen flex bg-[#F9FAF9]">
-        <div className={layoutClassName}>
+        <div ref={swipeRef} className={layoutClassName}>
           <DashboardHeader rightSlot={<NotificationCenter variant="header" />} />
-          <main className="flex-1 flex items-center justify-center p-4 md:p-8">
+          <main className="mx-auto flex w-full max-w-[1180px] flex-1 items-center justify-center p-4 md:p-8">
             <div className="space-y-4 text-center">
               <p className="text-[#13112B]/60">Keine Daten geladen</p>
               <Button
@@ -444,255 +435,169 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex bg-[#F9FAF9]">
-      <div className={layoutClassName}>
+      <div ref={swipeRef} className={layoutClassName}>
         <DashboardHeader rightSlot={<NotificationCenter variant="header" />} />
 
-        <main className="flex-1 overflow-x-hidden px-4 pb-28 pt-6 md:px-8 md:pb-10">
-          <section className="mb-4">
-            <p className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">
-              {authLoading ? 'Session' : `Hallo, ${greetingName || 'du'}`}
-            </p>
-            <h1 className="pt-2 text-[2.1rem] font-semibold leading-none tracking-[-0.04em] text-[#13112B]">
-              Bereit für deine Session?
+        <main className="mx-auto w-full max-w-[1180px] flex-1 overflow-x-hidden px-4 pb-28 pt-4 md:px-8 md:pb-10 md:pt-6">
+          <section className="mb-5">
+            <h1 className="font-sans text-[1.75rem] font-semibold leading-tight tracking-[-0.04em] text-[#192436] md:text-[2rem]">
+              {authLoading ? 'Hallo' : `Hallo ${greetingName || 'du'}`}
             </h1>
-            <p className="pt-3 text-sm text-[#13112B]/60">
-              Neue Boulder, Projekte und anstehende Umschraubungen direkt auf einen Blick.
+            <p className="mt-1 font-sans text-xs text-muted-foreground">
+              {newestBoulders.length > 0
+                ? `${newestBoulders.length} neue Boulder in den letzten 7 Tagen`
+                : 'Alles Wichtige für deine nächste Session'}
             </p>
           </section>
 
           <section className="mb-5">
-            <DashboardSectionHeader
-              title="Deine Woche"
-              description="Dein kompakter Rückblick auf die letzten 7 Tage."
+            <DashboardSectionHeader title="Deine Woche" />
+            <KwsMetricStrip
+              items={[
+                { icon: Trophy, value: weeklyStats.tops, label: 'Tops' },
+                { icon: Zap, value: weeklyStats.flashes, label: 'Flashes' },
+                { icon: CircleDot, value: weeklyStats.projects, label: 'Projekte' },
+              ]}
             />
-            <div className="grid grid-cols-3 gap-3">
-              <DashboardStatCard icon={Trophy} value={weeklyStats.tops} label="Tops" />
-              <DashboardStatCard icon={Zap} value={weeklyStats.flashes} label="Flashes" />
-              <DashboardStatCard icon={CircleDot} value={weeklyStats.projects} label="Projekte" />
-            </div>
           </section>
 
           <section className="mb-5">
             <DashboardSectionHeader
               title="Neu an der Wand"
-              description="Frische Boulder aus den letzten 7 Tagen."
-              actionLabel="Neu entdecken"
+              actionLabel="Alle ansehen"
               onActionClick={() => navigate('/boulders?show=new')}
             />
-            <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 hide-scrollbar">
+            <div className="grid grid-cols-3 gap-2 md:gap-3 xl:grid-cols-6">
               {newestBoulders.map((boulder) => (
                 <button
                   key={boulder.id}
                   type="button"
                   onClick={() => navigate(`/boulders/${boulder.id}`)}
-                  className="w-[138px] shrink-0 overflow-hidden rounded-2xl border border-[#DDE7DF] bg-white text-left shadow-[0_8px_24px_rgba(19,17,43,0.05)] transition-transform active:scale-[0.98]"
+                  aria-label={`${boulder.name}, Grad ${boulder.difficulty ?? '?'}, ${getSectorAreaLabel(boulder)}`}
+                  className="group relative aspect-[4/5] w-full overflow-hidden rounded-kws-card bg-[#EEF2EE] p-0 text-left shadow-[0_3px_14px_rgba(19,17,43,0.10)] transition-[transform,box-shadow] hover:shadow-[0_7px_22px_rgba(19,17,43,0.16)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55 focus-visible:ring-offset-2"
                 >
-                  <div className="relative h-[104px] w-full overflow-hidden">
-                    <img
-                      className="h-full w-full object-cover object-center transition-opacity duration-300"
-                      src={getThumbnailUrl(boulder.thumbnailUrl)}
-                      alt={boulder.name}
-                      loading="lazy"
-                      decoding="async"
-                      style={{ opacity: 0 }}
-                      onLoad={(event) => {
-                        const image = event.currentTarget;
-                        if (image.naturalWidth > image.naturalHeight) {
-                          image.style.transform = 'rotate(90deg)';
-                        }
-                        image.style.opacity = '1';
-                      }}
-                      onError={(event) => {
-                        const placeholder = getThumbnailUrl(null);
-                        if (event.currentTarget.src !== placeholder) {
-                          event.currentTarget.src = placeholder;
-                          event.currentTarget.style.opacity = '1';
-                        }
-                      }}
-                    />
-                    <span className="absolute bottom-2 right-2 rounded-xl bg-[#13112B]/90 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white">
-                      {formatDifficulty(boulder.difficulty ?? null)}
+                  <img
+                    className="absolute inset-0 h-full w-full bg-[#EEF2EE] object-cover object-center transition-opacity duration-300"
+                    src={getThumbnailUrl(boulder.thumbnailUrl)}
+                    alt={boulder.name}
+                    loading="lazy"
+                    decoding="async"
+                    style={{ opacity: 0 }}
+                    onLoad={(event) => {
+                      const image = event.currentTarget;
+                      if (image.naturalWidth > image.naturalHeight) image.style.transform = 'rotate(90deg)';
+                      image.style.opacity = '1';
+                    }}
+                    onError={(event) => {
+                      const placeholder = getThumbnailUrl(null);
+                      if (event.currentTarget.src !== placeholder) {
+                        event.currentTarget.src = placeholder;
+                        event.currentTarget.style.opacity = '1';
+                      }
+                    }}
+                  />
+
+                  <DifficultyBadge
+                    color={boulder.color}
+                    color2={boulder.color2}
+                    colorHex={boulder.colorHex}
+                    difficulty={boulder.difficulty}
+                    className="!bottom-auto !left-1.5 !right-auto !top-1.5 !h-6 !min-w-6 !px-1 !text-[10px] sm:!left-2 sm:!top-2"
+                  />
+                  <span className="absolute right-1.5 top-1.5 rounded-kws-badge bg-white/95 px-1.5 py-0.5 text-[7px] font-extrabold leading-none text-primary shadow-[0_2px_8px_rgba(19,17,43,0.16)] sm:right-2 sm:top-2 sm:text-[8px]">
+                    NEU
+                  </span>
+
+                  <div className="absolute inset-x-0 bottom-0 flex h-[46%] flex-col justify-end bg-gradient-to-t from-white via-white/90 to-transparent px-1.5 pb-1.5 pt-7 text-[#192436] sm:px-2 sm:pb-2 md:h-[48%] md:px-3 md:pb-3">
+                    <span className="block truncate text-[9px] font-bold leading-tight tracking-[-0.02em] sm:text-[10px] md:text-xs">
+                      {boulder.name}
                     </span>
-                  </div>
-                  <div className="px-3 py-3">
-                    <p className="truncate text-[0.98rem] font-semibold tracking-[-0.02em] text-[#13112B]">{boulder.name}</p>
-                    <p className="truncate pt-1 text-sm text-[#13112B]/55">
-                      {getSectorLabel(boulder.sector, boulder.sector2)}
-                    </p>
-                    <p className="pt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#36B531]">
-                      Grad {formatDifficulty(boulder.difficulty ?? null)}
-                    </p>
+                    <span className="mt-0.5 truncate text-[8px] font-semibold leading-tight text-[#192436]/70 sm:text-[9px] md:text-[11px]">
+                      {getSectorAreaLabel(boulder)}
+                    </span>
                   </div>
                 </button>
               ))}
               {newestBoulders.length === 0 ? (
-                <div className="w-full rounded-2xl border border-dashed border-[#DDE7DF] bg-white/70 px-4 py-5 text-sm text-[#13112B]/55">
-                  Gerade gibt es keine neuen Boulder aus den letzten 7 Tagen.
+                <div className="col-span-3 rounded-kws-card bg-card px-4 py-5 text-sm text-muted-foreground shadow-[0_3px_14px_rgba(19,17,43,0.05)] xl:col-span-6">
+                  In den letzten sieben Tagen kamen keine Boulder dazu.
                 </div>
               ) : null}
             </div>
           </section>
 
-          <section className="mb-5 overflow-hidden rounded-2xl border border-[#DDE7DF] bg-white shadow-[0_10px_30px_rgba(19,17,43,0.05)]">
-            <div className="px-4 pb-3 pt-4">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 rounded-2xl bg-[#36B531]/10 p-2 text-[#36B531]">
-                  <CalendarDays className="h-4 w-4" strokeWidth={1.9} />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Nächste Umschraubung</h2>
-                  <p className="pt-1 text-sm text-[#13112B]/58">Damit du schon vor deiner nächsten Session planen kannst.</p>
-                </div>
-              </div>
-            </div>
-
-            {upcomingSchedules.length > 0 ? (
-              <>
-                <div className="mx-4 mb-4 rounded-2xl border border-[#36B531]/20 bg-[#36B531]/10 px-4 py-4">
-                  <div className="mb-3 flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-[1.06rem] font-semibold tracking-[-0.02em] text-[#13112B]">
+          <div className="grid gap-5 lg:grid-cols-2">
+            <section>
+              <DashboardSectionHeader title="Nächste Umschraubung" />
+              <div className="rounded-kws-card bg-card p-3.5 shadow-[0_3px_14px_rgba(19,17,43,0.07)]">
+                {upcomingSchedules.length > 0 ? (
+                  <div className="flex items-center gap-3">
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-kws-control bg-primary/10 text-primary">
+                      <CalendarDays className="h-4.5 w-4.5" strokeWidth={2} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold tracking-[-0.02em] text-foreground">
                         {getScheduleTitle(upcomingSchedules[0].sectorNames)}
                       </p>
-                      <div className="pt-2 text-sm text-[#13112B]/70">
-                        {formatDate(upcomingSchedules[0].when, 'EEE, dd. MMM', { locale: de })} · {upcomingSchedules[0].sectorNames.join(', ')}
-                      </div>
+                      <p className="truncate pt-0.5 text-xs text-muted-foreground">
+                        {formatDate(upcomingSchedules[0].when, 'EEE, dd. MMM', { locale: de })}
+                        {upcomingSchedules.length > 1 ? ` · +${upcomingSchedules.length - 1} weitere` : ''}
+                      </p>
                     </div>
-                    <span className="shrink-0 rounded-full bg-[#36B531]/15 px-3 py-1 text-sm font-semibold text-[#36B531]">
+                    <span className="shrink-0 rounded-kws-badge bg-primary/15 px-2 py-1 text-[10px] font-semibold text-primary">
                       {daysUntilLabel(upcomingSchedules[0].when)}
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {upcomingSchedules[0].sectorNames.map((sectorName) => (
-                      <span
-                        key={`${sectorName}-${upcomingSchedules[0].when.toISOString()}`}
-                        className="rounded-full bg-[#E9E9F7] px-3 py-1 text-xs font-medium text-[#6C6A7E]"
-                      >
-                        {sectorName}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {upcomingSchedules.slice(1).map((entry) => (
-                  <div key={entry.when.toISOString()} className="flex items-center justify-between border-t border-[#E8ECE8] px-4 py-4">
-                    <div className="min-w-0">
-                      <p className="truncate text-[1.02rem] font-medium tracking-[-0.02em] text-[#13112B]">
-                        {getScheduleTitle(entry.sectorNames)}
-                      </p>
-                      <p className="truncate pt-1 text-sm text-[#13112B]/58">
-                        {formatDate(entry.when, 'EEE, dd. MMM', { locale: de })} · {entry.sectorNames.join(', ')}
-                      </p>
-                    </div>
-                    <CalendarDays className="ml-3 h-4 w-4 shrink-0 text-[#6E806A]" strokeWidth={1.9} />
-                  </div>
-                ))}
-              </>
-            ) : (
-              <div className="px-4 pb-4 text-sm text-[#13112B]/55">
-                Aktuell ist kein kommender Schraubtermin eingetragen.
-              </div>
-            )}
-          </section>
-
-          {favoritePreview.length > 0 ? (
-            <section className="mb-5">
-              <DashboardSectionHeader
-                title="Deine Projekte"
-                description="Boulder, die du weiterverfolgen oder gespeichert hast."
-                actionLabel="Alle Projekte"
-                onActionClick={() => navigate('/boulders?show=saved')}
-              />
-              <div className="space-y-3">
-                {favoritePreview.map((item) =>
-                  item.boulder ? (
-                    <HomePreviewCard
-                      key={item.tick.id}
-                      title={item.boulder.name}
-                      subtitle={getSectorLabel(item.boulder.sector, item.boulder.sector2)}
-                      meta={`Grad ${formatDifficulty(item.boulder.difficulty ?? null)} · ${item.tick.is_project ? 'Projekt' : 'Gespeichert'}`}
-                      onClick={() => navigate(`/boulders/${item.tick.boulder_id}`)}
-                    />
-                  ) : null,
+                ) : (
+                  <p className="py-1 text-sm text-muted-foreground">Kein Schraubtermin geplant.</p>
                 )}
               </div>
             </section>
-          ) : null}
 
-          <section className="space-y-4 pb-4">
-            <section className="mb-5">
+            <section>
               <DashboardSectionHeader
-                title="Nächster Boulder"
-                description="Das ist dein nächster sinnvoller Anknüpfpunkt für die Session."
-                actionLabel="Weiterklettern"
+                title="Für deine Session"
+                actionLabel="Projekte"
                 onActionClick={() => navigate('/boulders?show=saved')}
               />
               {nextFocusBoulders.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {nextFocusBoulders.map((item) =>
                     item.boulder ? (
                       <HomePreviewCard
                         key={item.tick.id}
-                        title={item.boulder.name}
-                        subtitle={getSectorLabel(item.boulder.sector, item.boulder.sector2)}
-                        meta={`Grad ${formatDifficulty(item.boulder.difficulty ?? null)} · ${item.tick.is_project ? 'Projekt' : item.tick.is_favorite ? 'Gespeichert' : 'In Arbeit'} · ${item.tick.attempt_count ?? 0} ${(item.tick.attempt_count ?? 0) === 1 ? 'Versuch' : 'Versuche'}`}
+                        boulder={item.boulder}
+                        meta={`${item.tick.is_project ? 'Projekt' : item.tick.is_favorite ? 'Gespeichert' : 'In Arbeit'} · ${item.tick.attempt_count ?? 0} ${(item.tick.attempt_count ?? 0) === 1 ? 'Versuch' : 'Versuche'}`}
                         onClick={() => navigate(`/boulders/${item.tick.boulder_id}`)}
                       />
                     ) : null,
                   )}
                 </div>
               ) : (
-                <div className="rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FAFCFA] px-4 py-5 text-sm text-[#13112B]/55">
-                  Noch keine offenen Projekte oder Versuche für deinen nächsten Boulder.
+                <div className="rounded-kws-card bg-card px-4 py-4 text-sm text-muted-foreground shadow-[0_3px_14px_rgba(19,17,43,0.05)]">
+                  Noch keine offenen Projekte.
                 </div>
               )}
             </section>
-            <section>
-              <DashboardSectionHeader
-                title="Dein Fortschritt"
-                description="Ein schneller Blick auf offene Boulder und deine letzten Versuche."
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-[#DDE7DF] bg-white p-4 shadow-[0_10px_30px_rgba(19,17,43,0.05)]">
-                  <h3 className="mb-4 text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Übersicht</h3>
-                  <div className="flex flex-col items-center">
-                    <div
-                      className="relative flex h-28 w-28 items-center justify-center rounded-full"
-                      style={{
-                        background: `conic-gradient(#36B531 0 ${progressStats.toppedPercent}%, #6C7280 ${progressStats.toppedPercent}% ${progressStats.toppedPercent + progressStats.triedPercent}%, #E2E6EC 0 100%)`,
-                      }}
-                    >
-                      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-xl font-semibold text-[#13112B]">
-                        {progressStats.toppedPercent}%
-                      </div>
-                    </div>
-                    <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-[#6C6A7E]">
-                      <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#36B531]" />Getoppt</span>
-                      <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#6C7280]" />Probiert</span>
-                      <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#E2E6EC]" />Offen</span>
-                    </div>
-                    <p className="pt-4 text-center text-xs text-[#6C6A7E]">auf alle hängenden Boulder</p>
-                  </div>
-                </div>
+          </div>
 
-                <div className="rounded-2xl border border-[#DDE7DF] bg-white p-4 shadow-[0_10px_30px_rgba(19,17,43,0.05)]">
-                  <h3 className="mb-4 text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Letzte Versuche</h3>
-                  <div className="flex h-28 items-end justify-between gap-2">
-                    {(attemptSeries.length > 0 ? attemptSeries : [{ key: 'Heute-0', label: 'Heute', value: 0 }]).map((item) => (
-                      <div key={item.key} className="flex flex-1 flex-col items-center justify-end gap-1.5">
-                        <span className="text-[11px] font-semibold leading-none text-[#13112B]">{item.value}</span>
-                        <div
-                          className="w-full max-w-5 rounded-t-[4px] rounded-b-[1px] bg-[#36B531]"
-                          style={{ height: `${Math.max(12, item.value * 12)}px` }}
-                        />
-                        <span className="text-[10px] text-[#6C6A7E]">{item.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="pt-4 text-center text-xs text-[#6C6A7E]">pro zuletzt gepflegter Session</p>
-                </div>
+          <section className="mb-4 mt-5">
+            <DashboardSectionHeader title="Rückblick" />
+            <div className="rounded-kws-card bg-card px-4 py-3.5 shadow-[0_3px_14px_rgba(19,17,43,0.07)]">
+              <div className="mb-2.5 flex items-baseline justify-between gap-3">
+                <p className="text-sm font-semibold text-foreground">Aktuelle Wand</p>
+                <p className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">{progressStats.toppedPercent}%</span> getoppt</p>
               </div>
-            </section>
+              <div className="flex h-2 overflow-hidden rounded-[2px] bg-[#E2E6EC]" aria-label={`${progressStats.toppedPercent} Prozent getoppt, ${progressStats.triedPercent} Prozent probiert`}>
+                <span className="bg-primary" style={{ width: `${progressStats.toppedPercent}%` }} />
+                <span className="bg-[#6C7280]" style={{ width: `${progressStats.triedPercent}%` }} />
+              </div>
+              <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1.5 text-[10px] font-medium text-muted-foreground">
+                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-[2px] bg-primary" />Getoppt</span>
+                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-[2px] bg-[#6C7280]" />Probiert</span>
+                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-[2px] bg-[#E2E6EC]" />Offen</span>
+              </div>
+            </div>
           </section>
         </main>
       </div>

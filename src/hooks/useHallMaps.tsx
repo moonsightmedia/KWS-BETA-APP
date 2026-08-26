@@ -5,6 +5,18 @@ import type { HallMap, MapPoint, SectorMapRegion } from '@/types/hallMap';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+interface SectorMapRegionRow {
+  id: string;
+  hall_map_id: string;
+  sector_id: string;
+  points_json: unknown;
+  label_x: string | number | null;
+  label_y: string | number | null;
+  z_index: string | number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 function requireEnv() {
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     throw new Error('Supabase-Konfiguration fehlt');
@@ -13,14 +25,11 @@ function requireEnv() {
 
 function getHeaders(accessToken?: string | null) {
   requireEnv();
-
-  if (!accessToken) {
-    throw new Error('Keine aktive Session');
-  }
+  const bearerToken = accessToken || SUPABASE_PUBLISHABLE_KEY!;
 
   return {
     apikey: SUPABASE_PUBLISHABLE_KEY!,
-    Authorization: `Bearer ${accessToken}`,
+    Authorization: `Bearer ${bearerToken}`,
     'Content-Type': 'application/json',
   };
 }
@@ -39,7 +48,7 @@ function normalizePointsJson(value: unknown): MapPoint[] {
     .filter((point): point is MapPoint => point !== null);
 }
 
-function normalizeRegion(row: any): SectorMapRegion {
+function normalizeRegion(row: SectorMapRegionRow): SectorMapRegion {
   return {
     id: row.id,
     hall_map_id: row.hall_map_id,
@@ -119,7 +128,7 @@ export const useSectorMapRegions = (hallMapId?: string | null, accessToken?: str
     enabled: enabled && !!hallMapId,
     retry: 1,
     queryFn: async () => {
-      const rows = await apiRequest<any[]>(
+      const rows = await apiRequest<SectorMapRegionRow[]>(
         `sector_map_regions?select=*&hall_map_id=eq.${hallMapId}&order=z_index.asc,created_at.asc`,
         accessToken,
       );
@@ -237,7 +246,7 @@ export const useCreateSectorMapRegion = (accessToken?: string | null) => {
 
   return useMutation({
     mutationFn: async (input: RegionInput) => {
-      const rows = await apiRequest<any[]>('sector_map_regions', accessToken, {
+      const rows = await apiRequest<SectorMapRegionRow[]>('sector_map_regions', accessToken, {
         method: 'POST',
         headers: { Prefer: 'return=representation' },
         body: JSON.stringify({
@@ -264,7 +273,7 @@ export const useUpdateSectorMapRegion = (accessToken?: string | null) => {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<SectorMapRegion> & { id: string }) => {
-      const rows = await apiRequest<any[]>(`sector_map_regions?id=eq.${id}`, accessToken, {
+      const rows = await apiRequest<SectorMapRegionRow[]>(`sector_map_regions?id=eq.${id}`, accessToken, {
         method: 'PATCH',
         headers: { Prefer: 'return=representation' },
         body: JSON.stringify({

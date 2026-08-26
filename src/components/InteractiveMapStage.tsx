@@ -9,7 +9,6 @@ import {
   type ReactNode,
 } from 'react';
 import { cn } from '@/lib/utils';
-import honeycombBg from '@/assets/honeycomb-original.png';
 
 interface InteractiveMapStageProps {
   width: number;
@@ -20,7 +19,6 @@ interface InteractiveMapStageProps {
   compact?: boolean;
   lockAspectRatio?: boolean;
   panPadding?: number;
-  honeycombBackground?: boolean;
   disablePanZoom?: boolean;
   onViewportChange?: (viewport: { scale: number; translate: Point }) => void;
 }
@@ -30,6 +28,7 @@ type Point = { x: number; y: number };
 const MIN_SCALE = 0.82;
 const MAX_SCALE = 3;
 const ZOOM_STEP = 0.35;
+const PAN_START_THRESHOLD = 4;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -48,7 +47,6 @@ export function InteractiveMapStage({
   compact = false,
   lockAspectRatio = true,
   panPadding = 0,
-  honeycombBackground = false,
   disablePanZoom = false,
   onViewportChange,
 }: InteractiveMapStageProps) {
@@ -78,7 +76,7 @@ export function InteractiveMapStage({
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [disablePanZoom]);
 
   const clampTranslate = useCallback(
     (next: Point, nextScale: number) => {
@@ -167,7 +165,6 @@ export function InteractiveMapStage({
     if (disablePanZoom) return;
     const node = containerRef.current;
     if (!node) return;
-    node.setPointerCapture(event.pointerId);
     pointerPositionsRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
     if (pointerPositionsRef.current.size === 1) {
@@ -176,6 +173,7 @@ export function InteractiveMapStage({
     }
 
     if (pointerPositionsRef.current.size === 2) {
+      node.setPointerCapture(event.pointerId);
       const [first, second] = Array.from(pointerPositionsRef.current.values());
       pinchStartDistanceRef.current = distance(first, second);
       pinchStartScaleRef.current = scale;
@@ -210,6 +208,12 @@ export function InteractiveMapStage({
     if (pointerPositionsRef.current.size === 1 && dragStartRef.current) {
       const deltaX = event.clientX - dragStartRef.current.x;
       const deltaY = event.clientY - dragStartRef.current.y;
+      if (Math.hypot(deltaX, deltaY) < PAN_START_THRESHOLD) return;
+
+      const node = containerRef.current;
+      if (node && !node.hasPointerCapture(event.pointerId)) {
+        node.setPointerCapture(event.pointerId);
+      }
       setTranslate(clampTranslate({ x: dragOriginRef.current.x + deltaX, y: dragOriginRef.current.y + deltaY }, scale));
     }
   };
@@ -242,17 +246,8 @@ export function InteractiveMapStage({
   const viewportStyle = useMemo<CSSProperties>(
     () => ({
       ...(lockAspectRatio ? { aspectRatio: `${width} / ${height}`, width: '100%' } : { width: '100%' }),
-      ...(honeycombBackground
-        ? {
-            backgroundColor: '#f4f4f4',
-            backgroundImage: `url(${honeycombBg})`,
-            backgroundRepeat: 'repeat',
-            backgroundSize: '768px auto',
-            backgroundPosition: 'center top',
-          }
-        : {}),
     }),
-    [honeycombBackground, lockAspectRatio, width, height],
+    [lockAspectRatio, width, height],
   );
 
   return (
@@ -260,7 +255,7 @@ export function InteractiveMapStage({
       <div
         ref={containerRef}
         className={cn(
-          'relative w-full max-w-full overflow-hidden rounded-2xl border border-[#DEE6E0] bg-[#F7FAF7] touch-none',
+          'relative w-full max-w-full touch-none overflow-hidden rounded-kws-card border border-white bg-[#FBFDF9] shadow-[0_10px_30px_rgba(25,36,54,0.07)]',
           !disablePanZoom && scale > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-default',
           viewportClassName,
         )}

@@ -299,18 +299,6 @@ export function SetterBoulderEditorDialog({
     });
   };
 
-  const selectPrimarySectorByName = (sectorName: string) => {
-    const sector = sectors.find((entry) => entry.name === sectorName);
-    if (!sector) return;
-    selectPrimarySector(sector.id);
-  };
-
-  const selectSecondarySectorByName = (sectorName: string) => {
-    const sector = sectors.find((entry) => entry.name === sectorName);
-    if (!sector || sector.id === draft.sectorId) return;
-    selectSecondarySector(sector.id);
-  };
-
   const isNativeApp = isNativeVideoPipelineAvailable();
 
   const handleFileSelect = (kind: 'video' | 'thumb', file: File) => {
@@ -411,14 +399,15 @@ export function SetterBoulderEditorDialog({
                 <HallMapView
                   sectors={filteredPrimarySectors}
                   countsBySectorId={sectorCountsById}
-                  selectedSectorName={selectedSectorName ?? 'all'}
-                  onSelectSector={selectPrimarySectorByName}
+                  selectedSectorId={draft.sectorId || undefined}
+                  onSelectSectorId={selectPrimarySector}
                   onClearSector={() => {
                     setPrimarySectorSearch('');
                     updateDraft({ sectorId: '', mapX: undefined, mapY: undefined });
                   }}
                   compact
                   frameless
+                  showCounts={false}
                 />
               ) : (
                 <div className="rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FCFDFC] px-4 py-5 text-sm text-[#13112B]/58">
@@ -642,14 +631,15 @@ export function SetterBoulderEditorDialog({
                   <HallMapView
                     sectors={filteredSecondarySectors}
                     countsBySectorId={sectorCountsById}
-                    selectedSectorName={selectedSecondarySectorName ?? 'all'}
-                    onSelectSector={selectSecondarySectorByName}
+                    selectedSectorId={draft.sectorId2}
+                    onSelectSectorId={selectSecondarySector}
                     onClearSector={() => {
                       setSecondarySectorSearch('');
                       updateDraft({ sectorId2: undefined });
                     }}
                     compact
                     frameless
+                    showCounts={false}
                   />
                 ) : (
                   <div className="rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FCFDFC] px-4 py-5 text-sm text-[#13112B]/58">

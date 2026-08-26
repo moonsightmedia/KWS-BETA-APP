@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, Loader2, Trash2 } from 'lucide-react';
+import { Camera, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { SetupAreaLayout } from '@/components/SetupAreaLayout';
+import { DashboardPageLayout } from '@/components/DashboardPageLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { KwsSurface } from '@/components/ui/kws-surface';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { deleteProfileAvatar, uploadProfileAvatar } from '@/integrations/supabase/storage';
@@ -341,27 +342,15 @@ const ProfileEdit = () => {
   };
 
   return (
-    <SetupAreaLayout className="bg-background" contentClassName="bg-background">
-      <div className="space-y-4 px-4 pb-28 pt-12">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary transition-colors active:scale-95"
-            aria-label="Zurück"
-          >
-            <ArrowLeft className="h-4 w-4 text-muted-foreground" />
-          </button>
-          <h1 className="text-lg font-bold tracking-[-0.02em] text-foreground">Profil bearbeiten</h1>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-[0_8px_24px_rgba(19,17,43,0.05)] sm:p-5">
+    <DashboardPageLayout headerBackTo="/profile" mainClassName="pt-4 md:pt-6">
+      <div className="mx-auto max-w-3xl space-y-4">
+        <KwsSurface className="p-4 sm:p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Avatar className="h-20 w-20 rounded-2xl border border-border">
+            <Avatar className="h-20 w-20 rounded-kws-control border border-border">
               {displayAvatarUrl ? (
-                <AvatarImage src={displayAvatarUrl} alt={form.name} className="rounded-2xl object-cover" />
+                <AvatarImage src={displayAvatarUrl} alt={form.name} className="rounded-kws-control object-cover" />
               ) : null}
-              <AvatarFallback className="rounded-2xl bg-primary/10 text-2xl font-semibold text-primary">
+              <AvatarFallback className="rounded-kws-control bg-primary/10 font-sans text-2xl font-semibold text-primary">
                 {initials}
               </AvatarFallback>
             </Avatar>
@@ -386,7 +375,7 @@ const ProfileEdit = () => {
             <Button
               type="button"
               variant="outline"
-              className="h-11 rounded-xl border-border"
+              className="h-11 border-border"
               disabled={loadingProfile || saving}
               onClick={() => fileInputRef.current?.click()}
             >
@@ -398,7 +387,7 @@ const ProfileEdit = () => {
               <Button
                 type="button"
                 variant="outline"
-                className="h-11 rounded-xl border-[#F1D7D2] text-[#B64332] hover:bg-[#FFF4F2] hover:text-[#B64332]"
+                className="h-11 border-[#F1D7D2] text-[#B64332] hover:bg-[#FFF4F2] hover:text-[#B64332]"
                 disabled={loadingProfile || saving}
                 onClick={handleRemoveAvatar}
               >
@@ -407,9 +396,9 @@ const ProfileEdit = () => {
               </Button>
             ) : null}
           </div>
-        </div>
+        </KwsSurface>
 
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-[0_8px_24px_rgba(19,17,43,0.05)] sm:p-5">
+        <KwsSurface className="p-4 sm:p-5">
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="name" className="text-xs text-muted-foreground">
@@ -420,7 +409,7 @@ const ProfileEdit = () => {
                 value={form.name}
                 onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
                 disabled={loadingProfile}
-                className="h-11 rounded-xl"
+                className="h-11 rounded-kws-control"
               />
             </div>
 
@@ -434,17 +423,17 @@ const ProfileEdit = () => {
                 value={form.email}
                 onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
                 disabled={loadingProfile}
-                className="h-11 rounded-xl"
+                className="h-11 rounded-kws-control"
               />
             </div>
           </div>
-        </div>
+        </KwsSurface>
 
         <div className="space-y-3">
           <Button
             onClick={handleSave}
             disabled={saving || loadingProfile}
-            className="h-12 w-full rounded-xl bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
+            className="h-12 w-full bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
           >
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Speichern
@@ -455,13 +444,13 @@ const ProfileEdit = () => {
             variant="outline"
             onClick={handlePasswordChange}
             disabled={loadingProfile || saving}
-            className="h-12 w-full rounded-xl font-medium"
+            className="h-12 w-full font-medium"
           >
             Passwort ändern
           </Button>
         </div>
       </div>
-    </SetupAreaLayout>
+    </DashboardPageLayout>
   );
 };
 

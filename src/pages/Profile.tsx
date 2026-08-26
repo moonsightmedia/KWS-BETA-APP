@@ -1,22 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
-  Trophy,
-  Flame,
-  Mountain,
-  Map,
-  ChevronRight,
   Bell,
+  ChevronRight,
+  Flame,
   Info,
   LogOut,
-  UserCog,
+  Map,
+  Mountain,
+  Pencil,
+  Trophy,
 } from 'lucide-react';
 
+import { DashboardPageLayout } from '@/components/DashboardPageLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { KwsMetricStrip } from '@/components/ui/kws-metric-strip';
+import { KwsSurface } from '@/components/ui/kws-surface';
 import { Skeleton } from '@/components/ui/skeleton';
-import { SetupAreaLayout } from '@/components/SetupAreaLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderCommunity';
 import { formatDifficulty } from '@/lib/difficulty';
@@ -133,108 +134,122 @@ const Profile = () => {
   const statsTiles = [
     { icon: Trophy, value: stats.topped, label: 'Tops' },
     { icon: Flame, value: stats.totalSessions, label: 'Sessions' },
-    { icon: Mountain, value: stats.highestGrade, label: 'Höchster Grad' },
+    { icon: Mountain, value: stats.highestGrade, label: 'Top-Grad' },
   ];
 
   const settingsGroups = [
-    [
-      { icon: Map, label: 'Sektoren', path: '/sectors' },
-      { icon: UserCog, label: 'Profil bearbeiten', path: '/profile/edit' },
-      { icon: Bell, label: 'Benachrichtigungen', path: '/profile/notifications' },
-    ],
-    [{ icon: Info, label: 'Über die App', path: '/profile/about' }],
+    {
+      title: 'Einstellungen',
+      items: [
+        { icon: Bell, label: 'Benachrichtigungen', description: 'Hinweise und Push-Einstellungen', path: '/profile/notifications' },
+      ],
+    },
+    {
+      title: 'App',
+      items: [
+        { icon: Map, label: 'Sektoren', description: 'Hallenbereiche und aktuelle Boulder', path: '/sectors' },
+        { icon: Info, label: 'Über die App', description: 'Version und Informationen', path: '/profile/about' },
+      ],
+    },
   ];
 
   return (
-    <SetupAreaLayout className="bg-background" contentClassName="bg-background">
-      <div className="px-4 pt-12 pb-1">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="h-10 w-10 rounded-xl bg-secondary flex items-center justify-center transition-colors active:scale-95"
-          aria-label={'Zurück'}
-        >
-          <ArrowLeft className="h-4 w-4 text-muted-foreground" />
-        </button>
-      </div>
-
-      <div className="px-4 pt-5">
-        <div className="flex flex-col items-center text-center">
-          {profileIdentityLoading ? (
-            <div className="flex flex-col items-center text-center">
-              <Skeleton className="mb-3 h-16 w-16 rounded-xl" />
-              <Skeleton className="h-6 w-40 rounded-lg" />
-              <Skeleton className="mt-2 h-4 w-28 rounded-lg" />
-            </div>
-          ) : (
-            <>
-              <Avatar className="mb-3 h-16 w-16 rounded-xl">
-                {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} className="rounded-xl object-cover" /> : null}
-                <AvatarFallback className="rounded-xl bg-primary/10 text-primary text-3xl font-semibold">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <h1 className="text-[1.2rem] font-bold leading-none text-foreground">{displayName}</h1>
-              <p className="mt-2 text-sm text-muted-foreground">{memberSinceLabel}</p>
-            </>
-          )}
-        </div>
-
-        <div className="mt-6 grid grid-cols-3 gap-2">
-          {statsTiles.map(({ icon: Icon, value, label }) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => navigate('/statistics')}
-              className="rounded-xl border border-border bg-card px-2.5 py-4 text-center active:scale-[0.98] transition-transform"
-            >
-              <div className="mx-auto mb-2.5 flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-                <Icon className="h-4.5 w-4.5 text-primary" />
+    <DashboardPageLayout>
+      <div className="grid gap-5 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
+        <div className="space-y-5">
+          <KwsSurface className="p-4 sm:p-5">
+            {profileIdentityLoading ? (
+              <div className="flex items-center gap-4">
+                <Skeleton className="h-16 w-16 shrink-0 rounded-kws-control" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-5 w-40 rounded-kws-badge" />
+                  <Skeleton className="h-3 w-48 rounded-kws-badge" />
+                  <Skeleton className="h-5 w-28 rounded-kws-badge" />
+                </div>
               </div>
-              <div className="text-[1.1rem] font-bold leading-none text-foreground">{value}</div>
-              <div className="mt-2 text-[11px] text-muted-foreground">{label}</div>
-            </button>
-          ))}
+            ) : (
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16 shrink-0 rounded-kws-control">
+                  {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} className="rounded-kws-control object-cover" /> : null}
+                  <AvatarFallback className="rounded-kws-control bg-primary/10 font-sans text-xl font-semibold text-primary">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="min-w-0 flex-1">
+                  <h2 className="truncate font-sans text-lg font-semibold tracking-[-0.03em] text-[#192436]">{displayName}</h2>
+                  {user?.email ? <p className="mt-0.5 truncate font-sans text-xs text-muted-foreground">{user.email}</p> : null}
+                  <span className="mt-2 inline-flex rounded-kws-badge bg-secondary px-2 py-1 font-sans text-[9px] font-semibold text-muted-foreground">
+                    {memberSinceLabel}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => navigate('/profile/edit')}
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-kws-control bg-secondary text-[#192436]/65 transition-colors hover:bg-[#E8EEE8] hover:text-[#192436] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+                  aria-label="Profil bearbeiten"
+                >
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            )}
+          </KwsSurface>
+
+          <section>
+            <h2 className="mb-2.5 px-0.5 font-sans text-sm font-semibold tracking-[-0.01em] text-[#192436]">Deine Aktivität</h2>
+            <KwsMetricStrip items={statsTiles} onItemClick={() => navigate('/statistics')} />
+          </section>
         </div>
 
-        <div className="mt-6 space-y-4">
-          {settingsGroups.map((group, groupIndex) => (
-            <div key={groupIndex} className="overflow-hidden rounded-xl border border-border bg-card">
-              {group.map((item) => (
-                <button
-                  key={item.label}
-                  type="button"
-                  onClick={() => navigate(item.path)}
-                  className="flex w-full items-center justify-between px-4 py-4 text-left transition-colors hover:bg-secondary/30 active:bg-secondary/50"
-                >
-                  <div className="flex items-center gap-3">
-                    <item.icon className="h-5 w-5 text-muted-foreground" strokeWidth={1.9} />
-                    <span className="text-base font-semibold text-foreground">{item.label}</span>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" strokeWidth={2} />
-                </button>
-              ))}
-            </div>
+        <div className="space-y-5">
+          {settingsGroups.map((group) => (
+            <section key={group.title}>
+              <h2 className="mb-2.5 px-0.5 font-sans text-sm font-semibold tracking-[-0.01em] text-[#192436]">{group.title}</h2>
+              <KwsSurface className="overflow-hidden">
+                {group.items.map((item) => {
+                  const ItemIcon = item.icon;
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => navigate(item.path)}
+                      className="flex min-h-[66px] w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-secondary/45 active:bg-secondary focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/45"
+                    >
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-kws-control bg-secondary text-[#192436]/65">
+                        <ItemIcon className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-sans text-sm font-semibold text-[#192436]">{item.label}</span>
+                        <span className="mt-0.5 block truncate font-sans text-[10px] text-muted-foreground">{item.description}</span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden="true" />
+                    </button>
+                  );
+                })}
+              </KwsSurface>
+            </section>
           ))}
 
-          <button
-            type="button"
-            onClick={signOut}
-            disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-4 text-base font-semibold text-destructive transition-colors hover:bg-destructive/5 active:bg-destructive/10"
-          >
-            <LogOut className="h-5 w-5" strokeWidth={2} />
-            Abmelden
-          </button>
-
-          {!user ? (
-            <Button onClick={() => navigate('/auth')} className="h-11 w-full rounded-xl text-sm font-semibold">
+          {user ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={signOut}
+              disabled={loading}
+              className="min-h-11 w-full bg-[#FFF3F1] font-sans text-sm font-semibold text-[#C6453A] hover:bg-[#FDE7E3] hover:text-[#C6453A]"
+            >
+              <LogOut className="h-4 w-4" strokeWidth={2} />
+              Abmelden
+            </Button>
+          ) : (
+            <Button onClick={() => navigate('/auth')} className="h-11 w-full font-sans text-sm font-semibold">
               Zur Anmeldung
             </Button>
-          ) : null}
+          )}
         </div>
       </div>
-    </SetupAreaLayout>
+    </DashboardPageLayout>
   );
 };
 

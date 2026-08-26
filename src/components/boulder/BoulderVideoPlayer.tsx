@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { ExternalLink, Maximize2, Minimize2, Settings, Video } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { BadgeCheck, Check, ChevronDown, ExternalLink, Maximize2, Minimize2, Settings, Video } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +24,12 @@ import {
 export const isYouTubeUrl = (url: string): boolean => /youtube\.com|youtu\.be/.test(url);
 export const isVimeoUrl = (url: string): boolean => /vimeo\.com/.test(url);
 
+const videoQualityLabels = {
+  hd: { short: 'HD', detail: '1920p' },
+  sd: { short: 'SD', detail: '1280p' },
+  low: { short: 'Low', detail: '640p' },
+} as const;
+
 export const getYouTubeEmbedUrl = (url: string): string => {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
   const match = url.match(regExp);
@@ -43,7 +49,20 @@ type BoulderVideoPlayerProps = {
   betaVideoUrl?: string;
   poster?: string;
   isVisible?: boolean;
+  showOfficialBadge?: boolean;
   className?: string;
+};
+
+type FullscreenVideoElement = HTMLDivElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+  mozRequestFullScreen?: () => Promise<void> | void;
+  msRequestFullscreen?: () => Promise<void> | void;
+};
+
+type FullscreenVideoDocument = Document & {
+  webkitExitFullscreen?: () => Promise<void> | void;
+  mozCancelFullScreen?: () => Promise<void> | void;
+  msExitFullscreen?: () => Promise<void> | void;
 };
 
 export function BoulderVideoPlayer({
@@ -51,6 +70,7 @@ export function BoulderVideoPlayer({
   betaVideoUrl,
   poster,
   isVisible = true,
+  showOfficialBadge = false,
   className,
 }: BoulderVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -92,6 +112,33 @@ export function BoulderVideoPlayer({
   }, [isVisible, betaVideoUrls, betaVideoUrl]);
 
   const currentVideoUrl = getVideoUrl(betaVideoUrls, betaVideoUrl, currentQuality);
+
+  const handleQualityFallback = useCallback(() => {
+    if (retryCountRef.current >= 2) {
+      setHasError(true);
+      return;
+    }
+
+    retryCountRef.current++;
+    const video = videoRef.current;
+    if (!video || !betaVideoUrls) return;
+
+    let nextQuality: 'hd' | 'sd' | 'low' | null = null;
+    if (currentQuality === 'hd' && betaVideoUrls.sd) {
+      nextQuality = 'sd';
+    } else if ((currentQuality === 'hd' || currentQuality === 'sd') && betaVideoUrls.low) {
+      nextQuality = 'low';
+    }
+
+    if (nextQuality) {
+      console.log('[VideoPlayer] Falling back to', nextQuality, 'quality');
+      setCurrentQuality(nextQuality);
+      setHasError(false);
+      video.load();
+    } else {
+      setHasError(true);
+    }
+  }, [betaVideoUrls, currentQuality]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -189,7 +236,7 @@ export function BoulderVideoPlayer({
       playStartTimeRef.current = null;
       playbackStateRef.current = null;
     };
-  }, [isVisible, currentQuality, betaVideoUrls, betaVideoUrl]);
+  }, [isVisible, currentQuality, betaVideoUrls, betaVideoUrl, handleQualityFallback]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -367,34 +414,7 @@ export function BoulderVideoPlayer({
         loadTimeoutRef.current = null;
       }
     };
-  }, [betaVideoUrl, betaVideoUrls, currentQuality, isBuffering]);
-
-  const handleQualityFallback = () => {
-    if (retryCountRef.current >= 2) {
-      setHasError(true);
-      return;
-    }
-
-    retryCountRef.current++;
-    const video = videoRef.current;
-    if (!video || !betaVideoUrls) return;
-
-    let nextQuality: 'hd' | 'sd' | 'low' | null = null;
-    if (currentQuality === 'hd' && betaVideoUrls.sd) {
-      nextQuality = 'sd';
-    } else if ((currentQuality === 'hd' || currentQuality === 'sd') && betaVideoUrls.low) {
-      nextQuality = 'low';
-    }
-
-    if (nextQuality) {
-      console.log('[VideoPlayer] Falling back to', nextQuality, 'quality');
-      setCurrentQuality(nextQuality);
-      setHasError(false);
-      video.load();
-    } else {
-      setHasError(true);
-    }
-  };
+  }, [betaVideoUrl, betaVideoUrls, currentQuality, handleQualityFallback, isBuffering]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -415,28 +435,29 @@ export function BoulderVideoPlayer({
   }, []);
 
   const toggleFullscreen = async () => {
-    const container = containerRef.current;
+    const container = containerRef.current as FullscreenVideoElement | null;
     if (!container) return;
+    const fullscreenDocument = document as FullscreenVideoDocument;
 
     try {
-      if (!document.fullscreenElement) {
+      if (!fullscreenDocument.fullscreenElement) {
         if (container.requestFullscreen) {
           await container.requestFullscreen();
-        } else if ((container as any).webkitRequestFullscreen) {
-          await (container as any).webkitRequestFullscreen();
-        } else if ((container as any).mozRequestFullScreen) {
-          await (container as any).mozRequestFullScreen();
-        } else if ((container as any).msRequestFullscreen) {
-          await (container as any).msRequestFullscreen();
+        } else if (container.webkitRequestFullscreen) {
+          await container.webkitRequestFullscreen();
+        } else if (container.mozRequestFullScreen) {
+          await container.mozRequestFullScreen();
+        } else if (container.msRequestFullscreen) {
+          await container.msRequestFullscreen();
         }
-      } else if (document.exitFullscreen) {
-        await document.exitFullscreen();
-      } else if ((document as any).webkitExitFullscreen) {
-        await (document as any).webkitExitFullscreen();
-      } else if ((document as any).mozCancelFullScreen) {
-        await (document as any).mozCancelFullScreen();
-      } else if ((document as any).msExitFullscreen) {
-        await (document as any).msExitFullscreen();
+      } else if (fullscreenDocument.exitFullscreen) {
+        await fullscreenDocument.exitFullscreen();
+      } else if (fullscreenDocument.webkitExitFullscreen) {
+        await fullscreenDocument.webkitExitFullscreen();
+      } else if (fullscreenDocument.mozCancelFullScreen) {
+        await fullscreenDocument.mozCancelFullScreen();
+      } else if (fullscreenDocument.msExitFullscreen) {
+        await fullscreenDocument.msExitFullscreen();
       }
     } catch (error) {
       console.error('Error toggling fullscreen:', error);
@@ -446,7 +467,7 @@ export function BoulderVideoPlayer({
   if (hasError || !currentVideoUrl) {
     const fallbackUrl = getVideoUrl(betaVideoUrls, betaVideoUrl, 'low') || betaVideoUrl;
     return (
-      <div className={cn('relative flex h-full w-full items-center justify-center rounded-xl bg-black/50', className)}>
+      <div className={cn('relative flex h-full w-full items-center justify-center rounded-kws-card bg-[#192436]', className)}>
         <div className="space-y-4 p-4 text-center">
           <Video className="mx-auto h-12 w-12 text-white/60" />
           <div>
@@ -486,7 +507,7 @@ export function BoulderVideoPlayer({
   }
 
   return (
-    <div ref={containerRef} className={cn('relative h-full w-full', className)}>
+    <div ref={containerRef} className={cn('relative h-full w-full bg-[#192436]', className)}>
       <style>{`
         video::-webkit-media-controls-start-playback-button {
           display: none !important;
@@ -502,10 +523,9 @@ export function BoulderVideoPlayer({
         muted
         playsInline
         controlsList="nodownload"
-        className="h-full w-full object-cover object-center"
+        className={cn('h-full w-full object-center', isFullscreen ? 'object-contain' : 'object-cover')}
         poster={poster || undefined}
         preload="metadata"
-        style={{ objectFit: 'cover', objectPosition: 'center' }}
       >
         {currentVideoUrl.toLowerCase().endsWith('.mp4') ? (
           <>
@@ -521,28 +541,37 @@ export function BoulderVideoPlayer({
         Dein Browser unterstuetzt keine Videos.
       </video>
 
-      <div className="absolute right-2 top-2 z-30 flex items-center gap-2">
+      {showOfficialBadge ? (
+        <div className="absolute left-2.5 top-2.5 z-30 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.94] px-2.5 text-[#192436] shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm">
+          <BadgeCheck className="h-3.5 w-3.5 text-primary" />
+          <span className="text-[10px] font-semibold">Offizielle Beta</span>
+        </div>
+      ) : null}
+
+      <div className="absolute right-2.5 top-2.5 z-30 flex items-center gap-1.5">
         {showQualitySelector && betaVideoUrls ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex cursor-pointer items-center gap-1 rounded-md border-0 bg-black/70 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm transition-all hover:bg-black/80 sm:text-sm"
+                className="flex h-9 cursor-pointer items-center gap-1.5 rounded-kws-control border border-white/70 bg-white/[0.94] px-2.5 text-xs font-semibold text-[#192436] shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent"
+                aria-label={`Videoqualität: ${videoQualityLabels[currentQuality].short}`}
                 onClick={(event) => {
                   event.stopPropagation();
-                  event.preventDefault();
                 }}
                 onMouseDown={(event) => {
                   event.stopPropagation();
                 }}
               >
-                <Settings className="h-3 w-3" />
-                {currentQuality.toUpperCase()}
+                <Settings className="h-3.5 w-3.5 text-primary" />
+                <span>{videoQualityLabels[currentQuality].short}</span>
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="z-[120] w-32"
+              sideOffset={6}
+              className="z-[120] w-48 rounded-kws-control border border-border/80 bg-white p-1.5 text-[#192436] shadow-[0_5px_18px_rgba(19,17,43,0.12)]"
               onPointerDownOutside={(event) => {
                 const target = event.target as HTMLElement;
                 if (target.closest('[role="dialog"]')) {
@@ -550,8 +579,11 @@ export function BoulderVideoPlayer({
                 }
               }}
             >
-              <DropdownMenuLabel>Qualitaet</DropdownMenuLabel>
-              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="px-2.5 pb-2 pt-1.5">
+                <span className="block text-xs font-semibold text-[#192436]">Videoqualität</span>
+                <span className="mt-0.5 block text-[10px] font-medium text-muted-foreground">Auflösung auswählen</span>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-border/80" />
               <DropdownMenuRadioGroup
                 value={currentQuality}
                 onValueChange={(value) => {
@@ -569,17 +601,30 @@ export function BoulderVideoPlayer({
                   setCurrentQuality(newQuality);
                 }}
               >
-                {betaVideoUrls.hd && <DropdownMenuRadioItem value="hd">HD (1920p)</DropdownMenuRadioItem>}
-                {betaVideoUrls.sd && <DropdownMenuRadioItem value="sd">SD (1280p)</DropdownMenuRadioItem>}
-                {betaVideoUrls.low && <DropdownMenuRadioItem value="low">Low (640p)</DropdownMenuRadioItem>}
+                {(['hd', 'sd', 'low'] as const).map((quality) => (
+                  betaVideoUrls[quality] ? (
+                    <DropdownMenuRadioItem
+                      key={quality}
+                      value={quality}
+                      className="group min-h-10 gap-2 rounded-kws-badge py-2 pl-2.5 pr-2.5 text-xs font-semibold text-[#192436] focus:bg-secondary focus:text-[#192436] data-[state=checked]:bg-primary data-[state=checked]:text-white data-[state=checked]:focus:bg-primary data-[state=checked]:focus:text-white [&>span:first-child]:hidden"
+                    >
+                      <span aria-hidden="true" className="grid h-4 w-4 shrink-0 place-items-center text-white opacity-0 group-data-[state=checked]:opacity-100">
+                        <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+                      </span>
+                      <span className="text-[#192436] group-data-[state=checked]:text-white">{videoQualityLabels[quality].short}</span>
+                      <span className="ml-auto text-[10px] font-medium text-muted-foreground group-data-[state=checked]:text-white/85">{videoQualityLabels[quality].detail}</span>
+                    </DropdownMenuRadioItem>
+                  ) : null
+                ))}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : null}
 
         <button
+          type="button"
           onClick={toggleFullscreen}
-          className="rounded-lg bg-black/60 p-2 text-white backdrop-blur-sm transition-all hover:bg-black/80"
+          className="grid h-9 w-9 place-items-center rounded-kws-control border border-white/70 bg-white/[0.94] text-[#192436] shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent"
           aria-label={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
           title={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
         >
@@ -588,7 +633,7 @@ export function BoulderVideoPlayer({
       </div>
 
       {isBuffering && bufferProgress < 100 && (
-        <div className="pointer-events-none absolute inset-x-4 bottom-4 rounded-full bg-black/45 px-3 py-2 text-center text-xs font-medium text-white backdrop-blur-sm">
+        <div className="pointer-events-none absolute inset-x-4 bottom-4 rounded-kws-control bg-[#192436]/85 px-3 py-2 text-center text-xs font-medium text-white backdrop-blur-sm">
           Buffering {Math.round(bufferProgress)}%
         </div>
       )}

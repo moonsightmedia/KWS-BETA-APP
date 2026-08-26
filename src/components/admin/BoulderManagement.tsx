@@ -70,24 +70,34 @@ export const BoulderManagement = () => {
   // Mobile floating filter bar state
   const [filterOpen, setFilterOpen] = useState(false);
   const [quickFilter, setQuickFilter] = useState<null | 'sector' | 'difficulty' | 'color' | 'sort'>(null);
+  const publicSectorNameById = useMemo(
+    () => new Map((sectorsTransformed ?? []).map((sector) => [sector.id, sector.name])),
+    [sectorsTransformed],
+  );
+  const logicalSectorNames = useMemo(
+    () => [...new Set((sectorsTransformed ?? []).map((sector) => sector.name))],
+    [sectorsTransformed],
+  );
 
   // Gefilterte und sortierte Boulder
   const filteredAndSortedBoulders = useMemo(() => {
     if (!boulders || !sectors) return [];
 
-    let filtered = boulders.filter((boulder) => {
+    const filtered = boulders.filter((boulder) => {
       const sector = sectors.find(s => s.id === boulder.sector_id);
+      const publicSectorName = publicSectorNameById.get(boulder.sector_id) ?? sector?.name;
       
       // Suchfilter
       const matchesSearch = 
         boulder.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         sector?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        publicSectorName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         boulder.color.toLowerCase().includes(searchQuery.toLowerCase()) ||
         boulder.difficulty.toString().includes(searchQuery) ||
         (boulder.note && boulder.note.toLowerCase().includes(searchQuery.toLowerCase()));
 
       // Sektor-Filter
-      const matchesSector = sectorFilter === 'all' || sector?.name === sectorFilter;
+      const matchesSector = sectorFilter === 'all' || publicSectorName === sectorFilter;
 
       // Schwierigkeits-Filter
       const matchesDifficulty = difficultyFilter === 'all' || (boulder.difficulty === null ? '?' : String(boulder.difficulty)) === difficultyFilter;
@@ -106,8 +116,8 @@ export const BoulderManagement = () => {
           result = a.name.localeCompare(b.name);
           break;
         case 'sector': {
-          const sectorA = sectors.find(s => s.id === a.sector_id)?.name || '';
-          const sectorB = sectors.find(s => s.id === b.sector_id)?.name || '';
+          const sectorA = publicSectorNameById.get(a.sector_id) ?? sectors.find(s => s.id === a.sector_id)?.name ?? '';
+          const sectorB = publicSectorNameById.get(b.sector_id) ?? sectors.find(s => s.id === b.sector_id)?.name ?? '';
           result = sectorA.localeCompare(sectorB);
           break;
         }
@@ -125,7 +135,7 @@ export const BoulderManagement = () => {
     });
 
     return filtered;
-  }, [boulders, sectors, searchQuery, sectorFilter, difficultyFilter, colorFilter, sortBy, sortOrder]);
+  }, [boulders, sectors, publicSectorNameById, searchQuery, sectorFilter, difficultyFilter, colorFilter, sortBy, sortOrder]);
 
   const handleSort = (column: typeof sortBy) => {
     if (sortBy === column) {
@@ -596,9 +606,9 @@ export const BoulderManagement = () => {
                   </SelectTrigger>
                   <SelectContent className="bg-card z-50">
                     <SelectItem value="all">Alle Sektoren</SelectItem>
-                    {sectorsTransformed?.map((sector) => (
-                      <SelectItem key={sector.id} value={sector.name}>
-                        {sector.name}
+                    {logicalSectorNames.map((sectorName) => (
+                      <SelectItem key={sectorName} value={sectorName}>
+                        {sectorName}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -663,9 +673,20 @@ export const BoulderManagement = () => {
                 <label className="text-sm font-medium">Sortierung</label>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <Select value={sortBy === 'date' ? 'created_at' : sortBy} onValueChange={(value: any) => {
-                      setSortBy(value === 'created_at' ? 'date' : value);
-                    }}>
+                    <Select
+                      value={sortBy === 'date' ? 'created_at' : sortBy}
+                      onValueChange={(value) => {
+                        const normalized = value === 'created_at' ? 'date' : value;
+                        if (
+                          normalized === 'name'
+                          || normalized === 'sector'
+                          || normalized === 'difficulty'
+                          || normalized === 'date'
+                        ) {
+                          setSortBy(normalized);
+                        }
+                      }}
+                    >
                       <SelectTrigger>
                         <SelectValue>
                           {sortBy === 'date' || sortBy === 'created_at' ? 'Datum' : sortBy === 'name' ? 'Name' : sortBy === 'difficulty' ? 'Schwierigkeit' : 'Sektor'}
@@ -958,18 +979,18 @@ export const BoulderManagement = () => {
                 >
                   Alle
                 </button>
-                {sectors?.map(s => (
+                {logicalSectorNames.map((sectorName) => (
                   <button
-                    key={s.id}
+                    key={sectorName}
                     className={cn(
                       "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
-                      sectors.find(x=>x.name===sectorFilter)?.id===s.id
+                      sectorFilter === sectorName
                         ? "bg-[#36B531] text-white" 
                         : "bg-white/10 text-white/70 hover:text-white"
                     )}
-                    onClick={() => setSectorFilter(s.name)}
+                    onClick={() => setSectorFilter(sectorName)}
                   >
-                    {s.name}
+                    {sectorName}
                   </button>
                 ))}
               </div>

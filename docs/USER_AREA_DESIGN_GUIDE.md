@@ -1,6 +1,12 @@
-# User Area Design Guide
+# User Area Design Guide (veraltet)
 
-Dieser Guide beschreibt die Design-Sprache, die im User-Bereich der Beta-App bereits sichtbar ist und ab jetzt als verbindliche Grundlage für neue oder überarbeitete Screens gelten soll.
+> **Ersetzt am 26.08.2026:** Die verbindliche und vollständigere Referenz ist
+> [`docs/DESIGN.md`](DESIGN.md). Diese Datei bleibt nur als historische
+> Dokumentation erhalten und darf nicht mehr als Grundlage für neue UI-Arbeit
+> verwendet werden.
+
+Dieser historische Guide beschreibt einen früheren Zwischenstand der
+Design-Sprache im User-Bereich der Beta-App.
 
 ## Zielbild
 

@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "1.0.222",
+  "version": "1.0.223",
   "type": "module",
   "scripts": {
     "dev": "vite --force",
@@ -15,6 +15,7 @@
     "lint": "eslint .",
     "test:upload-queue": "node --test test/uploadQueue.test.mjs",
     "test:boulder-colors": "node --test test/boulderColors.test.mjs",
+    "test:sector-areas": "node --test test/sectorAreas.test.mjs",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "preview": "vite preview",

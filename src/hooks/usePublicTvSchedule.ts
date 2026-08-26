@@ -32,6 +32,30 @@ interface PublicSectorRow {
   next_schraubtermin: string | null;
   last_schraubtermin: string | null;
   image_url: string | null;
+  area_id?: string | null;
+  subarea_code?: string | null;
+  sort_order?: number;
+  is_active?: boolean;
+  area?: {
+    id: string;
+    name: string;
+    slug: string;
+    sort_order: number;
+    description: string | null;
+    is_active: boolean;
+  } | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PublicSectorMapRegionRow {
+  id: string;
+  hall_map_id: string;
+  sector_id: string;
+  points_json: unknown;
+  label_x: string | number | null;
+  label_y: string | number | null;
+  z_index: string | number | null;
   created_at: string;
   updated_at: string;
 }
@@ -88,7 +112,7 @@ function normalizePointsJson(value: unknown): MapPoint[] {
     .filter((point): point is MapPoint => point !== null);
 }
 
-function normalizeRegion(row: any): SectorMapRegion {
+function normalizeRegion(row: PublicSectorMapRegionRow): SectorMapRegion {
   return {
     id: row.id,
     hall_map_id: row.hall_map_id,
@@ -121,7 +145,25 @@ export const usePublicTvSectors = () =>
     ...tvQueryOptions,
     queryFn: async () => {
       const rows = await publicRestRequest<PublicSectorRow[]>('sectors?select=*&order=name.asc');
-      return rows.map(transformSector) as FrontendSector[];
+      const hasHierarchyColumns = rows.some((sector) => Object.prototype.hasOwnProperty.call(sector, 'area_id'));
+
+      if (hasHierarchyColumns) {
+        try {
+          const areas = await publicRestRequest<Array<NonNullable<PublicSectorRow['area']>>>(
+            'sector_areas?select=*&order=sort_order.asc,name.asc',
+          );
+          const areaById = new Map(areas.map((area) => [area.id, area]));
+          rows.forEach((sector) => {
+            sector.area = sector.area_id ? areaById.get(sector.area_id) ?? null : null;
+          });
+        } catch (error) {
+          console.warn('[usePublicTvSectors] Bereichsnamen konnten nicht geladen werden; verwende Legacy-Zuordnung.', error);
+        }
+      }
+
+      return rows
+        .filter((sector) => sector.is_active !== false && sector.area?.is_active !== false)
+        .map(transformSector) as FrontendSector[];
     },
   });
 
@@ -141,7 +183,7 @@ export const usePublicSectorMapRegions = (hallMapId?: string | null) =>
     enabled: !!hallMapId,
     ...tvQueryOptions,
     queryFn: async () => {
-      const rows = await publicRestRequest<any[]>(
+      const rows = await publicRestRequest<PublicSectorMapRegionRow[]>(
         `sector_map_regions?select=*&hall_map_id=eq.${hallMapId}&order=z_index.asc,created_at.asc`,
       );
       return rows.map(normalizeRegion);

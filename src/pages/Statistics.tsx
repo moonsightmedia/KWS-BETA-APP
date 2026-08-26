@@ -1,31 +1,37 @@
 ﻿import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ChevronRight, CircleDot, Flame, Mountain, TrendingUp, Trophy, Zap } from 'lucide-react';
+import { ChevronRight, CircleDot, Flame, Mountain, TrendingUp, Trophy, Zap } from 'lucide-react';
 
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { useSidebar } from '@/components/SidebarContext';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/useAuth';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderCommunity';
 import { DIFFICULTY_VALUES, formatDifficulty } from '@/lib/difficulty';
 import { cn } from '@/lib/utils';
+import { useHorizontalRouteSwipe } from '@/hooks/useHorizontalRouteSwipe';
+import { KwsSegmentedControl } from '@/components/ui/kws-segmented-control';
+
+const statisticsRangeOptions = [
+  { value: 'hanging', label: 'Hängend' },
+  { value: 'allTime', label: 'Alltime' },
+] as const;
 
 const StatisticsLoadingState = () => (
   <>
     <div className="mb-4 mt-3 px-4 md:mt-0 md:px-0">
-      <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
+      <div className="flex items-center justify-between rounded-kws-card bg-white px-3.5 py-3 shadow-[0_3px_14px_rgba(19,17,43,0.06)]">
         <div className="space-y-2">
           <Skeleton className="h-4 w-28" />
           <Skeleton className="h-3 w-44" />
         </div>
-        <Skeleton className="h-6 w-20 rounded-full" />
+        <Skeleton className="h-9 w-36 rounded-kws-control" />
       </div>
     </div>
 
     <div className="mb-5 px-4 md:px-0">
-      <div className="rounded-2xl border border-border bg-card p-5">
+      <div className="rounded-kws-card bg-white p-4 shadow-[0_3px_14px_rgba(19,17,43,0.06)]">
         <div className="flex items-center gap-5">
           <Skeleton className="h-[88px] w-[88px] rounded-full" />
           <div className="min-w-0 flex-1 space-y-3">
@@ -41,10 +47,10 @@ const StatisticsLoadingState = () => (
     </div>
 
     <div className="mb-5 px-4 md:px-0">
-      <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="rounded-2xl border border-border bg-card p-3">
-            <Skeleton className="mx-auto mb-2 h-7 w-7 rounded-xl" />
+          <div key={index} className="rounded-kws-control bg-white p-3 shadow-[0_3px_14px_rgba(19,17,43,0.06)]">
+            <Skeleton className="mx-auto mb-2 h-7 w-7 rounded-kws-control" />
             <Skeleton className="mx-auto h-5 w-8" />
             <Skeleton className="mx-auto mt-2 h-3 w-12" />
           </div>
@@ -53,7 +59,7 @@ const StatisticsLoadingState = () => (
     </div>
 
     <div className="mb-5 px-4 md:px-0">
-      <div className="overflow-hidden rounded-2xl border border-border bg-card p-4">
+          <div className="overflow-hidden rounded-kws-card bg-white p-4 shadow-[0_3px_14px_rgba(19,17,43,0.06)]">
         <Skeleton className="h-3 w-24" />
         <div className="mt-4 grid grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, index) => (
@@ -68,7 +74,7 @@ const StatisticsLoadingState = () => (
     </div>
 
     <div className="mb-5 px-4 md:px-0">
-      <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="rounded-kws-card bg-white p-4 shadow-[0_3px_14px_rgba(19,17,43,0.06)]">
         <Skeleton className="h-3 w-24" />
         <Skeleton className="mt-2 h-3 w-36" />
         <div className="mt-4 flex h-32 items-end gap-3">
@@ -84,7 +90,7 @@ const StatisticsLoadingState = () => (
     </div>
 
     <div className="mb-5 px-4 md:px-0">
-      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="overflow-hidden rounded-kws-card bg-white shadow-[0_3px_14px_rgba(19,17,43,0.06)]">
         <div className="p-4 pb-2">
           <Skeleton className="h-3 w-28" />
         </div>
@@ -92,7 +98,7 @@ const StatisticsLoadingState = () => (
           {Array.from({ length: 4 }).map((_, index) => (
             <div key={index} className="flex items-center justify-between px-4 py-3">
               <div className="flex min-w-0 items-center gap-3">
-                <Skeleton className="h-9 w-9 rounded-xl" />
+                <Skeleton className="h-9 w-9 rounded-kws-control" />
                 <div className="space-y-2">
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-3 w-24" />
@@ -112,6 +118,7 @@ const Statistics = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isExpanded } = useSidebar();
   const { user, loading: authLoading } = useAuth();
+  const swipeRef = useHorizontalRouteSwipe({ routes: ['/', '/boulders', '/statistics'] });
   const [showAllTime, setShowAllTime] = useState(false);
   const queriesEnabled = !authLoading && !!user;
   const bouldersQuery = useBouldersWithSectors(queriesEnabled);
@@ -244,34 +251,17 @@ const Statistics = () => {
   };
 
   const pageLayoutClassName = cn(
-    'flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-background',
+    'flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]',
     isExpanded ? 'md:ml-64' : 'md:ml-20',
   );
 
   if (isStatisticsLoading) {
     return (
-      <div className="min-h-screen flex bg-background">
-        <div className={pageLayoutClassName}>
-          <div className="hidden md:block">
-            <DashboardHeader />
-          </div>
+      <div className="min-h-screen flex bg-[#F9FAF9]">
+        <div ref={swipeRef} className={pageLayoutClassName}>
+          <DashboardHeader />
 
-          <main className="flex-1 pb-12 md:px-6 md:pt-6 lg:px-8">
-            <div className="px-4 pt-12 pb-2 md:hidden">
-              <div className="mb-1 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => navigate(-1)}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary transition-colors active:scale-95"
-                  aria-label="Zurück"
-                >
-                  <ArrowLeft className="h-4 w-4 text-muted-foreground" />
-                </button>
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">Statistiken</h1>
-              </div>
-              <p className="ml-[52px] text-sm text-muted-foreground">Dein Boulder-Fortschritt</p>
-            </div>
-
+          <main className="mx-auto w-full max-w-[1180px] flex-1 pb-12 pt-3 md:px-8 md:pt-6">
             <StatisticsLoadingState />
           </main>
         </div>
@@ -280,41 +270,24 @@ const Statistics = () => {
   }
 
   return (
-    <div className="min-h-screen flex bg-background">
-      <div className={pageLayoutClassName}>
-        <div className="hidden md:block">
-          <DashboardHeader />
-        </div>
+    <div className="min-h-screen flex bg-[#F9FAF9]">
+      <div ref={swipeRef} className={pageLayoutClassName}>
+        <DashboardHeader />
 
-        <main className="flex-1 pb-12 md:px-6 md:pt-6 lg:px-8">
-          <div className="px-4 pt-12 pb-2 md:hidden">
-            <div className="mb-1 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => navigate(-1)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary transition-colors active:scale-95"
-                aria-label="Zurück"
-              >
-                <ArrowLeft className="h-4 w-4 text-muted-foreground" />
-              </button>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">Statistiken</h1>
-            </div>
-            <p className="ml-[52px] text-sm text-muted-foreground">Dein Boulder-Fortschritt</p>
-          </div>
-
+        <main className="mx-auto w-full max-w-[1180px] flex-1 pb-12 pt-3 md:px-8 md:pt-6">
           <div className="mb-4 mt-3 px-4 md:mt-0 md:px-0">
-            <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
+            <div className="flex flex-col gap-3 rounded-kws-card bg-white px-3.5 py-3 shadow-[0_3px_14px_rgba(19,17,43,0.06)] sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm font-semibold text-foreground">Statistikbasis</p>
-                <p className="text-xs text-muted-foreground">
-                  {showAllTime ? 'Alltime inklusive abgeschraubter Boulder' : 'Nur aktuell hängende Boulder'}
+                <p className="font-sans text-sm font-semibold tracking-[-0.01em] text-[#192436]">Statistikbasis</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {showAllTime ? 'Alltime · inklusive abgeschraubt' : 'Aktuell · nur hängende Boulder'}
                 </p>
                 {activeGrade ? (
                   <div className="mt-2">
                     <button
                       type="button"
                       onClick={() => setGradeFilter(null)}
-                      className="inline-flex items-center gap-2 rounded-xl border border-[#DDE7DF] bg-white px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+                      className="inline-flex min-h-9 items-center gap-2 rounded-kws-control bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#13112B]/20"
                     >
                       Grad {activeGrade}
                       <span className="text-muted-foreground">zurücksetzen</span>
@@ -322,28 +295,19 @@ const Statistics = () => {
                   </div>
                 ) : null}
               </div>
-              <div className="flex items-center gap-2">
-                <span className={cn('text-xs font-medium', !showAllTime ? 'text-foreground' : 'text-muted-foreground')}>
-                  Hängend
-                </span>
-                <Switch
-                  checked={showAllTime}
-                  onCheckedChange={setShowAllTime}
-                  aria-label="Zwischen nur hängenden Bouldern und Alltime-Statistik umschalten"
-                />
-                <span className={cn('text-xs font-medium', showAllTime ? 'text-foreground' : 'text-muted-foreground')}>
-                  Alltime
-                </span>
-              </div>
+              <KwsSegmentedControl
+                value={showAllTime ? 'allTime' : 'hanging'}
+                options={statisticsRangeOptions}
+                onValueChange={(value) => setShowAllTime(value === 'allTime')}
+                ariaLabel="Statistikzeitraum"
+                className="w-full sm:w-auto sm:min-w-[12rem]"
+              />
             </div>
           </div>
 
           <div className="mb-5 px-4 md:px-0">
-            <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5">
-              <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-primary/5" />
-              <div className="absolute -bottom-6 -right-14 h-24 w-24 rounded-full bg-primary/3" />
-
-              <div className="relative flex items-center gap-5">
+            <div className="overflow-hidden rounded-kws-card bg-white p-4 shadow-[0_5px_18px_rgba(19,17,43,0.07)] sm:p-5">
+              <div className="flex items-center gap-5">
                 <div className="relative shrink-0">
                   <svg width="88" height="88" viewBox="0 0 88 88">
                     <circle cx="44" cy="44" r="38" fill="none" stroke="hsl(var(--secondary))" strokeWidth="6" />
@@ -381,9 +345,9 @@ const Statistics = () => {
                         <span className="text-[10px] text-muted-foreground">Probiert</span>
                         <span className="text-[10px] font-medium text-muted-foreground">{statSummary.trackedPercent}%</span>
                       </div>
-                      <div className="h-1.5 overflow-hidden rounded-sm bg-secondary">
+                      <div className="h-1.5 overflow-hidden rounded-[2px] bg-secondary">
                         <div
-                          className="h-full rounded-sm bg-muted-foreground/30 transition-all duration-500"
+                          className="h-full rounded-[2px] bg-muted-foreground/30 transition-all duration-500"
                           style={{ width: `${statSummary.trackedPercent}%` }}
                         />
                       </div>
@@ -395,15 +359,15 @@ const Statistics = () => {
           </div>
 
           <div className="mb-5 px-4 md:px-0">
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {[
                 { icon: Trophy, value: statSummary.topped.length, label: 'Tops' },
                 { icon: Zap, value: statSummary.flashed.length, label: 'Flashes' },
                 { icon: CircleDot, value: statSummary.projects.length, label: 'Projekte' },
                 { icon: Flame, value: statSummary.totalSessions, label: 'Sessions' },
               ].map(({ icon: Icon, value, label }) => (
-                <div key={label} className="flex flex-col items-center rounded-2xl border border-border bg-card p-3 text-center">
-                  <div className="mb-1.5 flex h-7 w-7 items-center justify-center rounded-xl bg-primary/10">
+                <div key={label} className="flex flex-col items-center rounded-kws-control bg-white p-3 text-center shadow-[0_3px_14px_rgba(19,17,43,0.06)]">
+                  <div className="mb-1.5 flex h-7 w-7 items-center justify-center rounded-kws-control bg-primary/10">
                     <Icon className="h-3.5 w-3.5 text-primary" />
                   </div>
                   <span className="text-lg font-bold leading-tight text-foreground">{value}</span>
@@ -414,17 +378,17 @@ const Statistics = () => {
           </div>
 
           <div className="mb-5 px-4 md:px-0">
-            <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="overflow-hidden rounded-kws-card bg-white shadow-[0_3px_14px_rgba(19,17,43,0.06)]">
               <div className="p-4 pb-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Performance</h3>
+                <h3 className="font-sans text-sm font-semibold tracking-[-0.01em] text-[#192436]">Performance</h3>
               </div>
-              <div className="grid grid-cols-3 divide-x divide-border px-2 pb-4">
+              <div className="grid grid-cols-3 gap-2 px-3 pb-4">
                 {[
                   { icon: Mountain, value: statSummary.highestGrade, label: 'Höchster Grad' },
                   { icon: Zap, value: `${statSummary.flashRate}%`, label: 'Flash-Rate' },
                   { icon: TrendingUp, value: String(statSummary.totalAttempts), label: 'Versuche' },
                 ].map(({ icon: Icon, value, label }) => (
-                  <div key={label} className="flex flex-col items-center px-2 text-center">
+                  <div key={label} className="flex flex-col items-center rounded-kws-control bg-secondary/70 px-2 py-3 text-center">
                     <Icon className="mb-1 h-4 w-4 text-primary" />
                     <span className="text-lg font-bold text-foreground">{value}</span>
                     <span className="text-[10px] leading-tight text-muted-foreground">{label}</span>
@@ -435,10 +399,10 @@ const Statistics = () => {
           </div>
 
           <div className="mb-5 px-4 md:px-0">
-            <div className="rounded-2xl border border-border bg-card p-4">
+            <div className="rounded-kws-card bg-white p-4 shadow-[0_3px_14px_rgba(19,17,43,0.06)]">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Grad-Verteilung</h3>
+                  <h3 className="font-sans text-sm font-semibold tracking-[-0.01em] text-[#192436]">Grad-Verteilung</h3>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     {activeGrade ? `Gefiltert auf Grad ${activeGrade}` : 'Deine getoppten Boulder pro Grad'}
                   </p>
@@ -447,7 +411,7 @@ const Statistics = () => {
                   <button
                     type="button"
                     onClick={() => setGradeFilter(null)}
-                    className="shrink-0 rounded-xl border border-[#DDE7DF] px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+                    className="min-h-9 shrink-0 rounded-kws-control bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#13112B]/20"
                   >
                     Filter zurücksetzen
                   </button>
@@ -463,7 +427,7 @@ const Statistics = () => {
                       type="button"
                       onClick={() => setGradeFilter(isActiveGrade ? null : String(item.grade))}
                       className={cn(
-                        'flex flex-1 flex-col items-center gap-1 rounded-xl px-1 py-1 text-center transition-colors hover:bg-secondary/50',
+                        'flex flex-1 flex-col items-center gap-1 rounded-kws-control px-1 py-1 text-center transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#13112B]/20',
                         activeGrade && !isActiveGrade && 'opacity-55',
                       )}
                       aria-pressed={isActiveGrade}
@@ -475,7 +439,7 @@ const Statistics = () => {
                       <div className="flex h-24 w-full flex-col justify-end">
                         <div
                           className={cn(
-                            'w-full rounded-t-sm transition-all duration-500',
+                            'w-full rounded-kws-badge transition-all duration-500',
                             item.count > 0 ? 'bg-primary' : 'bg-secondary',
                             isActiveGrade && 'ring-2 ring-primary/20',
                           )}
@@ -493,9 +457,9 @@ const Statistics = () => {
           </div>
 
           <div className="mb-5 px-4 md:px-0">
-            <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="overflow-hidden rounded-kws-card bg-white shadow-[0_3px_14px_rgba(19,17,43,0.06)]">
               <div className="p-4 pb-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Letzte Aktivität</h3>
+                <h3 className="font-sans text-sm font-semibold tracking-[-0.01em] text-[#192436]">Letzte Aktivität</h3>
               </div>
               {statSummary.recentSessions.length > 0 ? (
                 <div className="divide-y divide-border">
@@ -508,7 +472,7 @@ const Statistics = () => {
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <div
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[10px] font-bold"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-kws-control text-[10px] font-bold"
                           style={{
                             backgroundColor: `${session.colorHex}18`,
                             color: session.colorHex,
@@ -525,7 +489,7 @@ const Statistics = () => {
                       </div>
 
                       <div className="flex shrink-0 items-center gap-2">
-                        <span className={cn('rounded-[6px] px-2.5 py-0.5 text-[10px] font-bold', resultColors[session.result])}>
+                        <span className={cn('rounded-kws-badge px-2.5 py-0.5 text-[10px] font-bold', resultColors[session.result])}>
                           {resultLabels[session.result]}
                         </span>
                         <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />

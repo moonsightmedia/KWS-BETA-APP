@@ -1,17 +1,16 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, Trash2 } from 'lucide-react';
+import { RefreshCw, Trash2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Capacitor } from '@capacitor/core';
 import { toast } from 'sonner';
 
+import { DashboardPageLayout } from '@/components/DashboardPageLayout';
 import { Button } from '@/components/ui/button';
-import { SetupAreaLayout } from '@/components/SetupAreaLayout';
+import { KwsSurface } from '@/components/ui/kws-surface';
 import { clearAllCaches } from '@/utils/cacheUtils';
 import { checkForUpdates, getVersionInfo } from '@/utils/version';
 
 const AboutApp = () => {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const versionInfo = getVersionInfo();
   const [clearingCache, setClearingCache] = useState(false);
@@ -31,32 +30,17 @@ const AboutApp = () => {
   };
 
   return (
-    <SetupAreaLayout>
-      <div className="flex-1 bg-[#F9FAF9]">
-        <main className="flex-1">
-          <div className="mx-auto max-w-4xl px-4 pb-28 pt-5 md:px-8 md:pb-12 md:pt-8">
-            <div className="space-y-5 rounded-2xl bg-[#F9FAF9] px-3 pb-8 pt-6 md:px-6">
-              <div className="flex items-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => navigate(-1)}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F1F4EE] text-[#6E7487] transition-transform active:scale-[0.98]"
-                  aria-label="Zurück"
-                >
-                  <ArrowLeft className="h-5 w-5" strokeWidth={2} />
-                </button>
-                <h1 className="text-[2rem] font-semibold tracking-[-0.04em] text-[#13112B]">Über die App</h1>
-              </div>
-
-              <section className="rounded-2xl border border-[#DDE7DF] bg-white px-6 py-6 shadow-[0_8px_24px_rgba(19,17,43,0.04)]">
-                <div className="space-y-2 text-sm text-[#13112B]/60">
+    <DashboardPageLayout headerBackTo="/profile">
+      <div className="mx-auto max-w-3xl space-y-5">
+        <KwsSurface className="px-4 py-5 sm:px-5">
+                <div className="space-y-3 font-sans text-sm text-muted-foreground">
                   <div className="flex items-center justify-between">
                     <span>Version</span>
-                    <span className="font-medium text-[#13112B]">{versionInfo.version}</span>
+                    <span className="font-semibold text-[#192436]">{versionInfo.version}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Build</span>
-                    <span className="font-medium text-[#13112B]">{versionInfo.buildDate} {versionInfo.buildTime}</span>
+                    <span className="font-semibold text-[#192436]">{versionInfo.buildDate}</span>
                   </div>
                   {versionInfo.isDevelopment ? (
                     <div className="flex items-center justify-between">
@@ -67,8 +51,8 @@ const AboutApp = () => {
                 </div>
 
                 {hasUpdate ? (
-                  <div className="mt-5 flex items-center justify-between rounded-xl border border-[#DDE7DF] bg-[#F9FAF9] px-4 py-4">
-                    <span className="font-medium text-[#36B531]">Neue Version verfügbar</span>
+                  <div className="mt-5 flex items-center justify-between gap-3 rounded-kws-control bg-primary/10 px-3.5 py-3.5">
+                    <span className="font-sans text-sm font-semibold text-primary">Neue Version verfügbar</span>
                     <Button
                       size="sm"
                       variant="outline"
@@ -88,7 +72,7 @@ const AboutApp = () => {
                   </div>
                 ) : null}
 
-                <div className="mt-5 flex flex-wrap gap-3">
+                <div className="mt-5 grid gap-2 sm:grid-cols-2">
                   <Button variant="outline" onClick={checkUpdates} disabled={checkingUpdate}>
                     {checkingUpdate ? (
                       <>
@@ -134,12 +118,13 @@ const AboutApp = () => {
                     )}
                   </Button>
                 </div>
-              </section>
-            </div>
-          </div>
-        </main>
+        </KwsSurface>
+
+        <p className="px-1 font-sans text-[10px] leading-relaxed text-muted-foreground sm:text-xs">
+          Die Versionsprüfung und das Leeren des Caches verändern keine persönlichen Boulder- oder Profildaten.
+        </p>
       </div>
-    </SetupAreaLayout>
+    </DashboardPageLayout>
   );
 };
 

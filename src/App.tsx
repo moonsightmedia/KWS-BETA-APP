@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { createBrowserRouter, RouterProvider, Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Outlet, useLocation, useNavigate, useNavigationType, Navigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
@@ -114,7 +114,8 @@ const ErrorBoundaryWithAuth = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-// Component to conditionally show Sidebar only for authenticated users
+// Keep app navigation available on public content routes as well. The Sidebar
+// itself already limits guests to the public mobile navigation.
 const ConditionalSidebar = () => {
   const location = useLocation();
   
@@ -122,13 +123,54 @@ const ConditionalSidebar = () => {
   if (
     location.pathname === '/auth' ||
     location.pathname === '/auth/callback' ||
-    location.pathname === '/competition' ||
-    location.pathname === '/guest'
+    location.pathname === '/competition'
   ) {
     return null;
   }
   
   return <Sidebar />;
+};
+
+// React Router does not reset the document scroll position on PUSH/REPLACE.
+// Keep POP navigation browser-native so Back/Forward can restore its position.
+const RouteScrollReset = () => {
+  const location = useLocation();
+  const navigationType = useNavigationType();
+  const previousLocationRef = useRef({ pathname: location.pathname, hash: location.hash });
+
+  useEffect(() => {
+    const previousLocation = previousLocationRef.current;
+    const pathnameChanged = previousLocation.pathname !== location.pathname;
+    const hashChanged = previousLocation.hash !== location.hash;
+    previousLocationRef.current = { pathname: location.pathname, hash: location.hash };
+
+    if (location.hash && (pathnameChanged || hashChanged)) {
+      requestAnimationFrame(() => {
+        document.getElementById(location.hash.slice(1))?.scrollIntoView();
+      });
+      return;
+    }
+
+    // Query-only changes (for example statistics filters) keep their position.
+    if (!pathnameChanged || navigationType === 'POP') return;
+
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [location.hash, location.pathname, navigationType]);
+
+  return null;
+};
+
+const BouldersOverviewRoute = () => {
+  const location = useLocation();
+  const { loading, user } = useAuth();
+
+  if (loading) return <LoadingScreen />;
+
+  return user
+    ? <Boulders />
+    : <Navigate to={{ pathname: '/guest', search: location.search }} replace />;
 };
 
 const Root = () => {
@@ -270,6 +312,7 @@ const Root = () => {
           <UploadProvider>
             <ErrorBoundaryWithAuth>
               <RouteLogger />
+              <RouteScrollReset />
               <PullToRefreshHandler />
               <ConditionalSidebar />
               <UploadOverview />
@@ -335,12 +378,8 @@ const router = createBrowserRouter([
         </RequireAuth>
       ) },
       { path: "sectors", element: <Sectors /> },
-      { path: "boulders", element: <Boulders /> },
-      { path: "boulders/:id", element: (
-        <RequireAuth>
-          <BoulderDetail />
-        </RequireAuth>
-      ) },
+      { path: "boulders", element: <BouldersOverviewRoute /> },
+      { path: "boulders/:id", element: <BoulderDetail /> },
       { path: "auth", element: <Auth /> },
       { path: "auth/callback", element: <AuthCallback /> },
       { path: "profile", element: (

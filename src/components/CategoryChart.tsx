@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
-import { useSectorsTransformed } from '@/hooks/useSectors';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -19,12 +18,11 @@ const CHART_COLORS = [
 
 export const CategoryChart = () => {
   const { data: boulders, isLoading: isLoadingBoulders } = useBouldersWithSectors();
-  const { data: sectors, isLoading: isLoadingSectors } = useSectorsTransformed();
-  const isLoading = isLoadingBoulders || isLoadingSectors;
+  const isLoading = isLoadingBoulders;
 
   // Berechne Verteilung der Boulder nach Sektoren (nur hängende)
   const chartData = useMemo(() => {
-    if (!boulders || !sectors || boulders.length === 0) {
+    if (!boulders || boulders.length === 0) {
       return [];
     }
 
@@ -42,12 +40,8 @@ export const CategoryChart = () => {
     });
 
     // Sortiere Sektoren nach Anzahl der Boulder (absteigend)
-    const sortedSectors = sectors
-      .filter(sector => sectorCounts[sector.name] > 0) // Nur Sektoren mit Bouldern
-      .map(sector => ({
-        name: sector.name,
-        count: sectorCounts[sector.name] || 0,
-      }))
+    const sortedSectors = Object.entries(sectorCounts)
+      .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
 
     const total = hangingBoulders.length;
@@ -62,7 +56,7 @@ export const CategoryChart = () => {
         color: CHART_COLORS[index % CHART_COLORS.length],
       };
     });
-  }, [boulders, sectors]);
+  }, [boulders]);
 
   if (isLoading) {
     return (

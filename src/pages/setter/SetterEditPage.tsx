@@ -17,7 +17,12 @@ import {
   useBoulderAttributeCatalog,
   useSetBoulderAttributes,
 } from '@/hooks/useBoulderCommunity';
-import { useBouldersWithSectors, useDeleteBoulder, useUpdateBoulder } from '@/hooks/useBoulders';
+import {
+  type Boulder as BoulderRow,
+  useBouldersWithSectors,
+  useDeleteBoulder,
+  useUpdateBoulder,
+} from '@/hooks/useBoulders';
 import { useColors } from '@/hooks/useColors';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { cn } from '@/lib/utils';
@@ -35,10 +40,13 @@ function mapBoulderToDraft(
   sectors: Array<{ id: string; name: string }>,
   colors: Array<{ id: string; name: string }>,
 ): SetterBoulderDraft {
-  const sectorId = sectors.find((sector) => sector.name === boulder.sector)?.id ?? '';
-  const sectorId2 = boulder.sector2
-    ? sectors.find((sector) => sector.name === boulder.sector2)?.id
-    : undefined;
+  const sectorId = boulder.sectorId
+    ?? sectors.find((sector) => sector.name === boulder.sector)?.id
+    ?? '';
+  const sectorId2 = boulder.sector2Id
+    ?? (boulder.sector2
+      ? sectors.find((sector) => sector.name === boulder.sector2)?.id
+      : undefined);
   const colorId = colors.find((color) => color.name === boulder.color)?.id ?? colors[0]?.id ?? '';
   const colorId2 = boulder.color2
     ? colors.find((color) => color.name === boulder.color2)?.id
@@ -108,7 +116,7 @@ export default function SetterEditPage() {
     const selectedSectorName =
       sectorFilter === 'all'
         ? null
-        : sectors.find((sector) => sector.id === sectorFilter)?.name ?? null;
+        : sectorFilter;
 
     return boulders
       .filter((boulder) => {
@@ -137,7 +145,7 @@ export default function SetterEditPage() {
         );
       })
       .slice(0, 100);
-  }, [boulders, colorFilter, search, sectorFilter, sectors]);
+  }, [boulders, colorFilter, search, sectorFilter]);
 
   const openEditor = (boulder: Boulder) => {
     setEditorDraft(mapBoulderToDraft(boulder, sectors, colors));
@@ -189,7 +197,7 @@ export default function SetterEditPage() {
 
     try {
       // Never send map_x/map_y — columns are not on the live DB (PGRST204).
-      const updates: Record<string, unknown> = {
+      const updates: Partial<BoulderRow> & { id: string } = {
         id: editorDraft.id,
         name: editorDraft.name.trim(),
         sector_id: editorDraft.sectorId,
@@ -211,7 +219,7 @@ export default function SetterEditPage() {
         updates.thumbnail_url = editorDraft.existingThumbnailUrl ?? null;
       }
 
-      await updateBoulder.mutateAsync(updates as any);
+      await updateBoulder.mutateAsync(updates);
 
       await setBoulderAttributes.mutateAsync({
         boulderId: editorDraft.id,
@@ -280,9 +288,9 @@ export default function SetterEditPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Alle Sektoren</SelectItem>
-            {sectors.map((sector) => (
-              <SelectItem key={sector.id} value={sector.id}>
-                {sector.name}
+            {[...new Set(sectors.map((sector) => sector.name))].map((sectorName) => (
+              <SelectItem key={sectorName} value={sectorName}>
+                {sectorName}
               </SelectItem>
             ))}
           </SelectContent>
