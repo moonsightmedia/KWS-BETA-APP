@@ -373,9 +373,10 @@ export const useBouldersWithSectors = (enabled: boolean = true) => {
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBoulders(enabled);
   const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectors(enabled);
 
-  // If there's an error, don't wait forever - use empty arrays
-  const effectiveBoulders = bouldersError ? [] : (boulders || []);
-  const effectiveSectors = sectorsError ? [] : (sectors || []);
+  // Keep the last successful result visible when a background refetch fails.
+  // Pull-to-refresh must never replace already loaded boulders with an empty view.
+  const effectiveBoulders = boulders || [];
+  const effectiveSectors = sectors || [];
 
   // Only transform if we have both boulders and sectors (or at least boulders)
   // If we have errors, return empty array instead of undefined to prevent infinite loading
@@ -399,7 +400,7 @@ export const useBouldersWithSectors = (enabled: boolean = true) => {
           };
         }
       })
-    : (bouldersError || sectorsError ? [] : undefined); // Return empty array on error, undefined if still loading
+    : (bouldersError || sectorsError ? [] : undefined); // Return empty array only if no usable data exists
 
   // If there are errors, don't show loading state forever
   const hasError = bouldersError || sectorsError;

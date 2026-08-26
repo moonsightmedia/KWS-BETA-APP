@@ -57,7 +57,7 @@ export const ProfileMenu = ({
 }: ProfileMenuProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, authTransition } = useAuth();
   const { isAdmin } = useIsAdmin();
   const { hasRole: isSetter } = useHasRole('setter');
 
@@ -166,6 +166,7 @@ export const ProfileMenu = ({
 
             <div className="mx-2 my-2 h-px bg-[#E5EBE6]" />
             <DropdownMenuItem
+              disabled={authTransition === 'signing-out'}
               onSelect={() => {
                 clearStoredRoles();
                 void signOut();
@@ -173,7 +174,7 @@ export const ProfileMenu = ({
               className={`${menuItemClassName} text-[#C6453A] data-[highlighted]:bg-[#FFF1EF] data-[highlighted]:text-[#C6453A]`}
             >
               <LogOut className="h-4 w-4" aria-hidden="true" />
-              Abmelden
+              {authTransition === 'signing-out' ? 'Abmeldung läuft…' : 'Abmelden'}
             </DropdownMenuItem>
           </>
         ) : (

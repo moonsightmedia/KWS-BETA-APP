@@ -25,7 +25,7 @@ import { fetchProfileRecord } from '@/lib/profileCompat';
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user, session, signOut, loading } = useAuth();
+  const { user, session, signOut, loading, authTransition } = useAuth();
   const { data: trackedBoulders } = useMyTrackedBoulders(null);
   const { data: trackingSessions } = useMyTrackingSessions();
   const [profileName, setProfileName] = useState<string | null>(null);
@@ -236,11 +236,11 @@ const Profile = () => {
               type="button"
               variant="ghost"
               onClick={signOut}
-              disabled={loading}
+              disabled={loading || authTransition === 'signing-out'}
               className="min-h-11 w-full bg-[#FFF3F1] font-sans text-sm font-semibold text-[#C6453A] hover:bg-[#FDE7E3] hover:text-[#C6453A]"
             >
               <LogOut className="h-4 w-4" strokeWidth={2} />
-              Abmelden
+              {authTransition === 'signing-out' ? 'Abmeldung läuft…' : 'Abmelden'}
             </Button>
           ) : (
             <Button onClick={() => navigate('/auth')} className="h-11 w-full font-sans text-sm font-semibold">

@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { supabase } from '@/integrations/supabase/client';
 
 const normalizeNextPath = (value: string | null): string => {
@@ -83,19 +83,7 @@ const AuthCallback = () => {
     };
   }, [location.hash, location.search, navigate]);
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F9FAF9] p-6">
-      <div className="w-full max-w-sm rounded-2xl border border-[#E7F7E9] bg-white p-6 text-center shadow-sm">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#36B531]/10">
-          <Loader2 className="h-6 w-6 animate-spin text-[#36B531]" />
-        </div>
-        <h1 className="text-xl font-semibold text-[#13112B]">E-Mail wird bestätigt</h1>
-        <p className="mt-2 text-sm leading-6 text-[#13112B]/65">
-          Einen kleinen Moment bitte. Wir melden dich direkt an und leiten dich in den Nutzerbereich weiter.
-        </p>
-      </div>
-    </div>
-  );
+  return <LoadingScreen state="confirming-email" />;
 };
 
 export default AuthCallback;

@@ -1,7 +1,7 @@
 import { ReactNode, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingScreen } from '@/components/LoadingScreen';
 
 export const RequireAuth = ({ children }: { children: ReactNode }) => {
   const { session, loading } = useAuth();
@@ -21,29 +21,13 @@ export const RequireAuth = ({ children }: { children: ReactNode }) => {
 
   // Show loading state while checking authentication
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-full max-w-md p-6 space-y-4">
-          <Skeleton className="h-8 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-4 w-1/2" />
-        </div>
-      </div>
-    );
+    return <LoadingScreen state="session" />;
   }
 
   // CRITICAL FIX: Don't return null - show fallback UI instead
   // Returning null causes empty screen when redirect is pending
   if (!session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-full max-w-md p-6 space-y-4">
-          <Skeleton className="h-8 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-4 w-1/2" />
-        </div>
-      </div>
-    );
+    return <LoadingScreen state="session" />;
   }
 
   return <>{children}</>;

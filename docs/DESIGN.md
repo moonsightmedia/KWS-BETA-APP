@@ -332,6 +332,28 @@ Inhaltswechsel wie `Info / Track / Beta` oder Statistikzeiträume.
 - Berg- oder Klettericons werden nur für eine passende fachliche Aussage
   verwendet, nicht als generisches Symbol für eine Boulderanzahl.
 
+### 5.9 Systemmeldungen und Toasts
+
+Alle kurzzeitigen Systemmeldungen verwenden den gemeinsamen Sonner-Toaster.
+
+- Position: oben zentriert, direkt unter `env(safe-area-inset-top)`; mobil
+  bleiben links und rechts mindestens `16px` frei.
+- Fläche: weiß, `rounded-kws-card`, ohne graue Außenlinie und mit ruhigem
+  Popover-Schatten.
+- Statusicon: `36 × 36px` auf einer eckigen 8-px-Fläche. Erfolg verwendet Grün,
+  Fehler den Gefahrenton, Warnungen einen warmen Bernsteinton und neutrale
+  Informationen Dunkelblau auf Sekundärfläche.
+- Icon, Titel und Text vermitteln den Status gemeinsam; Farbe allein reicht
+  nicht. Titel sind Poppins semibold und dunkelblau, Beschreibungen kurz und in
+  `muted-foreground`.
+- Fachliche Fehlermeldungen erhalten einen kurzen Titel und darunter eine
+  konkrete Erklärung oder nächste Handlung, beispielsweise
+  `Anmeldung fehlgeschlagen` plus Hinweis zu E-Mail und Passwort.
+- Der Schließenbutton ist `32 × 32px` groß, verwendet den 8-px-Controlradius
+  und besitzt einen sichtbaren markenkonformen Tastaturfokus.
+- Meldungen dürfen horizontal weggewischt werden, den Viewport nicht verlassen
+  und respektieren `prefers-reduced-motion`.
+
 ## 6. Boulderübersicht
 
 ### 6.1 Header-Werkzeuge
@@ -490,6 +512,28 @@ bleibt die Karte lesbar, ohne die Kundschaft mit Altsektornamen zu belasten.
 
 ## 8. Gastansicht und Boulder-Detail
 
+### 8.0 Login und Registrierung
+
+Login und Registrierung bilden einen gemeinsamen Auth-Flow und verwenden die
+gleiche Marken-, Typografie- und Komponentenlogik wie Gast- und Nutzerbereich.
+
+- Der Auth-Inhalt startet mobil direkt nach `env(safe-area-inset-top)` und
+  scrollt als eine zusammenhängende Seite. Ein hoher Registrierungsblock darf
+  nicht vertikal im Viewport zentriert werden, weil dadurch Begrüßung und Marke
+  oberhalb des sichtbaren Bereichs verschwinden können.
+- Kletterwelt-Sauerland-Absender, Seitentitel und kurze Einleitung bleiben am
+  Beginn der Seite sichtbar; große Marketing-Hero-Flächen sind mobil zu
+  vermeiden.
+- Anmeldung und Registrierung wechseln über `KwsSegmentedControl` und nutzen
+  dieselben 8/12-px-Radien wie die übrige App.
+- Textfelder und primäre Aktionen sind mobil mindestens 44px, vorzugsweise
+  48px hoch. Eingaben besitzen passende `autocomplete`- und `inputmode`-Werte.
+- Passwort anzeigen, Passwort zurücksetzen, Bestätigungslink erneut senden und
+  Gastzugang gehören zur gleichen hellen Auth-Surface und benötigen eigene
+  Tastaturfokus-, Lade- und deaktivierte Zustände.
+- Auf Desktop darf die Auth-Seite zweispaltig werden; Mobile bleibt linear und
+  besitzt keinen verschachtelten vertikalen Scrollcontainer.
+
 ### 8.1 Gastansicht
 
 Die Gastansicht ist keine zweite Designwelt.
@@ -636,6 +680,13 @@ Verbindliche Regeln:
 - Kartentags sind per Tastatur mit `Enter` und `Space` bedienbar.
 - Kontrast für normalen Text mindestens `4.5:1`.
 - Loading-Skeletons verwenden dieselben Radien und Größen wie der spätere Inhalt.
+- Globale Lade- und Authentifizierungsübergänge verwenden denselben ruhigen
+  Vollbildstatus mit KWS-Logo, aktionsbezogener Kurzmeldung und eckiger
+  Fortschrittsanzeige. App-Start, Session-Prüfung, Anmeldung, Registrierung,
+  E-Mail-Bestätigung und Abmeldung erhalten jeweils eindeutige Texte.
+- Ein Ladezustand darf nicht kurz flackern: initiale Übergänge bleiben für eine
+  kurze Mindestdauer stabil. `prefers-reduced-motion` reduziert alle dekorativen
+  Ladeanimationen.
 - Fehlermeldungen erklären knapp, was passiert ist und wie es weitergeht.
 
 ## 11. Responsive und mobile Bedienung
@@ -653,6 +704,13 @@ Verbindliche Regeln:
   Badges zu überlappen.
 - Touchgesten von Karte, horizontalen Scrollern und Route-Swipe werden sauber
   voneinander getrennt.
+- Pull-to-Refresh beginnt ausschließlich am oberen Dokumentrand. Nach einer
+  kleinen Bewegungsschwelle wird die Richtung gesperrt: horizontale Gesten
+  bleiben für Route-Swipe und Scroller frei, vertikale Abwärtsgesten zeigen
+  einen kompakten KWS-Status. Formfelder, Switches, Slider, Dialoge und Drawer
+  starten keine Aktualisierung.
+- Der Refresh-Status unterscheidet zwischen Ziehen, Loslassen und Laden. Erfolg,
+  Teilerfolg und Fehler werden wahrheitsgemäß und knapp bestätigt.
 
 ## 12. Technische Quelle und Wiederverwendung
 

@@ -1,4 +1,3 @@
-import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
@@ -7,8 +6,7 @@ import { useEffect, useState, useRef } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { refreshAllData, clearAllCaches, clearBrowserCaches } from "@/utils/cacheUtils";
-// PullToRefreshIndicator import entfernt - Animation deaktiviert
+import { clearAllCaches, clearBrowserCaches } from "@/utils/cacheUtils";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Button } from "@/components/ui/button";
 import { retryPendingFeedback } from "@/utils/feedbackUtils";
@@ -166,7 +164,7 @@ const BouldersOverviewRoute = () => {
   const location = useLocation();
   const { loading, user } = useAuth();
 
-  if (loading) return <LoadingScreen />;
+  if (loading) return <LoadingScreen state="route" />;
 
   return user
     ? <Boulders />
@@ -176,7 +174,7 @@ const BouldersOverviewRoute = () => {
 const Root = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { loading: authLoading, user } = useAuth();
+  const { loading: authLoading, user, authTransition } = useAuth();
   const queryClient = useQueryClient();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [authTimeout, setAuthTimeout] = useState(false);
@@ -242,10 +240,10 @@ const Root = () => {
   // Show loading screen during initial auth check
   useEffect(() => {
     if (!authLoading && isInitialLoad) {
-      // Small delay to show loading screen briefly
+      // Keep the initial transition stable without making a fast launch feel slow.
       const timer = setTimeout(() => {
         setIsInitialLoad(false);
-      }, 500);
+      }, 320);
       return () => clearTimeout(timer);
     }
   }, [authLoading, isInitialLoad]);
@@ -265,13 +263,18 @@ const Root = () => {
   
   // Refetch-Logik komplett entfernt - React Query macht das automatisch mit refetchOnMount: true
   
+  if (authTransition) {
+    return <LoadingScreen state={authTransition} />;
+  }
+
   // Show fallback UI if auth is hanging
   if (authTimeout && authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F9FAF9] p-4">
-        <div className="max-w-md w-full text-center space-y-4">
-          <h2 className="text-xl font-semibold text-[#13112B]">App lädt zu lange</h2>
-          <p className="text-sm text-[#13112B]/60">
+      <main className="flex min-h-[100svh] min-h-[100dvh] items-center justify-center bg-[#F9FAF9] px-5 pb-[calc(1.5rem+var(--app-safe-area-bottom))] pt-[calc(1.5rem+var(--app-safe-area-top))]">
+        <div className="w-full max-w-sm rounded-kws-card bg-white p-5 shadow-[0_8px_30px_rgba(25,36,54,0.09)] sm:p-6">
+          <p className="font-sans text-[10px] font-semibold uppercase tracking-[0.13em] text-[#C6453A]">Verbindung unterbrochen</p>
+          <h1 className="mt-2 font-heading text-[2.35rem] font-semibold leading-none text-[#192436]">App lädt zu lange</h1>
+          <p className="mt-3 font-sans text-xs leading-5 text-muted-foreground">
             Die App scheint hängen zu bleiben. Du kannst versuchen, sie zurückzusetzen.
           </p>
           <Button
@@ -285,12 +288,12 @@ const Root = () => {
               }
               window.location.href = '/auth';
             }}
-            className="bg-[#36B531] hover:bg-[#2da029] text-white"
+            className="mt-5 h-11 w-full rounded-kws-control font-sans text-sm font-semibold"
           >
             App neustarten
           </Button>
         </div>
-      </div>
+      </main>
     );
   }
   
@@ -302,7 +305,7 @@ const Root = () => {
     location.pathname === '/guest';
   
   if ((authLoading || isInitialLoad) && !isPublicRoute) {
-    return <LoadingScreen />;
+    return <LoadingScreen state="app" />;
   }
   
   return (
@@ -455,7 +458,6 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
-          <Toaster />
           <Sonner />
           <RouterProvider 
             router={router} 

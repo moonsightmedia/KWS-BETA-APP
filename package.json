@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "1.0.223",
+  "version": "1.0.226",
   "type": "module",
   "scripts": {
     "dev": "vite --force",
@@ -11,7 +11,7 @@
     "prebuild": "node scripts/version-bump.cjs patch",
     "build": "vite build",
     "build:dev": "vite build --mode development",
-    "build:native": "vite build --mode capacitor",
+    "build:native": "vite build --mode production --base=./",
     "lint": "eslint .",
     "test:upload-queue": "node --test test/uploadQueue.test.mjs",
     "test:boulder-colors": "node --test test/boulderColors.test.mjs",

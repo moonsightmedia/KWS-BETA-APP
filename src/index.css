@@ -171,8 +171,8 @@ All colors MUST be HSL.
     -webkit-user-select: none;
     user-select: none;
     height: 100%;
-    /* Allow pull-to-refresh - overscroll-behavior-y: none blocks it */
-    /* overscroll-behavior-y: none; */
+    /* The app owns the refresh gesture; suppress competing browser overscroll. */
+    overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
     /* Safe area insets handled by individual components (headers, navbars) */
     /* padding-top removed - handled by sticky headers */
@@ -210,6 +210,45 @@ All colors MUST be HSL.
   /* Prevent zoom on double tap for buttons and interactive elements */
   button, a, [role="button"] {
     touch-action: manipulation;
+  }
+
+  @keyframes kws-loading-bar {
+    0%, 100% { height: 0.35rem; opacity: 0.35; }
+    50% { height: 1.35rem; opacity: 1; }
+  }
+
+  @keyframes kws-loading-line {
+    from { transform: translateX(-150%); }
+    to { transform: translateX(350%); }
+  }
+
+  @keyframes kws-refresh-progress {
+    from { transform: translateX(-110%); }
+    to { transform: translateX(310%); }
+  }
+
+  .kws-loading-bars > span {
+    width: 0.3rem;
+    border-radius: var(--radius-kws-badge);
+    background: hsl(var(--primary));
+    animation: kws-loading-bar 900ms ease-in-out infinite;
+  }
+
+  .kws-loading-bars > span:nth-child(2) { animation-delay: 120ms; }
+  .kws-loading-bars > span:nth-child(3) { animation-delay: 240ms; }
+  .kws-loading-line { animation: kws-loading-line 1.15s ease-in-out infinite; }
+  .kws-refresh-progress { animation: kws-refresh-progress 1s ease-in-out infinite; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .kws-loading-bars > span,
+    .kws-loading-line,
+    .kws-refresh-progress {
+      animation: none;
+    }
+
+    .kws-loading-bars > span { height: 0.8rem; opacity: 0.7; }
+    .kws-loading-line { transform: translateX(80%); }
+    .kws-refresh-progress { transform: scaleX(1); }
   }
   
   /* Material Icons - Hide text until font is loaded */

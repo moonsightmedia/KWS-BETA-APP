@@ -17,7 +17,10 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   resendConfirmation: (email: string) => Promise<void>;
   loading: boolean;
+  authTransition: AuthTransition;
 }
+
+export type AuthTransition = 'signing-in' | 'signing-up' | 'signing-out' | null;
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -25,6 +28,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authTransition, setAuthTransition] = useState<AuthTransition>(null);
   const queryClient = useQueryClient(); // Get queryClient at component level
 
   // Sync function to transfer user_metadata to profiles table
@@ -687,8 +691,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   async function withSingleRetry<T>(operation: () => Promise<T>): Promise<T> {
     try {
       return await operation();
-    } catch (error: any) {
-      const msg = String(error?.message || '').toLowerCase();
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message.toLowerCase() : '';
       const looksTransient = msg.includes('network') || msg.includes('fetch') || msg.includes('timeout') || msg.includes('failed to fetch');
       if (!looksTransient) throw error;
       // one short retry for intermittent network/backend hiccups
@@ -698,117 +702,131 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await withSingleRetry(() => supabase.auth.signInWithPassword({
-      email,
-      password,
-    }));
-    
-    if (error) {
-      // User-friendly German error messages
-      let errorMessage = 'Anmeldung fehlgeschlagen';
-      if (error.message.includes('Invalid login credentials') || error.message.includes('Invalid credentials') || error.message.includes('Wrong password')) {
-        errorMessage = 'Ungültige Anmeldedaten. Bitte überprüfe deine E-Mail-Adresse und dein Passwort.';
-      } else if (error.message.includes('Email not confirmed') || error.message.includes('email not confirmed')) {
-        errorMessage = 'Bitte bestätige zuerst deine E-Mail-Adresse. Wir haben dir eine Bestätigungs-E-Mail gesendet.';
-      } else if (error.message.includes('User not found') || error.message.includes('user not found')) {
-        errorMessage = 'Kein Konto mit dieser E-Mail-Adresse gefunden. Bitte registriere dich zuerst.';
-      } else if (error.message.includes('Too many requests') || error.message.includes('rate limit')) {
-        errorMessage = 'Zu viele Anmeldeversuche. Bitte warte einen Moment und versuche es erneut.';
-      } else {
-        errorMessage = 'Anmeldung fehlgeschlagen. Bitte versuche es erneut.';
+    setAuthTransition('signing-in');
+    try {
+      const { data, error } = await withSingleRetry(() => supabase.auth.signInWithPassword({
+        email,
+        password,
+      }));
+
+      if (error) {
+        // User-friendly German error messages
+        let errorMessage = 'Anmeldung fehlgeschlagen';
+        if (error.message.includes('Invalid login credentials') || error.message.includes('Invalid credentials') || error.message.includes('Wrong password')) {
+          errorMessage = 'Ungültige Anmeldedaten. Bitte überprüfe deine E-Mail-Adresse und dein Passwort.';
+        } else if (error.message.includes('Email not confirmed') || error.message.includes('email not confirmed')) {
+          errorMessage = 'Bitte bestätige zuerst deine E-Mail-Adresse. Wir haben dir eine Bestätigungs-E-Mail gesendet.';
+        } else if (error.message.includes('User not found') || error.message.includes('user not found')) {
+          errorMessage = 'Kein Konto mit dieser E-Mail-Adresse gefunden. Bitte registriere dich zuerst.';
+        } else if (error.message.includes('Too many requests') || error.message.includes('rate limit')) {
+          errorMessage = 'Zu viele Anmeldeversuche. Bitte warte einen Moment und versuche es erneut.';
+        } else {
+          errorMessage = 'Anmeldung fehlgeschlagen. Bitte versuche es erneut.';
+        }
+        toast.error('Anmeldung fehlgeschlagen', {
+          description: errorMessage,
+          duration: 5200,
+        });
+        throw error;
       }
-      toast.error(errorMessage);
+
+      if (data.session?.user) {
+        await checkAndStoreRoles(data.session.user.id, data.session.access_token ?? '');
+      }
+
+      toast.success('Erfolgreich angemeldet!');
+      window.location.assign('/');
+    } catch (error) {
+      setAuthTransition(null);
       throw error;
     }
-    
-    if (data.session?.user) {
-      await checkAndStoreRoles(data.session.user.id, data.session.access_token ?? '');
-    }
-    
-    toast.success('Erfolgreich angemeldet!');
-    window.location.assign('/');
   };
 
   const signUp = async (email: string, password: string, meta?: { firstName?: string; lastName?: string; birthDate?: string }) => {
-    const redirectUrl = `${window.location.origin}/auth/callback?next=/`;
-    
-    // Validate email format before sending to Supabase
-    const emailTrimmed = email.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailTrimmed || !emailRegex.test(emailTrimmed)) {
-      const errorMessage = 'Ungültige E-Mail-Adresse. Bitte überprüfe deine Eingabe.';
-      toast.error(errorMessage);
-      throw new Error(errorMessage);
-    }
-    
-    // Clean and validate names - only use non-empty strings
-    const firstName = meta?.firstName?.trim() || undefined;
-    const lastName = meta?.lastName?.trim() || undefined;
-    const fullName = [firstName, lastName].filter(Boolean).join(' ').trim() || undefined;
-    const birthDate = meta?.birthDate?.trim() || undefined;
-    
-    const { data, error } = await withSingleRetry(() => supabase.auth.signUp({
-      email: emailTrimmed,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          first_name: firstName || null,
-          last_name: lastName || null,
-          full_name: fullName || null,
-          birth_date: birthDate || null,
+    setAuthTransition('signing-up');
+    try {
+      const redirectUrl = `${window.location.origin}/auth/callback?next=/`;
+
+      // Validate email format before sending to Supabase
+      const emailTrimmed = email.trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailTrimmed || !emailRegex.test(emailTrimmed)) {
+        const errorMessage = 'Ungültige E-Mail-Adresse. Bitte überprüfe deine Eingabe.';
+        toast.error(errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      // Clean and validate names - only use non-empty strings
+      const firstName = meta?.firstName?.trim() || undefined;
+      const lastName = meta?.lastName?.trim() || undefined;
+      const fullName = [firstName, lastName].filter(Boolean).join(' ').trim() || undefined;
+      const birthDate = meta?.birthDate?.trim() || undefined;
+
+      const { data, error } = await withSingleRetry(() => supabase.auth.signUp({
+        email: emailTrimmed,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            first_name: firstName || null,
+            last_name: lastName || null,
+            full_name: fullName || null,
+            birth_date: birthDate || null,
+          }
         }
+      }));
+
+      if (error) {
+        // User-friendly error messages with more specific checks
+        let errorMessage = 'Registrierung fehlgeschlagen';
+        const errorMsgLower = error.message.toLowerCase();
+        const authError = error as { status?: number; code?: string | number };
+        const errorCode = authError.status || authError.code;
+
+        // Check for specific error types
+        if (errorMsgLower.includes('already registered') ||
+            errorMsgLower.includes('already exists') ||
+            errorMsgLower.includes('user already registered') ||
+            errorCode === 422) {
+          errorMessage = 'Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an oder verwende eine andere E-Mail.';
+        } else if (errorMsgLower.includes('password') ||
+                   errorMsgLower.includes('password is too weak') ||
+                   errorMsgLower.includes('password should be at least')) {
+          errorMessage = 'Das Passwort ist zu schwach. Bitte verwende mindestens 6 Zeichen.';
+        } else if (errorMsgLower.includes('invalid email') ||
+                   errorMsgLower.includes('email format') ||
+                   errorMsgLower.includes('email is invalid') ||
+                   (errorMsgLower.includes('email') && errorMsgLower.includes('invalid'))) {
+          errorMessage = 'Ungültige E-Mail-Adresse. Bitte überprüfe deine Eingabe.';
+        } else if (errorMsgLower.includes('error sending confirmation email') ||
+                   errorMsgLower.includes('confirmation email') ||
+                   errorCode === 500) {
+          errorMessage = 'Fehler beim Senden der Bestätigungs-E-Mail. Bitte versuche es später erneut oder kontaktiere den Support.';
+        } else {
+          // Show original error message for debugging, but in German if possible
+          errorMessage = 'Registrierung fehlgeschlagen: ' + error.message;
+        }
+        toast.error(errorMessage);
+        throw error;
       }
-    }));
-    
-    if (error) {
-      // User-friendly error messages with more specific checks
-      let errorMessage = 'Registrierung fehlgeschlagen';
-      const errorMsgLower = error.message.toLowerCase();
-      const authError = error as { status?: number; code?: string | number };
-      const errorCode = authError.status || authError.code;
-      
-      // Check for specific error types
-      if (errorMsgLower.includes('already registered') || 
-          errorMsgLower.includes('already exists') || 
-          errorMsgLower.includes('user already registered') ||
-          errorCode === 422) {
-        errorMessage = 'Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an oder verwende eine andere E-Mail.';
-      } else if (errorMsgLower.includes('password') || 
-                 errorMsgLower.includes('password is too weak') ||
-                 errorMsgLower.includes('password should be at least')) {
-        errorMessage = 'Das Passwort ist zu schwach. Bitte verwende mindestens 6 Zeichen.';
-      } else if (errorMsgLower.includes('invalid email') ||
-                 errorMsgLower.includes('email format') ||
-                 errorMsgLower.includes('email is invalid') ||
-                 (errorMsgLower.includes('email') && errorMsgLower.includes('invalid'))) {
-        errorMessage = 'Ungültige E-Mail-Adresse. Bitte überprüfe deine Eingabe.';
-      } else if (errorMsgLower.includes('error sending confirmation email') ||
-                 errorMsgLower.includes('confirmation email') ||
-                 errorCode === 500) {
-        errorMessage = 'Fehler beim Senden der Bestätigungs-E-Mail. Bitte versuche es später erneut oder kontaktiere den Support.';
+
+      // Note: We cannot update profiles table here because there's no session yet
+      // The data is stored in user_metadata and will be synced when user logs in after email confirmation
+      // The sync happens in onAuthStateChange when session becomes available
+
+      // Check if email confirmation is required
+      // If user exists but no session, email confirmation is required
+      if (data?.user && !data.session) {
+        toast.success('Registrierung erfolgreich! Bitte bestätige deine E-Mail-Adresse. Wir haben dir eine E-Mail gesendet.');
+      } else if (data?.session) {
+        // User is already logged in (email confirmation disabled)
+        toast.success('Erfolgreich registriert! Du kannst dich jetzt anmelden.');
       } else {
-        // Show original error message for debugging, but in German if possible
-        errorMessage = 'Registrierung fehlgeschlagen: ' + error.message;
+        // Fallback message
+        toast.success('Registrierung erfolgreich! Bitte überprüfe deine E-Mail zur Bestätigung.');
       }
-      toast.error(errorMessage);
-      throw error;
-    }
-    
-    // Note: We cannot update profiles table here because there's no session yet
-    // The data is stored in user_metadata and will be synced when user logs in after email confirmation
-    // The sync happens in onAuthStateChange when session becomes available
-    
-    // Check if email confirmation is required
-    // If user exists but no session, email confirmation is required
-    if (data?.user && !data.session) {
-      toast.success('Registrierung erfolgreich! Bitte bestätige deine E-Mail-Adresse. Wir haben dir eine E-Mail gesendet.');
-    } else if (data?.session) {
-      // User is already logged in (email confirmation disabled)
-      toast.success('Erfolgreich registriert! Du kannst dich jetzt anmelden.');
-    } else {
-      // Fallback message
-      toast.success('Registrierung erfolgreich! Bitte überprüfe deine E-Mail zur Bestätigung.');
+    } finally {
+      setAuthTransition(null);
     }
   };
 
@@ -841,6 +859,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    if (authTransition === 'signing-out') return;
+    setAuthTransition('signing-out');
+
     // Try to sign out from Supabase first with a short timeout for fast UX
     // This ensures the session is properly invalidated on the server
     let signOutSuccess = false;
@@ -957,7 +978,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   usePreloadBoulderThumbnails(!!session);
 
   return (
-    <AuthContext.Provider value={{ user, session, signIn, signUp, signOut, resetPassword, resendConfirmation, loading }}>
+    <AuthContext.Provider value={{ user, session, signIn, signUp, signOut, resetPassword, resendConfirmation, loading, authTransition }}>
       {children}
     </AuthContext.Provider>
   );
