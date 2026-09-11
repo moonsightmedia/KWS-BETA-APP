@@ -49,6 +49,8 @@ type DashboardHeaderProps = {
   belowSlot?: ReactNode;
   backTo?: string;
   backLabel?: string;
+  desktopTitle?: string;
+  desktopSubtitle?: string;
 };
 
 export const DashboardHeader = forwardRef<HTMLDivElement, DashboardHeaderProps>(({
@@ -56,6 +58,8 @@ export const DashboardHeader = forwardRef<HTMLDivElement, DashboardHeaderProps>(
   belowSlot,
   backTo,
   backLabel = 'Zurück zum Profil',
+  desktopTitle,
+  desktopSubtitle,
 }, ref) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -81,12 +85,22 @@ export const DashboardHeader = forwardRef<HTMLDivElement, DashboardHeaderProps>(
                 <ArrowLeft className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
               </button>
             ) : (
-              <ProfileMenu />
+              <div className="md:hidden">
+                <ProfileMenu />
+              </div>
             )}
 
-            <h1 className="truncate text-[2.15rem] font-semibold leading-none tracking-[-0.03em] text-[#192436]">
-              {pageTitle}
-            </h1>
+            <div className="min-w-0">
+              <h1 className="truncate text-[2.15rem] font-semibold leading-none tracking-[-0.03em] text-[#192436]">
+                <span className={desktopTitle ? 'md:hidden' : undefined}>{pageTitle}</span>
+                {desktopTitle ? <span className="hidden md:inline">{desktopTitle}</span> : null}
+              </h1>
+              {desktopSubtitle ? (
+                <p className="mt-1 hidden truncate font-sans text-xs font-medium text-[#646C71] md:block">
+                  {desktopSubtitle}
+                </p>
+              ) : null}
+            </div>
           </div>
 
           {rightSlot ? <div className="flex shrink-0 items-center justify-end">{rightSlot}</div> : null}

@@ -295,7 +295,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
   // Compute desktop navigation groups - always stable, never changes during navigation
   const desktopNavGroups = useMemo(() => [
     {
-      title: 'User Area',
+      title: 'Hauptnavigation',
       items: [
         { icon: LayoutDashboard, label: 'Home', path: '/' },
         { icon: List, label: 'Boulder', path: '/boulders' },
@@ -347,63 +347,42 @@ export const Sidebar = ({ className }: SidebarProps) => {
     typeof user?.user_metadata?.avatar_url === 'string' && user.user_metadata.avatar_url.trim().length > 0
       ? user.user_metadata.avatar_url
       : null;
+  const accountLabel = stableIsAdmin ? 'Administration' : stableIsSetter ? 'Setter-Konto' : 'Nutzerkonto';
 
   return (
     <>
       {/* Desktop Sidebar */}
       {user ? (
       <aside className={cn(
-        "hidden md:flex bg-sidebar-bg flex-col py-6 h-screen fixed left-0 top-0 z-50",
+        "fixed left-0 top-0 z-50 hidden h-screen flex-col bg-sidebar-bg py-5 shadow-[10px_0_30px_rgba(19,36,24,0.08)] transition-[width] duration-200 ease-out motion-reduce:transition-none md:flex",
         isExpanded ? "w-64 items-start" : "w-20 items-center",
         className
       )}>
-        {/* Profile Picture with Dropdown */}
-        <div className={cn("mb-6 px-4", isExpanded ? "" : "flex justify-center")}>
-          <ProfileMenu
-            side="right"
-            align="start"
-            trigger={(
-              <button
-                type="button"
-                className="relative cursor-pointer rounded-kws-control focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
-                aria-label="Profil"
-              >
-                <Avatar className="h-12 w-12 rounded-kws-control transition-opacity hover:opacity-80">
-                  {avatarUrl ? (
-                    <AvatarImage src={avatarUrl} alt={user?.email || 'Profilbild'} className="rounded-kws-control object-cover" />
-                  ) : null}
-                  <AvatarFallback className="rounded-kws-control bg-primary text-primary-foreground">
-                    {user.email?.substring(0, 2).toUpperCase() || 'KS'}
-                  </AvatarFallback>
-                </Avatar>
-                {stableIsAdmin && (
-                  <Badge variant="default" className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-kws-badge p-0">
-                    <Shield className="h-4 w-4" />
-                  </Badge>
-                )}
-                {stableIsSetter && !stableIsAdmin && (
-                  <Badge variant="default" className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-kws-badge p-0">
-                    <MaterialIcon name="build" className="h-4 w-4" size={16} />
-                  </Badge>
-                )}
-              </button>
-            )}
-          />
+        {/* Brand */}
+        <div className={cn('mb-8 flex h-12 items-center px-4', isExpanded ? 'w-full gap-3' : 'justify-center')}>
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-kws-card bg-primary font-sans text-[11px] font-extrabold tracking-[-0.04em] text-[#132216] shadow-[0_8px_18px_rgba(54,181,49,0.22)]">
+            KWS
+          </div>
+          {isExpanded ? (
+            <div className="min-w-0">
+              <p className="truncate font-heading text-[1.45rem] font-semibold leading-none tracking-[0.01em] text-white">
+                Kletterwelt
+              </p>
+              <p className="mt-0.5 truncate font-sans text-[9px] font-semibold uppercase tracking-[0.15em] text-white/60">
+                Sauerland App
+              </p>
+            </div>
+          ) : null}
         </div>
 
         {/* Navigation */}
         <TooltipProvider delayDuration={300}>
-          <nav className="flex-1 flex flex-col gap-6 w-full overflow-y-auto px-4">
+          <nav aria-label="Hauptnavigation" className="flex w-full flex-1 flex-col gap-6 overflow-y-auto px-3">
             {desktopNavGroups.map((group) => {
               if (!group.visible) return null;
               
               return (
                 <div key={group.title} className="flex flex-col gap-2">
-                  {isExpanded && (
-                    <h3 className="text-xs font-semibold text-sidebar-icon/60 uppercase tracking-wider px-2 mb-1">
-                      {group.title}
-                    </h3>
-                  )}
                   <div className="flex flex-col gap-1">
                     {group.items.map((item) => {
                       // Determine active state based on pathname and query params
@@ -427,30 +406,32 @@ export const Sidebar = ({ className }: SidebarProps) => {
                             {isExpanded ? (
                               <NavLink
                                 to={item.path}
+                                aria-label={item.label}
                                 className={cn(
-                                  "flex flex-row items-center gap-3 rounded-kws-control px-3 py-2 transition-all duration-200",
+                                  "relative flex min-h-11 flex-row items-center gap-3 rounded-kws-control px-3 py-2 font-sans outline-none transition-[background-color,color,transform] duration-150 focus-visible:ring-2 focus-visible:ring-primary/70",
                                   isActive
-                                    ? "bg-[#36B531]/10 text-[#36B531] font-medium"
-                                    : "text-sidebar-icon hover:bg-sidebar-bg/80 hover:text-sidebar-icon"
+                                    ? "bg-white/10 font-semibold text-white before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary"
+                                    : "text-white/60 hover:bg-white/[0.06] hover:text-white"
                                 )}
                               >
-                                <div className="grid place-items-center w-5 h-5 flex-shrink-0">
+                                <div className={cn('grid h-5 w-5 flex-shrink-0 place-items-center', isActive && 'text-primary')}>
                                   {item.isMaterialIcon ? (
                                     <MaterialIcon name={item.icon as string} className="w-5 h-5" size={20} />
                                   ) : (
                                     <item.icon className="w-5 h-5" />
                                   )}
                                 </div>
-                                <span className="text-sm whitespace-nowrap">{item.label}</span>
+                                <span className="whitespace-nowrap text-sm">{item.label}</span>
                               </NavLink>
                             ) : (
                               <NavLink
                                 to={item.path}
+                                aria-label={item.label}
                                 className={cn(
-                                  "mx-auto grid h-12 w-12 place-items-center rounded-kws-control transition-all duration-200",
+                                  "mx-auto grid h-11 w-11 place-items-center rounded-kws-control outline-none transition-[background-color,color,transform] duration-150 focus-visible:ring-2 focus-visible:ring-primary/70",
                                   isActive
-                                    ? "bg-[#36B531]/10 text-[#36B531]"
-                                    : "text-sidebar-icon hover:bg-sidebar-bg/80"
+                                    ? "bg-white/10 text-primary"
+                                    : "text-white/60 hover:bg-white/[0.06] hover:text-white"
                                 )}
                               >
                                 {item.isMaterialIcon ? (
@@ -476,24 +457,64 @@ export const Sidebar = ({ className }: SidebarProps) => {
           </nav>
         </TooltipProvider>
 
-        {/* Toggle Button */}
-        <div className="w-full">
-          {isExpanded ? (
-            <button
-              onClick={toggleExpanded}
-              className="mx-4 flex flex-row items-center gap-3 rounded-kws-control bg-sidebar-bg px-3 py-2 text-sidebar-icon transition-colors duration-150 hover:bg-sidebar-bg/80"
-            >
-              <ChevronLeft className="w-5 h-5 flex-shrink-0" />
-              <span className="text-sm font-medium">Einklappen</span>
-            </button>
-          ) : (
-            <button
-              onClick={toggleExpanded}
-              className="mx-auto grid h-12 w-12 place-items-center rounded-kws-control bg-sidebar-bg text-sidebar-icon transition-colors duration-150 hover:bg-sidebar-bg/80"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          )}
+        {/* Account and sidebar controls */}
+        <div className={cn('mt-auto w-full border-t border-white/10 pt-3', isExpanded ? 'px-3' : 'px-2')}>
+          <ProfileMenu
+            side="right"
+            align="end"
+            trigger={(
+              <button
+                type="button"
+                className={cn(
+                  'group relative flex min-h-12 items-center rounded-kws-control text-left outline-none transition-colors hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/70',
+                  isExpanded ? 'w-full gap-3 px-2 py-1.5' : 'mx-auto w-12 justify-center',
+                )}
+                aria-label="Profil und Einstellungen"
+              >
+                <Avatar className="h-9 w-9 shrink-0 rounded-kws-control">
+                  {avatarUrl ? (
+                    <AvatarImage src={avatarUrl} alt="" className="rounded-kws-control object-cover" />
+                  ) : null}
+                  <AvatarFallback className="rounded-kws-control bg-primary font-sans text-xs font-semibold text-[#132216]">
+                    {user.email?.substring(0, 2).toUpperCase() || 'KS'}
+                  </AvatarFallback>
+                </Avatar>
+                {stableIsAdmin ? (
+                  <Badge variant="default" className="absolute left-8 top-0 flex h-4 w-4 items-center justify-center rounded-kws-badge p-0">
+                    <Shield className="h-3 w-3" aria-hidden="true" />
+                  </Badge>
+                ) : null}
+                {stableIsSetter && !stableIsAdmin ? (
+                  <Badge variant="default" className="absolute left-8 top-0 flex h-4 w-4 items-center justify-center rounded-kws-badge p-0">
+                    <MaterialIcon name="build" className="h-3 w-3" size={12} />
+                  </Badge>
+                ) : null}
+                {isExpanded ? (
+                  <>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-sans text-xs font-semibold text-white">{user.email}</span>
+                      <span className="mt-0.5 block truncate font-sans text-[10px] text-white/60">{accountLabel}</span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-white/35 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                  </>
+                ) : null}
+              </button>
+            )}
+          />
+
+          <button
+            type="button"
+            onClick={toggleExpanded}
+            aria-expanded={isExpanded}
+            aria-label={isExpanded ? 'Navigation einklappen' : 'Navigation ausklappen'}
+            className={cn(
+              'mt-1 flex min-h-10 items-center rounded-kws-control font-sans text-white/60 outline-none transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:ring-2 focus-visible:ring-primary/70',
+              isExpanded ? 'w-full gap-3 px-3 text-xs font-medium' : 'mx-auto w-12 justify-center',
+            )}
+          >
+            {isExpanded ? <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+            {isExpanded ? <span>Einklappen</span> : null}
+          </button>
         </div>
       </aside>
       ) : null}

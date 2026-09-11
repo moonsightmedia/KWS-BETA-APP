@@ -352,12 +352,24 @@ const Index = () => {
     'flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]',
     isExpanded ? 'md:ml-64' : 'md:ml-20',
   );
+  const desktopGreeting = authLoading
+    ? 'Willkommen'
+    : greetingName
+      ? `Hallo ${greetingName}`
+      : 'Willkommen zurück';
+  const desktopGreetingSubtitle = newestBoulders.length > 0
+    ? `${newestBoulders.length} neue Boulder in den letzten 7 Tagen`
+    : 'Alles Wichtige für deine nächste Session';
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex bg-[#F9FAF9]">
         <div ref={swipeRef} className={layoutClassName}>
-          <DashboardHeader rightSlot={<NotificationCenter variant="header" />} />
+          <DashboardHeader
+            desktopTitle={desktopGreeting}
+            desktopSubtitle={desktopGreetingSubtitle}
+            rightSlot={<NotificationCenter variant="header" />}
+          />
           <main className="mx-auto w-full max-w-[1180px] flex-1 px-4 pb-28 pt-6 md:px-8 md:pb-10">
             <div className="space-y-4">
               <Skeleton className="h-20 rounded-kws-card" />
@@ -379,7 +391,11 @@ const Index = () => {
     return (
       <div className="min-h-screen flex bg-[#F9FAF9]">
         <div ref={swipeRef} className={layoutClassName}>
-          <DashboardHeader rightSlot={<NotificationCenter variant="header" />} />
+          <DashboardHeader
+            desktopTitle={desktopGreeting}
+            desktopSubtitle={desktopGreetingSubtitle}
+            rightSlot={<NotificationCenter variant="header" />}
+          />
           <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -411,7 +427,11 @@ const Index = () => {
     return (
       <div className="min-h-screen flex bg-[#F9FAF9]">
         <div ref={swipeRef} className={layoutClassName}>
-          <DashboardHeader rightSlot={<NotificationCenter variant="header" />} />
+          <DashboardHeader
+            desktopTitle={desktopGreeting}
+            desktopSubtitle={desktopGreetingSubtitle}
+            rightSlot={<NotificationCenter variant="header" />}
+          />
           <main className="mx-auto flex w-full max-w-[1180px] flex-1 items-center justify-center p-4 md:p-8">
             <div className="space-y-4 text-center">
               <p className="text-[#13112B]/60">Keine Daten geladen</p>
@@ -436,12 +456,16 @@ const Index = () => {
   return (
     <div className="min-h-screen flex bg-[#F9FAF9]">
       <div ref={swipeRef} className={layoutClassName}>
-        <DashboardHeader rightSlot={<NotificationCenter variant="header" />} />
+        <DashboardHeader
+          desktopTitle={desktopGreeting}
+          desktopSubtitle={desktopGreetingSubtitle}
+          rightSlot={<NotificationCenter variant="header" />}
+        />
 
         <main className="mx-auto w-full max-w-[1180px] flex-1 overflow-x-hidden px-4 pb-28 pt-4 md:px-8 md:pb-10 md:pt-6">
-          <section className="mb-5">
+          <section className="mb-5 md:hidden">
             <h1 className="font-sans text-[1.75rem] font-semibold leading-tight tracking-[-0.04em] text-[#192436] md:text-[2rem]">
-              {authLoading ? 'Hallo' : `Hallo ${greetingName || 'du'}`}
+              {authLoading ? 'Willkommen' : greetingName ? `Hallo ${greetingName}` : 'Willkommen zurück'}
             </h1>
             <p className="mt-1 font-sans text-xs text-muted-foreground">
               {newestBoulders.length > 0
