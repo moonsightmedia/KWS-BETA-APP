@@ -15,22 +15,22 @@ All colors MUST be HSL.
     --mobile-page-bottom-padding: calc(var(--mobile-nav-content-height) + var(--app-safe-area-bottom) + 32px);
 
     --background: 0 0% 100%;
-    --foreground: 118 15% 20%;
+    --foreground: 217 37% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 118 15% 20%;
+    --card-foreground: 217 37% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 118 15% 20%;
+    --popover-foreground: 217 37% 15%;
 
     --primary: 118 57% 45%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 120 8% 94%;
-    --secondary-foreground: 118 15% 20%;
+    --secondary-foreground: 217 37% 15%;
 
     --muted: 120 8% 94%;
-    --muted-foreground: 118 10% 46%;
+    --muted-foreground: 203 6% 42%;
 
     --accent: 118 57% 45%;
     --accent-foreground: 0 0% 100%;
@@ -51,9 +51,13 @@ All colors MUST be HSL.
     --radius-kws-card: 0.75rem;
 
     /* Dashboard specific colors */
-    --sidebar-bg: 118 20% 22%;
-    --sidebar-icon: 118 5% 50%;
-    --sidebar-icon-active: 0 0% 100%;
+    --sidebar-bg: 0 0% 100%;
+    --sidebar-icon: 203 6% 42%;
+    --sidebar-icon-active: 118 57% 45%;
+
+    /* Scroll indicators are navigation aids, not activity indicators. */
+    --scrollbar-thumb: 210 8% 68%;
+    --scrollbar-hover: 210 8% 48%;
     
     /* Chart colors - Moderne Farbpalette */
     --chart-primary: 210 100% 60%;    /* Modernes Blau */
@@ -292,10 +296,10 @@ All colors MUST be HSL.
     stroke-width: 2.5;
   }
   
-  /* App scrollbar: quiet by default, clearly branded while interacting */
+  /* Quiet neutral scroll indicators, shared with Radix ScrollArea. */
   @media (min-width: 641px) {
     * {
-      scrollbar-color: hsl(var(--primary) / 0.62) hsl(var(--secondary) / 0.5);
+      scrollbar-color: hsl(var(--scrollbar-thumb)) transparent;
       scrollbar-width: thin;
     }
 
@@ -305,7 +309,7 @@ All colors MUST be HSL.
     }
 
     *::-webkit-scrollbar-track {
-      background: hsl(var(--secondary) / 0.45);
+      background: transparent;
       border-radius: 999px;
     }
 
@@ -313,12 +317,12 @@ All colors MUST be HSL.
       min-height: 44px;
       border: 2px solid transparent;
       border-radius: 999px;
-      background: hsl(var(--primary) / 0.62);
+      background: hsl(var(--scrollbar-thumb));
       background-clip: padding-box;
     }
 
     *::-webkit-scrollbar-thumb:hover {
-      background: hsl(var(--primary) / 0.82);
+      background: hsl(var(--scrollbar-hover));
       background-clip: padding-box;
     }
 

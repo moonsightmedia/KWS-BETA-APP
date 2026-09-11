@@ -15,10 +15,9 @@ import {
   Plus,
   Users,
 } from 'lucide-react';
-import { MaterialIcon } from '@/components/MaterialIcon';
 import { ProfileMenu } from '@/components/ProfileMenu';
 import { cn } from '@/lib/utils';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AccountAvatar } from '@/components/AccountAvatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
@@ -342,37 +341,32 @@ export const Sidebar = ({ className }: SidebarProps) => {
     ];
   }, [homePath, isAdminArea, isSetterArea, stableIsAdmin, stableIsSetter, user]);
 
-  const avatarUrl =
-    typeof user?.user_metadata?.avatar_url === 'string' && user.user_metadata.avatar_url.trim().length > 0
-      ? user.user_metadata.avatar_url
-      : null;
   const accountLabel = stableIsAdmin ? 'Administrator' : stableIsSetter ? 'Setter' : 'Mitglied';
 
   return (
     <>
       {/* Desktop Sidebar */}
       {user ? (
-      <aside className={cn(
-        "fixed left-0 top-0 z-50 hidden h-screen flex-col bg-sidebar-bg py-5 shadow-[10px_0_30px_rgba(19,36,24,0.08)] transition-[width] duration-200 ease-out motion-reduce:transition-none md:flex",
+      <aside id="desktop-navigation" className={cn(
+        "fixed left-0 top-0 z-40 hidden h-dvh flex-col border-r border-border/60 bg-sidebar-bg py-5 text-foreground transition-[width] duration-200 ease-out motion-reduce:transition-none md:flex",
         isExpanded ? "w-64 items-start" : "w-20 items-center",
         className
       )}>
         {/* Brand */}
         <div className={cn('mb-8 flex h-14 items-center px-3', isExpanded ? 'w-full gap-3' : 'justify-center')}>
-          <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-[0_8px_22px_rgba(8,22,11,0.22)] ring-1 ring-white/20">
+          <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full bg-white">
             <img
               src="/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png"
-              alt=""
+              alt={isExpanded ? '' : 'Kletterwelt Sauerland'}
               className="h-full w-full object-cover"
-              aria-hidden="true"
             />
           </div>
           {isExpanded ? (
             <div className="min-w-0">
-              <p className="truncate font-heading text-[1.35rem] font-semibold leading-none tracking-[0.01em] text-white">
+              <p className="truncate font-heading text-[1.35rem] font-semibold leading-none tracking-[0.01em] text-foreground">
                 Kletterwelt
               </p>
-              <p className="mt-1 truncate font-sans text-[9px] font-semibold uppercase tracking-[0.14em] text-white/55">
+              <p className="mt-1 truncate font-sans text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Sauerland · Beta App
               </p>
             </div>
@@ -381,7 +375,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
 
         {/* Navigation */}
         <TooltipProvider delayDuration={300}>
-          <nav aria-label="Hauptnavigation" className="flex w-full flex-1 flex-col gap-6 overflow-y-auto px-3">
+          <nav aria-label="Hauptnavigation" className="flex min-h-0 w-full flex-1 flex-col gap-6 overflow-y-auto px-3">
             {desktopNavGroups.map((group) => {
               if (!group.visible) return null;
               
@@ -414,16 +408,12 @@ export const Sidebar = ({ className }: SidebarProps) => {
                                 className={cn(
                                   "relative flex min-h-11 flex-row items-center gap-3 rounded-kws-control px-3 py-2 font-sans outline-none transition-[background-color,color,transform] duration-150 focus-visible:ring-2 focus-visible:ring-primary/70",
                                   isActive
-                                    ? "bg-white/10 font-semibold text-white before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary"
-                                    : "text-white/60 hover:bg-white/[0.06] hover:text-white"
+                                    ? "bg-primary/10 font-semibold text-foreground before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary"
+                                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                                 )}
                               >
                                 <div className={cn('grid h-5 w-5 flex-shrink-0 place-items-center', isActive && 'text-primary')}>
-                                  {item.isMaterialIcon ? (
-                                    <MaterialIcon name={item.icon as string} className="w-5 h-5" size={20} />
-                                  ) : (
-                                    <item.icon className="w-5 h-5" />
-                                  )}
+                                  <item.icon className="w-5 h-5" />
                                 </div>
                                 <span className="whitespace-nowrap text-sm">{item.label}</span>
                               </NavLink>
@@ -434,15 +424,11 @@ export const Sidebar = ({ className }: SidebarProps) => {
                                 className={cn(
                                   "mx-auto grid h-11 w-11 place-items-center rounded-kws-control outline-none transition-[background-color,color,transform] duration-150 focus-visible:ring-2 focus-visible:ring-primary/70",
                                   isActive
-                                    ? "bg-white/10 text-primary"
-                                    : "text-white/60 hover:bg-white/[0.06] hover:text-white"
+                                    ? "bg-primary/10 text-primary"
+                                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                                 )}
                               >
-                                {item.isMaterialIcon ? (
-                                  <MaterialIcon name={item.icon as string} className="w-5 h-5" size={20} />
-                                ) : (
-                                  <item.icon className="w-5 h-5" />
-                                )}
+                                <item.icon className="w-5 h-5" />
                               </NavLink>
                             )}
                           </TooltipTrigger>
@@ -462,7 +448,22 @@ export const Sidebar = ({ className }: SidebarProps) => {
         </TooltipProvider>
 
         {/* Account and sidebar controls */}
-        <div className={cn('mt-auto w-full border-t border-white/10 pt-3', isExpanded ? 'px-3' : 'px-2')}>
+        <div className={cn('mt-auto w-full shrink-0 pt-3', isExpanded ? 'px-3' : 'px-2')}>
+          <button
+            type="button"
+            onClick={toggleExpanded}
+            aria-expanded={isExpanded}
+            aria-controls="desktop-navigation"
+            aria-label={isExpanded ? 'Navigation einklappen' : 'Navigation ausklappen'}
+            className={cn(
+              'mb-3 flex min-h-11 items-center rounded-kws-control font-sans text-muted-foreground outline-none transition-colors hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/70',
+              isExpanded ? 'w-full gap-3 px-3 text-xs font-medium' : 'mx-auto w-12 justify-center',
+            )}
+          >
+            {isExpanded ? <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+            {isExpanded ? <span>Einklappen</span> : null}
+          </button>
+          <div className="border-t border-border/60 pt-3">
           <ProfileMenu
             side="right"
             align="end"
@@ -470,48 +471,28 @@ export const Sidebar = ({ className }: SidebarProps) => {
               <button
                 type="button"
                 className={cn(
-                  'group relative flex min-h-12 items-center rounded-kws-control text-left outline-none transition-[background-color,box-shadow] hover:bg-white/[0.075] focus-visible:ring-2 focus-visible:ring-primary/70',
-                  isExpanded ? 'w-full gap-3 bg-white/[0.035] px-2.5 py-2' : 'mx-auto w-12 justify-center',
+                  'group relative flex min-h-12 items-center rounded-kws-control text-left outline-none transition-colors hover:bg-secondary data-[state=open]:bg-secondary focus-visible:ring-2 focus-visible:ring-primary/70',
+                  isExpanded ? 'w-full gap-3 px-2.5 py-2' : 'mx-auto w-12 justify-center',
                 )}
                 aria-label={`Profil und Einstellungen · ${accountLabel}`}
               >
-                <Avatar className="h-10 w-10 shrink-0 rounded-full border border-white/10">
-                  {avatarUrl ? (
-                    <AvatarImage src={avatarUrl} alt="" className="rounded-full object-cover" />
-                  ) : null}
-                  <AvatarFallback className="rounded-full bg-primary font-sans text-xs font-semibold text-[#132216]">
-                    {user.email?.substring(0, 2).toUpperCase() || 'KS'}
-                  </AvatarFallback>
-                </Avatar>
+                <AccountAvatar user={user} />
                 {isExpanded ? (
                   <>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-sans text-xs font-semibold text-white">{user.email}</span>
-                      <span className="mt-1 flex items-center gap-1.5 font-sans text-[10px] font-medium text-white/55">
-                        <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+                      <span className="block truncate font-sans text-xs font-semibold text-foreground">{user.email}</span>
+                      <span className="mt-1 block font-sans text-xs text-muted-foreground">
                         {accountLabel}
                       </span>
                     </span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-white/35 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   </>
                 ) : null}
               </button>
             )}
           />
 
-          <button
-            type="button"
-            onClick={toggleExpanded}
-            aria-expanded={isExpanded}
-            aria-label={isExpanded ? 'Navigation einklappen' : 'Navigation ausklappen'}
-            className={cn(
-              'mt-1 flex min-h-10 items-center rounded-kws-control font-sans text-white/60 outline-none transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:ring-2 focus-visible:ring-primary/70',
-              isExpanded ? 'w-full gap-3 px-3 text-xs font-medium' : 'mx-auto w-12 justify-center',
-            )}
-          >
-            {isExpanded ? <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
-            {isExpanded ? <span>Einklappen</span> : null}
-          </button>
+          </div>
         </div>
       </aside>
       ) : null}

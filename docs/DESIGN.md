@@ -210,7 +210,8 @@ Alle Hauptseiten und Unterseiten verwenden `DashboardHeader`.
 - Untere Trennlinie: sehr helles Grün-Grau.
 - Oben wird `env(safe-area-inset-top)` addiert. Es gibt keinen pauschalen
   künstlichen 3-cm-Leerraum.
-- Hauptseiten zeigen links dasselbe `ProfileMenu`.
+- Mobile Hauptseiten zeigen links dasselbe `ProfileMenu`. Auf Desktop sitzt
+  der Profilzugang einmal im Fuß der Sidebar.
 - Profil-Unterseiten zeigen an derselben Stelle einen 40-px-Zurückbutton.
 - Rechts sitzen nur häufig verwendete Seitenaktionen.
 - Suchfelder und Filterpanels erscheinen bei Bedarf unter der Titelzeile, nicht
@@ -221,6 +222,19 @@ Schriftfarbe. Fehlende Gastfunktionen werden weggelassen, nicht durch ein
 anderes Design ersetzt.
 
 ### 4.3 Navigation und Scrollposition
+
+- Die Desktop-Sidebar ist weiß mit dunkelblauer Schrift und einer dezenten
+  Trennlinie zum Inhalt. Logo oben, Navigation mittig, Konto ganz unten.
+- `Einklappen` steht oberhalb des Profilbereichs; eine Trennlinie separiert
+  Navigationseinstellungen und Konto (Nutzerentscheidung vom 2026-09-11).
+- Die aktive Desktop-Route verwendet einen leichten Primärgrün-Tint,
+  dunkelblaue Schrift, grünes Icon und `aria-current`. Große olivgrüne
+  Navigationsflächen werden nicht verwendet.
+- Sidebar und Profilmenü teilen `AccountAvatar`, einschließlich Foto,
+  Initialen und neutralem Fallback. Die Rolle ist eine Textzeile ohne
+  überlagertes Schild oder einen scheinbaren Online-Statuspunkt.
+- Scrollbars sind schmal, abgerundet und neutralgrau; derselbe Token gilt für
+  Browser- und Radix-Scrollbars. Grün bleibt fachlichen Aktivzuständen vorbehalten.
 
 - Hauptreihenfolge: `Home → Boulder → Statistiken`.
 - Die Bottom-Navigation und Desktop-Navigation verwenden dieselben Labels,
@@ -314,6 +328,15 @@ Inhaltswechsel wie `Info / Track / Beta` oder Statistikzeiträume.
 - große Fläche: Radius `12px`; kompakte Inline-Toolpanels dürfen Radius `8px`
   verwenden,
 - weißer Hintergrund und leichter Popover-Schatten,
+- Profilmenü und Benachrichtigungen teilen `kwsPopoverClassName`; ihre Köpfe
+  bleiben weiß und ihre Texte dunkelblau. Keine dunklen Banner, dekorativen
+  Farbwolken oder zusätzlichen Pastellpaletten für Mitteilungskategorien.
+- Das Profilmenü bleibt kompakt: Konto, Profil/Einstellungen, Bereichswechsel,
+  Abmelden. Der aktuelle Bereich wird mit Primärgrün-Tint und Häkchen markiert.
+- Ungelesene Mitteilungen erhalten einen dezenten grünen Punkt mit zugänglicher
+  Textalternative. Gelesene Einträge und Scrollleisten bleiben neutral.
+- Bedienlabels und Mitteilungstexte sind mindestens 12px; 11px ist für kurze
+  Zeitangaben zulässig. Lade-, Leer- und Fehlerzustände werden unterschieden.
 - Optionen verwenden die gleichen 8-px-Controls,
 - gewählte Option: Grün/Weiß plus `aria-pressed` oder semantisches Primitive,
 - keine nativen ungestalteten Select-Menüs in finalen Screens,

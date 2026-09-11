@@ -45,12 +45,12 @@ const NotificationRow = ({
 }) => (
   <div className="group flex min-h-[76px] items-center justify-between border-b border-[#E4ECE5] px-4 py-3.5 transition-colors last:border-b-0 hover:bg-secondary/35 sm:px-5">
     <div className="mr-4 flex flex-1 items-center gap-3">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kws-control bg-primary/10 transition-colors group-hover:bg-primary/15">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kws-control bg-secondary text-muted-foreground [&>svg]:text-current">
         {icon}
       </div>
       <div className="min-w-0">
         <p className="font-sans text-xs font-semibold text-[#192436] sm:text-sm">{title}</p>
-        <p className="mt-0.5 max-w-lg font-sans text-[10px] leading-relaxed text-muted-foreground sm:text-[11px]">{subtitle}</p>
+        <p className="mt-0.5 max-w-lg font-sans text-xs leading-relaxed text-muted-foreground">{subtitle}</p>
       </div>
     </div>
     <Switch aria-label={title} checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
@@ -60,7 +60,7 @@ const NotificationRow = ({
 const SettingsSectionHeader = ({ title, description }: { title: string; description: string }) => (
   <div className="mb-3 px-1">
     <h2 className="font-sans text-sm font-semibold text-[#192436]">{title}</h2>
-    <p className="mt-0.5 font-sans text-[10px] leading-relaxed text-muted-foreground sm:text-[11px]">{description}</p>
+    <p className="mt-0.5 font-sans text-xs leading-relaxed text-muted-foreground">{description}</p>
   </div>
 );
 
@@ -135,24 +135,19 @@ const NotificationSettings = () => {
   return (
     <DashboardPageLayout headerBackTo="/profile">
       <div className="mx-auto max-w-3xl space-y-6">
-        <KwsSurface className="relative overflow-hidden bg-sidebar-bg px-5 py-5 text-white sm:px-6 sm:py-6">
-          <div className="pointer-events-none absolute -right-10 -top-16 h-44 w-44 rounded-full bg-primary/15 blur-2xl" aria-hidden="true" />
-          <div className="relative flex items-start justify-between gap-4">
-            <div className="flex min-w-0 items-start gap-3.5">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-kws-control bg-white/10 text-primary ring-1 ring-white/10">
+        <KwsSurface className="p-4 text-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-kws-control bg-secondary text-muted-foreground">
                 <BellRing className="h-5 w-5" aria-hidden="true" />
               </span>
               <div className="min-w-0">
                 <p className="font-sans text-sm font-semibold">Bleib auf dem Laufenden</p>
-                <p className="mt-1 max-w-md font-sans text-[10px] leading-relaxed text-white/60 sm:text-[11px]">
+                <p className="mt-1 max-w-md font-sans text-xs leading-relaxed text-muted-foreground">
                   Bestimme selbst, welche Neuigkeiten aus der Halle dich erreichen dürfen.
                 </p>
               </div>
             </div>
-            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1.5 font-sans text-[9px] font-semibold text-white/70 ring-1 ring-white/10">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
-              {(notificationPreferences?.in_app_enabled ?? true) ? 'In-App aktiv' : 'In-App aus'}
-            </span>
           </div>
         </KwsSurface>
 
@@ -238,12 +233,12 @@ const NotificationSettings = () => {
         </section>
 
         {!isNativePlatform ? (
-          <KwsSurface className="flex items-start gap-3 border border-primary/10 bg-primary/[0.045] px-4 py-4 font-sans text-[10px] leading-relaxed text-[#526158] shadow-none sm:px-5 sm:text-[11px]">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-kws-control bg-white text-primary shadow-[0_3px_10px_rgba(19,36,24,0.06)]">
+          <KwsSurface className="flex items-start gap-3 px-4 py-4 font-sans text-xs leading-relaxed text-muted-foreground">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-kws-control bg-secondary text-muted-foreground">
               <Info className="h-4 w-4" aria-hidden="true" />
             </span>
             <div>
-              <p className="font-semibold text-[#294231]">Hinweis zur Web-Version</p>
+              <p className="font-semibold text-foreground">Hinweis zur Web-Version</p>
               <p className="mt-0.5">Browser-Push ist in der Web-Beta deaktiviert. In-App-Benachrichtigungen bleiben aktiv.</p>
             </div>
           </KwsSurface>

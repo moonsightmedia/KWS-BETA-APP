@@ -12,6 +12,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useHasRole } from '@/hooks/useHasRole';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { cn } from '@/lib/utils';
+import { AccountAvatar } from '@/components/AccountAvatar';
+import { kwsPopoverClassName } from '@/components/ui/kws-surface';
 
 const STORAGE_KEY_ADMIN = 'nav_isAdmin';
 const STORAGE_KEY_SETTER = 'nav_isSetter';
@@ -68,7 +70,6 @@ export const ProfileMenu = ({
   const isSetterArea = location.pathname.startsWith('/setter');
   const isAdminArea = location.pathname.startsWith('/admin');
   const isUserArea = !isSetterArea && !isAdminArea;
-  const accountInitial = user?.email?.trim().charAt(0).toUpperCase() || 'K';
 
   const navigateToArea = (path: string) => {
     if (location.pathname + location.search !== path) {
@@ -93,7 +94,7 @@ export const ProfileMenu = ({
   ];
 
   const menuItemClassName =
-    'mx-0.5 my-0.5 flex min-h-11 items-center gap-3 rounded-kws-control px-3 py-2.5 font-sans text-sm font-medium text-[#192436] outline-none transition-colors data-[highlighted]:bg-[#F1F5F1] data-[highlighted]:text-[#192436]';
+    'my-0.5 flex min-h-11 items-center gap-3 rounded-kws-control px-3 py-2.5 font-sans text-sm font-medium text-foreground outline-none transition-colors data-[highlighted]:bg-secondary data-[highlighted]:text-foreground';
 
   return (
     <DropdownMenu>
@@ -101,7 +102,7 @@ export const ProfileMenu = ({
         {trigger ?? (
           <button
             type="button"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kws-control bg-secondary text-[#192436]/65 transition-[background-color,color,transform] hover:bg-[#E8EEE8] hover:text-[#192436] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kws-control bg-secondary text-muted-foreground transition-colors hover:text-foreground data-[state=open]:bg-primary/10 data-[state=open]:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
             aria-label="Profil"
           >
             <User className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
@@ -113,34 +114,28 @@ export const ProfileMenu = ({
         align={align}
         side={side}
         sideOffset={sideOffset}
-        className="z-50 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-kws-card border-0 bg-white p-2 shadow-[0_18px_44px_rgba(19,17,43,0.15)]"
+        collisionPadding={16}
+        className={cn(kwsPopoverClassName, 'z-[120] max-h-[var(--radix-dropdown-menu-content-available-height)] w-[min(18rem,calc(100vw-2rem))] overflow-y-auto p-2')}
       >
         {user ? (
           <>
-            <div className="mb-1 rounded-kws-control bg-[#F1F5F1] p-3">
+            <div className="mb-2 border-b border-border/60 px-2 pb-4 pt-2">
               <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-kws-control bg-[#192436] font-sans text-sm font-semibold text-white">
-                  {accountInitial}
-                </div>
-                <div className="min-w-0">
-                  <p className="font-sans text-[10px] font-semibold uppercase tracking-[0.12em] text-[#646C71]">Angemeldet als</p>
-                  <p className="truncate pt-0.5 font-sans text-sm font-semibold text-[#192436]">{user.email}</p>
+                <AccountAvatar user={user} />
+                <div className="min-w-0 flex-1">
+                  <p className="font-sans text-sm font-semibold text-foreground">Dein Konto</p>
+                  <p className="truncate pt-0.5 font-sans text-xs text-muted-foreground">{user.email}</p>
                 </div>
               </div>
             </div>
 
             <DropdownMenuItem className={menuItemClassName} onSelect={() => navigate('/profile')}>
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-kws-control bg-[#F1F5F1] text-[#192436]/65">
-                <Settings className="h-4 w-4" aria-hidden="true" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block">Profil & Einstellungen</span>
-                <span className="block truncate pt-0.5 text-[10px] font-normal text-[#646C71]">Konto, Benachrichtigungen und App</span>
-              </span>
-              <ChevronRight className="h-4 w-4 text-[#646C71]" aria-hidden="true" />
+              <Settings className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span className="min-w-0 flex-1">Profil & Einstellungen</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             </DropdownMenuItem>
 
-            <p className="px-3 pb-1 pt-3 font-sans text-[10px] font-semibold uppercase tracking-[0.12em] text-[#646C71]">Bereich wechseln</p>
+            <p className="px-3 pb-1 pt-3 font-sans text-xs font-medium text-muted-foreground">Bereich wechseln</p>
             {profileAreas.map((area) => {
               const AreaIcon = area.icon;
               return (
@@ -148,23 +143,18 @@ export const ProfileMenu = ({
                   key={area.path}
                   className={cn(
                     menuItemClassName,
-                    area.active && 'bg-[#192436] text-white data-[highlighted]:bg-[#25344B] data-[highlighted]:text-white',
+                    area.active && 'bg-primary/10 font-semibold data-[highlighted]:bg-primary/15',
                   )}
                   onSelect={() => navigateToArea(area.path)}
                 >
-                  <AreaIcon className={cn('h-4 w-4 shrink-0', area.active ? 'text-white' : 'text-[#192436]/55')} aria-hidden="true" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block">{area.label}</span>
-                    <span className={cn('block truncate pt-0.5 text-[10px] font-normal', area.active ? 'text-white/65' : 'text-[#646C71]')}>
-                      {area.description}
-                    </span>
-                  </span>
-                  {area.active ? <Check className="h-4 w-4 shrink-0" aria-hidden="true" /> : null}
+                  <AreaIcon className={cn('h-4 w-4 shrink-0', area.active ? 'text-primary' : 'text-muted-foreground')} aria-hidden="true" />
+                  <span className="min-w-0 flex-1">{area.label}{area.active ? <span className="sr-only">, aktueller Bereich</span> : null}</span>
+                  {area.active ? <Check className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" /> : null}
                 </DropdownMenuItem>
               );
             })}
 
-            <div className="mx-2 my-2 h-px bg-[#E5EBE6]" />
+            <div className="mx-2 my-2 h-px bg-border/60" />
             <DropdownMenuItem
               disabled={authTransition === 'signing-out'}
               onSelect={() => {

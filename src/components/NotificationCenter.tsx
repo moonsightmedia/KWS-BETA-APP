@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -10,12 +10,15 @@ import {
   Mountain,
   Settings2,
   Trophy,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
+import { kwsPopoverClassName } from '@/components/ui/kws-surface';
 import { cn } from '@/lib/utils';
 import {
   useMarkAllAsRead,
@@ -44,32 +47,16 @@ const getNotificationIcon = (type: Notification['type']) => {
   }
 };
 
-const getNotificationColor = (type: Notification['type']) => {
-  switch (type) {
-    case 'competition_update':
-    case 'competition_result':
-    case 'competition_leaderboard_change':
-      return 'bg-[#FFF4D8] text-[#A96C00]';
-    case 'feedback_reply':
-      return 'bg-[#EAF2FF] text-[#3569A8]';
-    case 'admin_announcement':
-      return 'bg-[#F4ECFF] text-[#7650A8]';
-    case 'schedule_reminder':
-      return 'bg-[#FFF0E8] text-[#B65B2B]';
-    default:
-      return 'bg-primary/10 text-primary';
-  }
-};
-
 export const NotificationCenter = ({
   variant = 'default',
 }: {
   variant?: 'default' | 'header';
 }) => {
   const [open, setOpen] = useState(false);
+  const headingId = useId();
   const navigate = useNavigate();
   const { data: unreadCount = 0 } = useUnreadCount();
-  const { data: notifications = [] } = useNotifications();
+  const { data: notifications = [], isLoading, isError, refetch } = useNotifications();
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
 
@@ -88,23 +75,22 @@ export const NotificationCenter = ({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover modal open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
           className={cn(
-            'relative flex-shrink-0 transition-[background-color,color,transform] active:scale-95 focus-visible:ring-2 focus-visible:ring-primary/45',
+            'relative flex-shrink-0 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground data-[state=open]:bg-primary/10 data-[state=open]:text-foreground focus-visible:ring-2 focus-visible:ring-primary/45',
             variant === 'header'
-              ? 'h-10 w-10 rounded-kws-control bg-secondary p-0 text-[#314438] hover:bg-primary/10 hover:text-[#19371F]'
-              : 'size-icon rounded-kws-control p-1.5 text-[#192436]/65',
-            unreadCount > 0 && 'text-[#192436]',
+              ? 'h-10 w-10 rounded-kws-control bg-secondary p-0'
+              : 'size-icon rounded-kws-control p-1.5',
           )}
           aria-label="Benachrichtigungen"
         >
           <Bell className={cn(variant === 'header' ? 'h-4 w-4' : 'h-5 w-5')} />
           {unreadCount > 0 ? (
             <span
-              className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-kws-badge bg-[#C6453A] px-1 font-sans text-[9px] font-bold leading-5 text-white shadow-[0_2px_7px_rgba(198,69,58,0.28)]"
+              className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-kws-badge bg-primary px-1 font-sans text-[10px] font-semibold leading-5 text-foreground"
             >
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
@@ -115,18 +101,17 @@ export const NotificationCenter = ({
       <PopoverContent
         align={variant === 'header' ? 'end' : 'center'}
         side="bottom"
-        sideOffset={12}
-        className="w-[min(25rem,calc(100vw-1rem))] overflow-hidden rounded-[22px] border border-white/70 bg-[#F3F7F3] p-0 shadow-[0_24px_60px_rgba(19,36,24,0.20)]"
+        sideOffset={8}
+        collisionPadding={16}
+        aria-labelledby={headingId}
+        className={cn(kwsPopoverClassName, 'z-[120] flex max-h-[min(34rem,var(--radix-popover-content-available-height))] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden p-0')}
       >
-        <div className="flex items-center justify-between gap-3 bg-sidebar-bg px-4 py-4 text-white">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-kws-control bg-white/10 text-primary ring-1 ring-white/10">
-              <Bell className="h-4.5 w-4.5" aria-hidden="true" />
-            </span>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/60 px-4 py-4">
+          <div className="min-w-0">
             <div className="min-w-0">
-              <h3 className="font-sans text-sm font-semibold tracking-[-0.01em]">Benachrichtigungen</h3>
-              <p className="mt-0.5 truncate font-sans text-[10px] text-white/55">
-                {unreadCount > 0 ? `${unreadCount} ${unreadCount === 1 ? 'neuer Hinweis' : 'neue Hinweise'}` : 'Alles auf dem neuesten Stand'}
+              <h3 id={headingId} className="font-sans text-sm font-semibold">Benachrichtigungen</h3>
+              <p className="mt-1 font-sans text-xs text-muted-foreground">
+                {isLoading ? 'Wird geladen …' : isError ? 'Laden fehlgeschlagen' : unreadCount > 0 ? `${unreadCount} ungelesen` : 'Keine ungelesenen Mitteilungen'}
               </p>
             </div>
           </div>
@@ -135,16 +120,29 @@ export const NotificationCenter = ({
               type="button"
               onClick={() => markAllAsRead.mutate()}
               disabled={markAllAsRead.isPending}
-              className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-kws-control bg-white/10 px-2.5 font-sans text-[10px] font-semibold text-white/75 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 disabled:opacity-50"
+              aria-label="Alle als gelesen markieren"
+              title="Alle als gelesen markieren"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-kws-control bg-secondary text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 disabled:opacity-50"
             >
               <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="hidden sm:inline">Alle gelesen</span>
             </button>
           ) : null}
         </div>
 
-        {visibleNotifications.length > 0 ? (
-          <div className="kws-scrollbar max-h-[min(26rem,62vh)] space-y-1 overflow-y-auto p-2">
+        <div className="min-h-0 overflow-y-auto overscroll-contain p-2">
+        {isLoading ? (
+          <div role="status" className="flex items-center justify-center gap-2 px-4 py-8 text-xs text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            Mitteilungen werden geladen …
+          </div>
+        ) : isError ? (
+          <div role="alert" className="px-4 py-6 text-center">
+            <AlertCircle className="mx-auto h-5 w-5 text-muted-foreground" aria-hidden="true" />
+            <p className="mt-3 text-sm font-semibold">Mitteilungen konnten nicht geladen werden.</p>
+            <button type="button" onClick={() => void refetch()} className="mt-3 min-h-11 rounded-kws-control bg-secondary px-4 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45">Erneut versuchen</button>
+          </div>
+        ) : visibleNotifications.length > 0 ? (
+          <div className="space-y-1">
             {visibleNotifications.map((notification) => {
               const Icon = getNotificationIcon(notification.type);
 
@@ -154,29 +152,29 @@ export const NotificationCenter = ({
                   type="button"
                   onClick={() => handleNotificationClick(notification)}
                   className={cn(
-                    'relative flex w-full items-start gap-3 overflow-hidden rounded-kws-control px-3 py-3 text-left transition-[background-color,transform,box-shadow] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55',
+                    'relative flex w-full items-start gap-3 rounded-kws-control px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55',
                     notification.read
-                      ? 'bg-transparent hover:bg-white/80'
-                      : 'bg-white shadow-[0_5px_16px_rgba(19,36,24,0.07)] before:absolute before:bottom-3 before:left-0 before:top-3 before:w-0.5 before:rounded-full before:bg-primary',
+                      ? 'hover:bg-secondary'
+                      : 'bg-primary/5 hover:bg-primary/10',
                   )}
                 >
-                  <div className={cn('mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-kws-control', getNotificationColor(notification.type), notification.read && 'saturate-[0.65] opacity-75')}>
-                    <Icon className="h-4 w-4" />
+                  <div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-kws-control bg-secondary text-muted-foreground">
+                    <Icon className="h-4 w-4" aria-hidden="true" />
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start gap-2">
-                      <p className="min-w-0 flex-1 line-clamp-1 font-sans text-xs font-semibold leading-5 text-[#192436]">{notification.title}</p>
+                      <p className="min-w-0 flex-1 font-sans text-xs font-semibold leading-5 text-foreground">{notification.title}</p>
                       {!notification.read ? (
-                        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary shadow-[0_0_0_3px_rgba(54,181,49,0.12)]">
+                        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary">
                           <span className="sr-only">Ungelesen</span>
                         </span>
                       ) : null}
                     </div>
-                    <p className="line-clamp-2 font-sans text-[10px] leading-[1.55] text-[#657069]">
+                    <p className="mt-0.5 line-clamp-2 font-sans text-xs leading-relaxed text-muted-foreground">
                       {notification.message}
                     </p>
-                    <p className="mt-1.5 font-sans text-[9px] font-medium text-[#7B857E]">
+                    <p className="mt-1.5 font-sans text-[11px] text-muted-foreground">
                       {formatDistanceToNow(new Date(notification.created_at), {
                         addSuffix: true,
                         locale: de,
@@ -184,29 +182,30 @@ export const NotificationCenter = ({
                     </p>
                   </div>
 
-                  {notification.action_url ? <ChevronRight className="mt-3 h-3.5 w-3.5 shrink-0 text-[#89928C]" /> : null}
+                  {notification.action_url ? <ChevronRight className="mt-3 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" /> : null}
                 </button>
               );
             })}
           </div>
         ) : (
           <div className="px-5 py-9 text-center">
-            <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
+            <div className="mx-auto grid h-10 w-10 place-items-center rounded-kws-control bg-secondary text-muted-foreground">
               <CheckCheck className="h-5 w-5" />
             </div>
-            <p className="mt-3 font-sans text-sm font-semibold text-[#192436]">Gerade nichts Neues</p>
-            <p className="mt-1 font-sans text-[10px] leading-relaxed text-[#68736C]">Sobald es Neuigkeiten aus der Halle gibt, erscheinen sie hier.</p>
+            <p className="mt-3 font-sans text-sm font-semibold text-foreground">Noch keine Mitteilungen</p>
+            <p className="mt-1 font-sans text-xs leading-relaxed text-muted-foreground">Neuigkeiten aus der Halle erscheinen hier.</p>
           </div>
         )}
+        </div>
 
-        <div className="border-t border-[#DFE8E0] bg-white/75 p-2">
+        <div className="shrink-0 border-t border-border/60 p-2">
           <button
             type="button"
             onClick={() => {
               setOpen(false);
               navigate('/profile/notifications');
             }}
-            className="flex min-h-10 w-full items-center justify-center gap-2 rounded-kws-control font-sans text-[10px] font-semibold text-[#34503A] transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-kws-control font-sans text-xs font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
           >
             <Settings2 className="h-3.5 w-3.5" aria-hidden="true" />
             Einstellungen öffnen
