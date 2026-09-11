@@ -292,7 +292,42 @@ All colors MUST be HSL.
     stroke-width: 2.5;
   }
   
-  /* Hide scrollbar but keep functionality */
+  /* App scrollbar: quiet by default, clearly branded while interacting */
+  @media (min-width: 641px) {
+    * {
+      scrollbar-color: hsl(var(--primary) / 0.62) hsl(var(--secondary) / 0.5);
+      scrollbar-width: thin;
+    }
+
+    *::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    *::-webkit-scrollbar-track {
+      background: hsl(var(--secondary) / 0.45);
+      border-radius: 999px;
+    }
+
+    *::-webkit-scrollbar-thumb {
+      min-height: 44px;
+      border: 2px solid transparent;
+      border-radius: 999px;
+      background: hsl(var(--primary) / 0.62);
+      background-clip: padding-box;
+    }
+
+    *::-webkit-scrollbar-thumb:hover {
+      background: hsl(var(--primary) / 0.82);
+      background-clip: padding-box;
+    }
+
+    *::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+  }
+
+  /* Hide scrollbar but keep functionality where the layout explicitly requests it */
   .scrollbar-hide,
   .no-scrollbar {
     -ms-overflow-style: none;  /* IE and Edge */

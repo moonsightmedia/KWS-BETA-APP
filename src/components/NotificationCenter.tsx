@@ -8,6 +8,7 @@ import {
   Megaphone,
   MessageSquare,
   Mountain,
+  Settings2,
   Trophy,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -40,6 +41,23 @@ const getNotificationIcon = (type: Notification['type']) => {
       return CalendarDays;
     default:
       return Bell;
+  }
+};
+
+const getNotificationColor = (type: Notification['type']) => {
+  switch (type) {
+    case 'competition_update':
+    case 'competition_result':
+    case 'competition_leaderboard_change':
+      return 'bg-[#FFF4D8] text-[#A96C00]';
+    case 'feedback_reply':
+      return 'bg-[#EAF2FF] text-[#3569A8]';
+    case 'admin_announcement':
+      return 'bg-[#F4ECFF] text-[#7650A8]';
+    case 'schedule_reminder':
+      return 'bg-[#FFF0E8] text-[#B65B2B]';
+    default:
+      return 'bg-primary/10 text-primary';
   }
 };
 
@@ -77,7 +95,7 @@ export const NotificationCenter = ({
           className={cn(
             'relative flex-shrink-0 transition-[background-color,color,transform] active:scale-95 focus-visible:ring-2 focus-visible:ring-primary/45',
             variant === 'header'
-              ? 'h-10 w-10 rounded-kws-control bg-secondary p-0 text-[#192436]/65 hover:bg-[#E8EEE8] hover:text-[#192436]'
+              ? 'h-10 w-10 rounded-kws-control bg-secondary p-0 text-[#314438] hover:bg-primary/10 hover:text-[#19371F]'
               : 'size-icon rounded-kws-control p-1.5 text-[#192436]/65',
             unreadCount > 0 && 'text-[#192436]',
           )}
@@ -98,30 +116,35 @@ export const NotificationCenter = ({
         align={variant === 'header' ? 'end' : 'center'}
         side="bottom"
         sideOffset={12}
-        className="w-[min(23rem,calc(100vw-1rem))] overflow-hidden rounded-kws-card border-0 bg-white p-2 shadow-[0_18px_44px_rgba(19,17,43,0.15)]"
+        className="w-[min(25rem,calc(100vw-1rem))] overflow-hidden rounded-[22px] border border-white/70 bg-[#F3F7F3] p-0 shadow-[0_24px_60px_rgba(19,36,24,0.20)]"
       >
-        <div className="flex items-start justify-between gap-3 px-2 pb-2 pt-1.5">
-          <div className="min-w-0">
-            <h3 className="font-sans text-base font-semibold tracking-[-0.02em] text-[#192436]">Benachrichtigungen</h3>
-            <p className="mt-0.5 font-sans text-[11px] text-[#646C71]">
-              {unreadCount > 0 ? `${unreadCount} ${unreadCount === 1 ? 'ungelesene Nachricht' : 'ungelesene Nachrichten'}` : 'Du bist auf dem neuesten Stand'}
-            </p>
+        <div className="flex items-center justify-between gap-3 bg-sidebar-bg px-4 py-4 text-white">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-kws-control bg-white/10 text-primary ring-1 ring-white/10">
+              <Bell className="h-4.5 w-4.5" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <h3 className="font-sans text-sm font-semibold tracking-[-0.01em]">Benachrichtigungen</h3>
+              <p className="mt-0.5 truncate font-sans text-[10px] text-white/55">
+                {unreadCount > 0 ? `${unreadCount} ${unreadCount === 1 ? 'neuer Hinweis' : 'neue Hinweise'}` : 'Alles auf dem neuesten Stand'}
+              </p>
+            </div>
           </div>
           {unreadCount > 0 ? (
             <button
               type="button"
               onClick={() => markAllAsRead.mutate()}
               disabled={markAllAsRead.isPending}
-              className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-kws-control bg-[#F1F5F1] px-2.5 font-sans text-[10px] font-semibold text-[#192436] transition-colors hover:bg-[#E7EDE7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 disabled:opacity-50"
+              className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-kws-control bg-white/10 px-2.5 font-sans text-[10px] font-semibold text-white/75 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 disabled:opacity-50"
             >
               <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
-              Alle gelesen
+              <span className="hidden sm:inline">Alle gelesen</span>
             </button>
           ) : null}
         </div>
 
         {visibleNotifications.length > 0 ? (
-          <div className="max-h-[min(24rem,60vh)] space-y-1.5 overflow-y-auto rounded-kws-control bg-[#F7F9F7] p-1.5">
+          <div className="kws-scrollbar max-h-[min(26rem,62vh)] space-y-1 overflow-y-auto p-2">
             {visibleNotifications.map((notification) => {
               const Icon = getNotificationIcon(notification.type);
 
@@ -131,25 +154,29 @@ export const NotificationCenter = ({
                   type="button"
                   onClick={() => handleNotificationClick(notification)}
                   className={cn(
-                    'flex w-full items-start gap-3 rounded-kws-control bg-white px-3 py-3 text-left shadow-[0_2px_9px_rgba(19,17,43,0.045)] transition-[background-color,transform,box-shadow] hover:shadow-[0_4px_13px_rgba(19,17,43,0.08)] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45',
-                    !notification.read && 'bg-[#EFF8EF]',
+                    'relative flex w-full items-start gap-3 overflow-hidden rounded-kws-control px-3 py-3 text-left transition-[background-color,transform,box-shadow] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55',
+                    notification.read
+                      ? 'bg-transparent hover:bg-white/80'
+                      : 'bg-white shadow-[0_5px_16px_rgba(19,36,24,0.07)] before:absolute before:bottom-3 before:left-0 before:top-3 before:w-0.5 before:rounded-full before:bg-primary',
                   )}
                 >
-                  <div className={cn('mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-kws-control', notification.read ? 'bg-[#EEF1EE] text-[#646C71]' : 'bg-white text-primary')}>
+                  <div className={cn('mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-kws-control', getNotificationColor(notification.type), notification.read && 'saturate-[0.65] opacity-75')}>
                     <Icon className="h-4 w-4" />
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="min-w-0 flex-1 truncate font-sans text-xs font-semibold text-[#192436]">{notification.title}</p>
+                    <div className="flex items-start gap-2">
+                      <p className="min-w-0 flex-1 line-clamp-1 font-sans text-xs font-semibold leading-5 text-[#192436]">{notification.title}</p>
                       {!notification.read ? (
-                        <span className="shrink-0 rounded-kws-badge bg-primary px-1.5 py-0.5 font-sans text-[8px] font-bold uppercase tracking-[0.08em] text-white">Neu</span>
+                        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary shadow-[0_0_0_3px_rgba(54,181,49,0.12)]">
+                          <span className="sr-only">Ungelesen</span>
+                        </span>
                       ) : null}
                     </div>
-                    <p className="mt-0.5 line-clamp-2 font-sans text-[11px] leading-relaxed text-[#646C71]">
+                    <p className="line-clamp-2 font-sans text-[10px] leading-[1.55] text-[#657069]">
                       {notification.message}
                     </p>
-                    <p className="mt-1 font-sans text-[9px] font-medium text-[#646C71]/75">
+                    <p className="mt-1.5 font-sans text-[9px] font-medium text-[#7B857E]">
                       {formatDistanceToNow(new Date(notification.created_at), {
                         addSuffix: true,
                         locale: de,
@@ -157,32 +184,35 @@ export const NotificationCenter = ({
                     </p>
                   </div>
 
-                  {notification.action_url ? <ChevronRight className="mt-2.5 h-3.5 w-3.5 shrink-0 text-[#646C71]/65" /> : null}
+                  {notification.action_url ? <ChevronRight className="mt-3 h-3.5 w-3.5 shrink-0 text-[#89928C]" /> : null}
                 </button>
               );
             })}
           </div>
         ) : (
-          <div className="rounded-kws-control bg-[#F7F9F7] px-5 py-7 text-center">
-            <div className="mx-auto grid h-10 w-10 place-items-center rounded-kws-control bg-white text-[#646C71] shadow-[0_2px_9px_rgba(19,17,43,0.05)]">
-              <Bell className="h-4 w-4" />
+          <div className="px-5 py-9 text-center">
+            <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
+              <CheckCheck className="h-5 w-5" />
             </div>
-            <p className="mt-3 font-sans text-sm font-semibold text-[#192436]">Alles ruhig</p>
-            <p className="mt-1 font-sans text-[11px] text-[#646C71]">Neue Hinweise findest du später hier.</p>
+            <p className="mt-3 font-sans text-sm font-semibold text-[#192436]">Gerade nichts Neues</p>
+            <p className="mt-1 font-sans text-[10px] leading-relaxed text-[#68736C]">Sobald es Neuigkeiten aus der Halle gibt, erscheinen sie hier.</p>
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={() => {
-            setOpen(false);
-            navigate('/profile/notifications');
-          }}
-          className="mt-1 flex min-h-10 w-full items-center justify-center gap-1.5 rounded-kws-control font-sans text-[11px] font-semibold text-[#192436] transition-colors hover:bg-[#F1F5F1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
-        >
-          Benachrichtigungen verwalten
-          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
+        <div className="border-t border-[#DFE8E0] bg-white/75 p-2">
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              navigate('/profile/notifications');
+            }}
+            className="flex min-h-10 w-full items-center justify-center gap-2 rounded-kws-control font-sans text-[10px] font-semibold text-[#34503A] transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+          >
+            <Settings2 className="h-3.5 w-3.5" aria-hidden="true" />
+            Einstellungen öffnen
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
       </PopoverContent>
     </Popover>
   );

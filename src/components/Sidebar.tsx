@@ -19,7 +19,6 @@ import { MaterialIcon } from '@/components/MaterialIcon';
 import { ProfileMenu } from '@/components/ProfileMenu';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
@@ -347,7 +346,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
     typeof user?.user_metadata?.avatar_url === 'string' && user.user_metadata.avatar_url.trim().length > 0
       ? user.user_metadata.avatar_url
       : null;
-  const accountLabel = stableIsAdmin ? 'Administration' : stableIsSetter ? 'Setter-Konto' : 'Nutzerkonto';
+  const accountLabel = stableIsAdmin ? 'Administrator' : stableIsSetter ? 'Setter' : 'Mitglied';
 
   return (
     <>
@@ -359,17 +358,22 @@ export const Sidebar = ({ className }: SidebarProps) => {
         className
       )}>
         {/* Brand */}
-        <div className={cn('mb-8 flex h-12 items-center px-4', isExpanded ? 'w-full gap-3' : 'justify-center')}>
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-kws-card bg-primary font-sans text-[11px] font-extrabold tracking-[-0.04em] text-[#132216] shadow-[0_8px_18px_rgba(54,181,49,0.22)]">
-            KWS
+        <div className={cn('mb-8 flex h-14 items-center px-3', isExpanded ? 'w-full gap-3' : 'justify-center')}>
+          <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-[0_8px_22px_rgba(8,22,11,0.22)] ring-1 ring-white/20">
+            <img
+              src="/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png"
+              alt=""
+              className="h-full w-full object-cover"
+              aria-hidden="true"
+            />
           </div>
           {isExpanded ? (
             <div className="min-w-0">
-              <p className="truncate font-heading text-[1.45rem] font-semibold leading-none tracking-[0.01em] text-white">
+              <p className="truncate font-heading text-[1.35rem] font-semibold leading-none tracking-[0.01em] text-white">
                 Kletterwelt
               </p>
-              <p className="mt-0.5 truncate font-sans text-[9px] font-semibold uppercase tracking-[0.15em] text-white/60">
-                Sauerland App
+              <p className="mt-1 truncate font-sans text-[9px] font-semibold uppercase tracking-[0.14em] text-white/55">
+                Sauerland · Beta App
               </p>
             </div>
           ) : null}
@@ -466,34 +470,27 @@ export const Sidebar = ({ className }: SidebarProps) => {
               <button
                 type="button"
                 className={cn(
-                  'group relative flex min-h-12 items-center rounded-kws-control text-left outline-none transition-colors hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/70',
-                  isExpanded ? 'w-full gap-3 px-2 py-1.5' : 'mx-auto w-12 justify-center',
+                  'group relative flex min-h-12 items-center rounded-kws-control text-left outline-none transition-[background-color,box-shadow] hover:bg-white/[0.075] focus-visible:ring-2 focus-visible:ring-primary/70',
+                  isExpanded ? 'w-full gap-3 bg-white/[0.035] px-2.5 py-2' : 'mx-auto w-12 justify-center',
                 )}
-                aria-label="Profil und Einstellungen"
+                aria-label={`Profil und Einstellungen · ${accountLabel}`}
               >
-                <Avatar className="h-9 w-9 shrink-0 rounded-kws-control">
+                <Avatar className="h-10 w-10 shrink-0 rounded-full border border-white/10">
                   {avatarUrl ? (
-                    <AvatarImage src={avatarUrl} alt="" className="rounded-kws-control object-cover" />
+                    <AvatarImage src={avatarUrl} alt="" className="rounded-full object-cover" />
                   ) : null}
-                  <AvatarFallback className="rounded-kws-control bg-primary font-sans text-xs font-semibold text-[#132216]">
+                  <AvatarFallback className="rounded-full bg-primary font-sans text-xs font-semibold text-[#132216]">
                     {user.email?.substring(0, 2).toUpperCase() || 'KS'}
                   </AvatarFallback>
                 </Avatar>
-                {stableIsAdmin ? (
-                  <Badge variant="default" className="absolute left-8 top-0 flex h-4 w-4 items-center justify-center rounded-kws-badge p-0">
-                    <Shield className="h-3 w-3" aria-hidden="true" />
-                  </Badge>
-                ) : null}
-                {stableIsSetter && !stableIsAdmin ? (
-                  <Badge variant="default" className="absolute left-8 top-0 flex h-4 w-4 items-center justify-center rounded-kws-badge p-0">
-                    <MaterialIcon name="build" className="h-3 w-3" size={12} />
-                  </Badge>
-                ) : null}
                 {isExpanded ? (
                   <>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-sans text-xs font-semibold text-white">{user.email}</span>
-                      <span className="mt-0.5 block truncate font-sans text-[10px] text-white/60">{accountLabel}</span>
+                      <span className="mt-1 flex items-center gap-1.5 font-sans text-[10px] font-medium text-white/55">
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+                        {accountLabel}
+                      </span>
                     </span>
                     <ChevronRight className="h-4 w-4 shrink-0 text-white/35 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
                   </>

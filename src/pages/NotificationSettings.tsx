@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Bell,
   BellOff,
+  BellRing,
   CalendarDays,
   Info,
   Megaphone,
@@ -42,17 +43,24 @@ const NotificationRow = ({
   disabled?: boolean;
   onCheckedChange: (checked: boolean) => void | Promise<void>;
 }) => (
-  <div className="flex min-h-[72px] items-center justify-between border-b border-[#E7F0E8] px-3.5 py-3.5 last:border-b-0 sm:px-4">
-    <div className="mr-3 flex flex-1 items-start gap-3">
-      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-kws-control bg-secondary">
+  <div className="group flex min-h-[76px] items-center justify-between border-b border-[#E4ECE5] px-4 py-3.5 transition-colors last:border-b-0 hover:bg-secondary/35 sm:px-5">
+    <div className="mr-4 flex flex-1 items-center gap-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kws-control bg-primary/10 transition-colors group-hover:bg-primary/15">
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="font-sans text-sm font-semibold text-[#192436]">{title}</p>
-        <p className="mt-0.5 font-sans text-[10px] leading-relaxed text-muted-foreground sm:text-xs">{subtitle}</p>
+        <p className="font-sans text-xs font-semibold text-[#192436] sm:text-sm">{title}</p>
+        <p className="mt-0.5 max-w-lg font-sans text-[10px] leading-relaxed text-muted-foreground sm:text-[11px]">{subtitle}</p>
       </div>
     </div>
     <Switch aria-label={title} checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
+  </div>
+);
+
+const SettingsSectionHeader = ({ title, description }: { title: string; description: string }) => (
+  <div className="mb-3 px-1">
+    <h2 className="font-sans text-sm font-semibold text-[#192436]">{title}</h2>
+    <p className="mt-0.5 font-sans text-[10px] leading-relaxed text-muted-foreground sm:text-[11px]">{description}</p>
   </div>
 );
 
@@ -126,9 +134,30 @@ const NotificationSettings = () => {
 
   return (
     <DashboardPageLayout headerBackTo="/profile">
-      <div className="mx-auto max-w-3xl space-y-5">
+      <div className="mx-auto max-w-3xl space-y-6">
+        <KwsSurface className="relative overflow-hidden bg-sidebar-bg px-5 py-5 text-white sm:px-6 sm:py-6">
+          <div className="pointer-events-none absolute -right-10 -top-16 h-44 w-44 rounded-full bg-primary/15 blur-2xl" aria-hidden="true" />
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="flex min-w-0 items-start gap-3.5">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-kws-control bg-white/10 text-primary ring-1 ring-white/10">
+                <BellRing className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className="font-sans text-sm font-semibold">Bleib auf dem Laufenden</p>
+                <p className="mt-1 max-w-md font-sans text-[10px] leading-relaxed text-white/60 sm:text-[11px]">
+                  Bestimme selbst, welche Neuigkeiten aus der Halle dich erreichen dürfen.
+                </p>
+              </div>
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1.5 font-sans text-[9px] font-semibold text-white/70 ring-1 ring-white/10">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+              {(notificationPreferences?.in_app_enabled ?? true) ? 'In-App aktiv' : 'In-App aus'}
+            </span>
+          </div>
+        </KwsSurface>
+
         <section>
-          <h2 className="mb-2.5 px-0.5 font-sans text-sm font-semibold text-[#192436]">Kanäle</h2>
+          <SettingsSectionHeader title="Kanäle" description="Lege fest, wo Benachrichtigungen erscheinen dürfen." />
           <KwsSurface className="overflow-hidden">
           <NotificationRow
             icon={<Bell className="h-4 w-4 text-primary" strokeWidth={1.9} />}
@@ -193,7 +222,7 @@ const NotificationSettings = () => {
         </section>
 
         <section>
-          <h2 className="mb-2.5 px-0.5 font-sans text-sm font-semibold text-[#192436]">Mitteilungen</h2>
+          <SettingsSectionHeader title="Mitteilungen" description="Wähle die Themen aus, die für dich relevant sind." />
           <KwsSurface className="overflow-hidden">
           {notificationTypes.map((item) => (
             <NotificationRow
@@ -209,11 +238,14 @@ const NotificationSettings = () => {
         </section>
 
         {!isNativePlatform ? (
-          <KwsSurface className="flex items-start gap-3 px-3.5 py-3.5 font-sans text-xs leading-relaxed text-muted-foreground sm:px-4">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-kws-control bg-secondary text-[#192436]/65">
+          <KwsSurface className="flex items-start gap-3 border border-primary/10 bg-primary/[0.045] px-4 py-4 font-sans text-[10px] leading-relaxed text-[#526158] shadow-none sm:px-5 sm:text-[11px]">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-kws-control bg-white text-primary shadow-[0_3px_10px_rgba(19,36,24,0.06)]">
               <Info className="h-4 w-4" aria-hidden="true" />
             </span>
-            <p className="pt-1.5">Browser-Push ist in der Web-Beta deaktiviert. In-App-Benachrichtigungen bleiben aktiv.</p>
+            <div>
+              <p className="font-semibold text-[#294231]">Hinweis zur Web-Version</p>
+              <p className="mt-0.5">Browser-Push ist in der Web-Beta deaktiviert. In-App-Benachrichtigungen bleiben aktiv.</p>
+            </div>
           </KwsSurface>
         ) : null}
 
