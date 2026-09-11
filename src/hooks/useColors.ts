@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useAuth } from '@/hooks/useAuth';
+import { supabaseRestRequest } from '@/lib/supabaseRest';
 
 export interface ColorRow {
   id: string;
@@ -13,56 +13,13 @@ export interface ColorRow {
 }
 
 export function useColors() {
-  const { session, loading: authLoading } = useAuth();
-
   return useQuery<ColorRow[]>({
     queryKey: ['colors'],
-    enabled: !authLoading, // Only run query if auth is complete (even if no user is logged in)
-    queryFn: async () => {
-      console.log('[useColors] 🔵 STARTING fetch from Supabase...');
-      console.log('[useColors] 🔍 Query function called - this means enabled=true and React Query is executing the query');
-
-      // Use direct fetch instead of Supabase QueryBuilder to avoid hanging issues after reload
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-      if (!SUPABASE_URL || !SUPABASE_KEY) {
-        throw new Error('Supabase-Konfiguration fehlt');
-      }
-
-      // CRITICAL: Use session from useAuth hook instead of supabase.auth.getSession()
-      // to avoid hanging issues after reload.
-      // Colors should be publicly accessible, but we include the token if available for RLS
-      const headers: HeadersInit = {
-        'apikey': SUPABASE_KEY,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation',
-      };
-
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
-
-      console.log('[useColors] 🔵 Calling REST fetch with session:', { hasSession: !!session, hasToken: !!session?.access_token });
-
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/colors?select=*&order=sort_order.asc&is_active=eq.true`,
-        {
-          method: 'GET',
-          headers,
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[useColors] ❌ Error fetching colors:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('[useColors] ✅ REST fetch data:', data.length, 'colors');
-      return data as ColorRow[];
-    },
+    // Public catalog (RLS SELECT USING true): never attach an expiring user JWT.
+    // Admin mutations below still use the authenticated client and its RLS policies.
+    queryFn: () => supabaseRestRequest<ColorRow[]>(
+      '/rest/v1/colors?select=*&order=sort_order.asc&is_active=eq.true',
+    ),
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnMount: true,
   });

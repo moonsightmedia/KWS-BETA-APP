@@ -13,9 +13,9 @@ export const AccountAvatar = ({ user, className }: AccountAvatarProps) => {
     : '';
 
   return (
-    <Avatar className={cn('h-10 w-10 shrink-0 rounded-full', className)}>
+    <Avatar className={cn('h-10 w-10 shrink-0 rounded-kws-control', className)}>
       {avatarUrl ? <AvatarImage src={avatarUrl} alt="" className="object-cover" /> : null}
-      <AvatarFallback className="bg-secondary font-sans text-xs font-semibold text-foreground">
+      <AvatarFallback className="rounded-kws-control bg-secondary font-sans text-xs font-semibold text-foreground">
         {user.email?.trim().slice(0, 2).toUpperCase() || 'KS'}
       </AvatarFallback>
     </Avatar>

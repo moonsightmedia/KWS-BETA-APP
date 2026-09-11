@@ -138,6 +138,11 @@ Es gibt drei verbindliche KWS-Radiusstufen:
 Avatare zulässig. Rechteckige Badges, Switches, Filter und Buttons werden nicht
 zu Pills gemacht.
 
+Konto-Avatare in Sidebar und Profilmenü verwenden den 8-px-Controlradius,
+keine Kreise. In Popovern mit 12-px-Außenradius und 8px Innenabstand haben
+die inneren Menüzeilen 4px Radius. `cn` löst die KWS-Radien gegen alte
+Standardklassen auf; es bleiben keine konkurrierenden Radiusklassen stehen.
+
 ### 3.5 Abstände und Größen
 
 - Grundraster: `4px`.
@@ -333,6 +338,12 @@ Inhaltswechsel wie `Info / Track / Beta` oder Statistikzeiträume.
   Farbwolken oder zusätzlichen Pastellpaletten für Mitteilungskategorien.
 - Das Profilmenü bleibt kompakt: Konto, Profil/Einstellungen, Bereichswechsel,
   Abmelden. Der aktuelle Bereich wird mit Primärgrün-Tint und Häkchen markiert.
+- Profil und Benachrichtigungen öffnen auf Mausgeräten nach kurzem Hover.
+  Der Weg über den Abstand zum Menü bleibt offen; beim Verlassen schließt
+  die Vorschau verzögert. Ein Klick hält sie offen, Escape und Außenklick
+  schließen sie. Hover stiehlt keinen Tastaturfokus. Touch bleibt per Tippen
+  bedienbar; reduzierte Bewegung wird berücksichtigt (Nutzerentscheidung
+  vom 2026-09-11).
 - Ungelesene Mitteilungen erhalten einen dezenten grünen Punkt mit zugänglicher
   Textalternative. Gelesene Einträge und Scrollleisten bleiben neutral.
 - Bedienlabels und Mitteilungstexte sind mindestens 12px; 11px ist für kurze
@@ -417,6 +428,24 @@ Filter für Sektoren, Schwierigkeiten und Farben sind Multi-Select:
 
 Bei Farben wird die Griff-Farbe als kleines eckiges Farbfeld gezeigt. Auswahl
 wird zusätzlich durch Checkmark und Textkontrast kommuniziert.
+
+Filter und Sortierung teilen `BoulderFilterControls`, `FilterOption` und
+`BoulderSortPanel` zwischen Gast- und Nutzerbereich. Die Panels verwenden
+weiße 12-px-Flächen mit weichem Schatten; inaktive Optionen ruhige
+Sekundärflächen ohne graue Außenlinien. Ausgewählte Optionen erhalten
+Primärgrün-Tint, dunkelblaue Schrift und grünes Häkchen. Die Abschnitte
+verwenden Poppins statt der Schrift für Seitentitel.
+
+Farbfelder sind mindestens 20px groß und zeigen auch zweifarbige Griffe.
+Farbnamen bleiben lesbar. Laden, Fehler mit Wiederholen-Aktion und ein
+wirklich leerer Katalog sind unterscheidbar; eine fehlgeschlagene Abfrage
+darf nicht als leere weiße Spalte erscheinen. Der öffentliche Farbkatalog
+wird unabhängig von einer ablaufenden Nutzeranmeldung gelesen.
+
+Unter 1024px öffnen Gast- und Nutzerfilter dasselbe `BoulderFilterPanel`
+als helles Bottom-Sheet. Ein einziger Inhaltsbereich scrollt; der Button
+mit der aktuellen Ergebnisanzahl bleibt fest erreichbar oberhalb der
+Safe Area. Größere Ansichten behalten ein Inline-Panel.
 
 ### 6.3 Sortierung und Gruppierung
 

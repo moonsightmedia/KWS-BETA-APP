@@ -2,30 +2,20 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useSectorsTransformed } from '@/hooks/useSectors';
+import { BoulderFilterControls, BoulderFilterPanel, BoulderSortPanel, FilterOption } from '@/components/boulder/BoulderFilterControls';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/hooks/useAuth';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { getColorBackgroundStyle, matchesBoulderColorFilter } from '@/utils/colorUtils';
+import { matchesBoulderColorFilter } from '@/utils/colorUtils';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from '@/components/ui/drawer';
-import { ArrowUpDown, Check, ChevronRight, LogIn, Map as MapIcon, Palette, Search, SlidersHorizontal, Trophy, X } from 'lucide-react';
+import { ArrowUpDown, ChevronRight, LogIn, Search, SlidersHorizontal, Trophy, X } from 'lucide-react';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
 import type { Boulder } from '@/types/boulder';
 // Use a data URL for placeholder to ensure it always works
 const placeholder = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';
 
-const DIFFICULTIES = [null, 1, 2, 3, 4, 5, 6, 7, 8]; // null = "?" (unknown/not rated)
-const formatDifficulty = (d: number | null): string => d === null ? '?' : String(d);
 const SECTOR_AREA_ORDER = ['Bug', 'Couch-Ecke', 'Top-Out', 'Lange Platte', 'Grotte'];
 const getSectorAreaName = (sectorName: string) => sectorName.replace(/\s+[A-D]$/, '');
 const compareSectorNames = (firstSector: string, secondSector: string) => {
@@ -55,14 +45,14 @@ const Guest = () => {
   const navigate = useNavigate();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [loadedThumbnails, setLoadedThumbnails] = useState<Set<string>>(new Set());
-  const { data: colors } = useColors();
+  const colorsQuery = useColors();
+  const { data: colors } = colorsQuery;
   const [searchQuery, setSearchQuery] = useState('');
   const [sectorFilters, setSectorFilters] = useState<string[]>([]);
   const [difficultyFilters, setDifficultyFilters] = useState<string[]>([]);
   const [colorFilters, setColorFilters] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'name' | 'difficulty' | 'date'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const isMobile = useIsMobile();
   // Guest area doesn't need auth, but we still wait for auth to finish loading to avoid race conditions
   const { loading: authLoading } = useAuth();
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(!authLoading);
@@ -192,7 +182,6 @@ const Guest = () => {
   };
 
   const sectorNames = [...new Set((sectors ?? []).map((sector) => sector.name))].sort(compareSectorNames);
-  const sortedColors = [...(colors ?? [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   const activeFilterCount = sectorFilters.length + difficultyFilters.length + colorFilters.length;
   const activeSortKey = `${sortBy}-${sortOrder}`;
 
@@ -227,106 +216,31 @@ const Guest = () => {
   };
 
   const filterControls = (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-[1.15fr_0.8fr_1.4fr]" aria-label="Boulder filtern">
-      <section>
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-[#13112B]/55">Sektor</span>
-          <MapIcon className="h-3.5 w-3.5 text-[#13112B]/40" aria-hidden="true" />
-        </div>
-        <div className="grid grid-cols-2 gap-1.5">
-          {sectorNames.map((sectorName) => {
-            const isSelected = sectorFilters.includes(sectorName);
-            return (
-              <button
-                key={sectorName}
-                type="button"
-                onClick={() => toggleSectorFilter(sectorName)}
-                aria-pressed={isSelected}
-                className={cn(
-                  'relative min-h-11 min-w-0 rounded-kws-control border px-2 text-left text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36B531]/45',
-                  isSelected ? 'border-[#36B531] bg-[#36B531] pr-7 text-white' : 'border-[#E1EAE2] bg-white text-[#13112B] hover:bg-[#F1F5F1]'
-                )}
-              >
-                <span className="block truncate">{sectorName}</span>
-                {isSelected ? <Check className="absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2" strokeWidth={2.4} /> : null}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section>
-        <div className="mb-2 flex items-baseline justify-between gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-[#13112B]/55">Schwierigkeit</span>
-          <span className="text-[10px] text-[#13112B]/45">Mehrfachauswahl</span>
-        </div>
-        <div className="grid grid-cols-5 gap-1.5 md:grid-cols-3">
-          {DIFFICULTIES.map((difficulty) => {
-            const difficultyLabel = formatDifficulty(difficulty);
-            const isSelected = difficultyFilters.includes(difficultyLabel);
-            return (
-              <button
-                key={difficultyLabel}
-                type="button"
-                onClick={() => toggleDifficultyFilter(difficultyLabel)}
-                aria-label={difficulty === null ? 'Unbekannter Grad' : `Grad ${difficultyLabel}`}
-                aria-pressed={isSelected}
-                className={cn(
-                  'min-h-11 rounded-kws-control border px-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36B531]/45',
-                  isSelected ? 'border-[#36B531] bg-[#36B531] text-white' : 'border-[#E1EAE2] bg-white text-[#13112B] hover:bg-[#F1F5F1]'
-                )}
-              >
-                {difficultyLabel}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section>
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-[#13112B]/55">Farbe</span>
-          <Palette className="h-3.5 w-3.5 text-[#13112B]/40" aria-hidden="true" />
-        </div>
-        <div className="grid grid-cols-3 gap-1.5">
-          {sortedColors.map((color) => {
-            const colorStyle = getColorBackgroundStyle(color.name, colors);
-            const colorHex = colorStyle.backgroundColor || '#000';
-            const isWhite = colorHex === '#ffffff' || colorHex === 'white' || color.name.toLowerCase() === 'weiß';
-            const isSelected = colorFilters.includes(color.name);
-            return (
-              <button
-                key={color.name}
-                type="button"
-                onClick={() => toggleColorFilter(color.name)}
-                aria-pressed={isSelected}
-                className={cn(
-                  'relative flex min-h-11 min-w-0 items-center gap-1.5 rounded-kws-control border px-2 text-left text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36B531]/45',
-                  color.name.length > 9 && 'col-span-2',
-                  isSelected ? 'border-[#36B531] bg-[#36B531] pr-6 text-white' : 'border-[#E1EAE2] bg-white text-[#13112B] hover:bg-[#F1F5F1]'
-                )}
-              >
-                <span className={cn('h-3 w-3 shrink-0 rounded-[2px] border', isWhite ? 'bg-white' : '', isSelected ? 'border-white/65' : 'border-[#D5DED6]')} style={!isWhite ? colorStyle : undefined} />
-                <span className="min-w-0 truncate">{color.name}</span>
-                {isSelected ? <Check className="absolute right-2 h-3 w-3" strokeWidth={2.4} /> : null}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <div className="md:col-span-3">
-        <button
-          type="button"
-          onClick={clearFilters}
-          disabled={activeFilterCount === 0}
-          className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-kws-control border border-[#E1EAE2] bg-[#F1F5F1] px-3 text-xs font-semibold text-[#13112B]/60 transition-colors hover:text-[#13112B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36B531]/45 disabled:cursor-default disabled:opacity-45"
-        >
-          <X className="h-3 w-3" />
-          Filter zurücksetzen
-        </button>
-      </div>
-    </div>
+    <BoulderFilterControls
+      leadingFullWidth
+      leadingControls={(
+        <section aria-label="Sektor" className="lg:col-span-2">
+          <h3 className="mb-3 font-sans text-xs font-semibold text-foreground">Sektor</h3>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            {sectorNames.map((sectorName) => (
+              <FilterOption key={sectorName} selected={sectorFilters.includes(sectorName)} onClick={() => toggleSectorFilter(sectorName)}>
+                <span className="min-w-0 truncate">{sectorName}</span>
+              </FilterOption>
+            ))}
+          </div>
+        </section>
+      )}
+      difficulties={difficultyFilters}
+      onDifficultyToggle={toggleDifficultyFilter}
+      selectedColors={colorFilters}
+      onColorToggle={toggleColorFilter}
+      colors={colors}
+      colorsLoading={colorsQuery.isPending}
+      colorsError={colorsQuery.isError}
+      onRetryColors={() => void colorsQuery.refetch()}
+      activeCount={activeFilterCount}
+      onReset={clearFilters}
+    />
   );
 
   // Thumbnails are loaded lazily using native browser lazy loading
@@ -454,67 +368,28 @@ const Guest = () => {
               </div>
             )}
 
-            {showFilters && !isMobile ? (
-              <div className="mt-3 rounded-kws-control border border-[#E1EAE2] bg-white p-3 shadow-[0_5px_18px_rgba(19,17,43,0.08)] animate-in slide-in-from-top-2 duration-200">
-                {filterControls}
-              </div>
-            ) : null}
+            <BoulderFilterPanel open={showFilters} onOpenChange={setShowFilters} resultCount={filtered.length}>
+              {filterControls}
+            </BoulderFilterPanel>
 
             {showSort && (
-              <div className="mt-3 rounded-kws-control border border-[#E1EAE2] bg-white p-3 shadow-[0_5px_18px_rgba(19,17,43,0.08)] animate-in slide-in-from-top-2 duration-200">
-                <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[#13112B]/55">Sortieren nach</div>
-                <div className="grid grid-cols-2 gap-1.5 md:grid-cols-3">
-                  {SORT_OPTIONS.map((option) => {
-                    const isSelected = activeSortKey === option.key;
-                    return (
-                      <button
-                        key={option.key}
-                        type="button"
-                        onClick={() => {
-                          setSortBy(option.sortBy);
-                          setSortOrder(option.sortOrder);
-                        }}
-                        aria-pressed={isSelected}
-                        className={cn(
-                          'flex min-h-11 items-center justify-between rounded-kws-control border px-3 py-2 text-left text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36B531]/45',
-                          isSelected ? 'border-[#36B531] bg-[#36B531] text-white' : 'border-[#E1EAE2] bg-white text-[#13112B] hover:bg-[#F1F5F1]'
-                        )}
-                      >
-                        {option.label}
-                        {isSelected ? <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={2.4} /> : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <BoulderSortPanel
+                options={SORT_OPTIONS}
+                selected={activeSortKey}
+                className="mt-3"
+                onSelect={(key) => {
+                  const option = SORT_OPTIONS.find((entry) => entry.key === key);
+                  if (option) {
+                    setSortBy(option.sortBy);
+                    setSortOrder(option.sortOrder);
+                  }
+                }}
+              />
             )}
           </div>
         </header>
 
-        {isMobile ? (
-          <Drawer open={showFilters} onOpenChange={setShowFilters} shouldScaleBackground={false}>
-            <DrawerContent className="z-[130] max-h-[88dvh] overflow-hidden rounded-t-kws-card border-[#E1EAE2] bg-[#FAFCF9] [&>div:first-child]:mt-3 [&>div:first-child]:h-1 [&>div:first-child]:w-10 [&>div:first-child]:shrink-0 [&>div:first-child]:rounded-[2px] [&>div:first-child]:bg-[#13112B]/20">
-              <DrawerHeader className="px-4 pb-3 pt-4 text-left">
-                <DrawerTitle className="font-heading text-2xl font-semibold leading-none tracking-[-0.02em] text-[#13112B]">Filter</DrawerTitle>
-                <DrawerDescription className="text-xs text-[#13112B]/55">
-                  Mehrere Sektoren, Grade und Farben lassen sich kombinieren.
-                </DrawerDescription>
-              </DrawerHeader>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
-                {filterControls}
-              </div>
-              <DrawerFooter className="shrink-0 border-t border-[#E1EAE2] bg-[#FAFCF9] px-4 pb-[calc(1rem+var(--app-safe-area-bottom))] pt-3">
-                <Button
-                  type="button"
-                  onClick={() => setShowFilters(false)}
-                  className="min-h-11 rounded-kws-control bg-[#36B531] text-sm font-semibold text-white hover:bg-[#2DA029] focus-visible:ring-[#36B531]/45"
-                >
-                  {filtered.length} Boulder anzeigen
-                </Button>
-              </DrawerFooter>
-            </DrawerContent>
-          </Drawer>
-        ) : null}
+
 
         <main className="mx-auto max-w-4xl p-4 md:p-8">
           {/* Nikolaus Wettkampf Navigation Card - Temporarily hidden */}

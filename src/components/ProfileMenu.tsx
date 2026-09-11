@@ -14,6 +14,7 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { cn } from '@/lib/utils';
 import { AccountAvatar } from '@/components/AccountAvatar';
 import { kwsPopoverClassName } from '@/components/ui/kws-surface';
+import { useHoverMenu } from '@/hooks/useHoverMenu';
 
 const STORAGE_KEY_ADMIN = 'nav_isAdmin';
 const STORAGE_KEY_SETTER = 'nav_isSetter';
@@ -57,6 +58,7 @@ export const ProfileMenu = ({
   side = 'bottom',
   sideOffset = 12,
 }: ProfileMenuProps) => {
+  const menu = useHoverMenu();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut, authTransition } = useAuth();
@@ -94,11 +96,11 @@ export const ProfileMenu = ({
   ];
 
   const menuItemClassName =
-    'my-0.5 flex min-h-11 items-center gap-3 rounded-kws-control px-3 py-2.5 font-sans text-sm font-medium text-foreground outline-none transition-colors data-[highlighted]:bg-secondary data-[highlighted]:text-foreground';
+    'my-0.5 flex min-h-11 items-center gap-3 rounded-kws-badge px-3 py-2.5 font-sans text-sm font-medium text-foreground outline-none transition-colors data-[highlighted]:bg-secondary data-[highlighted]:text-foreground';
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <DropdownMenu modal={false} open={menu.open} onOpenChange={menu.onOpenChange}>
+      <DropdownMenuTrigger asChild {...menu.triggerProps}>
         {trigger ?? (
           <button
             type="button"
@@ -111,6 +113,7 @@ export const ProfileMenu = ({
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
+        {...menu.contentProps}
         align={align}
         side={side}
         sideOffset={sideOffset}

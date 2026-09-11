@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -19,6 +19,7 @@ import { de } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { kwsPopoverClassName } from '@/components/ui/kws-surface';
+import { useHoverMenu } from '@/hooks/useHoverMenu';
 import { cn } from '@/lib/utils';
 import {
   useMarkAllAsRead,
@@ -52,7 +53,7 @@ export const NotificationCenter = ({
 }: {
   variant?: 'default' | 'header';
 }) => {
-  const [open, setOpen] = useState(false);
+  const menu = useHoverMenu();
   const headingId = useId();
   const navigate = useNavigate();
   const { data: unreadCount = 0 } = useUnreadCount();
@@ -67,7 +68,7 @@ export const NotificationCenter = ({
       markAsRead.mutate(notification.id);
     }
 
-    setOpen(false);
+    menu.onOpenChange(false);
 
     if (notification.action_url) {
       navigate(notification.action_url);
@@ -75,8 +76,8 @@ export const NotificationCenter = ({
   };
 
   return (
-    <Popover modal open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <Popover open={menu.open} onOpenChange={menu.onOpenChange}>
+      <PopoverTrigger asChild {...menu.triggerProps}>
         <Button
           variant="ghost"
           className={cn(
@@ -99,6 +100,7 @@ export const NotificationCenter = ({
       </PopoverTrigger>
 
       <PopoverContent
+        {...menu.contentProps}
         align={variant === 'header' ? 'end' : 'center'}
         side="bottom"
         sideOffset={8}
@@ -152,7 +154,7 @@ export const NotificationCenter = ({
                   type="button"
                   onClick={() => handleNotificationClick(notification)}
                   className={cn(
-                    'relative flex w-full items-start gap-3 rounded-kws-control px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55',
+                    'relative flex w-full items-start gap-3 rounded-kws-badge px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55',
                     notification.read
                       ? 'hover:bg-secondary'
                       : 'bg-primary/5 hover:bg-primary/10',
@@ -202,10 +204,10 @@ export const NotificationCenter = ({
           <button
             type="button"
             onClick={() => {
-              setOpen(false);
+              menu.onOpenChange(false);
               navigate('/profile/notifications');
             }}
-            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-kws-control font-sans text-xs font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-kws-badge font-sans text-xs font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
           >
             <Settings2 className="h-3.5 w-3.5" aria-hidden="true" />
             Einstellungen öffnen

@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, Check, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Grid3X3, List, Map as MapIcon, Search, SlidersHorizontal, Sparkles, Star, X } from 'lucide-react';
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Grid3X3, List, Map as MapIcon, Search, SlidersHorizontal, Sparkles, Star, X } from 'lucide-react';
+import { BoulderFilterControls, BoulderFilterPanel, BoulderSortPanel, FilterOption } from '@/components/boulder/BoulderFilterControls';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { HallMapView } from '@/components/HallMapView';
 import { useSidebar } from '@/components/SidebarContext';
@@ -19,7 +20,7 @@ import { useSectorsTransformed } from '@/hooks/useSectors';
 import { cn } from '@/lib/utils';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
 import { Boulder } from '@/types/boulder';
-import { getColorBackgroundStyle, matchesBoulderColorFilter } from '@/utils/colorUtils';
+import { matchesBoulderColorFilter } from '@/utils/colorUtils';
 const STORAGE_KEY_BOULDER_VIEW = 'boulder_view_mode';
 const SECTOR_AREA_ORDER = ['Bug', 'Couch-Ecke', 'Top-Out', 'Lange Platte', 'Grotte'];
 
@@ -74,8 +75,6 @@ const sortOptions = [
   { key: 'name-desc', label: 'Name Z-A' },
 ] as const;
 
-const difficultyOptions = ['1', '2', '3', '4', '5', '6', '7', '8', '?'] as const;
-
 const Boulders = () => {
   const { isExpanded } = useSidebar();
   const navigate = useNavigate();
@@ -101,7 +100,8 @@ const Boulders = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const openPanelsRef = useRef({ filters: false, map: false, search: false });
 
-  const { data: colors } = useColors();
+  const colorsQuery = useColors();
+  const { data: colors } = colorsQuery;
   const { user, loading: authLoading } = useAuth();
   const queriesEnabled = !authLoading;
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(queriesEnabled);
@@ -562,121 +562,30 @@ const Boulders = () => {
         </div>
       )}
 
-      {showFilters && (
-        <div className='mt-3 space-y-3 rounded-kws-control border border-border/70 bg-card p-3 shadow-[0_5px_18px_rgba(19,17,43,0.08)] animate-in slide-in-from-top-2 duration-200 md:grid md:grid-cols-[0.75fr_1fr_1.5fr] md:gap-4 md:space-y-0'>
-          <div>
-            <span className='mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'>Schnellfilter</span>
-            <div className='grid grid-cols-3 gap-1.5'>
-              <button
-                type='button'
-                onClick={() => setShowNew((prev) => !prev)}
-                aria-pressed={showNew}
-                className={cn(
-                  'flex min-h-10 items-center justify-center gap-1.5 rounded-kws-control px-2 text-xs font-semibold transition-colors',
-                  showNew ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-foreground'
-                )}
-              >
-                <Sparkles className='h-3.5 w-3.5' />
-                Neu
-              </button>
-              <button
-                type='button'
-                onClick={() => setShowSaved((prev) => !prev)}
-                aria-pressed={showSaved}
-                className={cn(
-                  'flex min-h-10 items-center justify-center gap-1.5 rounded-kws-control px-2 text-xs font-semibold transition-colors',
-                  showSaved ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-foreground'
-                )}
-              >
-                <Bookmark className='h-3.5 w-3.5' />
-                Gespeichert
-              </button>
-              <button
-                type='button'
-                onClick={() => setShowOnlyHanging((prev) => !prev)}
-                aria-pressed={!showOnlyHanging}
-                className={cn(
-                  'flex min-h-10 items-center justify-center rounded-kws-control px-2 text-xs font-semibold transition-colors',
-                  !showOnlyHanging ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-foreground'
-                )}
-              >
-                Alle
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <div className='mb-1.5 flex items-baseline justify-between gap-2'>
-              <span className='block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'>Schwierigkeit</span>
-              <span className='text-[10px] text-muted-foreground'>1–8 oder unbekannt</span>
-            </div>
-            <div className='grid grid-cols-3 gap-1.5'>
-              {difficultyOptions.map((difficultyLabel) => (
-                <button
-                  key={difficultyLabel}
-                  type='button'
-                  onClick={() => toggleDifficultyFilter(difficultyLabel)}
-                  aria-label={difficultyLabel === '?' ? 'Unbekannter Grad' : `Grad ${difficultyLabel}`}
-                  aria-pressed={difficultyFilters.includes(difficultyLabel)}
-                  className={cn(
-                    'min-h-10 rounded-kws-control border px-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45',
-                    difficultyFilters.includes(difficultyLabel)
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-background text-foreground hover:bg-secondary'
-                  )}
-                >
-                  {difficultyLabel}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <span className='mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground'>Farbe</span>
-            <div className='grid grid-cols-3 gap-1.5'>
-              {[...(colors ?? [])].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map((color) => {
-                const colorStyle = getColorBackgroundStyle(color.name, colors);
-                const colorHex = colorStyle.backgroundColor || '#000';
-                const isWhite = colorHex === '#ffffff' || colorHex === 'white' || color.name.toLowerCase() === 'weiß';
-                const isSelected = colorFilters.includes(color.name);
-                return (
-                  <button
-                    key={color.name}
-                    type='button'
-                    onClick={() => toggleColorFilter(color.name)}
-                    aria-pressed={isSelected}
-                    className={cn(
-                      'relative flex min-h-10 min-w-0 items-center gap-1.5 rounded-kws-control border px-2 text-left text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45',
-                      color.name.length > 9 && 'col-span-2',
-                      isSelected
-                        ? 'border-primary bg-primary pr-6 text-primary-foreground'
-                        : 'border-border bg-background text-foreground hover:bg-secondary'
-                    )}
-                  >
-                    <span
-                      className={cn('h-3 w-3 shrink-0 rounded-[2px] border', isWhite ? 'bg-white' : '', isSelected ? 'border-white/65' : 'border-border/60')}
-                      style={!isWhite ? colorStyle : undefined}
-                    />
-                    <span className='min-w-0 truncate'>{color.name}</span>
-                    {isSelected ? <Check className='absolute right-2 h-3 w-3 shrink-0 text-primary-foreground' strokeWidth={2.4} /> : null}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className='md:col-span-3'>
-            <button
-              type='button'
-              onClick={clearFilters}
-              className='flex min-h-10 w-full items-center justify-center gap-1.5 rounded-kws-control border border-border bg-secondary/70 px-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45'
-            >
-              <X className='h-3 w-3' />
-              Filter zurücksetzen
-            </button>
-          </div>
-        </div>
-      )}
+        <BoulderFilterPanel open={showFilters} onOpenChange={setShowFilters} resultCount={filteredAndSortedBoulders.length}>
+          <BoulderFilterControls
+            leadingControls={(
+              <section aria-label="Schnellfilter">
+                <h3 className="mb-3 font-sans text-xs font-semibold text-foreground">Schnellfilter</h3>
+                <div className="flex flex-wrap gap-2">
+                  <FilterOption selected={showNew} onClick={() => setShowNew((prev) => !prev)}><Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />Neu</FilterOption>
+                  <FilterOption selected={showSaved} onClick={() => setShowSaved((prev) => !prev)}><Bookmark className="h-4 w-4 shrink-0" aria-hidden="true" />Gespeichert</FilterOption>
+                  <FilterOption selected={!showOnlyHanging} onClick={() => setShowOnlyHanging((prev) => !prev)}>Auch abgeschraubte</FilterOption>
+                </div>
+              </section>
+            )}
+            difficulties={difficultyFilters}
+            onDifficultyToggle={toggleDifficultyFilter}
+            selectedColors={colorFilters}
+            onColorToggle={toggleColorFilter}
+            colors={colors}
+            colorsLoading={colorsQuery.isPending}
+            colorsError={colorsQuery.isError}
+            onRetryColors={() => void colorsQuery.refetch()}
+            activeCount={activeFilterCount}
+            onReset={clearFilters}
+          />
+        </BoulderFilterPanel>
 
         </>
       ) : undefined}
@@ -838,28 +747,7 @@ const Boulders = () => {
           </div>
 
           {showSort && (
-            <div className="mb-4 rounded-kws-control border border-border/70 bg-card p-2.5 shadow-[0_5px_18px_rgba(19,17,43,0.08)] animate-in slide-in-from-top-2 duration-200">
-              <div className="mb-2 px-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sortieren nach</div>
-              <div className="grid grid-cols-2 gap-1.5 md:grid-cols-3">
-                {sortOptions.map((option) => (
-                  <button
-                    key={option.key}
-                    type="button"
-                    onClick={() => applySortOption(option.key)}
-                    aria-pressed={selectedSortOption === option.key}
-                    className={cn(
-                      'flex min-h-11 items-center justify-between rounded-kws-control border px-3 py-2 text-left text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45',
-                      selectedSortOption === option.key
-                        ? 'border-primary bg-primary font-semibold text-primary-foreground'
-                        : 'border-border bg-background text-foreground hover:bg-secondary'
-                    )}
-                  >
-                    {option.label}
-                    {selectedSortOption === option.key ? <Check className="h-3.5 w-3.5 shrink-0 text-primary-foreground" /> : null}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <BoulderSortPanel options={sortOptions} selected={selectedSortOption} onSelect={applySortOption} className="mb-4" />
           )}
 
           <div
