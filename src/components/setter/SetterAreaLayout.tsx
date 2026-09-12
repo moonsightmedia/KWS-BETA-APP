@@ -54,7 +54,7 @@ export const SetterAreaLayout = () => {
     return (
       <div
         className={cn(
-          'flex min-h-screen min-w-0 flex-1 flex-col bg-background pb-28 md:pb-0',
+          'kws-sidebar-content flex min-h-screen min-w-0 flex-1 flex-col bg-background pb-28 md:pb-0',
           isExpanded ? 'md:ml-64' : 'md:ml-20',
         )}
       >
@@ -77,7 +77,7 @@ export const SetterAreaLayout = () => {
     return (
       <div
         className={cn(
-          'flex min-h-screen min-w-0 flex-1 flex-col bg-background pb-28 md:pb-0',
+          'kws-sidebar-content flex min-h-screen min-w-0 flex-1 flex-col bg-background pb-28 md:pb-0',
           isExpanded ? 'md:ml-64' : 'md:ml-20',
         )}
       >
@@ -103,7 +103,7 @@ export const SetterAreaLayout = () => {
     <div className="flex min-h-screen bg-[#F9FAF9]">
       <div
         className={cn(
-          'flex min-h-screen min-w-0 w-full flex-1 flex-col bg-[#F9FAF9] pb-28 md:pb-0',
+          'kws-sidebar-content flex min-h-screen min-w-0 w-full flex-1 flex-col bg-[#F9FAF9] pb-28 md:pb-0',
           isExpanded ? 'md:ml-64' : 'md:ml-20',
         )}
       >

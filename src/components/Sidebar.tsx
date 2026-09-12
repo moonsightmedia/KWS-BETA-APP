@@ -347,13 +347,13 @@ export const Sidebar = ({ className }: SidebarProps) => {
     <>
       {/* Desktop Sidebar */}
       {user ? (
-      <aside id="desktop-navigation" className={cn(
-        "fixed left-0 top-0 z-40 hidden h-dvh flex-col border-r border-border/60 bg-sidebar-bg py-5 text-foreground transition-[width] duration-200 ease-out motion-reduce:transition-none md:flex",
-        isExpanded ? "w-64 items-start" : "w-20 items-center",
+      <aside id="desktop-navigation" data-expanded={isExpanded} className={cn(
+        "kws-sidebar fixed left-0 top-0 z-40 hidden h-dvh flex-col overflow-hidden border-r border-border/60 bg-sidebar-bg py-5 text-foreground md:flex",
+        isExpanded ? "w-64" : "w-20",
         className
       )}>
         {/* Brand */}
-        <div className={cn('mb-8 flex h-14 items-center px-3', isExpanded ? 'w-full gap-3' : 'justify-center')}>
+        <div className="mb-8 flex h-14 w-full shrink-0 items-center gap-3 overflow-hidden px-4">
           <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full bg-white">
             <img
               src="/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png"
@@ -361,8 +361,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
               className="h-full w-full object-cover"
             />
           </div>
-          {isExpanded ? (
-            <div className="min-w-0">
+            <div className="kws-sidebar-label min-w-0" aria-hidden={!isExpanded}>
               <p className="truncate font-heading text-[1.35rem] font-semibold leading-none tracking-[0.01em] text-foreground">
                 Kletterwelt
               </p>
@@ -370,12 +369,11 @@ export const Sidebar = ({ className }: SidebarProps) => {
                 Sauerland · Beta App
               </p>
             </div>
-          ) : null}
         </div>
 
         {/* Navigation */}
         <TooltipProvider delayDuration={300}>
-          <nav aria-label="Hauptnavigation" className="flex min-h-0 w-full flex-1 flex-col gap-6 overflow-y-auto px-3">
+          <nav aria-label="Hauptnavigation" className="flex min-h-0 w-full flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto px-3">
             {desktopNavGroups.map((group) => {
               if (!group.visible) return null;
               
@@ -401,36 +399,21 @@ export const Sidebar = ({ className }: SidebarProps) => {
                       return (
                         <Tooltip key={item.label}>
                           <TooltipTrigger asChild>
-                            {isExpanded ? (
                               <NavLink
                                 to={item.path}
                                 aria-label={item.label}
                                 className={cn(
-                                  "relative flex min-h-11 flex-row items-center gap-3 rounded-kws-control px-3 py-2 font-sans outline-none transition-[background-color,color,transform] duration-150 focus-visible:ring-2 focus-visible:ring-primary/70",
+                                  "relative flex h-11 items-center overflow-hidden rounded-kws-control font-sans outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/70",
                                   isActive
                                     ? "bg-primary/10 font-semibold text-foreground before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-primary"
                                     : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                                 )}
                               >
-                                <div className={cn('grid h-5 w-5 flex-shrink-0 place-items-center', isActive && 'text-primary')}>
+                                <div className={cn('grid h-11 w-14 shrink-0 place-items-center', isActive && 'text-primary')}>
                                   <item.icon className="w-5 h-5" />
                                 </div>
-                                <span className="whitespace-nowrap text-sm">{item.label}</span>
+                                <span className="kws-sidebar-label whitespace-nowrap text-sm" aria-hidden={!isExpanded}>{item.label}</span>
                               </NavLink>
-                            ) : (
-                              <NavLink
-                                to={item.path}
-                                aria-label={item.label}
-                                className={cn(
-                                  "mx-auto grid h-11 w-11 place-items-center rounded-kws-control outline-none transition-[background-color,color,transform] duration-150 focus-visible:ring-2 focus-visible:ring-primary/70",
-                                  isActive
-                                    ? "bg-primary/10 text-primary"
-                                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                                )}
-                              >
-                                <item.icon className="w-5 h-5" />
-                              </NavLink>
-                            )}
                           </TooltipTrigger>
                           {!isExpanded && (
                             <TooltipContent side="right">
@@ -448,20 +431,17 @@ export const Sidebar = ({ className }: SidebarProps) => {
         </TooltipProvider>
 
         {/* Account and sidebar controls */}
-        <div className={cn('mt-auto w-full shrink-0 pt-3', isExpanded ? 'px-3' : 'px-2')}>
+        <div className="mt-auto w-full shrink-0 px-3 pt-3">
           <button
             type="button"
             onClick={toggleExpanded}
             aria-expanded={isExpanded}
             aria-controls="desktop-navigation"
             aria-label={isExpanded ? 'Navigation einklappen' : 'Navigation ausklappen'}
-            className={cn(
-              'mb-3 flex min-h-11 items-center rounded-kws-control font-sans text-muted-foreground outline-none transition-colors hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/70',
-              isExpanded ? 'w-full gap-3 px-3 text-xs font-medium' : 'mx-auto w-12 justify-center',
-            )}
+            className="mb-3 flex h-11 w-full items-center overflow-hidden rounded-kws-control font-sans text-xs font-medium text-muted-foreground outline-none transition-colors hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/70"
           >
-            {isExpanded ? <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
-            {isExpanded ? <span>Einklappen</span> : null}
+            <span className="grid h-11 w-14 shrink-0 place-items-center" aria-hidden="true"><ChevronLeft className={cn('kws-sidebar-chevron h-4 w-4', !isExpanded && 'rotate-180')} /></span>
+            <span className="kws-sidebar-label whitespace-nowrap" aria-hidden={!isExpanded}>Einklappen</span>
           </button>
           <div className="border-t border-border/60 pt-3">
           <ProfileMenu
@@ -470,15 +450,11 @@ export const Sidebar = ({ className }: SidebarProps) => {
             trigger={(
               <button
                 type="button"
-                className={cn(
-                  'group relative flex min-h-12 items-center rounded-kws-control text-left outline-none transition-colors hover:bg-secondary data-[state=open]:bg-secondary focus-visible:ring-2 focus-visible:ring-primary/70',
-                  isExpanded ? 'w-full gap-3 px-2.5 py-2' : 'mx-auto w-12 justify-center',
-                )}
+                className="group relative flex h-14 w-full items-center gap-3 overflow-hidden rounded-kws-control px-2 text-left outline-none transition-colors hover:bg-secondary data-[state=open]:bg-secondary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/70"
                 aria-label={`Profil und Einstellungen · ${accountLabel}`}
               >
                 <AccountAvatar user={user} />
-                {isExpanded ? (
-                  <>
+                  <span className="kws-sidebar-label flex min-w-0 flex-1 items-center gap-2 whitespace-nowrap" aria-hidden={!isExpanded}>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-sans text-xs font-semibold text-foreground">{user.email}</span>
                       <span className="mt-1 block font-sans text-xs text-muted-foreground">
@@ -486,8 +462,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                       </span>
                     </span>
                     <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  </>
-                ) : null}
+                  </span>
               </button>
             )}
           />

@@ -25,7 +25,7 @@ export const DashboardPageLayout = ({
     <div className="flex min-h-screen bg-[#F9FAF9]">
       <div
         className={cn(
-          'mb-20 flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0',
+          'kws-sidebar-content mb-20 flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0',
           user && (isExpanded ? 'md:ml-64' : 'md:ml-20'),
         )}
       >

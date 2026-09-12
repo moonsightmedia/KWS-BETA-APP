@@ -9,7 +9,7 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, D
 
 const DIFFICULTY_FILTER_OPTIONS = ['1', '2', '3', '4', '5', '6', '7', '8', '?'];
 
-export function FilterOption({ selected, children, className, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { selected: boolean }) {
+export function FilterOption({ selected, indicator = 'inline', children, className, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { selected: boolean; indicator?: 'inline' | 'corner' }) {
   return (
     <button
       type="button"
@@ -22,7 +22,7 @@ export function FilterOption({ selected, children, className, ...props }: Button
       {...props}
     >
       {children}
-      <Check className={cn('ml-auto h-3.5 w-3.5 shrink-0 text-primary', !selected && 'invisible')} aria-hidden="true" />
+      <Check className={cn('shrink-0 text-primary', indicator === 'corner' ? 'pointer-events-none absolute right-1 top-1 h-2.5 w-2.5' : 'ml-auto h-3.5 w-3.5', !selected && 'invisible')} aria-hidden="true" />
     </button>
   );
 }
@@ -53,8 +53,8 @@ export function BoulderFilterControls({ leadingControls, leadingFullWidth = fals
           <h3 className="mb-3 font-sans text-xs font-semibold text-foreground">Schwierigkeit</h3>
           <div className="grid grid-cols-5 gap-2">
             {DIFFICULTY_FILTER_OPTIONS.map((difficulty) => (
-              <FilterOption key={difficulty} selected={difficulties.includes(difficulty)} onClick={() => onDifficultyToggle(difficulty)} aria-label={difficulty === '?' ? 'Unbekannter Grad' : `Grad ${difficulty}`} className="gap-1 px-2">
-                <span className="flex-1 text-center">{difficulty}</span>
+              <FilterOption key={difficulty} selected={difficulties.includes(difficulty)} indicator="corner" onClick={() => onDifficultyToggle(difficulty)} aria-label={difficulty === '?' ? 'Unbekannter Grad' : `Grad ${difficulty}`} className="relative justify-center px-2 text-center leading-none tabular-nums">
+                <span>{difficulty}</span>
               </FilterOption>
             ))}
           </div>

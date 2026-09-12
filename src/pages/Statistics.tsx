@@ -251,7 +251,7 @@ const Statistics = () => {
   };
 
   const pageLayoutClassName = cn(
-    'flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]',
+    'kws-sidebar-content flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]',
     isExpanded ? 'md:ml-64' : 'md:ml-20',
   );
 

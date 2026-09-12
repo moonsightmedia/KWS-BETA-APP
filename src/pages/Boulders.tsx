@@ -595,7 +595,7 @@ const Boulders = () => {
   if (shouldShowPageSkeleton) {
     return (
       <div className="flex min-h-screen bg-[#F9FAF9]">
-        <div ref={swipeRef} className={cn('flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+        <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
           {pageHeader}
           <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
             <div className="mb-6 flex gap-3">
@@ -625,7 +625,7 @@ const Boulders = () => {
   if (bouldersError) {
     return (
       <div className="flex min-h-screen bg-[#F9FAF9]">
-        <div ref={swipeRef} className={cn('flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+        <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
           {pageHeader}
           <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
             <Alert variant="destructive">
@@ -643,7 +643,7 @@ const Boulders = () => {
 
   return (
     <div className="flex min-h-screen bg-[#F9FAF9]">
-      <div ref={swipeRef} className={cn('flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+      <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
         {pageHeader}
 
         <main

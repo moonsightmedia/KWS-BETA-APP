@@ -183,6 +183,10 @@ Regeln:
 - Pressed-Zustände dürfen auf `0.97–0.98` skalieren.
 - Hover verändert bevorzugt Farbe oder Schatten, nicht das Layout.
 - `prefers-reduced-motion` ist bei neuen größeren Animationen zu beachten.
+- Desktop-Sidebar und Seitenabstand bewegen sich synchron über 240ms mit
+  derselben Ease-in-out-Kurve. Icons und Konto behalten ihre Position/Höhe;
+  Beschriftungen werden ausgeblendet, nicht abrupt ausgetauscht. Bei reduzierter
+  Bewegung wechseln beide ohne Animation (Nutzerkorrektur vom 2026-09-12).
 
 ## 4. Seitenrahmen, Header und Navigation
 
@@ -435,6 +439,10 @@ weiße 12-px-Flächen mit weichem Schatten; inaktive Optionen ruhige
 Sekundärflächen ohne graue Außenlinien. Ausgewählte Optionen erhalten
 Primärgrün-Tint, dunkelblaue Schrift und grünes Häkchen. Die Abschnitte
 verwenden Poppins statt der Schrift für Seitentitel.
+
+Gradzahlen stehen horizontal und vertikal im Zentrum der gesamten Schaltfläche,
+auch bei Auswahl. Ihr Häkchen sitzt separat oben rechts und reserviert keinen
+einseitigen Platz neben der Zahl (Nutzerkorrektur vom 2026-09-12).
 
 Farbfelder sind mindestens 20px groß und zeigen auch zweifarbige Griffe.
 Farbnamen bleiben lesbar. Laden, Fehler mit Wiederholen-Aktion und ein

@@ -75,7 +75,7 @@ const Admin = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex bg-[#F9FAF9] overflow-x-hidden">
-        <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 overflow-x-hidden w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
+        <div className={cn("kws-sidebar-content flex-1 flex flex-col mb-20 md:mb-0 overflow-x-hidden w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
             <DashboardHeader />
             <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-x-hidden">
               <Skeleton className="h-12 w-64 mb-8" />
@@ -93,7 +93,7 @@ const Admin = () => {
   return (
     <AdminTabTitleProvider tabTitle={tabTitle}>
       <div className="min-h-screen flex bg-[#F9FAF9] overflow-x-hidden">
-        <div className={cn("flex-1 flex flex-col mb-20 md:mb-0 overflow-x-hidden w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
+        <div className={cn("kws-sidebar-content flex-1 flex flex-col mb-20 md:mb-0 overflow-x-hidden w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-x-hidden">
           <Tabs 

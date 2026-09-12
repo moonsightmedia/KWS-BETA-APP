@@ -5,6 +5,9 @@ import { MemoryRouter } from 'react-router-dom';
 import { ProfileMenu } from '@/components/ProfileMenu';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { BoulderFilterControls, BoulderFilterPanel } from '@/components/boulder/BoulderFilterControls';
+import { Sidebar } from '@/components/Sidebar';
+import { SidebarProvider } from '@/components/SidebarContext';
+import { SetupAreaLayout } from '@/components/SetupAreaLayout';
 import '@/index.css';
 
 export function FilterFixture() {
@@ -20,9 +23,8 @@ export function FilterFixture() {
   </>;
 }
 
-createRoot(document.getElementById('root')!).render(
-  <MemoryRouter>
-    <main className="min-h-screen bg-secondary p-4">
+const fixtureContent = (
+    <main className="min-h-screen min-w-0 bg-secondary p-4">
       <div className="flex justify-between">
         <ProfileMenu />
         <NotificationCenter variant="header" />
@@ -30,5 +32,12 @@ createRoot(document.getElementById('root')!).render(
       <FilterFixture />
       <button type="button" className="fixed bottom-4 right-4 p-4">Außerhalb</button>
     </main>
+);
+
+createRoot(document.getElementById('root')!).render(
+  <MemoryRouter>
+    <SidebarProvider>
+      {new URLSearchParams(window.location.search).has('sidebar') ? <><Sidebar /><SetupAreaLayout>{fixtureContent}</SetupAreaLayout></> : fixtureContent}
+    </SidebarProvider>
   </MemoryRouter>,
 );
