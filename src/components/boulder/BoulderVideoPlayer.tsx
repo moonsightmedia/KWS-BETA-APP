@@ -69,6 +69,7 @@ type FullscreenVideoElement = HTMLDivElement & {
 };
 
 type FullscreenVideoDocument = Document & {
+  webkitFullscreenElement?: Element | null;
   webkitExitFullscreen?: () => Promise<void> | void;
   mozCancelFullScreen?: () => Promise<void> | void;
   msExitFullscreen?: () => Promise<void> | void;
@@ -379,7 +380,8 @@ export function BoulderVideoPlayer({
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const fullscreenDocument = document as FullscreenVideoDocument;
+      setIsFullscreen(Boolean(fullscreenDocument.fullscreenElement || fullscreenDocument.webkitFullscreenElement));
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -401,7 +403,8 @@ export function BoulderVideoPlayer({
     const fullscreenDocument = document as FullscreenVideoDocument;
 
     try {
-      if (!fullscreenDocument.fullscreenElement) {
+      const fullscreenElement = fullscreenDocument.fullscreenElement || fullscreenDocument.webkitFullscreenElement;
+      if (!fullscreenElement) {
         if (container.requestFullscreen) {
           await container.requestFullscreen();
         } else if (container.webkitRequestFullscreen) {
@@ -469,7 +472,21 @@ export function BoulderVideoPlayer({
   }
 
   return (
-    <div ref={containerRef} className={cn('relative h-full w-full bg-[#192436]', className)}>
+    <div
+      ref={containerRef}
+      className={cn(
+        'relative h-full w-full overflow-hidden bg-[#192436]',
+        className,
+        isFullscreen && 'flex min-h-[100svh] min-h-[100dvh] items-center justify-center rounded-none bg-[#F7F9F7]',
+      )}
+      style={isFullscreen ? {
+        paddingTop: 'max(var(--app-safe-area-top), 20px)',
+        paddingBottom: 'max(var(--app-safe-area-bottom), 16px)',
+        paddingLeft: 'env(safe-area-inset-left, 0px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)',
+      } : undefined}
+      data-fullscreen={isFullscreen ? 'true' : 'false'}
+    >
       <style>{`
         video::-webkit-media-controls-start-playback-button {
           display: none !important;
@@ -486,7 +503,10 @@ export function BoulderVideoPlayer({
         muted
         playsInline
         controlsList="nodownload"
-        className={cn('h-full w-full object-center', isFullscreen ? 'object-contain' : 'object-cover')}
+        className={cn(
+          'h-full w-full object-center bg-[#192436]',
+          isFullscreen ? 'object-contain bg-[#F7F9F7]' : 'object-cover',
+        )}
         poster={poster || undefined}
         preload="auto"
       >
@@ -505,13 +525,25 @@ export function BoulderVideoPlayer({
       </video>
 
       {showOfficialBadge ? (
-        <div className="absolute left-2.5 top-2.5 z-30 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.94] px-2.5 text-[#192436] shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm">
+        <div
+          className="absolute left-2.5 top-2.5 z-30 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.96] px-2.5 text-[#192436] shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm"
+          style={isFullscreen ? {
+            left: 'max(env(safe-area-inset-left, 0px), 12px)',
+            top: 'max(calc(var(--app-safe-area-top) + 12px), 28px)',
+          } : undefined}
+        >
           <BadgeCheck className="h-3.5 w-3.5 text-primary" />
           <span className="text-[10px] font-semibold">Offizielle Beta</span>
         </div>
       ) : null}
 
-      <div className="absolute right-2.5 top-2.5 z-30 flex items-center gap-1.5">
+      <div
+        className="absolute right-2.5 top-2.5 z-30 flex items-center gap-1.5"
+        style={isFullscreen ? {
+          right: 'max(env(safe-area-inset-right, 0px), 12px)',
+          top: 'max(calc(var(--app-safe-area-top) + 12px), 28px)',
+        } : undefined}
+      >
         {showQualitySelector && betaVideoUrls ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -533,8 +565,10 @@ export function BoulderVideoPlayer({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              sideOffset={6}
-              className="z-[120] w-48 rounded-kws-control border border-border/80 bg-white p-1.5 text-[#192436] shadow-[0_5px_18px_rgba(19,17,43,0.12)]"
+              sideOffset={8}
+              portalContainer={isFullscreen ? containerRef.current : undefined}
+              collisionPadding={isFullscreen ? { top: 80, right: 12, bottom: 80, left: 12 } : 8}
+              className="z-[120] max-h-[min(18rem,calc(100dvh-10rem))] w-48 overflow-y-auto rounded-kws-control border border-border/80 bg-white p-1.5 text-[#192436] shadow-[0_5px_18px_rgba(19,17,43,0.12)]"
               onPointerDownOutside={(event) => {
                 const target = event.target as HTMLElement;
                 if (target.closest('[role="dialog"]')) {
@@ -594,6 +628,9 @@ export function BoulderVideoPlayer({
       {isBuffering && (
         <div
           className="pointer-events-none absolute bottom-4 left-1/2 flex min-h-9 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-kws-control bg-[#192436]/88 px-3 py-2 text-xs font-medium text-white shadow-[0_3px_12px_rgba(19,17,43,0.18)] backdrop-blur-sm"
+          style={isFullscreen ? {
+            bottom: 'max(calc(var(--app-safe-area-bottom) + 64px), 76px)',
+          } : undefined}
           role="status"
           aria-live="polite"
         >
