@@ -1,446 +1,72 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useEffect } from 'react';
-import { toast } from 'sonner';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
+import { notificationRequest } from '@/lib/notificationRequest';
+import { exactNotificationCount, notificationQuery, validateNotifications, type AppNotification, type NotificationCursor, type NotificationFilter } from '@/lib/notifications';
+export type Notification = AppNotification;
 
-const devLog = (...args: unknown[]) => { if (import.meta.env.DEV) console.log(...args); };
-const devWarn = (...args: unknown[]) => { if (import.meta.env.DEV) console.warn(...args); };
-const devError = (...args: unknown[]) => { if (import.meta.env.DEV) console.error(...args); };
-
-export interface Notification {
-  id: string;
-  user_id: string;
-  type: 'boulder_new' | 'competition_update' | 'feedback_reply' | 'admin_announcement' | 'schedule_reminder' | 'competition_result' | 'competition_leaderboard_change';
-  title: string;
-  message: string;
-  data: Record<string, any>;
-  read: boolean;
-  read_at: string | null;
-  created_at: string;
-  action_url: string | null;
+export function useNotifications(filter: NotificationFilter = {}, active = true) {
+  const { user, session, loading } = useAuth();
+  const query = useInfiniteQuery({
+    queryKey: ['notifications', user?.id, filter.unreadOnly ?? false, filter.topic ?? 'all'],
+    enabled: active && !loading && !!user && !!session,
+    initialPageParam: undefined as NotificationCursor | undefined,
+    queryFn: async ({ pageParam, signal }) => {
+      const { data } = await notificationRequest(notificationQuery(user!.id, filter, pageParam), session?.access_token, { signal });
+      const rows = validateNotifications(data, user!.id);
+      if (pageParam && rows.some(row => Date.parse(row.created_at) > Date.parse(pageParam.created_at) || (Date.parse(row.created_at) === Date.parse(pageParam.created_at) && row.id >= pageParam.id))) throw new Error('Ältere Mitteilungen konnten nicht sicher geladen werden.');
+      return rows;
+    },
+    // The server may cap rows below our requested size; stop on an empty page.
+    getNextPageParam: last => last.length ? { id: last[last.length - 1].id, created_at: last[last.length - 1].created_at } : undefined,
+    staleTime: 15000, refetchInterval: 30000, retry: 1,
+  });
+  const data = query.data ? [...new Map(query.data.pages.flat().map(n => [n.id, n])).values()] : undefined;
+  return { ...query, data };
 }
-
-export const useNotifications = () => {
-  const queryClient = useQueryClient();
-  const { user, session, loading: authLoading } = useAuth();
-
-  const enabled = !authLoading && !!user && !!session;
-
-  const query = useQuery({
-    queryKey: ['notifications'],
-    enabled: enabled, // Only run query if auth is complete AND user is logged in AND session exists
-    queryFn: async () => {
-      const startTime = Date.now();
-      
-      try {
-        // CRITICAL: Use session from useAuth hook instead of supabase.auth.getSession()
-        // supabase.auth.getSession() hangs on localhost after reload
-        if (!session?.user) {
-          return [];
-        }
-      
-      // CRITICAL: Use window.fetch directly instead of QueryBuilder
-      // QueryBuilder doesn't work reliably on localhost after reload
-      // IMPORTANT: RLS uses auth.uid(), so we need the session access token, not just the API key
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      
-      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-        throw new Error('Supabase URL or API key not found');
-      }
-      
-      // Get the access token from the session for RLS
-      const accessToken = session.access_token;
-      if (!accessToken) {
-        devWarn('[useNotifications] No access token in session');
-        return [];
-      }
-      
-      const queryUrl = `${SUPABASE_URL}/rest/v1/notifications?select=*&order=created_at.desc&limit=50`;
-      
-      const response = await window.fetch(queryUrl, {
-        method: 'GET',
-        headers: {
-          'apikey': SUPABASE_PUBLISHABLE_KEY,
-          'Authorization': `Bearer ${accessToken}`, // Use session token for RLS
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        devError('[useNotifications] Error loading notifications:', response.status, errorText);
-        throw new Error(`Failed to load notifications: ${response.status} ${errorText}`);
-      }
-      
-        const data = await response.json();
-        const notifications = (data || []) as Notification[];
-        devLog(`[useNotifications] ✅ Loaded ${notifications.length} notifications from database`);
-        if (notifications.length > 0) {
-          devLog('[useNotifications] 📋 Latest notification:', notifications[0]);
-        }
-        return notifications;
-      } catch (error: any) {
-        devError('[useNotifications] Error loading notifications:', error);
-        throw error;
-      }
-    },
-    retry: 2,
-    retryDelay: 1000,
-  });
-
-  // Realtime subscription for new notifications
-  useEffect(() => {
-    if (!user || !session) {
-      devLog('[useNotifications] No user or session, skipping Realtime subscription');
-      return; // Don't subscribe if no user or session
-    }
-    
-    let channel: any = null;
-
-    devLog('[useNotifications] Setting up Realtime subscription for user:', user.id);
-
-    channel = supabase
-      .channel(`notifications_for_user_${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        async (payload) => {
-          devLog('[useNotifications] 🔔🔔🔔 NEW NOTIFICATION RECEIVED VIA REALTIME:', payload.new);
-          devLog('[useNotifications] 🔔 Payload details:', {
-            event: payload.eventType,
-            table: payload.table,
-            new: payload.new,
-            old: payload.old,
-          });
-          
-          queryClient.invalidateQueries({ queryKey: ['notifications'] });
-          queryClient.invalidateQueries({ queryKey: ['unread_count'] });
-          
-          // Show toast for new notification
-          const notification = payload.new as Notification;
-          devLog('[useNotifications] 📨 Notification details:', {
-            id: notification.id,
-            user_id: notification.user_id,
-            type: notification.type,
-            title: notification.title,
-            message: notification.message,
-          });
-          
-          toast.info(notification.title, {
-            description: notification.message,
-            duration: 5000,
-          });
-
-          // CRITICAL: Skip automatic push notifications for boulder_new events
-          // Push notifications are now sent manually by BatchUpload component after batch upload completes
-          // This ensures reliable batching and prevents duplicate notifications
-          const boulderCount = notification.data?.boulder_count || 1;
-          
-          if (notification.type === 'boulder_new') {
-            if (boulderCount > 1) {
-              devLog('[useNotifications] ⏭️ Skipping push notification for batch notification (boulder_count:', boulderCount, ') - BatchUpload will send push notification manually');
-            } else {
-              devLog('[useNotifications] ⏭️ Skipping push notification for single boulder notification - notifications are now handled manually by BatchUpload component');
-            }
-            return;
-          }
-          
-          // For other notification types, send push notification normally
-          setTimeout(async () => {
-            try {
-              const { sendPushNotificationForNotification } = await import('@/services/pushNotifications');
-              await sendPushNotificationForNotification(notification.id, session);
-              devLog('[useNotifications] ✅ Push notification sent successfully for notification:', notification.id);
-            } catch (error) {
-              devError('[useNotifications] ❌ Error sending push notification:', error);
-              // Don't throw - push notifications are optional
-            }
-          }, 500);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          devLog('[useNotifications] Notification updated, invalidating queries');
-          queryClient.invalidateQueries({ queryKey: ['notifications'] });
-          queryClient.invalidateQueries({ queryKey: ['unread_count'] });
-        }
-      )
-      .subscribe((status) => {
-        devLog('[useNotifications] 🔔 Realtime subscription status:', status);
-        devLog('[useNotifications] 🔔 Channel details:', {
-          status,
-          user_id: user.id,
-          channel_name: `notifications_for_user_${user.id}`,
-        });
-        if (status === 'SUBSCRIBED') {
-          devLog('[useNotifications] ✅✅✅ Successfully subscribed to Realtime channel - ready to receive notifications!');
-        } else if (status === 'CHANNEL_ERROR') {
-          devError('[useNotifications] ❌ Realtime channel error');
-        } else if (status === 'TIMED_OUT') {
-          devError('[useNotifications] ❌ Realtime subscription timed out');
-        } else if (status === 'CLOSED') {
-          devLog('[useNotifications] Realtime subscription closed (e.g. tab change or unmount)');
-        } else {
-          devLog('[useNotifications] 🔄 Realtime subscription status:', status);
-        }
-      });
-
-    return () => {
-      if (channel) {
-        devLog('[useNotifications] Cleaning up Realtime subscription for user:', user.id);
-        supabase.removeChannel(channel);
-        channel = null;
-      }
-    };
-  }, [queryClient, user, session]); // Include session in dependencies
-
-  return query;
-};
-
-export const useUnreadCount = () => {
-  const { user, session, loading: authLoading } = useAuth();
-  
-  const enabled = !authLoading && !!user && !!session;
-  
+export function useUnreadCount() {
+  const { user, session, loading } = useAuth();
   return useQuery({
-    queryKey: ['unread_count'],
-    enabled: enabled, // Only run query if auth is complete AND user is logged in AND session exists
-    queryFn: async () => {
-      const startTime = Date.now();
-      
-      try {
-        // CRITICAL: Use session from useAuth hook instead of supabase.auth.getSession()
-        // supabase.auth.getSession() hangs on localhost after reload
-        if (!session?.user) {
-          return 0;
-        }
-      
-      // CRITICAL: Use window.fetch directly instead of RPC
-      // RPC might not work reliably on localhost after reload
-      // IMPORTANT: RPC uses auth.uid(), so we need the session access token, not just the API key
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      
-      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-        throw new Error('Supabase URL or API key not found');
-      }
-      
-      // Get the access token from the session for RPC calls
-      const accessToken = session.access_token;
-      if (!accessToken) {
-        devWarn('[useUnreadCount] No access token in session');
-        return 0;
-      }
-      
-      const rpcUrl = `${SUPABASE_URL}/rest/v1/rpc/get_unread_count`;
-      
-      const response = await window.fetch(rpcUrl, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_PUBLISHABLE_KEY,
-          'Authorization': `Bearer ${accessToken}`, // Use session token for RPC that uses auth.uid()
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
+    queryKey: ['unread_count', user?.id], enabled: !loading && !!user && !!session,
+    queryFn: async ({ signal }) => {
+      const q = new URLSearchParams({ user_id: 'eq.' + user!.id, read: 'eq.false', select: 'id', limit: '1' });
+      const { response } = await notificationRequest('/rest/v1/notifications?' + q, session?.access_token, { signal, headers: { Prefer: 'count=exact' } });
+      return exactNotificationCount(response);
+    }, staleTime: 15000, refetchInterval: 30000, retry: 1,
+  });
+}
+export function useMarkAsRead() {
+  const { user, session } = useAuth(); const client = useQueryClient();
+  return useMutation({
+    mutationKey: ['notification-read', user?.id],
+    mutationFn: async (id: string) => {
+      if (!user || !id) throw new Error('Bitte melde dich erneut an.');
+      const q = new URLSearchParams({ id: 'eq.' + id, user_id: 'eq.' + user.id });
+      const { data } = await notificationRequest('/rest/v1/notifications?' + q, session?.access_token, {
+        method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ read: true, read_at: new Date().toISOString() }),
       });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        devError('[useUnreadCount] Error getting unread count:', response.status, errorText);
-        return 0;
-      }
-      
-        const data = await response.json();
-        return data || 0;
-      } catch (error: any) {
-        devError('[useUnreadCount] Error getting unread count:', error);
-        return 0; // Return 0 on error instead of throwing
-      }
+      const rows = validateNotifications(data, user.id);
+      if (rows.length !== 1 || rows[0].id !== id || !rows[0].read) throw new Error('Gelesen-Status konnte nicht bestätigt werden.');
+      return rows[0];
     },
-    refetchInterval: 30000, // Refetch every 30 seconds
-    retry: 2,
-    retryDelay: 1000,
+    onSuccess: () => Promise.all([client.invalidateQueries({ queryKey: ['notifications', user?.id] }), client.invalidateQueries({ queryKey: ['unread_count', user?.id] })]),
   });
-};
-
-export const useMarkAsRead = () => {
-  const queryClient = useQueryClient();
-  const { session } = useAuth();
-
+}
+export function useMarkAllAsRead() {
+  const { user, session } = useAuth(); const client = useQueryClient();
   return useMutation({
-    mutationFn: async (notificationId: string) => {
-      devLog('[useMarkAsRead] 🔵 Marking notification as read:', notificationId);
-      
-      // CRITICAL: Use session from useAuth hook instead of supabase.auth.getSession()
-      // supabase.auth.getSession() hangs on localhost after reload
-      let currentSession = session;
-      
-      if (!currentSession?.access_token) {
-        // Try to get session with timeout as fallback
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout after 5s')), 5000)
-        );
-        
-        try {
-          const sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
-          const { data: { session: fetchedSession } } = sessionResult as any;
-          if (!fetchedSession?.access_token) {
-            throw new Error('Nicht angemeldet. Bitte melde dich an.');
-          }
-          currentSession = fetchedSession;
-        } catch (timeoutError) {
-          devError('[useMarkAsRead] ❌ Session timeout:', timeoutError);
-          throw new Error('Session timeout - bitte Seite neu laden');
-        }
-      }
-      
-      if (!currentSession?.access_token) {
-        throw new Error('Nicht angemeldet. Bitte melde dich an.');
-      }
-      
-      devLog('[useMarkAsRead] ✅ Session obtained');
-
-      // Use direct fetch instead of RPC to avoid hanging issues after reload
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-      if (!SUPABASE_URL || !SUPABASE_KEY) {
-        throw new Error('Supabase-Konfiguration fehlt');
-      }
-
-      // Use direct PATCH to update the notification
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/notifications?id=eq.${notificationId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${currentSession.access_token}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal',
-          },
-          body: JSON.stringify({
-            read: true,
-            read_at: new Date().toISOString(),
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        devError('[useMarkAsRead] ❌ Error marking as read:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      devLog('[useMarkAsRead] ✅ Notification marked as read');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['unread_count'] });
-    },
-    onError: (error) => {
-      devError('[useMarkAsRead] ❌ Error:', error);
-      toast.error('Fehler beim Markieren als gelesen: ' + error.message);
-    },
-  });
-};
-
-export const useMarkAllAsRead = () => {
-  const queryClient = useQueryClient();
-  const { session, user } = useAuth();
-
-  return useMutation({
+    mutationKey: ['notification-read', user?.id],
     mutationFn: async () => {
-      devLog('[useMarkAllAsRead] 🔵 Marking all notifications as read');
-      
-      // CRITICAL: Use session from useAuth hook instead of supabase.auth.getSession()
-      // supabase.auth.getSession() hangs on localhost after reload
-      let currentSession = session;
-      
-      if (!currentSession?.access_token || !user) {
-        // Try to get session with timeout as fallback
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout after 5s')), 5000)
-        );
-        
-        try {
-          const sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
-          const { data: { session: fetchedSession } } = sessionResult as any;
-          if (!fetchedSession?.access_token) {
-            throw new Error('Nicht angemeldet. Bitte melde dich an.');
-          }
-          currentSession = fetchedSession;
-        } catch (timeoutError) {
-          devError('[useMarkAllAsRead] ❌ Session timeout:', timeoutError);
-          throw new Error('Session timeout - bitte Seite neu laden');
-        }
-      }
-      
-      if (!currentSession?.access_token || !user) {
-        throw new Error('Nicht angemeldet. Bitte melde dich an.');
-      }
-      
-      devLog('[useMarkAllAsRead] ✅ Session obtained');
-
-      // Use direct fetch instead of RPC to avoid hanging issues after reload
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-      if (!SUPABASE_URL || !SUPABASE_KEY) {
-        throw new Error('Supabase-Konfiguration fehlt');
-      }
-
-      // Use direct PATCH to update all notifications for the user
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/notifications?user_id=eq.${user.id}&read=eq.false`,
-        {
-          method: 'PATCH',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${currentSession.access_token}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal',
-          },
-          body: JSON.stringify({
-            read: true,
-            read_at: new Date().toISOString(),
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        devError('[useMarkAllAsRead] ❌ Error marking all as read:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      devLog('[useMarkAllAsRead] ✅ All notifications marked as read');
+      if (!user) throw new Error('Bitte melde dich erneut an.');
+      const cutoff = new Date().toISOString();
+      const q = new URLSearchParams({ user_id: 'eq.' + user.id, read: 'eq.false', created_at: 'lte.' + cutoff });
+      await notificationRequest('/rest/v1/notifications?' + q, session?.access_token, {
+        method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ read: true, read_at: cutoff }),
+      });
+      q.set('select', 'id'); q.set('limit', '1');
+      const { data } = await notificationRequest('/rest/v1/notifications?' + q, session?.access_token);
+      if (!Array.isArray(data) || data.length) throw new Error('Nicht alle Mitteilungen wurden bestätigt. Bitte aktualisieren.');
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['unread_count'] });
-      toast.success('Alle Benachrichtigungen als gelesen markiert');
-    },
-    onError: (error) => {
-      devError('[useMarkAllAsRead] ❌ Error:', error);
-      toast.error('Fehler beim Markieren aller als gelesen: ' + error.message);
-    },
+    onSettled: () => Promise.all([client.invalidateQueries({ queryKey: ['notifications', user?.id] }), client.invalidateQueries({ queryKey: ['unread_count', user?.id] })]),
   });
-};
+}
 

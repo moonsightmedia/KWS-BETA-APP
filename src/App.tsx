@@ -56,7 +56,9 @@ const queryClient = new QueryClient({
       },
     },
     mutations: {
-      retry: 1,
+      // A lost response can still mean the write succeeded. Never replay writes
+      // globally; explicit idempotent upload recovery has its own policy.
+      retry: false,
       networkMode: 'online',
       onError: (error: unknown) => {
         console.error('[QueryClient] Mutation error:', error);
@@ -96,7 +98,7 @@ import { initSentry, setSentryUser } from '@/utils/sentry';
 import { setTelemetryUser, startTelemetry, stopTelemetry } from '@/utils/telemetry';
 import { OnboardingProvider } from '@/components/Onboarding';
 import { RoleTabProvider } from '@/contexts/RoleTabContext';
-import { initializePushNotifications } from '@/utils/pushNotifications';
+import { useNotificationRuntime } from '@/hooks/useNotificationRuntime';
 import { EmergencyReset } from '@/components/EmergencyReset';
 
 // Wraps ErrorBoundary with user context from useAuth (for error reports when user is logged in)
@@ -187,6 +189,7 @@ const GuestOverviewRoute = () => {
 };
 
 const Root = () => {
+  useNotificationRuntime();
   const navigate = useNavigate();
   const location = useLocation();
   const { loading: authLoading, user, authTransition } = useAuth();
@@ -232,25 +235,6 @@ const Root = () => {
     }
   }, [authLoading]);
 
-  // Initialize push notifications when user is authenticated
-  // Delay initialization to avoid crashes on app start
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) {
-      return;
-    }
-
-    if (user && !authLoading) {
-      // Wait a bit before initializing to ensure app is fully loaded
-      const timer = setTimeout(() => {
-        initializePushNotifications().catch((error) => {
-          console.error('[App] Error initializing push notifications:', error);
-          // Don't crash the app - push notifications are optional
-        });
-      }, 2000); // Wait 2 seconds after app start
-      
-      return () => clearTimeout(timer);
-    }
-  }, [user, authLoading]);
   
   // Show loading screen during initial auth check
   useEffect(() => {

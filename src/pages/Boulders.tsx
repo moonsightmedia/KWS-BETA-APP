@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Grid3X3, List, Map as MapIcon, Search, SlidersHorizontal, Sparkles, Star, X } from 'lucide-react';
-import { BoulderFilterControls, BoulderFilterPanel, BoulderSortPanel, FilterOption } from '@/components/boulder/BoulderFilterControls';
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Grid3X3, List, Map as MapIcon, RotateCcw, Search, SlidersHorizontal, Sparkles, Star, X } from 'lucide-react';
+import { BoulderFilterControls, BoulderFilterPanel, BoulderSortPanel, FilterSection, FilterToggle } from '@/components/boulder/BoulderFilterControls';
+import { SectorFilterOptions } from '@/components/boulder/SectorFilterOptions';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { HallMapView } from '@/components/HallMapView';
 import { useSidebar } from '@/components/SidebarContext';
@@ -35,13 +36,13 @@ const getStoredBoulderView = (): BoulderViewMode => {
   }
 };
 
-const getSectorAreaName = (sectorName: string) => sectorName.replace(/\s+[A-D]$/, '');
+const getSectorAreaName = (sectorName: string) => sectorName.replace(/\s+[A-Z][A-Z0-9]{0,2}$/, '');
 
 const getSectorAreaLabel = (boulder: Boulder) => {
-  const primaryArea = getSectorAreaName(boulder.sector);
+  const primaryArea = boulder.sectorArea?.name || getSectorAreaName(boulder.sector);
   if (!boulder.sector2) return primaryArea;
 
-  const secondaryArea = getSectorAreaName(boulder.sector2);
+  const secondaryArea = boulder.sector2Area?.name || getSectorAreaName(boulder.sector2);
   return primaryArea === secondaryArea ? primaryArea : `${primaryArea} · ${secondaryArea}`;
 };
 
@@ -262,7 +263,7 @@ const Boulders = () => {
     const groups = new Map<string, Boulder[]>();
 
     filteredAndSortedBoulders.forEach((boulder) => {
-      const areaName = getSectorAreaName(boulder.sector) || 'Ohne Bereich';
+      const areaName = boulder.sectorArea?.name || getSectorAreaName(boulder.sector) || 'Ohne Bereich';
       const group = groups.get(areaName) ?? [];
       group.push(boulder);
       groups.set(areaName, group);
@@ -564,22 +565,23 @@ const Boulders = () => {
         </div>
       )}
 
-        <BoulderFilterPanel open={showFilters} onOpenChange={setShowFilters} resultCount={filteredAndSortedBoulders.length}>
+        <BoulderFilterPanel open={showFilters} onOpenChange={setShowFilters} resultCount={filteredAndSortedBoulders.length} activeCount={activeFilterCount} onReset={clearFilters}>
           <BoulderFilterControls
+            hideReset
+            sectorControls={<SectorFilterOptions sectors={sectors ?? []} selected={sectorFilters} onChange={setSectorFilters} />}
             leadingControls={(
-              <section aria-label="Schnellfilter">
-                <h3 className="mb-3 font-sans text-xs font-semibold text-foreground">Schnellfilter</h3>
-                <div className="flex flex-wrap gap-2">
-                  <FilterOption selected={showNew} onClick={() => setShowNew((prev) => !prev)}><Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />Neu</FilterOption>
-                  <FilterOption selected={showSaved} onClick={() => setShowSaved((prev) => !prev)}><Bookmark className="h-4 w-4 shrink-0" aria-hidden="true" />Gespeichert</FilterOption>
-                  <FilterOption selected={!showOnlyHanging} onClick={() => setShowOnlyHanging((prev) => !prev)}>Auch abgeschraubte</FilterOption>
-                </div>
-              </section>
+              <FilterSection title="Schnellfilter" icon={Sparkles} active={showNew || showSaved || !showOnlyHanging} summary={[showNew && 'Neu', showSaved && 'Gespeichert', !showOnlyHanging && 'Mit abgeschraubten'].filter(Boolean).join(' · ') || 'Aktuell an der Wand'}>
+                <FilterToggle label="Neu" description="In den letzten 7 Tagen" icon={Sparkles} checked={showNew} onCheckedChange={setShowNew} />
+                <FilterToggle label="Gespeichert" icon={Bookmark} checked={showSaved} onCheckedChange={setShowSaved} />
+                <FilterToggle label="Auch abgeschraubte" icon={RotateCcw} checked={!showOnlyHanging} onCheckedChange={value => setShowOnlyHanging(!value)} />
+              </FilterSection>
             )}
             difficulties={difficultyFilters}
             onDifficultyToggle={toggleDifficultyFilter}
+            onDifficultyReset={() => setDifficultyFilters([])}
             selectedColors={colorFilters}
             onColorToggle={toggleColorFilter}
+            onColorReset={() => setColorFilters([])}
             colors={colors}
             colorsLoading={colorsQuery.isPending}
             colorsError={colorsQuery.isError}

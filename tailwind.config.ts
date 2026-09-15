@@ -24,9 +24,13 @@ export default {
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
+        canvas: "hsl(var(--canvas))",
+        'switch-track': "hsl(var(--switch-track))",
         foreground: "hsl(var(--foreground))",
         primary: {
           DEFAULT: "hsl(var(--primary))",
+          strong: "hsl(var(--primary-strong))",
+          ink: "hsl(var(--primary-ink))",
           foreground: "hsl(var(--primary-foreground))",
         },
         secondary: {
@@ -91,9 +95,9 @@ export default {
         'smooth': 'var(--transition-smooth)',
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        lg: "var(--radius-kws-card)",
+        md: "var(--radius-kws-control)",
+        sm: "var(--radius-kws-badge)",
         'kws-badge': "var(--radius-kws-badge)",
         'kws-control': "var(--radius-kws-control)",
         'kws-card': "var(--radius-kws-card)",

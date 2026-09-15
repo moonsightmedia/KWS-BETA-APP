@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, ImageOff, MapPinned, RotateCcw, X } from 'lucide-react';
 
 import { InteractiveMapStage } from '@/components/InteractiveMapStage';
-import hallMapBase from '@/assets/boulderkarte-original.png';
+import { resolveHallMapSource } from '@/lib/hallMapSource';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import {
   countActiveBouldersForSectorIds,
   getSectorAreaPalette,
   resolveSectorArea,
-  SECTOR_AREAS,
+  getSectorAreas,
   type BoulderSectorReference,
 } from '@/lib/sectorAreas';
 import { cn } from '@/lib/utils';
@@ -164,7 +164,7 @@ function buildMarkerLayout({
       : showCounts ? `${count} Boulder` : undefined;
   const longestLineLength = Math.max(visibleLine1.length, visibleLine2?.length ?? 0);
   const width = minimal
-    ? 7.2 * mapUnit
+    ? Math.max(7.2, visibleLine1.length * 2.7 + 2) * mapUnit
     : clamp(
         longestLineLength * (compact ? 1.58 : 1.72) * mapUnit + 3.8 * mapUnit,
         17 * mapUnit,
@@ -404,12 +404,9 @@ export function HallMapView({
       : (logicalGroupSectorIds.get(selectedLogicalGroupKey) ?? [])
           .reduce((sum, sectorId) => sum + (countsBySectorId[sectorId] ?? 0), 0)
     : selectedSector ? countsBySectorId[selectedSector.id] ?? 0 : 0;
-  const mapWidth = activeMap?.width ?? 100;
-  const mapHeight = activeMap?.height ?? 100;
+  const { src: backgroundImageSrc, width: mapWidth, height: mapHeight } = resolveHallMapSource(activeMap);
   const mapUnit = Math.max(Math.min(mapWidth, mapHeight) / 100, 1);
-  const backgroundImageSrc = frameless
-    ? hallMapBase
-    : (activeMap?.image_url || hallMapBase);
+  useEffect(() => setImageError(false), [backgroundImageSrc]);
 
   const markerLayouts = useMemo(() => {
     const entries = logicalMapGroups.map((group) => {
@@ -728,7 +725,7 @@ export function HallMapView({
             className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 px-2"
             aria-label="Farblegende der Hallenbereiche"
           >
-            {SECTOR_AREAS.filter((area) => visibleAreaSlugs.has(area.slug)).map((area) => {
+            {getSectorAreas(sectors).filter((area) => visibleAreaSlugs.has(area.slug)).map((area) => {
               const palette = getSectorAreaPalette(area.slug);
               return (
                 <div key={area.slug} className="inline-flex items-center gap-1.5">

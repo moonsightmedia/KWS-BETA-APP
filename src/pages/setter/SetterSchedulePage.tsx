@@ -1,534 +1,563 @@
-import { useMemo, useState } from 'react';
-import { CalendarPlus, Check, Loader2, Search, Trash2, X } from 'lucide-react';
-import { toast } from 'sonner';
-
-import { HallMapView } from '@/components/HallMapView';
-import { SetterSurface } from '@/components/setter/SetterWorkspaceShell';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useBouldersWithSectors } from '@/hooks/useBoulders';
+import { useQueryClient } from "@tanstack/react-query";
+import { useMemo, useRef, useState } from "react";
+import { CalendarPlus, Loader2, Map as MapIcon, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
+import { HallMapView } from "@/components/HallMapView";
+import { SetterSurface } from "@/components/setter/SetterWorkspaceShell";
+import {
+  SetterConfirm,
+  SetterSearch,
+  SetterState,
+} from "@/components/setter/SetterControls";
+import { SetterDateField } from "@/components/setter/SetterDateField";
+import { SetterScheduleCalendar } from "@/components/setter/SetterScheduleCalendar";
+import { scheduleDayKey, type SetterAppointment } from "@/lib/setterSchedule";
+import { KwsSegmentedControl } from "@/components/ui/kws-segmented-control";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useBouldersWithSectors } from "@/hooks/useBoulders";
 import {
   useCreateSectorScheduleGroup,
   useDeleteSectorScheduleGroup,
   useSectorSchedule,
-} from '@/hooks/useSectorSchedule';
-import { useSectorsTransformed } from '@/hooks/useSectors';
-import { groupSectorsByArea } from '@/lib/sectorAreas';
-import { cn } from '@/lib/utils';
+} from "@/hooks/useSectorSchedule";
+import { useSectorsTransformed } from "@/hooks/useSectors";
+import { groupSectorsByArea } from "@/lib/sectorAreas";
+import { cn } from "@/lib/utils";
+import { combineDateAndTime } from "./setterPageUtils";
 
-import { combineDateAndTime } from './setterPageUtils';
-
-const SetterSchedulePage = () => {
-  const { data: sectors = [] } = useSectorsTransformed();
+type Appointment = SetterAppointment;
+export default function SetterSchedulePage() {
+  const queryClient = useQueryClient();
+  const sectorQuery = useSectorsTransformed();
+  const { data: sectors = [] } = sectorQuery;
   const { data: boulders = [] } = useBouldersWithSectors();
-  const { data: schedule, isLoading } = useSectorSchedule();
-  const createScheduleGroup = useCreateSectorScheduleGroup();
-  const deleteScheduleGroup = useDeleteSectorScheduleGroup();
-
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [sectorSearch, setSectorSearch] = useState('');
-  const [selectedSectorIds, setSelectedSectorIds] = useState<Set<string>>(new Set());
-  const [scheduleDate, setScheduleDate] = useState('');
-  const [scheduleTime, setScheduleTime] = useState('');
-
-  const groupedSchedule = useMemo(() => {
-    const entries = new Map<string, NonNullable<typeof schedule>>();
-
-    (schedule ?? []).forEach((item) => {
-      const dateKey = new Date(item.scheduled_at).toDateString();
-      const current = entries.get(dateKey) ?? [];
-      current.push(item);
-      entries.set(dateKey, current);
-    });
-
-    return Array.from(entries.entries())
-      .map(([dateKey, items]) => ({
-        date: new Date(dateKey),
-        items: [...items].sort(
-          (left, right) => new Date(left.scheduled_at).getTime() - new Date(right.scheduled_at).getTime(),
-        ),
-      }))
-      .sort((left, right) => left.date.getTime() - right.date.getTime());
-  }, [schedule]);
-
-  const { upcomingGroups, pastGroups } = useMemo(() => {
-    const now = new Date();
-    const upcoming: typeof groupedSchedule = [];
-    const past: typeof groupedSchedule = [];
-
-    groupedSchedule.forEach((group) => {
-      const isPast = group.date < now && group.date.toDateString() !== now.toDateString();
-      if (isPast) {
-        past.push(group);
-      } else {
-        upcoming.push(group);
-      }
-    });
-
-    return { upcomingGroups: upcoming, pastGroups: past };
-  }, [groupedSchedule]);
-
-  const sectorCountsById = useMemo(
-    () =>
-      sectors.reduce<Record<string, number>>((accumulator, sector) => {
-        accumulator[sector.id] = sector.boulderCount ?? 0;
-        return accumulator;
-      }, {}),
-    [sectors],
-  );
-
+  const scheduleQuery = useSectorSchedule();
+  const create = useCreateSectorScheduleGroup();
+  const remove = useDeleteSectorScheduleGroup();
+  const [period, setPeriod] = useState("upcoming");
+  const [view, setView] = useState("calendar");
+  const [month, setMonth] = useState(() => new Date());
+  const [selectedDay, setSelectedDay] = useState(() => {
+    const value = new Date();
+    value.setHours(0, 0, 0, 0);
+    return value;
+  });
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [date, setDate] = useState<Date>();
+  const [time, setTime] = useState("18:00");
+  const [mapOpen, setMapOpen] = useState(false);
+  const [discard, setDiscard] = useState(false);
+  const [deleting, setDeleting] = useState<Appointment | null>(null);
+  const [error, setError] = useState("");
+  const lock = useRef(false);
+  const initialDate = useRef<number>();
+  const opener = useRef<HTMLElement | null>(null);
   const areaGroups = useMemo(() => groupSectorsByArea(sectors), [sectors]);
-
-  const filteredSectors = useMemo(() => {
-    const query = sectorSearch.trim().toLowerCase();
-    if (!query) return sectors;
-    return sectors.filter((sector) =>
-      sector.name.toLowerCase().includes(query)
-      || sector.legacyName?.toLowerCase().includes(query),
+  const chosenSubareas = areaGroups
+    .flatMap((g) => g.subareas)
+    .filter((s) => s.sectorIds.some((id) => selected.has(id)));
+  const filteredGroups = areaGroups
+    .map((g) => ({
+      ...g,
+      subareas: g.subareas.filter((s) =>
+        [
+          s.name,
+          ...sectors
+            .filter((sector) => s.sectorIds.includes(sector.id))
+            .map((sector) => sector.legacyName),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(search.trim().toLowerCase()),
+      ),
+    }))
+    .filter((g) => g.subareas.length);
+  const appointments = useMemo(() => {
+    const entries = new Map<string, Appointment>();
+    for (const item of scheduleQuery.data ?? []) {
+      const sectorName =
+        sectors.find((s) => s.id === item.sector_id)?.name ??
+        "Unbekannter Teilbereich";
+      const scheduledDate = new Date(item.scheduled_at);
+      const key = scheduledDate.getTime() + ":" + sectorName;
+      const current = entries.get(key) ?? {
+        ids: [],
+        sectorName,
+        date: scheduledDate,
+      };
+      current.ids.push(item.id);
+      entries.set(key, current);
+    }
+    return [...entries.values()].sort(
+      (a, b) => a.date.getTime() - b.date.getTime(),
     );
-  }, [sectorSearch, sectors]);
-
-  const filteredAreaGroups = useMemo(
-    () => {
-      const visibleSectorIds = new Set(filteredSectors.map((sector) => sector.id));
-      return areaGroups
-        .map((areaGroup) => ({
-          ...areaGroup,
-          sectors: areaGroup.sectors.filter((sector) => visibleSectorIds.has(sector.id)),
-          subareas: areaGroup.subareas.filter((subarea) =>
-            subarea.sectorIds.some((sectorId) => visibleSectorIds.has(sectorId)),
-          ),
-        }))
-        .filter((areaGroup) => areaGroup.subareas.length > 0);
-    },
-    [areaGroups, filteredSectors],
+  }, [scheduleQuery.data, sectors]);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const upcoming = appointments.filter((a) => a.date >= today);
+  const past = appointments.filter((a) => a.date < today).reverse();
+  const shown = period === "upcoming" ? upcoming : past;
+  const groups = new Map<string, Appointment[]>();
+  shown.forEach((a) => {
+    const key = a.date.toLocaleDateString("de-DE", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    groups.set(key, [...(groups.get(key) ?? []), a]);
+  });
+  const busy = create.isPending;
+  const loading = scheduleQuery.isLoading || sectorQuery.isLoading;
+  const failed = scheduleQuery.isError || Boolean(sectorQuery.error);
+  const dayAppointments = appointments.filter(
+    (a) => scheduleDayKey(a.date) === scheduleDayKey(selectedDay),
   );
-
-  const selectedSubareas = useMemo(
-    () => areaGroups.flatMap((areaGroup) => areaGroup.subareas)
-      .filter((subarea) => subarea.sectorIds.some((sectorId) => selectedSectorIds.has(sectorId))),
-    [areaGroups, selectedSectorIds],
-  );
-
-  const resetDialog = () => {
-    setDialogOpen(false);
-    setSectorSearch('');
-    setSelectedSectorIds(new Set());
-    setScheduleDate('');
-    setScheduleTime('');
+  const openCreate = (day?: Date) => {
+    initialDate.current = day?.getTime();
+    setDate(day);
+    setOpen(true);
   };
-
-  const toggleSectorIds = (sectorIds: readonly string[]) => {
-    setSelectedSectorIds((current) => {
+  const reset = () => {
+    setOpen(false);
+    setSearch("");
+    setSelected(new Set());
+    setDate(undefined);
+    setTime("18:00");
+    setMapOpen(false);
+    setError("");
+  };
+  const close = () => {
+    if (busy || lock.current) return;
+    if (
+      selected.size ||
+      date?.getTime() !== initialDate.current ||
+      time !== "18:00"
+    )
+      setDiscard(true);
+    else reset();
+  };
+  const toggle = (ids: readonly string[]) => {
+    if (busy || lock.current) return;
+    setSelected((current) => {
       const next = new Set(current);
-      const allSelected = sectorIds.every((sectorId) => next.has(sectorId));
-
-      if (allSelected) {
-        sectorIds.forEach((sectorId) => next.delete(sectorId));
-      } else {
-        sectorIds.forEach((sectorId) => next.add(sectorId));
-      }
+      const all = ids.every((id) => next.has(id));
+      ids.forEach((id) => (all ? next.delete(id) : next.add(id)));
       return next;
     });
   };
-
-  const toggleSector = (sectorId: string) => {
-    const matchingSubarea = areaGroups
-      .flatMap((areaGroup) => areaGroup.subareas)
-      .find((subarea) => subarea.sectorIds.includes(sectorId));
-
-    toggleSectorIds(matchingSubarea?.sectorIds ?? [sectorId]);
-  };
-
-  const handleCreateSchedule = async () => {
-    if (selectedSectorIds.size === 0 || !scheduleDate || !scheduleTime) {
+  const submit = async () => {
+    if (lock.current || busy) return;
+    setError("");
+    if (!selected.size || !date || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+      setError(
+        "Bitte Teilbereiche, Datum und eine Uhrzeit im Format 18:00 wählen.",
+      );
       return;
     }
-
-    const localDate = new Date(scheduleDate);
-    const scheduledAt = combineDateAndTime(localDate, scheduleTime).toISOString();
-
+    const scheduled = combineDateAndTime(date, time);
+    if (
+      scheduled < new Date() ||
+      scheduled.getHours() !== Number(time.split(":")[0])
+    ) {
+      setError("Bitte einen gültigen zukünftigen Zeitpunkt wählen.");
+      return;
+    }
+    lock.current = true;
     try {
-      await createScheduleGroup.mutateAsync({
-        sectorIds: Array.from(selectedSectorIds),
-        scheduledAt,
+      await create.mutateAsync({
+        sectorIds: [...selected],
+        scheduledAt: scheduled.toISOString(),
         note: null,
       });
-
-      toast.success(
-        `${selectedSubareas.length} ${selectedSubareas.length === 1 ? 'Teilbereich' : 'Teilbereiche'} erfolgreich geplant.`,
+      toast.success(`${chosenSubareas.length} ${chosenSubareas.length === 1 ? 'Teilbereich' : 'Teilbereiche'} eingeplant.`);
+      const savedDay = new Date(scheduled);
+      savedDay.setHours(0, 0, 0, 0);
+      setSelectedDay(savedDay);
+      setMonth(savedDay);
+      reset();
+      setPeriod("upcoming");
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Der Termin konnte nicht gespeichert werden.",
       );
-      resetDialog();
-    } catch (error) {
-      toast.error('Fehler beim Erstellen der Termine');
-      console.error('[SetterSchedulePage] create schedule failed', error);
+    } finally {
+      lock.current = false;
     }
   };
-
-  const handleDeleteSchedule = async (ids: string[]) => {
-    if (!window.confirm(ids.length === 1 ? 'Diesen Termin wirklich löschen?' : 'Diesen Terminblock wirklich löschen?')) {
-      return;
-    }
-
-    try {
-      await deleteScheduleGroup.mutateAsync(ids);
-      toast.success(ids.length === 1 ? 'Termin gelöscht' : 'Terminblock gelöscht');
-    } catch (error) {
-      toast.error('Fehler beim Löschen des Termins');
-      console.error('[SetterSchedulePage] delete schedule failed', error);
-    }
-  };
-
-  const renderGroup = (title: string | null, groups: typeof groupedSchedule, muted: boolean) => {
-    if (groups.length === 0) return null;
-
-    return (
-      <div className="space-y-4">
-        {title ? (
-          <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6E806A]">
-            {title}
-          </p>
-        ) : null}
-
-        {groups.map((group) => {
-          const isToday = group.date.toDateString() === new Date().toDateString();
-          const displayItems = Array.from(
-            group.items.reduce<Map<string, { key: string; ids: string[]; scheduledAt: string; sectorName: string }>>(
-              (clusters, item) => {
-                const sectorName = sectors.find((sector) => sector.id === item.sector_id)?.name ?? 'Unbekannter Teilbereich';
-                const key = `${item.scheduled_at}:${sectorName}`;
-                const existing = clusters.get(key);
-
-                if (existing) {
-                  existing.ids.push(item.id);
-                } else {
-                  clusters.set(key, {
-                    key,
-                    ids: [item.id],
-                    scheduledAt: item.scheduled_at,
-                    sectorName,
-                  });
-                }
-
-                return clusters;
-              },
-              new Map(),
-            ).values(),
-          ).sort((left, right) => new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime());
-
-          return (
-            <div key={group.date.toISOString()} className="space-y-2">
-              <p
-                className={cn(
-                  'px-1 text-[11px] font-semibold uppercase tracking-[0.18em]',
-                  muted ? 'text-[#13112B]/42' : 'text-[#6E806A]',
-                )}
-              >
-                {isToday
-                  ? 'Heute'
-                  : group.date.toLocaleDateString('de-DE', {
-                      weekday: 'short',
-                      day: '2-digit',
-                      month: 'short',
-                    })}
-              </p>
-
-              <SetterSurface className="overflow-hidden p-0">
-                <div className="divide-y divide-[#E7F0E8]">
-                  {displayItems.map((item) => {
-                    const time = new Date(item.scheduledAt).toLocaleTimeString('de-DE', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    });
-
-                    return (
-                      <div
-                        key={item.key}
-                        className={cn(
-                          'flex items-center justify-between gap-4 px-4 py-4 sm:px-5',
-                          muted && 'opacity-60',
-                        )}
-                      >
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold tracking-[-0.02em] text-[#13112B]">{time}</p>
-                          <p className="truncate text-sm text-[#13112B]/60">{item.sectorName}</p>
-                        </div>
-
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="h-9 w-9 rounded-xl text-[#B64332] hover:bg-[#FFF4F2] hover:text-[#B64332]"
-                          onClick={() => handleDeleteSchedule(item.ids)}
-                            disabled={deleteScheduleGroup.isPending}
-                          >
-                            {deleteScheduleGroup.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </SetterSurface>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
   return (
     <>
-      <div className="space-y-5 pb-32">
+      <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6E806A]">
-            {schedule?.length ?? 0} geplante Termine
-          </p>
+          <KwsSegmentedControl
+            value={view}
+            onValueChange={setView}
+            options={[
+              { value: "calendar", label: "Kalender" },
+              { value: "list", label: "Liste" },
+            ]}
+            ariaLabel="Planungsansicht"
+          />
           <Button
-            type="button"
-            className="h-10 gap-2 rounded-xl bg-[#69B545] px-4 text-white hover:bg-[#5FA039]"
-            onClick={() => setDialogOpen(true)}
+            disabled={loading || failed || !sectors.length}
+            onClick={() => openCreate()}
           >
-            <CalendarPlus className="h-4 w-4" />
+            <CalendarPlus className="mr-2 h-4 w-4" />
             Neuer Termin
           </Button>
         </div>
-
-        {isLoading ? (
-          <SetterSurface className="py-12 text-center text-sm text-[#13112B]/60">
-            Termine werden geladen...
-          </SetterSurface>
-        ) : groupedSchedule.length === 0 ? (
-          <SetterSurface className="space-y-4 py-10 text-center">
-            <div className="space-y-2">
-              <p className="text-lg font-semibold tracking-[-0.03em] text-[#13112B]">
-                Noch keine Schraubtermine geplant.
-              </p>
-              <p className="text-sm text-[#13112B]/58">
-                Lege den ersten Termin an, um die Planung direkt in Tagesclustern zu sehen.
-              </p>
-            </div>
-            <div className="flex justify-center">
+        {view === "list" && (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex gap-2">
               <Button
-                type="button"
-                className="h-10 gap-2 rounded-xl bg-[#69B545] px-4 text-white hover:bg-[#5FA039]"
-                onClick={() => setDialogOpen(true)}
+                variant={period === "upcoming" ? "default" : "secondary"}
+                aria-pressed={period === "upcoming"}
+                onClick={() => setPeriod("upcoming")}
               >
-                <CalendarPlus className="h-4 w-4" />
-                Neuer Termin
+                Anstehend
+              </Button>
+              <Button
+                variant={period === "past" ? "default" : "secondary"}
+                aria-pressed={period === "past"}
+                onClick={() => setPeriod("past")}
+              >
+                Vergangen
               </Button>
             </div>
-          </SetterSurface>
-        ) : (
-          <div className="space-y-6">
-            {renderGroup(null, upcomingGroups, false)}
-            {renderGroup('Vergangene Termine', pastGroups, true)}
+            {!loading && !failed && (
+              <p className="text-sm text-muted-foreground" role="status">
+                {shown.length} {shown.length === 1 ? "Termin" : "Termine"} ·{" "}
+                {groups.size} {groups.size === 1 ? "Tag" : "Tage"}
+              </p>
+            )}
           </div>
         )}
-      </div>
-
-      <Dialog open={dialogOpen} onOpenChange={(open) => !open && resetDialog()}>
-        <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none border-0 bg-white p-0 shadow-none sm:h-[90vh] sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl sm:border sm:border-[#DDE7DF] sm:shadow-[0_18px_45px_rgba(19,17,43,0.12)]">
-          <div className="shrink-0 border-b border-[#E7F0E8] bg-white px-4 py-4 sm:px-6">
-            <DialogHeader className="space-y-0">
-              <DialogTitle className="text-[#13112B]">Neuer Termin</DialogTitle>
-            </DialogHeader>
-          </div>
-
-          <div className="min-h-0 flex-1 space-y-0 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
-            <section className="space-y-4 pb-6">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">
-                1. Bereiche
+        {loading ? (
+          <SetterState loading title="Planung wird geladen …" />
+        ) : failed ? (
+          <SetterState
+            title="Planung konnte nicht geladen werden."
+            retrying={scheduleQuery.isFetching || sectorQuery.isFetching}
+            onRetry={() => {
+              void scheduleQuery.refetch();
+              void queryClient.refetchQueries({ queryKey: ["sectors"] });
+            }}
+          />
+        ) : view === "calendar" ? (
+          <SetterScheduleCalendar
+            appointments={appointments}
+            month={month}
+            selectedDay={selectedDay}
+            canCreate={sectors.length > 0}
+            onMonthChange={(next) => {
+              setMonth(next);
+              setSelectedDay(next);
+            }}
+            onSelectDay={setSelectedDay}
+            onCreate={openCreate}
+          >
+            {dayAppointments.length ? (
+              <AppointmentList
+                items={dayAppointments}
+                busy={remove.isPending}
+                onDelete={setDeleting}
+              />
+            ) : (
+              <p className="rounded-kws-control bg-secondary p-4 text-sm text-muted-foreground">
+                Keine Termine an diesem Tag.
               </p>
-
-              <div className="space-y-2">
-                <Label htmlFor="schedule-sector-search">Bereich suchen</Label>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#13112B]/40" />
-                  <Input
-                    id="schedule-sector-search"
-                    placeholder="Zum Beispiel Bug oder A..."
-                    value={sectorSearch}
-                    onChange={(event) => setSectorSearch(event.target.value)}
-                    className="h-10 rounded-xl border-none bg-[#F3F6F3] pl-10 pr-4 text-sm text-[#13112B] shadow-none placeholder:text-[#13112B]/42 focus-visible:ring-2 focus-visible:ring-[#69B545]/35"
-                  />
-                </div>
-
-                {filteredAreaGroups.length > 0 ? (
-                  <div className="space-y-3 pt-1">
-                    {filteredAreaGroups.map((areaGroup) => {
-                      const visibleSectorIds = areaGroup.subareas.flatMap((subarea) => subarea.sectorIds);
-                      const allAreaSectorsSelected = visibleSectorIds.length > 0
-                        && visibleSectorIds.every((sectorId) => selectedSectorIds.has(sectorId));
-
-                      return (
-                        <div
-                          key={areaGroup.area.slug}
-                          className="rounded-2xl border border-[#DDE7DF] bg-[#FCFDFC] p-3.5"
-                        >
-                          <div className="mb-3 flex items-center justify-between gap-3">
-                            <div>
-                              <p className="font-heading text-xl uppercase tracking-[0.02em] text-[#13112B]">
-                                {areaGroup.area.name}
-                              </p>
-                              <p className="text-xs text-[#6E806A]">
-                                Teilbereiche einzeln wählen
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => toggleSectorIds(visibleSectorIds)}
-                              className={cn(
-                                'rounded-xl border px-3 py-2 text-xs font-semibold transition-colors',
-                                allAreaSectorsSelected
-                                  ? 'border-[#69B545] bg-[#EAF7E7] text-[#2D702D]'
-                                  : 'border-[#DDE7DF] bg-white text-[#13112B]/65 hover:bg-[#F4F8F4]',
-                              )}
-                            >
-                              {allAreaSectorsSelected ? 'Alle gewählt' : 'Alle'}
-                            </button>
-                          </div>
-
-                          <div className="grid grid-cols-4 gap-2">
-                            {areaGroup.subareas.map((subarea) => {
-                              const selected = subarea.sectorIds.every((sectorId) => selectedSectorIds.has(sectorId));
-                              return (
-                                <button
-                                  key={`${areaGroup.area.slug}-${subarea.code}`}
-                                  type="button"
-                                  onClick={() => toggleSectorIds(subarea.sectorIds)}
-                                  aria-pressed={selected}
-                                  aria-label={`${subarea.name} ${selected ? 'abwählen' : 'auswählen'}`}
-                                  className={cn(
-                                    'flex min-h-12 items-center justify-center rounded-xl border font-heading text-xl transition-all',
-                                    selected
-                                      ? 'border-[#69B545] bg-[#69B545] text-white shadow-[0_8px_20px_rgba(105,181,69,0.22)]'
-                                      : 'border-[#DDE7DF] bg-white text-[#13112B] hover:border-[#9AC98B] hover:bg-[#F4F8F4]',
-                                  )}
-                                >
-                                  {subarea.code}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : null}
-
-                {filteredSectors.length > 0 ? (
-                  <div className="space-y-2 pt-2">
-                    <Label>Auf der Hallenkarte</Label>
-                    <div className="overflow-hidden rounded-2xl border border-[#DDE7DF] bg-white p-1.5 shadow-[0_8px_24px_rgba(19,17,43,0.05)]">
-                      <HallMapView
-                        sectors={filteredSectors}
-                        countsBySectorId={sectorCountsById}
-                        boulderSectorReferences={boulders}
-                        selectedSectorIds={Array.from(selectedSectorIds)}
-                        onSelectSectorId={toggleSector}
-                        onClearSector={() => setSelectedSectorIds(new Set())}
-                        compact
-                        frameless
-                        lockAspectRatio={false}
-                        viewportClassName="h-[240px] sm:h-[280px]"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FCFDFC] px-4 py-5 text-sm text-[#13112B]/58">
-                    Kein Bereich zur Suche gefunden.
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label>{'Ausgewählte Teilbereiche'}</Label>
-                {selectedSectorIds.size > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedSubareas.map((subarea) => (
-                        <button
-                          key={subarea.name}
-                          type="button"
-                          onClick={() => toggleSectorIds(subarea.sectorIds)}
-                          className="inline-flex items-center gap-2 rounded-xl border border-[#DDE7DF] bg-white px-3 py-2 text-sm font-medium text-[#13112B] transition-colors hover:bg-[#F4F8F4]"
-                        >
-                          {subarea.name}
-                          <X className="h-3.5 w-3.5 text-[#13112B]/55" />
-                        </button>
-                      ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-[#13112B]/58">{'Noch keine Teilbereiche ausgewählt.'}</p>
-                )}
-              </div>
+            )}
+          </SetterScheduleCalendar>
+        ) : !shown.length ? (
+          <SetterState
+            title={
+              period === "upcoming"
+                ? "Keine anstehenden Schraubtermine"
+                : "Keine vergangenen Termine"
+            }
+            description={
+              period === "upcoming"
+                ? "Plane einen Termin für einen oder mehrere Teilbereiche."
+                : undefined
+            }
+          />
+        ) : (
+          [...groups.entries()].map(([day, items]) => (
+            <section key={day} className="space-y-2">
+              <h2 className="text-sm font-semibold">{day}</h2>
+              <AppointmentList
+                items={items}
+                busy={remove.isPending}
+                onDelete={setDeleting}
+              />
             </section>
-
-            <section className="space-y-4 border-t border-[#E7F0E8] py-6">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">
-                2. Termin
-              </p>
-
-              <div className="grid gap-4 sm:grid-cols-2">
+          ))
+        )}
+      </div>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (!next) close();
+        }}
+      >
+        <DialogContent
+          onOpenAutoFocus={() => {
+            opener.current = document.activeElement as HTMLElement;
+          }}
+          onCloseAutoFocus={(event) => {
+            if (opener.current?.isConnected) {
+              event.preventDefault();
+              opener.current.focus();
+            }
+          }}
+          scrollLayout="contained"
+          className="flex h-[min(90dvh,820px)] flex-col overflow-hidden p-0 md:!max-w-2xl"
+          aria-busy={busy}
+        >
+          <header className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 sm:px-6">
+            <div>
+              <DialogTitle>Neuer Termin</DialogTitle>
+              <DialogDescription className="sr-only">
+                Zeitpunkt und Teilbereiche für den Schraubtermin wählen.
+              </DialogDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={busy}
+              aria-label="Terminplanung schließen"
+              onClick={close}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-5 sm:px-6">
+            <fieldset disabled={busy} className="min-w-0 space-y-5">
+              {error && (
+                <p
+                  role="alert"
+                  className="rounded-kws-control bg-destructive/10 p-3 text-sm text-destructive"
+                >
+                  {error}
+                </p>
+              )}
+              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="setter-schedule-date">Datum</Label>
-                  <Input
-                    id="setter-schedule-date"
-                    type="date"
-                    value={scheduleDate}
-                    onChange={(event) => setScheduleDate(event.target.value)}
-                    className="h-11 rounded-xl border-[#DDE7DF]"
+                  <SetterDateField
+                    value={date}
+                    onChange={setDate}
+                    disabled={busy}
                   />
                 </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="setter-schedule-time">Uhrzeit</Label>
                   <Input
                     id="setter-schedule-time"
-                    type="time"
-                    value={scheduleTime}
-                    onChange={(event) => setScheduleTime(event.target.value)}
-                    className="h-11 rounded-xl border-[#DDE7DF]"
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                    inputMode="text"
+                    placeholder="18:00"
+                    maxLength={5}
                   />
                 </div>
               </div>
-            </section>
+              <section className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-medium">Teilbereiche</h3>
+                  <Button
+                    variant="ghost"
+                    disabled={busy}
+                    aria-expanded={mapOpen}
+                    onClick={() => setMapOpen((v) => !v)}
+                  >
+                    <MapIcon className="mr-2 h-4 w-4" />
+                    Karte
+                  </Button>
+                </div>
+                <SetterSearch
+                  label="Teilbereich suchen"
+                  value={search}
+                  onChange={setSearch}
+                  disabled={busy}
+                />
+                {mapOpen && (
+                  <HallMapView
+                    sectors={sectors}
+                    countsBySectorId={Object.fromEntries(
+                      sectors.map((s) => [s.id, s.boulderCount ?? 0]),
+                    )}
+                    boulderSectorReferences={boulders}
+                    selectedSectorIds={[...selected]}
+                    onSelectSectorId={(id) =>
+                      toggle(
+                        areaGroups
+                          .flatMap((g) => g.subareas)
+                          .find((s) => s.sectorIds.includes(id))?.sectorIds ?? [
+                          id,
+                        ],
+                      )
+                    }
+                    onClearSector={() => {
+                      if (!busy) setSelected(new Set());
+                    }}
+                    compact
+                    frameless
+                    lockAspectRatio={false}
+                    viewportClassName="h-[240px]"
+                  />
+                )}
+                {filteredGroups.map((group) => {
+                  const ids = group.subareas.flatMap((s) => s.sectorIds);
+                  const all = ids.every((id) => selected.has(id));
+                  return (
+                    <section key={group.area.slug} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-semibold">
+                          {group.area.name}
+                        </h4>
+                        <Button
+                          variant="ghost"
+                          aria-label={`${group.area.name} komplett ${all ? "abwählen" : "auswählen"}`}
+                          onClick={() => toggle(ids)}
+                        >
+                          {all ? "Auswahl lösen" : "Alle wählen"}
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {group.subareas.map((s) => (
+                          <button
+                            key={s.code}
+                            type="button"
+                            aria-pressed={s.sectorIds.every((id) =>
+                              selected.has(id),
+                            )}
+                            aria-label={s.name}
+                            onClick={() => toggle(s.sectorIds)}
+                            className={cn(
+                              "grid min-h-11 place-items-center rounded-kws-control px-2 text-sm font-semibold",
+                              s.sectorIds.every((id) => selected.has(id))
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-secondary hover:bg-secondary/70",
+                            )}
+                          >
+                            {s.code}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  );
+                })}
+                {!filteredGroups.length && (
+                  <p className="py-4 text-sm text-muted-foreground">
+                    Keine Teilbereiche gefunden.
+                  </p>
+                )}
+              </section>
+            </fieldset>
           </div>
-
-          <div className="shrink-0 border-t border-[#E7F0E8] bg-white px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:px-6 sm:py-4">
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 rounded-xl border-[#DDE7DF] bg-white sm:flex-1"
-                onClick={resetDialog}
-              >
+          <footer className="shrink-0 space-y-3 bg-white px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
+            <p className="text-xs text-muted-foreground" role="status">
+              {chosenSubareas.length} {chosenSubareas.length === 1 ? 'Teilbereich' : 'Teilbereiche'} ausgewählt
+            </p>
+            <div className="flex gap-3">
+              <Button variant="secondary" disabled={busy} onClick={close}>
                 Abbrechen
               </Button>
               <Button
-                type="button"
-                className="h-11 rounded-xl bg-[#69B545] px-5 text-white hover:bg-[#5FA039] sm:flex-1"
-                onClick={handleCreateSchedule}
-                disabled={selectedSectorIds.size === 0 || !scheduleDate || !scheduleTime || createScheduleGroup.isPending}
+                className="flex-1"
+                disabled={busy}
+                onClick={() => void submit()}
               >
-                {createScheduleGroup.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Check className="mr-2 h-4 w-4" />
-                )}
-                Termine erstellen
+                {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {busy ? "Wird gespeichert …" : "Termin erstellen"}
               </Button>
             </div>
-          </div>
+          </footer>
         </DialogContent>
       </Dialog>
+      <SetterConfirm
+        open={discard}
+        onOpenChange={setDiscard}
+        title="Termin verwerfen?"
+        description="Deine Auswahl wurde noch nicht gespeichert."
+        confirmLabel="Verwerfen"
+        onConfirm={() => {
+          setDiscard(false);
+          reset();
+        }}
+      />
+      <SetterConfirm
+        open={!!deleting}
+        onOpenChange={(next) => {
+          if (!next) setDeleting(null);
+        }}
+        title="Termin löschen?"
+        description={`${deleting?.sectorName ?? ""} · ${deleting?.date.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" }) ?? ""}. Nur der Termin wird entfernt, keine Boulder.`}
+        onConfirm={async () => {
+          if (deleting) {
+            await remove.mutateAsync(deleting.ids);
+            toast.success("Termin gelöscht.");
+          }
+        }}
+      />
     </>
   );
-};
+}
 
-export default SetterSchedulePage;
+function AppointmentList({
+  items,
+  busy,
+  onDelete,
+}: {
+  items: Appointment[];
+  busy: boolean;
+  onDelete: (item: Appointment) => void;
+}) {
+  return (
+    <SetterSurface className="overflow-hidden p-0 sm:p-0">
+      <div className="divide-y divide-border/60">
+        {items.map((item) => (
+          <article
+            key={item.ids.join(",")}
+            className="flex items-center gap-3 px-3 py-3"
+          >
+            <time
+              dateTime={item.date.toISOString()}
+              className="shrink-0 text-sm font-semibold tabular-nums"
+            >
+              {item.date.toLocaleTimeString("de-DE", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </time>
+            <p className="min-w-0 flex-1 break-words text-sm font-semibold">
+              {item.sectorName}
+            </p>
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={busy}
+              aria-label={`Termin ${item.sectorName} löschen`}
+              onClick={() => onDelete(item)}
+            >
+              <Trash2 className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          </article>
+        ))}
+      </div>
+    </SetterSurface>
+  );
+}

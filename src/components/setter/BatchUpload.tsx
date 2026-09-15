@@ -1,71 +1,77 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { Check, CloudUpload, Image as ImageIcon, Loader2, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
+import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  CloudUpload,
+  Image as ImageIcon,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { toast } from "sonner";
 
 import {
   SetterBoulderEditorDialog,
   canSubmitSetterBoulderDraft,
   createEmptySetterBoulderDraft,
   type SetterBoulderDraft,
-} from '@/components/setter/SetterBoulderEditorDialog';
-import { Button } from '@/components/ui/button';
-import { useUpload } from '@/contexts/UploadContext';
-import { useBoulderAttributeCatalog, useSetBoulderAttributes } from '@/hooks/useBoulderCommunity';
-import { logBoulderOperation } from '@/hooks/useBoulders';
-import { useColors } from '@/hooks/useColors';
-import { useAuth } from '@/hooks/useAuth';
-import { useSectorsTransformed } from '@/hooks/useSectors';
-import { cn } from '@/lib/utils';
+} from "@/components/setter/SetterBoulderEditorDialog";
+import { SetterConfirm, SetterState } from "@/components/setter/SetterControls";
+import { SetterSurface } from "@/components/setter/SetterWorkspaceShell";
+import { UploadOverview } from "@/components/UploadOverview";
+import { Button } from "@/components/ui/button";
+import { useUpload } from "@/contexts/UploadContext";
+import {
+  useBoulderAttributeCatalog,
+  useSetBoulderAttributes,
+} from "@/hooks/useBoulderCommunity";
+import { logBoulderOperation } from "@/hooks/useBoulders";
+import { useColors } from "@/hooks/useColors";
+import { useAuth } from "@/hooks/useAuth";
+import { useSectorsTransformed } from "@/hooks/useSectors";
+import { cn } from "@/lib/utils";
 import {
   getBoulderColorBackgroundStyle,
   getBoulderColorLabel,
-} from '@/utils/colorUtils';
+} from "@/utils/colorUtils";
 
-const devWarn = (...args: unknown[]) => { if (import.meta.env.DEV) console.warn(...args); };
-const devError = (...args: unknown[]) => { if (import.meta.env.DEV) console.error(...args); };
-
-function StatChip({
-  label,
-  value,
-  tone = 'default',
-}: {
-  label: string;
-  value: string;
-  tone?: 'default' | 'success' | 'muted';
-}) {
-  return (
-    <div className="rounded-2xl border border-[#DDE7DF] bg-white px-3 py-4 text-center shadow-[0_8px_24px_rgba(19,17,43,0.05)]">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">{label}</p>
-      <p
-        className={cn(
-          'pt-2 text-[1.7rem] font-semibold leading-none tracking-[-0.04em] text-[#13112B]',
-          tone === 'success' && 'text-[#69B545]',
-          tone === 'muted' && 'text-[#6C6A7E]',
-        )}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
+const devWarn = (...args: unknown[]) => {
+  if (import.meta.env.DEV) console.warn(...args);
+};
+const devError = (...args: unknown[]) => {
+  if (import.meta.env.DEV) console.error(...args);
+};
 
 export function BatchUpload() {
   const queryClient = useQueryClient();
-  const { data: sectors = [] } = useSectorsTransformed();
-  const { data: colors = [] } = useColors();
-  const { data: attributeCatalog = [] } = useBoulderAttributeCatalog();
+  const sectorQuery = useSectorsTransformed();
+  const sectors = sectorQuery.data ?? [];
+  const colorQuery = useColors();
+  const { data: colors = [] } = colorQuery;
+  const attributeQuery = useBoulderAttributeCatalog();
+  const { data: attributeCatalog = [] } = attributeQuery;
   const setBoulderAttributes = useSetBoulderAttributes();
   const { session } = useAuth();
   const { startUpload, waitForUploadSessions } = useUpload();
 
   const [boulders, setBoulders] = useState<SetterBoulderDraft[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [removing, setRemoving] = useState<SetterBoulderDraft | null>(null);
+  const [phases, setPhases] = useState<Record<string, string>>({});
+  const [completed, setCompleted] = useState(0);
+  const [lastSuccess, setLastSuccess] = useState(0);
+  const loading =
+    sectorQuery.isLoading || colorQuery.isLoading || attributeQuery.isLoading;
+  const failed =
+    Boolean(sectorQuery.error) || colorQuery.isError || attributeQuery.isError;
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentBoulder, setCurrentBoulder] = useState<SetterBoulderDraft | null>(null);
+  const [currentBoulder, setCurrentBoulder] =
+    useState<SetterBoulderDraft | null>(null);
   const dualColorAttributeId = useMemo(
-    () => attributeCatalog.find((attribute) => attribute.key === 'dual_color')?.id,
+    () =>
+      attributeCatalog.find((attribute) => attribute.key === "dual_color")?.id,
     [attributeCatalog],
   );
 
@@ -75,7 +81,10 @@ export function BatchUpload() {
   }, [colors, currentBoulder]);
 
   const readyCount = useMemo(
-    () => boulders.filter((boulder) => canSubmitSetterBoulderDraft(boulder, dualColorAttributeId)).length,
+    () =>
+      boulders.filter((boulder) =>
+        canSubmitSetterBoulderDraft(boulder, dualColorAttributeId),
+      ).length,
     [boulders, dualColorAttributeId],
   );
   const queueThumbPreviewUrls = useMemo(() => {
@@ -90,13 +99,16 @@ export function BatchUpload() {
     return previews;
   }, [boulders]);
 
-  useEffect(() => () => {
-    queueThumbPreviewUrls.forEach((previewUrl) => {
-      if (previewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(previewUrl);
-      }
-    });
-  }, [queueThumbPreviewUrls]);
+  useEffect(
+    () => () => {
+      queueThumbPreviewUrls.forEach((previewUrl) => {
+        if (previewUrl.startsWith("blob:")) {
+          URL.revokeObjectURL(previewUrl);
+        }
+      });
+    },
+    [queueThumbPreviewUrls],
+  );
 
   const openAddDialog = () => {
     setCurrentBoulder(createEmptySetterBoulderDraft(colors));
@@ -111,55 +123,80 @@ export function BatchUpload() {
   };
 
   const saveBoulderFromDialog = () => {
-    if (!currentBoulder || !canSubmitSetterBoulderDraft(currentBoulder, dualColorAttributeId)) {
-      toast.error('Bitte zuerst Video, Thumbnail und alle Pflichtfelder ausfüllen.');
+    if (
+      !currentBoulder ||
+      !canSubmitSetterBoulderDraft(currentBoulder, dualColorAttributeId)
+    ) {
+      toast.error(
+        "Bitte zuerst Video, Thumbnail und alle Pflichtfelder ausfüllen.",
+      );
       return;
     }
 
     setBoulders((prev) =>
       isEditing
-        ? prev.map((item) => (item.id === currentBoulder.id ? currentBoulder : item))
+        ? prev.map((item) =>
+            item.id === currentBoulder.id ? currentBoulder : item,
+          )
         : [currentBoulder, ...prev],
     );
     setIsDialogOpen(false);
   };
 
   const uploadAll = async () => {
+    if (isProcessing) return;
     if (!boulders.length) {
-      toast.error('Keine Boulder zum Hochladen.');
+      toast.error("Keine Boulder zum Hochladen.");
       return;
     }
 
-    if (!boulders.every((boulder) => canSubmitSetterBoulderDraft(boulder, dualColorAttributeId))) {
-      toast.error('Bitte für alle Boulder Video, Thumbnail und Pflichtfelder ergänzen.');
+    if (
+      !boulders.every((boulder) =>
+        canSubmitSetterBoulderDraft(boulder, dualColorAttributeId),
+      )
+    ) {
+      toast.error(
+        "Bitte für alle Boulder Video, Thumbnail und Pflichtfelder ergänzen.",
+      );
       return;
     }
 
     if (!session?.access_token) {
-      toast.error('Nicht angemeldet. Bitte melde dich an.');
+      toast.error("Nicht angemeldet. Bitte melde dich an.");
       return;
     }
 
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     if (!supabaseUrl || !supabaseKey) {
-      toast.error('Supabase-Konfiguration fehlt.');
+      toast.error("Supabase-Konfiguration fehlt.");
       return;
     }
 
     setIsProcessing(true);
+    setCompleted(0);
+    setLastSuccess(0);
+    setPhases({});
     const successfulIds: string[] = [];
     const failures: Array<{ name: string; error: string }> = [];
 
     for (const boulder of [...boulders]) {
+      setPhases((current) => ({
+        ...current,
+        [boulder.id]: "Boulder wird angelegt …",
+      }));
       let createdBoulderId: string | null = null;
       try {
-        const colorName = colors.find((color) => color.id === boulder.colorId)?.name ?? 'Unbekannt';
+        const colorName =
+          colors.find((color) => color.id === boulder.colorId)?.name ??
+          "Unbekannt";
         const isDualColor = Boolean(
-          dualColorAttributeId && boulder.attributeIds.includes(dualColorAttributeId),
+          dualColorAttributeId &&
+            boulder.attributeIds.includes(dualColorAttributeId),
         );
         const colorName2 = isDualColor
-          ? colors.find((color) => color.id === boulder.colorId2)?.name ?? null
+          ? (colors.find((color) => color.id === boulder.colorId2)?.name ??
+            null)
           : null;
         const payload: Record<string, unknown> = {
           name: boulder.name.trim(),
@@ -168,23 +205,23 @@ export function BatchUpload() {
           color_2: colorName2,
           difficulty: boulder.difficulty,
           note: boulder.note.trim() || null,
-          status: 'haengt',
+          status: "haengt",
           // Keep the row private from the instant it is created. The video
           // session RPC replaces this placeholder with the durable session ID.
-          beta_video_status: 'uploading',
+          beta_video_status: "uploading",
         };
 
         if (boulder.spansMultipleSectors && boulder.sectorId2) {
           payload.sector_id_2 = boulder.sectorId2;
         }
 
-        const response = await fetch(`${supabaseUrl}/rest/v1/boulders`, {
-          method: 'POST',
+        const response = await authenticatedFetch(`${supabaseUrl}/rest/v1/boulders`, {
+          method: "POST",
           headers: {
             apikey: supabaseKey,
             Authorization: `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-            Prefer: 'return=representation',
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
           },
           body: JSON.stringify(payload),
         });
@@ -197,29 +234,65 @@ export function BatchUpload() {
         const created = Array.isArray(data) ? data[0] : data;
 
         if (!created?.id) {
-          throw new Error('Boulder konnte nicht erstellt werden.');
+          throw new Error("Boulder konnte nicht erstellt werden.");
         }
         createdBoulderId = created.id;
 
-
         if (boulder.attributeIds.length) {
           try {
-            await setBoulderAttributes.mutateAsync({ boulderId: created.id, attributeIds: boulder.attributeIds });
+            await setBoulderAttributes.mutateAsync({
+              boulderId: created.id,
+              attributeIds: boulder.attributeIds,
+            });
           } catch (error) {
-            devWarn('[BatchUpload] Attribute konnten nicht gespeichert werden:', error);
+            devWarn(
+              "[BatchUpload] Attribute konnten nicht gespeichert werden:",
+              error,
+            );
           }
         }
 
-        logBoulderOperation('create', created.id, created.name ?? null, created, undefined, session.access_token)
-          .then((logged) => logged && queryClient.invalidateQueries({ queryKey: ['boulder-operation-logs'] }))
+        logBoulderOperation(
+          "create",
+          created.id,
+          created.name ?? null,
+          created,
+          undefined,
+          session.access_token,
+        )
+          .then(
+            (logged) =>
+              logged &&
+              queryClient.invalidateQueries({
+                queryKey: ["boulder-operation-logs"],
+              }),
+          )
           .catch(() => undefined);
 
         // The queue is intentionally serial on iOS. Finish the small thumbnail
         // first so a thumbnail failure cannot race an already-pending video
         // into publishing a Boulder that the batch reports as failed.
-        const thumbSessionId = await startUpload(created.id, boulder.thumbFile!, 'thumbnail', boulder.sectorId);
+        setPhases((current) => ({
+          ...current,
+          [boulder.id]: "Vorschaubild wird übertragen …",
+        }));
+        const thumbSessionId = await startUpload(
+          created.id,
+          boulder.thumbFile!,
+          "thumbnail",
+          boulder.sectorId,
+        );
         await waitForUploadSessions([thumbSessionId]);
-        const videoSessionId = await startUpload(created.id, boulder.videoFile!, 'video', boulder.sectorId);
+        setPhases((current) => ({
+          ...current,
+          [boulder.id]: "Video wird übertragen …",
+        }));
+        const videoSessionId = await startUpload(
+          created.id,
+          boulder.videoFile!,
+          "video",
+          boulder.sectorId,
+        );
 
         setBoulders((prev) =>
           prev.map((item) =>
@@ -231,50 +304,259 @@ export function BatchUpload() {
 
         await waitForUploadSessions([videoSessionId]);
         successfulIds.push(boulder.id);
+        setCompleted(successfulIds.length);
+        setPhases((current) => ({ ...current, [boulder.id]: "Übertragen" }));
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
+        const message =
+          error instanceof Error ? error.message : "Unbekannter Fehler";
         if (createdBoulderId) {
-          await fetch(`${supabaseUrl}/rest/v1/rpc/fail_pending_boulder_video_upload`, {
-            method: 'POST',
-            headers: {
-              apikey: supabaseKey,
-              Authorization: `Bearer ${session.access_token}`,
-              'Content-Type': 'application/json',
+          await authenticatedFetch(
+            `${supabaseUrl}/rest/v1/rpc/fail_pending_boulder_video_upload`,
+            {
+              method: "POST",
+              headers: {
+                apikey: supabaseKey,
+                Authorization: `Bearer ${session.access_token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                p_boulder_id: createdBoulderId,
+                p_error: message.slice(0, 500),
+              }),
             },
-            body: JSON.stringify({
-              p_boulder_id: createdBoulderId,
-              p_error: message.slice(0, 500),
-            }),
-          }).catch(() => undefined);
+          ).catch(() => undefined);
         }
-        devError('[BatchUpload] Fehler beim Queueing:', error);
+        devError("[BatchUpload] Fehler beim Queueing:", error);
         failures.push({ name: boulder.name, error: message });
+        setPhases((current) => ({
+          ...current,
+          [boulder.id]: "Fehlgeschlagen – Entwurf prüfen",
+        }));
         toast.error(`Fehler bei "${boulder.name}": ${message}`);
       }
     }
 
-    setBoulders((prev) => prev.filter((boulder) => !successfulIds.includes(boulder.id)));
+    setBoulders((prev) =>
+      prev.filter((boulder) => !successfulIds.includes(boulder.id)),
+    );
 
     if (successfulIds.length) {
-      toast.success(`${successfulIds.length} Boulder hochgeladen.`, { duration: 3200 });
+      toast.success(`${successfulIds.length} Boulder hochgeladen.`, {
+        duration: 3200,
+      });
       // The database emits the notification only once the Hostinger callback
       // has atomically published all video renditions as ready.
     }
 
     if (failures.length) {
-      toast.error(`${failures.length} Boulder konnten nicht vorbereitet werden.`, { duration: 3200 });
+      toast.error(
+        `${failures.length} Boulder konnten nicht vorbereitet werden.`,
+        { duration: 3200 },
+      );
     }
 
+    setLastSuccess(successfulIds.length);
     setIsProcessing(false);
   };
 
   return (
-    <div className="space-y-6 pb-44">
+    <div className={cn("space-y-4", boulders.length ? "pb-72" : "pb-20")}>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-base font-semibold">Upload-Stapel</h2>
+        <p className="text-sm text-muted-foreground" role="status">
+          {boulders.length} {boulders.length === 1 ? "Entwurf" : "Entwürfe"}
+          {boulders.length > 0 && !isProcessing
+            ? ` · ${readyCount} bereit`
+            : ""}
+        </p>
+      </div>
+      {loading ? (
+        <SetterState loading title="Sektoren und Farben werden geladen …" />
+      ) : failed ? (
+        <SetterState
+          title="Stammdaten konnten nicht geladen werden."
+          onRetry={() => {
+            void queryClient.refetchQueries({ queryKey: ["sectors"] });
+            void colorQuery.refetch();
+            void attributeQuery.refetch();
+          }}
+        />
+      ) : !colors.length || !sectors.length ? (
+        <SetterState
+          title="Sektoren oder Farben fehlen"
+          description="Lege sie zuerst im Adminbereich an."
+        />
+      ) : !boulders.length ? (
+        <SetterState
+          title={
+            lastSuccess
+              ? `${lastSuccess} Boulder übertragen`
+              : "Dein Stapel ist noch leer"
+          }
+          description={
+            lastSuccess
+              ? "Du kannst jetzt weitere Boulder hinzufügen."
+              : "Füge Boulder mit Video und Vorschaubild hinzu. Hochgeladen wird erst, wenn du den Stapel startest."
+          }
+        />
+      ) : (
+        <SetterSurface className="overflow-hidden p-0 sm:p-0">
+          <div className="divide-y divide-border/60">
+            {boulders.map((boulder) => {
+              const colorName =
+                colors.find((c) => c.id === boulder.colorId)?.name ?? "";
+              const secondColor = colors.find(
+                (c) => c.id === boulder.colorId2,
+              )?.name;
+              const preview = queueThumbPreviewUrls.get(boulder.id);
+              const phase = phases[boulder.id];
+              const ready = canSubmitSetterBoulderDraft(
+                boulder,
+                dualColorAttributeId,
+              );
+              return (
+                <article
+                  key={boulder.id}
+                  className="flex flex-wrap items-center gap-3 px-4 py-3"
+                >
+                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-kws-control bg-secondary">
+                    {preview ? (
+                      <img
+                        src={preview}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <ImageIcon className="m-5 h-6 w-6 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-sm font-semibold">
+                      {boulder.name}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {sectors.find((s) => s.id === boulder.sectorId)?.name}
+                      {boulder.sectorId2
+                        ? ` / ${sectors.find((s) => s.id === boulder.sectorId2)?.name ?? ""}`
+                        : ""}{" "}
+                      · Grad {boulder.difficulty ?? "?"}
+                    </p>
+                    <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      <span
+                        aria-hidden="true"
+                        className="h-3.5 w-3.5 shrink-0 rounded-kws-badge ring-1 ring-inset ring-foreground/15"
+                        style={getBoulderColorBackgroundStyle(
+                          colorName,
+                          secondColor,
+                          colors,
+                        )}
+                      />
+                      {getBoulderColorLabel(colorName, secondColor)}
+                    </p>
+                    <p
+                      className={cn(
+                        "mt-1 text-xs",
+                        phase?.startsWith("Fehl")
+                          ? "text-destructive"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {phase ??
+                        (ready
+                          ? "Bereit zum Hochladen"
+                          : "Medien oder Angaben ergänzen")}
+                    </p>
+                  </div>
+                  <div className="ml-auto flex">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`${boulder.name} bearbeiten`}
+                      disabled={isProcessing}
+                      onClick={() => openEditDialog(boulder)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`${boulder.name} aus Stapel entfernen`}
+                      disabled={isProcessing}
+                      onClick={() => setRemoving(boulder)}
+                    >
+                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </SetterSurface>
+      )}
+      <div className="pointer-events-none fixed bottom-[calc(88px+env(safe-area-inset-bottom,0px))] right-4 z-30 flex w-[calc(100%-2rem)] max-w-[600px] flex-col items-end gap-3 md:bottom-6 md:right-8 md:w-[calc(100%-20rem)]">
+        <div className="flex w-full items-center justify-between gap-3 md:justify-end" data-setter-action-row>
+        <UploadOverview placement="inline" />
+        <Button onClick={openAddDialog} aria-label="Boulder hinzufügen" title="Boulder hinzufügen"
+          data-boulder-fab
+          className="pointer-events-auto ml-auto h-14 w-14 shrink-0 gap-2 rounded-kws-card p-0 shadow-medium md:w-auto md:px-5"
+          disabled={isProcessing || loading || failed || !colors.length || !sectors.length}>
+          <Plus className="h-6 w-6" aria-hidden="true" />
+          <span className="hidden md:inline">Boulder hinzufügen</span>
+        </Button>
+        </div>
+      {!!boulders.length && (
+        <div className="pointer-events-auto w-full">
+          <SetterSurface className="space-y-3 shadow-medium">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold" role="status">
+                  {isProcessing
+                    ? `${completed} von ${boulders.length} übertragen`
+                    : `${readyCount} Boulder bereit`}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {isProcessing
+                    ? "Bitte in dieser Ansicht bleiben, bis der Stapel fertig ist."
+                    : "Nicht übernommene Entwürfe gehen beim Neuladen verloren."}
+                </p>
+              </div>
+              <Button
+                className="w-full sm:w-auto"
+                disabled={
+                  isProcessing ||
+                  loading ||
+                  failed ||
+                  readyCount !== boulders.length
+                }
+                onClick={() => void uploadAll()}
+              >
+                {isProcessing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CloudUpload className="mr-2 h-4 w-4" />
+                )}
+                {isProcessing
+                  ? "Upload läuft …"
+                  : `${boulders.length} Boulder hochladen`}
+              </Button>
+            </div>
+            {isProcessing && (
+              <progress
+                className="h-1.5 w-full accent-primary"
+                value={completed}
+                max={boulders.length}
+                aria-label="Übertragene Boulder"
+              />
+            )}
+          </SetterSurface>
+        </div>
+      )}
+      </div>
       <SetterBoulderEditorDialog
         open={isDialogOpen}
-        onOpenChange={(open) => setIsDialogOpen(open)}
-        title={isEditing ? 'Boulder bearbeiten' : 'Boulder hinzufügen'}
-        submitLabel={isEditing ? 'Speichern' : 'In Queue übernehmen'}
+        onOpenChange={setIsDialogOpen}
+        title={isEditing ? "Boulder bearbeiten" : "Boulder hinzufügen"}
+        submitLabel={isEditing ? "Übernehmen" : "Zum Stapel hinzufügen"}
         draft={currentBoulder}
         colors={colors}
         sectors={sectors}
@@ -282,159 +564,21 @@ export function BatchUpload() {
         onDraftChange={setCurrentBoulder}
         onSubmit={saveBoulderFromDialog}
       />
-
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">Überblick</h2>
-          <span className="text-xs text-[#13112B]/45">{boulders.length} Entwürfe</span>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <StatChip label="Entwürfe" value={`${boulders.length}`} />
-          <StatChip label="Medien komplett" value={`${readyCount}`} tone="success" />
-          <StatChip label="Upload" value={isProcessing ? 'Läuft' : 'Bereit'} tone={isProcessing ? 'success' : 'muted'} />
-        </div>
-      </section>
-
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#13112B]">Entwürfe</h2>
-          {boulders.length > 0 ? <span className="text-xs text-[#13112B]/45">{readyCount} uploadbereit</span> : null}
-        </div>
-
-        <div className="overflow-hidden rounded-2xl border border-[#DDE7DF] bg-white shadow-[0_8px_24px_rgba(19,17,43,0.05)]">
-          {boulders.length === 0 ? (
-            <div className="px-6 py-14 text-center">
-              <p className="text-lg font-semibold text-[#13112B]">Noch keine Entwürfe.</p>
-              <p className="mt-2 text-sm text-[#13112B]/58">Nutze den Floating Action Button, um den ersten Entwurf anzulegen.</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-[#E7F0E8]">
-              {boulders.map((boulder) => {
-                const sectorName = sectors.find((sector) => sector.id === boulder.sectorId)?.name ?? 'Sektor?';
-                const sectorName2 = boulder.sectorId2
-                  ? sectors.find((sector) => sector.id === boulder.sectorId2)?.name ?? 'Sektor?'
-                  : null;
-                const colorName = colors.find((color) => color.id === boulder.colorId)?.name ?? 'Farbe?';
-                const previewUrl = queueThumbPreviewUrls.get(boulder.id);
-
-                return (
-                  <article key={boulder.id} className="px-4 py-4 sm:px-5">
-                    <div className="flex items-start gap-4">
-                      <div className="relative h-[118px] w-[88px] shrink-0 overflow-hidden rounded-xl border border-[#E7F0E8] bg-[#EEF1EE]">
-                        {previewUrl ? (
-                          <img src={previewUrl} alt={boulder.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-[#6C6A7E]">
-                            <ImageIcon className="h-6 w-6" />
-                          </div>
-                        )}
-                        <span className="absolute bottom-2 right-2 rounded-xl bg-[#E55A4E] px-2 py-1 text-xs font-bold text-white">
-                          {boulder.difficulty ?? '?'}
-                        </span>
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="line-clamp-2 break-words text-[1.06rem] font-semibold tracking-[-0.02em] text-[#13112B]">
-                              {boulder.name}
-                            </p>
-                            <p className="pt-1 text-sm text-[#13112B]/58">
-                              {sectorName}
-                              {sectorName2 ? ` → ${sectorName2}` : ''}
-                            </p>
-                          </div>
-                          <div className="flex shrink-0 gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-9 w-9 rounded-xl text-[#6C6A7E]"
-                              onClick={() => openEditDialog(boulder)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-9 w-9 rounded-xl text-[#6C6A7E] hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => setBoulders((prev) => prev.filter((item) => item.id !== boulder.id))}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <span
-                            className="inline-flex rounded-xl px-3 py-1 text-xs font-semibold"
-                            style={getBoulderColorBackgroundStyle(
-                              colorName,
-                              colors.find((color) => color.id === boulder.colorId2)?.name,
-                              colors,
-                            )}
-                          >
-                            {getBoulderColorLabel(
-                              colorName,
-                              colors.find((color) => color.id === boulder.colorId2)?.name,
-                            )}
-                          </span>
-                          <span className="rounded-xl border border-[#E7F0E8] bg-[#F7FAF7] px-3 py-1 text-xs font-medium text-[#6C6A7E]">
-                            {boulder.attributeIds.length} Attribute
-                          </span>
-                          {typeof boulder.mapX === 'number' && typeof boulder.mapY === 'number' ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E7F0E8] bg-[#F7FAF7] px-3 py-1 text-xs font-medium text-[#6C6A7E]">
-                              <MapPin className="h-3.5 w-3.5 text-[#69B545]" />
-                              Hallenplan gesetzt
-                            </span>
-                          ) : null}
-                        </div>
-
-                        {boulder.note ? <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#13112B]/60">{boulder.note}</p> : null}
-
-                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                          <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#CFE4B8] bg-[#EEF6E1] px-3 py-1 text-xs font-semibold text-[#4E8A31]">
-                            <Check className="h-3.5 w-3.5" />
-                            Bereit für Upload
-                          </span>
-                          <span className="text-xs text-[#13112B]/45">Video und Thumbnail sind zugeordnet.</span>
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {!isDialogOpen ? (
-        <div className="setter-floating-actions fixed right-4 z-[125] flex flex-col items-end gap-3 md:right-8">
-          {boulders.length > 0 ? (
-            <Button
-              type="button"
-              className="h-14 rounded-2xl bg-[#69B545] px-5 text-white shadow-[0_16px_40px_rgba(105,181,69,0.28)] hover:bg-[#5fa039]"
-              disabled={isProcessing}
-              onClick={() => void uploadAll()}
-            >
-              {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CloudUpload className="mr-2 h-4 w-4" />}
-              Alle hochladen
-            </Button>
-          ) : null}
-
-          <Button
-            type="button"
-            variant="outline"
-            className="h-14 rounded-2xl border-[#DDE7DF] bg-white px-5 text-[#13112B] shadow-[0_14px_36px_rgba(19,17,43,0.10)] hover:bg-[#F7FAF7]"
-            onClick={openAddDialog}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Boulder hinzufügen
-          </Button>
-        </div>
-      ) : null}
+      <SetterConfirm
+        open={!!removing}
+        onOpenChange={(open) => {
+          if (!open) setRemoving(null);
+        }}
+        title="Entwurf entfernen?"
+        description={`„${removing?.name ?? ""}“ wird nur aus diesem Upload-Stapel entfernt.`}
+        confirmLabel="Entfernen"
+        onConfirm={() => {
+          setBoulders((current) =>
+            current.filter((b) => b.id !== removing?.id),
+          );
+          setRemoving(null);
+        }}
+      />
     </div>
   );
 }

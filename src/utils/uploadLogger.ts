@@ -1,4 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
+import { uploadLogTransitionFilter } from '@/lib/uploadRecovery';
 
 type UploadLogStatus =
   | 'pending'
@@ -38,7 +39,7 @@ async function patchUploadLog(
 
   try {
     const response = await window.fetch(
-      `${url}/rest/v1/upload_logs?session_id=eq.${encodeURIComponent(sessionId)}`,
+      `${url}/rest/v1/upload_logs?session_id=eq.${encodeURIComponent(sessionId)}${uploadLogTransitionFilter(updates.status as string | undefined)}`,
       {
         method: 'PATCH',
         headers: {

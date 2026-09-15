@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 
 type UserMetadata = Record<string, unknown>;
@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePreloadSectorImages } from './usePreloadSectorImages';
 import { usePreloadBoulderThumbnails } from './usePreloadBoulderThumbnails';
+import { authenticatedFetch, getCurrentSession, SESSION_REQUIRED_EVENT } from '@/lib/authenticatedFetch';
+import { SessionRecoveryDialog } from '@/components/SessionRecoveryDialog';
 
 interface AuthContextType {
   user: User | null;
@@ -18,6 +20,7 @@ interface AuthContextType {
   resendConfirmation: (email: string) => Promise<void>;
   loading: boolean;
   authTransition: AuthTransition;
+  reauthRequired: boolean;
 }
 
 export type AuthTransition = 'signing-in' | 'signing-up' | 'signing-out' | null;
@@ -30,6 +33,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [authTransition, setAuthTransition] = useState<AuthTransition>(null);
   const queryClient = useQueryClient(); // Get queryClient at component level
+  const lastSession = useRef<Session | null>(null);
+  const intentionalSignOut = useRef(false);
+  const [reauthRequired, setReauthRequired] = useState(false);
+  const acceptSession = useCallback((next: Session | null) => {
+    if (!next && lastSession.current && !intentionalSignOut.current) {
+      // Keep the mounted workspace only as a locked draft, never as authority.
+      // Supabase has removed the real session; protected requests fail closed.
+      setReauthRequired(true);
+      return;
+    }
+    if (next && lastSession.current && next.user.id !== lastSession.current.user.id) {
+      queryClient.clear();
+      window.location.assign('/'); // Do not transfer an old account's drafts.
+      return;
+    }
+    lastSession.current = next;
+    setSession(next);
+    setUser(next?.user ?? null);
+    if (next) setReauthRequired(false);
+  }, [queryClient]);
+
+  useEffect(() => {
+    const requireSession = () => {
+      if (lastSession.current && !intentionalSignOut.current) setReauthRequired(true);
+    };
+    window.addEventListener(SESSION_REQUIRED_EVENT, requireSession);
+    return () => window.removeEventListener(SESSION_REQUIRED_EVENT, requireSession);
+  }, []);
 
   // Sync function to transfer user_metadata to profiles table
   const syncMetadataToProfiles = async (userId: string, metadata: UserMetadata | null | undefined) => {
@@ -99,6 +130,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // Wait a bit and check again (trigger might be delayed)
       setTimeout(async () => {
+        if (intentionalSignOut.current || lastSession.current?.user.id !== userId) return;
         const { data: retryProfile } = await supabase
           .from('profiles')
           .select('id, first_name, last_name, full_name, email')
@@ -176,6 +208,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let mounted = true;
+    let synchronizedProfile = '';
     const loadingStartTime = Date.now();
     let sessionLoaded = false; // Track if session has been loaded
     
@@ -204,8 +237,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (mounted && loading && !sessionLoaded) {
         console.error('[Auth] CRITICAL: Auth still loading after 10s - forcing reset');
         setLoading(false);
-        setSession(null);
-        setUser(null);
+        // Do not clear a session that arrived while initialization was pending.
         // Clear potentially corrupted session storage
         try {
           sessionStorage.removeItem('preserveRoute');
@@ -225,7 +257,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     try {
       const { data: { subscription: sub } } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
+        (event, session) => {
           if (!mounted) return;
           
           // Ignore storage-related errors in the callback
@@ -245,8 +277,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (!sessionLoaded) {
               sessionLoaded = true;
               console.log(`[Auth] ✅ Setting loading to false NOW (event: ${event})`);
-              setSession(session);
-              setUser(session?.user ?? null);
+              acceptSession(session);
               setLoading(false);
               clearTimeout(timeoutId);
               clearTimeout(safetyTimeoutId);
@@ -296,13 +327,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             } else {
               // Session already loaded, just update state without changing loading
               console.log(`[Auth] Session already loaded, updating state only (event: ${event})`);
-              setSession(session);
-              setUser(session?.user ?? null);
+              acceptSession(session);
             }
             
-            // Sync user_metadata to profiles table when session becomes available
-            // This happens on SIGNED_IN, TOKEN_REFRESHED, and INITIAL_SESSION events
-            if (session?.user) {
+            // The SDK awaits this callback while holding its auth lock. All
+            // Supabase I/O must run after it returns, never awaited from here.
+            // Refreshing a token is not a profile change or a reason to rewrite it.
+            if (!session) synchronizedProfile = '';
+            const profileKey = session ? JSON.stringify([session.user.id, session.user.email, session.user.user_metadata]) : '';
+            if (session?.user && event !== 'TOKEN_REFRESHED' && profileKey !== synchronizedProfile) {
+              synchronizedProfile = profileKey;
+              setTimeout(() => { void (async () => {
+              if (!mounted || lastSession.current?.user.id !== session.user.id || intentionalSignOut.current) return;
               const meta = session.user.user_metadata as UserMetadata;
               // Always try to sync - even if metadata is empty, we might need to update email
               // Add email to metadata if not present
@@ -310,7 +346,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 ...meta,
                 email: session.user.email || meta?.email
               };
-              console.log('[Auth] Syncing profile for user:', session.user.id, 'Event:', event, 'Metadata:', metadataWithEmail);
               await syncMetadataToProfiles(session.user.id, metadataWithEmail);
               
               // Check and store roles when user signs in
@@ -348,6 +383,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               });
               
               console.log('[Auth] Critical data prefetch initiated');
+              })().catch(() => { synchronizedProfile = ''; console.warn('[Auth] Background account synchronization failed'); }); }, 0);
             }
           } catch (error: unknown) {
             // Ignore storage access errors
@@ -390,16 +426,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Ignore storage-related errors
           if (error.message?.includes('storage') || error.message?.includes('Storage')) {
             console.warn('[Auth] Storage error loading session (ignored):', error.message);
-            setSession(null);
-            setUser(null);
             setLoading(false);
             clearTimeout(timeoutId);
             return;
           }
           
           console.error('[Auth] Error loading initial session:', error);
-          setSession(null);
-          setUser(null);
           setLoading(false);
           clearTimeout(timeoutId);
           return;
@@ -419,8 +451,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!sessionLoaded) {
           sessionLoaded = true;
           console.log(`[Auth] ✅ Setting loading to false NOW (getSession)`);
-          setSession(session);
-          setUser(session?.user ?? null);
+          acceptSession(session);
           setLoading(false);
           clearTimeout(timeoutId);
           clearTimeout(safetyTimeoutId);
@@ -428,20 +459,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } else {
           // Session already loaded via onAuthStateChange, just update state
           console.log(`[Auth] Session already loaded via onAuthStateChange, updating state only`);
-          setSession(session);
-          setUser(session?.user ?? null);
+          acceptSession(session);
         }
         
-        // Also sync on initial session load
+        // Profile synchronization is deferred by INITIAL_SESSION/SIGNED_IN.
+        // Do not duplicate it here or rewrite profiles on every tab resume.
         if (session?.user) {
-          const meta = session.user.user_metadata as UserMetadata;
-          // Always try to sync - even if metadata is empty, we might need to update email
-          // Add email to metadata if not present
-          const metadataWithEmail = {
-            ...meta,
-            email: session.user.email || meta?.email
-          };
-          await syncMetadataToProfiles(session.user.id, metadataWithEmail);
           
           // Check and store roles if not already in localStorage
           try {
@@ -473,8 +496,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Ignore storage-related errors
         if (error?.message?.includes('storage') || error?.message?.includes('Storage')) {
           console.warn('[Auth] Storage error in getSession (ignored):', error.message);
-          setSession(null);
-          setUser(null);
           setLoading(false);
           clearTimeout(timeoutId);
           clearTimeout(safetyTimeoutId);
@@ -484,8 +505,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Check if it's a timeout error
         if (error?.message?.includes('timeout')) {
           console.warn('[Auth] getSession timeout - continuing without session');
-          setSession(null);
-          setUser(null);
           setLoading(false);
           clearTimeout(timeoutId);
           clearTimeout(safetyTimeoutId);
@@ -493,8 +512,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         
         console.error('[Auth] Exception loading initial session:', error);
-        setSession(null);
-        setUser(null);
         setLoading(false);
         clearTimeout(timeoutId);
         clearTimeout(safetyTimeoutId);
@@ -516,140 +533,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []); // Remove loading dependency to prevent infinite loops - only run once on mount
 
-  // Re-check session when tab becomes visible (after initial mount)
-  // Only check current session, don't refresh it (refreshSession can invalidate valid sessions)
-  const restoreSessionAfterResume = async (): Promise<Session | null> => {
-    const retryDelaysMs = [0, 400, 1200];
-
-    for (const delayMs of retryDelaysMs) {
-      if (delayMs > 0) {
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-      }
-
-      const { data: { session: existingSession }, error } = await supabase.auth.getSession();
-      if (!error && existingSession) {
-        return existingSession;
-      }
-    }
-
-    const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
-    if (!refreshError && refreshedSession) {
-      return refreshedSession;
-    }
-
-    return null;
-  };
-
+  // Resume and reconnect share the same bounded session coordinator as REST.
+  // No full-page loading state: an open editor must stay mounted.
   useEffect(() => {
-    if (loading) return; // Don't interfere with initial loading
-    
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible') {
-        console.log('[Auth] Tab visible - checking session and refreshing data');
-        try {
-          // Just check current session, don't refresh it
-          // refreshSession() can invalidate valid sessions, so we only use it when necessary
-          const { data: { session }, error } = await supabase.auth.getSession();
-          
-          if (error) {
-            console.warn('[Auth] Error getting session on visibility change:', error);
-            return;
-          }
-          
-          // Update state with current session if it changed
-          if (session) {
-            let rolesRefreshed = false;
-            
-            if (!user || session.user.id !== user.id) {
-              console.log('[Auth] Session found on visibility change, updating state');
-              setSession(session);
-              setUser(session.user);
-              
-              // CRITICAL: Always check and store roles when coming back to app
-              // This ensures roles are refreshed after reload or when app comes back from background
-              // Check localStorage first (persists), then sessionStorage (backward compatibility)
-              let storedUserId = localStorage.getItem('nav_userId');
-              if (storedUserId === null) {
-                storedUserId = sessionStorage.getItem('nav_userId');
-              }
-              
-              if (storedUserId !== session.user.id) {
-                console.log('[Auth] User ID changed or not stored, checking roles');
-                await checkAndStoreRoles(session.user.id, session.access_token ?? '');
-                rolesRefreshed = true;
-              } else {
-                let storedAdmin = localStorage.getItem('nav_isAdmin');
-                let storedSetter = localStorage.getItem('nav_isSetter');
-                if (storedAdmin === null) storedAdmin = sessionStorage.getItem('nav_isAdmin');
-                if (storedSetter === null) storedSetter = sessionStorage.getItem('nav_isSetter');
-                if (storedAdmin === null || storedSetter === null) {
-                  console.log('[Auth] Roles missing in storage, refreshing roles');
-                  await checkAndStoreRoles(session.user.id, session.access_token ?? '');
-                  rolesRefreshed = true;
-                }
-              }
-            } else {
-              let storedAdmin = localStorage.getItem('nav_isAdmin');
-              let storedSetter = localStorage.getItem('nav_isSetter');
-              if (storedAdmin === null) storedAdmin = sessionStorage.getItem('nav_isAdmin');
-              if (storedSetter === null) storedSetter = sessionStorage.getItem('nav_isSetter');
-              if (storedAdmin === null || storedSetter === null) {
-                console.log('[Auth] Same user - roles missing, refreshing roles');
-                await checkAndStoreRoles(session.user.id, session.access_token ?? '');
-                rolesRefreshed = true;
-              } else {
-                console.log('[Auth] Same user - refreshing roles to ensure they are current');
-                await checkAndStoreRoles(session.user.id, session.access_token ?? '');
-                rolesRefreshed = true;
-              }
-            }
-            
-            // CRITICAL: Force a re-render of components that use roles
-            // This ensures RoleTabs and Sidebar update when roles are refreshed
-            // We do this by triggering a small state update
-            if (rolesRefreshed) {
-              // Force React to re-render components that depend on roles
-              // This is done by updating the user state slightly
-              setUser(prevUser => prevUser ? { ...prevUser } : null);
-            }
-            
-            // CRITICAL: Refetch React Query queries when app becomes visible
-            // This ensures data is fresh when user comes back to the app
-            setTimeout(async () => {
-              try {
-                const { refetchOnVisibilityChange } = await import('@/utils/cacheUtils');
-                const queryClient = (window as Window & { __queryClient?: { clear: () => void } }).__queryClient;
-                if (queryClient) {
-                  await refetchOnVisibilityChange(queryClient);
-                }
-              } catch (refetchError) {
-                console.error('[Auth] Error refetching queries on visibility change:', refetchError);
-              }
-            }, 500);
-          } else if (user) {
-            console.log('[Auth] Session missing on visibility change, attempting restore before logout');
-            const restoredSession = await restoreSessionAfterResume();
-            if (restoredSession) {
-              setSession(restoredSession);
-              setUser(restoredSession.user);
-              await checkAndStoreRoles(restoredSession.user.id, restoredSession.access_token ?? '');
-              setUser((prevUser) => (prevUser ? { ...prevUser } : restoredSession.user));
-              return;
-            }
-
-            console.log('[Auth] Session could not be restored on visibility change, clearing state');
-            setSession(null);
-            setUser(null);
-          }
-        } catch (error) {
-          console.error('[Auth] Error in visibility change handler:', error);
+    if (loading) return;
+    let mounted = true;
+    let checking = false;
+    const resume = async () => {
+      if (document.visibilityState !== 'visible' || checking || intentionalSignOut.current) return;
+      checking = true;
+      try {
+        const current = await getCurrentSession();
+        if (!mounted || intentionalSignOut.current) return;
+        acceptSession(current);
+        if (current) {
+          await checkAndStoreRoles(current.user.id, current.access_token);
+          if (!mounted) return;
+          // Retry mounted reads, not mutations or upload jobs.
+          await queryClient.refetchQueries({ type: 'active' });
         }
-      }
+      } catch {
+        // A network outage is not a logout. Requests expose their own retry UI.
+        console.warn('[Auth] Session check unavailable; keeping the current workspace');
+      } finally { checking = false; }
     };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [user, loading]);
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('online', resume);
+    return () => {
+      mounted = false;
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('online', resume);
+    };
+  }, [loading, acceptSession, queryClient]);
 
   // Check and store roles via direct user_roles REST (avoids has_role RPC overload ambiguity)
   const checkAndStoreRoles = async (userId: string, accessToken: string) => {
@@ -659,17 +574,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log('[Auth] Checking roles for user:', userId);
       const [adminRes, setterRes] = await Promise.all([
-        window.fetch(`${url}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.admin&select=user_id`, {
+        authenticatedFetch(`${url}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.admin&select=user_id`, {
           method: 'GET',
           headers: { apikey: key, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         }),
-        window.fetch(`${url}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.setter&select=user_id`, {
+        authenticatedFetch(`${url}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.setter&select=user_id`, {
           method: 'GET',
           headers: { apikey: key, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         }),
       ]);
-      const adminData = adminRes.ok ? await adminRes.json() : [];
-      const setterData = setterRes.ok ? await setterRes.json() : [];
+      // A failed role lookup is unknown, never an authoritative role revocation.
+      if (!adminRes.ok || !setterRes.ok || lastSession.current?.user.id !== userId) return;
+      const adminData = await adminRes.json();
+      const setterData = await setterRes.json();
+      if (!Array.isArray(adminData) || !Array.isArray(setterData)) return;
       const isAdmin = Array.isArray(adminData) && adminData.length > 0;
       const isSetter = Array.isArray(setterData) && setterData.length > 0;
       try {
@@ -861,6 +779,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     if (authTransition === 'signing-out') return;
     setAuthTransition('signing-out');
+    intentionalSignOut.current = true;
+    setReauthRequired(false);
 
     // Try to sign out from Supabase first with a short timeout for fast UX
     // This ensures the session is properly invalidated on the server
@@ -972,14 +892,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Preload sector images when user is logged in
-  usePreloadSectorImages(!!session);
+  usePreloadSectorImages(!!session && !reauthRequired);
   
   // Preload boulder thumbnails when user is logged in
-  usePreloadBoulderThumbnails(!!session);
+  usePreloadBoulderThumbnails(!!session && !reauthRequired);
+
+  const reconnectSession = async (password: string) => {
+    const expected = lastSession.current;
+    if (!expected?.user.email) throw new Error('Kein Konto verfügbar');
+    const { data, error } = await supabase.auth.signInWithPassword({ email: expected.user.email, password });
+    if (error || !data.session || data.session.user.id !== expected.user.id) throw new Error('Anmeldung fehlgeschlagen');
+    acceptSession(data.session);
+    // No redirect, reload, mutation retry or cache clear for the same account.
+    void queryClient.refetchQueries({ type: 'active' });
+  };
 
   return (
-    <AuthContext.Provider value={{ user, session, signIn, signUp, signOut, resetPassword, resendConfirmation, loading, authTransition }}>
+    <AuthContext.Provider value={{ user, session, signIn, signUp, signOut, resetPassword, resendConfirmation, loading, authTransition, reauthRequired }}>
       {children}
+      {reauthRequired && user?.email && <SessionRecoveryDialog email={user.email} onReconnect={reconnectSession} onSignOut={signOut} />}
     </AuthContext.Provider>
   );
 };

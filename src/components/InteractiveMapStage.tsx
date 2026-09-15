@@ -9,6 +9,8 @@ import {
   type ReactNode,
 } from 'react';
 import { cn } from '@/lib/utils';
+import { Hand, Minus, Plus, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface InteractiveMapStageProps {
   width: number;
@@ -20,6 +22,8 @@ interface InteractiveMapStageProps {
   lockAspectRatio?: boolean;
   panPadding?: number;
   disablePanZoom?: boolean;
+  /** Embedded editors must leave ordinary wheel/touch gestures to the page. */
+  allowPageScroll?: boolean;
   onViewportChange?: (viewport: { scale: number; translate: Point }) => void;
 }
 
@@ -48,6 +52,7 @@ export function InteractiveMapStage({
   lockAspectRatio = true,
   panPadding = 0,
   disablePanZoom = false,
+  allowPageScroll = false,
   onViewportChange,
 }: InteractiveMapStageProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -59,6 +64,7 @@ export function InteractiveMapStage({
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [scale, setScale] = useState(1);
   const [translate, setTranslate] = useState<Point>({ x: 0, y: 0 });
+  const [panEnabled, setPanEnabled] = useState(false);
 
   useEffect(() => {
     if (disablePanZoom) return;
@@ -127,10 +133,12 @@ export function InteractiveMapStage({
   );
 
   useEffect(() => {
+    if (disablePanZoom) return;
     const node = containerRef.current;
     if (!node) return;
 
     const handleWheel = (event: WheelEvent) => {
+      if (allowPageScroll && !event.ctrlKey && !event.metaKey) return;
       if (!event.cancelable) return;
       event.preventDefault();
 
@@ -143,9 +151,10 @@ export function InteractiveMapStage({
 
     node.addEventListener('wheel', handleWheel, { passive: false });
     return () => node.removeEventListener('wheel', handleWheel);
-  }, [disablePanZoom, scale, updateScale]);
+  }, [allowPageScroll, disablePanZoom, scale, updateScale]);
 
   const resetView = useCallback(() => {
+    setPanEnabled(false);
     setScale(1);
     setTranslate({ x: 0, y: 0 });
     dragStartRef.current = null;
@@ -155,14 +164,14 @@ export function InteractiveMapStage({
 
   useEffect(() => {
     resetView();
-  }, [resetView, width, height, compact]);
+  }, [resetView, width, height, compact, disablePanZoom]);
 
   useEffect(() => {
     onViewportChange?.({ scale, translate });
   }, [onViewportChange, scale, translate]);
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (disablePanZoom) return;
+    if (disablePanZoom || (allowPageScroll && !panEnabled)) return;
     const node = containerRef.current;
     if (!node) return;
     pointerPositionsRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -255,7 +264,8 @@ export function InteractiveMapStage({
       <div
         ref={containerRef}
         className={cn(
-          'relative w-full max-w-full touch-none overflow-hidden rounded-kws-card border border-white bg-[#FBFDF9] shadow-[0_10px_30px_rgba(25,36,54,0.07)]',
+          'relative w-full max-w-full overflow-hidden rounded-kws-card border border-white bg-[#FBFDF9] shadow-[0_10px_30px_rgba(25,36,54,0.07)]',
+          disablePanZoom || (allowPageScroll && !panEnabled) ? 'touch-pan-y' : 'touch-none',
           !disablePanZoom && scale > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-default',
           viewportClassName,
         )}
@@ -268,6 +278,13 @@ export function InteractiveMapStage({
         <div className="absolute inset-0 h-full w-full" style={transformStyle}>
           {children}
         </div>
+        {allowPageScroll && !disablePanZoom && <div className="absolute right-2 top-2 flex gap-1 rounded-kws-control bg-card p-1 shadow-soft" aria-label="Kartenzoom">
+          <Button size="icon" variant={panEnabled ? 'default' : 'ghost'} aria-label={panEnabled ? 'Seitenscrollen aktivieren' : 'Karte verschieben'} aria-pressed={panEnabled} onClick={() => setPanEnabled(value => !value)}><Hand className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" aria-label="Karte verkleinern" disabled={scale <= MIN_SCALE} onClick={() => updateScale(scale - ZOOM_STEP)}><Minus className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" aria-label="Karte vergrößern" disabled={scale >= MAX_SCALE} onClick={() => updateScale(scale + ZOOM_STEP)}><Plus className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" aria-label="Kartenansicht zurücksetzen" disabled={scale === 1 && translate.x === 0 && translate.y === 0} onClick={resetView}><RotateCcw className="h-4 w-4" /></Button>
+        </div>}
+        {allowPageScroll && panEnabled && !disablePanZoom && <p className="pointer-events-none absolute bottom-2 left-2 rounded-kws-control bg-card px-2 py-1 text-xs shadow-soft">Karte bewegen · Hand erneut antippen zum Scrollen</p>}
       </div>
     </div>
   );

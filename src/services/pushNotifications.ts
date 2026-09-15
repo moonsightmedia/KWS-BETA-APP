@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { summarizePushResponse, type PushDeliveryReport } from '@/lib/pushDeliveryReport';
 
 const devLog = (...args: unknown[]) => { if (import.meta.env.DEV) console.log(...args); };
 const devWarn = (...args: unknown[]) => { if (import.meta.env.DEV) console.warn(...args); };
@@ -6,9 +7,9 @@ const devError = (...args: unknown[]) => { if (import.meta.env.DEV) console.erro
 
 /**
  * Service for sending push notifications
- * 
+ *
  * This service handles the delivery of push notifications to devices.
- * 
+ *
  * Implementation options:
  * 1. Supabase Edge Function (recommended)
  * 2. External service (OneSignal, Firebase Admin SDK)
@@ -30,22 +31,24 @@ export const sendPushNotification = async (
   userId: string,
   payload: PushNotificationPayload,
   sessionOverride?: any
-): Promise<void> => {
+): Promise<PushDeliveryReport> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
   devLog('[PushNotifications] 🔔 sendPushNotification called:', { userId, payload });
   try {
     // CRITICAL: Get session for RLS
     devLog('[PushNotifications] 🔍 Getting session...');
-    
+
     let session = sessionOverride;
-    
+
     // If no session provided, try to get it (with timeout to prevent hanging)
     if (!session) {
       devLog('[PushNotifications] No session provided, fetching...');
       const sessionPromise = supabase.auth.getSession();
-      const timeoutPromise = new Promise<never>((_, reject) => 
+      const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Session timeout after 5s')), 5000)
       );
-      
+
       let sessionResult;
       try {
         sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
@@ -53,22 +56,22 @@ export const sendPushNotification = async (
         devError('[PushNotifications] ❌ Session timeout:', timeoutError);
         throw new Error('Session timeout - please try again');
       }
-      
+
       const { data: { session: fetchedSession }, error: sessionError } = sessionResult as any;
-      
+
       if (sessionError) {
         devError('[PushNotifications] ❌ Error getting session:', sessionError);
         throw new Error(`Session error: ${sessionError.message}`);
       }
-      
+
       session = fetchedSession;
     }
-    
+
     if (!session) {
       devWarn('[PushNotifications] ❌ No session, skipping push notification');
       throw new Error('No active session found');
     }
-    
+
     devLog('[PushNotifications] ✅ Session found:', { userId: session.user?.id });
 
     // Use direct fetch instead of QueryBuilder to avoid hanging issues after reload
@@ -84,6 +87,7 @@ export const sendPushNotification = async (
       `${SUPABASE_URL}/rest/v1/notification_preferences?user_id=eq.${userId}&select=push_enabled`,
       {
         method: 'GET',
+        signal: controller.signal,
         headers: {
           'apikey': SUPABASE_KEY,
           'Authorization': `Bearer ${session.access_token}`,
@@ -93,8 +97,7 @@ export const sendPushNotification = async (
     );
 
     if (!preferencesResponse.ok) {
-      devError('[PushNotifications] Error fetching preferences:', await preferencesResponse.text());
-      return;
+      throw new Error('Push-Einstellungen konnten nicht geprüft werden');
     }
 
     const preferencesArray = await preferencesResponse.json();
@@ -103,8 +106,7 @@ export const sendPushNotification = async (
     devLog('[PushNotifications] 📋 Preferences:', preferences);
 
     if (!preferences?.push_enabled) {
-      devLog('[PushNotifications] ❌ User has push notifications disabled');
-      return;
+      return { accepted: 0, rejected: 0, unconfirmed: 0, skipped: 'disabled' };
     }
     devLog('[PushNotifications] ✅ Push notifications enabled');
 
@@ -113,6 +115,7 @@ export const sendPushNotification = async (
       `${SUPABASE_URL}/rest/v1/push_tokens?user_id=eq.${userId}&select=token,platform`,
       {
         method: 'GET',
+        signal: controller.signal,
         headers: {
           'apikey': SUPABASE_KEY,
           'Authorization': `Bearer ${session.access_token}`,
@@ -122,18 +125,16 @@ export const sendPushNotification = async (
     );
 
     if (!tokensResponse.ok) {
-      devError('[PushNotifications] Error fetching tokens:', await tokensResponse.text());
-      return;
+      throw new Error('Registrierte Geräte konnten nicht geprüft werden');
     }
 
     const tokensArray = await tokensResponse.json();
     const tokens = Array.isArray(tokensArray) ? tokensArray : [];
 
-    devLog('[PushNotifications] 🔑 Tokens found:', tokens.length, tokens);
+    devLog('[PushNotifications] Registered devices:', tokens.length);
 
     if (tokens.length === 0) {
-      devLog('[PushNotifications] ❌ No push tokens found for user');
-      return;
+      return { accepted: 0, rejected: 0, unconfirmed: 0, skipped: 'no_devices' };
     }
     devLog('[PushNotifications] ✅ Push tokens available');
 
@@ -148,12 +149,13 @@ export const sendPushNotification = async (
         action_url: payload.action_url,
       },
     };
-    
+
     devLog('[PushNotifications] 📤 Calling Edge Function:', edgeFunctionUrl);
-    devLog('[PushNotifications] 📤 Request body:', JSON.stringify(requestBody, null, 2));
-    
+
+
     const edgeFunctionResponse = await fetch(edgeFunctionUrl, {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json',
@@ -165,57 +167,56 @@ export const sendPushNotification = async (
     devLog('[PushNotifications] 📥 Edge Function response:', {
       status: edgeFunctionResponse.status,
       ok: edgeFunctionResponse.ok,
-      body: responseText,
     });
 
     if (!edgeFunctionResponse.ok) {
-      devError('[PushNotifications] ❌ Error calling Edge Function:', responseText);
-      throw new Error(`Edge Function error: ${responseText}`);
+
+      throw new Error('Push-Dienst nicht erreichbar (HTTP ' + edgeFunctionResponse.status + ')');
     }
 
     const responseData = JSON.parse(responseText);
-    devLog('[PushNotifications] 📥 Edge Function response data:', JSON.stringify(responseData, null, 2));
-    
+
+
     // Prüfe ob FCM erfolgreich war und lösche ungültige Tokens
     const invalidTokens: string[] = [];
     if (responseData.results && Array.isArray(responseData.results)) {
       responseData.results.forEach((result: any, index: number) => {
         if (result.success) {
-          devLog(`[PushNotifications] ✅ Result ${index + 1} (${result.platform}): Success`, result.result);
+          devLog('[PushNotifications] Provider accepted request', index + 1);
         } else {
-          devError(`[PushNotifications] ❌ Result ${index + 1} (${result.platform}): Failed`, result.error || result.result);
-          
+          devWarn('[PushNotifications] Provider rejected request', index + 1);
+
           // Check if token is invalid (UNREGISTERED, INVALID_ARGUMENT, etc.)
           const errorStr = JSON.stringify(result.error || result.result || '');
           if (errorStr.includes('UNREGISTERED') || errorStr.includes('INVALID_ARGUMENT') || errorStr.includes('NOT_FOUND')) {
-            devWarn(`[PushNotifications] ⚠️ Token ${index + 1} is invalid, will be deleted:`, result.token);
-            if (result.token) {
+
+            if (result.token && tokens.some(token => token.token === result.token)) {
               invalidTokens.push(result.token);
             }
           }
         }
       });
     }
-    
+
     // Delete invalid tokens from database
     if (invalidTokens.length > 0) {
       devLog(`[PushNotifications] 🗑️ Deleting ${invalidTokens.length} invalid token(s)...`);
       for (const invalidToken of invalidTokens) {
         try {
-          await deleteInvalidToken(invalidToken, session);
+          await deleteInvalidToken(invalidToken, session, controller.signal);
         } catch (deleteError) {
           devError(`[PushNotifications] ❌ Error deleting invalid token:`, deleteError);
         }
       }
     }
-    
+
     devLog('[PushNotifications] ✅ Push notification sent successfully:', {
       userId,
       tokens: tokens.length,
       invalidTokensDeleted: invalidTokens.length,
       payload,
-      response: responseData,
     });
+    return summarizePushResponse(responseData, tokens.length);
   } catch (error: any) {
     devError('[PushNotifications] ❌ Error sending push notification:', error);
     devError('[PushNotifications] ❌ Error details:', {
@@ -225,13 +226,15 @@ export const sendPushNotification = async (
     });
     // Re-throw to let caller handle it
     throw error;
+  } finally {
+    clearTimeout(timeout);
   }
 };
 
 /**
  * Delete an invalid push token from the database
  */
-const deleteInvalidToken = async (token: string, session: any): Promise<void> => {
+const deleteInvalidToken = async (token: string, session: any, signal?: AbortSignal): Promise<void> => {
   try {
     const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
     const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -244,6 +247,7 @@ const deleteInvalidToken = async (token: string, session: any): Promise<void> =>
       `${SUPABASE_URL}/rest/v1/push_tokens?token=eq.${encodeURIComponent(token)}`,
       {
         method: 'DELETE',
+        signal,
         headers: {
           'apikey': SUPABASE_KEY,
           'Authorization': `Bearer ${session.access_token}`,
@@ -259,7 +263,7 @@ const deleteInvalidToken = async (token: string, session: any): Promise<void> =>
       throw new Error(`HTTP ${deleteResponse.status}: ${errorText}`);
     }
 
-    devLog(`[PushNotifications] ✅ Invalid token deleted: ${token.substring(0, 20)}...`);
+    devLog('[PushNotifications] Invalid device registration removed');
   } catch (error) {
     devError('[PushNotifications] Error deleting invalid token:', error);
     throw error;
@@ -278,7 +282,7 @@ export const sendPushNotificationForNotification = async (
   try {
     // CRITICAL: Get session for RLS
     let session = sessionOverride;
-    
+
     if (!session) {
       const sessionPromise = supabase.auth.getSession();
       const timeoutPromise = new Promise<never>((_, reject) =>
@@ -339,7 +343,7 @@ export const sendPushNotificationForNotification = async (
     await sendPushNotification(notification.user_id, {
       title: notification.title,
       body: notification.message,
-      data: notification.data || {},
+      data: { ...notification.data, notification_id: notificationId },
       action_url: notification.action_url || undefined,
     }, session); // Pass session to avoid re-fetching
   } catch (error) {

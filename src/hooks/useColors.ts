@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { supabaseRestRequest } from '@/lib/supabaseRest';
+import { persistColorOrder, type ColorPosition } from '@/lib/colorOrder';
 
 export interface ColorRow {
   id: string;
@@ -22,6 +23,76 @@ export function useColors() {
     ),
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnMount: true,
+  });
+}
+
+// The public picker stays active-only. Administrators must also be able to
+// find and reactivate a disabled color without changing the public catalog.
+export function useAdminColors() {
+  return useQuery<ColorRow[]>({
+    queryKey: ['colors', 'admin'],
+    // Same public read policy/transport as useColors; only the admin view
+    // includes inactive rows. Writes still require authenticated admin RLS.
+    queryFn: () => supabaseRestRequest<ColorRow[]>(
+      '/rest/v1/colors?select=*&order=sort_order.asc,name.asc',
+    ),
+  });
+}
+
+export function useAddDefaultColors() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('colors').upsert([
+        { name: 'Grün', hex: '#22c55e', sort_order: 1 },
+        { name: 'Gelb', hex: '#facc15', sort_order: 2 },
+        { name: 'Blau', hex: '#3b82f6', sort_order: 3 },
+        { name: 'Orange', hex: '#f97316', sort_order: 4 },
+        { name: 'Rot', hex: '#ef4444', sort_order: 5 },
+        { name: 'Schwarz', hex: '#111827', sort_order: 6 },
+        { name: 'Weiß', hex: '#ffffff', sort_order: 7 },
+        { name: 'Lila', hex: '#a855f7', sort_order: 8 },
+      ], { onConflict: 'name', ignoreDuplicates: true });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['colors'] });
+      toast.success('Fehlende Standardfarben ergänzt');
+    },
+  });
+}
+
+export function useReorderColors() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ expected, ids }: { expected: ColorPosition[]; ids: string[] }) => {
+      const read = async () => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15_000);
+        try {
+          const { data, error } = await supabase.from('colors').select('id, sort_order').abortSignal(controller.signal);
+          if (error) throw error;
+          return data;
+        } finally { clearTimeout(timer); }
+      };
+      return persistColorOrder(expected, ids, {
+        read,
+        update: async (id, from, to) => {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 15_000);
+          try {
+            const { data, error } = await supabase.from('colors')
+              .update({ sort_order: to }).eq('id', id).eq('sort_order', from).select('id').abortSignal(controller.signal);
+            if (error) throw error;
+            if (data?.length !== 1) throw new Error('Farbe geändert oder keine Schreibberechtigung.');
+          } finally { clearTimeout(timer); }
+        },
+      });
+    },
+    // Both public pickers and the admin list must refresh, including after a
+    // partially failed write. No optimistic success can hide a server error.
+    onSettled: () => qc.invalidateQueries({ queryKey: ['colors'] }),
+    onSuccess: () => toast.success('Reihenfolge gespeichert'),
   });
 }
 
@@ -129,8 +200,9 @@ export function useDeleteColor() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('colors').delete().eq('id', id);
+      const { data, error } = await supabase.from('colors').delete().eq('id', id).select('id');
       if (error) throw error;
+      if (!data?.length) throw new Error('Farbe konnte nicht gelöscht werden. Prüfe deine Berechtigung und lade die Liste neu.');
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['colors'] });

@@ -56,6 +56,8 @@ export type UploadStatus =
   | 'error'
   | 'failed'
   | 'restoring'
+  | 'server_processing'
+  | 'recovery_review'
   | 'cancelled';
 
 export function isNativeVideoUploadFile(

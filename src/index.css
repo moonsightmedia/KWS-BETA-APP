@@ -15,6 +15,7 @@ All colors MUST be HSL.
     --mobile-page-bottom-padding: calc(var(--mobile-nav-content-height) + var(--app-safe-area-bottom) + 32px);
 
     --background: 0 0% 100%;
+    --canvas: 120 9% 98%;
     --foreground: 217 37% 15%;
 
     --card: 0 0% 100%;
@@ -24,31 +25,36 @@ All colors MUST be HSL.
     --popover-foreground: 217 37% 15%;
 
     --primary: 118 57% 45%;
-    --primary-foreground: 0 0% 100%;
+    /* Filled controls retain the original brand green; contrast comes from ink. */
+    --primary-strong: var(--primary);
+    --primary-ink: 118 57% 30%;
+    --primary-foreground: 217 37% 15%;
 
     --secondary: 120 8% 94%;
     --secondary-foreground: 217 37% 15%;
+    --switch-track: 129 10% 86%;
 
     --muted: 120 8% 94%;
     --muted-foreground: 203 6% 42%;
 
     --accent: 118 57% 45%;
-    --accent-foreground: 0 0% 100%;
+    --accent-foreground: 217 37% 15%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 5 55% 45%;
     --destructive-foreground: 0 0% 100%;
     
     --success: 118 57% 45%;
-    --success-foreground: 0 0% 100%;
+    --success-foreground: 217 37% 15%;
 
     --border: 120 8% 88%;
     --input: 120 8% 88%;
-    --ring: 118 57% 45%;
+    --ring: 217 37% 15%;
 
-    --radius: 1rem;
+    --radius: 0.75rem;
     --radius-kws-badge: 0.25rem;
     --radius-kws-control: 0.5rem;
     --radius-kws-card: 0.75rem;
+    --kws-icon-stroke: 1.75;
 
     /* Dashboard specific colors */
     --sidebar-bg: 0 0% 100%;
@@ -79,8 +85,8 @@ All colors MUST be HSL.
     --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(120 11% 98%) 100%);
     
     /* Shadows */
-    --shadow-soft: 0 2px 12px hsl(240 10% 10% / 0.04);
-    --shadow-medium: 0 4px 20px hsl(240 10% 10% / 0.08);
+    --shadow-soft: 0 3px 14px hsl(245 43% 12% / 0.07);
+    --shadow-medium: 0 5px 18px hsl(245 43% 12% / 0.08);
     --shadow-strong: 0 8px 32px hsl(240 10% 10% / 0.12);
     
     /* Transitions */
@@ -91,16 +97,22 @@ All colors MUST be HSL.
 
   .dark {
     --background: 118 15% 10%;
+    --canvas: 118 15% 10%;
     --foreground: 120 11% 96%;
 
     --card: 118 15% 14%;
     --card-foreground: 120 11% 96%;
+    --switch-track: 118 8% 35%;
 
     --popover: 118 15% 14%;
     --popover-foreground: 120 11% 96%;
 
     --primary: 118 57% 45%;
-    --primary-foreground: 0 0% 100%;
+    --primary-strong: var(--primary);
+    --primary-foreground: 217 37% 15%;
+
+    --primary-ink: 118 57% 65%;
+    --ring: 120 11% 96%;
 
     --secondary: 118 10% 18%;
     --secondary-foreground: 120 11% 96%;
@@ -109,14 +121,13 @@ All colors MUST be HSL.
     --muted-foreground: 118 8% 60%;
 
     --accent: 118 57% 45%;
-    --accent-foreground: 0 0% 100%;
+    --accent-foreground: 217 37% 15%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 118 10% 20%;
     --input: 118 10% 20%;
-    --ring: 118 57% 45%;
 
     --shadow-soft: 0 2px 12px hsl(0 0% 0% / 0.3);
     --shadow-medium: 0 4px 20px hsl(0 0% 0% / 0.4);
@@ -225,7 +236,7 @@ All colors MUST be HSL.
     font-family: 'Poppins', sans-serif;
   }
   
-  h1, h2, h3, h4, .font-heading {
+  h1, .font-heading {
     font-family: 'Teko', sans-serif;
   }
   
@@ -323,14 +334,9 @@ All colors MUST be HSL.
     }
   }
   
-  /* Icon stroke width - Make icons more visible */
-  svg {
-    stroke-width: 2.5;
-  }
-  
-  /* Specifically target Lucide React icons */
-  [class*="lucide"] {
-    stroke-width: 2.5;
+  /* One outline family. Never override map/graph/custom SVG geometry. */
+  svg[class~="lucide"] {
+    stroke-width: var(--kws-icon-stroke);
   }
   
   /* Quiet neutral scroll indicators, shared with Radix ScrollArea. */
@@ -438,4 +444,70 @@ All colors MUST be HSL.
   .rdp-caption_dropdowns select:hover {
     background-color: #F9FAF9;
   }
+}
+/* Mobile overlays follow one edge-attached sheet geometry. These overrides are
+   intentionally at the primitive boundary, ahead of legacy caller dimensions.
+   Vaul keeps ownership of its drag transform. Confirmations stay content-sized. */
+@media (max-width: 767px) {
+  body .kws-dialog-surface,
+  body .kws-bottom-sheet,
+  body .kws-drawer-surface,
+  body .kws-confirmation-surface {
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: var(--radius-kws-card) var(--radius-kws-card) 0 0 !important;
+    max-height: calc(100dvh - max(8dvh, env(safe-area-inset-top, 0px) + 12px)) !important;
+    overscroll-behavior: contain;
+  }
+  body .kws-dialog-surface,
+  body .kws-bottom-sheet,
+  body .kws-drawer-surface {
+    height: calc(100dvh - max(8dvh, env(safe-area-inset-top, 0px) + 12px)) !important;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--kws-sheet-padding, 0px));
+  }
+  body .kws-dialog-surface,
+  body .kws-confirmation-surface {
+    transform: none !important;
+    overflow-y: auto;
+    animation: kws-sheet-enter 180ms ease-out;
+  }
+  body .kws-confirmation-surface {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+    height: auto !important;
+  }
+  body .kws-dialog-surface[data-scroll-layout="contained"] {
+    overflow: hidden;
+  }
+  .kws-dialog-surface[data-state="closed"],
+  .kws-confirmation-surface[data-state="closed"] {
+    animation: kws-sheet-exit 140ms ease-in;
+  }
+}
+@keyframes kws-sheet-enter {
+  from { translate: 0 24px; opacity: 0; }
+  to { translate: 0 0; opacity: 1; }
+}
+@keyframes kws-sheet-exit {
+  from { translate: 0 0; opacity: 1; }
+  to { translate: 0 24px; opacity: 0; }
+}
+.kws-filter-collapse[data-state="open"] { animation: kws-filter-open 180ms ease-out; }
+.kws-filter-collapse[data-state="closed"] { animation: kws-filter-close 180ms ease-out; }
+@keyframes kws-filter-open {
+  from { height: 0; opacity: 0; }
+  to { height: var(--radix-collapsible-content-height); opacity: 1; }
+}
+@keyframes kws-filter-close {
+  from { height: var(--radix-collapsible-content-height); opacity: 1; }
+  to { height: 0; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kws-dialog-surface, .kws-confirmation-surface { animation: none !important; }
+  .kws-filter-collapse { animation: none !important; }
+  [role="switch"], [role="switch"] > span { transition: none !important; }
 }

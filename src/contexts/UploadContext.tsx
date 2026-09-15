@@ -5,6 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { reportError } from '@/utils/feedbackUtils';
 import { useAuth } from '@/hooks/useAuth';
+import { authenticatedFetch, getCurrentSession } from '@/lib/authenticatedFetch';
+import { classifyRecoveredUpload, mergeRecoveredUploads, readUploadRecovery, uploadLogTransitionFilter, type RecoverableUploadLog, type UploadBoulderEvidence } from '@/lib/uploadRecovery';
 import { compressThumbnail } from '@/integrations/supabase/storage';
 import {
   getVideoApiBase,
@@ -49,9 +51,22 @@ export interface ActiveUpload {
   error?: string;
   sectorId?: string;
   abortController?: AbortController;
+  recoveredAt?: string;
+  recoveryMessage?: string;
+  recoveryLog?: RecoverableUploadLog;
 }
 
 const TERMINAL_UPLOAD_OUTCOME_TTL_MS = 30 * 60 * 1000;
+
+async function readUploadJson<T>(owner: string, table: string, query: URLSearchParams, signal: AbortSignal): Promise<T[]> {
+  const current = await getCurrentSession(signal);
+  if (!current || current.user.id !== owner) throw new Error('Die Anmeldung hat sich geändert.');
+  const response = await authenticatedFetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    signal, headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${current.access_token}` },
+  });
+  if (!response.ok) throw new Error('Upload-Status nicht verfügbar.');
+  return response.json();
+}
 
 interface UploadContextType {
   uploads: ActiveUpload[];
@@ -61,6 +76,8 @@ interface UploadContextType {
   cancelUpload: (sessionId: string) => void;
   removeUpload: (sessionId: string) => void;
   isUploading: boolean;
+  recoveryStatus: 'checking' | 'ready' | 'error';
+  retryRecovery: () => void;
 }
 
 const UploadContext = createContext<UploadContextType | undefined>(undefined);
@@ -91,6 +108,10 @@ async function compressVideoInBackground(
 export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session } = useAuth(); // CRITICAL: Get session from useAuth for RLS after reload
   const [uploads, setUploads] = useState<ActiveUpload[]>([]);
+  const [recoveryStatus, setRecoveryStatus] = useState<'checking' | 'ready' | 'error'>('checking');
+  const [recoveryRevision, setRecoveryRevision] = useState(0);
+  const retryRecovery = useCallback(() => setRecoveryRevision(value => value + 1), []);
+  const recoveryOwner = session?.user.id;
   const uploadsRef = useRef<ActiveUpload[]>([]);
   const abortControllersRef = useRef<Record<string, AbortController>>({});
   const MAX_CONCURRENT_UPLOADS = 1; // Phase 1: serialize iOS uploads to avoid memory kills
@@ -253,8 +274,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (updates.progress !== undefined) updateData.progress = updates.progress;
 
     const attempt = async () => {
-      const response = await window.fetch(
-        `${SUPABASE_URL}/rest/v1/upload_logs?session_id=eq.${sessionId}`,
+      const response = await authenticatedFetch(
+        `${SUPABASE_URL}/rest/v1/upload_logs?session_id=eq.${sessionId}${uploadLogTransitionFilter(updates.status)}`,
         {
           method: 'PATCH',
           headers: {
@@ -397,8 +418,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
              if (progress !== undefined) updateData.progress = progress;
 
              const attempt = async () => {
-                 const response = await window.fetch(
-                     `${SUPABASE_URL}/rest/v1/upload_logs?session_id=eq.${upload.sessionId}`,
+                 const response = await authenticatedFetch(
+                     `${SUPABASE_URL}/rest/v1/upload_logs?session_id=eq.${upload.sessionId}${uploadLogTransitionFilter(status)}`,
                      {
                          method: 'PATCH',
                          headers: {
@@ -999,6 +1020,26 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
      if (!existingUpload) {
        throw new Error('Upload nicht gefunden');
      }
+     if (['server_processing', 'recovery_review'].includes(existingUpload.status)) {
+       throw new Error('Bitte zuerst den Serverstatus prüfen. Dieser Upload darf nicht erneut gestartet werden.');
+     }
+     if (existingUpload.recoveryLog) {
+       // The server may have finished since the overview was opened.
+       const controller = new AbortController();
+       const timeout = setTimeout(() => controller.abort(), 15_000);
+       try {
+         const query = new URLSearchParams({ select: 'id,beta_video_url,beta_video_status,beta_video_upload_session_id,thumbnail_url', id: `eq.${existingUpload.boulderId}` });
+         const rows = await readUploadJson<UploadBoulderEvidence>(existingUpload.recoveryLog.user_id || '', 'boulders', query, controller.signal);
+         if (classifyRecoveredUpload(existingUpload.recoveryLog, rows[0]).kind !== 'restoring') {
+           retryRecovery();
+           throw new Error('Der Serverstatus hat sich geändert. Bitte die aktualisierte Übersicht prüfen.');
+         }
+       } finally { clearTimeout(timeout); }
+     }
+     // Explicit resumption, unlike a delayed progress callback, may reopen a log.
+     if (!await updateUploadLog(sessionId, { status: 'pending', progress: 0, error: null })) {
+       throw new Error('Der Upload konnte nicht zum Fortsetzen vorbereitet werden.');
+     }
 
      const nativeFile = isNativeVideoUploadFile(file) ? file : undefined;
       const targetUpload: ActiveUpload = {
@@ -1009,6 +1050,9 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
        fileSize: getUploadInputSize(file),
        status: 'pending',
         error: undefined,
+        recoveredAt: undefined,
+        recoveryMessage: undefined,
+        recoveryLog: undefined,
       };
 
       clearTerminalUploadStatus(sessionId);
@@ -1025,7 +1069,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
        processingRef.current.delete(targetUpload.sessionId);
        setTimeout(() => processQueue(), 0);
      });
-  }, [uploads, processQueue, clearTerminalUploadStatus]);
+  }, [uploads, processQueue, clearTerminalUploadStatus, retryRecovery, updateUploadLog]);
 
   const waitForUploadSessions = useCallback(async (sessionIds: string[], timeoutMs = 30 * 60 * 1000) => {
     const uniqueIds = [...new Set(sessionIds.filter(Boolean))];
@@ -1190,76 +1234,41 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setUploads(prev => prev.filter(u => u.sessionId !== sessionId));
   }, [uploads, rememberTerminalUploadStatus]);
 
-  // Initial Restore
+  // Read-only, account-scoped reconciliation. Token refresh is not a new queue.
   useEffect(() => {
+    const controller = new AbortController();
+    if (!recoveryOwner) {
+      setUploads(prev => prev.filter(upload => !upload.recoveredAt));
+      setRecoveryStatus('ready');
+      return;
+    }
+    setRecoveryStatus('checking');
     const restore = async () => {
-        const { data: logs, error } = await supabase
-            .from('upload_logs')
-            .select('*')
-            .in('status', ['pending', 'uploading', 'compressing', 'failed']) 
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error('Error restoring uploads:', error);
-            return;
-        }
-
-        if (logs && logs.length > 0) {
-            console.log('[UploadContext] Found', logs.length, 'upload logs to restore');
-            
-            // Filter out uploads that were explicitly removed by user
-            const restored: ActiveUpload[] = logs
-                .filter(log => {
-                    const errorText = (log.error || '').trim();
-                    const shouldExclude = errorText === 'Upload entfernt' || errorText === 'Upload abgebrochen';
-                    
-                    if (shouldExclude) {
-                        console.log('[UploadContext] Excluding upload log (removed by user):', log.session_id, 'error:', errorText);
-                    }
-                    
-                    return !shouldExclude;
-                })
-                .map(log => {
-                    console.log('[UploadContext] Restoring upload log:', {
-                        session_id: log.session_id,
-                        file_name: log.file_name,
-                        db_status: log.status,
-                        progress: log.progress
-                    });
-                    
-                    // CRITICAL: Always set status to 'restoring' for restored uploads
-                    // because File objects cannot be serialized and are lost after reload
-                    // The user must re-select the file to continue the upload
-                    return {
-                        sessionId: log.session_id,
-                        boulderId: log.boulder_id || '',
-                        file: null, // File objects are lost after reload
-                        fileName: log.file_name,
-                        fileSize: log.file_size,
-                        type: log.file_type as 'video' | 'thumbnail',
-                        progress: log.progress || 0,
-                        status: 'restoring' as const, // Always 'restoring' - user must re-select file
-                        error: 'Upload unterbrochen. Datei neu wählen.',
-                        sectorId: log.sector_id
-                    };
-                });
-            
-            console.log('[UploadContext] Restoring', restored.length, 'uploads with status "restoring" (files need to be re-selected)');
-            
-            setUploads(prev => {
-                const existingIds = new Set(prev.map(u => u.sessionId));
-                const newUploads = restored.filter(r => !existingIds.has(r.sessionId));
-                const updated = [...prev, ...newUploads];
-                console.log('[UploadContext] Total uploads after restore:', updated.length);
-                // DON'T process queue - these uploads need files to be re-selected first
-                return updated;
-            });
-        } else {
-            console.log('[UploadContext] No upload logs to restore');
-        }
+      try {
+        const evidence = await readUploadRecovery(recoveryOwner, async <T,>(table: string, query: URLSearchParams): Promise<T[]> => {
+          const timeout = setTimeout(() => controller.abort(), 15_000);
+          try {
+            return await readUploadJson<T>(recoveryOwner, table, query, controller.signal);
+          } finally { clearTimeout(timeout); }
+        });
+        if (controller.signal.aborted) return;
+        const restored: ActiveUpload[] = evidence.flatMap(({ log, decision }) => decision.kind === 'omit' ? [] : [{
+          sessionId: log.session_id, boulderId: log.boulder_id || '', file: null,
+          fileName: log.file_name, fileSize: log.file_size, type: log.file_type,
+          progress: 0, status: decision.kind, error: log.error || undefined,
+          recoveredAt: log.created_at, recoveryMessage: decision.message, recoveryLog: log,
+        }]);
+        setUploads(prev => mergeRecoveredUploads(prev, restored, terminalUploadRegistryRef.current));
+        setRecoveryStatus('ready');
+      } catch {
+        // Aborted obsolete effects must not mutate a new owner's queue.
+        if (!disposed) setRecoveryStatus('error');
+      }
     };
-    restore();
-  }, [processQueue]);
+    let disposed = false;
+    void restore();
+    return () => { disposed = true; controller.abort(); };
+  }, [recoveryOwner, recoveryRevision]);
 
   return (
     <UploadContext.Provider value={{ 
@@ -1269,6 +1278,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         waitForUploadSessions,
         cancelUpload,
         removeUpload,
+        recoveryStatus,
+        retryRecovery,
         isUploading: uploads.some(u => u.status === 'uploading' || u.status === 'compressing' || u.status === 'pending')
       }}>
       {children}

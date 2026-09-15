@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --force",
+    "dev:connected": "vite --mode production --host 127.0.0.1 --port 5173 --strictPort",
     "version:patch": "node scripts/version-bump.cjs patch",
     "version:minor": "node scripts/version-bump.cjs minor",
     "version:major": "node scripts/version-bump.cjs major",

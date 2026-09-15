@@ -21,7 +21,7 @@ export function SectorQRCode({ sectorName, onClose }: SectorQRCodeProps) {
         width: 800, // Higher resolution for download
         margin: 2,
         color: {
-          dark: '#13112B',
+          dark: '#192436',
           light: '#FFFFFF',
         },
       });
@@ -36,32 +36,25 @@ export function SectorQRCode({ sectorName, onClose }: SectorQRCodeProps) {
   };
 
   return (
-    <div className="flex flex-col items-center gap-6 p-4 sm:p-6">
-      <div className="text-center">
-        <h3 className="text-lg font-heading font-bold text-[#13112B] mb-2">
-          QR-Code für {sectorName}
-        </h3>
-        <p className="text-sm text-[#13112B]/60">
-          Scannen Sie diesen Code, um direkt zu den Bouldern dieses Sektors zu gelangen
-        </p>
-      </div>
+    <div className="flex min-w-0 flex-col items-center gap-4 pt-3">
+      <p className="max-w-full break-words text-center text-sm font-semibold text-foreground">{sectorName}</p>
 
-      <div className="bg-white p-4 rounded-xl border border-[#E7F7E9] shadow-sm">
+      <div className="w-fit max-w-full rounded-kws-control bg-white p-3 shadow-soft">
         <QRCodeSVG
           value={qrUrl}
-          size={256}
+          size={220}
           level="H" // High error correction
           bgColor="#FFFFFF"
-          fgColor="#13112B"
+          fgColor="#192436"
           includeMargin={true}
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+      <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[220px]">
         <Button
           onClick={handleDownload}
           disabled={isGenerating}
-          className="h-11 rounded-xl bg-[#36B531] hover:bg-[#2DA029] text-white flex-1 sm:flex-initial min-w-[200px]"
+          className="h-11 rounded-kws-control bg-primary hover:bg-primary text-primary-foreground"
         >
           {isGenerating ? (
             <>
@@ -75,19 +68,11 @@ export function SectorQRCode({ sectorName, onClose }: SectorQRCodeProps) {
             </>
           )}
         </Button>
-        {onClose && (
-          <Button
-            onClick={onClose}
-            variant="outline"
-            className="h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] flex-1 sm:flex-initial"
-          >
-            Schließen
-          </Button>
-        )}
+        {onClose && <Button type="button" onClick={onClose} variant="outline" className="h-11 rounded-kws-control border-border text-foreground hover:bg-primary/10">Schließen</Button>}
       </div>
 
-      <div className="text-xs text-[#13112B]/40 text-center max-w-md">
-        <p>URL: {qrUrl}</p>
+      <div className="max-w-full text-center text-xs text-muted-foreground">
+        <p className="break-all">Ziel: {qrUrl}</p>
       </div>
     </div>
   );

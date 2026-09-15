@@ -93,7 +93,7 @@ const Sectors = () => {
               {sectorAreaGroups.length} Bereiche auf einen Blick
             </h2>
             <p className="mt-1 font-sans text-xs leading-relaxed text-muted-foreground">
-              Wähle einen Teilbereich von A bis D und öffne direkt die passenden Boulder.
+              Wähle einen Teilbereich und öffne direkt die passenden Boulder.
             </p>
           </div>
         </div>

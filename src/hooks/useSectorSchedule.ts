@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
+import { SessionRequiredError } from '@/lib/sessionRecovery';
 
 export interface SectorSchedule {
   id: string;
@@ -17,6 +19,7 @@ export const useSectorSchedule = () => {
 
   return useQuery({
     queryKey: ['sector_schedule'],
+    retry: (count, error) => !(error instanceof SessionRequiredError) && count < 1,
     enabled: queriesEnabled,
     queryFn: async () => {
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -34,7 +37,7 @@ export const useSectorSchedule = () => {
 
       const queryUrl = `${SUPABASE_URL}/rest/v1/sector_schedule?select=*&order=scheduled_at.asc`;
       
-      const response = await window.fetch(queryUrl, {
+      const response = await authenticatedFetch(queryUrl, {
         method: 'GET',
         headers: {
           'apikey': SUPABASE_PUBLISHABLE_KEY,
@@ -76,7 +79,7 @@ export const useCreateSectorSchedule = () => {
 
       const insertUrl = `${SUPABASE_URL}/rest/v1/sector_schedule`;
       
-      const response = await window.fetch(insertUrl, {
+      const response = await authenticatedFetch(insertUrl, {
         method: 'POST',
         headers: {
           'apikey': SUPABASE_PUBLISHABLE_KEY,
@@ -128,7 +131,7 @@ export const useDeleteSectorSchedule = () => {
 
       const deleteUrl = `${SUPABASE_URL}/rest/v1/sector_schedule?id=eq.${id}`;
       
-      const response = await window.fetch(deleteUrl, {
+      const response = await authenticatedFetch(deleteUrl, {
         method: 'DELETE',
         headers: {
           'apikey': SUPABASE_PUBLISHABLE_KEY,
@@ -179,7 +182,7 @@ export const useCreateSectorScheduleGroup = () => {
 
       // PostgREST executes a bulk insert as one database statement, so a
       // logical subarea that spans multiple physical rows stays atomic.
-      const response = await window.fetch(`${SUPABASE_URL}/rest/v1/sector_schedule`, {
+      const response = await authenticatedFetch(`${SUPABASE_URL}/rest/v1/sector_schedule`, {
         method: 'POST',
         headers: {
           apikey: SUPABASE_PUBLISHABLE_KEY,
@@ -238,7 +241,7 @@ export const useDeleteSectorScheduleGroup = () => {
 
       // One filtered DELETE statement keeps a multi-row logical subarea atomic.
       const idFilter = uniqueScheduleIds.join(',');
-      const response = await window.fetch(`${SUPABASE_URL}/rest/v1/sector_schedule?id=in.(${idFilter})`, {
+      const response = await authenticatedFetch(`${SUPABASE_URL}/rest/v1/sector_schedule?id=in.(${idFilter})`, {
         method: 'DELETE',
         headers: {
           apikey: SUPABASE_PUBLISHABLE_KEY,

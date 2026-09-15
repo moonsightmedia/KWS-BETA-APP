@@ -1,293 +1,103 @@
-import { useEffect, useState } from 'react';
-import {
-  Bell,
-  BellOff,
-  BellRing,
-  CalendarDays,
-  Info,
-  Megaphone,
-  MessageSquare,
-  RefreshCw,
-} from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Bell, BellRing, CalendarDays, Check, MessageSquare, Megaphone, RefreshCw, Smartphone, Trophy } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
-import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-
 import { DashboardPageLayout } from '@/components/DashboardPageLayout';
 import { KwsSurface } from '@/components/ui/kws-surface';
 import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
+import { BoulderIcon } from '@/components/icons/BoulderIcon';
 import { useAuth } from '@/hooks/useAuth';
-import { useNotificationPreferences, useUpdateNotificationPreferences } from '@/hooks/useNotificationPreferences';
-import {
-  deletePushTokensForUser,
-  getPushPermissionStatus,
-  initializePushNotifications,
-  requestPermission,
-  resetPushInitializationState,
-  unregisterPushOnDevice,
-} from '@/utils/pushNotifications';
-import { getVersionInfo } from '@/utils/version';
+import { defaultNotificationPreferences, useNotificationPreferences, useUpdateNotificationPreferences, type PreferenceKey } from '@/hooks/useNotificationPreferences';
+import { notificationRequest } from '@/lib/notificationRequest';
+import { getPushDeviceId, getPushPermissionStatus, initializePushNotifications, requestPermission, unregisterPushOnDevice } from '@/utils/pushNotifications';
 
-const NotificationRow = ({
-  icon,
-  title,
-  subtitle,
-  checked,
-  disabled,
-  onCheckedChange,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-  checked: boolean;
-  disabled?: boolean;
-  onCheckedChange: (checked: boolean) => void | Promise<void>;
-}) => (
-  <div className="group flex min-h-[76px] items-center justify-between border-b border-[#E4ECE5] px-4 py-3.5 transition-colors last:border-b-0 hover:bg-secondary/35 sm:px-5">
-    <div className="mr-4 flex flex-1 items-center gap-3">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kws-control bg-secondary text-muted-foreground [&>svg]:text-current">
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="font-sans text-xs font-semibold text-[#192436] sm:text-sm">{title}</p>
-        <p className="mt-0.5 max-w-lg font-sans text-xs leading-relaxed text-muted-foreground">{subtitle}</p>
-      </div>
-    </div>
-    <Switch aria-label={title} checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
-  </div>
-);
-
-const SettingsSectionHeader = ({ title, description }: { title: string; description: string }) => (
-  <div className="mb-3 px-1">
-    <h2 className="font-sans text-sm font-semibold text-[#192436]">{title}</h2>
-    <p className="mt-0.5 font-sans text-xs leading-relaxed text-muted-foreground">{description}</p>
-  </div>
-);
-
-const NotificationSettings = () => {
-  const { user, session } = useAuth();
-  const queryClient = useQueryClient();
-  const versionInfo = getVersionInfo();
-  const isNativePlatform = Capacitor.isNativePlatform();
-  const { data: notificationPreferences } = useNotificationPreferences();
-  const updateNotificationPreferences = useUpdateNotificationPreferences();
-  const [pushPermissionStatus, setPushPermissionStatus] = useState<'granted' | 'denied' | 'prompt' | null>(null);
-
-  useEffect(() => {
-    if (!isNativePlatform) return;
-    getPushPermissionStatus().then(setPushPermissionStatus);
-  }, [isNativePlatform]);
-
-  const { data: pushTokensList } = useQuery({
-    queryKey: ['push_tokens', user?.id],
-    queryFn: async () => {
-      if (!user || !session) return [];
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      if (!supabaseUrl || !supabaseKey) return [];
-
-      const response = await fetch(
-        `${supabaseUrl}/rest/v1/push_tokens?user_id=eq.${user.id}&select=id,platform,created_at`,
-        {
-          method: 'GET',
-          headers: {
-            apikey: supabaseKey,
-            Authorization: `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        },
-      );
-
-      if (!response.ok) return [];
-      const data = await response.json();
-      return Array.isArray(data) ? data : [];
-    },
-    enabled: !!user && !!session && isNativePlatform,
+function SettingRow({ icon, title, description, checked, disabled, onChange }: { icon: ReactNode; title: string; description: string; checked: boolean; disabled: boolean; onChange: (value: boolean) => void }) {
+  return <label className="flex min-h-20 items-center gap-3 px-4 py-4 hover:bg-secondary/30">
+    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-kws-control bg-secondary text-muted-foreground">{icon}</span>
+    <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-foreground">{title}</span><span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{description}</span></span>
+    <Switch aria-label={title} checked={checked} disabled={disabled} onCheckedChange={onChange} />
+  </label>;
+}
+const topics: Array<{ key: PreferenceKey; title: string; description: string; icon: ReactNode }> = [
+  { key: 'boulder_new', title: 'Neue Boulder', description: 'Neue Linien und Betas aus der Halle.', icon: <BoulderIcon className="h-5 w-5" /> },
+  { key: 'schedule_reminder', title: 'Schraubtermine', description: 'Hinweise zu geplanten Schraubterminen.', icon: <CalendarDays className="h-5 w-5" /> },
+  { key: 'feedback_reply', title: 'Feedback-Antworten', description: 'Wenn es eine Antwort auf deine Rückmeldung gibt.', icon: <MessageSquare className="h-5 w-5" /> },
+  { key: 'admin_announcement', title: 'Hallennews', description: 'Wichtige Neuigkeiten der Kletterwelt.', icon: <Megaphone className="h-5 w-5" /> },
+  { key: 'competition_update', title: 'Wettkämpfe', description: 'Mitteilungen zu deinen Wettkämpfen.', icon: <Trophy className="h-5 w-5" /> },
+];
+export default function NotificationSettings() {
+  const { user, session, loading } = useAuth(); const client = useQueryClient();
+  const preferences = useNotificationPreferences(); const update = useUpdateNotificationPreferences();
+  const native = Capacitor.isNativePlatform();
+  const [busy, setBusy] = useState(false); const lock = useRef(false);
+  const [message, setMessage] = useState(''); const [error, setError] = useState('');
+  const device = useQuery({
+    queryKey: ['notification-device', user?.id], enabled: native && !loading && !!user && !!session,
+    queryFn: async ({ signal }) => {
+      const q = new URLSearchParams({ user_id: 'eq.' + user!.id, device_id: 'eq.' + getPushDeviceId(), select: 'id,platform', limit: '1' });
+      const [permission, response] = await Promise.all([getPushPermissionStatus(), notificationRequest('/rest/v1/push_tokens?' + q, session?.access_token, { signal })]);
+      if (!Array.isArray(response.data)) throw new Error('Gerätestatus nicht verfügbar.');
+      return { permission, registered: response.data.length > 0 };
+    }, staleTime: 0, retry: 1,
   });
-
-  const notificationTypes = [
-    {
-      key: 'schedule_reminder' as const,
-      icon: <CalendarDays className="h-4 w-4 text-primary" strokeWidth={1.9} />,
-      title: 'Schraubtermine',
-      subtitle: 'Erinnerung vor neuen Schraubterminen',
-    },
-    {
-      key: 'boulder_new' as const,
-      icon: <Bell className="h-4 w-4 text-primary" strokeWidth={1.9} />,
-      title: 'Neue Boulder',
-      subtitle: 'Benachrichtigung wenn neue Boulder geschraubt wurden',
-    },
-    {
-      key: 'feedback_reply' as const,
-      icon: <MessageSquare className="h-4 w-4 text-primary" strokeWidth={1.9} />,
-      title: 'Feedback-Antworten',
-      subtitle: 'Antworten auf dein Feedback',
-    },
-    {
-      key: 'admin_announcement' as const,
-      icon: <Megaphone className="h-4 w-4 text-primary" strokeWidth={1.9} />,
-      title: 'Ankündigungen',
-      subtitle: 'Allgemeine Neuigkeiten und Updates der Halle',
-    },
-  ];
-
-  return (
-    <DashboardPageLayout headerBackTo="/profile">
-      <div className="mx-auto max-w-3xl space-y-6">
-        <KwsSurface className="p-4 text-foreground">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 flex-1 items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-kws-control bg-secondary text-muted-foreground">
-                <BellRing className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <div className="min-w-0">
-                <p className="font-sans text-sm font-semibold">Bleib auf dem Laufenden</p>
-                <p className="mt-1 max-w-md font-sans text-xs leading-relaxed text-muted-foreground">
-                  Bestimme selbst, welche Neuigkeiten aus der Halle dich erreichen dürfen.
-                </p>
-              </div>
-            </div>
-          </div>
+  const refetchDevice = device.refetch;
+  useEffect(() => {
+    if (!native) return;
+    const check = () => { if (document.visibilityState === 'visible') void refetchDevice(); };
+    document.addEventListener('visibilitychange', check);
+    return () => document.removeEventListener('visibilitychange', check);
+  }, [native, refetchDevice]);
+  const save = async (key: PreferenceKey, value: boolean) => {
+    if (lock.current || !session || !user) return;
+    lock.current = true; setBusy(true); setMessage(''); setError('');
+    try {
+      if (key === 'push_enabled' && value) {
+        if (!await requestPermission()) throw new Error('Push ist auf diesem Gerät nicht erlaubt. Aktiviere Mitteilungen in den Systemeinstellungen.');
+        if (!await initializePushNotifications(session, true)) throw new Error('Push-Berechtigung fehlt.');
+      }
+      await update.mutateAsync(key === 'in_app_enabled' && !value ? { in_app_enabled: false, push_enabled: false } : { [key]: value });
+      if (native && !value && (key === 'push_enabled' || key === 'in_app_enabled')) {
+        try { await unregisterPushOnDevice(); } catch { setError('Im Konto deaktiviert. Die Geräteverbindung konnte noch nicht getrennt werden.'); }
+      }
+      setMessage('Einstellung gespeichert.');
+      if (native) void device.refetch();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Änderung nicht gespeichert. Bitte erneut versuchen.'); if (native) void device.refetch(); }
+    finally { lock.current = false; setBusy(false); }
+  };
+  const reconnect = async () => {
+    if (lock.current || !session) return;
+    lock.current = true; setBusy(true); setError(''); setMessage('');
+    try {
+      if (!await requestPermission() || !await initializePushNotifications(session, true)) throw new Error('Push ist auf diesem Gerät nicht erlaubt. Bitte prüfe die Systemeinstellungen.');
+      setMessage('Dieses Gerät ist verbunden. Die tatsächliche Zustellung hängt vom Push-Dienst ab.');
+      await device.refetch(); void client.invalidateQueries({ queryKey: ['push_tokens', user?.id] });
+    } catch (e) { setError(e instanceof Error ? e.message : 'Gerät konnte nicht verbunden werden.'); }
+    finally { lock.current = false; setBusy(false); }
+  };
+  const prefs = preferences.data;
+  const configure = async () => {
+    if (lock.current) return;
+    lock.current = true; setBusy(true); setError('');
+    try { await update.mutateAsync(defaultNotificationPreferences); setMessage('Mitteilungen eingerichtet. Passe deine Themen unten an.'); }
+    catch { setError('Mitteilungen konnten nicht eingerichtet werden. Bitte erneut versuchen.'); }
+    finally { lock.current = false; setBusy(false); }
+  };
+  const unavailable = loading || preferences.isLoading || preferences.isError || !prefs;
+  const deviceLabel = device.isError ? 'Status nicht verfügbar' : device.isFetching && !device.data ? 'Gerät wird geprüft …' : device.data?.permission === 'denied' ? 'In den Systemeinstellungen blockiert' : device.data?.permission !== 'granted' ? 'Erlaubnis noch ausstehend' : device.data.registered ? 'Dieses Gerät ist registriert' : 'Gerät noch nicht verbunden';
+  return <DashboardPageLayout headerBackTo="/profile">
+    <div className="mx-auto max-w-3xl space-y-5">
+      <div className="px-1"><h2 className="text-base font-semibold">Deine Mitteilungen</h2><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Du entscheidest, was dich erreicht. Deine bisherigen Mitteilungen bleiben erhalten.</p></div>
+      {unavailable ? <KwsSurface className="p-6" role={preferences.isError ? 'alert' : 'status'}><p className="text-sm font-semibold">{preferences.isError ? 'Einstellungen nicht verfügbar' : 'Einstellungen werden geladen …'}</p>{preferences.isError && <><p className="mt-2 text-xs text-muted-foreground">Es wurden keine Einstellungen geändert.</p><Button variant="secondary" className="mt-4" disabled={preferences.isFetching} onClick={() => void preferences.refetch()}>Erneut versuchen</Button></>}</KwsSurface> : !prefs.updated_at ? <KwsSurface className="p-5"><p className="text-sm font-semibold">Bleib auf dem Laufenden</p><p className="mt-2 text-xs leading-relaxed text-muted-foreground">Aktiviere Mitteilungen in der App. Danach wählst du deine Themen. Push bleibt zunächst aus.</p><Button className="mt-4" disabled={busy} onClick={() => void configure()}>Mitteilungen einrichten</Button></KwsSurface> : <>
+        <KwsSurface className="divide-y divide-border/60 overflow-hidden">
+          <SettingRow icon={<Bell className="h-5 w-5" />} title="Mitteilungen empfangen" description="Neue Mitteilungen in der App – und optional als Push." checked={prefs.in_app_enabled} disabled={busy} onChange={v => void save('in_app_enabled', v)} />
+          {native ? <SettingRow icon={<BellRing className="h-5 w-5" />} title="Push im Konto" description="Auch bei geschlossener App. Gilt für deine registrierten Geräte." checked={prefs.push_enabled} disabled={busy || !prefs.in_app_enabled} onChange={v => void save('push_enabled', v)} />
+          : <div className="flex items-start gap-3 px-4 py-4"><Smartphone className="h-5 w-5 shrink-0 text-muted-foreground" /><div><p className="text-sm font-semibold">Push in der iPhone- & Android-App</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Im Browser ist Push deaktiviert. Mitteilungen findest du hier über die Glocke.</p></div></div>}
         </KwsSurface>
-
-        <section>
-          <SettingsSectionHeader title="Kanäle" description="Lege fest, wo Benachrichtigungen erscheinen dürfen." />
-          <KwsSurface className="overflow-hidden">
-          <NotificationRow
-            icon={<Bell className="h-4 w-4 text-primary" strokeWidth={1.9} />}
-            title="In-App Benachrichtigungen"
-            subtitle="Benachrichtigungen innerhalb der App"
-            checked={notificationPreferences?.in_app_enabled ?? true}
-            onCheckedChange={(checked) => updateNotificationPreferences.mutate({ in_app_enabled: checked })}
-          />
-
-          {isNativePlatform ? (
-            <NotificationRow
-            icon={<BellOff className="h-4 w-4 text-primary" strokeWidth={1.9} />}
-            title="Push-Benachrichtigungen"
-            subtitle="Benachrichtigungen auch wenn die App geschlossen ist"
-            checked={notificationPreferences?.push_enabled ?? false}
-            disabled={updateNotificationPreferences.isPending}
-            onCheckedChange={async (checked) => {
-              if (updateNotificationPreferences.isPending) return;
-
-              if (checked) {
-                try {
-                  const granted = await requestPermission();
-                  if (!granted) {
-                    toast.error('Push-Benachrichtigungen wurden nicht erlaubt');
-                    return;
-                  }
-
-                  await updateNotificationPreferences.mutateAsync({ push_enabled: true });
-                  toast.success('Push-Benachrichtigungen aktiviert');
-
-                  if (isNativePlatform) {
-                    await initializePushNotifications(
-                      session ? { access_token: session.access_token, user: { id: user!.id } } : undefined,
-                    );
-                    queryClient.invalidateQueries({ queryKey: ['push_tokens', user?.id] });
-                  }
-                } catch (error) {
-                  toast.error('Fehler beim Aktivieren der Push-Benachrichtigungen', {
-                    description: error instanceof Error ? error.message : String(error),
-                  });
-                }
-              } else {
-                await updateNotificationPreferences.mutateAsync({ push_enabled: false });
-                await unregisterPushOnDevice();
-                resetPushInitializationState();
-
-                if (user?.id && session?.access_token) {
-                  try {
-                    await deletePushTokensForUser(user.id, session.access_token);
-                  } catch {
-                    // Ignore token cleanup failures here; UI state should still update.
-                  }
-                  queryClient.invalidateQueries({ queryKey: ['push_tokens', user.id] });
-                }
-
-                toast.success('Push-Benachrichtigungen deaktiviert');
-              }
-            }}
-            />
-          ) : null}
-          </KwsSurface>
-        </section>
-
-        <section>
-          <SettingsSectionHeader title="Mitteilungen" description="Wähle die Themen aus, die für dich relevant sind." />
-          <KwsSurface className="overflow-hidden">
-          {notificationTypes.map((item) => (
-            <NotificationRow
-              key={item.key}
-              icon={item.icon}
-              title={item.title}
-              subtitle={item.subtitle}
-              checked={notificationPreferences?.[item.key] ?? true}
-              onCheckedChange={(checked) => updateNotificationPreferences.mutate({ [item.key]: checked })}
-            />
-          ))}
-          </KwsSurface>
-        </section>
-
-        {!isNativePlatform ? (
-          <KwsSurface className="flex items-start gap-3 px-4 py-4 font-sans text-xs leading-relaxed text-muted-foreground">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-kws-control bg-secondary text-muted-foreground">
-              <Info className="h-4 w-4" aria-hidden="true" />
-            </span>
-            <div>
-              <p className="font-semibold text-foreground">Hinweis zur Web-Version</p>
-              <p className="mt-0.5">Browser-Push ist in der Web-Beta deaktiviert. In-App-Benachrichtigungen bleiben aktiv.</p>
-            </div>
-          </KwsSurface>
-        ) : null}
-
-        {isNativePlatform ? (
-          <KwsSurface className="space-y-3 px-4 py-4">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-medium text-foreground">Push-Status</p>
-              <button
-                type="button"
-                onClick={async () => {
-                  const status = await getPushPermissionStatus();
-                  setPushPermissionStatus(status);
-                  queryClient.invalidateQueries({ queryKey: ['push_tokens', user?.id] });
-                  toast.success('Status aktualisiert');
-                }}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-kws-control bg-secondary px-2.5 font-sans text-xs font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                Aktualisieren
-              </button>
-            </div>
-
-            <div className="space-y-1 text-xs text-muted-foreground">
-              <p><strong>App-Version:</strong> {versionInfo.version} ({versionInfo.buildDate})</p>
-              <p><strong>Plattform:</strong> {Capacitor.getPlatform()}</p>
-              <p>
-                <strong>Push-Berechtigung:</strong>{' '}
-                {pushPermissionStatus === 'granted'
-                  ? 'Erlaubt'
-                  : pushPermissionStatus === 'denied'
-                    ? 'Verweigert'
-                    : pushPermissionStatus === 'prompt'
-                      ? 'Noch nicht gefragt'
-                      : '–'}
-              </p>
-              <p><strong>Push in Einstellungen:</strong> {notificationPreferences?.push_enabled ? 'Aktiviert' : 'Deaktiviert'}</p>
-              <p><strong>Registrierte Geräte:</strong> {pushTokensList?.length ?? 0}</p>
-            </div>
-          </KwsSurface>
-        ) : null}
-
-        <p className="px-1 font-sans text-[10px] leading-relaxed text-muted-foreground sm:text-xs">
-          Benachrichtigungen werden auf diesem Gerät und in deinem Konto gespeichert.
-        </p>
-      </div>
-    </DashboardPageLayout>
-  );
-};
-
-export default NotificationSettings;
+        <section><h2 className="mb-3 px-1 text-sm font-semibold">Deine Themen</h2>{!prefs.in_app_enabled && <p className="mb-3 px-1 text-xs text-muted-foreground">Mitteilungen sind pausiert. Deine Themenauswahl bleibt gespeichert.</p>}<KwsSurface className="divide-y divide-border/60 overflow-hidden">{topics.map(item => <SettingRow key={item.key} icon={item.icon} title={item.title} description={item.description} checked={prefs[item.key]} disabled={busy || !prefs.in_app_enabled} onChange={v => void save(item.key, v)} />)}</KwsSurface></section>
+      </>}
+      <div aria-live="polite" className="px-1">{busy ? <p role="status" className="text-xs text-muted-foreground">Änderung wird gespeichert …</p> : error ? <p role="alert" className="text-xs text-destructive">{error}</p> : message ? <p role="status" className="flex items-start gap-2 text-xs text-primary-ink"><Check className="h-4 w-4 shrink-0" />{message}</p> : null}</div>
+      {native && <section><h2 className="mb-3 px-1 text-sm font-semibold">Dieses Gerät</h2><KwsSurface className="space-y-3 p-4"><div className="flex items-center gap-3"><Smartphone className="h-5 w-5 shrink-0 text-muted-foreground" /><p className="text-sm font-semibold">{deviceLabel}</p></div><p className="text-xs leading-relaxed text-muted-foreground">{device.data?.permission === 'denied' ? 'Öffne die Systemeinstellungen und erlaube Mitteilungen für die KWS-App. Prüfe den Status danach erneut.' : 'Registriert bedeutet nicht automatisch zugestellt. Berechtigung, Konto und Push-Dienst müssen aktiv sein.'}</p><div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={busy || device.isFetching} onClick={() => void device.refetch()} className="gap-2 text-xs"><RefreshCw className="h-4 w-4" />Status prüfen</Button>{prefs?.in_app_enabled && prefs.push_enabled && <Button disabled={busy} onClick={() => void reconnect()} className="text-xs">Gerät neu verbinden</Button>}</div></KwsSurface></section>}
+    </div>
+  </DashboardPageLayout>;
+}

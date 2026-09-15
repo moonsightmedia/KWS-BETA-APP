@@ -1,23 +1,21 @@
 import {
-  LayoutDashboard,
-  List,
   ChevronRight,
   ChevronLeft,
-  User,
-  Settings,
-  Shield,
-  Edit3,
-  BarChart3,
   CalendarDays,
   CheckCircle2,
-  FileText,
-  MessageSquare,
   Plus,
-  Users,
+  Map as Settings2,
+  MessageSquare,
+  Activity,
+  ClipboardList,
+  Bell,
 } from 'lucide-react';
+import { HomeIcon as LayoutDashboard, BouldersIcon as List, StatisticsIcon as BarChart3, EditIcon as Edit3, UsersIcon as Users, AccountIcon as User } from '@/lib/appIcons';
 import { ProfileMenu } from '@/components/ProfileMenu';
 import { cn } from '@/lib/utils';
 import { AccountAvatar } from '@/components/AccountAvatar';
+import { AdminMobileNavigation } from '@/components/admin/AdminMobileNavigation';
+import { ADMIN_TABS } from '@/lib/adminNavigation';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
@@ -290,8 +288,19 @@ export const Sidebar = ({ className }: SidebarProps) => {
     }
   }, [user?.id, isAdmin, isSetter, adminLoading, setterLoading, stableIsAdmin, stableIsSetter]);
 
-  // Compute desktop navigation groups - always stable, never changes during navigation
-  const desktopNavGroups = useMemo(() => [
+  const isSetterArea = location.pathname === '/setter' || location.pathname.startsWith('/setter/');
+  const desktopNavGroups = useMemo(() => isSetterArea && stableIsSetter ? [
+    { title: 'Setterbereich', visible: true, items: [
+      { icon: Plus, label: 'Erstellen', path: '/setter/create' },
+      { icon: Edit3, label: 'Bearbeiten', path: '/setter/edit' },
+      { icon: CheckCircle2, label: 'Status', path: '/setter/status' },
+      { icon: CalendarDays, label: 'Planung', path: '/setter/schedule' },
+    ] },
+    { title: 'Zur App', visible: true, items: [{ icon: LayoutDashboard, label: 'Zur App', path: '/' }] },
+  ] : location.pathname === '/admin' && stableIsAdmin ? [
+    { title: 'Administration', visible: true, items: ADMIN_TABS.map((tab, index) => ({ icon: [Users, Settings2, MessageSquare, Activity, ClipboardList, Bell][index], label: tab.label, path: `/admin?tab=${tab.value}` })) },
+    { title: 'Zur App', visible: true, items: [{ icon: LayoutDashboard, label: 'Zur App', path: '/' }] },
+  ] : [
     {
       title: 'Hauptnavigation',
       items: [
@@ -301,10 +310,9 @@ export const Sidebar = ({ className }: SidebarProps) => {
       ],
       visible: true,
     },
-  ], []);
+  ], [location.pathname, stableIsAdmin, isSetterArea, stableIsSetter]);
 
   const homePath = user ? '/' : '/guest';
-  const isSetterArea = location.pathname === '/setter' || location.pathname.startsWith('/setter/');
   const isAdminArea = location.pathname === '/admin';
 
   const mobileNavItems = useMemo(() => {
@@ -324,22 +332,12 @@ export const Sidebar = ({ className }: SidebarProps) => {
       ];
     }
 
-    if (isAdminArea && stableIsAdmin) {
-      return [
-        { icon: Users, label: 'Benutzer', path: '/admin?tab=users' },
-        { icon: Settings, label: 'Settings', path: '/admin?tab=settings' },
-        { icon: MessageSquare, label: 'Feedback', path: '/admin?tab=feedback' },
-        { icon: FileText, label: 'Logs', path: '/admin?tab=logs' },
-        { icon: Shield, label: 'Tests', path: '/admin?tab=tests' },
-      ];
-    }
-
     return [
       { icon: LayoutDashboard, label: 'Home', path: homePath },
       { icon: List, label: 'Boulder', path: '/boulders' },
       { icon: BarChart3, label: 'Statistiken', path: '/statistics' },
     ];
-  }, [homePath, isAdminArea, isSetterArea, stableIsAdmin, stableIsSetter, user]);
+  }, [homePath, isSetterArea, stableIsSetter, user]);
 
   const accountLabel = stableIsAdmin ? 'Administrator' : stableIsSetter ? 'Setter' : 'Mitglied';
 
@@ -386,8 +384,8 @@ export const Sidebar = ({ className }: SidebarProps) => {
                       let isActive = false;
                       
                       if (item.path.startsWith('/setter')) {
-                        const itemView = item.path.split('?view=')[1];
-                        isActive = location.pathname === '/setter' && searchParams.get('view') === itemView;
+                        const legacyView = searchParams.get('view') || 'create';
+                        isActive = location.pathname === item.path || (location.pathname === '/setter' && item.path === `/setter/${legacyView === 'batch' ? 'create' : legacyView}`);
                       } else if (item.path.startsWith('/admin')) {
                         const itemTab = item.path.split('?tab=')[1];
                         const currentTab = searchParams.get('tab') || 'users';
@@ -402,6 +400,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                               <NavLink
                                 to={item.path}
                                 aria-label={item.label}
+                                aria-current={isActive ? 'page' : false}
                                 className={cn(
                                   "relative flex h-11 items-center overflow-hidden rounded-kws-control font-sans outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/70",
                                   isActive
@@ -473,7 +472,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
       ) : null}
 
       {/* Mobile Bottom Navigation */}
-      {location.pathname !== '/auth' && location.pathname !== '/competition' && (
+      {isAdminArea && stableIsAdmin ? <AdminMobileNavigation compact={isMobileNavCompact} /> : location.pathname !== '/auth' && location.pathname !== '/competition' && (
         <nav
           aria-label="Hauptnavigation"
           data-compact={isMobileNavCompact}
@@ -517,7 +516,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                   key={item.label}
                   to={item.path}
                   aria-label={item.label}
-                  aria-current={isActive ? 'page' : undefined}
+                  aria-current={isActive ? 'page' : false}
                   className={cn(
                     "group flex min-w-0 flex-1 flex-col items-center justify-center px-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card",
                     isMobileNavCompact ? "gap-0" : "gap-0.5"
@@ -528,7 +527,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                     className={cn(
                       "grid h-10 w-10 flex-shrink-0 place-items-center rounded-kws-control transition-[background-color,color,box-shadow,transform] duration-200 motion-reduce:transition-none",
                       isActive
-                        ? "bg-primary text-primary-foreground shadow-[0_6px_14px_rgba(54,181,49,0.28)]"
+                        ? "bg-primary-strong text-primary-foreground shadow-sm"
                         : "text-muted-foreground group-hover:bg-secondary group-hover:text-foreground group-active:scale-95"
                     )}
                   >
@@ -538,7 +537,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                     aria-hidden="true"
                     className={cn(
                       "max-w-[72px] overflow-hidden truncate text-[11px] font-semibold leading-4 transition-[max-height,opacity,transform] duration-200 motion-reduce:transition-none",
-                      isActive ? "text-primary" : "text-muted-foreground",
+                      isActive ? "text-primary-ink" : "text-muted-foreground",
                       isMobileNavCompact
                         ? "max-h-0 translate-y-1 opacity-0"
                         : "max-h-4 translate-y-0 opacity-100"

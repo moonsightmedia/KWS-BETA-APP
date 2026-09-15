@@ -36,9 +36,9 @@ export function KwsSegmentedControl<T extends string>({
             aria-pressed={isActive}
             onClick={() => onValueChange(option.value)}
             className={cn(
-              'min-h-9 flex-1 rounded-kws-control px-3 py-2 text-sm font-semibold transition-[background-color,color,box-shadow,transform] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45',
+              'min-h-11 flex-1 rounded-kws-control px-3 py-2 text-sm font-semibold transition-[background-color,color,box-shadow,transform] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               isActive
-                ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20'
+                ? 'bg-primary-strong text-primary-foreground shadow-sm'
                 : 'text-muted-foreground hover:bg-white/55 hover:text-foreground',
             )}
           >

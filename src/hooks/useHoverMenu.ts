@@ -5,6 +5,7 @@ export function useHoverMenu() {
   const [open, setOpen] = useState(false);
   const hoverOpened = useRef(false);
   const suppressClick = useRef(false);
+  const pinTrigger = useRef<HTMLButtonElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
   const clearTimer = () => {
@@ -17,6 +18,7 @@ export function useHoverMenu() {
   const onOpenChange = (next: boolean) => {
     clearTimer();
     hoverOpened.current = false;
+    if (!next) { suppressClick.current = false; pinTrigger.current = null; }
     setOpen(next);
   };
 
@@ -44,6 +46,7 @@ export function useHoverMenu() {
 
   return {
     open,
+    pin: () => { clearTimer(); hoverOpened.current = false; },
     onOpenChange,
     triggerProps: {
       onPointerEnter,
@@ -57,20 +60,36 @@ export function useHoverMenu() {
           event.preventDefault();
           hoverOpened.current = false;
           suppressClick.current = true;
-          event.currentTarget.focus();
+          pinTrigger.current = event.currentTarget;
+          // Keep the current focus: focusing the trigger here is a focus-outside
+          // event for an already open Radix menu and immediately dismisses it.
         }
       },
       onClick: (event: MouseEvent) => {
         if (suppressClick.current) {
           event.preventDefault();
           suppressClick.current = false;
+          pinTrigger.current = null;
         }
       },
+      onPointerCancel: () => { suppressClick.current = false; pinTrigger.current = null; },
     },
     contentProps: {
       onPointerEnter: clearTimer,
       onPointerLeave,
       onKeyDownCapture,
+      onPointerDownOutside: (event: CustomEvent<{ originalEvent: globalThis.PointerEvent }>) => {
+        const target = event.detail.originalEvent.target;
+        // Radix reports the trigger pointerdown as outside after our handler
+        // pinned the preview. Exempt only that same trigger for this one click.
+        if (
+          suppressClick.current &&
+          target instanceof Node &&
+          pinTrigger.current?.contains(target)
+        ) {
+          event.preventDefault();
+        }
+      },
       onOpenAutoFocus: (event: Event) => {
         if (hoverOpened.current) event.preventDefault();
       },

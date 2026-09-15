@@ -32,6 +32,7 @@ video-server/data/
 # Firebase Service Account Keys (sensitive!)
 *-*.json
 !google-services.json
+!test/fixtures/hall-hierarchy-snapshot.json
 service-account*.json
 
 # Temporary video processing files

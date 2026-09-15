@@ -1,53 +1,65 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Pencil, Search, Trash2, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronRight, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import {
   SetterBoulderEditorDialog,
   type SetterBoulderDraft,
-} from '@/components/setter/SetterBoulderEditorDialog';
-import { SetterSurface } from '@/components/setter/SetterWorkspaceShell';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useUpload } from '@/contexts/UploadContext';
+} from "@/components/setter/SetterBoulderEditorDialog";
+import { SetterSurface } from "@/components/setter/SetterWorkspaceShell";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ActiveFilterChip, BoulderFilterControls, BoulderFilterPanel, BoulderFilterTrigger } from "@/components/boulder/BoulderFilterControls";
+import { SectorFilterOptions } from "@/components/boulder/SectorFilterOptions";
+import {
+  SetterConfirm,
+  SetterSearch,
+  SetterSelectionBar,
+  SetterState,
+} from "@/components/setter/SetterControls";
+import { useUpload } from "@/contexts/UploadContext";
 import {
   useBoulderAttributeAssignments,
   useBoulderAttributeCatalog,
   useSetBoulderAttributes,
-} from '@/hooks/useBoulderCommunity';
+} from "@/hooks/useBoulderCommunity";
 import {
   type Boulder as BoulderRow,
   useBouldersWithSectors,
   useDeleteBoulder,
   useUpdateBoulder,
-} from '@/hooks/useBoulders';
-import { useColors } from '@/hooks/useColors';
-import { useSectorsTransformed } from '@/hooks/useSectors';
-import { cn } from '@/lib/utils';
-import type { Boulder } from '@/types/boulder';
+} from "@/hooks/useBoulders";
+import { useColors } from "@/hooks/useColors";
+import { useSectorsTransformed } from "@/hooks/useSectors";
+import { cn } from "@/lib/utils";
+import type { Boulder } from "@/types/boulder";
 import {
   getBoulderColorBackgroundStyle,
   getBoulderColorLabel,
   matchesBoulderColorFilter,
-} from '@/utils/colorUtils';
+} from "@/utils/colorUtils";
 
-import { formatDifficulty, getTextClassForHex, getThumbnailUrl } from './setterPageUtils';
+import { formatDifficulty, getThumbnailUrl } from "./setterPageUtils";
 
 function mapBoulderToDraft(
   boulder: Boulder,
   sectors: Array<{ id: string; name: string }>,
   colors: Array<{ id: string; name: string }>,
 ): SetterBoulderDraft {
-  const sectorId = boulder.sectorId
-    ?? sectors.find((sector) => sector.name === boulder.sector)?.id
-    ?? '';
-  const sectorId2 = boulder.sector2Id
-    ?? (boulder.sector2
+  const sectorId =
+    boulder.sectorId ??
+    sectors.find((sector) => sector.name === boulder.sector)?.id ??
+    "";
+  const sectorId2 =
+    boulder.sector2Id ??
+    (boulder.sector2
       ? sectors.find((sector) => sector.name === boulder.sector2)?.id
       : undefined);
-  const colorId = colors.find((color) => color.name === boulder.color)?.id ?? colors[0]?.id ?? '';
+  const colorId =
+    colors.find((color) => color.name === boulder.color)?.id ??
+    colors[0]?.id ??
+    "";
   const colorId2 = boulder.color2
     ? colors.find((color) => color.name === boulder.color2)?.id
     : undefined;
@@ -61,7 +73,7 @@ function mapBoulderToDraft(
     colorId,
     colorId2,
     difficulty: boulder.difficulty,
-    note: boulder.note ?? '',
+    note: boulder.note ?? "",
     attributeIds: [],
     videoFile: null,
     thumbFile: null,
@@ -73,28 +85,50 @@ function mapBoulderToDraft(
 }
 
 export default function SetterEditPage() {
-  const { data: sectors = [] } = useSectorsTransformed();
-  const { data: boulders = [], isLoading } = useBouldersWithSectors();
-  const { data: colors = [] } = useColors();
-  const { data: attributeCatalog = [] } = useBoulderAttributeCatalog();
+  const queryClient = useQueryClient();
+  const sectorQuery = useSectorsTransformed();
+  const sectors = sectorQuery.data ?? [];
+  const boulderQuery = useBouldersWithSectors();
+  const { data: boulders = [] } = boulderQuery;
+  const colorQuery = useColors();
+  const colors = colorQuery.data ?? [];
+  const attributeQuery = useBoulderAttributeCatalog();
+  const attributeCatalog = attributeQuery.data ?? [];
   const updateBoulder = useUpdateBoulder();
   const deleteBoulder = useDeleteBoulder();
   const setBoulderAttributes = useSetBoulderAttributes();
   const { startUpload, waitForUploadSessions } = useUpload();
 
-  const [search, setSearch] = useState('');
-  const [sectorFilter, setSectorFilter] = useState('all');
-  const [colorFilter, setColorFilter] = useState('all');
+  const [search, setSearch] = useState("");
+  const [sectorFilters, setSectorFilters] = useState<string[]>([]);
+  const [colorFilters, setColorFilters] = useState<string[]>([]);
+  const [difficultyFilters, setDifficultyFilters] = useState<string[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [editorDraft, setEditorDraft] = useState<SetterBoulderDraft | null>(null);
+  const [limit, setLimit] = useState(50);
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
+  const [deletingMany, setDeletingMany] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editorDraft, setEditorDraft] = useState<SetterBoulderDraft | null>(
+    null,
+  );
 
-  const selectedAttributeQuery = useBoulderAttributeAssignments(editorDraft?.id, Boolean(editorDraft?.id));
+  const hydratedId = useRef<string | null>(null);
+  const selectedAttributeQuery = useBoulderAttributeAssignments(
+    editorDraft?.id,
+    Boolean(editorDraft?.id),
+  );
 
   useEffect(() => {
-    if (!editorDraft?.id || !selectedAttributeQuery.data) {
+    if (!editorDraft?.id) {
+      hydratedId.current = null;
+      return;
+    }
+    if (hydratedId.current === editorDraft.id || !selectedAttributeQuery.data) {
       return;
     }
 
+    hydratedId.current = editorDraft.id;
     setEditorDraft((current) => {
       if (!current || current.id !== editorDraft.id) {
         return current;
@@ -107,45 +141,39 @@ export default function SetterEditPage() {
     });
   }, [editorDraft?.id, selectedAttributeQuery.data]);
 
-  const colorHexMap = useMemo(
-    () => new Map(colors.map((color) => [color.name, color.hex ?? undefined])),
-    [colors],
-  );
-
   const filteredBoulders = useMemo(() => {
-    const selectedSectorName =
-      sectorFilter === 'all'
-        ? null
-        : sectorFilter;
+    return boulders.filter((boulder) => {
+      if (
+        sectorFilters.length &&
+        !sectorFilters.includes(boulder.sector) &&
+        !(boulder.sector2 && sectorFilters.includes(boulder.sector2))
+      ) {
+        return false;
+      }
 
-    return boulders
-      .filter((boulder) => {
-        if (
-          selectedSectorName &&
-          boulder.sector !== selectedSectorName &&
-          boulder.sector2 !== selectedSectorName
-        ) {
-          return false;
-        }
+      if (
+        colorFilters.length && !colorFilters.some(color => matchesBoulderColorFilter(boulder.color, boulder.color2, color))
+      ) {
+        return false;
+      }
 
-        if (!matchesBoulderColorFilter(boulder.color, boulder.color2, colorFilter)) {
-          return false;
-        }
+      if (difficultyFilters.length && !difficultyFilters.includes(boulder.difficulty == null ? '?' : String(boulder.difficulty))) return false;
 
-        if (!search.trim()) {
-          return true;
-        }
+      if (!search.trim()) {
+        return true;
+      }
 
-        const query = search.trim().toLowerCase();
-        const sectorText = boulder.sector2 ? `${boulder.sector} ${boulder.sector2}` : boulder.sector;
+      const query = search.trim().toLowerCase();
+      const sectorText = boulder.sector2
+        ? `${boulder.sector} ${boulder.sector2}`
+        : boulder.sector;
 
-        return (
-          boulder.name.toLowerCase().includes(query) ||
-          sectorText.toLowerCase().includes(query)
-        );
-      })
-      .slice(0, 100);
-  }, [boulders, colorFilter, search, sectorFilter]);
+      return (
+        boulder.name.toLowerCase().includes(query) ||
+        sectorText.toLowerCase().includes(query)
+      );
+    });
+  }, [boulders, colorFilters, search, sectorFilters, difficultyFilters]);
 
   const openEditor = (boulder: Boulder) => {
     setEditorDraft(mapBoulderToDraft(boulder, sectors, colors));
@@ -165,24 +193,43 @@ export default function SetterEditPage() {
     });
   };
 
-  const deleteMany = async (ids: string[]) => {
-    for (const id of ids) {
-      await deleteBoulder.mutateAsync(id);
+  const deleteMany = async () => {
+    if (!deleteIds || deletingMany) return false;
+    setDeletingMany(true);
+    // Remove confirmed successes immediately. A partial failure retries only remaining IDs.
+    const remaining = [...deleteIds];
+    try {
+      for (const id of deleteIds) {
+        await deleteBoulder.mutateAsync(id);
+        remaining.splice(remaining.indexOf(id), 1);
+        setSelectedIds((current) => {
+          const next = new Set(current);
+          next.delete(id);
+          return next;
+        });
+        setDeleteIds([...remaining]);
+      }
+      toast.success("Ausgewählte Boulder gelöscht.");
+    } finally {
+      setDeletingMany(false);
     }
   };
 
   const saveEditor = async () => {
-    if (!editorDraft) {
-      return;
-    }
+    if (!editorDraft || saving) return;
 
-    const colorName = colors.find((color) => color.id === editorDraft.colorId)?.name ?? null;
-    const dualColorAttributeId = attributeCatalog.find((attribute) => attribute.key === 'dual_color')?.id;
+    const colorName =
+      colors.find((color) => color.id === editorDraft.colorId)?.name ?? null;
+    const dualColorAttributeId = attributeCatalog.find(
+      (attribute) => attribute.key === "dual_color",
+    )?.id;
     const isDualColor = Boolean(
-      dualColorAttributeId && editorDraft.attributeIds.includes(dualColorAttributeId),
+      dualColorAttributeId &&
+        editorDraft.attributeIds.includes(dualColorAttributeId),
     );
     const colorName2 = isDualColor
-      ? colors.find((color) => color.id === editorDraft.colorId2)?.name ?? null
+      ? (colors.find((color) => color.id === editorDraft.colorId2)?.name ??
+        null)
       : null;
 
     if (
@@ -191,10 +238,11 @@ export default function SetterEditPage() {
       !colorName ||
       (isDualColor && (!colorName2 || colorName2 === colorName))
     ) {
-      toast.error('Bitte Name, Sektor und Farbe ausfüllen.');
+      toast.error("Bitte Name, Sektor und Farbe ausfüllen.");
       return;
     }
 
+    setSaving(true);
     try {
       // Never send map_x/map_y — columns are not on the live DB (PGRST204).
       const updates: Partial<BoulderRow> & { id: string } = {
@@ -232,7 +280,7 @@ export default function SetterEditPage() {
         const thumbSessionId = await startUpload(
           editorDraft.id,
           editorDraft.thumbFile,
-          'thumbnail',
+          "thumbnail",
           editorDraft.sectorId,
         );
         uploadSessionIds.push(thumbSessionId);
@@ -242,7 +290,7 @@ export default function SetterEditPage() {
         const videoSessionId = await startUpload(
           editorDraft.id,
           editorDraft.videoFile,
-          'video',
+          "video",
           editorDraft.sectorId,
         );
         uploadSessionIds.push(videoSessionId);
@@ -254,9 +302,10 @@ export default function SetterEditPage() {
 
       setEditorDraft(null);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Speichern fehlgeschlagen.';
-      console.error('[SetterEditPage] saveEditor failed:', error);
-      toast.error(message);
+      console.error("[SetterEditPage] saveEditor failed:", error);
+      throw error;
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -269,153 +318,208 @@ export default function SetterEditPage() {
     setEditorDraft(null);
   };
 
+  const visible = filteredBoulders.slice(0, limit);
+  const selectedVisibleIds = visible
+    .filter((b) => selectedIds.has(b.id))
+    .map((b) => b.id);
+  const groups = new Map<string, typeof visible>();
+  visible.forEach((b) => {
+    const key = sectorFilters.length === 1 ? sectorFilters[0] : b.sector;
+    groups.set(key, [...(groups.get(key) ?? []), b]);
+  });
+  const changeFilter = <T,>(setter: (value: T) => void, value: T) => {
+    setter(value);
+    setLimit(50);
+    setSelectedIds(new Set());
+  };
+  const toggleFilter = (setter: (values: string[]) => void, values: string[], value: string) => changeFilter(setter, values.includes(value) ? values.filter(item => item !== value) : [...values, value]);
+  const activeFilterCount = sectorFilters.length + colorFilters.length + difficultyFilters.length;
+  const resetFilters = () => {
+    setSectorFilters([]);
+    setColorFilters([]);
+    setDifficultyFilters([]);
+    setSelectedIds(new Set());
+    setLimit(50);
+  };
+  const loading =
+    boulderQuery.isLoading ||
+    sectorQuery.isLoading ||
+    colorQuery.isLoading ||
+    attributeQuery.isLoading;
+  const failed =
+    Boolean(boulderQuery.error) ||
+    Boolean(sectorQuery.error) ||
+    colorQuery.isError ||
+    attributeQuery.isError;
+  const disabled = deletingMany || saving;
   return (
-    <div className="space-y-5 pb-32">
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px]">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#13112B]/42" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Boulder suchen"
-            className="h-11 rounded-xl border-[#DCEEDF] bg-white pl-10"
-          />
-        </div>
-
-        <Select value={sectorFilter} onValueChange={setSectorFilter}>
-          <SelectTrigger className="h-11 rounded-xl border-[#DCEEDF] bg-white">
-            <SelectValue placeholder="Sektor" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Alle Sektoren</SelectItem>
-            {[...new Set(sectors.map((sector) => sector.name))].map((sectorName) => (
-              <SelectItem key={sectorName} value={sectorName}>
-                {sectorName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={colorFilter} onValueChange={setColorFilter}>
-          <SelectTrigger className="h-11 rounded-xl border-[#DCEEDF] bg-white">
-            <SelectValue placeholder="Farbe" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Alle Farben</SelectItem>
-            {colors.map((color) => (
-              <SelectItem key={color.id} value={color.name}>
-                {color.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <SetterSearch
+          value={search}
+          onChange={(v) => changeFilter(setSearch, v)}
+          disabled={disabled}
+        />
+        <BoulderFilterTrigger count={activeFilterCount} aria-expanded={filtersOpen} disabled={disabled || loading || failed} onClick={() => setFiltersOpen(true)} />
       </div>
-
-      <SetterSurface className="overflow-hidden p-0">
-        {isLoading ? (
-          <div className="px-5 py-10 text-sm text-[#13112B]/68">
-            <div className="flex items-center gap-3">
-              <Loader2 className="h-5 w-5 animate-spin text-[#36B531]" />
-              Boulderbestand wird geladen.
-            </div>
-          </div>
-        ) : filteredBoulders.length > 0 ? (
-          <div className="divide-y divide-[#E7F0E8]">
-            {filteredBoulders.map((boulder) => {
-              const thumbnailUrl = getThumbnailUrl(boulder);
-              const colorHex = colorHexMap.get(boulder.color) ?? '#94A3B8';
-              const isSelected = selectedIds.has(boulder.id);
-
-              return (
-                <article
-                  key={boulder.id}
-                  className={cn('px-4 py-2.5 transition-colors sm:px-5', isSelected && 'bg-[#F7FBF7]')}
-                >
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={(checked) => toggleSelected(boulder.id, checked === true)}
-                      aria-label={`${boulder.name} auswählen`}
-                      className="shrink-0 bg-white"
-                      onClick={(event) => event.stopPropagation()}
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() => openEditor(boulder)}
-                      className="min-w-0 flex-1 rounded-xl px-1 py-2 text-left transition-colors active:bg-[#F4F8F4] sm:hover:bg-[#F7FBF7]"
+      {activeFilterCount > 0 && <fieldset disabled={disabled} className="flex flex-wrap gap-2" aria-label="Aktive Filter">
+        {sectorFilters.map(name => <ActiveFilterChip key={name} label={`Sektor ${name}`} onRemove={() => toggleFilter(setSectorFilters, sectorFilters, name)}>{name}</ActiveFilterChip>)}
+        {colorFilters.map(name => <ActiveFilterChip key={name} label={`Farbe ${name}`} onRemove={() => toggleFilter(setColorFilters, colorFilters, name)}><span className="h-4 w-4 shrink-0 rounded-kws-badge ring-1 ring-inset ring-foreground/15" style={getBoulderColorBackgroundStyle(name, null, colors)} />{name}</ActiveFilterChip>)}
+        {difficultyFilters.map(grade => <ActiveFilterChip key={grade} label={`Grad ${grade}`} onRemove={() => toggleFilter(setDifficultyFilters, difficultyFilters, grade)}>Grad {grade}</ActiveFilterChip>)}
+      </fieldset>}
+      <BoulderFilterPanel open={filtersOpen && !disabled && !loading && !failed} onOpenChange={setFiltersOpen} resultCount={filteredBoulders.length} activeCount={activeFilterCount} onReset={resetFilters}>
+        <BoulderFilterControls hideReset difficulties={difficultyFilters} onDifficultyToggle={value => toggleFilter(setDifficultyFilters, difficultyFilters, value)} onDifficultyReset={() => changeFilter(setDifficultyFilters, [])} selectedColors={colorFilters} onColorToggle={value => toggleFilter(setColorFilters, colorFilters, value)} onColorReset={() => changeFilter(setColorFilters, [])} colors={colors} colorsLoading={colorQuery.isPending} colorsError={colorQuery.isError} onRetryColors={() => void colorQuery.refetch()} activeCount={activeFilterCount} onReset={resetFilters}
+          sectorControls={<SectorFilterOptions sectors={sectors} selected={sectorFilters} onChange={values => changeFilter(setSectorFilters, values)} />} />
+      </BoulderFilterPanel>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {!loading && !failed && <p className="text-sm text-muted-foreground" role="status">
+          {filteredBoulders.length} Boulder
+          {filteredBoulders.length > visible.length
+            ? ` · ${visible.length} angezeigt`
+            : ""}
+        </p>}
+        <div className="flex gap-1">
+          {(search || activeFilterCount > 0) && (
+            <Button
+              variant="ghost"
+              disabled={disabled}
+              onClick={() => {
+                setSearch("");
+                resetFilters();
+              }}
+            >
+              Zurücksetzen
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            disabled={disabled || loading || failed || !visible.length}
+            onClick={() =>
+              setSelectedIds(
+                selectedVisibleIds.length === visible.length
+                  ? new Set()
+                  : new Set(visible.map((b) => b.id)),
+              )
+            }
+          >
+            {visible.length > 0 && selectedVisibleIds.length === visible.length
+              ? "Auswahl aufheben"
+              : "Sichtbare wählen"}
+          </Button>
+        </div>
+      </div>
+      {loading ? (
+        <SetterState loading title="Boulder werden geladen …" />
+      ) : failed ? (
+        <SetterState
+          title="Boulder konnten nicht geladen werden."
+          retrying={boulderQuery.isFetching || sectorQuery.isFetching || colorQuery.isFetching || attributeQuery.isFetching}
+          onRetry={() => {
+            void queryClient.refetchQueries({ queryKey: ["boulders"] });
+            void queryClient.refetchQueries({ queryKey: ["sectors"] });
+            void colorQuery.refetch();
+            void attributeQuery.refetch();
+          }}
+        />
+      ) : !visible.length ? (
+        <SetterState
+          title="Keine Boulder gefunden"
+          description="Passe die Suche oder die Filter an."
+        />
+      ) : (
+        [...groups.entries()]
+          .sort(([a], [b]) => a.localeCompare(b, "de", { numeric: true }))
+          .map(([name, items]) => (
+            <section key={name} className="space-y-2">
+              <h2 className="text-base font-semibold">
+                {name}
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  {items.length}
+                </span>
+              </h2>
+              <SetterSurface className="overflow-hidden p-0 sm:p-0">
+                <div className="divide-y divide-border/60">
+                  {items.map((b) => (
+                    <article
+                      key={b.id}
+                      className={cn(
+                        "flex items-center gap-1 px-2 py-1 sm:px-3",
+                        selectedIds.has(b.id) && "bg-primary/10",
+                      )}
                     >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-[#E7F0E8] bg-[#F5F9F5]">
-                          {thumbnailUrl ? (
+                      <label className="flex h-11 w-11 shrink-0 items-center justify-center">
+                        <Checkbox
+                          checked={selectedIds.has(b.id)}
+                          disabled={disabled}
+                          aria-label={`${b.name} auswählen`}
+                          onCheckedChange={(checked) =>
+                            toggleSelected(b.id, checked === true)
+                          }
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        aria-label={`${b.name} bearbeiten`}
+                        className="flex min-h-20 min-w-0 flex-1 items-center gap-3 rounded-kws-control px-1 py-2 text-left hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={() => openEditor(b)}
+                      >
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-kws-control bg-secondary">
+                          {getThumbnailUrl(b) && (
                             <img
-                              src={thumbnailUrl}
-                              alt={boulder.name}
-                              className="h-full w-full object-cover"
+                              src={getThumbnailUrl(b)!}
+                              alt=""
                               loading="lazy"
+                              className="h-full w-full object-cover"
                             />
-                          ) : (
-                            <div className="grid h-full w-full place-items-center text-xs text-[#13112B]/45">
-                              Kein Bild
-                            </div>
                           )}
-                          <span
-                            className={cn(
-                              'absolute bottom-1 right-1 rounded px-1.5 py-0.5 text-[10px] font-semibold shadow-sm',
-                              getTextClassForHex(colorHex),
-                            )}
-                            style={getBoulderColorBackgroundStyle(boulder.color, boulder.color2, colors)}
-                            title={getBoulderColorLabel(boulder.color, boulder.color2)}
-                          >
-                            {formatDifficulty(boulder.difficulty)}
-                          </span>
                         </div>
-
                         <div className="min-w-0 flex-1">
-                          <p className="line-clamp-2 overflow-hidden break-words text-[1rem] font-semibold leading-tight tracking-[-0.02em] text-[#13112B]">
-                            {boulder.name}
+                          <p className="break-words text-sm font-semibold">
+                            {b.name}
                           </p>
-                          <p className="mt-1 truncate text-sm text-[#13112B]/60">
-                            {boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}
+                          <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                            <span
+                              aria-hidden="true"
+                              className="h-3.5 w-3.5 shrink-0 rounded-kws-badge ring-1 ring-inset ring-foreground/15"
+                              style={getBoulderColorBackgroundStyle(
+                                b.color,
+                                b.color2,
+                                colors,
+                              )}
+                            />
+                            {getBoulderColorLabel(b.color, b.color2)} · Grad{" "}
+                            {formatDifficulty(b.difficulty)}
                           </p>
-                          <p className="mt-0.5 truncate text-xs font-medium text-[#4F6A4B]">
-                            {getBoulderColorLabel(boulder.color, boulder.color2)}
-                          </p>
+                          {b.sector2 && (
+                            <p className="text-xs text-muted-foreground">
+                              Auch {b.sector2}
+                            </p>
+                          )}
                         </div>
-                      </div>
-                    </button>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border-[#CFE4B8] bg-[#F7FBF7] text-[#13112B]/72 hover:bg-[#EEF6E1] hover:text-[#13112B]"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openEditor(boulder);
-                      }}
-                      aria-label={`${boulder.name} bearbeiten`}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="px-5 py-10 text-sm text-[#13112B]/60">
-            Keine Boulder für die aktuelle Suche gefunden.
-          </div>
-        )}
-      </SetterSurface>
-
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </SetterSurface>
+            </section>
+          ))
+      )}
+      {!loading && !failed && visible.length < filteredBoulders.length && (
+        <Button
+          variant="secondary"
+          className="w-full"
+          disabled={disabled}
+          onClick={() => setLimit((n) => n + 50)}
+        >
+          Weitere Boulder anzeigen ({filteredBoulders.length - visible.length})
+        </Button>
+      )}
       <SetterBoulderEditorDialog
-        open={Boolean(editorDraft)}
+        open={!!editorDraft}
         onOpenChange={(open) => {
-          if (!open) {
-            setEditorDraft(null);
-          }
+          if (!open) setEditorDraft(null);
         }}
         title="Boulder bearbeiten"
         submitLabel="Speichern"
@@ -426,40 +530,38 @@ export default function SetterEditPage() {
         onDraftChange={setEditorDraft}
         onSubmit={saveEditor}
         onDelete={deleteFromEditor}
-        isSubmitting={updateBoulder.isPending || setBoulderAttributes.isPending || selectedAttributeQuery.isLoading}
+        loadError={
+          selectedAttributeQuery.isError
+            ? "Merkmale konnten nicht geladen werden."
+            : undefined
+        }
+        onRetryLoad={() => void selectedAttributeQuery.refetch()}
+        isSubmitting={saving || selectedAttributeQuery.isLoading}
         isDeleting={deleteBoulder.isPending}
       />
-
-      {selectedIds.size > 0 ? (
-        <div className="fixed inset-x-4 bottom-[calc(88px+env(safe-area-inset-bottom,0px))] z-[125] md:bottom-6 md:left-auto md:right-6 md:w-auto">
-          <div className="flex items-center gap-2 rounded-2xl border border-[#DCEEDF] bg-white/96 p-2 shadow-[0_18px_40px_rgba(19,17,43,0.12)] backdrop-blur">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-11 w-11 rounded-xl"
-              onClick={() => setSelectedIds(new Set())}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              className="h-11 rounded-xl border-[#F1D7D2] px-4 text-[#B64332] hover:bg-[#FFF4F2] hover:text-[#B64332]"
-              disabled={deleteBoulder.isPending}
-              onClick={async () => {
-                await deleteMany(Array.from(selectedIds));
-                setSelectedIds(new Set());
-              }}
-            >
-              {deleteBoulder.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="mr-2 h-4 w-4" />
-              )}
-              Auswahl löschen ({selectedIds.size})
-            </Button>
-          </div>
-        </div>
-      ) : null}
+      <SetterSelectionBar
+        count={loading || failed ? 0 : selectedVisibleIds.length}
+        disabled={disabled || loading || failed}
+        onClear={() => setSelectedIds(new Set())}
+      >
+        <Button
+          variant="destructive"
+          disabled={disabled || loading || failed}
+          onClick={() => setDeleteIds(selectedVisibleIds)}
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Löschen
+        </Button>
+      </SetterSelectionBar>
+      <SetterConfirm
+        open={deleteIds !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteIds(null);
+        }}
+        title={`${deleteIds?.length ?? 0} Boulder löschen?`}
+        description="Nur die ausgewählten Boulder werden dauerhaft gelöscht. Diese Aktion lässt sich nicht rückgängig machen."
+        onConfirm={deleteMany}
+      />
     </div>
   );
 }

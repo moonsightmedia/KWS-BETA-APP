@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { kwsSurfaceClassName } from '@/components/ui/kws-surface';
 
 interface MetricItem {
   label: string;
@@ -31,11 +32,11 @@ export function SetterWorkspaceShell({
       <section className="space-y-4">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
-            <p className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">{eyebrow}</p>
-            <h2 className="mt-2 text-[2.2rem] font-semibold leading-none tracking-[-0.03em] text-[#13112B] sm:text-[2.7rem]">
+            <p className="text-[0.82rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{eyebrow}</p>
+            <h2 className="mt-2 font-sans text-lg font-semibold leading-snug text-foreground">
               {title}
             </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[#13112B]/68 sm:text-[15px]">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-[15px]">
               {description}
             </p>
           </div>
@@ -50,13 +51,13 @@ export function SetterWorkspaceShell({
         {metrics.length > 0 && (
           <div className="grid gap-3 sm:grid-cols-3">
             {metrics.map((metric) => (
-              <div key={metric.label} className="rounded-2xl border border-[#DDE7DF] bg-white px-4 py-4 shadow-[0_8px_24px_rgba(19,17,43,0.05)]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#13112B]/48">{metric.label}</p>
+              <div key={metric.label} className="rounded-kws-control bg-secondary p-4">
+                <p className="text-xs font-medium text-muted-foreground">{metric.label}</p>
                 <p
                   className={cn(
-                    'mt-2 text-lg font-semibold tracking-[-0.03em] text-[#13112B]',
-                    metric.tone === 'success' && 'text-[#17641D]',
-                    metric.tone === 'muted' && 'text-[#13112B]/60',
+                    'mt-2 text-lg font-semibold tracking-[-0.03em] text-foreground',
+                    metric.tone === 'success' && 'text-primary-ink',
+                    metric.tone === 'muted' && 'text-muted-foreground',
                   )}
                 >
                   {metric.value}
@@ -82,7 +83,8 @@ export function SetterSurface({
   return (
     <section
       className={cn(
-        'rounded-2xl border border-[#DDE7DF] bg-white p-4 shadow-[0_8px_24px_rgba(19,17,43,0.05)] sm:p-5 lg:p-6',
+        kwsSurfaceClassName,
+        'p-4 sm:p-5',
         className,
       )}
     >
@@ -107,17 +109,17 @@ export function SetterSubsection({
   className?: string;
 }) {
   return (
-    <div className={cn('rounded-2xl border border-[#E7F0E8] bg-[#FCFEFC] p-4 sm:p-5', className)}>
+    <div className={cn('rounded-kws-control bg-secondary/60 p-4', className)}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           {kicker ? (
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6E806A]">{kicker}</p>
+            <p className="text-xs font-medium text-muted-foreground">{kicker}</p>
           ) : null}
-          <h3 className="mt-2 text-[1.45rem] font-semibold leading-none tracking-[-0.02em] text-[#13112B] sm:text-[1.7rem]">
+          <h3 className="mt-1 font-sans text-base font-semibold leading-snug text-foreground">
             {title}
           </h3>
           {description ? (
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#13112B]/64">{description}</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>
           ) : null}
         </div>
         {aside}

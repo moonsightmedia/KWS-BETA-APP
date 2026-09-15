@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useSectorsTransformed } from '@/hooks/useSectors';
-import { BoulderFilterControls, BoulderFilterPanel, BoulderSortPanel, FilterOption } from '@/components/boulder/BoulderFilterControls';
+import { ActiveFilterChip, BoulderFilterControls, BoulderFilterPanel, BoulderSortPanel } from '@/components/boulder/BoulderFilterControls';
+import { SectorFilterOptions } from '@/components/boulder/SectorFilterOptions';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/hooks/useAuth';
 import { matchesBoulderColorFilter } from '@/utils/colorUtils';
@@ -10,26 +12,12 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ArrowUpDown, ChevronRight, LogIn, Search, SlidersHorizontal, Trophy, X } from 'lucide-react';
+import { KwsSurface } from '@/components/ui/kws-surface';
+import { AlertCircle, ArrowUpDown, ChevronRight, Loader2, LogIn, RefreshCw, Search, SlidersHorizontal, Trophy, X } from 'lucide-react';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
 import type { Boulder } from '@/types/boulder';
 // Use a data URL for placeholder to ensure it always works
 const placeholder = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';
-
-const SECTOR_AREA_ORDER = ['Bug', 'Couch-Ecke', 'Top-Out', 'Lange Platte', 'Grotte'];
-const getSectorAreaName = (sectorName: string) => sectorName.replace(/\s+[A-D]$/, '');
-const compareSectorNames = (firstSector: string, secondSector: string) => {
-  const firstAreaIndex = SECTOR_AREA_ORDER.indexOf(getSectorAreaName(firstSector));
-  const secondAreaIndex = SECTOR_AREA_ORDER.indexOf(getSectorAreaName(secondSector));
-
-  if (firstAreaIndex !== secondAreaIndex) {
-    if (firstAreaIndex === -1) return 1;
-    if (secondAreaIndex === -1) return -1;
-    return firstAreaIndex - secondAreaIndex;
-  }
-
-  return firstSector.localeCompare(secondSector, 'de', { numeric: true });
-};
 
 const SORT_OPTIONS = [
   { key: 'date-desc', label: 'Neueste zuerst', sortBy: 'date', sortOrder: 'desc' },
@@ -57,6 +45,26 @@ const Guest = () => {
   const { loading: authLoading } = useAuth();
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(!authLoading);
   const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed(!authLoading);
+  const queryClient = useQueryClient();
+  const [isRetrying, setIsRetrying] = useState(false);
+  const retryInFlight = useRef(false);
+  const dataError = Boolean(bouldersError || sectorsError);
+  const showDataError = dataError || isRetrying;
+  const isLoading = authLoading || isLoadingBoulders || isLoadingSectors;
+  const retryData = async () => {
+    if (retryInFlight.current) return;
+    retryInFlight.current = true;
+    setIsRetrying(true);
+    try {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['boulders'], type: 'active' }),
+        queryClient.refetchQueries({ queryKey: ['sectors'], type: 'active' }),
+      ]);
+    } finally {
+      retryInFlight.current = false;
+      setIsRetrying(false);
+    }
+  };
   
   // Note: Hooks already have refetchOnMount: true, so data will be reloaded automatically
   const [showSearch, setShowSearch] = useState(false);
@@ -181,7 +189,6 @@ const Guest = () => {
     return boulder.createdAt >= threshold;
   };
 
-  const sectorNames = [...new Set((sectors ?? []).map((sector) => sector.name))].sort(compareSectorNames);
   const activeFilterCount = sectorFilters.length + difficultyFilters.length + colorFilters.length;
   const activeSortKey = `${sortBy}-${sortOrder}`;
 
@@ -217,23 +224,14 @@ const Guest = () => {
 
   const filterControls = (
     <BoulderFilterControls
-      leadingFullWidth
-      leadingControls={(
-        <section aria-label="Sektor" className="lg:col-span-2">
-          <h3 className="mb-3 font-sans text-xs font-semibold text-foreground">Sektor</h3>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-            {sectorNames.map((sectorName) => (
-              <FilterOption key={sectorName} selected={sectorFilters.includes(sectorName)} onClick={() => toggleSectorFilter(sectorName)}>
-                <span className="min-w-0 truncate">{sectorName}</span>
-              </FilterOption>
-            ))}
-          </div>
-        </section>
-      )}
+      hideReset
+      sectorControls={<SectorFilterOptions sectors={sectors ?? []} selected={sectorFilters} onChange={setSectorFilters} />}
       difficulties={difficultyFilters}
       onDifficultyToggle={toggleDifficultyFilter}
+      onDifficultyReset={() => setDifficultyFilters([])}
       selectedColors={colorFilters}
       onColorToggle={toggleColorFilter}
+      onColorReset={() => setColorFilters([])}
       colors={colors}
       colorsLoading={colorsQuery.isPending}
       colorsError={colorsQuery.isError}
@@ -254,7 +252,9 @@ const Guest = () => {
               <div className="min-w-0">
                 <h1 className="truncate text-[2.15rem] font-semibold leading-none tracking-[-0.03em] text-[#192436]">Boulder</h1>
                 <p className="mt-1 text-[11px] font-medium text-[#646C71]" aria-live="polite">
-                  Gastansicht · {filtered.length} aktuelle Boulder
+                  Gastansicht · {isRetrying || (!dataError && isLoading)
+                    ? 'Wird geladen …'
+                    : dataError ? 'Daten nicht verfügbar' : `${filtered.length} aktuelle Boulder`}
                 </p>
               </div>
 
@@ -275,8 +275,9 @@ const Guest = () => {
                 <button
                   type="button"
                   onClick={() => toggleToolbarPanel('filters')}
+                  disabled={showDataError || isLoading}
                   className={cn(
-                    'relative flex h-10 w-10 items-center justify-center rounded-kws-control transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36B531]/45',
+                    'relative flex h-10 w-10 items-center justify-center rounded-kws-control transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36B531]/45 disabled:opacity-50',
                     showFilters ? 'bg-[#36B531] text-white' : 'bg-[#F1F5F1] text-[#13112B]/65'
                   )}
                   aria-label="Filter"
@@ -292,8 +293,9 @@ const Guest = () => {
                 <button
                   type="button"
                   onClick={() => toggleToolbarPanel('sort')}
+                  disabled={showDataError || isLoading}
                   className={cn(
-                    'flex h-10 w-10 items-center justify-center rounded-kws-control transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36B531]/45',
+                    'flex h-10 w-10 items-center justify-center rounded-kws-control transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36B531]/45 disabled:opacity-50',
                     showSort ? 'bg-[#36B531] text-white' : 'bg-[#F1F5F1] text-[#13112B]/65'
                   )}
                   aria-label="Sortierung"
@@ -340,39 +342,27 @@ const Guest = () => {
             )}
 
             {(searchQuery.trim() || activeFilterCount > 0) && (
-              <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 md:-mx-8 md:px-8">
+              <div className="mt-3 flex flex-wrap gap-2" aria-label="Aktive Filter">
                 {searchQuery.trim() ? (
-                  <button type="button" onClick={() => setSearchQuery('')} className="flex shrink-0 items-center gap-1.5 rounded-kws-control bg-[#36B531] px-3 py-1.5 text-xs font-semibold text-white">
-                    Suche: {searchQuery.trim()}
-                    <X className="h-3 w-3" />
-                  </button>
+                  <ActiveFilterChip label="Suchfilter" onRemove={() => setSearchQuery('')}>Suche: {searchQuery.trim()}</ActiveFilterChip>
                 ) : null}
                 {sectorFilters.map((sectorName) => (
-                  <button key={sectorName} type="button" onClick={() => toggleSectorFilter(sectorName)} className="flex shrink-0 items-center gap-1.5 rounded-kws-control bg-[#36B531] px-3 py-1.5 text-xs font-semibold text-white">
-                    {sectorName}
-                    <X className="h-3 w-3" />
-                  </button>
+                  <ActiveFilterChip key={sectorName} label={`Sektor ${sectorName}`} onRemove={() => toggleSectorFilter(sectorName)}>{sectorName}</ActiveFilterChip>
                 ))}
                 {difficultyFilters.map((difficulty) => (
-                  <button key={difficulty} type="button" onClick={() => toggleDifficultyFilter(difficulty)} className="flex shrink-0 items-center gap-1.5 rounded-kws-control bg-[#36B531] px-3 py-1.5 text-xs font-semibold text-white">
-                    Grad {difficulty}
-                    <X className="h-3 w-3" />
-                  </button>
+                  <ActiveFilterChip key={difficulty} label={`Grad ${difficulty}`} onRemove={() => toggleDifficultyFilter(difficulty)}>Grad {difficulty}</ActiveFilterChip>
                 ))}
                 {colorFilters.map((colorName) => (
-                  <button key={colorName} type="button" onClick={() => toggleColorFilter(colorName)} className="flex shrink-0 items-center gap-1.5 rounded-kws-control bg-[#36B531] px-3 py-1.5 text-xs font-semibold text-white">
-                    {colorName}
-                    <X className="h-3 w-3" />
-                  </button>
+                  <ActiveFilterChip key={colorName} label={`Farbe ${colorName}`} onRemove={() => toggleColorFilter(colorName)}>{colorName}</ActiveFilterChip>
                 ))}
               </div>
             )}
 
-            <BoulderFilterPanel open={showFilters} onOpenChange={setShowFilters} resultCount={filtered.length}>
+            <BoulderFilterPanel open={showFilters && !showDataError && !isLoading} onOpenChange={setShowFilters} resultCount={filtered.length} activeCount={activeFilterCount} onReset={clearFilters}>
               {filterControls}
             </BoulderFilterPanel>
 
-            {showSort && (
+            {showSort && !showDataError && !isLoading && (
               <BoulderSortPanel
                 options={SORT_OPTIONS}
                 selected={activeSortKey}
@@ -423,6 +413,42 @@ const Guest = () => {
             </Card>
           )}
 
+      {showDataError ? (
+        <KwsSurface role="alert" className="mb-6 flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:p-5">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kws-control bg-destructive/10 text-destructive">
+              <AlertCircle className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="font-sans text-base font-semibold text-foreground">Boulder konnten nicht geladen werden</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Prüfe deine Verbindung und versuche es noch einmal.</p>
+            </div>
+          </div>
+          <Button type="button" onClick={retryData} disabled={isRetrying} className="w-full shrink-0 gap-2 disabled:bg-secondary disabled:text-muted-foreground disabled:opacity-100 sm:w-48">
+            {isRetrying ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <RefreshCw className="h-4 w-4" aria-hidden="true" />}
+            {isRetrying ? 'Wird geladen …' : 'Erneut versuchen'}
+          </Button>
+        </KwsSurface>
+      ) : isLoading ? (
+        <KwsSurface role="status" className="mb-6 flex items-center gap-3 p-4 text-sm text-muted-foreground sm:p-5">
+          <Loader2 className="h-5 w-5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+          Boulder werden geladen …
+        </KwsSurface>
+      ) : filtered.length === 0 ? (
+        <KwsSurface role="status" className="mb-6 space-y-3 p-4 sm:p-5">
+          <h2 className="font-sans text-base font-semibold text-foreground">
+            {activeFilterCount > 0 || searchQuery.trim() ? 'Keine passenden Boulder' : 'Noch keine aktuellen Boulder'}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {activeFilterCount > 0 || searchQuery.trim() ? 'Versuche eine andere Suche oder setze die Filter zurück.' : 'Sobald Boulder verfügbar sind, findest du sie hier.'}
+          </p>
+          {(activeFilterCount > 0 || searchQuery.trim()) && (
+            <Button type="button" variant="secondary" onClick={() => { clearFilters(); setSearchQuery(''); }}>
+              Suche und Filter zurücksetzen
+            </Button>
+          )}
+        </KwsSurface>
+      ) : (
       <div className="grid grid-cols-1 gap-3 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] md:grid-cols-2 md:pb-[calc(2rem+env(safe-area-inset-bottom,0px))] lg:grid-cols-3">
         {filtered.map((b, index) => (
           <button
@@ -494,6 +520,7 @@ const Guest = () => {
           </button>
         ))}
       </div>
+      )}
 
         </main>
     </div>

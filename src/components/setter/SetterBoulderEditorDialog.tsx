@@ -1,32 +1,38 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Check,
   FileVideo,
   Image as ImageIcon,
   Loader2,
-  Search,
+  Map,
   Sparkles,
   Trash2,
   X,
-} from 'lucide-react';
-
-import { BoulderAttributeSelector } from '@/components/BoulderAttributeSelector';
-import { HallMapView } from '@/components/HallMapView';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { getBoulderAttributeIcon } from '@/lib/boulderAttributes';
-import { cn } from '@/lib/utils';
-import type { BoulderAttributeOption } from '@/types/community';
-import { getColorBackgroundStyle } from '@/utils/colorUtils';
-import { generateBoulderName } from '@/utils/nameGenerator';
-import { isNativeVideoPipelineAvailable } from '@/utils/nativeVideoUpload';
-import { pickNativeVideoForUpload } from '@/utils/nativeVideoPicker';
-import { getUploadInputName, type UploadFileInput } from '@/types/upload';
-import { toast } from 'sonner';
+} from "lucide-react";
+import { HallMapView } from "@/components/HallMapView";
+import {
+  SetterConfirm,
+  SetterSearch,
+  SetterSelect,
+} from "@/components/setter/SetterControls";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import type { BoulderAttributeOption } from "@/types/community";
+import { getColorBackgroundStyle } from "@/utils/colorUtils";
+import { generateBoulderName } from "@/utils/nameGenerator";
+import { isNativeVideoPipelineAvailable } from "@/utils/nativeVideoUpload";
+import { pickNativeVideoForUpload } from "@/utils/nativeVideoPicker";
+import { getUploadInputName, type UploadFileInput } from "@/types/upload";
 
 export interface SetterBoulderDraft {
   id: string;
@@ -57,26 +63,31 @@ type EditorSector = {
   id: string;
   name: string;
   boulderCount?: number | null;
+  legacyName?: string;
 };
 
-const OPTIONAL_ATTRIBUTE_KEYS = new Set(['partner_boulder', 'dual_color']);
+const OPTIONAL_ATTRIBUTE_KEYS = new Set(["partner_boulder", "dual_color"]);
 
 const newId = () => Math.random().toString(36).slice(2, 11);
 
-export const createEmptySetterBoulderDraft = (colors: EditorColor[]): SetterBoulderDraft => {
+export const createEmptySetterBoulderDraft = (
+  colors: EditorColor[],
+): SetterBoulderDraft => {
   const defaultColor = colors[0];
   const defaultDifficulty = 4;
 
   return {
     id: newId(),
-    name: defaultColor ? generateBoulderName(defaultColor.name, defaultDifficulty) : 'Neuer Boulder',
-    sectorId: '',
+    name: defaultColor
+      ? generateBoulderName(defaultColor.name, defaultDifficulty)
+      : "Neuer Boulder",
+    sectorId: "",
     sectorId2: undefined,
     spansMultipleSectors: false,
-    colorId: defaultColor?.id ?? '',
+    colorId: defaultColor?.id ?? "",
     colorId2: undefined,
     difficulty: defaultDifficulty,
-    note: '',
+    note: "",
     attributeIds: [],
     videoFile: null,
     thumbFile: null,
@@ -98,17 +109,19 @@ export const canSubmitSetterBoulderDraft = (
   const needsSecondColor = Boolean(
     dualColorAttributeId && draft.attributeIds.includes(dualColorAttributeId),
   );
-  const hasValidSecondColor = !needsSecondColor || Boolean(
-    draft.colorId2 && draft.colorId2 !== draft.colorId,
-  );
+  const hasValidSecondColor =
+    !needsSecondColor ||
+    Boolean(draft.colorId2 && draft.colorId2 !== draft.colorId);
 
   return Boolean(
     hasVideo &&
-    hasThumbnail &&
-    draft.name.trim() &&
-    draft.sectorId &&
-    draft.colorId &&
-    hasValidSecondColor,
+      hasThumbnail &&
+      draft.name.trim() &&
+      draft.sectorId &&
+      draft.colorId &&
+      hasValidSecondColor &&
+      (!draft.spansMultipleSectors ||
+        Boolean(draft.sectorId2 && draft.sectorId2 !== draft.sectorId)),
   );
 };
 
@@ -118,60 +131,63 @@ function EditorMediaDrop({
   icon,
   previewUrl,
   fileName,
-  existingLabel,
+  existing,
   onChange,
   onPick,
-  useCustomPicker = false,
+  disabled,
 }: {
   label: string;
   accept: string;
   icon: ReactNode;
   previewUrl?: string | null;
   fileName?: string | null;
-  existingLabel?: string | null;
+  existing?: boolean;
   onChange: (file: File) => void;
   onPick?: () => void;
-  useCustomPicker?: boolean;
+  disabled: boolean;
 }) {
-  const statusText = fileName ?? existingLabel ?? 'Datei aus der Galerie wählen';
-  const isSelected = Boolean(fileName || existingLabel || previewUrl);
-
   return (
-    <label className="relative block aspect-[9/16] overflow-hidden rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FCFDFC]">
-      {useCustomPicker ? (
+    <label className="relative flex min-h-28 min-w-0 flex-col items-start justify-center gap-2 overflow-hidden rounded-kws-control bg-secondary p-3 focus-within:ring-2 focus-within:ring-ring">
+      <div className="flex items-center gap-2">
+        {previewUrl ? (
+          <img
+            src={previewUrl}
+            alt=""
+            className="h-9 w-9 rounded-kws-badge object-cover"
+          />
+        ) : (
+          icon
+        )}
+        <span className="text-sm font-semibold">{label}</span>
+        {(fileName || existing) && (
+          <Check aria-hidden="true" className="h-4 w-4 text-primary-ink" />
+        )}
+      </div>
+      <span className="line-clamp-2 w-full break-all text-xs text-muted-foreground">
+        {fileName || (existing ? "Vorhanden · ersetzen" : "Datei wählen")}
+      </span>
+      {onPick ? (
         <button
           type="button"
-          className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
           aria-label={label}
-          onClick={() => onPick?.()}
+          className="absolute inset-0 disabled:cursor-not-allowed"
+          onClick={onPick}
+          disabled={disabled}
         />
       ) : (
         <input
           type="file"
           accept={accept}
-          className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
+          aria-label={label}
+          disabled={disabled}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
             if (file) onChange(file);
+            e.target.value = "";
           }}
         />
       )}
-      {previewUrl ? <img src={previewUrl} alt={label} className="absolute inset-0 h-full w-full object-cover" /> : null}
-      <div
-        className={cn(
-          'absolute inset-0 flex flex-col items-center justify-center px-3 py-4 text-center',
-          previewUrl ? 'bg-black/8' : 'bg-white',
-        )}
-      >
-        {!previewUrl ? icon : null}
-        <p className="text-sm font-semibold tracking-[-0.02em] text-[#13112B]">{label}</p>
-        <p className="mt-2 line-clamp-2 text-[11px] text-[#13112B]/58">{statusText}</p>
-        {isSelected ? (
-          <span className="mt-3 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#69B545] text-white">
-            <Check className="h-4 w-4" />
-          </span>
-        ) : null}
-      </div>
     </label>
   );
 }
@@ -190,6 +206,8 @@ export function SetterBoulderEditorDialog({
   onDelete,
   isSubmitting = false,
   isDeleting = false,
+  loadError,
+  onRetryLoad,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -204,507 +222,542 @@ export function SetterBoulderEditorDialog({
   onDelete?: () => void | Promise<void>;
   isSubmitting?: boolean;
   isDeleting?: boolean;
+  loadError?: string;
+  onRetryLoad?: () => void;
 }) {
-  const [primarySectorSearch, setPrimarySectorSearch] = useState('');
-  const [secondarySectorSearch, setSecondarySectorSearch] = useState('');
-  const [thumbPreviewUrl, setThumbPreviewUrl] = useState<string | null>(null);
-
+  const [dirty, setDirty] = useState(false);
+  const [discard, setDiscard] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState("");
+  const [showErrors, setShowErrors] = useState(false);
+  const [sectorSearch, setSectorSearch] = useState("");
+  const [mapOpen, setMapOpen] = useState(false);
+  const [extraOpen, setExtraOpen] = useState(false);
+  const [thumbPreview, setThumbPreview] = useState<string | null>(null);
+  const lock = useRef(false);
+  const busy = working || isSubmitting || isDeleting;
   useEffect(() => {
-    if (!open) {
-      setPrimarySectorSearch('');
-      setSecondarySectorSearch('');
-    }
+    setDirty(false);
+    setError("");
+    setShowErrors(false);
+    setDiscard(false);
+    setDeleteOpen(false);
+    setSectorSearch("");
+    setMapOpen(false);
+    setExtraOpen(false);
   }, [open, draft?.id]);
-
   useEffect(() => {
-    if (!draft) {
-      setThumbPreviewUrl(null);
+    const url = draft?.thumbFile
+      ? URL.createObjectURL(draft.thumbFile)
+      : (draft?.existingThumbnailUrl ?? null);
+    setThumbPreview(url);
+    return () => {
+      if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
+    };
+  }, [draft?.thumbFile, draft?.existingThumbnailUrl]);
+  if (!draft) return null;
+  const dual = attributeCatalog.find((a) => a.key === "dual_color");
+  const dualSelected = Boolean(dual && draft.attributeIds.includes(dual.id));
+  const update = (updates: Partial<SetterBoulderDraft>) => {
+    if (!busy && !lock.current) {
+      setDirty(true);
+      setError("");
+      onDraftChange({ ...draft, ...updates });
+    }
+  };
+  const close = () => {
+    if (busy || lock.current) return;
+    if (dirty) setDiscard(true);
+    else onOpenChange(false);
+  };
+  const pickNative = async () => {
+    if (lock.current) return;
+    lock.current = true;
+    setWorking(true);
+    try {
+      const file = await pickNativeVideoForUpload();
+      if (file) {
+        setDirty(true);
+        onDraftChange({ ...draft, videoFile: file });
+      }
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Video konnte nicht gewählt werden.",
+      );
+    } finally {
+      lock.current = false;
+      setWorking(false);
+    }
+  };
+  const save = async () => {
+    if (busy || loadError || lock.current) return;
+    setShowErrors(true);
+    setError("");
+    if (!canSubmitSetterBoulderDraft(draft, dual?.id)) {
+      setError("Bitte ergänze die markierten Pflichtfelder.");
       return;
     }
-
-    if (draft.thumbFile) {
-      const objectUrl = URL.createObjectURL(draft.thumbFile);
-      setThumbPreviewUrl(objectUrl);
-      return () => URL.revokeObjectURL(objectUrl);
-    }
-
-    setThumbPreviewUrl(draft.existingThumbnailUrl ?? null);
-  }, [draft]);
-
-  const mainAttributeCatalog = useMemo(
-    () => attributeCatalog.filter((attribute) => !OPTIONAL_ATTRIBUTE_KEYS.has(attribute.key)),
-    [attributeCatalog],
-  );
-  const optionalAttributeCatalog = useMemo(
-    () => attributeCatalog.filter((attribute) => OPTIONAL_ATTRIBUTE_KEYS.has(attribute.key)),
-    [attributeCatalog],
-  );
-  const dualColorAttribute = useMemo(
-    () => attributeCatalog.find((attribute) => attribute.key === 'dual_color'),
-    [attributeCatalog],
-  );
-  const sectorCountsById = useMemo(
-    () =>
-      sectors.reduce<Record<string, number>>((accumulator, sector) => {
-        accumulator[sector.id] = sector.boulderCount ?? 0;
-        return accumulator;
-      }, {}),
-    [sectors],
-  );
-  const filteredPrimarySectors = useMemo(() => {
-    const query = primarySectorSearch.trim().toLowerCase();
-    if (!query) return sectors;
-    return sectors.filter((sector) => sector.name.toLowerCase().includes(query));
-  }, [primarySectorSearch, sectors]);
-  const filteredSecondarySectors = useMemo(() => {
-    const query = secondarySectorSearch.trim().toLowerCase();
-    const availableSectors = draft ? sectors.filter((sector) => sector.id !== draft.sectorId) : sectors;
-    if (!query) return availableSectors;
-    return availableSectors.filter((sector) => sector.name.toLowerCase().includes(query));
-  }, [draft, secondarySectorSearch, sectors]);
-  if (!draft) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="hidden" />
-      </Dialog>
-    );
-  }
-
-  const updateDraft = (updates: Partial<SetterBoulderDraft>) => {
-    onDraftChange({ ...draft, ...updates });
-  };
-
-  const toggleAttribute = (attributeId: string) => {
-    const isRemoving = draft.attributeIds.includes(attributeId);
-    updateDraft({
-      attributeIds: isRemoving
-        ? draft.attributeIds.filter((id) => id !== attributeId)
-        : [...draft.attributeIds, attributeId],
-      ...(isRemoving && dualColorAttribute?.id === attributeId ? { colorId2: undefined } : {}),
-    });
-  };
-
-  const selectPrimarySector = (sectorId: string) => {
-    updateDraft({
-      sectorId,
-      sectorId2: draft.sectorId2 === sectorId ? undefined : draft.sectorId2,
-      mapX: draft.sectorId === sectorId ? draft.mapX : undefined,
-      mapY: draft.sectorId === sectorId ? draft.mapY : undefined,
-    });
-  };
-
-  const selectSecondarySector = (sectorId: string) => {
-    updateDraft({
-      sectorId2: draft.sectorId2 === sectorId ? undefined : sectorId,
-    });
-  };
-
-  const isNativeApp = isNativeVideoPipelineAvailable();
-
-  const handleFileSelect = (kind: 'video' | 'thumb', file: File) => {
-    updateDraft(kind === 'video' ? { videoFile: file } : { thumbFile: file });
-  };
-
-  const handleNativeVideoSelect = async () => {
+    lock.current = true;
+    setWorking(true);
     try {
-      const nativeVideo = await pickNativeVideoForUpload();
-      if (!nativeVideo) return;
-      updateDraft({ videoFile: nativeVideo });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Video konnte nicht gewählt werden.';
-      console.error('[SetterBoulderEditorDialog] Native video picker failed:', error);
-      toast.error(message);
+      await onSubmit();
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Speichern fehlgeschlagen. Deine Eingaben bleiben erhalten.",
+      );
+    } finally {
+      lock.current = false;
+      setWorking(false);
     }
   };
-
-  const selectedSectorName = sectors.find((sector) => sector.id === draft.sectorId)?.name ?? null;
-  const selectedSecondarySectorName = sectors.find((sector) => sector.id === draft.sectorId2)?.name ?? null;
-  const selectedColorName = colors.find((color) => color.id === draft.colorId)?.name ?? 'Farbe';
-  const isDualColorSelected = Boolean(
-    dualColorAttribute && draft.attributeIds.includes(dualColorAttribute.id),
+  const selectSector = (id: string) =>
+    update({
+      sectorId: id,
+      sectorId2: draft.sectorId2 === id ? undefined : draft.sectorId2,
+      mapX: draft.sectorId === id ? draft.mapX : undefined,
+      mapY: draft.sectorId === id ? draft.mapY : undefined,
+    });
+  const sectorOptions = sectors.filter(
+    (s) =>
+      [s.name, s.legacyName]
+        .join(" ")
+        .toLocaleLowerCase("de")
+        .includes(sectorSearch.toLocaleLowerCase("de")) ||
+      s.id === draft.sectorId,
   );
-  const selectedSecondaryColorName = colors.find((color) => color.id === draft.colorId2)?.name ?? null;
-  const hasVideo = Boolean(draft.videoFile || draft.existingVideoUrl);
-  const hasThumbnail = Boolean(draft.thumbFile || draft.existingThumbnailUrl);
-  const dialogErrors = {
-    video: !hasVideo,
-    thumb: !hasThumbnail,
-    name: !draft.name.trim(),
-    sector: !draft.sectorId,
-    color: !draft.colorId,
-    color2: isDualColorSelected && (!draft.colorId2 || draft.colorId2 === draft.colorId),
-  };
-
+  const renderColor = (second: boolean) => (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {colors
+        .filter((c) => !second || c.id !== draft.colorId)
+        .map((c) => {
+          const chosen = (second ? draft.colorId2 : draft.colorId) === c.id;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              aria-pressed={chosen}
+              aria-label={`${second ? "Zweite Farbe" : "Farbe"} ${c.name}`}
+              onClick={() =>
+                update(
+                  second
+                    ? { colorId2: c.id }
+                    : {
+                        colorId: c.id,
+                        colorId2:
+                          c.id === draft.colorId2 ? undefined : draft.colorId2,
+                      },
+                )
+              }
+              className={cn(
+                "flex min-h-11 items-center gap-2 rounded-kws-control px-3 py-2 text-left text-sm",
+                chosen
+                  ? "bg-primary/10 ring-1 ring-inset ring-primary text-foreground"
+                  : "bg-secondary hover:bg-secondary/70",
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className="h-5 w-5 shrink-0 rounded-kws-badge ring-1 ring-inset ring-foreground/15"
+                style={getColorBackgroundStyle(c.name, colors)}
+              />
+              <span className="min-w-0 flex-1 break-words">{c.name}</span>
+              {chosen && (
+                <Check aria-hidden="true" className="h-4 w-4 shrink-0" />
+              )}
+            </button>
+          );
+        })}
+    </div>
+  );
+  const missing = (condition: boolean, text: string) =>
+    showErrors && condition ? (
+      <p className="text-xs text-destructive">{text}</p>
+    ) : null;
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none border-0 bg-white p-0 shadow-none sm:h-[90vh] sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl sm:border sm:border-[#DDE7DF] sm:shadow-[0_18px_45px_rgba(19,17,43,0.12)]"
-        onInteractOutside={(event) => {
-          if (isNativeApp) event.preventDefault();
-        }}
-        onPointerDownOutside={(event) => {
-          if (isNativeApp) event.preventDefault();
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (!next) close();
         }}
       >
-        <div className="shrink-0 border-b border-[#E7F0E8] bg-white/96 px-4 py-4 backdrop-blur sm:px-6">
-          <DialogHeader className="space-y-0">
-            <DialogTitle className="text-[#13112B]">{title}</DialogTitle>
-          </DialogHeader>
-        </div>
-
-        <div className="min-h-0 flex-1 space-y-0 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
-          <section className="space-y-3 pb-6">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">1. Medien</p>
-            <div className="grid grid-cols-2 gap-3">
-              <EditorMediaDrop
-                label="Video"
-                accept="video/*"
-                icon={<FileVideo className="mb-2 h-6 w-6 text-[#6C6A7E]" />}
-                fileName={draft.videoFile ? getUploadInputName(draft.videoFile) : null}
-                existingLabel={draft.existingVideoUrl ? 'Video vorhanden' : null}
-                onChange={(file) => handleFileSelect('video', file)}
-                onPick={handleNativeVideoSelect}
-                useCustomPicker={isNativeApp}
-              />
-              <EditorMediaDrop
-                label="Thumbnail"
-                accept="image/*"
-                icon={<ImageIcon className="mb-2 h-6 w-6 text-[#6C6A7E]" />}
-                previewUrl={thumbPreviewUrl}
-                fileName={draft.thumbFile?.name}
-                existingLabel={draft.existingThumbnailUrl ? 'Thumbnail vorhanden' : null}
-                onChange={(file) => handleFileSelect('thumb', file)}
-              />
+        <DialogContent
+          scrollLayout="contained"
+          className="flex h-[min(90dvh,850px)] flex-col overflow-hidden p-0 md:!max-w-2xl"
+          aria-busy={busy}
+        >
+          <header className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 sm:px-6">
+            <div>
+              <DialogTitle>{title}</DialogTitle>
+              <DialogDescription className="sr-only">
+                Medien, Name, Sektor und Farbe festlegen.
+              </DialogDescription>
             </div>
-            {dialogErrors.video || dialogErrors.thumb ? (
-              <p className="text-xs text-destructive">Video und Thumbnail sind Pflicht.</p>
-            ) : null}
-          </section>
-
-          <section className="space-y-4 border-t border-[#E7F0E8] py-6">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">2. Route-DNA</p>
-
-            <div className="space-y-2">
-              <Label>Sektor</Label>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#13112B]/40" />
-                <Input
-                  placeholder="Sektor suchen..."
-                  value={primarySectorSearch}
-                  onChange={(event) => setPrimarySectorSearch(event.target.value)}
-                  className="h-10 rounded-xl border-none bg-[#F3F6F3] pl-10 pr-4 text-sm text-[#13112B] shadow-none placeholder:text-[#13112B]/42 focus-visible:ring-2 focus-visible:ring-[#69B545]/35"
-                />
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Boulder-Editor schließen"
+              disabled={busy}
+              onClick={close}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-5 sm:px-6">
+            {loadError && (
+              <div
+                role="alert"
+                className="mb-4 rounded-kws-control bg-destructive/10 p-3 text-sm text-destructive"
+              >
+                {loadError}
+                <Button variant="ghost" onClick={onRetryLoad}>
+                  Erneut versuchen
+                </Button>
               </div>
-              {filteredPrimarySectors.length > 0 ? (
-                <HallMapView
-                  sectors={filteredPrimarySectors}
-                  countsBySectorId={sectorCountsById}
-                  selectedSectorId={draft.sectorId || undefined}
-                  onSelectSectorId={selectPrimarySector}
-                  onClearSector={() => {
-                    setPrimarySectorSearch('');
-                    updateDraft({ sectorId: '', mapX: undefined, mapY: undefined });
-                  }}
-                  compact
-                  frameless
-                  showCounts={false}
-                />
-              ) : (
-                <div className="rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FCFDFC] px-4 py-5 text-sm text-[#13112B]/58">
-                  Kein Sektor zur Suche gefunden.
-                </div>
+            )}
+            <fieldset
+              disabled={busy || !!loadError}
+              className="min-w-0 space-y-5"
+            >
+              {error && (
+                <p
+                  role="alert"
+                  className="rounded-kws-control bg-destructive/10 p-3 text-sm text-destructive"
+                >
+                  {error}
+                </p>
               )}
-              <p className="text-xs text-[#13112B]/58">
-                {selectedSectorName ? `Ausgewählt: ${selectedSectorName}` : 'Sektor direkt auf der Karte auswählen.'}
-              </p>
-              {dialogErrors.sector ? <p className="text-xs text-destructive">Sektor wählen.</p> : null}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Farbe</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {colors.map((color) => (
-                  <button
-                    key={color.id}
-                    type="button"
+              <div className="space-y-2">
+                <Label htmlFor="setter-boulder-name">Name</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="setter-boulder-name"
+                    value={draft.name}
+                    aria-invalid={showErrors && !draft.name.trim()}
+                    onChange={(e) => update({ name: e.target.value })}
+                  />
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    aria-label="Neuen Namen vorschlagen"
                     onClick={() =>
-                      updateDraft({
-                        colorId: color.id,
-                        colorId2: draft.colorId2 === color.id ? undefined : draft.colorId2,
-                        name: generateBoulderName(color.name, draft.difficulty),
+                      update({
+                        name: generateBoulderName(
+                          colors.find((c) => c.id === draft.colorId)?.name ??
+                            "Boulder",
+                          draft.difficulty ?? 4,
+                        ),
                       })
                     }
-                    className={cn(
-                      'flex min-h-[52px] items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors',
-                      draft.colorId === color.id
-                        ? 'border-[#69B545] bg-[#F4FBF4]'
-                        : 'border-[#DDE7DF] bg-white hover:border-[#69B545]/40',
-                    )}
                   >
-                    <span
-                      className="h-6 w-6 shrink-0 rounded-[8px] border border-white/70 shadow-sm"
-                      style={getColorBackgroundStyle(color.name, colors)}
-                    />
-                    <span className="min-w-0 flex-1 text-sm font-semibold text-[#13112B]">{color.name}</span>
-                    {draft.colorId === color.id ? <Check className="h-4 w-4 shrink-0 text-[#69B545]" /> : null}
-                  </button>
-                ))}
-              </div>
-              {dialogErrors.color ? <p className="text-xs text-destructive">Farbe wählen.</p> : null}
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <Label>Schwierigkeit</Label>
-                <span className="text-xs font-medium text-[#13112B]/52">Aktuell: {draft.difficulty ?? '?'}</span>
-              </div>
-              <div className="grid grid-cols-5 gap-2">
-                {[null, 1, 2, 3, 4, 5, 6, 7, 8].map((level) => (
-                  <button
-                    key={level === null ? '?' : level}
-                    type="button"
-                    onClick={() => updateDraft({ difficulty: level })}
-                    className={cn(
-                      'h-11 rounded-xl border text-sm font-semibold transition-colors',
-                      draft.difficulty === level
-                        ? 'border-[#69B545] bg-[#F4FBF4] text-[#13112B]'
-                        : 'border-[#DDE7DF] bg-white text-[#13112B] hover:border-[#69B545]/40',
-                    )}
-                  >
-                    {level === null ? '?' : level}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <BoulderAttributeSelector
-              attributes={mainAttributeCatalog}
-              selectedAttributeIds={draft.attributeIds}
-              onToggle={toggleAttribute}
-              title="Attribute"
-              description=""
-              compact
-            />
-          </section>
-
-          <section className="space-y-4 border-t border-[#E7F0E8] pt-6">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">3. Name</p>
-            <div className="space-y-2">
-              <Label htmlFor="setter-boulder-name">Name</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="setter-boulder-name"
-                  value={draft.name}
-                  onChange={(event) => updateDraft({ name: event.target.value })}
-                  className={cn(
-                    'h-11 rounded-xl border-[#DDE7DF] bg-white px-4',
-                    dialogErrors.name && 'border-destructive focus-visible:ring-destructive',
-                  )}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-11 w-11 rounded-xl border-[#DDE7DF] bg-white"
-                  onClick={() => updateDraft({ name: generateBoulderName(selectedColorName, draft.difficulty) })}
-                >
-                  <Sparkles className="h-4 w-4" />
-                </Button>
-              </div>
-              {dialogErrors.name ? <p className="text-xs text-destructive">Name erforderlich.</p> : null}
-            </div>
-          </section>
-
-          <section className="space-y-4 border-t border-[#E7F0E8] pt-6">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">4. Optionale Zusatzfelder</p>
-
-            <div className="flex items-center gap-3 rounded-xl border border-[#DDE7DF] bg-[#FCFDFC] px-4 py-3">
-              <Checkbox
-                id="setter-spans-sectors"
-                checked={draft.spansMultipleSectors}
-                onCheckedChange={(checked) =>
-                  updateDraft({
-                    spansMultipleSectors: checked === true,
-                    sectorId2: checked === true ? draft.sectorId2 : undefined,
-                  })
-                }
-              />
-              <Label htmlFor="setter-spans-sectors" className="cursor-pointer text-sm font-medium text-[#13112B]">
-                Verläuft über mehrere Sektoren
-              </Label>
-            </div>
-
-            {optionalAttributeCatalog.length ? (
-              <div className="space-y-2">
-                <Label>Spezialfälle</Label>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {optionalAttributeCatalog.map((attribute) => {
-                    const Icon = getBoulderAttributeIcon(attribute);
-                    const isSelected = draft.attributeIds.includes(attribute.id);
-
-                    return (
-                      <button
-                        key={attribute.id}
-                        type="button"
-                        onClick={() => toggleAttribute(attribute.id)}
-                        className={cn(
-                          'flex min-h-[52px] items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors',
-                          isSelected
-                            ? 'border-[#69B545] bg-[#F4FBF4]'
-                            : 'border-[#DDE7DF] bg-white hover:border-[#69B545]/40',
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            'grid h-9 w-9 shrink-0 place-items-center rounded-xl',
-                            isSelected ? 'bg-[#69B545] text-white' : 'bg-[#EFF7F0] text-[#36B531]',
-                          )}
-                        >
-                          <Icon className="h-4 w-4" />
-                        </span>
-                        <span className="min-w-0 flex-1 text-sm font-semibold leading-5 text-[#13112B]">
-                          {attribute.label}
-                        </span>
-                        {isSelected ? <Check className="h-4 w-4 shrink-0 text-[#69B545]" /> : null}
-                      </button>
-                    );
-                  })}
+                    <Sparkles className="h-4 w-4" />
+                  </Button>
                 </div>
+                {missing(!draft.name.trim(), "Bitte einen Namen eingeben.")}
               </div>
-            ) : null}
-
-            {isDualColorSelected ? (
-              <div className="space-y-2 rounded-2xl border border-[#DDE7DF] bg-[#FCFDFC] p-3">
-                <div>
-                  <Label>Zweite Farbe</Label>
-                  <p className="mt-1 text-xs text-[#13112B]/58">
-                    Wähle die zweite Grifffarbe. Sie muss sich von der Hauptfarbe unterscheiden.
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {colors
-                    .filter((color) => color.id !== draft.colorId)
-                    .map((color) => (
-                      <button
-                        key={color.id}
-                        type="button"
-                        onClick={() => updateDraft({ colorId2: color.id })}
-                        className={cn(
-                          'flex min-h-[52px] items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors',
-                          draft.colorId2 === color.id
-                            ? 'border-[#69B545] bg-[#F4FBF4]'
-                            : 'border-[#DDE7DF] bg-white hover:border-[#69B545]/40',
-                        )}
-                        aria-pressed={draft.colorId2 === color.id}
-                      >
-                        <span
-                          className="h-6 w-6 shrink-0 rounded-[8px] border border-white/70 shadow-sm"
-                          style={getColorBackgroundStyle(color.name, colors)}
-                        />
-                        <span className="min-w-0 flex-1 text-sm font-semibold text-[#13112B]">{color.name}</span>
-                        {draft.colorId2 === color.id ? <Check className="h-4 w-4 shrink-0 text-[#69B545]" /> : null}
-                      </button>
-                    ))}
-                </div>
-                {selectedSecondaryColorName ? (
-                  <p className="text-xs font-medium text-[#4F6A4B]">
-                    Kombination: {selectedColorName} / {selectedSecondaryColorName}
-                  </p>
-                ) : null}
-                {dialogErrors.color2 ? <p className="text-xs text-destructive">Zweite Farbe wählen.</p> : null}
-              </div>
-            ) : null}
-
-            {draft.spansMultipleSectors ? (
-              <div className="space-y-2">
-                <Label>Endsektor</Label>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#13112B]/40" />
-                  <Input
-                    placeholder="Endsektor suchen..."
-                    value={secondarySectorSearch}
-                    onChange={(event) => setSecondarySectorSearch(event.target.value)}
-                    className="h-10 rounded-xl border-none bg-[#F3F6F3] pl-10 pr-4 text-sm text-[#13112B] shadow-none placeholder:text-[#13112B]/42 focus-visible:ring-2 focus-visible:ring-[#69B545]/35"
+              <section className="space-y-2">
+                <h3 className="text-sm font-medium">Medien</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <EditorMediaDrop
+                    label="Video"
+                    accept="video/*"
+                    icon={<FileVideo className="h-5 w-5" />}
+                    fileName={
+                      draft.videoFile
+                        ? getUploadInputName(draft.videoFile)
+                        : null
+                    }
+                    existing={!!draft.existingVideoUrl}
+                    onChange={(file) => update({ videoFile: file })}
+                    onPick={
+                      isNativeVideoPipelineAvailable()
+                        ? () => void pickNative()
+                        : undefined
+                    }
+                    disabled={busy}
+                  />
+                  <EditorMediaDrop
+                    label="Vorschaubild"
+                    accept="image/*"
+                    icon={<ImageIcon className="h-5 w-5" />}
+                    previewUrl={thumbPreview}
+                    fileName={draft.thumbFile?.name}
+                    existing={!!draft.existingThumbnailUrl}
+                    onChange={(file) => update({ thumbFile: file })}
+                    disabled={busy}
                   />
                 </div>
-                {filteredSecondarySectors.length > 0 ? (
+                {missing(
+                  !draft.videoFile && !draft.existingVideoUrl,
+                  "Bitte ein Video wählen.",
+                )}
+                {missing(
+                  !draft.thumbFile && !draft.existingThumbnailUrl,
+                  "Bitte ein Vorschaubild wählen.",
+                )}
+              </section>
+              <section className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium">Sektor</h3>
+                  <Button
+                    variant="ghost"
+                    disabled={busy}
+                    aria-expanded={mapOpen}
+                    onClick={() => setMapOpen((v) => !v)}
+                  >
+                    <Map className="mr-2 h-4 w-4" />
+                    Karte
+                  </Button>
+                </div>
+                <SetterSearch
+                  label="Sektor suchen"
+                  value={sectorSearch}
+                  onChange={setSectorSearch}
+                  disabled={busy}
+                />
+                <SetterSelect
+                  label="Sektor wählen"
+                  value={draft.sectorId}
+                  onChange={selectSector}
+                  disabled={busy}
+                  options={sectorOptions.map((s) => ({
+                    value: s.id,
+                    label:
+                      sectors.filter((other) => other.name === s.name).length >
+                        1 && s.legacyName
+                        ? `${s.name} · ${s.legacyName}`
+                        : s.name,
+                  }))}
+                />
+                {mapOpen && (
                   <HallMapView
-                    sectors={filteredSecondarySectors}
-                    countsBySectorId={sectorCountsById}
-                    selectedSectorId={draft.sectorId2}
-                    onSelectSectorId={selectSecondarySector}
-                    onClearSector={() => {
-                      setSecondarySectorSearch('');
-                      updateDraft({ sectorId2: undefined });
-                    }}
+                    sectors={sectors.map((s) => ({
+                      ...s,
+                      boulderCount: s.boulderCount ?? 0,
+                    }))}
+                    countsBySectorId={Object.fromEntries(
+                      sectors.map((s) => [s.id, s.boulderCount ?? 0]),
+                    )}
+                    selectedSectorIds={[draft.sectorId]}
+                    onSelectSectorId={selectSector}
+                    onClearSector={() => selectSector("")}
                     compact
                     frameless
-                    showCounts={false}
+                    viewportClassName="h-[240px]"
+                    lockAspectRatio={false}
                   />
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-[#DDE7DF] bg-[#FCFDFC] px-4 py-5 text-sm text-[#13112B]/58">
-                    Kein Endsektor zur Suche gefunden.
+                )}
+                {missing(!draft.sectorId, "Bitte einen Sektor wählen.")}
+              </section>
+              <section className="space-y-2">
+                <h3 className="text-sm font-medium">Farbe</h3>
+                {renderColor(false)}
+                {missing(!draft.colorId, "Bitte eine Farbe wählen.")}
+                {dual && (
+                  <label className="flex min-h-11 items-center gap-3 text-sm">
+                    <Checkbox
+                      checked={dualSelected}
+                      onCheckedChange={(checked) =>
+                        update({
+                          attributeIds: checked
+                            ? [...draft.attributeIds, dual.id]
+                            : draft.attributeIds.filter((id) => id !== dual.id),
+                          colorId2: checked ? draft.colorId2 : undefined,
+                        })
+                      }
+                    />
+                    Zweite Farbe
+                  </label>
+                )}
+                {dualSelected && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      Zweite Farbe wählen
+                    </p>
+                    {renderColor(true)}
+                    {missing(
+                      !draft.colorId2 || draft.colorId === draft.colorId2,
+                      "Bitte eine andere zweite Farbe wählen.",
+                    )}
                   </div>
                 )}
-                <p className="text-xs text-[#13112B]/58">
-                  {selectedSecondarySectorName ? `Ausgewählt: ${selectedSecondarySectorName}` : 'Zweiten Sektor auf der Karte auswählen.'}
-                </p>
-              </div>
-            ) : null}
-
-            <div className="space-y-2">
-              <Label htmlFor="setter-boulder-note">Notiz</Label>
-              <Textarea
-                id="setter-boulder-note"
-                value={draft.note}
-                onChange={(event) => updateDraft({ note: event.target.value })}
-                className="min-h-[112px] rounded-xl border-[#DDE7DF] bg-white"
-              />
-            </div>
-          </section>
-        </div>
-
-        <div className="shrink-0 border-t border-[#E7F0E8] bg-white/96 px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] backdrop-blur sm:px-6 sm:py-4">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="flex items-center gap-2 sm:flex-1">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 flex-1 rounded-xl border-[#DDE7DF] bg-white"
-                onClick={() => onOpenChange(false)}
-            >
+              </section>
+              <section className="space-y-2">
+                <h3 className="text-sm font-medium">Schwierigkeit</h3>
+                <div className="grid grid-cols-5 gap-2 sm:grid-cols-9">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, null].map((level) => (
+                    <button
+                      type="button"
+                      key={level ?? "?"}
+                      aria-label={`Schwierigkeit ${level ?? "unbekannt"}`}
+                      aria-pressed={draft.difficulty === level}
+                      onClick={() => update({ difficulty: level })}
+                      className={cn(
+                        "relative grid h-11 place-items-center rounded-kws-control text-sm font-semibold tabular-nums",
+                        draft.difficulty === level
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary hover:bg-secondary/70",
+                      )}
+                    >
+                      {level ?? "?"}
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <details
+                className="group"
+                open={extraOpen}
+                onToggle={(event) => setExtraOpen(event.currentTarget.open)}
+              >
+                <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold">
+                  Weitere Angaben{" "}
+                  <span className="font-normal text-muted-foreground">
+                    · optional
+                  </span>
+                </summary>
+                <div className="space-y-5 pt-2">
+                  {attributeCatalog.some(
+                    (a) =>
+                      !OPTIONAL_ATTRIBUTE_KEYS.has(a.key) ||
+                      a.key === "partner_boulder",
+                  ) && (
+                    <section className="space-y-2">
+                      <h3 className="text-sm font-medium">Merkmale</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {attributeCatalog
+                          .filter((a) => a.key !== "dual_color")
+                          .map((a) => {
+                            const selected = draft.attributeIds.includes(a.id);
+                            return (
+                              <Button
+                                type="button"
+                                key={a.id}
+                                variant={selected ? "default" : "secondary"}
+                                aria-pressed={selected}
+                                onClick={() =>
+                                  update({
+                                    attributeIds: selected
+                                      ? draft.attributeIds.filter(
+                                          (id) => id !== a.id,
+                                        )
+                                      : [...draft.attributeIds, a.id],
+                                  })
+                                }
+                              >
+                                {a.label}
+                                {selected && <Check className="ml-2 h-4 w-4" />}
+                              </Button>
+                            );
+                          })}
+                      </div>
+                    </section>
+                  )}
+                  <section className="space-y-2">
+                    <label className="flex min-h-11 items-center gap-3 text-sm">
+                      <Checkbox
+                        checked={draft.spansMultipleSectors}
+                        onCheckedChange={(value) =>
+                          update({
+                            spansMultipleSectors: value === true,
+                            sectorId2:
+                              value === true ? draft.sectorId2 : undefined,
+                          })
+                        }
+                      />
+                      Boulder über zwei Sektoren
+                    </label>
+                    {draft.spansMultipleSectors && (
+                      <>
+                        <SetterSelect
+                          label="Zweiten Sektor wählen"
+                          value={draft.sectorId2 ?? ""}
+                          onChange={(id) => update({ sectorId2: id })}
+                          disabled={busy}
+                          options={sectors
+                            .filter((s) => s.id !== draft.sectorId)
+                            .map((s) => ({
+                              value: s.id,
+                              label:
+                                s.name +
+                                (s.legacyName &&
+                                sectors.some(
+                                  (other) =>
+                                    other.id !== s.id && other.name === s.name,
+                                )
+                                  ? ` · ${s.legacyName}`
+                                  : ""),
+                            }))}
+                        />
+                        {missing(
+                          !draft.sectorId2,
+                          "Bitte einen zweiten Sektor wählen.",
+                        )}
+                      </>
+                    )}
+                  </section>
+                  <div className="space-y-2">
+                    <Label htmlFor="setter-boulder-note">Notiz</Label>
+                    <Textarea
+                      id="setter-boulder-note"
+                      value={draft.note}
+                      onChange={(e) => update({ note: e.target.value })}
+                      className="min-h-24"
+                    />
+                  </div>
+                </div>
+              </details>
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  className="text-destructive"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Boulder löschen
+                </Button>
+              )}
+            </fieldset>
+          </div>
+          <footer className="flex shrink-0 gap-3 bg-white px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
+            <Button variant="secondary" disabled={busy} onClick={close}>
               Abbrechen
             </Button>
-              {onDelete ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-11 w-11 rounded-xl border-[#F1D7D2] text-[#B64332] hover:bg-[#FFF4F2] hover:text-[#B64332]"
-                  disabled={isDeleting}
-                  onClick={() => void onDelete()}
-                >
-                  {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                </Button>
-              ) : null}
-            </div>
-
             <Button
-              type="button"
-              onClick={() => void onSubmit()}
-              disabled={isSubmitting || !canSubmitSetterBoulderDraft(draft, dualColorAttribute?.id)}
-              className="h-11 rounded-xl bg-[#69B545] px-5 text-white hover:bg-[#5fa039] sm:flex-1"
+              className="min-w-0 flex-1"
+              disabled={busy || !!loadError}
+              onClick={() => void save()}
             >
-              {isSubmitting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="mr-2 h-4 w-4" />
-              )}
-              {submitLabel}
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {busy ? "Bitte warten …" : submitLabel}
             </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+          </footer>
+        </DialogContent>
+      </Dialog>
+      <SetterConfirm
+        open={discard}
+        onOpenChange={setDiscard}
+        title="Änderungen verwerfen?"
+        description="Deine Änderungen an diesem Boulder wurden noch nicht übernommen."
+        confirmLabel="Verwerfen"
+        onConfirm={() => {
+          setDiscard(false);
+          onOpenChange(false);
+        }}
+      />
+      <SetterConfirm
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Boulder löschen?"
+        description={`„${draft.name}“ wird dauerhaft gelöscht.`}
+        onConfirm={async () => {
+          await onDelete?.();
+        }}
+      />
+    </>
   );
 }

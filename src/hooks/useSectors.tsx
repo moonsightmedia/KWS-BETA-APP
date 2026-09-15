@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { transformSector } from '@/lib/dataTransformers';
 import { Sector as FrontendSector } from '@/types/boulder';
+import { fetchActiveSectorBoulderIndex } from '@/lib/sectorBoulderIndex';
 
 export interface SectorArea {
   id: string;
@@ -19,6 +20,8 @@ export interface Sector {
   name: string;
   description: string | null;
   boulder_count: number;
+  /** Client-only data for deduplicated logical-area totals; never persisted. */
+  active_boulder_ids?: string[];
   next_schraubtermin: string | null;
   last_schraubtermin: string | null;
   image_url: string | null;
@@ -112,7 +115,6 @@ export const useSectors = (enabled: boolean = true) => {
           // Build the query URL manually
           const queryUrl = `${currentSupabase.supabaseUrl}/rest/v1/sectors?select=*&order=name.asc`;
           const areasQueryUrl = `${currentSupabase.supabaseUrl}/rest/v1/sector_areas?select=*&order=sort_order.asc,name.asc`;
-          const bouldersQueryUrl = `${currentSupabase.supabaseUrl}/rest/v1/boulders?select=id,sector_id,sector_id_2,status&or=(status.eq.haengt,status.is.null)`;
           console.log('[useSectors] 🔵 Query URL:', queryUrl);
           
           // Use REST client fetch directly
@@ -149,22 +151,13 @@ export const useSectors = (enabled: boolean = true) => {
             const data = await response.json() as Sector[];
             const hasHierarchyColumns = data.some((sector) => Object.prototype.hasOwnProperty.call(sector, 'area_id'));
 
-            const bouldersResponse = await fetchSectors(bouldersQueryUrl);
-            if (bouldersResponse.ok) {
-              const activeBoulders = await bouldersResponse.json() as BoulderSectorCountSource[];
-              const liveCountsBySectorId = new Map<string, number>();
-
-              activeBoulders.forEach((boulder) => {
-                const relatedSectorIds = new Set([boulder.sector_id, boulder.sector_id_2].filter(Boolean));
-                relatedSectorIds.forEach((sectorId) => {
-                  liveCountsBySectorId.set(sectorId!, (liveCountsBySectorId.get(sectorId!) ?? 0) + 1);
-                });
-              });
-
+            try {
+              const activeIdsBySectorId = await fetchActiveSectorBoulderIndex(new URL(queryUrl).origin, fetchSectors);
               data.forEach((sector) => {
-                sector.boulder_count = liveCountsBySectorId.get(sector.id) ?? 0;
+                sector.active_boulder_ids = [...(activeIdsBySectorId.get(sector.id) ?? [])];
+                sector.boulder_count = sector.active_boulder_ids.length;
               });
-            } else {
+            } catch {
               console.warn('[useSectors] Aktuelle Boulder-Zähler konnten nicht geladen werden; verwende gespeicherte Fallback-Zähler.');
             }
 
@@ -375,10 +368,12 @@ export const useCreateSector = () => {
         name: newSector.name?.trim(),
         description: newSector.description?.trim() || null,
         image_url: newSector.image_url || null,
-        area_id: newSector.area_id || null,
-        subarea_code: newSector.subarea_code?.trim().toUpperCase() || null,
-        sort_order: newSector.sort_order ?? 0,
-        is_active: newSector.is_active ?? true,
+        // Do not send optional hierarchy columns to unmigrated environments.
+        // On migrated databases defaults cover omitted fields.
+        ...(newSector.area_id !== undefined ? { area_id: newSector.area_id || null } : {}),
+        ...(newSector.subarea_code !== undefined ? { subarea_code: newSector.subarea_code?.trim().toUpperCase() || null } : {}),
+        ...(newSector.sort_order !== undefined ? { sort_order: newSector.sort_order } : {}),
+        ...(newSector.is_active !== undefined ? { is_active: newSector.is_active } : {}),
       };
 
       const { data, error } = await supabase

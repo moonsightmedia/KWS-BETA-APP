@@ -236,7 +236,7 @@ const Auth = () => {
   return (
     <main className="min-h-[100svh] min-h-[100dvh] overflow-x-clip bg-[#F9FAF9] text-[#192436]">
       <div className="mx-auto grid min-h-[100svh] min-h-[100dvh] w-full max-w-[1180px] content-start lg:grid-cols-[minmax(0,0.9fr)_minmax(440px,0.72fr)] lg:content-stretch">
-        <section className="relative px-4 pb-5 pt-[calc(1rem+var(--app-safe-area-top))] sm:px-8 sm:pb-7 sm:pt-[calc(1.5rem+var(--app-safe-area-top))] lg:flex lg:min-h-[100dvh] lg:flex-col lg:justify-between lg:px-12 lg:pb-12 lg:pt-[calc(3rem+var(--app-safe-area-top))]">
+        <section className="relative px-4 pb-5 pt-[calc(1rem+var(--app-safe-area-top))] sm:px-8 sm:pb-7 sm:pt-[calc(1.5rem+var(--app-safe-area-top))] lg:flex lg:min-h-[100dvh] lg:flex-col lg:px-12 lg:pb-12 lg:pt-[calc(3rem+var(--app-safe-area-top))]">
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-kws-control bg-white shadow-[0_3px_14px_rgba(19,17,43,0.10)]">
               <img
@@ -254,23 +254,25 @@ const Auth = () => {
             </div>
           </div>
 
-          <div className="mt-5 max-w-xl lg:mt-0">
-            <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-primary">
-              Dein Boulderbegleiter
-            </p>
-            <h1 className="font-heading text-[2.7rem] font-semibold leading-[0.92] text-[#192436] sm:text-[3.25rem] lg:text-[4.5rem]">
-              {headline}
-            </h1>
-            <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground sm:text-[0.95rem]">
-              {intro}
-            </p>
-          </div>
+          <div className="lg:flex lg:flex-1 lg:flex-col lg:justify-center lg:py-10">
+            <div className="mt-5 max-w-xl lg:mt-0">
+              <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-primary">
+                Dein Boulderbegleiter
+              </p>
+              <h1 className="font-heading text-[2.7rem] font-semibold leading-[0.92] text-[#192436] sm:text-[3.25rem] lg:text-[4.5rem]">
+                {headline}
+              </h1>
+              <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground sm:text-[0.95rem]">
+                {intro}
+              </p>
+            </div>
 
-          <div className="mt-8 hidden max-w-md border-l-2 border-primary pl-4 lg:block">
-            <p className="text-sm font-semibold text-[#192436]">Weniger suchen. Mehr klettern.</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Aktuelle Boulder, hilfreiche Betas und dein Fortschritt an einem Ort.
-            </p>
+            <div className="mt-8 hidden max-w-md border-l-2 border-primary pl-4 lg:block">
+              <p className="text-sm font-semibold text-[#192436]">Weniger suchen. Mehr klettern.</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Aktuelle Boulder, hilfreiche Betas und dein Fortschritt an einem Ort.
+              </p>
+            </div>
           </div>
         </section>
 

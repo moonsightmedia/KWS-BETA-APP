@@ -1,3 +1,4 @@
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -88,7 +89,7 @@ export async function logBoulderOperation(
       console.warn('[logBoulderOperation] Payload serialization failed – skip');
       return false;
     }
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/boulder_operation_logs`, {
+    const res = await authenticatedFetch(`${SUPABASE_URL}/rest/v1/boulder_operation_logs`, {
       method: 'POST',
       headers: {
         'apikey': key,
@@ -470,7 +471,7 @@ export const useUpdateBoulder = () => {
         );
         
         const oldDataResponse = await Promise.race([
-          fetch(
+          authenticatedFetch(
             `${SUPABASE_URL}/rest/v1/boulders?id=eq.${id}&select=*`,
             {
               method: 'GET',
@@ -504,7 +505,7 @@ export const useUpdateBoulder = () => {
       );
       
       const response = await Promise.race([
-        fetch(
+        authenticatedFetch(
           `${SUPABASE_URL}/rest/v1/boulders?id=eq.${id}`,
           {
             method: 'PATCH',
@@ -627,7 +628,7 @@ export const useCreateBoulder = () => {
         throw new Error('Supabase-Konfiguration fehlt');
       }
 
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${SUPABASE_URL}/rest/v1/boulders`,
         {
           method: 'POST',
@@ -651,7 +652,7 @@ export const useCreateBoulder = () => {
 
       // Aktualisiere automatisch den last_schraubtermin des Sektors
       try {
-        const sectorResponse = await fetch(
+        const sectorResponse = await authenticatedFetch(
           `${SUPABASE_URL}/rest/v1/sectors?id=eq.${newBoulder.sector_id}`,
           {
             method: 'PATCH',
@@ -750,7 +751,7 @@ export const useDeleteBoulder = () => {
       
       // First, get the boulder to check if it has a beta video or thumbnail
       console.log('[useDeleteBoulder] 🔍 Fetching boulder data...');
-      const boulderResponse = await fetch(
+      const boulderResponse = await authenticatedFetch(
         `${SUPABASE_URL}/rest/v1/boulders?id=eq.${id}&select=beta_video_url,thumbnail_url,name`,
         {
           method: 'GET',
@@ -782,7 +783,7 @@ export const useDeleteBoulder = () => {
 
       // Get full boulder data for logging
       console.log('[useDeleteBoulder] 🔍 Fetching full boulder data for logging...');
-      const fullBoulderResponse = await fetch(
+      const fullBoulderResponse = await authenticatedFetch(
         `${SUPABASE_URL}/rest/v1/boulders?id=eq.${id}&select=*`,
         {
           method: 'GET',
@@ -827,7 +828,7 @@ export const useDeleteBoulder = () => {
       // Delete upload_logs entries for this boulder first (to avoid foreign key constraint violation)
       console.log('[useDeleteBoulder] 🗑️ Deleting upload_logs for boulder:', id);
       try {
-        const uploadLogsResponse = await fetch(
+        const uploadLogsResponse = await authenticatedFetch(
           `${SUPABASE_URL}/rest/v1/upload_logs?boulder_id=eq.${id}`,
           {
             method: 'DELETE',
@@ -862,7 +863,7 @@ export const useDeleteBoulder = () => {
 
       // Then delete the boulder
       console.log('[useDeleteBoulder] 🗑️ Deleting boulder from database:', id);
-      const deleteResponse = await fetch(
+      const deleteResponse = await authenticatedFetch(
         `${SUPABASE_URL}/rest/v1/boulders?id=eq.${id}`,
         {
           method: 'DELETE',
@@ -890,7 +891,7 @@ export const useDeleteBoulder = () => {
       if (!deleteData || deleteData.length === 0) {
         console.error('[useDeleteBoulder] ⚠️ No rows deleted! This might be due to RLS policies.');
         // Try to fetch the boulder again to confirm it still exists
-        const stillExistsResponse = await fetch(
+        const stillExistsResponse = await authenticatedFetch(
           `${SUPABASE_URL}/rest/v1/boulders?id=eq.${id}&select=id,name`,
           {
             method: 'GET',
@@ -1050,7 +1051,7 @@ export const useBulkUpdateBoulderStatus = () => {
       
       // Build filter for multiple IDs: id=in.(id1,id2,id3)
       const idsFilter = payload.ids.join(',');
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${SUPABASE_URL}/rest/v1/boulders?id=in.(${idsFilter})`,
         {
           method: 'PATCH',
@@ -1124,7 +1125,7 @@ export const useCdnVideos = () => {
       
       try {
         // Fetch all videos directly from CDN directory
-        const response = await fetch(`${allinklApiUrl}/list-videos.php`, {
+        const response = await authenticatedFetch(`${allinklApiUrl}/list-videos.php`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',

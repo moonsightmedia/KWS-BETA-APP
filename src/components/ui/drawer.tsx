@@ -31,6 +31,7 @@ const DrawerContent = React.forwardRef<
     <DrawerPrimitive.Content
       ref={ref}
       className={cn(
+        "kws-drawer-surface",
         "fixed inset-x-0 bottom-0 z-[130] mt-24 flex h-auto max-h-[calc(100dvh-1rem)] flex-col overflow-y-auto overscroll-contain rounded-t-kws-card border bg-background",
         className,
       )}

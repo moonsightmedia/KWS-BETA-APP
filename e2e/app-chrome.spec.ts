@@ -20,7 +20,7 @@ for (const width of [375, 768, 1280, 1920]) {
     await page.setViewportSize({ width, height: 900 });
     await mockChrome(page);
     await page.getByRole('button', { name: 'Filtertest' }).click();
-    const grades = page.getByRole('region', { name: 'Schwierigkeit', exact: true }).getByRole('button');
+    const grades = page.getByRole('region', { name: 'Schwierigkeit', exact: true }).getByRole('button', { name: /^(Grad \d|Unbekannter Grad)$/ });
     await expect(grades).toHaveCount(9);
     const checkCenters = async () => {
       const offsets = await grades.evaluateAll((buttons) => buttons.map((button) => {
@@ -45,6 +45,19 @@ for (const width of [375, 768, 1280, 1920]) {
     await page.screenshot({ path: `test-results/sidebar-polish-20260912/filter-${width}.png` });
   });
 }
+
+test('desktop Setter navigation matches the four mobile destinations', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await mockChrome(page, true);
+  await page.goto('/test/fixtures/app-chrome.html?sidebar&route=/setter/create');
+  const sidebar = page.locator('#desktop-navigation');
+  for (const [label, path] of [['Erstellen', 'create'], ['Bearbeiten', 'edit'], ['Status', 'status'], ['Planung', 'schedule']]) {
+    await expect(sidebar.getByRole('link', { name: label, exact: true })).toHaveAttribute('href', `/setter/${path}`);
+  }
+  await sidebar.getByRole('link', { name: 'Bearbeiten', exact: true }).click();
+  await expect(sidebar.getByRole('link', { name: 'Bearbeiten', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(sidebar.getByRole('link', { name: 'Zur App', exact: true })).toBeVisible();
+});
 
 for (const width of [768, 1280, 1920]) {
   test(`sidebar and content move together with stable icons at ${width}px`, async ({ page }) => {
@@ -129,10 +142,10 @@ test('hover opens both menus, crosses the portal gap and closes without trapping
   await expect(page.getByRole('menu')).toBeVisible();
   await page.getByRole('button', { name: 'Außerhalb' }).hover();
   await expect(page.getByRole('menu')).toBeHidden();
-  const bell = page.getByRole('button', { name: 'Benachrichtigungen' });
+  const bell = page.getByRole('button', { name: 'Benachrichtigungen', exact: true });
   await bell.hover();
   await expect(page.getByRole('dialog', { name: 'Benachrichtigungen' })).toBeVisible();
-  await page.getByRole('button', { name: 'Einstellungen öffnen' }).hover();
+  await page.getByRole('button', { name: 'Einstellungen', exact: true }).hover();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.getByRole('button', { name: 'Außerhalb' }).hover();
   await expect(page.getByRole('dialog')).toBeHidden();
@@ -155,7 +168,8 @@ test('hover does not steal focus; clicking pins a preview; Escape and keyboard s
   await profile.press('ArrowDown');
   await expect(page.getByRole('menuitem', { name: 'Profil & Einstellungen' })).toBeFocused();
   await page.keyboard.press('Escape');
-  const bell = page.getByRole('button', { name: 'Benachrichtigungen' });
+  await expect(page.getByRole('menu')).toBeHidden();
+  const bell = page.getByRole('button', { name: 'Benachrichtigungen', exact: true });
   await bell.hover();
   await expect(page.getByRole('dialog')).toBeVisible();
   await bell.click();
@@ -177,8 +191,9 @@ test('touch opens and closes menus without hover, with matching corner radii', a
   await expect(page.getByRole('menuitem', { name: 'Profil & Einstellungen' })).toHaveCSS('border-radius', '4px');
   await page.getByRole('button', { name: 'Außerhalb' }).tap();
   await expect(menu).toBeHidden();
-  await page.getByRole('button', { name: 'Benachrichtigungen' }).tap();
-  await expect(page.getByRole('dialog')).toHaveCSS('border-radius', '12px');
+  await page.getByRole('button', { name: 'Benachrichtigungen', exact: true }).tap();
+  await expect(page.getByRole('dialog')).toHaveCSS('border-top-left-radius', '12px');
+  await expect(page.getByRole('dialog')).toHaveCSS('border-bottom-left-radius', '0px');
   await context.close();
 });
 

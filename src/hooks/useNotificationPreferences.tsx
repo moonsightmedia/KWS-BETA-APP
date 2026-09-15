@@ -1,169 +1,41 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
+import { notificationRequest } from '@/lib/notificationRequest';
 
-export interface NotificationPreferences {
-  user_id: string;
-  in_app_enabled: boolean;
-  push_enabled: boolean;
-  boulder_new: boolean;
-  competition_update: boolean;
-  feedback_reply: boolean;
-  admin_announcement: boolean;
-  schedule_reminder: boolean;
-  updated_at: string;
+export const preferenceKeys = ['in_app_enabled', 'push_enabled', 'boulder_new', 'competition_update', 'feedback_reply', 'admin_announcement', 'schedule_reminder'] as const;
+export type PreferenceKey = typeof preferenceKeys[number];
+export type NotificationPreferences = Record<PreferenceKey, boolean> & { user_id: string; updated_at: string };
+export const defaultNotificationPreferences = { in_app_enabled: true, push_enabled: false, boulder_new: true, competition_update: true, feedback_reply: true, admin_announcement: true, schedule_reminder: true };
+function validate(value: unknown, owner: string): NotificationPreferences {
+  const row = Array.isArray(value) && value.length === 1 ? value[0] : null;
+  if (!row || row.user_id !== owner || preferenceKeys.some(key => typeof row[key] !== 'boolean')) throw new Error('Einstellungen konnten nicht bestätigt werden.');
+  return row;
 }
-
-export const useNotificationPreferences = () => {
-  const { user, session } = useAuth();
-
+export function useNotificationPreferences() {
+  const { user, session, loading } = useAuth();
   return useQuery({
-    queryKey: ['notification_preferences'],
-    queryFn: async () => {
-      if (!user || !session) return null;
-      
-      console.log('[useNotificationPreferences] Loading preferences for user:', user.id);
-
-      // Use direct fetch instead of QueryBuilder to avoid hanging issues after reload
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-      if (!SUPABASE_URL || !SUPABASE_KEY) {
-        console.error('[useNotificationPreferences] Supabase-Konfiguration fehlt');
-        return null;
-      }
-
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/notification_preferences?user_id=eq.${user.id}&select=*`,
-        {
-          method: 'GET',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[useNotificationPreferences] Error loading preferences:', errorText);
-        // Don't throw - return null and let component handle it gracefully
-        return null;
-      }
-
-      const dataArray = await response.json();
-      let data = Array.isArray(dataArray) && dataArray.length > 0 ? dataArray[0] : null;
-
-      // If no preferences exist, create default row so new users get boulder_new etc. (BatchUpload queries boulder_new=eq.true)
-      if (!data) {
-        const defaults = {
-          user_id: user.id,
-          in_app_enabled: true,
-          push_enabled: false,
-          boulder_new: true,
-          competition_update: true,
-          feedback_reply: true,
-          admin_announcement: true,
-          schedule_reminder: true,
-          updated_at: new Date().toISOString(),
-        };
-        const insertRes = await fetch(
-          `${SUPABASE_URL}/rest/v1/notification_preferences`,
-          {
-            method: 'POST',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${session.access_token}`,
-              'Content-Type': 'application/json',
-              'Prefer': 'return=representation',
-            },
-            body: JSON.stringify(defaults),
-          }
-        );
-        if (insertRes.ok) {
-          const inserted = await insertRes.json();
-          data = Array.isArray(inserted) ? inserted[0] : inserted;
-        }
-        // If 409 or error (e.g. race), leave data null and return null
-      }
-
-      if (!data) return null;
-      return data as NotificationPreferences;
-    },
-    enabled: !!user && !!session,
+    queryKey: ['notification_preferences', user?.id], enabled: !loading && !!user && !!session,
+    queryFn: async ({ signal }) => {
+      const { data } = await notificationRequest('/rest/v1/notification_preferences?user_id=eq.' + encodeURIComponent(user!.id) + '&select=*', session?.access_token, { signal });
+      // Missing preferences require explicit setup. Do not display defaults as saved.
+      if (Array.isArray(data) && data.length === 0) return { ...defaultNotificationPreferences, user_id: user!.id, updated_at: '' };
+      return validate(data, user!.id);
+    }, staleTime: 15000, retry: 1,
   });
-};
-
-export const useUpdateNotificationPreferences = () => {
-  const queryClient = useQueryClient();
-  const { user, session } = useAuth();
-
+}
+export function useUpdateNotificationPreferences() {
+  const { user, session } = useAuth(); const client = useQueryClient();
   return useMutation({
-    mutationFn: async (preferences: Partial<NotificationPreferences>) => {
-      if (!user) throw new Error('User not authenticated');
-      if (!session) throw new Error('No active session');
-
-      console.log('[useUpdateNotificationPreferences] Updating preferences:', preferences);
-
-      // Use direct fetch instead of QueryBuilder to avoid hanging issues after reload
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-      if (!SUPABASE_URL || !SUPABASE_KEY) {
-        throw new Error('Supabase-Konfiguration fehlt');
-      }
-
-      const payload = {
-        user_id: user.id,
-        ...preferences,
-        updated_at: new Date().toISOString(),
-      };
-
-      console.log('[useUpdateNotificationPreferences] Payload:', payload);
-
-      // Use upsert (POST with Prefer: resolution=merge-duplicates)
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/notification_preferences`,
-        {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation,resolution=merge-duplicates',
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[useUpdateNotificationPreferences] Error:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('[useUpdateNotificationPreferences] Success:', data);
-      
-      // Return single object if array
-      return (Array.isArray(data) ? data[0] : data) as NotificationPreferences;
-    },
-    onSuccess: (data) => {
-      // Optimistically update the cache immediately
-      queryClient.setQueryData(['notification_preferences'], data);
-      // Also invalidate to ensure we have the latest data
-      queryClient.invalidateQueries({ queryKey: ['notification_preferences'] });
-      // Don't show toast here - let the calling component handle it
-    },
-    onError: (error: any) => {
-      // Revert optimistic update on error
-      queryClient.invalidateQueries({ queryKey: ['notification_preferences'] });
-      toast.error('Fehler beim Aktualisieren der Einstellungen', {
-        description: error.message,
+    mutationFn: async (change: Partial<Record<PreferenceKey, boolean>>) => {
+      if (!user || !Object.keys(change).length || Object.entries(change).some(([key, value]) => !preferenceKeys.includes(key as PreferenceKey) || typeof value !== 'boolean')) throw new Error('Ungültige Einstellung.');
+      const { data } = await notificationRequest('/rest/v1/notification_preferences?on_conflict=user_id', session?.access_token, {
+        method: 'POST', headers: { Prefer: 'return=representation,resolution=merge-duplicates' }, body: JSON.stringify({ ...change, user_id: user.id }),
       });
+      const result = validate(data, user.id);
+      if (Object.entries(change).some(([key, value]) => result[key as PreferenceKey] !== value)) throw new Error('Die Änderung wurde nicht bestätigt.');
+      return result;
     },
+    onSuccess: data => { client.setQueryData(['notification_preferences', data.user_id], data); },
   });
-};
+}
 

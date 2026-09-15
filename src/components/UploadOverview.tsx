@@ -1,9 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Upload, CheckCircle2, AlertCircle, Loader2, Minimize2, FileVideo, Image as ImageIcon, CloudUpload, RefreshCw, X, Trash2 } from 'lucide-react';
+import { Upload, CheckCircle2, AlertCircle, Loader2, FileVideo, Image as ImageIcon, CloudUpload, RefreshCw, X, Trash2 } from 'lucide-react';
 import { useUpload } from '@/contexts/UploadContext';
 import { cn } from '@/lib/utils';
 
@@ -11,10 +10,24 @@ import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { isNativeVideoPipelineAvailable } from '@/utils/nativeVideoUpload';
 import { pickNativeVideoForUpload } from '@/utils/nativeVideoPicker';
+import type { UploadStatus } from '@/types/upload';
 
-export const UploadOverview = () => {
-  const { uploads, isUploading, resumeUpload, cancelUpload, removeUpload } = useUpload();
+const statusLabels: Record<UploadStatus, string> = {
+  pending: 'Wird vorbereitet', queued: 'In Warteschlange', compressing: 'Wird komprimiert',
+  uploading: 'Wird übertragen', retrying: 'Neuer Versuch', waiting_network: 'Wartet auf Verbindung',
+  completed: 'Übertragen', error: 'Fehlgeschlagen', failed: 'Fehlgeschlagen', cancelled: 'Abgebrochen',
+  restoring: 'Datei benötigt', server_processing: 'Verarbeitung auf dem Server', recovery_review: 'Status prüfen',
+};
+
+type UploadOverviewProps = {
+  placement?: 'floating' | 'inline';
+};
+
+export const UploadOverview = ({ placement = 'floating' }: UploadOverviewProps) => {
+  const { uploads, resumeUpload, cancelUpload, removeUpload, recoveryStatus = 'ready', retryRecovery } = useUpload();
   const [isOpen, setIsOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const location = useLocation();
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const suppressDialogCloseUntilRef = useRef(0);
@@ -34,24 +47,31 @@ export const UploadOverview = () => {
 
   // Show on all setter routes so interrupted uploads can be resumed after edit/reopen.
   const isSetterArea = location.pathname.startsWith('/setter');
+  const hasPageUploadDock = location.pathname.replace(/\/+$/, '') === '/setter/create';
 
-  if (!isSetterArea) return null;
+  // Creation owns a shared dock with its FAB and batch footer. Never render a
+  // second, globally positioned trigger on top of that page's primary action.
+  if (!isSetterArea || (hasPageUploadDock && placement === 'floating')) return null;
 
   const activeUploads = uploads;
-  const hasActiveUploads = activeUploads.length > 0;
 
-  // Always show the component in setter area, but only show button if there are uploads or dialog is open
-  // This ensures the button is visible even after refresh if there are uploads in DB
+  // Keep the overview reachable even when there are no uploads yet.
 
-  // Calculate total progress
-  const totalProgress = hasActiveUploads 
-    ? activeUploads.reduce((acc, curr) => acc + (curr.progress || 0), 0) / activeUploads.length 
-    : 0;
   const uploadingCount = activeUploads.filter(u => ['uploading', 'pending', 'queued', 'compressing', 'retrying'].includes(u.status)).length;
   const waitingCount = activeUploads.filter(u => u.status === 'waiting_network').length;
   const errorCount = activeUploads.filter(u => u.status === 'error' || u.status === 'failed').length;
   const restoringCount = activeUploads.filter(u => u.status === 'restoring').length;
-  const attentionCount = uploadingCount + restoringCount + errorCount + waitingCount;
+  const processingCount = activeUploads.filter(u => u.status === 'server_processing').length;
+  const reviewCount = activeUploads.filter(u => u.status === 'recovery_review').length;
+  const attentionCount = uploadingCount + restoringCount + errorCount + waitingCount + processingCount + reviewCount;
+  const summary = recoveryStatus === 'checking' ? 'Status wird geprüft' : recoveryStatus === 'error' ? 'Status nicht verfügbar'
+    : uploadingCount ? `${uploadingCount} Upload${uploadingCount === 1 ? '' : 's'} aktiv`
+    : reviewCount ? `${reviewCount} Status prüfen`
+    : restoringCount ? `${restoringCount} Datei${restoringCount === 1 ? '' : 'en'} benötigt`
+    : errorCount ? `${errorCount} fehlgeschlagen`
+    : waitingCount ? `${waitingCount} ohne Verbindung`
+    : processingCount ? `${processingCount} in Verarbeitung` : '';
+  const showSummary = Boolean(summary);
 
   const handleFileSelect = async (sessionId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -59,7 +79,7 @@ export const UploadOverview = () => {
     
     try {
       await resumeUpload(sessionId, file);
-      toast.success('Datei ausgew├ñhlt. Upload wird fortgesetzt...');
+      toast.success('Datei ausgewählt. Upload wird fortgesetzt …');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
       toast.error('Fehler beim Fortsetzen: ' + message);
@@ -83,7 +103,7 @@ export const UploadOverview = () => {
         const nativeVideo = await pickNativeVideoForUpload();
         if (!nativeVideo) return;
         await resumeUpload(sessionId, nativeVideo);
-        toast.success('Datei ausgew├ñhlt. Upload wird fortgesetzt...');
+        toast.success('Datei ausgewählt. Upload wird fortgesetzt …');
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
         toast.error('Fehler beim Fortsetzen: ' + message);
@@ -119,41 +139,46 @@ export const UploadOverview = () => {
     <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
       <DialogTrigger asChild>
         <Button
+          ref={triggerRef}
           variant="default"
           size="lg"
+          aria-label="Upload-Übersicht öffnen"
+          title="Upload-Übersicht"
           className={cn(
-            "upload-overview-trigger fixed left-4 md:left-auto md:right-8 z-50 rounded-2xl shadow-[0_14px_36px_rgba(19,17,43,0.10)] transition-all duration-300 flex items-center justify-center gap-3 border border-[#DDE7DF]",
-            hasActiveUploads && attentionCount > 0 ? "px-4 h-14 max-w-[calc(100vw-12rem)] md:max-w-none" : "h-14 w-14 p-0",
-            "bg-white text-[#13112B] hover:bg-[#F7FAF7]",
-            errorCount > 0 && "border-[#E7B7B0] bg-[#FFF4F2] text-[#B64332] hover:bg-[#FFF0ED]"
+            "rounded-kws-card shadow-soft transition-colors duration-200 flex items-center justify-center gap-3",
+            placement === 'inline'
+              ? "pointer-events-auto min-w-0 max-w-[calc(100%-4.25rem)]"
+              : "upload-overview-trigger fixed left-4 md:left-auto md:right-8 z-30",
+            showSummary ? cn("px-4 h-14", placement === 'floating' && "max-w-[calc(100vw-6rem)] md:max-w-none") : "h-14 w-14 shrink-0 p-0",
+            "bg-background text-foreground hover:bg-secondary",
+            (errorCount > 0 || recoveryStatus === 'error') && "text-destructive"
           )}
         >
-          {errorCount > 0 ? (
-            <div className="relative">
-                <AlertCircle className="w-6 h-6 animate-pulse text-[#B64332]" />
-                <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full border-2 border-white bg-[#E55A4E]" />
-            </div>
-          ) : (
-            <div className="relative">
-                <Upload className={cn("w-6 h-6 text-[#69B545]", uploadingCount > 0 && "animate-bounce")} />
-                {uploadingCount > 0 && <span className="absolute -bottom-1 -right-1 h-2 w-2 rounded-full bg-[#69B545] animate-ping" />}
-            </div>
-          )}
-          {hasActiveUploads && attentionCount > 0 && (
-            <div className="flex flex-col items-start text-sm">
-              <span className="font-bold tracking-tight">
-                  {attentionCount} Upload{attentionCount !== 1 ? 's' : ''} {uploadingCount > 0 ? 'aktiv' : 'wartend'}
-              </span>
-              {uploadingCount > 0 && (
-                <span className="text-[#13112B]/58 text-xs font-medium">{totalProgress.toFixed(0)}% abgeschlossen</span>
-              )}
+          {recoveryStatus === 'checking' ? <Loader2 className="h-6 w-6 shrink-0 animate-spin motion-reduce:animate-none" />
+            : errorCount > 0 || reviewCount > 0 || recoveryStatus === 'error' ? <AlertCircle className="h-6 w-6 shrink-0" />
+            : <Upload className="h-6 w-6 shrink-0 text-primary" />}
+          {showSummary && (
+            <div className="flex min-w-0 flex-col items-start text-sm text-left">
+              <span className="font-semibold whitespace-normal leading-tight">{summary}</span>
+              {uploadingCount > 0 && attentionCount > uploadingCount && <span className="text-xs text-muted-foreground">Weitere Einträge prüfen</span>}
             </div>
           )}
         </Button>
       </DialogTrigger>
       
       <DialogContent
-        className="sm:max-w-[500px] w-full bottom-4 right-0 left-0 translate-y-0 top-auto translate-x-0 data-[state=open]:slide-in-from-bottom-10 p-0 gap-0 overflow-hidden rounded-2xl border border-[#DDE7DF] bg-white shadow-[0_18px_45px_rgba(19,17,43,0.12)] sm:left-auto sm:right-4 sm:w-[95vw]"
+        scrollLayout="contained"
+        className="flex max-h-[85dvh] flex-col overflow-hidden p-0 md:max-w-[560px]"
+        onOpenAutoFocus={event => { event.preventDefault(); closeRef.current?.focus(); }}
+        onCloseAutoFocus={event => { event.preventDefault(); triggerRef.current?.focus(); }}
+        onKeyDown={event => {
+          // Also handle an immediate Escape while the document-level Radix
+          // listener is still mounting. Respect nested controls and file pickers.
+          if (event.key === 'Escape' && !event.defaultPrevented) {
+            event.preventDefault();
+            handleDialogOpenChange(false);
+          }
+        }}
         onInteractOutside={(event) => {
           if (isNativeApp) event.preventDefault();
         }}
@@ -161,69 +186,66 @@ export const UploadOverview = () => {
           if (isNativeApp) event.preventDefault();
         }}
       >
-        <div className="flex flex-row items-center justify-between border-b border-[#E7F0E8] bg-white p-4 text-[#13112B]">
-          <div className="flex items-center gap-2">
-            <CloudUpload className="w-6 h-6 text-[#69B545]" />
-            <DialogTitle className="text-lg font-bold">Upload Zentrale</DialogTitle>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border p-4 md:px-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <CloudUpload className="h-6 w-6 shrink-0 text-primary" />
+            <div><DialogTitle>Upload-Übersicht</DialogTitle>
+              <DialogDescription>Aktuelle Übertragungen und wiederhergestellte Einträge.</DialogDescription></div>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="h-8 w-8 rounded-xl text-[#13112B]/62 hover:bg-[#F7FAF7] hover:text-[#13112B]">
-            <Minimize2 className="w-6 h-6" />
+          <Button ref={closeRef} variant="ghost" size="icon" aria-label="Upload-Übersicht schließen" onClick={() => setIsOpen(false)} className="shrink-0">
+            <X className="h-5 w-5" />
           </Button>
         </div>
         
-        <ScrollArea className="h-[400px] bg-white">
-          <div className="p-4 space-y-3">
-            {activeUploads.length === 0 && (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:px-5">
+          <div className="space-y-4">
+            {recoveryStatus !== 'ready' && <div role="status" className="rounded-kws-control bg-secondary p-3 text-sm">
+              {recoveryStatus === 'checking' ? 'Gespeicherte Uploads werden abgeglichen …' : 'Gespeicherte Uploads konnten nicht geprüft werden. Bitte erneut versuchen.'}
+            </div>}
+            {activeUploads.length === 0 && recoveryStatus === 'ready' && (
                 <div className="text-center py-10 text-muted-foreground flex flex-col items-center">
-                    <CheckCircle2 className="w-12 h-12 mb-2 text-green-500/20" />
-                    <p>Alle Uploads abgeschlossen</p>
+                    <CheckCircle2 className="w-10 h-10 mb-3 text-primary" />
+                    <p className="font-semibold text-foreground">Keine offenen Uploads</p>
+                    <p className="mt-1 text-sm">Für dein Konto gibt es nichts fortzusetzen.</p>
                 </div>
             )}
             {activeUploads.map((upload) => (
               <div key={upload.sessionId} className={cn(
-                  "p-4 rounded-2xl border transition-all",
-                  (upload.status === 'error' || upload.status === 'failed') ? "border-[#E7B7B0] bg-[#FFF4F2]" :
-                  upload.status === 'waiting_network' ? "border-[#E9D9A8] bg-[#FFFBEA]" :
-                  "border-[#DDE7DF] bg-[#FCFDFC]"
+                  "border-b border-border pb-4 last:border-b-0 last:pb-0"
               )}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className={cn(
-                        "p-2 rounded-xl flex-shrink-0",
-                        upload.type === 'video' ? "bg-[#EEF3FF] text-[#4062D8]" : "bg-[#F3F6EF] text-[#69B545]"
+                        "p-2 rounded-kws-control flex-shrink-0 bg-secondary text-muted-foreground"
                     )}>
                         {upload.type === 'video' ? <FileVideo className="w-6 h-6" /> : <ImageIcon className="w-6 h-6" />}
                     </div>
                     <div className="min-w-0 flex-1">
-                        <h4 className="font-bold text-sm truncate max-w-[180px] sm:max-w-[250px]" title={upload.fileName}>
+                        <h4 className="font-semibold text-sm break-all" title={upload.fileName}>
                             {upload.fileName}
                         </h4>
-                        <span className="text-xs text-muted-foreground capitalize flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
                             {['uploading', 'compressing', 'queued', 'retrying', 'pending'].includes(upload.status) && <Loader2 className="w-3 h-3 animate-spin" />}
                             {upload.status === 'waiting_network' && <RefreshCw className="w-3 h-3" />}
                             {upload.status === 'restoring' && <RefreshCw className="w-3 h-3" />}
                             {(upload.status === 'error' || upload.status === 'failed') && <AlertCircle className="w-3 h-3" />}
                             {upload.status === 'cancelled' && <X className="w-3 h-3" />}
-                            {upload.status === 'restoring' ? 'Wartet auf Datei' :
-                             upload.status === 'compressing' ? 'Komprimiere Video' :
-                             upload.status === 'waiting_network' ? 'Warte auf Verbindung' :
-                             upload.status === 'queued' ? 'In Warteschlange' :
-                             upload.status === 'retrying' ? 'Versuche erneut' :
-                             upload.status === 'cancelled' ? 'Abgebrochen' : upload.status}
+                            {statusLabels[upload.status]}
                         </span>
+                        {upload.recoveredAt && <span className="mt-1 block text-xs text-muted-foreground">Vom {new Date(upload.recoveredAt).toLocaleDateString('de-DE')}</span>}
                     </div>
                   </div>
                   
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {upload.status === 'completed' && <div className="rounded-xl bg-[#EEF6E1] p-1 text-[#4E8A31]"><CheckCircle2 className="w-6 h-6" /></div>}
-                    {upload.status === 'error' && <div className="rounded-xl bg-[#FFF4F2] p-1 text-[#B64332]"><AlertCircle className="w-6 h-6" /></div>}
+                    {upload.status === 'completed' && <CheckCircle2 className="h-5 w-5 text-primary" />}
                     
                     {(['uploading', 'pending', 'queued', 'compressing', 'retrying', 'waiting_network'].includes(upload.status)) && (
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => handleCancel(upload.sessionId)}
-                        className="h-8 w-8 rounded-xl p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="h-11 w-11 p-0 text-destructive"
+                        aria-label={`Upload ${upload.fileName} abbrechen`}
                         title="Upload abbrechen"
                       >
                         <X className="w-5 h-5" />
@@ -235,7 +257,8 @@ export const UploadOverview = () => {
                         size="sm"
                         variant="outline"
                         onClick={() => handleRemove(upload.sessionId)}
-                        className="h-8 w-8 rounded-xl p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        className="h-11 w-11 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        aria-label={`Upload ${upload.fileName} entfernen`}
                         title="Upload entfernen"
                       >
                         <Trash2 className="w-5 h-5" />
@@ -244,36 +267,26 @@ export const UploadOverview = () => {
                   </div>
                 </div>
                 
-                <div className="space-y-1.5">
+                {!['restoring', 'recovery_review', 'server_processing', 'cancelled'].includes(upload.status) && <div className="space-y-1.5">
                   <div className="flex justify-between text-xs font-medium">
-                    <span className="text-muted-foreground">Fortschritt</span>
-                    <span className={cn(
-                        upload.status === 'completed' ? "text-[#4E8A31]" : "text-[#13112B]"
-                    )}>{upload.progress?.toFixed(0)}%</span>
+                    <span className="text-muted-foreground">Übertragung</span>
+                    <span>{Math.max(0, Math.min(100, upload.progress || 0)).toFixed(0)} %</span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-xl bg-[#EEF1EE]">
+                  <div className="h-1 overflow-hidden rounded-[2px] bg-secondary">
                     <div 
                       className={cn(
-                        "relative h-full overflow-hidden rounded-xl transition-all duration-500 ease-out",
-                        upload.status === 'completed' ? "bg-[#69B545]" :
-                        (upload.status === 'error' || upload.status === 'failed') ? "bg-[#E55A4E]" :
-                        "bg-[#13112B]"
+                        "h-full rounded-[2px] transition-[width] duration-200 motion-reduce:transition-none",
+                        (upload.status === 'error' || upload.status === 'failed') ? "bg-destructive" : "bg-primary"
                       )}
-                      style={{ width: `${upload.progress || 0}%` }}
-                    >
-                        {upload.status === 'uploading' && (
-                            <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite] skew-x-12" />
-                        )}
-                    </div>
+                      style={{ width: `${Math.max(0, Math.min(100, upload.progress || 0))}%` }}
+                    />
                   </div>
-                </div>
+                </div>}
                 
-                {upload.error && (
+                {(upload.error || upload.recoveryMessage || upload.status === 'restoring') && (
                   <div className="mt-3 space-y-2">
-                    <div className="flex items-start gap-2 rounded-xl border border-[#E7B7B0] bg-[#FFF4F2] p-2 text-xs text-red-600">
-                      <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                      <p>{upload.error}</p>
-                    </div>
+                    {upload.recoveryMessage && <p className="rounded-kws-control bg-secondary p-3 text-sm text-muted-foreground">{upload.recoveryMessage}</p>}
+                    {upload.error && <p className="break-words text-xs text-destructive">{upload.error}</p>}
                     {(upload.status === 'restoring' || upload.status === 'error' || upload.status === 'failed') && (
                       <div className="flex gap-2">
                         <input
@@ -287,10 +300,10 @@ export const UploadOverview = () => {
                           size="sm"
                           variant="outline"
                           onClick={() => triggerFileSelect(upload.sessionId)}
-                          className="h-10 flex-1 rounded-xl border-[#DDE7DF] text-xs"
+                          className="min-h-11 flex-1 text-sm"
                         >
                           <RefreshCw className="w-3 h-3 mr-1" />
-                          Datei neu w├ñhlen
+                          Datei neu wählen
                         </Button>
                       </div>
                     )}
@@ -299,7 +312,13 @@ export const UploadOverview = () => {
               </div>
             ))}
           </div>
-        </ScrollArea>
+        </div>
+        <div className="shrink-0 border-t border-border p-4 md:px-5">
+          <Button variant="secondary" className="w-full" onClick={retryRecovery} disabled={!retryRecovery || recoveryStatus === 'checking'}>
+            <RefreshCw className={cn('mr-2 h-4 w-4', recoveryStatus === 'checking' && 'animate-spin motion-reduce:animate-none')} />
+            {recoveryStatus === 'checking' ? 'Wird geprüft …' : 'Status erneut prüfen'}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

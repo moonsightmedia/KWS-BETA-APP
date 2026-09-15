@@ -1,431 +1,102 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useId, useMemo, useRef, useState } from 'react';
+import { ArrowUpDown, Check, ChevronRight, Loader2, Palette, Plus, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { useColors, useCreateColor, useUpdateColor, useDeleteColor, type ColorRow } from '@/hooks/useColors';
-import { supabase } from '@/integrations/supabase/client';
-import { useMemo, useState, useEffect } from 'react';
-import { GripVertical, Plus, Trash2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { KwsSegmentedControl } from '@/components/ui/kws-segmented-control';
+import { kwsSurfaceClassName } from '@/components/ui/kws-surface';
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useAdminColors, useAddDefaultColors, type ColorRow } from '@/hooks/useColors';
+import { cn } from '@/lib/utils';
+import { ColorEditor } from './ColorEditor';
+import { ColorSwatch } from './ColorValueField';
+import { normalizeHex } from './colorForm';
+import { ColorOrderDialog } from './ColorOrderDialog';
 
 export const ColorManagement = () => {
-  const { data: colors } = useColors();
-  const createColor = useCreateColor();
-  const updateColor = useUpdateColor();
-  const deleteColor = useDeleteColor();
-
-  const [form, setForm] = useState({ name: '', hex: '#22c55e', secondary_hex: '', sort_order: 0 });
+  const id = useId();
+  const catalog = useAdminColors();
+  const defaults = useAddDefaultColors();
   const [query, setQuery] = useState('');
-  const seedDefaults = async () => {
-    await supabase.from('colors').upsert([
-      { name: 'Grün', hex: '#22c55e', sort_order: 1 },
-      { name: 'Gelb', hex: '#facc15', sort_order: 2 },
-      { name: 'Blau', hex: '#3b82f6', sort_order: 3 },
-      { name: 'Orange', hex: '#f97316', sort_order: 4 },
-      { name: 'Rot', hex: '#ef4444', sort_order: 5 },
-      { name: 'Schwarz', hex: '#111827', sort_order: 6 },
-      { name: 'Weiß', hex: '#ffffff', sort_order: 7 },
-      { name: 'Lila', hex: '#a855f7', sort_order: 8 },
-    ], { onConflict: 'name', ignoreDuplicates: false });
+  const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [editor, setEditor] = useState<ColorRow | 'new' | null>(null);
+  const editorTrigger = useRef<HTMLButtonElement | null>(null);
+  const newColorButton = useRef<HTMLButtonElement | null>(null);
+  const defaultsButton = useRef<HTMLButtonElement | null>(null);
+  const orderButton = useRef<HTMLButtonElement | null>(null);
+  const [ordering, setOrdering] = useState(false);
+  const openEditor = (value: ColorRow | 'new', trigger: HTMLButtonElement) => {
+    editorTrigger.current = trigger;
+    setEditor(value);
+  };
+  const restoreEditorFocus = () => requestAnimationFrame(() => {
+    const trigger = editorTrigger.current?.isConnected ? editorTrigger.current : newColorButton.current;
+    trigger?.focus();
+  });
+  const [showDefaults, setShowDefaults] = useState(false);
+  const [defaultError, setDefaultError] = useState('');
+  const colors = catalog.data ?? [];
+  const activeCount = colors.filter(color => color.is_active).length;
+  const filtered = useMemo(() => (catalog.data ?? []).filter(color => {
+    const term = query.trim().toLocaleLowerCase('de');
+    const matchesQuery = [color.name, color.hex, color.secondary_hex ?? ''].some(value => value.toLocaleLowerCase('de').includes(term));
+    return matchesQuery && (filter === 'all' || color.is_active === (filter === 'active'));
+  }), [catalog.data, query, filter]);
+  const addDefaults = async () => {
+    if (defaults.isPending) return;
+    setDefaultError('');
+    try { await defaults.mutateAsync(); setShowDefaults(false); }
+    catch { setDefaultError('Die Standardfarben konnten nicht ergänzt werden. Bitte versuche es erneut.'); }
   };
 
-  const onCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name || !form.hex) return;
-    await createColor.mutateAsync({ 
-      name: form.name, 
-      hex: form.hex, 
-      secondary_hex: form.secondary_hex || null,
-      sort_order: form.sort_order 
-    });
-    setForm({ name: '', hex: '#22c55e', secondary_hex: '', sort_order: 0 });
-  };
-
-  const filtered = useMemo(() => {
-    const list = colors || [];
-    if (!query.trim()) return list;
-    const q = query.toLowerCase();
-    return list.filter(c => c.name.toLowerCase().includes(q) || c.hex.toLowerCase().includes(q));
-  }, [colors, query]);
-
-  return (
-    <Card className="w-full min-w-0 bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-xl font-heading font-bold text-[#13112B]">Farben verwalten</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4 w-full min-w-0">
-        {/* Search and Defaults */}
-        <div className="flex flex-col sm:flex-row gap-2 w-full min-w-0">
-          <Input 
-            placeholder="Suchen…" 
-            value={query} 
-            onChange={(e)=>setQuery(e.target.value)} 
-            className="flex-1 min-w-0 h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
-          />
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={seedDefaults} 
-            className="flex-shrink-0 h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9] whitespace-nowrap"
-          >
-            Standardfarben
-          </Button>
+  return <section aria-labelledby={id + '-title'} className="min-w-0 space-y-4">
+    <div className="flex items-center justify-between gap-3">
+      <div className="min-w-0 flex-1">
+        <h2 id={id + '-title'} className="font-sans text-base font-semibold text-foreground">Grifffarben</h2>
+      </div>
+      <Button ref={newColorButton} onClick={event => openEditor('new', event.currentTarget)} disabled={catalog.isPending || catalog.isError} className="shrink-0 gap-2"><Plus className="h-4 w-4" />Neue Farbe</Button>
+    </div>
+    <div className="min-w-0 space-y-3">
+      <div className="grid gap-3 min-[900px]:grid-cols-[minmax(0,1fr)_minmax(260px,360px)]">
+        <div className="relative min-w-0">
+          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input aria-label="Farben suchen" placeholder="Farbe suchen" value={query} onChange={event => setQuery(event.target.value)} className="border-0 bg-secondary/70 pl-10 pr-11" />
+          {query && <Button variant="ghost" size="icon" aria-label="Suche leeren" onClick={() => setQuery('')} className="absolute right-0 top-0 h-11 w-11"><X className="h-4 w-4" /></Button>}
         </div>
-
-        {/* Create Form - Mobile optimized */}
-        <form onSubmit={onCreate} className="space-y-3 w-full min-w-0">
-          <div className="flex items-center gap-3">
-            <div 
-              className="w-12 h-12 rounded-xl border-2 border-[#E7F7E9] flex-shrink-0" 
-              style={{ 
-                background: form.secondary_hex 
-                  ? `linear-gradient(135deg, ${form.hex} 0%, ${form.hex} 50%, ${form.secondary_hex} 50%, ${form.secondary_hex} 100%)`
-                  : form.hex 
-              }} 
-            />
-            <div className="flex-1 min-w-0 space-y-2">
-              <Label htmlFor="color-name" className="text-xs font-medium text-[#13112B]">Name</Label>
-              <Input 
-                id="color-name"
-                placeholder="z.B. Grün-Gelb" 
-                value={form.name} 
-                onChange={(e)=>setForm({...form, name: e.target.value})} 
-                className="w-full h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
-                required 
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="color-hex" className="text-xs font-medium text-[#13112B]">HEX 1</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="color"
-                  value={form.hex}
-                  onChange={(e)=>setForm({...form, hex: e.target.value})}
-                  className="w-16 h-11 p-1 cursor-pointer border border-[#E7F7E9] rounded-xl flex-shrink-0"
-                  title="Farbe wählen"
-                />
-                <Input 
-                  id="color-hex"
-                  placeholder="#22c55e" 
-                  value={form.hex} 
-                  onChange={(e)=>setForm({...form, hex: e.target.value})} 
-                  className="flex-1 h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] font-mono text-sm" 
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="color-hex2" className="text-xs font-medium text-[#13112B]">HEX 2 (optional)</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="color"
-                  value={form.secondary_hex || '#ffffff'}
-                  onChange={(e)=>setForm({...form, secondary_hex: e.target.value})}
-                  className="w-16 h-11 p-1 cursor-pointer border border-[#E7F7E9] rounded-xl flex-shrink-0"
-                  title="Farbe wählen"
-                />
-                <Input 
-                  id="color-hex2"
-                  placeholder="#facc15" 
-                  value={form.secondary_hex} 
-                  onChange={(e)=>setForm({...form, secondary_hex: e.target.value})} 
-                  className="flex-1 h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] font-mono text-sm" 
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="color-sort" className="text-xs font-medium text-[#13112B]">Sortierung</Label>
-              <Input 
-                id="color-sort"
-                type="number" 
-                placeholder="0" 
-                value={form.sort_order} 
-                onChange={(e)=>setForm({...form, sort_order: parseInt(e.target.value || '0')})} 
-                className="w-full h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
-              />
-            </div>
-            <Button 
-              type="submit" 
-              className="h-11 px-6 rounded-xl bg-[#36B531] hover:bg-[#2da029] text-white flex-shrink-0 self-end"
-              disabled={createColor.isPending}
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              Anlegen
-            </Button>
-          </div>
-        </form>
-
-        {/* Liste */}
-        {(!filtered || filtered.length === 0) ? (
-          <div className="text-sm text-[#13112B]/60">Keine Einträge gefunden.</div>
-        ) : (
-          <div className="space-y-2 w-full min-w-0">
-            {filtered.map((c) => (
-              <ColorRow 
-                key={c.id} 
-                color={c} 
-                updateColor={updateColor} 
-                deleteColor={deleteColor} 
-              />
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-
-// Separate component for each color row to manage local state
-const ColorRow = ({ 
-  color, 
-  updateColor, 
-  deleteColor 
-}: { 
-  color: ColorRow; 
-  updateColor: ReturnType<typeof useUpdateColor>; 
-  deleteColor: ReturnType<typeof useDeleteColor>; 
-}) => {
-  const [name, setName] = useState(color.name);
-  const [hex, setHex] = useState(color.hex);
-  const [secondaryHex, setSecondaryHex] = useState(color.secondary_hex || '');
-  const [sortOrder, setSortOrder] = useState(color.sort_order);
-
-  // Update local state when color prop changes (after successful update)
-  useEffect(() => {
-    setName(color.name);
-    setHex(color.hex);
-    setSecondaryHex(color.secondary_hex || '');
-    setSortOrder(color.sort_order);
-  }, [color.name, color.hex, color.secondary_hex, color.sort_order]);
-
-  const handleNameBlur = () => {
-    const newValue = name.trim();
-    console.log('[ColorRow] handleNameBlur called:', {
-      colorId: color.id,
-      currentName: name,
-      trimmedValue: newValue,
-      originalName: color.name,
-      willUpdate: newValue !== color.name && newValue,
-    });
-    if (newValue !== color.name && newValue) {
-      console.log('[ColorRow] Calling updateColor.mutate with:', { id: color.id, name: newValue });
-      updateColor.mutate({ id: color.id, name: newValue });
-    } else if (!newValue) {
-      // Reset to original if empty
-      console.log('[ColorRow] Empty value, resetting to original:', color.name);
-      setName(color.name);
-    } else {
-      console.log('[ColorRow] No change detected, skipping update');
-    }
-  };
-
-  const handleHexBlur = () => {
-    const newValue = hex.trim();
-    if (newValue !== color.hex && newValue) {
-      updateColor.mutate({ id: color.id, hex: newValue });
-    } else if (!newValue) {
-      // Reset to original if empty
-      setHex(color.hex);
-    }
-  };
-
-  const handleSecondaryHexBlur = () => {
-    const newValue = secondaryHex.trim() || null;
-    if (newValue !== (color.secondary_hex || null)) {
-      updateColor.mutate({ id: color.id, secondary_hex: newValue });
-    } else {
-      // Reset to original if empty
-      setSecondaryHex(color.secondary_hex || '');
-    }
-  };
-
-  const handleSortOrderBlur = () => {
-    const newValue = parseInt(sortOrder.toString() || '0');
-    if (newValue !== color.sort_order) {
-      updateColor.mutate({ id: color.id, sort_order: newValue });
-    }
-  };
-
-  return (
-    <Card className="w-full min-w-0 bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
-      <CardContent className="p-4 space-y-4">
-        {/* Mobile Layout */}
-        <div className="md:hidden space-y-4">
-          <div className="flex items-center gap-3">
-            <GripVertical className="w-6 h-6 text-[#13112B]/40 flex-shrink-0" />
-            <div 
-              className="w-12 h-12 rounded-xl border-2 border-[#E7F7E9] flex-shrink-0" 
-              style={{ 
-                background: secondaryHex 
-                  ? `linear-gradient(135deg, ${hex} 0%, ${hex} 50%, ${secondaryHex} 50%, ${secondaryHex} 100%)`
-                  : hex 
-              }} 
-            />
-            <div className="flex-1 min-w-0 space-y-2">
-              <Label className="text-xs font-medium text-[#13112B]">Name</Label>
-              <Input 
-                value={name} 
-                onChange={(e) => {
-                  console.log('[ColorRow] Name onChange:', { colorId: color.id, oldValue: name, newValue: e.target.value });
-                  setName(e.target.value);
-                }}
-                onBlur={handleNameBlur}
-                onFocus={() => console.log('[ColorRow] Name onFocus:', { colorId: color.id, currentValue: name })}
-                className="w-full h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label className="text-xs font-medium text-[#13112B]">HEX 1</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="color"
-                  value={hex}
-                  onChange={(e) => setHex(e.target.value)}
-                  onBlur={handleHexBlur}
-                  className="w-16 h-11 p-1 cursor-pointer border border-[#E7F7E9] rounded-xl flex-shrink-0"
-                  title="Farbe wählen"
-                />
-                <Input 
-                  value={hex} 
-                  onChange={(e) => setHex(e.target.value)}
-                  onBlur={handleHexBlur}
-                  placeholder="#HEX 1"
-                  className="flex-1 h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] font-mono text-sm" 
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-medium text-[#13112B]">HEX 2</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="color"
-                  value={secondaryHex || '#ffffff'}
-                  onChange={(e) => setSecondaryHex(e.target.value)}
-                  onBlur={handleSecondaryHexBlur}
-                  className="w-16 h-11 p-1 cursor-pointer border border-[#E7F7E9] rounded-xl flex-shrink-0"
-                  title="Farbe wählen"
-                />
-                <Input 
-                  value={secondaryHex} 
-                  onChange={(e) => setSecondaryHex(e.target.value)}
-                  onBlur={handleSecondaryHexBlur}
-                  placeholder="#HEX 2 (optional)"
-                  className="flex-1 h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] font-mono text-sm" 
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex-1 space-y-2">
-              <Label className="text-xs font-medium text-[#13112B]">Sortierung</Label>
-              <Input 
-                type="number" 
-                value={sortOrder} 
-                onChange={(e) => setSortOrder(parseInt(e.target.value || '0'))}
-                onBlur={handleSortOrderBlur}
-                className="w-full h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
-              />
-            </div>
-            <div className="flex items-center gap-3 pt-6">
-              <div className="flex items-center gap-2">
-                <Label className="text-sm whitespace-nowrap text-[#13112B]">Aktiv</Label>
-                <Switch checked={color.is_active} onCheckedChange={(v)=>updateColor.mutate({ id: color.id, is_active: v })} />
-              </div>
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="icon"
-                className="text-destructive h-11 w-11 rounded-xl border-[#E7F7E9] hover:bg-red-50 flex-shrink-0" 
-                onClick={()=>deleteColor.mutate(color.id)}
-              >
-                <Trash2 className="w-5 h-5" />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Desktop Layout */}
-        <div className="hidden md:grid md:grid-cols-[24px,40px,1fr,120px,120px,90px,90px,auto] items-center gap-3">
-          <GripVertical className="w-5 h-5 text-[#13112B]/40" />
-          <div 
-            className="w-8 h-8 rounded-xl border-2 border-[#E7F7E9] flex-shrink-0" 
-            style={{ 
-              background: secondaryHex 
-                ? `linear-gradient(135deg, ${hex} 0%, ${hex} 50%, ${secondaryHex} 50%, ${secondaryHex} 100%)`
-                : hex 
-            }} 
-          />
-          <Input 
-            value={name} 
-            onChange={(e) => {
-              console.log('[ColorRow] Name onChange:', { colorId: color.id, oldValue: name, newValue: e.target.value });
-              setName(e.target.value);
-            }}
-            onBlur={handleNameBlur}
-            onFocus={() => console.log('[ColorRow] Name onFocus:', { colorId: color.id, currentValue: name })}
-            className="w-full min-w-0 h-10 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
-          />
-          <div className="flex gap-2">
-            <Input
-              type="color"
-              value={hex}
-              onChange={(e) => setHex(e.target.value)}
-              onBlur={handleHexBlur}
-              className="w-12 h-10 p-1 cursor-pointer border border-[#E7F7E9] rounded-xl flex-shrink-0"
-              title="Farbe wählen"
-            />
-            <Input 
-              value={hex} 
-              onChange={(e) => setHex(e.target.value)}
-              onBlur={handleHexBlur}
-              placeholder="#HEX 1"
-              className="flex-1 min-w-0 h-10 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] font-mono text-sm" 
-            />
-          </div>
-          <div className="flex gap-2">
-            <Input
-              type="color"
-              value={secondaryHex || '#ffffff'}
-              onChange={(e) => setSecondaryHex(e.target.value)}
-              onBlur={handleSecondaryHexBlur}
-              className="w-12 h-10 p-1 cursor-pointer border border-[#E7F7E9] rounded-xl flex-shrink-0"
-              title="Farbe wählen"
-            />
-            <Input 
-              value={secondaryHex} 
-              onChange={(e) => setSecondaryHex(e.target.value)}
-              onBlur={handleSecondaryHexBlur}
-              placeholder="#HEX 2 (optional)"
-              className="flex-1 min-w-0 h-10 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] font-mono text-sm" 
-            />
-          </div>
-          <Input 
-            type="number" 
-            value={sortOrder} 
-            onChange={(e) => setSortOrder(parseInt(e.target.value || '0'))}
-            onBlur={handleSortOrderBlur}
-            className="w-full min-w-0 h-10 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]" 
-          />
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Label className="text-sm whitespace-nowrap text-[#13112B]">Aktiv</Label>
-            <Switch checked={color.is_active} onCheckedChange={(v)=>updateColor.mutate({ id: color.id, is_active: v })} />
-          </div>
-          <Button type="button" variant="outline" className="text-destructive justify-self-end flex-shrink-0 h-10 rounded-xl border-[#E7F7E9] hover:bg-red-50" onClick={()=>deleteColor.mutate(color.id)}>
-            <Trash2 className="w-4 h-4 mr-2" />
-            Löschen
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
+        <KwsSegmentedControl<'all' | 'active' | 'inactive'> value={filter} onValueChange={setFilter} options={[{ value: 'all', label: 'Alle' }, { value: 'active', label: 'Aktiv' }, { value: 'inactive', label: 'Inaktiv' }]} ariaLabel="Farben nach Status filtern" />
+      </div>
+      <div className="flex min-h-11 items-center justify-between gap-2">
+        <p aria-live="polite" className="text-xs text-muted-foreground">{!catalog.isPending && !catalog.isError && <>{filtered.length} {filtered.length === 1 ? 'Farbe' : 'Farben'}{query || filter !== 'all' ? ' von ' + colors.length : ''}<span className="hidden sm:inline"> · {activeCount} aktiv</span></>}</p>
+        <Button ref={orderButton} variant="ghost" className="shrink-0 gap-2 text-xs" disabled={catalog.isPending || catalog.isError || colors.length < 2} onClick={() => setOrdering(true)}><ArrowUpDown className="h-4 w-4" />Reihenfolge</Button>
+      </div>
+      {catalog.isPending ? <div role="status" aria-label="Farben werden geladen" className="grid gap-3 min-[1280px]:grid-cols-2">{[1, 2, 3, 4].map(row => <Skeleton key={row} className="h-24 w-full rounded-kws-card" />)}</div>
+        : catalog.isError ? <div role="alert" className="space-y-3 px-4 pb-5"><p className="text-sm text-destructive">Die Farben konnten nicht geladen werden.</p><Button variant="secondary" onClick={() => catalog.refetch()}>Erneut versuchen</Button></div>
+        : <>
+          {filtered.length ? <ul aria-label="Grifffarben" className="grid gap-3 min-[1280px]:grid-cols-2">
+            {filtered.map(color => <li key={color.id} className="min-w-0">
+              <button type="button" aria-label={color.name + ' bearbeiten'} onClick={event => openEditor(color, event.currentTarget)} className={cn(kwsSurfaceClassName, 'group flex h-full min-h-24 w-full items-center gap-3 p-3 text-left transition-shadow hover:shadow-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-4')}>
+                <ColorSwatch hex={color.hex} secondaryHex={color.secondary_hex} className="h-16 w-16" />
+                <span className="min-w-0 flex-1 space-y-1.5">
+                  <span className="flex flex-wrap items-center gap-2"><span className="break-words font-sans text-sm font-semibold leading-snug [overflow-wrap:anywhere]">{color.name}</span>{!color.is_active && <span className="rounded-kws-badge bg-secondary px-1.5 py-0.5 text-xs text-muted-foreground">Inaktiv</span>}</span>
+                  <span className="flex flex-wrap gap-x-2 gap-y-1 font-mono text-xs text-muted-foreground"><span>{normalizeHex(color.hex) ?? color.hex}</span>{color.secondary_hex && <span>/ {normalizeHex(color.secondary_hex) ?? color.secondary_hex}</span>}</span>
+                </span>
+                <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
+              </button>
+            </li>)}
+          </ul> : <div className="flex flex-col items-center px-4 py-8 text-center"><Palette className="mb-3 h-7 w-7 text-muted-foreground" /><h3 className="text-sm font-semibold">{colors.length ? 'Keine passenden Farben' : 'Deine Farbpalette ist noch leer'}</h3><p className="mt-1 max-w-xs text-sm text-muted-foreground">{colors.length ? 'Passe die Suche an oder zeige alle Farben.' : 'Lege deine erste Grifffarbe an oder ergänze die Standardfarben.'}</p>{colors.length > 0 && <Button variant="secondary" className="mt-4" onClick={() => { setQuery(''); setFilter('all'); }}>Filter zurücksetzen</Button>}</div>}
+        </>}
+    </div>
+    <div className="flex justify-end"><Button ref={defaultsButton} variant="ghost" className="text-xs text-muted-foreground" disabled={catalog.isPending || catalog.isError} onClick={() => { setDefaultError(''); setShowDefaults(true); }}>Standardfarben ergänzen</Button></div>
+    {ordering && <ColorOrderDialog colors={colors} onClose={() => setOrdering(false)} onRestoreFocus={() => requestAnimationFrame(() => orderButton.current?.focus())} />}
+    {editor && <ColorEditor key={editor === 'new' ? 'new' : editor.id} color={editor === 'new' ? undefined : editor} colors={colors} onClose={() => setEditor(null)} onRestoreFocus={restoreEditorFocus} />}
+    <AlertDialog open={showDefaults} onOpenChange={open => { if (!defaults.isPending) setShowDefaults(open); }}>
+      <AlertDialogContent onCloseAutoFocus={event => { event.preventDefault(); requestAnimationFrame(() => defaultsButton.current?.focus()); }}>
+        <AlertDialogTitle>Standardfarben ergänzen?</AlertDialogTitle>
+        <AlertDialogDescription>Ergänzt fehlende Standardfarben wie Grün, Gelb und Blau. Vorhandene Namen, Farbwerte und zweifarbige Kombinationen bleiben unverändert.</AlertDialogDescription>
+        {defaultError && <p role="alert" className="text-sm text-destructive">{defaultError}</p>}
+        <AlertDialogFooter><AlertDialogCancel disabled={defaults.isPending}>Abbrechen</AlertDialogCancel><Button onClick={addDefaults} disabled={defaults.isPending}>{defaults.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}Ergänzen</Button></AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </section>;
 };
 

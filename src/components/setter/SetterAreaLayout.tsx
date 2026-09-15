@@ -1,13 +1,11 @@
 import { useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
-import { DashboardHeader } from '@/components/DashboardHeader';
+import { DashboardPageLayout } from '@/components/DashboardPageLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useSidebar } from '@/components/SidebarContext';
+import { SetterState } from '@/components/setter/SetterControls';
 import { useAuth } from '@/hooks/useAuth';
 import { useHasRole } from '@/hooks/useHasRole';
-import { cn } from '@/lib/utils';
 
 export const setterLegacyViewToPath = (view: string | null | undefined) => {
   switch (view) {
@@ -27,7 +25,6 @@ export const setterLegacyViewToPath = (view: string | null | undefined) => {
 export const SetterAreaLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isExpanded } = useSidebar();
   const { session, loading: authLoading } = useAuth();
   const { hasRole: isSetter, loading: setterLoading } = useHasRole('setter');
   const { hasRole: isAdmin, loading: adminLoading } = useHasRole('admin');
@@ -51,67 +48,10 @@ export const SetterAreaLayout = () => {
   const canAccess = !!session && (isSetter || isAdmin);
 
   if (isLoading || !session) {
-    return (
-      <div
-        className={cn(
-          'kws-sidebar-content flex min-h-screen min-w-0 flex-1 flex-col bg-background pb-28 md:pb-0',
-          isExpanded ? 'md:ml-64' : 'md:ml-20',
-        )}
-      >
-        <DashboardHeader />
-        <main className="flex min-w-0 flex-1 items-center justify-center px-4 py-8 sm:px-6">
-          <Card className="w-full max-w-md border-border bg-card">
-            <CardHeader>
-              <CardTitle>Setter-Bereich wird geladen</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Berechtigungen und Session werden geprüft.
-            </CardContent>
-          </Card>
-        </main>
-      </div>
-    );
+    return <DashboardPageLayout><SetterState loading title="Setterbereich wird geladen …" /></DashboardPageLayout>;
   }
-
   if (!canAccess) {
-    return (
-      <div
-        className={cn(
-          'kws-sidebar-content flex min-h-screen min-w-0 flex-1 flex-col bg-background pb-28 md:pb-0',
-          isExpanded ? 'md:ml-64' : 'md:ml-20',
-        )}
-      >
-        <DashboardHeader />
-        <main className="flex min-w-0 flex-1 items-center justify-center px-4 py-8 sm:px-6">
-          <Card className="w-full max-w-lg border-border bg-card">
-            <CardHeader>
-              <CardTitle>Kein Zugriff auf den Setter-Bereich</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Für diese Seiten brauchst du die Rolle `setter` oder `admin`.
-              </p>
-              <Button onClick={() => navigate('/')}>Zurück zum Dashboard</Button>
-            </CardContent>
-          </Card>
-        </main>
-      </div>
-    );
+    return <DashboardPageLayout><div className="space-y-4"><SetterState title="Kein Zugriff auf den Setterbereich" description="Für diese Seiten brauchst du eine Setter- oder Adminfreigabe." /><Button variant="secondary" onClick={() => navigate('/')}>Zurück zur App</Button></div></DashboardPageLayout>;
   }
-
-  return (
-    <div className="flex min-h-screen bg-[#F9FAF9]">
-      <div
-        className={cn(
-          'kws-sidebar-content flex min-h-screen min-w-0 w-full flex-1 flex-col bg-[#F9FAF9] pb-28 md:pb-0',
-          isExpanded ? 'md:ml-64' : 'md:ml-20',
-        )}
-      >
-        <DashboardHeader />
-        <main className="mobile-page-bottom-safe min-w-0 w-full flex-1 overflow-x-hidden px-4 pt-6 md:px-8">
-          <Outlet />
-        </main>
-      </div>
-    </div>
-  );
+  return <DashboardPageLayout><Outlet /></DashboardPageLayout>;
 };

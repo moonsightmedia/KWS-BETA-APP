@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from './useAuth';
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
 
 // Storage keys (same as in Sidebar and RoleTabs)
 // CRITICAL: Use localStorage instead of sessionStorage for native apps
@@ -89,7 +90,7 @@ const checkRoleOnce = async (
   }
 
   try {
-    const res = await window.fetch(
+    const res = await authenticatedFetch(
       `${url}/rest/v1/user_roles?user_id=eq.${userId}&role=eq.${role}&select=user_id`,
       {
         method: 'GET',
@@ -107,7 +108,8 @@ const checkRoleOnce = async (
     }
 
     const data = await res.json();
-    const hasRole = Array.isArray(data) && data.length > 0;
+    if (!Array.isArray(data)) return { status: 'error' };
+    const hasRole = data.length > 0;
     storeRole(role, hasRole, userId);
     return { status: 'ok', hasRole };
   } catch (error) {
@@ -117,13 +119,14 @@ const checkRoleOnce = async (
 };
 
 export const useHasRole = (role: 'admin' | 'user' | 'setter') => {
-  const { user, session } = useAuth();
+  const { user, session, reauthRequired } = useAuth();
   const initialStored = getStoredRole(role, user?.id);
   const [hasRole, setHasRole] = useState<boolean>(() => initialStored ?? false);
   // Unknown role → show loading instead of flashing "Kein Zugriff"
   const [loading, setLoading] = useState(() => initialStored === null && Boolean(user?.id));
 
   const refreshRoleStatus = useCallback(async () => {
+    if (reauthRequired) return; // Locked workspace retains its draft, not new authority.
     if (!user?.id) {
       setHasRole(false);
       setLoading(false);
@@ -172,7 +175,7 @@ export const useHasRole = (role: 'admin' | 'user' | 'setter') => {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, role, session?.access_token]);
+  }, [user?.id, role, session?.access_token, reauthRequired]);
 
   useEffect(() => {
     refreshRoleStatus();

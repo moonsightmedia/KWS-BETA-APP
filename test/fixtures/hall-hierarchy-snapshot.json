@@ -1,0 +1,929 @@
+{
+  "capturedAt": "2026-09-13",
+  "sameAssetAfterWhitespaceNormalization": true,
+  "map": {
+    "id": "09edc012-45ac-4938-a267-d13fc3acf220",
+    "name": "Boulderhalle Main",
+    "image_url": "https://pkzzxtsyxwxoraytyjau.supabase.co/storage/v1/object/public/hall-maps/09edc012-45ac-4938-a267-d13fc3acf220/hall-map-base.svg",
+    "width": 735,
+    "height": 466,
+    "is_active": true,
+    "updated_at": "2026-03-31T20:09:29.493+00:00"
+  },
+  "sectors": [
+    {
+      "id": "6a74ab06-f4a3-4154-b1ed-8ac30f910066",
+      "name": "Hönneportal",
+      "description": null,
+      "boulder_count": 0,
+      "next_schraubtermin": null,
+      "last_schraubtermin": null,
+      "image_url": null,
+      "created_at": "2025-11-13T14:12:50.357056+00:00",
+      "updated_at": "2025-12-02T12:35:58.031045+00:00"
+    },
+    {
+      "id": "d06a9e07-ec24-4815-b057-d8f19c63a14b",
+      "name": "Wandelwand",
+      "description": null,
+      "boulder_count": 0,
+      "next_schraubtermin": null,
+      "last_schraubtermin": "2025-11-27T14:37:08.158+00:00",
+      "image_url": null,
+      "created_at": "2025-11-13T14:30:42.157268+00:00",
+      "updated_at": "2025-12-02T12:36:43.306242+00:00"
+    },
+    {
+      "id": "21b1248b-5cf4-4492-aecd-e5ba2c139121",
+      "name": "Atta-Höhle",
+      "description": null,
+      "boulder_count": 25,
+      "next_schraubtermin": "2025-03-01T15:00:00+00:00",
+      "last_schraubtermin": "2025-11-13T08:59:49.913+00:00",
+      "image_url": null,
+      "created_at": "2025-10-29T08:32:49.522659+00:00",
+      "updated_at": "2025-12-02T12:37:32.226682+00:00"
+    },
+    {
+      "id": "52c04e6e-eb84-4431-9169-dbd23311b8a4",
+      "name": "Bilstein",
+      "description": null,
+      "boulder_count": 38,
+      "next_schraubtermin": "2025-02-22T15:00:00+00:00",
+      "last_schraubtermin": "2024-11-28T15:00:00+00:00",
+      "image_url": null,
+      "created_at": "2025-10-29T08:32:49.522659+00:00",
+      "updated_at": "2025-12-02T12:37:40.625706+00:00"
+    },
+    {
+      "id": "7f92ef94-36a0-4705-a091-ab2d4027c0a0",
+      "name": "Durchbruch",
+      "description": null,
+      "boulder_count": 31,
+      "next_schraubtermin": "2025-02-18T15:00:00+00:00",
+      "last_schraubtermin": "2025-11-19T18:59:10.042+00:00",
+      "image_url": null,
+      "created_at": "2025-10-29T08:32:49.522659+00:00",
+      "updated_at": "2025-12-02T12:37:55.783856+00:00"
+    },
+    {
+      "id": "b8c7c7bf-02ce-41b1-bfb4-fa00196f6927",
+      "name": "Kahlwinkel",
+      "description": null,
+      "boulder_count": 28,
+      "next_schraubtermin": "2025-02-25T15:00:00+00:00",
+      "last_schraubtermin": "2025-11-26T07:17:17.209+00:00",
+      "image_url": null,
+      "created_at": "2025-10-29T08:32:49.522659+00:00",
+      "updated_at": "2025-11-26T07:17:17.298801+00:00"
+    },
+    {
+      "id": "1c972172-705d-44fe-a019-42e44b131b42",
+      "name": "Vordere Burgmauer",
+      "description": null,
+      "boulder_count": 0,
+      "next_schraubtermin": null,
+      "last_schraubtermin": "2025-11-25T15:58:17.229+00:00",
+      "image_url": null,
+      "created_at": "2025-10-29T10:04:35.005663+00:00",
+      "updated_at": "2025-11-27T14:57:05.559057+00:00"
+    },
+    {
+      "id": "0f4fb580-6393-4223-b7d5-eedead183648",
+      "name": "Vollmond-klippe",
+      "description": null,
+      "boulder_count": 0,
+      "next_schraubtermin": null,
+      "last_schraubtermin": "2025-11-27T09:07:54.896+00:00",
+      "image_url": null,
+      "created_at": "2025-10-29T12:58:17.859436+00:00",
+      "updated_at": "2025-11-27T14:57:33.808334+00:00"
+    },
+    {
+      "id": "e459eb28-4cd4-4352-86f1-8deffd0ac22b",
+      "name": "Hintere Burgmauer",
+      "description": null,
+      "boulder_count": 0,
+      "next_schraubtermin": null,
+      "last_schraubtermin": "2025-11-13T14:57:56.785+00:00",
+      "image_url": null,
+      "created_at": "2025-11-13T14:13:16.325274+00:00",
+      "updated_at": "2025-11-27T14:58:11.248971+00:00"
+    },
+    {
+      "id": "63baa26f-094b-490e-a75f-e1a6d7c8bcf5",
+      "name": "Phänomenturm",
+      "description": null,
+      "boulder_count": 0,
+      "next_schraubtermin": null,
+      "last_schraubtermin": "2025-11-19T14:20:01.034+00:00",
+      "image_url": null,
+      "created_at": "2025-11-13T14:13:46.105331+00:00",
+      "updated_at": "2025-11-23T22:07:01.370295+00:00"
+    },
+    {
+      "id": "c3c434f5-5a2e-488c-b2f9-bf00735c2cac",
+      "name": "Übergang",
+      "description": null,
+      "boulder_count": 0,
+      "next_schraubtermin": null,
+      "last_schraubtermin": "2025-11-19T12:16:58.63+00:00",
+      "image_url": null,
+      "created_at": "2025-11-13T14:13:41.93164+00:00",
+      "updated_at": "2025-11-23T22:07:13.918779+00:00"
+    },
+    {
+      "id": "8efd4220-10b6-49a4-a112-7763698a5487",
+      "name": "Steuerbord",
+      "description": null,
+      "boulder_count": 25,
+      "next_schraubtermin": "2025-03-01T14:00:00+00:00",
+      "last_schraubtermin": "2024-12-05T14:00:00+00:00",
+      "image_url": null,
+      "created_at": "2025-10-29T13:13:52.096822+00:00",
+      "updated_at": "2025-12-04T09:54:36.597919+00:00"
+    },
+    {
+      "id": "1ee4e756-b46c-41a3-86be-3095cc426678",
+      "name": "Buckbord",
+      "description": null,
+      "boulder_count": 0,
+      "next_schraubtermin": null,
+      "last_schraubtermin": "2025-11-25T20:54:17.743+00:00",
+      "image_url": null,
+      "created_at": "2025-11-13T14:13:36.99239+00:00",
+      "updated_at": "2025-12-04T09:54:54.991429+00:00"
+    },
+    {
+      "id": "73457f90-a895-447f-b772-bad5c4e5c74d",
+      "name": "Deckenhöhle",
+      "description": null,
+      "boulder_count": 38,
+      "next_schraubtermin": "2025-02-22T14:00:00+00:00",
+      "last_schraubtermin": "2024-11-28T14:00:00+00:00",
+      "image_url": null,
+      "created_at": "2025-10-29T13:13:52.096822+00:00",
+      "updated_at": "2025-11-23T22:08:08.281691+00:00"
+    },
+    {
+      "id": "e75eedf0-d94a-470a-a65e-a0b7f80d66cb",
+      "name": "Zwergenwand",
+      "description": null,
+      "boulder_count": 0,
+      "next_schraubtermin": null,
+      "last_schraubtermin": null,
+      "image_url": null,
+      "created_at": "2025-11-13T14:13:55.692588+00:00",
+      "updated_at": "2025-12-16T12:11:45.464208+00:00"
+    },
+    {
+      "id": "2cee2c2c-3660-4c67-b3ab-77772f3cfabb",
+      "name": "Bug",
+      "description": null,
+      "boulder_count": 31,
+      "next_schraubtermin": "2025-02-18T14:00:00+00:00",
+      "last_schraubtermin": "2025-11-25T20:40:32.008+00:00",
+      "image_url": null,
+      "created_at": "2025-10-29T13:13:52.096822+00:00",
+      "updated_at": "2025-11-25T20:40:32.201695+00:00"
+    },
+    {
+      "id": "efba2368-1dc9-46d2-a19a-b0f8a3aa591b",
+      "name": "Albsteg",
+      "description": null,
+      "boulder_count": 0,
+      "next_schraubtermin": null,
+      "last_schraubtermin": "2025-11-28T14:22:53.153+00:00",
+      "image_url": null,
+      "created_at": "2025-11-13T14:19:23.019755+00:00",
+      "updated_at": "2025-11-28T14:22:53.177981+00:00"
+    },
+    {
+      "id": "8331e543-d86d-4bbb-b63b-6ec6acbc9809",
+      "name": "Avalonia",
+      "description": null,
+      "boulder_count": 28,
+      "next_schraubtermin": "2025-02-25T14:00:00+00:00",
+      "last_schraubtermin": "2025-11-19T18:57:59.183+00:00",
+      "image_url": null,
+      "created_at": "2025-10-29T13:13:52.096822+00:00",
+      "updated_at": "2025-12-02T12:35:15.097524+00:00"
+    },
+    {
+      "id": "4cafe185-391d-415c-8914-6c68799deff1",
+      "name": "Felsenmeer",
+      "description": null,
+      "boulder_count": 42,
+      "next_schraubtermin": "2025-02-15T14:00:00+00:00",
+      "last_schraubtermin": "2025-11-28T09:20:05.724+00:00",
+      "image_url": null,
+      "created_at": "2025-10-29T13:13:52.096822+00:00",
+      "updated_at": "2025-11-28T09:20:05.712043+00:00"
+    }
+  ],
+  "regions": [
+    {
+      "id": "6b316b31-30c4-43ea-8e9f-6a1afacc6b9d",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "52c04e6e-eb84-4431-9169-dbd23311b8a4",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 30.34,
+          "y": 92.7
+        },
+        {
+          "x": 35.37,
+          "y": 87.34
+        },
+        {
+          "x": 33.2,
+          "y": 68.03
+        },
+        {
+          "x": 31.29,
+          "y": 66.95
+        },
+        {
+          "x": 31.97,
+          "y": 51.5
+        },
+        {
+          "x": 42.04,
+          "y": 51.5
+        },
+        {
+          "x": 42.04,
+          "y": 100
+        },
+        {
+          "x": 30.48,
+          "y": 99.79
+        }
+      ],
+      "label_x": 37.22,
+      "label_y": 75.58,
+      "z_index": 9,
+      "created_at": "2026-03-31T19:42:36.556349+00:00",
+      "updated_at": "2026-03-31T19:42:36.541+00:00"
+    },
+    {
+      "id": "c8073d17-83bf-41f8-a757-1c5d279e7465",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "21b1248b-5cf4-4492-aecd-e5ba2c139121",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 42.31,
+          "y": 65.24
+        },
+        {
+          "x": 49.25,
+          "y": 70.39
+        },
+        {
+          "x": 43.95,
+          "y": 87.77
+        },
+        {
+          "x": 46.67,
+          "y": 95.06
+        },
+        {
+          "x": 42.45,
+          "y": 99.79
+        }
+      ],
+      "label_x": 44.53,
+      "label_y": 80.11,
+      "z_index": 10,
+      "created_at": "2026-03-31T19:42:44.108746+00:00",
+      "updated_at": "2026-03-31T19:42:44.117+00:00"
+    },
+    {
+      "id": "ee67d89a-d192-43a6-b3c4-ab4602e15eec",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "efba2368-1dc9-46d2-a19a-b0f8a3aa591b",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 21.36,
+          "y": 50.21
+        },
+        {
+          "x": 22.45,
+          "y": 34.76
+        },
+        {
+          "x": 39.05,
+          "y": 44.64
+        },
+        {
+          "x": 39.05,
+          "y": 51.07
+        },
+        {
+          "x": 21.36,
+          "y": 51.07
+        }
+      ],
+      "label_x": 29.2,
+      "label_y": 45.06,
+      "z_index": 11,
+      "created_at": "2026-03-31T19:42:52.124633+00:00",
+      "updated_at": "2026-03-31T19:42:52.121+00:00"
+    },
+    {
+      "id": "b2465c6d-033e-4121-a11b-5f7b2e368591",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "7f92ef94-36a0-4705-a091-ab2d4027c0a0",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 0.14,
+          "y": 50.43
+        },
+        {
+          "x": 14.15,
+          "y": 51.29
+        },
+        {
+          "x": 15.1,
+          "y": 57.94
+        },
+        {
+          "x": 7.07,
+          "y": 57.3
+        },
+        {
+          "x": 8.16,
+          "y": 62.66
+        },
+        {
+          "x": 7.07,
+          "y": 69.31
+        },
+        {
+          "x": 0.14,
+          "y": 66.95
+        }
+      ],
+      "label_x": 5.81,
+      "label_y": 58.15,
+      "z_index": 12,
+      "created_at": "2026-03-31T19:43:33.706273+00:00",
+      "updated_at": "2026-03-31T19:43:33.595+00:00"
+    },
+    {
+      "id": "60c95e09-b2af-45fd-9547-0c357efc8126",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "d06a9e07-ec24-4815-b057-d8f19c63a14b",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 14.42,
+          "y": 51.29
+        },
+        {
+          "x": 31.84,
+          "y": 51.5
+        },
+        {
+          "x": 31.16,
+          "y": 66.74
+        },
+        {
+          "x": 16.6,
+          "y": 58.15
+        },
+        {
+          "x": 15.24,
+          "y": 57.94
+        }
+      ],
+      "label_x": 24.38,
+      "label_y": 57,
+      "z_index": 13,
+      "created_at": "2026-03-31T19:43:39.510603+00:00",
+      "updated_at": "2026-03-31T19:43:39.505+00:00"
+    },
+    {
+      "id": "a748ffa5-9a94-45a3-90f4-13254dd3a07b",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "2cee2c2c-3660-4c67-b3ab-77772f3cfabb",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 62.04,
+          "y": 51.72
+        },
+        {
+          "x": 73.2,
+          "y": 50.86
+        },
+        {
+          "x": 72.52,
+          "y": 66.31
+        },
+        {
+          "x": 62.04,
+          "y": 73.18
+        }
+      ],
+      "label_x": 67.14,
+      "label_y": 60.51,
+      "z_index": 16,
+      "created_at": "2026-03-31T20:04:08.899473+00:00",
+      "updated_at": "2026-03-31T20:04:08.719+00:00"
+    },
+    {
+      "id": "71edfbeb-4b27-4172-8657-f46470673f87",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "e75eedf0-d94a-470a-a65e-a0b7f80d66cb",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 88.1,
+          "y": 48.41
+        },
+        {
+          "x": 93.58,
+          "y": 48.46
+        },
+        {
+          "x": 93.54,
+          "y": 22.81
+        },
+        {
+          "x": 90.4,
+          "y": 22.81
+        },
+        {
+          "x": 90.44,
+          "y": 45.14
+        },
+        {
+          "x": 88.17,
+          "y": 45.14
+        }
+      ],
+      "label_x": 91.89,
+      "label_y": 36.76,
+      "z_index": 1,
+      "created_at": "2026-03-07T13:37:27.725722+00:00",
+      "updated_at": "2026-03-31T18:48:23.383+00:00"
+    },
+    {
+      "id": "1176d184-3fee-4e3b-a221-b79af7bc6681",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "1c972172-705d-44fe-a019-42e44b131b42",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 54.69,
+          "y": 10.09
+        },
+        {
+          "x": 56.19,
+          "y": 0.21
+        },
+        {
+          "x": 86.39,
+          "y": 0.21
+        },
+        {
+          "x": 86.39,
+          "y": 4.51
+        },
+        {
+          "x": 85.99,
+          "y": 5.58
+        },
+        {
+          "x": 87.62,
+          "y": 10.73
+        },
+        {
+          "x": 87.62,
+          "y": 12.45
+        },
+        {
+          "x": 85.03,
+          "y": 18.67
+        },
+        {
+          "x": 78.5,
+          "y": 18.88
+        },
+        {
+          "x": 76.46,
+          "y": 20.17
+        },
+        {
+          "x": 55.51,
+          "y": 10.94
+        }
+      ],
+      "label_x": 72.36,
+      "label_y": 8.67,
+      "z_index": 2,
+      "created_at": "2026-03-31T19:38:40.726402+00:00",
+      "updated_at": "2026-03-31T19:38:40.519+00:00"
+    },
+    {
+      "id": "f4014ffe-b477-442f-aa33-606ddad41f30",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "0f4fb580-6393-4223-b7d5-eedead183648",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 29.93,
+          "y": 0.21
+        },
+        {
+          "x": 55.92,
+          "y": 0.21
+        },
+        {
+          "x": 55.92,
+          "y": 1.29
+        },
+        {
+          "x": 54.56,
+          "y": 10.3
+        },
+        {
+          "x": 50.75,
+          "y": 9.44
+        },
+        {
+          "x": 49.25,
+          "y": 9.87
+        },
+        {
+          "x": 46.94,
+          "y": 15.24
+        },
+        {
+          "x": 37.41,
+          "y": 15.24
+        },
+        {
+          "x": 35.24,
+          "y": 10.3
+        },
+        {
+          "x": 30.2,
+          "y": 9.87
+        }
+      ],
+      "label_x": 42.56,
+      "label_y": 6.53,
+      "z_index": 3,
+      "created_at": "2026-03-31T19:38:58.944027+00:00",
+      "updated_at": "2026-03-31T19:38:58.886+00:00"
+    },
+    {
+      "id": "2e67e027-c7cd-4ce9-8e2d-370d74afd695",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "c3c434f5-5a2e-488c-b2f9-bf00735c2cac",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 39.18,
+          "y": 44.64
+        },
+        {
+          "x": 50.2,
+          "y": 44.21
+        },
+        {
+          "x": 50.2,
+          "y": 51.07
+        },
+        {
+          "x": 39.18,
+          "y": 51.07
+        }
+      ],
+      "label_x": 44.75,
+      "label_y": 47.75,
+      "z_index": 4,
+      "created_at": "2026-03-31T19:39:02.829573+00:00",
+      "updated_at": "2026-03-31T19:39:02.831+00:00"
+    },
+    {
+      "id": "171a411a-ea86-471e-92bf-baee0644d2c7",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "8efd4220-10b6-49a4-a112-7763698a5487",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 42.31,
+          "y": 51.5
+        },
+        {
+          "x": 61.77,
+          "y": 51.72
+        },
+        {
+          "x": 61.77,
+          "y": 73.18
+        },
+        {
+          "x": 58.37,
+          "y": 67.81
+        },
+        {
+          "x": 49.52,
+          "y": 70.39
+        },
+        {
+          "x": 42.31,
+          "y": 65.02
+        }
+      ],
+      "label_x": 52.35,
+      "label_y": 60.29,
+      "z_index": 5,
+      "created_at": "2026-03-31T19:39:18.705171+00:00",
+      "updated_at": "2026-03-31T19:39:18.717+00:00"
+    },
+    {
+      "id": "edc360ca-653d-441d-b38a-fb2e3f958842",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "63baa26f-094b-490e-a75f-e1a6d7c8bcf5",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 50.34,
+          "y": 45.49
+        },
+        {
+          "x": 50.48,
+          "y": 43.99
+        },
+        {
+          "x": 51.97,
+          "y": 41.42
+        },
+        {
+          "x": 66.26,
+          "y": 37.55
+        },
+        {
+          "x": 61.77,
+          "y": 51.29
+        },
+        {
+          "x": 50.34,
+          "y": 51.07
+        }
+      ],
+      "label_x": 57.71,
+      "label_y": 45.16,
+      "z_index": 6,
+      "created_at": "2026-03-31T19:39:24.406659+00:00",
+      "updated_at": "2026-03-31T19:39:24.417+00:00"
+    },
+    {
+      "id": "45e124f5-230f-44a3-ac2d-e649e324e5d4",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "b8c7c7bf-02ce-41b1-bfb4-fa00196f6927",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 77.82,
+          "y": 93.78
+        },
+        {
+          "x": 96.46,
+          "y": 93.78
+        },
+        {
+          "x": 96.46,
+          "y": 75.11
+        },
+        {
+          "x": 99.86,
+          "y": 75.11
+        },
+        {
+          "x": 99.86,
+          "y": 100
+        },
+        {
+          "x": 77.82,
+          "y": 100
+        }
+      ],
+      "label_x": 91.79,
+      "label_y": 92.95,
+      "z_index": 7,
+      "created_at": "2026-03-31T19:40:03.989101+00:00",
+      "updated_at": "2026-03-31T19:40:03.794+00:00"
+    },
+    {
+      "id": "55d4be5e-7c1b-4558-a478-3927d62e936d",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "8331e543-d86d-4bbb-b63b-6ec6acbc9809",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 0.14,
+          "y": 67.17
+        },
+        {
+          "x": 6.94,
+          "y": 69.53
+        },
+        {
+          "x": 3.4,
+          "y": 86.27
+        },
+        {
+          "x": 3.54,
+          "y": 87.12
+        },
+        {
+          "x": 11.16,
+          "y": 94.85
+        },
+        {
+          "x": 21.5,
+          "y": 95.49
+        },
+        {
+          "x": 21.63,
+          "y": 100
+        },
+        {
+          "x": 0.14,
+          "y": 100
+        }
+      ],
+      "label_x": 6.28,
+      "label_y": 88.5,
+      "z_index": 8,
+      "created_at": "2026-03-31T19:42:27.538552+00:00",
+      "updated_at": "2026-03-31T19:42:27.409+00:00"
+    },
+    {
+      "id": "a8c342c6-92f2-4a0b-9a0f-102684197a11",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "4cafe185-391d-415c-8914-6c68799deff1",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 42.59,
+          "y": 99.79
+        },
+        {
+          "x": 46.67,
+          "y": 95.28
+        },
+        {
+          "x": 69.93,
+          "y": 95.28
+        },
+        {
+          "x": 69.93,
+          "y": 100
+        }
+      ],
+      "label_x": 57.34,
+      "label_y": 97.65,
+      "z_index": 14,
+      "created_at": "2026-03-31T19:43:45.888356+00:00",
+      "updated_at": "2026-03-31T19:43:45.913+00:00"
+    },
+    {
+      "id": "5528cc57-a516-40e1-8c21-6dfbbc9fc036",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "73457f90-a895-447f-b772-bad5c4e5c74d",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 0.14,
+          "y": 35.41
+        },
+        {
+          "x": 22.31,
+          "y": 34.55
+        },
+        {
+          "x": 21.22,
+          "y": 51.07
+        },
+        {
+          "x": 0.27,
+          "y": 50.21
+        }
+      ],
+      "label_x": 11.19,
+      "label_y": 42.74,
+      "z_index": 15,
+      "created_at": "2026-03-31T19:43:51.853614+00:00",
+      "updated_at": "2026-03-31T19:43:53.621+00:00"
+    },
+    {
+      "id": "32032aae-f789-41ec-8860-2f999de47ce3",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "1ee4e756-b46c-41a3-86be-3095cc426678",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 62.04,
+          "y": 51.07
+        },
+        {
+          "x": 66.53,
+          "y": 37.77
+        },
+        {
+          "x": 73.06,
+          "y": 50.43
+        }
+      ],
+      "label_x": 67.21,
+      "label_y": 46.42,
+      "z_index": 15,
+      "created_at": "2026-03-31T20:03:57.008942+00:00",
+      "updated_at": "2026-03-31T20:03:56.951+00:00"
+    },
+    {
+      "id": "b528555e-2163-4af5-a757-9d5f2e7159f9",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "e459eb28-4cd4-4352-86f1-8deffd0ac22b",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 0.54,
+          "y": 0.21
+        },
+        {
+          "x": 29.8,
+          "y": 0.21
+        },
+        {
+          "x": 30.07,
+          "y": 9.87
+        },
+        {
+          "x": 24.22,
+          "y": 9.44
+        },
+        {
+          "x": 22.72,
+          "y": 8.37
+        },
+        {
+          "x": 8.03,
+          "y": 8.37
+        }
+      ],
+      "label_x": 17.39,
+      "label_y": 4.29,
+      "z_index": 17,
+      "created_at": "2026-03-31T20:04:16.252367+00:00",
+      "updated_at": "2026-03-31T20:04:16.227+00:00"
+    },
+    {
+      "id": "5a6a051c-58be-45ad-a15a-6330609566ae",
+      "hall_map_id": "09edc012-45ac-4938-a267-d13fc3acf220",
+      "sector_id": "6a74ab06-f4a3-4154-b1ed-8ac30f910066",
+      "shape_type": "polygon",
+      "points_json": [
+        {
+          "x": 0.14,
+          "y": 0.43
+        },
+        {
+          "x": 8.03,
+          "y": 8.58
+        },
+        {
+          "x": 6.39,
+          "y": 15.45
+        },
+        {
+          "x": 5.44,
+          "y": 17.17
+        },
+        {
+          "x": 5.58,
+          "y": 35.19
+        },
+        {
+          "x": 0.14,
+          "y": 34.98
+        }
+      ],
+      "label_x": 3.05,
+      "label_y": 18.44,
+      "z_index": 18,
+      "created_at": "2026-03-31T20:04:20.201488+00:00",
+      "updated_at": "2026-03-31T20:04:29.383+00:00"
+    }
+  ]
+}

@@ -1,244 +1,80 @@
-import { useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { DashboardHeader, AdminTabTitleProvider } from "@/components/DashboardHeader";
-import { useAuth } from "@/hooks/useAuth";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
-import { UserManagement } from "@/components/admin/UserManagement";
-import { ColorManagement } from "@/components/admin/ColorManagement";
-import { SectorManagement } from "@/components/admin/SectorManagement";
-import { HallMapManagement } from "@/components/admin/HallMapManagement";
-import { BoulderOperationLogs } from "@/components/admin/BoulderOperationLogs";
-import { CompetitionBoulderManagement } from "@/components/competition/CompetitionBoulderManagement";
-import { FeedbackManagement } from "@/components/admin/FeedbackManagement";
-import { MonitoringDashboard } from "@/components/admin/MonitoringDashboard";
-import { PushNotificationTest } from "@/components/admin/PushNotificationTest";
-import { useSidebar } from "@/components/SidebarContext";
-import { cn } from "@/lib/utils";
+import { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { DashboardHeader, AdminTabTitleProvider } from '@/components/DashboardHeader';
+import { useAuth } from '@/hooks/useAuth';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
+import { UserManagement } from '@/components/admin/UserManagement';
+import { ColorManagement } from '@/components/admin/ColorManagement';
+import { SectorManagement } from '@/components/admin/SectorManagement';
+import { HallMapManagement } from '@/components/admin/HallMapManagement';
+import { BoulderOperationLogs } from '@/components/admin/BoulderOperationLogs';
+import { FeedbackManagement } from '@/components/admin/FeedbackManagement';
+import { MonitoringDashboard } from '@/components/admin/MonitoringDashboard';
+import { PushNotificationTest } from '@/components/admin/PushNotificationTest';
+import { useSidebar } from '@/components/SidebarContext';
+import { ADMIN_TABS, resolveAdminTab } from '@/lib/adminNavigation';
+import { cn } from '@/lib/utils';
+
+const SETTINGS_TABS = [
+  { value: 'sectors', label: 'Sektoren' },
+  { value: 'hallMap', label: 'Hallenkarte' },
+  { value: 'colors', label: 'Farben' },
+];
 
 const Admin = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading } = useIsAdmin();
   const navigate = useNavigate();
   const { isExpanded } = useSidebar();
   const [searchParams, setSearchParams] = useSearchParams();
+  const currentTab = resolveAdminTab(searchParams.get('tab'));
+  const settingsTab = SETTINGS_TABS.find(tab => tab.value === searchParams.get('settingsTab'))?.value || 'sectors';
+  const tabTitle = ADMIN_TABS.find(tab => tab.value === currentTab)!.label.toUpperCase();
 
   useEffect(() => {
-    if (!user) {
-      navigate("/auth");
-    }
-  }, [user, navigate]);
+    if (!authLoading && !user) navigate('/auth', { replace: true });
+    else if (!authLoading && !loading && !isAdmin) navigate('/', { replace: true });
+  }, [authLoading, user, loading, isAdmin, navigate]);
 
-  useEffect(() => {
-    if (!loading && !isAdmin) {
-      navigate("/");
-    }
-  }, [isAdmin, loading, navigate]);
-
-  // Timeout for admin loading - if it takes too long, show error or fallback
-  useEffect(() => {
-    if (!loading) return;
-
-    const timeoutId = setTimeout(() => {
-      if (loading) {
-        console.warn('[Admin] Admin check loading timeout - taking too long');
-        // Don't set loading to false here - let the hook handle it
-        // But log for debugging
-      }
-    }, 5000); // 5 second timeout
-
-    return () => clearTimeout(timeoutId);
-  }, [loading]);
-
-  // Map tab to title
-  const getTabTitle = (tab: string): string => {
-    const titleMap: Record<string, string> = {
-      'users': 'BENUTZER',
-      'settings': 'EINSTELLUNGEN',
-      // 'competition': 'WETTKAMPF', // Temporarily hidden
-      'feedback': 'FEEDBACK',
-      'monitoring': 'MONITORING',
-      'logs': 'LOGS',
-      'tests': 'TESTS',
-    };
-    return titleMap[tab] || 'ADMIN';
+  const changeTab = (key: string, value: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set(key, value);
+    setSearchParams(next, { replace: true });
   };
+  if (!authLoading && (!user || (!loading && !isAdmin))) return null;
 
-  const currentTab = searchParams.get('tab') || 'users';
-  const tabTitle = getTabTitle(currentTab);
-  const adminTabTriggerClassName =
-    "min-w-0 h-10 rounded-lg border border-[#DDE7DF] bg-white px-4 text-sm text-[#13112B] data-[state=active]:border-[#36B531] data-[state=active]:bg-[#F7FBF7] data-[state=active]:text-[#13112B]";
-  const settingsTabTriggerClassName =
-    "min-w-0 h-10 rounded-lg border border-[#DDE7DF] bg-white px-4 text-sm text-[#13112B] data-[state=active]:border-[#36B531] data-[state=active]:bg-[#F7FBF7] data-[state=active]:text-[#13112B]";
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex bg-[#F9FAF9] overflow-x-hidden">
-        <div className={cn("kws-sidebar-content flex-1 flex flex-col mb-20 md:mb-0 overflow-x-hidden w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
-            <DashboardHeader />
-            <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-x-hidden">
-              <Skeleton className="h-12 w-64 mb-8" />
-              <Skeleton className="h-96 w-full" />
-            </main>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return null;
-  }
-
-  return (
-    <AdminTabTitleProvider tabTitle={tabTitle}>
-      <div className="min-h-screen flex bg-[#F9FAF9] overflow-x-hidden">
-        <div className={cn("kws-sidebar-content flex-1 flex flex-col mb-20 md:mb-0 overflow-x-hidden w-full min-w-0 bg-[#F9FAF9]", isExpanded ? "md:ml-64" : "md:ml-20")}>
-          <DashboardHeader />
-          <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-x-hidden">
-          <Tabs 
-            value={searchParams.get('tab') || 'users'} 
-            onValueChange={(value) => {
-              const newSearchParams = new URLSearchParams(searchParams);
-              newSearchParams.set('tab', value);
-              setSearchParams(newSearchParams, { replace: true });
-            }}
-            className="w-full min-w-0 hidden md:block"
-          >
-            <TabsList className="mb-6 flex w-full flex-wrap gap-2 bg-transparent p-0">
-              <TabsTrigger value="users" className={adminTabTriggerClassName}>Benutzer</TabsTrigger>
-              <TabsTrigger value="settings" className={adminTabTriggerClassName}>Einstellungen</TabsTrigger>
-              {/* <TabsTrigger value="competition" className="text-xs sm:text-sm min-w-0 h-11 rounded-xl data-[state=active]:bg-[#36B531] data-[state=active]:text-white">Wettkampf</TabsTrigger> */}
-              <TabsTrigger value="feedback" className={adminTabTriggerClassName}>Feedback</TabsTrigger>
-              <TabsTrigger value="monitoring" className={adminTabTriggerClassName}>Monitoring</TabsTrigger>
-              <TabsTrigger value="logs" className={adminTabTriggerClassName}>Logs</TabsTrigger>
-              <TabsTrigger value="tests" className={adminTabTriggerClassName}>Tests</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="users" className="mt-0">
-              <UserManagement />
-            </TabsContent>
-
-            <TabsContent value="settings" className="mt-0">
-              <Tabs 
-                value={searchParams.get('settingsTab') || 'sectors'} 
-                onValueChange={(value) => {
-                  const newSearchParams = new URLSearchParams(searchParams);
-                  newSearchParams.set('settingsTab', value);
-                  setSearchParams(newSearchParams, { replace: true });
-                }}
-                className="w-full min-w-0"
-              >
-                <TabsList className="mb-5 flex w-full flex-wrap gap-2 bg-transparent p-0">
-                  <TabsTrigger value="sectors" className={settingsTabTriggerClassName}>Sektoren</TabsTrigger>
-                  <TabsTrigger value="hallMap" className={settingsTabTriggerClassName}>Hallenkarte</TabsTrigger>
-                  <TabsTrigger value="colors" className={settingsTabTriggerClassName}>Farben</TabsTrigger>
-                </TabsList>
-                <TabsContent value="sectors" className="mt-0">
-                  <SectorManagement />
-                </TabsContent>
-                <TabsContent value="hallMap" className="mt-0">
-                  <HallMapManagement />
-                </TabsContent>
-                <TabsContent value="colors" className="mt-0">
-                  <ColorManagement />
-                </TabsContent>
-              </Tabs>
-            </TabsContent>
-
-            {/* Temporarily hidden */}
-            {false && (
-              <TabsContent value="competition" className="mt-0">
-                <CompetitionBoulderManagement />
-              </TabsContent>
-            )}
-
-            <TabsContent value="feedback" className="mt-0">
-              <FeedbackManagement />
-            </TabsContent>
-
-            <TabsContent value="monitoring" className="mt-0">
-              <MonitoringDashboard />
-            </TabsContent>
-
-            <TabsContent value="logs" className="mt-0">
-              <BoulderOperationLogs />
-            </TabsContent>
-
-            <TabsContent value="tests" className="mt-0">
-              <div className="space-y-6">
-                <PushNotificationTest />
-              </div>
-            </TabsContent>
-          </Tabs>
-          
-          {/* Mobile: Show content based on URL param without tabs */}
-          <div className="md:hidden">
-            {(!searchParams.get('tab') || searchParams.get('tab') === 'users') && (
-              <div className="mt-0">
-                <UserManagement />
-              </div>
-            )}
-            {searchParams.get('tab') === 'settings' && (
-              <div className="mt-0">
-                <Tabs 
-                  value={searchParams.get('settingsTab') || 'sectors'} 
-                  onValueChange={(value) => {
-                    const newSearchParams = new URLSearchParams(searchParams);
-                    newSearchParams.set('settingsTab', value);
-                    setSearchParams(newSearchParams, { replace: true });
-                  }}
-                  className="w-full min-w-0"
-                >
-                  <TabsList className="mb-5 flex w-full flex-wrap gap-2 bg-transparent p-0">
-                    <TabsTrigger value="sectors" className={settingsTabTriggerClassName}>Sektoren</TabsTrigger>
-                    <TabsTrigger value="hallMap" className={settingsTabTriggerClassName}>Hallenkarte</TabsTrigger>
-                    <TabsTrigger value="colors" className={settingsTabTriggerClassName}>Farben</TabsTrigger>
+  return <AdminTabTitleProvider tabTitle={tabTitle}>
+    <div className="flex min-h-screen overflow-x-clip bg-canvas">
+      <div className={cn('kws-sidebar-content flex w-full min-w-0 flex-1 flex-col overflow-x-clip bg-canvas pb-[calc(var(--app-safe-area-bottom)+96px)] md:pb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+        <DashboardHeader />
+        <main className={cn('mx-auto w-full min-w-0 flex-1 p-4 md:p-6 xl:p-8', currentTab === 'settings' && settingsTab === 'hallMap' ? 'max-w-[1680px]' : 'max-w-[1244px]')}>
+          {authLoading || loading ? <div role="status" aria-label="Adminbereich wird geladen"><Skeleton className="mb-8 h-12 w-64" /><Skeleton className="h-96 w-full" /></div> :
+            <Tabs value={currentTab} onValueChange={value => changeTab('tab', value)} className="w-full min-w-0">
+              <TabsList aria-label="Adminbereiche" className="hidden">
+                {ADMIN_TABS.map(tab => <TabsTrigger key={tab.value} value={tab.value} className="min-w-0 flex-1 px-3 text-xs lg:text-sm">{tab.label}</TabsTrigger>)}
+              </TabsList>
+              <TabsContent value="users" className="mt-0"><UserManagement /></TabsContent>
+              <TabsContent value="settings" className="mt-0">
+                <Tabs value={settingsTab} onValueChange={value => changeTab('settingsTab', value)}>
+                  <TabsList aria-label="Hallenverwaltung" className="mb-4 flex h-auto w-full max-w-[480px] flex-wrap">
+                    {SETTINGS_TABS.map(tab => <TabsTrigger key={tab.value} value={tab.value} className="min-w-0 flex-1 px-3 text-xs lg:text-sm">{tab.label}</TabsTrigger>)}
                   </TabsList>
-                  <TabsContent value="sectors" className="mt-0">
-                    <SectorManagement />
-                  </TabsContent>
-                  <TabsContent value="hallMap" className="mt-0">
-                    <HallMapManagement />
-                  </TabsContent>
-                  <TabsContent value="colors" className="mt-0">
-                    <ColorManagement />
-                  </TabsContent>
+                  <TabsContent value="sectors" className="mt-0"><SectorManagement /></TabsContent>
+                  <TabsContent value="hallMap" className="mt-0"><HallMapManagement /></TabsContent>
+                  <TabsContent value="colors" className="mt-0"><ColorManagement /></TabsContent>
                 </Tabs>
-              </div>
-            )}
-            {/* Temporarily hidden */}
-            {false && searchParams.get('tab') === 'competition' && (
-              <div className="mt-0">
-                <CompetitionBoulderManagement />
-              </div>
-            )}
-            {searchParams.get('tab') === 'feedback' && (
-              <div className="mt-0">
-                <FeedbackManagement />
-              </div>
-            )}
-            {searchParams.get('tab') === 'monitoring' && (
-              <div className="mt-0">
-                <MonitoringDashboard />
-              </div>
-            )}
-            {searchParams.get('tab') === 'logs' && (
-              <div className="mt-0">
-                <BoulderOperationLogs />
-              </div>
-            )}
-            {searchParams.get('tab') === 'tests' && (
-              <div className="mt-0">
-                <PushNotificationTest />
-              </div>
-            )}
-          </div>
+              </TabsContent>
+              <TabsContent value="feedback" className="mt-0"><FeedbackManagement /></TabsContent>
+              <TabsContent value="monitoring" className="mt-0"><MonitoringDashboard /></TabsContent>
+              <TabsContent value="logs" className="mt-0"><BoulderOperationLogs /></TabsContent>
+              <TabsContent value="tests" className="mt-0"><PushNotificationTest /></TabsContent>
+            </Tabs>}
         </main>
       </div>
     </div>
-    </AdminTabTitleProvider>
-  );
+  </AdminTabTitleProvider>;
 };
 
 export default Admin;

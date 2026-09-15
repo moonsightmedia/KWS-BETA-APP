@@ -1,6 +1,8 @@
 ﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { HallMap, MapPoint, SectorMapRegion } from '@/types/hallMap';
+import { authenticatedFetch } from '@/lib/authenticatedFetch';
+import { SessionRequiredError } from '@/lib/sessionRecovery';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -69,7 +71,7 @@ async function apiRequest<T>(path: string, accessToken?: string | null, init?: R
   const timeoutId = window.setTimeout(() => controller.abort(), 10000);
 
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    const response = await authenticatedFetch(`${SUPABASE_URL}/rest/v1/${path}`, {
       ...init,
       signal: controller.signal,
       headers: {
@@ -80,12 +82,10 @@ async function apiRequest<T>(path: string, accessToken?: string | null, init?: R
 
     if (!response.ok) {
       const errorText = await response.text();
-      try {
-        const parsed = JSON.parse(errorText);
-        throw new Error(parsed.message || parsed.error || errorText || `HTTP ${response.status}`);
-      } catch {
-        throw new Error(errorText || `HTTP ${response.status}`);
-      }
+      let message = `Hallenkarte konnte nicht geladen werden (${response.status}).`;
+      try { const parsed = JSON.parse(errorText); message = parsed.message || parsed.error || message; }
+      catch { /* Do not expose an HTML error page or raw JSON in the UI. */ }
+      throw new Error(message);
     }
 
     if (response.status === 204) {
@@ -107,7 +107,7 @@ export const useHallMaps = (accessToken?: string | null, enabled: boolean = true
   useQuery({
     queryKey: ['hall_maps'],
     enabled,
-    retry: 1,
+    retry: (count, error) => !(error instanceof SessionRequiredError) && count < 1,
     queryFn: async () => apiRequest<HallMap[]>('hall_maps?select=*&order=is_active.desc,created_at.desc', accessToken),
   });
 
@@ -115,7 +115,7 @@ export const useActiveHallMap = (accessToken?: string | null, enabled: boolean =
   useQuery({
     queryKey: ['hall_maps', 'active'],
     enabled,
-    retry: 1,
+    retry: (count, error) => !(error instanceof SessionRequiredError) && count < 1,
     queryFn: async () => {
       const results = await apiRequest<HallMap[]>('hall_maps?select=*&is_active=eq.true&limit=1', accessToken);
       return results[0] ?? null;
@@ -126,7 +126,7 @@ export const useSectorMapRegions = (hallMapId?: string | null, accessToken?: str
   useQuery({
     queryKey: ['sector_map_regions', hallMapId],
     enabled: enabled && !!hallMapId,
-    retry: 1,
+    retry: (count, error) => !(error instanceof SessionRequiredError) && count < 1,
     queryFn: async () => {
       const rows = await apiRequest<SectorMapRegionRow[]>(
         `sector_map_regions?select=*&hall_map_id=eq.${hallMapId}&order=z_index.asc,created_at.asc`,

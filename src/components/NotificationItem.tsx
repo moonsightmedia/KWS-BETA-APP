@@ -1,124 +1,42 @@
-import { Notification } from '@/hooks/useNotifications';
-import { cn } from '@/lib/utils';
-import { formatDistanceToNow } from 'date-fns';
-import { de } from 'date-fns/locale';
-import {
-  Bell,
-  Mountain,
-  Trophy,
-  MessageSquare,
-  Megaphone,
-  Calendar,
-} from 'lucide-react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMarkAsRead } from '@/hooks/useNotifications';
+import { Bell, CalendarDays, Check, ArrowUpRight, MessageSquare, Megaphone, Trophy, Loader2 } from 'lucide-react';
+import { BoulderIcon } from '@/components/icons/BoulderIcon';
+import { useMarkAsRead, type Notification } from '@/hooks/useNotifications';
+import { notificationDestination } from '@/lib/notifications';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
-interface NotificationItemProps {
-  notification: Notification;
-  onClick?: () => void;
-}
-
-const getNotificationIcon = (type: Notification['type']) => {
-  switch (type) {
-    case 'boulder_new':
-      return Mountain;
-    case 'competition_update':
-    case 'competition_result':
-    case 'competition_leaderboard_change':
-      return Trophy;
-    case 'feedback_reply':
-      return MessageSquare;
-    case 'admin_announcement':
-      return Megaphone;
-    case 'schedule_reminder':
-      return Calendar;
-    default:
-      return Bell;
-  }
-};
-
-const getNotificationIconColor = (type: Notification['type']) => {
-  switch (type) {
-    case 'boulder_new':
-      return 'bg-[#E8EEFF] text-[#4F68E8]';
-    case 'competition_update':
-    case 'competition_result':
-    case 'competition_leaderboard_change':
-      return 'bg-[#FFF4D9] text-[#C99B12]';
-    case 'feedback_reply':
-      return 'bg-[#E8F6E8] text-[#4AA45A]';
-    case 'admin_announcement':
-      return 'bg-[#F0E9FF] text-[#8C63D8]';
-    case 'schedule_reminder':
-      return 'bg-[#FFF0E4] text-[#D78239]';
-    default:
-      return 'bg-[#EEF2EA] text-[#6C6A7E]';
-  }
-};
-
-export const NotificationItem = ({ notification, onClick }: NotificationItemProps) => {
-  const navigate = useNavigate();
-  const markAsRead = useMarkAsRead();
-  const Icon = getNotificationIcon(notification.type);
-
-  const handleClick = () => {
-    if (!notification.read) {
-      markAsRead.mutate(notification.id);
-    }
-
-    if (onClick) {
-      onClick();
-    }
-
-    if (notification.action_url) {
-      navigate(notification.action_url);
-    }
+const icons = { boulder_new: BoulderIcon, schedule_reminder: CalendarDays, feedback_reply: MessageSquare, admin_announcement: Megaphone, competition_update: Trophy, competition_result: Trophy, competition_leaderboard_change: Trophy };
+export function NotificationItem({ notification, onClick, disabled = false }: { notification: Notification; onClick?: () => void; disabled?: boolean }) {
+  const navigate = useNavigate(); const mark = useMarkAsRead(); const [error, setError] = useState('');
+  const Icon = icons[notification.type] || Bell;
+  const target = notificationDestination(notification.action_url);
+  const act = async (open: boolean) => {
+    if (disabled || mark.isPending) return;
+    setError('');
+    try {
+      if (!notification.read) await mark.mutateAsync(notification.id);
+      if (open && target) { onClick?.(); navigate(target); }
+    } catch { setError('Gelesen-Status nicht gespeichert. Bitte erneut versuchen.'); }
   };
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      className={cn(
-        'w-full rounded-2xl border bg-white px-5 py-5 text-left shadow-[0_8px_24px_rgba(19,17,43,0.04)] transition-colors',
-        notification.read
-          ? 'border-[#E5EAE2]'
-          : 'border-[#D9E7D0] bg-[#FCFDFC]',
-      )}
-    >
-      <div className="flex items-start gap-4">
-        <div
-          className={cn(
-            'flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-xl',
-            getNotificationIconColor(notification.type),
-          )}
-        >
-          <Icon className="h-8 w-8" strokeWidth={2.1} />
+  return <article data-notification-id={notification.id} className={cn('px-4 py-4 transition-colors', !notification.read && 'bg-primary/5')}>
+    <div className="flex items-start gap-3">
+      <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-kws-control bg-secondary text-muted-foreground"><Icon className="h-4 w-4" aria-hidden="true" /></span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-2">
+          <h3 className="min-w-0 flex-1 break-words font-sans text-sm font-semibold leading-snug text-foreground">{notification.title}</h3>
+          {!notification.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary"><span className="sr-only">Ungelesen</span></span>}
         </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h4 className="text-[0.98rem] font-semibold tracking-[-0.02em] text-[#13112B]">
-                {notification.title}
-              </h4>
-              <p className="pt-3 text-[1rem] leading-[1.45] text-[#6C6A7E]">
-                {notification.message}
-              </p>
-            </div>
-            {!notification.read ? (
-              <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#68B63E]" />
-            ) : null}
-          </div>
-
-          <p className="pt-5 text-[0.92rem] text-[#8A8FA1]">
-            {formatDistanceToNow(new Date(notification.created_at), {
-              addSuffix: true,
-              locale: de,
-            })}
-          </p>
+        <time dateTime={notification.created_at} className="mt-1 block text-[11px] text-muted-foreground">{new Date(notification.created_at).toLocaleString('de-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</time>
+        <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground">{notification.message}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {target && <Button size="sm" variant="secondary" disabled={disabled || mark.isPending} onClick={() => void act(true)} className="min-h-11 gap-1.5 text-xs">Ansehen<ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" /></Button>}
+          {!notification.read ? <Button variant="ghost" size="sm" disabled={disabled || mark.isPending} onClick={() => void act(false)} aria-label={'Als gelesen markieren: ' + notification.title} className="min-h-11 gap-1.5 text-xs">{mark.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : <Check className="h-3.5 w-3.5" />}Als gelesen</Button> : <span className="inline-flex min-h-11 items-center gap-1 text-[11px] text-muted-foreground"><Check className="h-3 w-3" aria-hidden="true" />Gelesen</span>}
         </div>
+        {notification.action_url && !target && <p className="text-xs text-muted-foreground">Verknüpfter Inhalt nicht verfügbar.</p>}
+        {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}
       </div>
-    </button>
-  );
-};
+    </div>
+  </article>;
+}

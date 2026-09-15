@@ -185,7 +185,7 @@ export interface SectorSubareaGroup {
 }
 
 export interface SectorAreaGroup {
-  area: CanonicalSectorArea;
+  area: SectorArea;
   sectors: Sector[];
   sectorIds: string[];
   subareas: SectorSubareaGroup[];
@@ -212,7 +212,7 @@ const canonicalAreaByName = new Map(
   SECTOR_AREAS.map((area) => [area.name.toLocaleLowerCase('de-DE'), area]),
 );
 
-const normalizeAreaSlug = (value?: string | null): string | undefined => {
+export const normalizeAreaSlug = (value?: string | null): string | undefined => {
   const normalized = value
     ?.trim()
     .toLocaleLowerCase('de-DE')
@@ -227,7 +227,7 @@ const normalizeAreaSlug = (value?: string | null): string | undefined => {
 
 export const normalizeSubareaCode = (value?: string | null): string | undefined => {
   const normalized = value?.trim().toLocaleUpperCase('de-DE');
-  return normalized && /^[A-D]$/.test(normalized) ? normalized : undefined;
+  return normalized && /^[A-Z][A-Z0-9]{0,2}$/.test(normalized) ? normalized : undefined;
 };
 
 const getCanonicalArea = (slug?: string | null, name?: string | null): CanonicalSectorArea | undefined => {
@@ -282,9 +282,19 @@ export const resolveSectorArea = (sector: SectorAreaSource): ResolvedSectorArea 
   };
 };
 
-/** Always returns the five canonical cards and merges technical sectors by area and letter. */
+/** Shared catalog for public groups and map legends, including new structured areas. */
+export const getSectorAreas = (sectors: readonly SectorAreaSource[]): SectorArea[] => {
+  const areas = new Map<string, SectorArea>(SECTOR_AREAS.map(area => [area.slug, area]));
+  for (const sector of sectors) {
+    const area = resolveSectorArea(sector).area;
+    if (area) areas.set(area.slug, area);
+  }
+  return [...areas.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'de-DE'));
+};
+
+/** Retains the five initial areas and includes new structured areas without losing IDs. */
 export const groupSectorsByArea = (sectors: readonly Sector[]): SectorAreaGroup[] => {
-  return SECTOR_AREAS.map((canonicalArea) => {
+  return getSectorAreas(sectors).map((canonicalArea) => {
     const areaSectors = sectors
       .filter((sector) => {
         const resolved = resolveSectorArea(sector);
@@ -354,3 +364,76 @@ export const countActiveBouldersForSectorIds = (
 
   return matchingBoulderIds.size;
 };
+
+/** Admin views retain every physical record, including unassigned/custom areas.
+ * Never merge IDs here: Bug A intentionally has two independently editable polygons.
+ */
+export const groupAdminSectors = <T extends SectorAreaSource>(sectors: readonly T[], search = '') => {
+  const term = search.trim().toLocaleLowerCase('de-DE');
+  const groups = new Map<string, { slug: string; name: string; order: number; sectors: T[] }>();
+  for (const sector of sectors) {
+    const resolved = resolveSectorArea(sector);
+    if (term && !`${resolved.publicName} ${resolved.legacyName}`.toLocaleLowerCase('de-DE').includes(term)) continue;
+    const slug = resolved.area?.slug ?? 'unassigned';
+    if (!groups.has(slug)) groups.set(slug, {
+      slug, name: resolved.area?.name ?? 'Ohne Bereich', order: resolved.area?.sortOrder ?? Number.MAX_SAFE_INTEGER, sectors: [],
+    });
+    groups.get(slug)!.sectors.push(sector);
+  }
+  return [...groups.values()].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'de-DE')).map(group => ({
+    ...group,
+    sectors: group.sectors.sort((a, b) => {
+      const left = resolveSectorArea(a), right = resolveSectorArea(b);
+      return (left.subareaCode ?? '').localeCompare(right.subareaCode ?? '')
+        || (left.sortOrder ?? 0) - (right.sortOrder ?? 0)
+        || left.legacyName.localeCompare(right.legacyName, 'de-DE');
+    }),
+  }));
+
+};
+
+export const getAdminSectorLabel = (sector: SectorAreaSource) => {
+  const resolved = resolveSectorArea(sector);
+  return resolved.publicName === resolved.legacyName ? resolved.publicName : `${resolved.publicName} · ${resolved.legacyName}`;
+};
+
+export interface AdminSubareaSource extends SectorAreaSource {
+  id: string;
+  description?: string | null;
+  boulder_count?: number;
+  /** Client-side index from the same read used for individual counts. */
+  active_boulder_ids?: string[];
+}
+
+export interface AdminSubarea<T extends AdminSubareaSource = AdminSubareaSource> {
+  key: string;
+  name: string;
+  areaSlug?: string;
+  areaId?: string;
+  code?: string;
+  sectors: T[];
+  boulderCount: number | null;
+}
+
+/** Same logical units as the map. Search keeps ALL members of a matching unit. */
+export function groupAdminSubareas<T extends AdminSubareaSource>(sectors: readonly T[], search = ''): AdminSubarea<T>[] {
+  const groups = new Map<string, AdminSubarea<T>>();
+  for (const areaGroup of groupAdminSectors(sectors)) {
+    for (const sector of areaGroup.sectors) {
+      const resolved = resolveSectorArea(sector);
+      const key = resolved.area && resolved.subareaCode ? `${resolved.area.slug}:${resolved.subareaCode}` : `sector:${sector.id}`;
+      if (!groups.has(key)) groups.set(key, {
+        key, name: resolved.publicName, areaSlug: resolved.area?.slug, areaId: resolved.area?.id,
+        code: resolved.subareaCode, sectors: [], boulderCount: null,
+      });
+      groups.get(key)!.sectors.push(sector);
+    }
+  }
+  const term = search.trim().toLocaleLowerCase('de');
+  return [...groups.values()].filter(group => !term || [group.name, ...group.sectors.flatMap(sector => [sector.name, sector.description ?? ''])].some(value => value.toLocaleLowerCase('de').includes(term))).map(group => ({
+    ...group,
+    boulderCount: group.sectors.every(sector => Array.isArray(sector.active_boulder_ids))
+      ? new Set(group.sectors.flatMap(sector => sector.active_boulder_ids!)).size
+      : group.sectors.length === 1 ? group.sectors[0].boulder_count ?? null : null,
+  }));
+}
