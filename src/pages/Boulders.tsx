@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useBoulderRatingSummaries, useMyTrackedBoulders } from '@/hooks/useBoulderCommunity';
+import { PersonalDataState } from '@/components/PersonalDataState';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useColors } from '@/hooks/useColors';
 import { useHorizontalRouteSwipe } from '@/hooks/useHorizontalRouteSwipe';
@@ -106,7 +107,8 @@ const Boulders = () => {
   const queriesEnabled = !authLoading;
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(queriesEnabled);
   const { data: sectors, isLoading: isLoadingSectors } = useSectorsTransformed(queriesEnabled);
-  const { data: myTrackedBoulders } = useMyTrackedBoulders();
+  const personalQuery = useMyTrackedBoulders();
+  const { data: myTrackedBoulders } = personalQuery;
   const boulderIds = useMemo(() => (boulders ?? []).map((boulder) => boulder.id), [boulders]);
   const { data: boulderRatingSummaries } = useBoulderRatingSummaries(boulderIds);
   const isLoading = isLoadingBoulders || isLoadingSectors;
@@ -620,6 +622,18 @@ const Boulders = () => {
         </div>
       </div>
     );
+  }
+
+  if (showSaved && (personalQuery.isLoading || personalQuery.error)) {
+    return <div className="flex min-h-screen bg-background">
+      <div className={cn('kws-sidebar-content min-w-0 flex-1', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+        <DashboardHeader />
+        <main className="mx-auto w-full max-w-[1180px] space-y-4 p-4 md:p-8">
+          <PersonalDataState loading={personalQuery.isLoading} onRetry={() => personalQuery.refetch()} />
+          <Button variant="secondary" onClick={clearFilters}>Gespeichert-Filter entfernen</Button>
+        </main>
+      </div>
+    </div>;
   }
 
   if (bouldersError) {

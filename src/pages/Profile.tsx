@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Bell,
   ChevronRight,
-  Flame,
+  CalendarDays,
   Info,
   LogOut,
   Map,
@@ -20,14 +20,17 @@ import { KwsSurface } from '@/components/ui/kws-surface';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderCommunity';
-import { formatDifficulty } from '@/lib/difficulty';
+import { buildPersonalProgress } from '@/lib/personalProgress';
+import { PersonalDataState } from '@/components/PersonalDataState';
 import { fetchProfileRecord } from '@/lib/profileCompat';
 
 const Profile = () => {
   const navigate = useNavigate();
   const { user, session, signOut, loading, authTransition } = useAuth();
-  const { data: trackedBoulders } = useMyTrackedBoulders(null);
-  const { data: trackingSessions } = useMyTrackingSessions();
+  const trackedQuery = useMyTrackedBoulders();
+  const sessionsQuery = useMyTrackingSessions();
+  const { data: trackedBoulders } = trackedQuery;
+  const { data: trackingSessions } = sessionsQuery;
   const [profileName, setProfileName] = useState<string | null>(null);
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [profileIdentityLoading, setProfileIdentityLoading] = useState(true);
@@ -111,30 +114,12 @@ const Profile = () => {
     return `Mitglied seit ${new Intl.DateTimeFormat('de-DE', { month: 'short', year: 'numeric' }).format(new Date(user.created_at))}`;
   }, [user?.created_at]);
 
-  const stats = useMemo(() => {
-    const entries = trackedBoulders ?? [];
-    const topped = entries.filter((entry) => entry.tick.status === 'top' || entry.tick.status === 'flash').length;
-    const totalSessions = trackingSessions?.length ?? 0;
-
-    const highestDifficulty = entries
-      .filter((entry) => entry.tick.status === 'top' || entry.tick.status === 'flash')
-      .reduce<number | null>((max, entry) => {
-        const difficulty = entry.boulder?.difficulty;
-        if (difficulty == null) return max;
-        return max == null ? difficulty : Math.max(max, difficulty);
-      }, null);
-
-    return {
-      topped,
-      totalSessions,
-      highestGrade: highestDifficulty == null ? '-' : formatDifficulty(highestDifficulty),
-    };
-  }, [trackedBoulders, trackingSessions]);
+  const stats = useMemo(() => buildPersonalProgress(trackedBoulders ?? [], trackingSessions ?? []), [trackedBoulders, trackingSessions]);
 
   const statsTiles = [
-    { icon: Trophy, value: stats.topped, label: 'Tops' },
-    { icon: Flame, value: stats.totalSessions, label: 'Sessions' },
-    { icon: Mountain, value: stats.highestGrade, label: 'Top-Grad' },
+    { icon: Trophy, value: stats.tops, label: 'Tops' },
+    { icon: CalendarDays, value: stats.days, label: 'Klettertage' },
+    { icon: Mountain, value: stats.highestGrade ?? '–', label: 'Top-Grad' },
   ];
 
   const settingsGroups = [
@@ -198,7 +183,9 @@ const Profile = () => {
 
           <section>
             <h2 className="mb-2.5 px-0.5 font-sans text-sm font-semibold tracking-[-0.01em] text-[#192436]">Deine Aktivität</h2>
-            <KwsMetricStrip items={statsTiles} onItemClick={() => navigate('/statistics')} />
+            {trackedQuery.isLoading || sessionsQuery.isLoading || trackedQuery.error || sessionsQuery.error
+              ? <PersonalDataState loading={trackedQuery.isLoading || sessionsQuery.isLoading} onRetry={() => Promise.all([trackedQuery.refetch(), sessionsQuery.refetch()])} />
+              : <KwsMetricStrip className="[&>button]:flex-col [&>button>span:last-child]:text-center [&_.truncate]:text-[11px] sm:[&>button]:flex-row sm:[&>button>span:last-child]:text-left" items={statsTiles} onItemClick={() => navigate('/statistics?period=all')} />}
           </section>
         </div>
 

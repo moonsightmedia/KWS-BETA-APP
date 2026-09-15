@@ -876,3 +876,29 @@ Eine UI-Aufgabe ist erst abgeschlossen, wenn:
 - Mobile, Tablet und Desktop geprüft wurden,
 - keine neuen ungeklärten Magic Values oder Pill-Komponenten entstanden sind,
 - eine neue bestätigte Designregel in dieser Datei dokumentiert wurde.
+
+### 15.5 Persönlicher Fortschritt, Sammlungen und Fehleransichten (2026-09-15)
+
+- Statistiken trennen „Fortschritt“ und „Meine Boulder“. Zeiträume heißen
+  „7 Tage“, „30 Tage“, „Gesamt“. Wandstatus ist nur ein Sammlungsfilter.
+- Tops sind einzigartige geschaffte Boulder im Zeitraum, einschließlich Flashes.
+  Klettertage zählen lokale Datumswerte einmal, nicht jeden Boulder als Session.
+  Höchster Top berücksichtigt nur Erfolge mit bekanntem Grad. Gespeicherte
+  Boulder und Projektmarkierungen allein sind keine Aktivität.
+- Gesamt enthält auch alte Tops ohne Tagesprotokoll und abgeschraubte Boulder.
+  Historische Datierung wird nicht aus dem Änderungsdatum einer Markierung erfunden.
+  Die Gradverteilung bleibt als Vergleich sichtbar; ein angeklickter Grad filtert
+  die Kennzahlen und Tagesdetails. Ältere Tage werden schrittweise eingeblendet.
+- Projekte sind offene Ziele; Erledigte lassen sich zusätzlich einblenden.
+  Gespeichert ist eine unabhängige Merkliste. Einträge sind suchbar und nach
+  Wandstatus filterbar. Entfernen ändert ausschließlich die jeweilige Markierung;
+  Notizen, Versuche und Erfolge bleiben unverändert.
+- Persönliche Daten werden vollständig und kontogebunden paginiert. Ladefehler
+  sind keine Nullwerte. Home-Karten verwenden vollständige transformierte
+  Boulder mit Sektor-/Bilddaten; fehlende Zuordnungen dürfen nicht abstürzen.
+- 404 und Ansichtsfehler erhalten deutsche Rückwege im KWS-Stil. Kein
+  zeitgesteuerter Reset. Fehlerbeschreibungen bleiben bei unbestätigtem Versand
+  und beim Schließen des Dialogs erhalten. Erfolg setzt bestätigte Übertragung voraus.
+
+Prüfbelege: `docs/qa/2026-09-15-personal-progress-design.md`,
+`test/personalProgress.test.mjs`, `e2e/personal-workspace.spec.ts`.

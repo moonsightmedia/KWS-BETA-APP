@@ -754,7 +754,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
             aria-pressed={isFavorite}
           >
             <Heart className={cn('h-4 w-4', isFavorite && 'fill-primary-foreground')} />
-            Favorit
+            Gespeichert
           </button>
           <button
             type="button"
@@ -1163,7 +1163,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
             aria-pressed={isFavorite}
           >
             <Heart className={cn('h-4 w-4', isFavorite && 'fill-primary-foreground')} />
-            Favorit
+            Gespeichert
           </button>
           <button
             type="button"

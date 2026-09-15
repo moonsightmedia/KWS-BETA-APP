@@ -5,7 +5,6 @@ import {
   AlertCircle,
   ArrowRight,
   CalendarDays,
-  CircleDot,
   RefreshCw,
   Trophy,
   Zap,
@@ -15,6 +14,7 @@ import { de } from 'date-fns/locale';
 
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import { PersonalDataState } from '@/components/PersonalDataState';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { KwsMetricStrip } from '@/components/ui/kws-metric-strip';
@@ -23,7 +23,8 @@ import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
 import { useSidebar } from '@/components/SidebarContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
-import { useMyTrackedBoulders } from '@/hooks/useBoulderCommunity';
+import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderCommunity';
+import { buildPersonalProgress, homeFocusBoulders } from '@/lib/personalProgress';
 import { usePreloadBoulderThumbnails } from '@/hooks/usePreloadBoulderThumbnails';
 import { useSectorSchedule } from '@/hooks/useSectorSchedule';
 import { useSectorsTransformed } from '@/hooks/useSectors';
@@ -44,7 +45,7 @@ const getThumbnailUrl = (thumbnailUrl?: string | null) => {
   return 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9Im5vbmUiPjxyZWN0IHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjEyMDAiIGZpbGw9IiNFQUVBRUEiIHJ4PSIzIi8+PGcgb3BhY2l0eT0iLjUiPjxwYXRoIGZpbGw9IiNGQUZBRkEiIGQ9Ik02MDAuNzA5IDczNi41Yy03NS40NTQgMC0xMzYuNjIxLTYxLjE2Ny0xMzYuNjIxLTEzNi42MiAwLTc1LjQ1NCA2MS4xNjctMTM2LjYyMSAxMzYuNjIxLTEzNi42MjEgNzUuNDUzIDAgMTM2LjYyIDYxLjE2NyAxMzYuNjIgMTM2LjYyMSAwIDc1LjQ1My02MS4xNjcgMTM2LjYyLTEzNi42MiAxMzYuNjJaIi8+PHBhdGggc3Ryb2tlPSIjQzlDOUM5IiBzdHJva2Utd2lkdGg9IjIuNDE4IiBkPSJNNjAwLjcwOSA3MzYuNWMtNzUuNDU0IDAtMTM2LjYyMS02MS4xNjctMTM2LjYyMS0xMzYuNjIgMC03NS40NTQgNjEuMTY3LTEzNi42MjEgMTM2LjYyMS0xMzYuNjIxIDc1LjQ1MyAwIDEzNi42MiA2MS4xNjcgMTM2LjYyIDEzNi42MjEgMCA3NS40NTMtNjEuMTY3IDEzNi42Mi0xMzYuNjIgMTM2LjYyWiIvPjwvZz48L3N2Zz4=';
 };
 
-const getSectorAreaName = (sectorName: string) => sectorName.replace(/\s+[A-D]$/, '');
+const getSectorAreaName = (sectorName?: string) => sectorName?.replace(/\s+[A-Z][A-Z0-9]{0,2}$/, '') || 'Sektor noch nicht zugeordnet';
 
 const getSectorAreaLabel = ({ sector, sector2 }: Pick<Boulder, 'sector' | 'sector2'>) => {
   const primaryArea = getSectorAreaName(sector);
@@ -114,7 +115,6 @@ const HomePreviewCard = ({
       <DifficultyBadge
         color={boulder.color}
         color2={boulder.color2}
-        colorHex={boulder.colorHex}
         difficulty={boulder.difficulty}
         className="!bottom-1.5 !right-1.5 !h-6 !min-w-6 !text-[10px]"
       />
@@ -143,7 +143,12 @@ const Index = () => {
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(queriesEnabled);
   const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed(queriesEnabled);
   const { data: schedule } = useSectorSchedule();
-  const { data: myTrackedBoulders } = useMyTrackedBoulders();
+  const personalTicks = useMyTrackedBoulders();
+  const personalSessions = useMyTrackingSessions();
+  const myTrackedBoulders = personalTicks.data;
+  const personalLoading = personalTicks.isLoading || personalSessions.isLoading;
+  const personalUnavailable = personalLoading || personalTicks.error || personalSessions.error;
+  const retryPersonal = () => Promise.all([personalTicks.refetch(), personalSessions.refetch()]);
 
   const isLoading = isLoadingBoulders || isLoadingSectors;
   const error = bouldersError || sectorsError;
@@ -283,58 +288,9 @@ const Index = () => {
     [hangingBoulders, sevenDaysAgo],
   );
 
-  const weeklyStats = useMemo(() => {
-    const weekStart = new Date();
-    weekStart.setDate(weekStart.getDate() - 7);
-
-    const recentTicks = (myTrackedBoulders ?? []).filter((item) => {
-      const updatedAt = new Date(item.tick.updated_at);
-      return updatedAt >= weekStart;
-    });
-
-    return {
-      tops: recentTicks.filter((item) => item.tick.status === 'top').length,
-      flashes: recentTicks.filter((item) => item.tick.status === 'flash').length,
-      projects: recentTicks.filter((item) => item.tick.is_project).length,
-    };
-  }, [myTrackedBoulders]);
-
-  const nextFocusBoulders = useMemo(() => {
-    const candidates = (myTrackedBoulders ?? [])
-      .filter((item) => item.boulder)
-      .filter((item) => item.tick.status !== 'top' && item.tick.status !== 'flash')
-      .filter((item) => item.tick.is_project || item.tick.is_favorite || (item.tick.attempt_count ?? 0) > 0)
-      .sort((left, right) => {
-        const projectDiff = Number(right.tick.is_project) - Number(left.tick.is_project);
-        if (projectDiff !== 0) return projectDiff;
-
-        const attemptDiff = (right.tick.attempt_count ?? 0) - (left.tick.attempt_count ?? 0);
-        if (attemptDiff !== 0) return attemptDiff;
-
-        return new Date(right.tick.updated_at).getTime() - new Date(left.tick.updated_at).getTime();
-      });
-    const deduped = new Map<string, (typeof candidates)[number]>();
-
-    for (const item of candidates) {
-      if (item.boulder && !deduped.has(item.boulder.id)) {
-        deduped.set(item.boulder.id, item);
-      }
-    }
-
-    return Array.from(deduped.values()).slice(0, 2);
-  }, [myTrackedBoulders]);
-
-  const progressStats = useMemo(() => {
-    const topped = (myTrackedBoulders ?? []).filter((item) => item.tick.status === 'top' || item.tick.status === 'flash').length;
-    const tried = (myTrackedBoulders ?? []).filter((item) => item.tick.status === 'attempted').length;
-    const open = Math.max(hangingBoulders.length - topped - tried, 0);
-    const total = Math.max(topped + tried + open, 1);
-
-    return {
-      toppedPercent: Math.round((topped / total) * 100),
-      triedPercent: Math.round((tried / total) * 100),
-    };
-  }, [hangingBoulders.length, myTrackedBoulders]);
+  const weeklyStats = useMemo(() => buildPersonalProgress(myTrackedBoulders ?? [], personalSessions.data ?? [], { days: 7 }), [myTrackedBoulders, personalSessions.data]);
+  const progressStats = useMemo(() => buildPersonalProgress(myTrackedBoulders ?? [], personalSessions.data ?? []), [myTrackedBoulders, personalSessions.data]);
+  const nextFocusBoulders = useMemo(() => homeFocusBoulders(myTrackedBoulders ?? [], boulders ?? [], progressStats.successIds).slice(0, 2), [myTrackedBoulders, boulders, progressStats.successIds]);
 
   const daysUntilLabel = (date: Date) => {
     const startOfToday = new Date();
@@ -352,13 +308,15 @@ const Index = () => {
     'kws-sidebar-content flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]',
     isExpanded ? 'md:ml-64' : 'md:ml-20',
   );
+
+  const newBoulderCount = hangingBoulders.filter(boulder => boulder.createdAt >= sevenDaysAgo).length;
   const desktopGreeting = authLoading
     ? 'Willkommen'
     : greetingName
       ? `Hallo ${greetingName}`
       : 'Willkommen zurück';
-  const desktopGreetingSubtitle = newestBoulders.length > 0
-    ? `${newestBoulders.length} neue Boulder in den letzten 7 Tagen`
+  const desktopGreetingSubtitle = newBoulderCount > 0
+    ? `${newBoulderCount} neue Boulder in den letzten 7 Tagen`
     : 'Alles Wichtige für deine nächste Session';
 
   if (isLoading) {
@@ -468,21 +426,22 @@ const Index = () => {
               {authLoading ? 'Willkommen' : greetingName ? `Hallo ${greetingName}` : 'Willkommen zurück'}
             </h1>
             <p className="mt-1 font-sans text-xs text-muted-foreground">
-              {newestBoulders.length > 0
-                ? `${newestBoulders.length} neue Boulder in den letzten 7 Tagen`
+              {newBoulderCount > 0
+                ? `${newBoulderCount} neue Boulder in den letzten 7 Tagen`
                 : 'Alles Wichtige für deine nächste Session'}
             </p>
           </section>
 
           <section className="mb-5">
-            <DashboardSectionHeader title="Deine Woche" />
-            <KwsMetricStrip
+            <DashboardSectionHeader title="Letzte 7 Tage" actionLabel="Fortschritt" onActionClick={() => navigate('/statistics?period=7')} />
+            {personalUnavailable ? <PersonalDataState loading={personalLoading} onRetry={retryPersonal} /> : <KwsMetricStrip
+              className="[&>div]:flex-col [&>div>span:last-child]:text-center [&_.truncate]:text-[11px] sm:[&>div]:flex-row sm:[&>div>span:last-child]:text-left"
               items={[
                 { icon: Trophy, value: weeklyStats.tops, label: 'Tops' },
                 { icon: Zap, value: weeklyStats.flashes, label: 'Flashes' },
-                { icon: CircleDot, value: weeklyStats.projects, label: 'Projekte' },
+                { icon: CalendarDays, value: weeklyStats.days, label: 'Klettertage' },
               ]}
-            />
+            />}
           </section>
 
           <section className="mb-5">
@@ -524,7 +483,6 @@ const Index = () => {
                   <DifficultyBadge
                     color={boulder.color}
                     color2={boulder.color2}
-                    colorHex={boulder.colorHex}
                     difficulty={boulder.difficulty}
                     className="!bottom-auto !left-1.5 !right-auto !top-1.5 !h-6 !min-w-6 !px-1 !text-[10px] sm:!left-2 sm:!top-2"
                   />
@@ -582,9 +540,9 @@ const Index = () => {
               <DashboardSectionHeader
                 title="Für deine Session"
                 actionLabel="Projekte"
-                onActionClick={() => navigate('/boulders?show=saved')}
+                onActionClick={() => navigate('/statistics?view=collection&collection=projects')}
               />
-              {nextFocusBoulders.length > 0 ? (
+              {personalUnavailable ? <p className="p-4 text-sm text-muted-foreground">Deine Projekte sind verfügbar, sobald dein Fortschritt geladen ist.</p> : nextFocusBoulders.length > 0 ? (
                 <div className="space-y-2.5">
                   {nextFocusBoulders.map((item) =>
                     item.boulder ? (
@@ -605,24 +563,16 @@ const Index = () => {
             </section>
           </div>
 
-          <section className="mb-4 mt-5">
-            <DashboardSectionHeader title="Rückblick" />
+          {!personalUnavailable ? <section className="mb-4 mt-5">
+            <DashboardSectionHeader title="Dein Fortschritt" actionLabel="Alle Statistiken" onActionClick={() => navigate('/statistics?period=all')} />
             <div className="rounded-kws-card bg-card px-4 py-3.5 shadow-[0_3px_14px_rgba(19,17,43,0.07)]">
               <div className="mb-2.5 flex items-baseline justify-between gap-3">
-                <p className="text-sm font-semibold text-foreground">Aktuelle Wand</p>
-                <p className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">{progressStats.toppedPercent}%</span> getoppt</p>
+                <p className="text-sm font-semibold text-foreground">{progressStats.tops} Boulder geschafft</p>
+                <p className="text-xs text-muted-foreground">Gesamter Zeitraum</p>
               </div>
-              <div className="flex h-2 overflow-hidden rounded-[2px] bg-[#E2E6EC]" aria-label={`${progressStats.toppedPercent} Prozent getoppt, ${progressStats.triedPercent} Prozent probiert`}>
-                <span className="bg-primary" style={{ width: `${progressStats.toppedPercent}%` }} />
-                <span className="bg-[#6C7280]" style={{ width: `${progressStats.triedPercent}%` }} />
-              </div>
-              <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1.5 text-[10px] font-medium text-muted-foreground">
-                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-[2px] bg-primary" />Getoppt</span>
-                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-[2px] bg-[#6C7280]" />Probiert</span>
-                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-[2px] bg-[#E2E6EC]" />Offen</span>
-              </div>
+              <p className="text-sm text-muted-foreground">Davon {progressStats.flashes} als Flash · höchster Top-Grad {progressStats.highestGrade ?? '–'}</p>
             </div>
-          </section>
+          </section> : null}
         </main>
       </div>
     </div>

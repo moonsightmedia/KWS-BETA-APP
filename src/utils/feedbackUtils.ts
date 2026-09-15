@@ -348,10 +348,10 @@ export interface ReportErrorUserContext {
  */
 export async function reportError(
   error: Error,
-  errorInfo?: React.ErrorInfo,
+  errorInfo?: React.ErrorInfo | null,
   userDescription?: string,
   userContext?: ReportErrorUserContext | null
-): Promise<void> {
+): Promise<{ success: boolean; error?: string }> {
   try {
     const screenshot = await captureScreenshot();
     const errorDetails: ErrorDetails = {
@@ -370,7 +370,7 @@ export async function reportError(
       ? `${userDescription}\n\nAutomatisch gemeldeter Fehler:\n${error.message}`
       : `Automatisch gemeldeter Fehler: ${error.message}`;
 
-    await submitFeedback({
+    return await submitFeedback({
       type: 'error',
       title: `Fehler: ${error.message.substring(0, 100)}`,
       description,
@@ -386,6 +386,7 @@ export async function reportError(
     });
   } catch (err) {
     console.error('[Feedback] Error reporting error:', err);
+    return { success: false, error: 'Fehlerbericht konnte nicht gesendet werden.' };
   }
 }
 

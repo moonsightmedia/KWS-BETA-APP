@@ -6,6 +6,9 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://${host}:${port}`;
 
 export default defineConfig({
   testDir: './e2e',
+  // Playwright empties outputDir before a run. Never point it at the parent
+  // containing durable comparison reports and screenshots.
+  outputDir: './test-results/playwright-artifacts',
   timeout: 60_000,
   expect: {
     timeout: 10_000,

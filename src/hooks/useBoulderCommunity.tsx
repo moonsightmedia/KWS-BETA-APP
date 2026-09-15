@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 
 import { useAuth } from '@/hooks/useAuth';
 import { supabaseRestRequest } from '@/lib/supabaseRest';
+import { readPersonalRows, readTrackedBoulders, type TrackedBoulderItem } from '@/lib/personalProgress';
 import type {
   BoulderAttributeOption,
   BoulderComment,
@@ -44,11 +45,6 @@ interface BoulderListItem {
   color: string;
   difficulty: number | null;
   created_at: string;
-}
-
-interface TrackedBoulderItem {
-  boulder: BoulderListItem | null;
-  tick: BoulderTick;
 }
 
 const emptyTickSummary: BoulderTickSummary = {
@@ -465,6 +461,8 @@ export function useUpsertBoulderTrackingSession(boulderId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['boulder-tracking-sessions', boulderId] });
       queryClient.invalidateQueries({ queryKey: ['boulder-community', boulderId] });
+      queryClient.invalidateQueries({ queryKey: ['my-tracking-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['my-boulder-ticks'] });
     },
     onError: (error: Error) => {
       toast.error(`Session konnte nicht gespeichert werden: ${error.message}`);
@@ -615,36 +613,14 @@ export function useBoulderComments(boulderId: string | undefined) {
   };
 }
 
-export function useMyTrackedBoulders(limit: number | null = 12) {
+export function useMyTrackedBoulders(limit: number | null = null) {
   const { session, user, loading } = useAuth();
 
   return useQuery({
     queryKey: ['my-boulder-ticks', user?.id, limit],
     enabled: !loading && !!session && !!user,
-    queryFn: async (): Promise<TrackedBoulderItem[]> => {
-      const accessToken = session?.access_token;
-      const limitClause = typeof limit === 'number' ? `&limit=${limit}` : '';
-      const ticks = await supabaseRestRequest<BoulderTick[]>(
-        `/rest/v1/boulder_ticks?user_id=eq.${user?.id}&select=id,boulder_id,user_id,status,attempt_count,note,is_favorite,is_project,created_at,updated_at&order=updated_at.desc${limitClause}`,
-        { accessToken },
-      );
-
-      const boulderIds = [...new Set(ticks.map((tick) => tick.boulder_id))];
-      if (boulderIds.length === 0) {
-        return [];
-      }
-
-      const boulders = await supabaseRestRequest<BoulderListItem[]>(
-        `/rest/v1/boulders?id=in.(${buildInFilter(boulderIds)})&select=id,name,color,difficulty,created_at`,
-        { accessToken },
-      );
-      const boulderMap = new Map(boulders.map((boulder) => [boulder.id, boulder]));
-
-      return ticks.map((tick) => ({
-        tick,
-        boulder: boulderMap.get(tick.boulder_id) ?? null,
-      }));
-    },
+    queryFn: ({ signal }): Promise<TrackedBoulderItem[]> => personalRead(signal, session?.access_token,
+      read => readTrackedBoulders(user!.id, read, limit)),
   });
 }
 
@@ -654,15 +630,39 @@ export function useMyTrackingSessions(limit: number | null = null) {
   return useQuery({
     queryKey: ['my-tracking-sessions', user?.id, limit],
     enabled: !loading && !!session && !!user,
-    queryFn: async (): Promise<BoulderTrackingSession[]> => {
-      const accessToken = session?.access_token;
-      const limitClause = typeof limit === 'number' ? `&limit=${limit}` : '';
+    queryFn: ({ signal }): Promise<BoulderTrackingSession[]> => personalRead(signal, session?.access_token,
+      read => readPersonalRows('boulder_tracking_sessions', user!.id,
+        'id,boulder_id,user_id,session_date,result,attempt_count,note,created_at,updated_at', read, limit)),
+  });
+}
 
-      return supabaseRestRequest<BoulderTrackingSession[]>(
-        `/rest/v1/boulder_tracking_sessions?user_id=eq.${user?.id}&select=id,boulder_id,user_id,session_date,result,attempt_count,note,created_at,updated_at&order=session_date.desc,created_at.desc${limitClause}`,
-        { accessToken },
-      );
+async function personalRead<T>(signal: AbortSignal, accessToken: string | undefined,
+  operation: (read: import('@/lib/personalProgress').PersonalReader) => Promise<T>): Promise<T> {
+  const controller = new AbortController(); const abort = () => controller.abort();
+  if (signal.aborted) abort();
+  signal.addEventListener('abort', abort, { once:true });
+  const timer = setTimeout(abort, 20_000);
+  try { return await operation(path=>supabaseRestRequest(path,{accessToken,signal:controller.signal})); }
+  finally { clearTimeout(timer); signal.removeEventListener('abort',abort); }
+}
+
+/** Patch one marker only; never overwrite the current result, attempts or note. */
+export function useUpdateBoulderMarkers() {
+  const { user, session } = useAuth(); const queryClient=useQueryClient();
+  return useMutation({
+    mutationFn: async ({tickId,field,value}:{tickId:string;field:'is_favorite'|'is_project';value:boolean}) => {
+      if(!user || !session?.access_token) throw new Error('Bitte melde dich erneut an.');
+      if(field !== 'is_favorite' && field !== 'is_project') throw new Error('Ungültige Markierung.');
+      const query=new URLSearchParams({id:`eq.${tickId}`,user_id:`eq.${user.id}`,[field]:`eq.${!value}`});
+      const rows=await supabaseRestRequest<BoulderTick[]>(`/rest/v1/boulder_ticks?${query}`,{
+        accessToken:session.access_token,method:'PATCH',body:{[field]:value},prefer:'return=representation',
+      });
+      if(rows.length!==1 || rows[0][field]!==value) throw new Error('Der Eintrag wurde inzwischen geändert. Bitte aktualisieren.');
     },
+    onSuccess:()=>Promise.all([
+      queryClient.invalidateQueries({queryKey:['my-boulder-ticks']}),
+      queryClient.invalidateQueries({queryKey:['boulder-community']}),
+    ]),
   });
 }
 

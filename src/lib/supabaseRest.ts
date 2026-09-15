@@ -3,6 +3,7 @@ interface SupabaseRestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
   prefer?: string;
+  signal?: AbortSignal;
 }
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -28,12 +29,13 @@ function getRequiredConfig() {
 
 export async function supabaseRestRequest<T>(
   path: string,
-  { accessToken, method = 'GET', body, prefer }: SupabaseRestOptions = {},
+  { accessToken, method = 'GET', body, prefer, signal }: SupabaseRestOptions = {},
 ): Promise<T> {
   const { url, key } = getRequiredConfig();
 
   const response = await window.fetch(`${url}${path}`, {
     method,
+    signal,
     headers: {
       apikey: key,
       Authorization: `Bearer ${accessToken || key}`,
