@@ -24,6 +24,7 @@ import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
 import { Boulder } from '@/types/boulder';
 import { matchesBoulderColorFilter } from '@/utils/colorUtils';
 const STORAGE_KEY_BOULDER_VIEW = 'boulder_view_mode';
+const STORAGE_KEY_COLLAPSED_AREAS = 'boulder_collapsed_areas_v1';
 const SECTOR_AREA_ORDER = ['Bug', 'Couch-Ecke', 'Top-Out', 'Lange Platte', 'Grotte'];
 
 type BoulderViewMode = 'list' | 'grid';
@@ -34,6 +35,18 @@ const getStoredBoulderView = (): BoulderViewMode => {
   } catch {
     return 'list';
   }
+};
+
+const getStoredCollapsedAreas = (): Set<string> => {
+  try {
+    const stored: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY_COLLAPSED_AREAS) ?? '[]');
+    if (Array.isArray(stored)) {
+      return new Set(stored.filter((name): name is string => typeof name === 'string' && name.trim().length > 0));
+    }
+  } catch {
+    // A missing, invalid or inaccessible preference must not block the list.
+  }
+  return new Set();
 };
 
 const getSectorAreaName = (sectorName: string) => sectorName.replace(/\s+[A-Z][A-Z0-9]{0,2}$/, '');
@@ -97,7 +110,7 @@ const Boulders = () => {
   const [showMap, setShowMap] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [viewMode, setViewMode] = useState<BoulderViewMode>(getStoredBoulderView);
-  const [collapsedAreaNames, setCollapsedAreaNames] = useState<Set<string>>(() => new Set());
+  const [collapsedAreaNames, setCollapsedAreaNames] = useState<Set<string>>(getStoredCollapsedAreas);
   const headerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const openPanelsRef = useRef({ filters: false, map: false, search: false });
@@ -143,6 +156,15 @@ const Boulders = () => {
       // The selected view still works for the current session if storage is unavailable.
     }
   }, [viewMode]);
+
+  useEffect(() => {
+    try {
+      // Keep hidden groups too: filtering or loading must not erase their state.
+      localStorage.setItem(STORAGE_KEY_COLLAPSED_AREAS, JSON.stringify([...collapsedAreaNames]));
+    } catch {
+      // Collapsing still works on this page if browser storage is unavailable.
+    }
+  }, [collapsedAreaNames]);
 
   useEffect(() => {
     if (!authLoading && user) {
