@@ -244,6 +244,10 @@ Alle Hauptseiten und Unterseiten verwenden `DashboardHeader`.
   Aktionsgrößen verändern weder Headerhöhe noch Titelposition. Auf Desktop bleibt
   der Platz für eine 16px-Unterzeile auch ohne Untertitel erhalten; Home, Boulder
   und Statistiken dürfen beim Seitenwechsel nicht springen.
+- Maßgeblich ist die optische Buchstabenmitte, nicht nur der Textrahmen: Teko
+  erhält im gemeinsamen Header 4px optischen Versatz, ab `md` 8px. Desktop-
+  Aktionen sind in der oberen 44px-Titelzeile zentriert, nicht über Titel plus
+  Untertitel. Die reservierte Gesamthöhe bleibt dabei unverändert.
 - Suchfelder und Filterpanels erscheinen bei Bedarf unter der Titelzeile, nicht
   dauerhaft als großer Headerblock.
 

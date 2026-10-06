@@ -91,7 +91,9 @@ export const DashboardHeader = forwardRef<HTMLDivElement, DashboardHeaderProps>(
             )}
 
             <div className="min-w-0 md:flex md:h-14 md:flex-col md:justify-center">
-              <h1 className="truncate text-[2.15rem] font-semibold leading-none tracking-[-0.03em] text-[#192436]">
+              {/* Teko's visible glyphs sit above the line-box center. Align their
+                  optical center with the controls without changing row height. */}
+              <h1 className="translate-y-1 truncate text-[2.15rem] font-semibold leading-none tracking-[-0.03em] text-[#192436] md:translate-y-2">
                 <span className={desktopTitle ? 'md:hidden' : undefined}>{pageTitle}</span>
                 {desktopTitle ? <span className="hidden md:inline">{desktopTitle}</span> : null}
               </h1>
@@ -103,7 +105,7 @@ export const DashboardHeader = forwardRef<HTMLDivElement, DashboardHeaderProps>(
             </div>
           </div>
 
-          {rightSlot ? <div className="flex shrink-0 items-center justify-end">{rightSlot}</div> : null}
+          {rightSlot ? <div className="flex shrink-0 items-center justify-end md:min-h-11 md:self-start">{rightSlot}</div> : null}
         </div>
 
         {belowSlot ? <div className="mt-3">{belowSlot}</div> : null}

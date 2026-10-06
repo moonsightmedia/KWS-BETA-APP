@@ -21,7 +21,7 @@ Ohne zusätzliche simulierte Safe Area:
 | 375px | 69 / 69 / 73px | 73px |
 | 768, 1280, 1920px | 87,40625 / 73 / 77px | 89px |
 
-Nachher ist auch die Titelposition über alle Routen exakt gleich: oben
+Nach der ersten Höhenkorrektur ist die Titelposition über alle Routen exakt gleich: oben
 20,796875px. Die horizontale Titelposition bleibt je Viewport unverändert.
 
 ## Verifikation
@@ -44,3 +44,22 @@ Die Prüfung nutzt isolierte Daten und schreibt nicht in die Live-Datenbank.
 Stand vor der Veröffentlichung: Die auf dem S25 installierte APK 49,
 TestFlight 75 und Webproduktion d765eff enthalten diese nachträgliche
 Korrektur noch nicht. Die anschließende Release-Freigabe erfolgt getrennt.
+
+## Nachkorrektur: optische Textmitte
+
+Nutzerrückmeldung nach APK50: Der Titel erscheint zu hoch gegenüber den Icons.
+Die vorherigen Tests hatten den Textrahmen verglichen, nicht die sichtbaren
+Buchstaben. Teko sitzt optisch ca. 3,2–3,7px über der mobilen Aktionsmitte.
+Desktop-Aktionen waren zusätzlich über die gesamte zweizeilige Fläche zentriert.
+
+- Der Titel erhält optischen Versatz von 4px, ab `md` 8px; Desktop-Aktionen
+  richten sich an der oberen 44px-Zeile statt Titel plus Untertitel aus.
+- Headerhöhe bleibt 73px mobil bzw. 89px ab `md`; identische Titelposition je
+  Viewport bleibt erhalten (Textrahmen jetzt 24,796875 bzw. 28,796875px oben).
+- Regressionstest misst zusätzlich tatsächliche Schriftkontur über Canvas-
+  Textmetriken und die Inline-Baseline, nicht nur den HTML-Rahmen. Abweichung
+  zwischen Buchstabenmitte und Buttonmitte nachher unter 0,8px bei allen drei
+  Hauptseiten und allen vier Viewports; zulässige Toleranz 1,5px.
+- Erneut 18 Browsertests, zwei gerenderte QA-Loops und Produktionsbundle
+  erfolgreich. Nachkorrektur zunächst lokal, getrennte Auslieferungsfreigabe.
+- Vergleichsaufnahmen: `test-results/header-alignment-20261006/`.

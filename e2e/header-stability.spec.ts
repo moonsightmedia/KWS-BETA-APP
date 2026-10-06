@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 
 const phase = process.env.KWS_HEADER_PHASE || 'after';
-const output = 'test-results/header-stability-20261006';
+const output = process.env.KWS_HEADER_OUTPUT || 'test-results/header-stability-20261006';
 test.use({ trace: 'off', video: 'off' });
 
 async function open(page: Page, extra = '') {
@@ -29,6 +29,24 @@ async function geometry(page: Page) {
   });
 }
 
+async function opticalAlignment(page: Page) {
+  return page.locator('.sticky.top-0').first().evaluate(header => {
+    const title = header.querySelector('h1')!;
+    const text = title.innerText;
+    const style = getComputedStyle(title);
+    const marker = document.createElement('span');
+    marker.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+    title.append(marker);
+    const baseline = marker.getBoundingClientRect().top;
+    marker.remove();
+    const context = document.createElement('canvas').getContext('2d')!;
+    context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    const metrics = context.measureText(text);
+    const button = header.querySelector('.justify-end button')!.getBoundingClientRect();
+    return { inkCenter: baseline + (metrics.actualBoundingBoxDescent - metrics.actualBoundingBoxAscent) / 2, buttonCenter: button.top + button.height / 2 };
+  });
+}
+
 for (const width of [375, 768, 1280, 1920]) {
   test(`header remains aligned across navigation at ${width}`, async ({ page }) => {
     const errors: string[] = [];
@@ -39,6 +57,9 @@ for (const width of [375, 768, 1280, 1920]) {
     for (const label of ['Home', 'Boulder', 'Statistiken', 'Home']) {
       await page.getByRole('link', { name: label, exact: true }).locator('visible=true').first().click();
       measurements.push(await geometry(page));
+      const alignment = await opticalAlignment(page);
+      console.log(`${phase} ${width} ${label} optical: ${JSON.stringify(alignment)}`);
+      if (phase !== 'before') expect(Math.abs(alignment.inkCenter - alignment.buttonCenter)).toBeLessThanOrEqual(1.5);
       await page.screenshot({ path: `${output}/${phase}-${label}-${width}.png`, animations: 'disabled' });
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
     }
