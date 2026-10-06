@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, ImageOff, MapPinned, RotateCcw, X } from 'lucide-react';
+import { AlertCircle, Check, ImageOff, MapPinned, RotateCcw, X } from 'lucide-react';
 
 import { InteractiveMapStage } from '@/components/InteractiveMapStage';
 import { resolveHallMapSource } from '@/lib/hallMapSource';
@@ -282,6 +282,7 @@ export function HallMapView({
 }: HallMapViewProps) {
   const [imageError, setImageError] = useState(false);
   const [hoveredSectorKey, setHoveredSectorKey] = useState<string | null>(null);
+  const [focusedSectorKey, setFocusedSectorKey] = useState<string | null>(null);
   const { session, loading: authLoading } = useAuth();
   const queriesEnabled = !authLoading;
   const accessToken = session?.access_token ?? null;
@@ -354,7 +355,7 @@ export function HallMapView({
   );
 
   const selectedSectorSet = useMemo(() => {
-    if (selectedSectorNames?.length) {
+    if (selectedSectorNames !== undefined) {
       return new Set(selectedSectorNames.filter((name) => name && name !== 'all'));
     }
 
@@ -364,7 +365,7 @@ export function HallMapView({
   }, [selectedSectorName, selectedSectorNames]);
 
   const selectedSectorIdSet = useMemo(() => {
-    const values = selectedSectorIds?.length
+    const values = selectedSectorIds !== undefined
       ? selectedSectorIds
       : selectedSectorId
         ? [selectedSectorId]
@@ -378,32 +379,19 @@ export function HallMapView({
       const key = logicalGroupKeysBySectorId.get(sectorId);
       if (key) keys.add(key);
     });
-    selectedSectorSet.forEach((sectorName) => {
-      const key = logicalGroupKeysBySectorName.get(sectorName);
-      if (key) keys.add(key);
-    });
+    // IDs are authoritative when supplied. A stale name channel must not select
+    // additional regions, and an explicitly empty array must remain empty.
+    if (selectedSectorIds === undefined && selectedSectorId === undefined) {
+      selectedSectorSet.forEach((sectorName) => {
+        const key = logicalGroupKeysBySectorName.get(sectorName);
+        if (key) keys.add(key);
+      });
+    }
     return keys;
-  }, [logicalGroupKeysBySectorId, logicalGroupKeysBySectorName, selectedSectorIdSet, selectedSectorSet]);
+  }, [logicalGroupKeysBySectorId, logicalGroupKeysBySectorName, selectedSectorId, selectedSectorIds, selectedSectorIdSet, selectedSectorSet]);
 
-  const singleSelectedSectorName = selectedSectorSet.size === 1 ? Array.from(selectedSectorSet)[0] : null;
-  const singleSelectedSectorId = selectedSectorIdSet.size === 1 ? Array.from(selectedSectorIdSet)[0] : null;
-  const selectedSector = singleSelectedSectorId
-    ? sectors.find((sector) => sector.id === singleSelectedSectorId) ?? null
-    : singleSelectedSectorName
-      ? sectors.find((sector) => sector.name === singleSelectedSectorName) ?? null
-      : null;
-  const selectedLogicalGroupKey = selectedSector
-    ? logicalGroupKeysBySectorId.get(selectedSector.id) ?? logicalGroupKeysBySectorName.get(selectedSector.name)
-    : undefined;
-  const selectedCount = selectedLogicalGroupKey
-    ? boulderSectorReferences
-      ? countActiveBouldersForSectorIds(
-          boulderSectorReferences,
-          logicalGroupSectorIds.get(selectedLogicalGroupKey) ?? [],
-        )
-      : (logicalGroupSectorIds.get(selectedLogicalGroupKey) ?? [])
-          .reduce((sum, sectorId) => sum + (countsBySectorId[sectorId] ?? 0), 0)
-    : selectedSector ? countsBySectorId[selectedSector.id] ?? 0 : 0;
+  const selectedGroups = logicalMapGroups.filter(group => selectedLogicalGroupKeys.has(group.key));
+
   const { src: backgroundImageSrc, width: mapWidth, height: mapHeight } = resolveHallMapSource(activeMap);
   const mapUnit = Math.max(Math.min(mapWidth, mapHeight) / 100, 1);
   useEffect(() => setImageError(false), [backgroundImageSrc]);
@@ -450,8 +438,18 @@ export function HallMapView({
   );
 
   const handleSelectSector = (sector: Sector) => {
-    onSelectSectorId?.(sector.id);
-    onSelectSector?.(sector.name);
+    setHoveredSectorKey(null);
+    if (onSelectSectorId) onSelectSectorId(sector.id);
+    else onSelectSector?.(sector.name);
+  };
+
+  const handleDeselectGroup = (group: LogicalMapGroup) => {
+    if (selectedGroups.length === 1) {
+      onClearSector();
+      return;
+    }
+    const selectedMember = group.sectors.find(sector => selectedSectorIdSet.has(sector.id) || selectedSectorSet.has(sector.name));
+    handleSelectSector(selectedMember ?? group.sectors[0]);
   };
 
   if (authLoading || isLoadingMap || isLoadingRegions) {
@@ -508,23 +506,11 @@ export function HallMapView({
               {new Set(renderedRegions.map(({ sector }) => resolveSectorArea(sector).area?.slug).filter(Boolean)).size || renderedRegions.length} Bereiche
             </Badge>
             <Badge className="rounded-kws-badge border border-[#DCE5DE] bg-white px-3 py-1 text-[#13112B]/70 shadow-none">
-              {selectedSectorSet.size + selectedSectorIdSet.size > 1
-                ? `${selectedSectorSet.size + selectedSectorIdSet.size} Teilbereiche ausgewählt`
-                : singleSelectedSectorName
-                  ? singleSelectedSectorName
-                  : singleSelectedSectorId
-                    ? selectedSector?.name
-                  : `${totalVisibleBoulders} Boulder sichtbar`}
+              {totalVisibleBoulders} Boulder in der Halle
             </Badge>
           </div>
 
           <div className="flex items-center gap-2">
-            {(selectedSectorSet.size > 0 || selectedSectorIdSet.size > 0) && (
-              <Button variant="outline" size="sm" onClick={onClearSector} className="rounded-kws-control border-[#DCE5DE] text-[#13112B]">
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Filter zurücksetzen
-              </Button>
-            )}
             {onClose && (
               <Button variant="ghost" size="icon" onClick={onClose} className="rounded-kws-control text-[#13112B]/70 hover:bg-[#F3F6F3]">
                 <X className="h-4 w-4" />
@@ -589,39 +575,42 @@ export function HallMapView({
                 const logicalSectorKey = getLogicalSectorKey(sector);
                 const isSelected = selectedLogicalGroupKeys.has(logicalSectorKey);
                 const isHovered = hoveredSectorKey === logicalSectorKey;
-                const isHighlighted = isSelected || isHovered;
                 const resolvedSector = resolveSectorArea(sector);
                 const areaPalette = getSectorAreaPalette(resolvedSector.area?.slug);
-                const regionFill = isHighlighted
+                const regionFill = isSelected
                   ? areaPalette.regionFillHighlighted
                   : areaPalette.regionFill;
 
                 return (
                   <g key={region.id}>
                     <polygon
-                      points={polygonToString(region.points_json, mapWidth, mapHeight)}
-                      fill="transparent"
-                      stroke="rgba(17,24,39,0.001)"
-                      strokeWidth={10 * mapUnit}
-                      style={{ pointerEvents: 'stroke' }}
-                      onMouseEnter={() => setHoveredSectorKey(logicalSectorKey)}
-                      onMouseLeave={() => setHoveredSectorKey((current) => (current === logicalSectorKey ? null : current))}
-                      onClick={() => handleSelectSector(sector)}
-                    />
-                    <polygon
+                      data-sector-region-group={logicalSectorKey}
+                      data-selected={isSelected}
                       points={polygonToString(region.points_json, mapWidth, mapHeight)}
                       fill={regionFill}
+                      fillOpacity={selectedGroups.length > 0 && !isSelected ? 0.35 : 1}
                       stroke={areaPalette.regionStroke}
                       filter={!frameless && !isSelected ? 'url(#sector-region-shadow)' : undefined}
                       strokeWidth={1.02 * mapUnit}
-                      className="cursor-pointer transition-all duration-200"
+                      className="cursor-pointer motion-safe:transition-[fill,fill-opacity] motion-safe:duration-150"
                       style={{
-                        transition: 'fill 160ms ease',
+                        // Hit only the actual surface, never a neighbouring sector
+                        // through an oversized invisible stroke.
+                        pointerEvents: 'fill',
                       }}
-                      onMouseEnter={() => setHoveredSectorKey(logicalSectorKey)}
-                      onMouseLeave={() => setHoveredSectorKey((current) => (current === logicalSectorKey ? null : current))}
+                      onPointerEnter={event => event.pointerType === 'mouse' && setHoveredSectorKey(logicalSectorKey)}
+                      onPointerLeave={() => setHoveredSectorKey((current) => (current === logicalSectorKey ? null : current))}
                       onClick={() => handleSelectSector(sector)}
                     />
+                    {(isSelected || isHovered) && <polygon
+                      points={polygonToString(region.points_json, mapWidth, mapHeight)}
+                      fill="none"
+                      stroke="#192436"
+                      strokeWidth={isSelected ? 2.5 : 1.5}
+                      strokeDasharray={isSelected ? undefined : '4 3'}
+                      vectorEffect="non-scaling-stroke"
+                      pointerEvents="none"
+                    />}
                   </g>
                 );
               })}
@@ -636,23 +625,11 @@ export function HallMapView({
                   : sectorIds.reduce((sum, sectorId) => sum + (countsBySectorId[sectorId] ?? 0), 0);
                 const isSelected = selectedLogicalGroupKeys.has(group.key);
                 const isHovered = hoveredSectorKey === group.key;
-                const isHighlighted = isSelected || isHovered;
+                const isFocused = focusedSectorKey === group.key;
                 const areaPalette = getSectorAreaPalette(group.areaSlug);
-                const markerFill = isSelected
-                  ? areaPalette.tagFill
-                  : isHighlighted
-                    ? areaPalette.tagFillHighlighted
-                    : areaPalette.tagFill;
-                const markerStroke = isSelected
-                  ? areaPalette.tagFill
-                  : isHighlighted
-                    ? areaPalette.tagFillHighlighted
-                    : areaPalette.tagStroke;
-                const markerText = isSelected
-                  ? areaPalette.tagFillHighlighted
-                  : isHighlighted
-                    ? areaPalette.tagTextHighlighted
-                    : areaPalette.tagText;
+                const markerFill = isSelected ? '#36B531' : areaPalette.tagFill;
+                const markerStroke = isSelected || isHovered || isFocused ? '#192436' : areaPalette.tagStroke;
+                const markerText = '#192436';
 
                 return (
                   <g
@@ -660,16 +637,21 @@ export function HallMapView({
                     role="button"
                     tabIndex={0}
                     aria-label={`${group.areaName ?? markerSector?.name ?? 'Teilbereich'}${group.subareaCode ? ` ${group.subareaCode}` : ''}, ${count} Boulder filtern`}
+                    aria-pressed={isSelected}
                     className="cursor-pointer outline-none"
                     data-sector-marker-group={group.key}
-                    onMouseEnter={() => setHoveredSectorKey(group.key)}
-                    onMouseLeave={() => setHoveredSectorKey((current) => (current === group.key ? null : current))}
-                    onFocus={() => setHoveredSectorKey(group.key)}
-                    onBlur={() => setHoveredSectorKey((current) => (current === group.key ? null : current))}
-                    onClick={() => markerSector && handleSelectSector(markerSector)}
+                    onPointerEnter={event => event.pointerType === 'mouse' && setHoveredSectorKey(group.key)}
+                    onPointerLeave={() => setHoveredSectorKey((current) => (current === group.key ? null : current))}
+                    onFocus={event => setFocusedSectorKey(event.currentTarget.matches(':focus-visible') ? group.key : null)}
+                    onBlur={() => setFocusedSectorKey(null)}
+                    onClick={event => {
+                      if (event.detail > 0) setFocusedSectorKey(null);
+                      if (markerSector) handleSelectSector(markerSector);
+                    }}
                     onKeyDown={(event) => {
                       if ((event.key === 'Enter' || event.key === ' ') && markerSector) {
                         event.preventDefault();
+                        setFocusedSectorKey(group.key);
                         handleSelectSector(markerSector);
                       }
                     }}
@@ -683,9 +665,19 @@ export function HallMapView({
                       rx={0.62 * mapUnit}
                       fill={markerFill}
                       stroke={markerStroke}
-                      strokeWidth={0.34 * mapUnit}
+                      strokeWidth={isSelected || isFocused ? 2 : 1}
+                      vectorEffect="non-scaling-stroke"
                       style={{ filter: 'drop-shadow(0 0.5px 1px rgba(25,36,54,0.14))' }}
                     />
+                    {isFocused && <rect
+                      x={marker.x - marker.width / 2 - 1.1 * mapUnit}
+                      y={marker.y - marker.height / 2 - 1.1 * mapUnit}
+                      width={marker.width + 2.2 * mapUnit}
+                      height={marker.height + 2.2 * mapUnit}
+                      rx={0.85 * mapUnit}
+                      fill="none" stroke="#192436" strokeWidth={1.5}
+                      strokeDasharray="3 2" vectorEffect="non-scaling-stroke" pointerEvents="none"
+                    />}
                     <text
                       x={marker.x}
                       textAnchor="middle"
@@ -713,6 +705,10 @@ export function HallMapView({
                         </tspan>
                       ) : null}
                     </text>
+                    {isSelected && <g aria-hidden="true" transform={`translate(${marker.x + marker.width / 2 - 1.5 * mapUnit} ${marker.y - marker.height / 2 - 1.5 * mapUnit})`}>
+                      <rect width={4 * mapUnit} height={4 * mapUnit} rx={0.6 * mapUnit} fill="#192436" />
+                      <path d={`M ${0.8 * mapUnit} ${2 * mapUnit} l ${0.8 * mapUnit} ${0.8 * mapUnit} l ${1.6 * mapUnit} ${-1.6 * mapUnit}`} fill="none" stroke="white" strokeWidth={0.55 * mapUnit} strokeLinecap="round" strokeLinejoin="round" />
+                    </g>}
                   </g>
                 );
               })}
@@ -744,24 +740,24 @@ export function HallMapView({
         ) : null}
       </div>
 
-      {selectedSector && !frameless && (
-        <div
-          className={cn(
-            'flex items-center justify-between gap-3 rounded-kws-card border border-[#DDE5DF] bg-white px-4 py-3',
-            compact && 'rounded-kws-control px-3 py-2.5',
-          )}
-        >
-          <div className="min-w-0">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#13112B]/45">Ausgewählter Teilbereich</div>
-            <div className="mt-1 truncate text-sm font-semibold text-[#13112B]">
-              {selectedSector.name} <span className="text-[#13112B]/52">({selectedCount} Boulder)</span>
-            </div>
-          </div>
-          <Button variant="ghost" size="sm" onClick={onClearSector} className="rounded-kws-control text-[#13112B]/70 hover:bg-[#F3F6F3]">
-            Zurücksetzen
-          </Button>
+      {!imageError && renderedRegions.length > 0 && <div className="space-y-2">
+        <div className="flex min-h-11 items-center justify-between gap-3">
+          <p role="status" aria-live="polite" className="text-xs font-medium text-foreground">
+            {selectedGroups.length ? <>{selectedGroups.length} {selectedGroups.length === 1 ? 'Teilbereich' : 'Teilbereiche'} ausgewählt<span className="sr-only">: {selectedGroups.map(group => `${group.areaName ?? group.sectors[0].name}${group.subareaCode ? ` ${group.subareaCode}` : ''}`).join(', ')}</span></> : 'Ganze Halle'}
+          </p>
+          {selectedGroups.length > 0 && <Button variant="ghost" size="sm" aria-label="Sektorauswahl zurücksetzen" onClick={onClearSector} className="shrink-0">
+            <RotateCcw className="h-4 w-4" /><span>Zurücksetzen</span>
+          </Button>}
         </div>
-      )}
+        {selectedGroups.length > 0 && <div className="flex flex-wrap gap-2">
+          {selectedGroups.map(group => {
+            const name = `${group.areaName ?? group.sectors[0].name}${group.subareaCode ? ` ${group.subareaCode}` : ''}`;
+            return <button key={group.key} type="button" aria-label={`${name} abwählen`} onClick={() => handleDeselectGroup(group)} className="inline-flex min-h-11 items-center gap-2 rounded-kws-control bg-primary/10 px-3 text-xs font-semibold text-foreground hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <Check className="h-4 w-4 text-primary-ink" aria-hidden="true" />{name}<X className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>;
+          })}
+        </div>}
+      </div>}
 
       {renderedRegions.length === 0 && !imageError && !frameless && (
         <Alert className="rounded-kws-card border-[#E7F7E9] bg-[#F8FCF9]">
@@ -775,22 +771,27 @@ export function HallMapView({
         <div className="space-y-2">
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#13112B]/45">Teilbereich direkt wählen</div>
           <div className="flex flex-wrap gap-2">
-            {renderedRegions.map(({ region, sector }) => {
-              const active = selectedSectorIdSet.has(sector.id) || selectedSectorSet.has(sector.name);
-              const count = countsBySectorId[sector.id] ?? 0;
+            {logicalMapGroups.map(group => {
+              const sector = group.sectors[0];
+              const active = selectedLogicalGroupKeys.has(group.key);
+              const count = boulderSectorReferences
+                ? countActiveBouldersForSectorIds(boulderSectorReferences, group.sectors.map(member => member.id))
+                : group.sectors.reduce((sum, member) => sum + (countsBySectorId[member.id] ?? 0), 0);
               return (
                 <button
-                  key={region.id}
+                  key={group.key}
                   type="button"
                   onClick={() => handleSelectSector(sector)}
+                  aria-pressed={active}
                   className={cn(
-                    'inline-flex min-h-12 items-center gap-3 rounded-kws-control border px-4 py-3 text-left transition',
+                    'inline-flex min-h-11 items-center gap-2 rounded-kws-control px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     active
-                      ? 'border-[#36B531] bg-[#E8F7EA] text-[#17641d] shadow-[0_10px_24px_rgba(54,181,49,0.14)]'
-                      : 'border-[#E5EBE7] bg-white text-[#13112B] hover:border-[#BCDDBF] hover:bg-[#F9FCF9]',
+                      ? 'bg-primary/10 text-foreground'
+                      : 'bg-secondary text-foreground hover:bg-primary/5',
                   )}
                 >
-                  <span className="text-sm font-semibold">{sector.name}</span>
+                  <Check className={cn('h-4 w-4 text-primary-ink', !active && 'invisible')} aria-hidden="true" />
+                  <span className="text-sm font-semibold">{resolveSectorArea(sector).publicName}</span>
                   <span className="rounded-kws-badge border border-[#DFE7E1] bg-[#F7FAF8] px-2.5 py-1 text-xs font-semibold text-[#13112B]/72">{count}</span>
                 </button>
               );

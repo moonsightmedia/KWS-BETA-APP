@@ -625,16 +625,24 @@ bleibt die Karte lesbar, ohne die Kundschaft mit Altsektornamen zu belasten.
 ### 7.2 Zustände
 
 - Standardfläche: Grundton des Elternbereichs.
-- Hover/Fokus: dunklere Bereichsfläche; Tag wird farbig mit weißer Schrift.
-- Ausgewählt: dunklere Bereichsfläche; das Teilbereichs-Tag wird invertiert – weißer
-  Hintergrund, Schrift in der Bereichsfarbe.
+- Hover: nur eine gestrichelte dunkelblaue Kontur, keine Auswahlfärbung. Touch
+  erzeugt keinen bleibenden Hover; Tastaturfokus erhält eine eigene Tagkontur.
+- Ausgewählt: dunklere Bereichsfläche mit durchgezogener dunkelblauer Kontur,
+  Markengrün-Tag mit dunkelblauer Schrift und zusätzlichem Häkchen. Sobald eine
+  Auswahl besteht, treten übrige Flächen zurück. Die Bereichspalette bleibt erhalten.
 - Weiße Trennlinien separieren die Flächen klar.
 - Jede sichtbare Wandkante wird nur einmal gezeichnet. Grundkarte und
   interaktive Polygone dürfen nicht als zwei versetzte Konturen übereinander
   erscheinen.
 - Teilbereichs-Tags werden so positioniert und skaliert, dass sie weder einander noch
   relevante Flächenkanten überlagern.
-- Auswahl muss über Tag-Invertierung und Flächenänderung erkennbar sein.
+- Auswahl ist zusätzlich als benannte, entfernbare Chips unter der Karte sichtbar;
+  eine Statuszeile zählt logische Teilbereiche, nicht physische Flächen oder doppelte
+  ID-/Namenskanäle. Reset stellt „Ganze Halle“ wieder her.
+- Klickflächen bleiben innerhalb der echten Polygone: keine unsichtbaren breiten
+  Außenkonturen, die benachbarte Sektoren abfangen. Physische Flächen desselben
+  Teilbereichs (z. B. Bug A) bleiben bewusst gemeinsam markiert. Gelieferte IDs
+  sind gegenüber Namensfiltern führend; explizit leere Arrays sind keine alte Auswahl.
 - Mehrere Teilbereiche dürfen gleichzeitig ausgewählt werden.
 - Erneutes Anklicken entfernt nur diesen Teilbereich aus der Auswahl.
 
