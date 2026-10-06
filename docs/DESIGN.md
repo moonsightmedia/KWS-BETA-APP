@@ -240,6 +240,10 @@ Alle Hauptseiten und Unterseiten verwenden `DashboardHeader`.
   der Profilzugang einmal im Fuß der Sidebar.
 - Profil-Unterseiten zeigen an derselben Stelle einen 40-px-Zurückbutton.
 - Rechts sitzen nur häufig verwendete Seitenaktionen.
+- Die Titelzeile reserviert mobil mindestens 44px, ab `md` 56px. Unterschiedliche
+  Aktionsgrößen verändern weder Headerhöhe noch Titelposition. Auf Desktop bleibt
+  der Platz für eine 16px-Unterzeile auch ohne Untertitel erhalten; Home, Boulder
+  und Statistiken dürfen beim Seitenwechsel nicht springen.
 - Suchfelder und Filterpanels erscheinen bei Bedarf unter der Titelzeile, nicht
   dauerhaft als großer Headerblock.
 

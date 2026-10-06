@@ -73,7 +73,7 @@ export const DashboardHeader = forwardRef<HTMLDivElement, DashboardHeaderProps>(
       className="sticky top-0 z-30 border-b border-[#E7F0E8] bg-white/95 pb-3 pt-[calc(1rem+var(--app-safe-area-top))] backdrop-blur-xl md:pt-[calc(1.25rem+var(--app-safe-area-top))]"
     >
       <div className="mx-auto w-full max-w-[1180px] px-4 md:px-8">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex min-h-11 items-center justify-between gap-3 md:min-h-14">
           <div className="flex min-w-0 items-center gap-3">
             {backTo ? (
               <button
@@ -90,16 +90,16 @@ export const DashboardHeader = forwardRef<HTMLDivElement, DashboardHeaderProps>(
               </div>
             )}
 
-            <div className="min-w-0">
+            <div className="min-w-0 md:flex md:h-14 md:flex-col md:justify-center">
               <h1 className="truncate text-[2.15rem] font-semibold leading-none tracking-[-0.03em] text-[#192436]">
                 <span className={desktopTitle ? 'md:hidden' : undefined}>{pageTitle}</span>
                 {desktopTitle ? <span className="hidden md:inline">{desktopTitle}</span> : null}
               </h1>
-              {desktopSubtitle ? (
-                <p className="mt-1 hidden truncate font-sans text-xs font-medium text-[#646C71] md:block">
-                  {desktopSubtitle}
-                </p>
-              ) : null}
+              {/* Reserve the subtitle line on desktop so titles and actions never
+                  move when navigating between one- and two-line headers. */}
+              <p aria-hidden={!desktopSubtitle || undefined} className="mt-1 hidden h-4 shrink-0 truncate font-sans text-xs font-medium text-[#646C71] md:block">
+                {desktopSubtitle}
+              </p>
             </div>
           </div>
 
