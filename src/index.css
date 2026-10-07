@@ -57,6 +57,8 @@ All colors MUST be HSL.
     --kws-icon-stroke: 1.75;
     /* Neutral architectural hall map: white walls, softly tinted floor. */
     --hall-map-floor: 132 13% 88%;
+    --hall-map-floor-ground: 134 17% 84%;
+    --hall-map-floor-light: 140 20% 94%;
     --hall-map-wall-top: 0 0% 100%;
     --hall-map-wall-bottom: 120 6% 96%;
     --hall-map-wall-edge: 130 5% 72%;
@@ -502,6 +504,13 @@ All colors MUST be HSL.
   to { translate: 0 24px; opacity: 0; }
 }
 .kws-filter-collapse[data-state="open"] { animation: kws-filter-open 180ms ease-out; }
+.hall-map-architectural-floor {
+  /* Reference's sage floor and softly lit edges. Keep it on the viewport,
+     not the moving canvas, so panning/zooming never reveals a floor seam. */
+  background:
+    linear-gradient(to bottom, hsl(var(--hall-map-floor-light) / 0.65), transparent 18%, transparent 82%, hsl(var(--hall-map-floor-light) / 0.65)),
+    radial-gradient(ellipse at 50% 45%, hsl(var(--hall-map-floor-ground)) 0%, hsl(var(--hall-map-floor-ground)) 42%, hsl(var(--hall-map-floor-light)) 100%);
+}
 .kws-filter-collapse[data-state="closed"] { animation: kws-filter-close 180ms ease-out; }
 @keyframes kws-filter-open {
   from { height: 0; opacity: 0; }

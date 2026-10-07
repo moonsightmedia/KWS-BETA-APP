@@ -626,9 +626,10 @@ ursprünglichen Bereiche bleiben erhalten; neu angelegte Bereiche werden ergänz
 Beispiele: `Bug A`, `Bug B`, `Bug C`, `Bug D`.
 
 Ohne Auswahl stehen auf der kompakten Karte nur die Teilbereichskürzel A–D bzw.
-neue Kürzel. Bereichsnamen und Auswahl-Erklärungen erscheinen erst für gewählte
-Bereiche; nach Abwahl/Reset verschwinden sie wieder. Keine ungewählte Bereichs-
-Legende oder „Ganze Halle“-Erklärzeile (Nutzerkorrektur 07.10.2026).
+neue Kürzel. Gewählte Teilbereiche zeigen ihren Namen ausschließlich direkt an
+ihrer Wandmarkierung, nicht zusätzlich auf dem Kartenboden oder in einer Legende.
+Nach Abwahl/Reset erscheinen wieder nur die Kürzel. Keine „Ganze Halle“-
+Erklärzeile (Nutzerkorrektur 07.10.2026). Die Kurze-Platte-A-Ausnahme bleibt erhalten.
 
 ### 7.2 Zustände
 
@@ -640,10 +641,12 @@ Flächenzustände in `HallMapView`:
 - Auswahl: Markengrün-Kontur, weißer benannter Tag und dunkelblaues Häkchen.
   Hover bleibt gestrichelt dunkelblau; Tastaturfokus separat sichtbar.
 - Nicht gewählte Wände bleiben vollständig sichtbar, ohne Ausblenden/Abdunkeln.
-- Direktbeschriftungen im Kartenboden werden nur für ausgewählte Bereiche
-  eingeblendet; kleine weiße Teilbereich-Tags bleiben auch ohne Auswahl sichtbar.
-  Die ausgewählten Bereiche stehen als kompakte weiße
-  Abwahlaktionen darunter; Rücksetzen bleibt benannt erreichbar.
+- Keine zusätzlichen Bereichsnamen im Kartenboden; kleine weiße Teilbereich-Tags
+  bleiben auch ohne Auswahl sichtbar. Gewählte Tags tragen den vollständigen
+  Teilbereichsnamen direkt an der Markierung. Die ausgewählten Bereiche stehen als kompakte weiße
+  Abwahlaktionen darunter. Zurücksetzen ist ein 44px-Iconbutton ohne sichtbaren
+  Text; zugänglicher Name und Hover-Titel heißen „Sektorauswahl zurücksetzen“
+  (Nutzerkorrektur 07.10.2026).
 - Die Karte wird aus den echten Polygonen gezeichnet, nicht als generiertes Bild.
   Das gespeicherte Kartenbild bleibt Zeichenreferenz bzw. Fallback ohne Polygone.
 - Die kompakte Boulderkarte rendert mit Three.js tatsächlich extrudierte
@@ -657,15 +660,35 @@ Flächenzustände in `HallMapView`:
   rendert nur bei Aufbau, Größenwechsel und Wiederherstellung, nicht fortlaufend.
   Geometrien, Materialien, Schattentexturen, Observer und Grafik-Kontext werden
   beim Schließen freigegeben. Editor-/Rahmenvorschauen bleiben SVG.
+- Die 3D-Karte orientiert sich am freigegebenen architektonischen Referenzbild:
+  sichtbar abgeschrägte weiße Wandkappen, hellgraue Seitenflächen und weiche,
+  bodennahe Kontaktschatten. Gerichtetes Licht erhält die Kantenmodellierung;
+  die graugrüne Bodenfläche hat eine dezente diffuse Aufhellung. Keine neuen
+  Sektorformen oder erfundenen Wandhöhen: Tiefe bleibt schematisch. Der weiche
+  Kontaktschatten wird einmalig aus den vorhandenen Polygonen erzeugt. Die weißen
+  Wand-Tags erhalten etwas mehr Fläche und größere Kürzel, ohne benachbarte
+  Markierungen zu überlagern oder zusätzliche Bodennamen einzuführen.
+  SVG und 3D-Kamera teilen denselben Rand für die sichtbaren Unterkanten;
+  die Klickflächen bleiben deckungsgleich mit den Wandoberflächen.
+- Der Boden der kompakten Karte folgt dem Referenzentwurf: sichtbar sanftes
+  Salbeigrün im Zentrum mit hellen, diffus beleuchteten Rändern, nicht nahezu
+  weißes Grau. Der Verlauf sitzt am festen Kartenviewport, nicht auf der
+  verschiebbaren 3D-Ebene: Zoom/Pan und WebGL-Fallback erzeugen keine Farbkante.
+  Zeichen-/Rahmenvorschauen behalten ihren neutralen Boden. Das Marken-Aktionsgrün
+  wird dafür nicht verändert (Nutzerkorrektur 07.10.2026).
 - Neutrale Wandtrennlinien: 0,65 CSSpx mit Zoomkompensation; aktive Kontur
-  1,5 CSSpx. Namen der KWS-Bereiche liegen auf kuratierten Bodenankern der
-  bekannten Zeichenvorlage und drehen sich mit der Karte, nicht mit dem Text.
+  1,5 CSSpx. Teilbereichsnamen stehen nur auf den Wandmarkierungen und bleiben
+  auch bei gedrehter Karte aufrecht.
 - In der Boulderansicht öffnet das Header-Kartenicon die Karte ohne zusätzlichen
   Liste/Karte-Umschalter. Suche, graue Kartenfläche, horizontale Abwahl-Chips und
   Ergebnisbutton passen zwischen Header und Navigation in den dynamischen Viewport.
   Kein Scrollen durch die Gestenfläche nötig. `Alle Boulder anzeigen` ohne Auswahl
   bzw. `Boulder anzeigen` mit Auswahl schließt die Karte, erhält Filter/Suche und
   zeigt den Listenbeginn direkt unter dem Header (Nutzerentscheidung 07.10.2026).
+- In der viewportfüllenden Boulderkarte ist der Platz für die Auswahlzeile bereits
+  ohne Auswahl reserviert. Erste Auswahl, Mehrfachauswahl, Abwahl und Zurücksetzen
+  verändern weder Kartenhöhe noch Maßstab oder Position. Chips bleiben einzeilig
+  horizontal scrollbar; ohne Auswahl erscheint keine zusätzliche Erklärzeile.
 
 Bisherige farbige Darstellung (historisch, weiterhin Referenz für Zeicheneditor):
 

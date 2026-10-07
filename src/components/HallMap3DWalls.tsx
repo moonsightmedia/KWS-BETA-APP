@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { BufferGeometry, Material, WebGLRenderer } from 'three';
-import { toHallMapDisplayPoint } from '@/lib/hallMapOrientation';
+import { HALL_MAP_3D_PADDING_UNITS, toHallMapDisplayPoint } from '@/lib/hallMapOrientation';
 import type { MapPoint, SectorMapRegion } from '@/types/hallMap';
 
 interface Props {
@@ -57,7 +57,7 @@ export function HallMap3DWalls({ regions, width, height, rotateClockwise, onRead
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.6;
+        renderer.toneMappingExposure = 1.2;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.setClearColor(0x000000, 0);
@@ -66,8 +66,8 @@ export function HallMap3DWalls({ regions, width, height, rotateClockwise, onRead
 
         const scene = new THREE.Scene();
         const unit = Math.max(Math.min(width, height) / 100, 1);
-        const bevel = 0.85 * unit;
-        const depth = 3.4 * unit;
+        const bevel = 1.1 * unit;
+        const depth = 5.4 * unit;
         const top = depth + bevel;
         const tilt = Math.PI / 5;
         const camera = new THREE.OrthographicCamera(-width / 2, width / 2, height / 2, -height / 2, 0.1, 10000);
@@ -75,11 +75,12 @@ export function HallMap3DWalls({ regions, width, height, rotateClockwise, onRead
         camera.position.set(0, -distance * Math.sin(tilt), top + distance * Math.cos(tilt));
         camera.lookAt(0, 0, top);
 
-        scene.add(new THREE.HemisphereLight(0xffffff, 0xe5e9e5, 1.6));
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        // Keep directional shading visible instead of washing out the bevels.
+        scene.add(new THREE.HemisphereLight(0xffffff, 0xdde3dc, 1.1));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
         const sunlight = new THREE.DirectionalLight(0xffffff, 2.5);
         releaseShadows.push(() => sunlight.shadow.dispose());
-        sunlight.position.set(-width * 0.7, height * 0.65, distance);
+        sunlight.position.set(-width * 0.7, height * 0.65, distance * 0.6);
         sunlight.castShadow = true;
         sunlight.shadow.mapSize.set(2048, 2048);
         sunlight.shadow.radius = 4;
@@ -88,12 +89,13 @@ export function HallMap3DWalls({ regions, width, height, rotateClockwise, onRead
         sunlight.shadow.bias = -0.0001;
         scene.add(sunlight);
 
-        const cap = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 });
-        const sides = new THREE.MeshStandardMaterial({ color: 0xe5e8e5, roughness: 1 });
-        const shadow = new THREE.ShadowMaterial({ opacity: 0.12 });
+        const cap = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.78 });
+        const sides = new THREE.MeshStandardMaterial({ color: 0xf0f2ef, roughness: 0.9 });
+        const shadow = new THREE.ShadowMaterial({ opacity: 0.08 });
         materials.push(cap, sides, shadow);
         let meshCount = 0;
-        for (const points of JSON.parse(footprints) as MapPoint[][]) {
+        const polygons = JSON.parse(footprints) as MapPoint[][];
+        for (const points of polygons) {
           if (points.length < 3) continue;
           const shape = new THREE.Shape();
           points.forEach((point, index) => {
@@ -105,7 +107,7 @@ export function HallMap3DWalls({ regions, width, height, rotateClockwise, onRead
           shape.closePath();
           const geometry = new THREE.ExtrudeGeometry(shape, {
             depth, steps: 1, bevelEnabled: true, bevelSize: bevel,
-            bevelThickness: bevel, bevelOffset: -bevel, bevelSegments: 2,
+            bevelThickness: bevel, bevelOffset: -bevel, bevelSegments: 3,
           });
           geometries.push(geometry);
           const mesh = new THREE.Mesh(geometry, [cap, sides]);
@@ -121,12 +123,56 @@ export function HallMap3DWalls({ regions, width, height, rotateClockwise, onRead
         receiver.receiveShadow = true;
         scene.add(receiver);
 
+        // A one-time soft contact shadow gives the walls weight on the floor.
+        // It uses the same footprints, never affects picking, and needs no
+        // post-processing pass or continuously running GPU render loop.
+        const contactWidth = width + 24 * unit;
+        const contactHeight = height / Math.cos(tilt) + 24 * unit;
+        const shadowCanvas = document.createElement('canvas');
+        const textureScale = 1024 / Math.max(contactWidth, contactHeight);
+        shadowCanvas.width = Math.ceil(contactWidth * textureScale);
+        shadowCanvas.height = Math.ceil(contactHeight * textureScale);
+        const context = shadowCanvas.getContext('2d');
+        if (context) {
+          for (const [blur, opacity] of [[2.4, 0.2], [0.8, 0.16]]) {
+            context.filter = `blur(${blur * unit * textureScale}px)`;
+            context.fillStyle = `rgba(50, 68, 54, ${opacity})`;
+            for (const points of polygons) {
+              if (points.length < 3) continue;
+              context.beginPath();
+              points.forEach((point, index) => {
+                const display = toHallMapDisplayPoint(point, rotateClockwise);
+                const worldX = display.x * width / 100 - width / 2;
+                const worldY = (height / 2 - display.y * height / 100) / Math.cos(tilt);
+                const x = (worldX + contactWidth / 2) * textureScale;
+                const y = (contactHeight / 2 - worldY) * textureScale;
+                if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
+              });
+              context.closePath();
+              context.fill();
+            }
+          }
+          const texture = new THREE.CanvasTexture(shadowCanvas);
+          texture.colorSpace = THREE.SRGBColorSpace;
+          releaseShadows.push(() => texture.dispose());
+          const contactMaterial = new THREE.MeshBasicMaterial({
+            map: texture, transparent: true, depthWrite: false, toneMapped: false,
+          });
+          materials.push(contactMaterial);
+          const contactGeometry = new THREE.PlaneGeometry(contactWidth, contactHeight);
+          geometries.push(contactGeometry);
+          const contact = new THREE.Mesh(contactGeometry, contactMaterial);
+          contact.position.z = -bevel + 0.01 * unit;
+          scene.add(contact);
+        }
+
         const draw = () => {
           if (cancelled || !renderer || renderer.getContext().isContextLost()) return;
           const { width: pixelsX, height: pixelsY } = node.getBoundingClientRect();
           if (pixelsX <= 0 || pixelsY <= 0) return;
           // Match SVG preserveAspectRatio="xMidYMid meet", including its padding.
-          const paddedX = width + 8 * unit, paddedY = height + 8 * unit;
+          const padding = 2 * HALL_MAP_3D_PADDING_UNITS * unit;
+          const paddedX = width + padding, paddedY = height + padding;
           const aspect = pixelsX / pixelsY;
           const viewX = Math.max(paddedX, paddedY * aspect);
           const viewY = Math.max(paddedY, paddedX / aspect);

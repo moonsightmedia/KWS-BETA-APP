@@ -4,7 +4,7 @@ import { AlertCircle, Check, ImageOff, MapPinned, RotateCcw, X } from 'lucide-re
 import { InteractiveMapStage } from '@/components/InteractiveMapStage';
 import { HallMap3DWalls } from '@/components/HallMap3DWalls';
 import { resolveHallMapSource } from '@/lib/hallMapSource';
-import { getHallMapDisplayGeometry, toHallMapDisplayPoint } from '@/lib/hallMapOrientation';
+import { HALL_MAP_3D_PADDING_UNITS, getHallMapDisplayGeometry, toHallMapDisplayPoint } from '@/lib/hallMapOrientation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,6 @@ import { useActiveHallMap, useSectorMapRegions } from '@/hooks/useHallMaps';
 import {
   countActiveBouldersForSectorIds,
   resolveSectorArea,
-  getSectorAreas,
   type BoulderSectorReference,
 } from '@/lib/sectorAreas';
 import { cn } from '@/lib/utils';
@@ -169,14 +168,14 @@ function buildMarkerLayout({
       : showCounts ? `${count} Boulder` : undefined;
   const longestLineLength = Math.max(visibleLine1.length, visibleLine2?.length ?? 0);
   const width = minimal
-    ? Math.max(7.2, visibleLine1.length * 2.7 + 2) * mapUnit
+    ? Math.max(8.4, visibleLine1.length * 3 + 2.4) * mapUnit
     : clamp(
         longestLineLength * (compact ? 1.58 : 1.72) * mapUnit + 3.8 * mapUnit,
         17 * mapUnit,
         compact ? 33 * mapUnit : 39 * mapUnit,
       );
   const height = minimal
-    ? 6.4 * mapUnit
+    ? 7.2 * mapUnit
     : visibleLine2 ? (compact ? 9.4 : 10.2) * mapUnit : (compact ? 7.1 : 7.7) * mapUnit;
   const edgeInset = 1.2 * mapUnit;
 
@@ -410,12 +409,13 @@ export function HallMapView({
 
   const selectedGroups = logicalMapGroups.filter(group => selectedLogicalGroupKeys.has(group.key));
 
-  const { src: backgroundImageSrc, width: sourceWidth, height: sourceHeight, supportsProposals: isKwsDrawing } = resolveHallMapSource(activeMap);
+  const { src: backgroundImageSrc, width: sourceWidth, height: sourceHeight } = resolveHallMapSource(activeMap);
   // Fixed-height editor previews stay horizontal; full mobile maps use portrait.
   const { width: mapWidth, height: mapHeight, rotateClockwise } = getHallMapDisplayGeometry(
     sourceWidth, sourceHeight, isMobile && lockAspectRatio,
   );
   const mapUnit = Math.max(Math.min(mapWidth, mapHeight) / 100, 1);
+  const mapPadding = (frameless ? HALL_MAP_3D_PADDING_UNITS : 4) * mapUnit;
   useEffect(() => setImageError(false), [backgroundImageSrc]);
 
   const markerLayouts = useMemo(() => {
@@ -456,28 +456,6 @@ export function HallMapView({
 
     return placeMarkerLayouts(entries, mapWidth, mapHeight, mapUnit);
   }, [boulderSectorReferences, countsBySectorId, frameless, logicalGroupSectorIds, logicalMapGroups, mapHeight, mapUnit, mapWidth, rotateClockwise, selectedLogicalGroupKeys, showCounts]);
-
-  // Wayfinding anchors sit in the open floor of the KWS plan, not in the
-  // bounding boxes of walls. Rotate labels with the same transform as polygons.
-  // Other plans use their wall bounds; these anchors never alter saved geometry.
-  const areaLabels = useMemo(() => getSectorAreas(sectors).flatMap(area => {
-    if (area.slug === 'kurze-platte') return [];
-    const members = renderedRegions.filter(({ sector }) => resolveSectorArea(sector).area?.slug === area.slug);
-    if (!members.length) return [];
-    const points = members.flatMap(({ region }) => region.points_json.map(point => toHallMapDisplayPoint(point, rotateClockwise)));
-    const minX = Math.min(...points.map(p => p.x)), maxX = Math.max(...points.map(p => p.x));
-    const minY = Math.min(...points.map(p => p.y)), maxY = Math.max(...points.map(p => p.y));
-    let x = (minX + maxX) / 2, y = (minY + maxY) / 2;
-    const floorAnchors: Record<string, MapPoint> = {
-      grotte: { x: 22, y: 74 }, bug: { x: 64, y: 75 },
-      'lange-platte': { x: 38, y: 33 }, 'top-out': { x: 56, y: 28 },
-      'couch-ecke': { x: 84, y: 57 },
-    };
-    if (isKwsDrawing && floorAnchors[area.slug]) {
-      ({ x, y } = toHallMapDisplayPoint(floorAnchors[area.slug], rotateClockwise));
-    }
-    return [{ ...area, x: clamp(x, 10, 90), y: clamp(y, 8, 92) }];
-  }), [isKwsDrawing, renderedRegions, rotateClockwise, sectors]);
 
   const handleSelectSector = (sector: Sector) => {
     setHoveredSectorKey(null);
@@ -585,7 +563,7 @@ export function HallMapView({
             className={fitContainer ? 'h-full' : undefined}
             viewportClassName={cn(
               frameless
-                ? 'min-h-[340px] rounded-kws-card border-0 bg-[hsl(var(--hall-map-floor))] sm:min-h-[500px]'
+                ? 'hall-map-architectural-floor min-h-[340px] rounded-kws-card border-0 sm:min-h-[500px]'
                 : compact
                   ? 'rounded-kws-card bg-[hsl(var(--hall-map-floor))]'
                   : 'min-h-[340px] rounded-kws-card bg-[hsl(var(--hall-map-floor))] sm:min-h-[480px]',
@@ -622,7 +600,7 @@ export function HallMapView({
               data-map-width={mapWidth}
               data-map-height={mapHeight}
               data-map-appearance="white-walls"
-              viewBox={`${-4 * mapUnit} ${-4 * mapUnit} ${mapWidth + 8 * mapUnit} ${mapHeight + 8 * mapUnit}`}
+              viewBox={`${-mapPadding} ${-mapPadding} ${mapWidth + 2 * mapPadding} ${mapHeight + 2 * mapPadding}`}
               preserveAspectRatio="xMidYMid meet"
               className="absolute inset-0 h-full w-full"
             >
@@ -696,15 +674,6 @@ export function HallMapView({
                   pointerEvents="none"
                 />;
               })}
-              {frameless && <g pointerEvents="none" aria-hidden="true">
-                {areaLabels.filter(area => selectedGroups.some(group => group.areaSlug === area.slug)).map(area => <text key={area.slug} data-map-area-label={area.slug}
-                  x={area.x * mapWidth / 100} y={area.y * mapHeight / 100} textAnchor="middle"
-                  fill="#192436" fontWeight="600" fontSize={3.6 * mapUnit}>
-                  {rotateClockwise && area.slug === 'lange-platte'
-                    ? <><tspan x={area.x * mapWidth / 100}>Lange</tspan><tspan x={area.x * mapWidth / 100} dy={4.4 * mapUnit}>Platte</tspan></>
-                    : area.name}
-                </text>)}
-              </g>}
               {logicalMapGroups.map((group) => {
                 const marker = markerLayouts.get(group.key);
                 if (!marker) return null;
@@ -778,7 +747,7 @@ export function HallMapView({
                       <tspan
                         x={marker.x}
                         y={marker.line2 ? marker.y - 1.12 * mapUnit : marker.y + 0.88 * mapUnit}
-                        fontSize={(frameless ? 3.45 : marker.compact ? 2.82 : 3.08) * mapUnit}
+                        fontSize={(frameless ? 3.8 : marker.compact ? 2.82 : 3.08) * mapUnit}
                         letterSpacing="0.005em"
                       >
                         {marker.line1}
@@ -806,39 +775,18 @@ export function HallMapView({
           </InteractiveMapStage>
         )}
 
-        {frameless && selectedGroups.length > 0 && !imageError && areaLabels.length === 0 ? (
-          <div
-            className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 px-2"
-            aria-label="Hallenbereiche"
-          >
-            {getSectorAreas(sectors).filter((area) => selectedGroups.some(group => group.areaSlug === area.slug)).map((area) => {
-              return (
-                <div key={area.slug} className="inline-flex items-center gap-1.5">
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-[2px] ring-1 ring-[#192436]/10"
-                    style={{ backgroundColor: 'white' }}
-                    aria-hidden="true"
-                  />
-                  <span className="text-[10px] font-semibold leading-none text-[#192436]/70">
-                    {area.name}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
       </div>
 
-      {!imageError && renderedRegions.length > 0 && (!frameless || selectedGroups.length > 0) && <div className={fitContainer ? 'flex shrink-0 items-center gap-2' : 'space-y-2'}>
+      {!imageError && renderedRegions.length > 0 && (fitContainer || !frameless || selectedGroups.length > 0) && <div className={fitContainer ? 'flex h-14 shrink-0 items-center gap-2' : 'space-y-2'}>
         <div className={fitContainer ? 'order-2 shrink-0' : 'flex min-h-11 items-center justify-between gap-3'}>
-          <p role="status" aria-live="polite" className={cn('text-xs font-medium text-foreground', fitContainer && 'sr-only')}>
+          {(!frameless || selectedGroups.length > 0) && <p role="status" aria-live="polite" className={cn('text-xs font-medium text-foreground', fitContainer && 'sr-only')}>
             {selectedGroups.length ? <>{selectedGroups.length} {selectedGroups.length === 1 ? 'Teilbereich' : 'Teilbereiche'} ausgewählt<span className="sr-only">: {selectedGroups.map(group => resolveSectorArea(group.sectors[0]).publicName).join(', ')}</span></> : 'Ganze Halle'}
-          </p>
-          {selectedGroups.length > 0 && <Button variant="ghost" size="sm" aria-label="Sektorauswahl zurücksetzen" onClick={onClearSector} className="shrink-0">
-            <RotateCcw className="h-4 w-4" /><span>Zurücksetzen</span>
+          </p>}
+          {selectedGroups.length > 0 && <Button variant="secondary" size="icon" aria-label="Sektorauswahl zurücksetzen" title="Sektorauswahl zurücksetzen" onClick={onClearSector} className="shrink-0">
+            <RotateCcw aria-hidden="true" />
           </Button>}
         </div>
-        {selectedGroups.length > 0 && <div className={fitContainer ? 'flex min-w-0 flex-1 gap-2 overflow-x-auto py-1' : 'flex flex-wrap gap-2'}>
+        {selectedGroups.length > 0 && <div className={fitContainer ? 'flex h-full min-w-0 flex-1 items-center gap-2 overflow-x-auto' : 'flex flex-wrap gap-2'}>
           {selectedGroups.map(group => {
             const name = resolveSectorArea(group.sectors[0]).publicName;
             return <button key={group.key} type="button" aria-label={`${name} abwählen`} onClick={() => handleDeselectGroup(group)} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-kws-control bg-white px-3 text-xs font-semibold text-foreground shadow-soft hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

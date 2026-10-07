@@ -1,5 +1,8 @@
 import type { MapPoint } from '@/types/hallMap';
 
+/** Shared SVG/camera framing leaves room for extruded sides and soft shadows. */
+export const HALL_MAP_3D_PADDING_UNITS = 6;
+
 /** Display-only rotation. Stored points and sector IDs never change. */
 export function getHallMapDisplayGeometry(width: number, height: number, mobile: boolean) {
   const rotateClockwise = mobile && width > height;
