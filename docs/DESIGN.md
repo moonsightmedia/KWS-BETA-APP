@@ -625,9 +625,10 @@ Kunden sehen die Hauptbereiche und darunter ihre Teilbereiche. Die fünf
 ursprünglichen Bereiche bleiben erhalten; neu angelegte Bereiche werden ergänzt.
 Beispiele: `Bug A`, `Bug B`, `Bug C`, `Bug D`.
 
-Auf der kompakten Karte selbst stehen ausschließlich die Teilbereichskürzel. Die
-Bereichsnamen werden in einer kleinen Legende unter der Karte erklärt. Dadurch
-bleibt die Karte lesbar, ohne die Kundschaft mit Altsektornamen zu belasten.
+Ohne Auswahl stehen auf der kompakten Karte nur die Teilbereichskürzel A–D bzw.
+neue Kürzel. Bereichsnamen und Auswahl-Erklärungen erscheinen erst für gewählte
+Bereiche; nach Abwahl/Reset verschwinden sie wieder. Keine ungewählte Bereichs-
+Legende oder „Ganze Halle“-Erklärzeile (Nutzerkorrektur 07.10.2026).
 
 ### 7.2 Zustände
 
@@ -639,8 +640,9 @@ Flächenzustände in `HallMapView`:
 - Auswahl: Markengrün-Kontur, weißer benannter Tag und dunkelblaues Häkchen.
   Hover bleibt gestrichelt dunkelblau; Tastaturfokus separat sichtbar.
 - Nicht gewählte Wände bleiben vollständig sichtbar, ohne Ausblenden/Abdunkeln.
-- Direktbeschriftungen im Kartenboden und kleine weiße Teilbereich-Tags ersetzen
-  die bunte Legende. Die ausgewählten Bereiche stehen als kompakte weiße
+- Direktbeschriftungen im Kartenboden werden nur für ausgewählte Bereiche
+  eingeblendet; kleine weiße Teilbereich-Tags bleiben auch ohne Auswahl sichtbar.
+  Die ausgewählten Bereiche stehen als kompakte weiße
   Abwahlaktionen darunter; Rücksetzen bleibt benannt erreichbar.
 - Die Karte wird aus den echten Polygonen gezeichnet, nicht als generiertes Bild.
   Das gespeicherte Kartenbild bleibt Zeichenreferenz bzw. Fallback ohne Polygone.
@@ -658,8 +660,12 @@ Flächenzustände in `HallMapView`:
 - Neutrale Wandtrennlinien: 0,65 CSSpx mit Zoomkompensation; aktive Kontur
   1,5 CSSpx. Namen der KWS-Bereiche liegen auf kuratierten Bodenankern der
   bekannten Zeichenvorlage und drehen sich mit der Karte, nicht mit dem Text.
-- In der Boulderansicht: Liste/Karte-Umschalter, benannte Abwahl-Chips und
-  `Boulder anzeigen` schließen die Karte ohne Verlust der Sektorauswahl.
+- In der Boulderansicht öffnet das Header-Kartenicon die Karte ohne zusätzlichen
+  Liste/Karte-Umschalter. Suche, graue Kartenfläche, horizontale Abwahl-Chips und
+  Ergebnisbutton passen zwischen Header und Navigation in den dynamischen Viewport.
+  Kein Scrollen durch die Gestenfläche nötig. `Alle Boulder anzeigen` ohne Auswahl
+  bzw. `Boulder anzeigen` mit Auswahl schließt die Karte, erhält Filter/Suche und
+  zeigt den Listenbeginn direkt unter dem Header (Nutzerentscheidung 07.10.2026).
 
 Bisherige farbige Darstellung (historisch, weiterhin Referenz für Zeicheneditor):
 
@@ -711,8 +717,8 @@ Bisherige farbige Darstellung (historisch, weiterhin Referenz für Zeicheneditor
 - Zoomrahmen: ungefähr `0.82–3.0`.
 - Die Karte darf weder Route-Swipes noch den normalen Seitenscroll versehentlich
   auslösen.
-- Die kompakte Boulderkarte erscheint hell, rahmenarm und mit der Legende direkt
-  darunter.
+- Die kompakte Boulderkarte erscheint hell und rahmenarm; unter ihr stehen nur
+  bei tatsächlicher Auswahl benannte Abwahlaktionen und die Auswahlzusammenfassung.
 
 ### 7.4 Bestätigte Korrektur: Bug A und Kurze Platte (07.10.2026)
 

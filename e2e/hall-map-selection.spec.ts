@@ -53,6 +53,30 @@ test('adjacent regions cannot steal taps through an invisible expanded hit area'
 });
 
 for (const width of [375, 768, 1280, 1920]) {
+  test(`sector explanations appear only for selected areas at ${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await open(page);
+    await expect(page.locator('[data-map-area-label]')).toHaveCount(0);
+    await expect(page.getByLabel('Hallenbereiche', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('status')).toHaveCount(0);
+    await expect(page.locator('[data-sector-marker-group="kurze-platte:A"] text')).toHaveText('A');
+    await page.screenshot({ path: `${output}/loop1-unselected-${width}.png`, animations: 'disabled' });
+    await page.locator('[data-sector-marker-group="bug:A"]').click();
+    await expect(page.locator('[data-map-area-label]')).toHaveCount(1);
+    await expect(page.locator('[data-map-area-label="bug"]')).toHaveText('Bug');
+    await expect(page.getByRole('status')).toContainText('Bug A');
+    await page.locator('[data-sector-marker-group="grotte:D"]').click();
+    await expect(page.locator('[data-map-area-label]')).toHaveCount(2);
+    await page.screenshot({ path: `${output}/loop2-selected-${width}.png`, animations: 'disabled' });
+    await page.getByRole('button', { name: 'Bug A abwählen', exact: true }).click();
+    await expect(page.locator('[data-map-area-label="bug"]')).toHaveCount(0);
+    await expect(page.locator('[data-map-area-label="grotte"]')).toHaveCount(1);
+    await page.getByRole('button', { name: 'Sektorauswahl zurücksetzen', exact: true }).click();
+    await expect(page.locator('[data-map-area-label]')).toHaveCount(0);
+    await expect(page.getByRole('status')).toHaveCount(0);
+    await expect(page.locator('[data-sector-marker-group]')).toHaveCount(19);
+  });
+
   test(`fine sector boundaries retain shape and selection at ${width}`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     await open(page);
@@ -139,7 +163,7 @@ for (const width of [375, 768, 1280, 1920]) {
     await expect(a).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: 'Sektorauswahl zurücksetzen', exact: true }).click();
     await expect(page.locator('[data-sector-marker-group][aria-pressed="true"]')).toHaveCount(0);
-    await expect(page.getByRole('status')).toHaveText('Ganze Halle');
+    await expect(page.getByRole('status')).toHaveCount(0);
     expect(errors).toEqual([]);
     expect(await page.evaluate(() => window.hallMapQA.writes)).toEqual([]);
   });
@@ -161,7 +185,7 @@ test('missing WebGL keeps the vector map and all selection controls usable', asy
   expect(await page.locator('[data-sector-region-group="kurze-platte:A"]').evaluate(node => getComputedStyle(node).fillOpacity)).toBe('1');
   await page.screenshot({ path: `${output}/${phase}-webgl-fallback-375.png`, animations: 'disabled' });
   await page.getByRole('button', { name: 'Sektorauswahl zurücksetzen', exact: true }).click();
-  await expect(page.getByRole('status')).toHaveText('Ganze Halle');
+  await expect(page.getByRole('status')).toHaveCount(0);
   expect(await page.evaluate(() => window.hallMapQA.writes)).toEqual([]);
 });
 
@@ -310,7 +334,7 @@ test('portrait mobile zoom retains transformed selection and fine contours', asy
 test('an empty ID array overrides the old single ID and conflicting names', async ({ page }) => {
   await open(page, 'mode=ids&staleSingle&staleNames');
   await expect(page.locator('[data-sector-marker-group][aria-pressed="true"]')).toHaveCount(0);
-  await expect(page.getByRole('status')).toHaveText('Ganze Halle');
+  await expect(page.getByRole('status')).toHaveCount(0);
 });
 
 test('the ID channel cannot colour a different sector from a stale name channel', async ({ page }) => {
@@ -320,13 +344,13 @@ test('the ID channel cannot colour a different sector from a stale name channel'
   await expect(page.locator('[data-sector-marker-group][aria-pressed="true"]')).toHaveCount(1);
 });
 
-for (const width of [375, 1280]) {
+for (const width of [375, 768, 1280, 1920]) {
   test(`actual Boulder page shares map and filter selection at ${width}`, async ({ page }) => {
     const engineRequests: string[] = [];
     const errors: string[] = [];
     page.on('request', request => { if (/\/three(?:\.|\/)/.test(request.url())) engineRequests.push(request.url()); });
     page.on('pageerror', error => errors.push(error.message));
-    await page.setViewportSize({ width, height: 1000 });
+    await page.setViewportSize({ width, height: 810 });
     await page.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.abort());
     for (const hook of ['useAuth', 'useColors', 'useSectors', 'useBoulders', 'useBoulderCommunity', 'useSectorSchedule', 'useHallMaps', 'useHasRole', 'useIsAdmin']) {
       await page.route(`**/src/hooks/${hook}.ts*`, route => route.fulfill({ contentType: 'application/javascript', body: "export * from '/test/fixtures/filter-user-hooks.ts';" }));
@@ -338,20 +362,34 @@ for (const width of [375, 1280]) {
     await page.getByRole('button', { name: 'Karte', exact: true }).click();
     await expect(page.locator('[data-map-renderer]')).toHaveAttribute('data-map-renderer', 'webgl', { timeout: 20000 });
     await expect(page.locator('[data-map-renderer]')).toHaveAttribute('data-mesh-count', '19');
+    await expect(page.getByRole('group', { name: 'Boulderansicht', exact: true })).toHaveCount(0);
+    const panel = page.getByRole('region', { name: 'Hallenkarten-Auswahl' });
+    const allResults = panel.getByRole('button', { name: 'Alle Boulder anzeigen', exact: true });
+    await expect(allResults).toBeInViewport();
+    const initialBox = await allResults.boundingBox();
+    expect(initialBox!.y + initialBox!.height).toBeLessThanOrEqual(810 - (width < 768 ? 88 : 0));
+    await page.screenshot({ path: `${output}/loop1-panel-${width}.png`, animations: 'disabled' });
     expect(engineRequests.length).toBeGreaterThan(0);
     const firstCanvas = await page.locator('[data-map-renderer] canvas').elementHandle();
+    await page.getByRole('button', { name: 'Boulder suchen', exact: true }).click();
+    await expect(panel.getByRole('textbox', { name: 'Boulder oder Bereich suchen', exact: true })).toBeFocused();
+    await expect(panel).toBeVisible();
     await page.locator('[data-sector-marker-group="bug:A"]').click();
     expect(await firstCanvas!.evaluate(node => node.isConnected)).toBe(true);
     await expect(page.locator('[data-sector-marker-group][aria-pressed="true"]')).toHaveCount(1);
     await expect(page.getByText('4 Boulder in Bug A', { exact: true })).toBeVisible();
     await page.mouse.move(0, 0);
     await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(panel.getByRole('button', { name: 'Boulder anzeigen', exact: true })).toBeInViewport();
     await page.screenshot({ path: `${output}/${phase}-page-selected-${width}.png`, animations: 'disabled' });
     await page.getByRole('button', { name: 'Boulder anzeigen', exact: true }).click();
     await expect(page.locator('[data-map-appearance]')).toHaveCount(0);
     expect(await firstCanvas!.evaluate(node => node.isConnected)).toBe(false);
     await expect.poll(() => firstCanvas!.evaluate((node: HTMLCanvasElement) => node.getContext('webgl2')?.isContextLost())).toBe(true);
     await expect(page.getByText('4 Boulder in Bug A', { exact: true })).toBeVisible();
+    await expect(page.getByText('4 Boulder in Bug A', { exact: true })).toBeInViewport();
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+    await expect(page.getByRole('button', { name: 'Karte', exact: true })).toBeFocused();
     await page.getByRole('button', { name: 'Karte', exact: true }).click();
     await expect(page.locator('[data-map-renderer]')).toHaveAttribute('data-map-renderer', 'webgl');
     await expect(page.locator('[data-map-renderer] canvas')).toHaveCount(1);
@@ -370,6 +408,29 @@ for (const width of [375, 1280]) {
     await dialog.getByRole('button', { name: '8 Boulder anzeigen', exact: true }).click();
     await page.getByRole('button', { name: 'Karte', exact: true }).click();
     await expect(page.locator('[data-sector-marker-group][aria-pressed="true"]')).toHaveCount(0);
+    await panel.getByRole('textbox', { name: 'Boulder oder Bereich suchen', exact: true }).fill('nichtvorhanden');
+    await expect(page.getByText('0 Boulder', { exact: true })).toBeVisible();
+    await panel.getByRole('button', { name: 'Kartensuche zurücksetzen', exact: true }).click();
+    await expect(page.getByText('8 Boulder', { exact: true })).toBeVisible();
+    // A short display with native safe areas must still expose the action;
+    // all selected chips remain in a single horizontal strip.
+    await page.setViewportSize({ width, height: 667 });
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty('--app-safe-area-top', '24px');
+      document.documentElement.style.setProperty('--app-safe-area-bottom', '20px');
+    });
+    for (const key of ['bug:A', 'bug:B', 'bug:C', 'bug:D', 'grotte:A', 'grotte:B', 'grotte:C', 'grotte:D']) {
+      await page.locator(`[data-sector-marker-group="${key}"]`).click();
+    }
+    await expect(panel.getByRole('button', { name: 'Boulder anzeigen', exact: true })).toBeInViewport();
+    const manyBox = await panel.getByRole('button', { name: 'Boulder anzeigen', exact: true }).boundingBox();
+    expect(manyBox!.y + manyBox!.height).toBeLessThanOrEqual(667 - (width < 768 ? 108 : 0));
+    await panel.getByRole('button', { name: 'Sektorauswahl zurücksetzen', exact: true }).click();
+    await expect(panel.getByRole('button', { name: 'Alle Boulder anzeigen', exact: true })).toBeInViewport();
+    await page.screenshot({ path: `${output}/loop2-panel-short-${width}.png`, animations: 'disabled' });
+    await panel.getByRole('button', { name: 'Alle Boulder anzeigen', exact: true }).click();
+    await expect(panel).toHaveCount(0);
+    await expect(page.getByText('8 Boulder', { exact: true })).toBeInViewport();
     expect(await page.evaluate(() => window.setterQA.writes)).toEqual([]);
     expect(errors).toEqual([]);
   });

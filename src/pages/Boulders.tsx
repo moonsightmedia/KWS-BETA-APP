@@ -5,7 +5,7 @@ import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, ChevronDown, Ch
 import { BoulderFilterControls, BoulderFilterPanel, BoulderSortPanel, FilterSection, FilterToggle } from '@/components/boulder/BoulderFilterControls';
 import { SectorFilterOptions } from '@/components/boulder/SectorFilterOptions';
 import { DashboardHeader } from '@/components/DashboardHeader';
-import { HallMapView } from '@/components/HallMapView';
+import { BoulderMapPanel } from '@/components/boulder/BoulderMapPanel';
 import { useSidebar } from '@/components/SidebarContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -113,6 +113,7 @@ const Boulders = () => {
   const [collapsedAreaNames, setCollapsedAreaNames] = useState<Set<string>>(getStoredCollapsedAreas);
   const headerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const mapSearchInputRef = useRef<HTMLInputElement>(null);
   const openPanelsRef = useRef({ filters: false, map: false, search: false });
 
   const colorsQuery = useColors();
@@ -188,6 +189,7 @@ const Boulders = () => {
   }, [authLoading, user, queryClient]);
 
   const scrollPageToTop = () => {
+    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth';
     const scrollTargets = [
       document.scrollingElement,
       document.documentElement,
@@ -195,11 +197,11 @@ const Boulders = () => {
     ].filter((element): element is Element => element instanceof Element);
 
     scrollTargets.forEach((element) => {
-      element.scrollTo({ top: 0, behavior: 'smooth' });
+      element.scrollTo({ top: 0, behavior });
     });
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    headerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.scrollTo({ top: 0, behavior });
+    headerRef.current?.scrollIntoView({ behavior, block: 'start' });
   };
 
   useLayoutEffect(() => {
@@ -469,13 +471,13 @@ const Boulders = () => {
         <div className="flex shrink-0 gap-1.5">
           <button
             type='button'
-            onClick={() => toggleToolbarPanel('search')}
+            onClick={() => showMap ? mapSearchInputRef.current?.focus() : toggleToolbarPanel('search')}
             className={cn(
               'relative flex h-10 w-10 items-center justify-center rounded-kws-control transition-colors focus-visible:outline-none focus-visible:ring-0 focus-visible:shadow-[0_0_0_3px_rgba(19,17,43,0.18)]',
               showSearch || searchQuery.trim() ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'
             )}
             aria-label='Boulder suchen'
-            aria-expanded={showSearch}
+            aria-expanded={showSearch || showMap}
           >
             <Search className='h-4 w-4' strokeWidth={1.9} />
             {!showSearch && searchQuery.trim() ? (
@@ -513,7 +515,7 @@ const Boulders = () => {
           </button>
         </div>
       )}
-      belowSlot={(showSearch || Boolean(searchQuery.trim()) || activeFilterCount > 0 || showFilters) ? (
+      belowSlot={(!showMap && (showSearch || Boolean(searchQuery.trim()) || activeFilterCount > 0 || showFilters)) ? (
         <>
       {showSearch && (
         <div className='relative animate-in slide-in-from-top-2 duration-200'>
@@ -689,23 +691,26 @@ const Boulders = () => {
           style={{ paddingTop: showMap ? '0' : '0.75rem' }}
         >
           {showMap && (
-            <section data-swipe-ignore className="-mx-4 mb-4 bg-[#FAFCF9] px-3 py-3 animate-in slide-in-from-top-2 duration-200 md:-mx-8 md:px-8 md:py-5">
-              <div role="group" aria-label="Boulderansicht" className="mx-auto mb-4 flex h-11 max-w-[280px] rounded-kws-control bg-secondary p-1">
-                <button type="button" aria-pressed={false} onClick={() => setShowMap(false)} className="flex-1 rounded-kws-control text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Liste</button>
-                <button type="button" aria-label="Kartenansicht aktiv" aria-pressed={true} className="flex-1 rounded-kws-control bg-primary text-sm font-semibold text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground">Karte</button>
-              </div>
-              <HallMapView
+              <BoulderMapPanel
+                headerRef={headerRef}
+                searchInputRef={mapSearchInputRef}
                 sectors={sectors ?? []}
                 countsBySectorId={hallMapCounts}
                 boulderSectorReferences={hallMapBoulders}
-                selectedSectorNames={sectorFilters}
-                onSelectSector={handleMapSectorSelect}
-                onClearSector={() => setSectorFilters([])}
-                onClose={() => setShowMap(false)}
-                compact
-                frameless
+                selected={sectorFilters}
+                query={searchQuery}
+                onQueryChange={setSearchQuery}
+                onSelect={handleMapSectorSelect}
+                onClear={() => setSectorFilters([])}
+                onShowResults={() => {
+                  setShowMap(false);
+                  requestAnimationFrame(() => {
+                    // Closing the panel lays out the filtered list directly below the header.
+                    window.scrollTo({ top: 0, behavior: 'instant' });
+                    headerRef.current?.querySelector<HTMLButtonElement>('button[aria-label="Karte"]')?.focus({ preventScroll: true });
+                  });
+                }}
               />
-            </section>
           )}
 
           <div className="mb-2 flex items-center justify-between gap-3 px-1">

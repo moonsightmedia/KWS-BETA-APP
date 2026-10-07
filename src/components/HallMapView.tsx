@@ -39,6 +39,8 @@ interface HallMapViewProps {
   disablePanZoom?: boolean;
   lockAspectRatio?: boolean;
   viewportClassName?: string;
+  /** Keep the stage and selection actions inside a viewport-sized panel. */
+  fitContainer?: boolean;
 }
 
 type MarkerLayout = {
@@ -282,6 +284,7 @@ export function HallMapView({
   disablePanZoom = false,
   lockAspectRatio = true,
   viewportClassName,
+  fitContainer = false,
 }: HallMapViewProps) {
   const appearanceId = useId().replace(/:/g, '');
   const wallFillId = `${appearanceId}-wall-fill`;
@@ -533,7 +536,7 @@ export function HallMapView({
   }
 
   return (
-    <div className={cn('w-full max-w-full overflow-hidden', compact ? 'space-y-3' : 'space-y-4')}>
+    <div className={cn('w-full max-w-full overflow-hidden', fitContainer ? 'flex min-h-0 flex-1 flex-col gap-3' : compact ? 'space-y-3' : 'space-y-4')}>
       {!compact && !frameless && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -565,7 +568,8 @@ export function HallMapView({
           frameless
             ? 'rounded-none border-0 bg-transparent p-0'
             : 'rounded-kws-card border border-[#DBE3DD] bg-[#F5F8F5]',
-          !frameless && (compact ? 'p-2' : 'p-2.5 sm:p-3')
+          !frameless && (compact ? 'p-2' : 'p-2.5 sm:p-3'),
+          fitContainer && 'min-h-0 flex-1',
         )}
       >
         {imageError ? (
@@ -578,6 +582,7 @@ export function HallMapView({
           <InteractiveMapStage
             width={mapWidth}
             height={mapHeight}
+            className={fitContainer ? 'h-full' : undefined}
             viewportClassName={cn(
               frameless
                 ? 'min-h-[340px] rounded-kws-card border-0 bg-[hsl(var(--hall-map-floor))] sm:min-h-[500px]'
@@ -585,9 +590,10 @@ export function HallMapView({
                   ? 'rounded-kws-card bg-[hsl(var(--hall-map-floor))]'
                   : 'min-h-[340px] rounded-kws-card bg-[hsl(var(--hall-map-floor))] sm:min-h-[480px]',
               viewportClassName,
+              fitContainer && '!h-full !min-h-0',
             )}
             compact={compact}
-            lockAspectRatio={lockAspectRatio}
+            lockAspectRatio={fitContainer ? false : lockAspectRatio}
             disablePanZoom={disablePanZoom}
             onViewportChange={handleMapViewportChange}
             panPadding={frameless ? 180 : 0}
@@ -691,7 +697,7 @@ export function HallMapView({
                 />;
               })}
               {frameless && <g pointerEvents="none" aria-hidden="true">
-                {areaLabels.map(area => <text key={area.slug} data-map-area-label={area.slug}
+                {areaLabels.filter(area => selectedGroups.some(group => group.areaSlug === area.slug)).map(area => <text key={area.slug} data-map-area-label={area.slug}
                   x={area.x * mapWidth / 100} y={area.y * mapHeight / 100} textAnchor="middle"
                   fill="#192436" fontWeight="600" fontSize={3.6 * mapUnit}>
                   {rotateClockwise && area.slug === 'lange-platte'
@@ -800,12 +806,12 @@ export function HallMapView({
           </InteractiveMapStage>
         )}
 
-        {frameless && !imageError && areaLabels.length === 0 ? (
+        {frameless && selectedGroups.length > 0 && !imageError && areaLabels.length === 0 ? (
           <div
             className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 px-2"
             aria-label="Hallenbereiche"
           >
-            {getSectorAreas(sectors).filter((area) => logicalMapGroups.some(group => group.areaSlug === area.slug)).map((area) => {
+            {getSectorAreas(sectors).filter((area) => selectedGroups.some(group => group.areaSlug === area.slug)).map((area) => {
               return (
                 <div key={area.slug} className="inline-flex items-center gap-1.5">
                   <span
@@ -823,19 +829,19 @@ export function HallMapView({
         ) : null}
       </div>
 
-      {!imageError && renderedRegions.length > 0 && <div className="space-y-2">
-        <div className="flex min-h-11 items-center justify-between gap-3">
-          <p role="status" aria-live="polite" className="text-xs font-medium text-foreground">
+      {!imageError && renderedRegions.length > 0 && (!frameless || selectedGroups.length > 0) && <div className={fitContainer ? 'flex shrink-0 items-center gap-2' : 'space-y-2'}>
+        <div className={fitContainer ? 'order-2 shrink-0' : 'flex min-h-11 items-center justify-between gap-3'}>
+          <p role="status" aria-live="polite" className={cn('text-xs font-medium text-foreground', fitContainer && 'sr-only')}>
             {selectedGroups.length ? <>{selectedGroups.length} {selectedGroups.length === 1 ? 'Teilbereich' : 'Teilbereiche'} ausgewählt<span className="sr-only">: {selectedGroups.map(group => resolveSectorArea(group.sectors[0]).publicName).join(', ')}</span></> : 'Ganze Halle'}
           </p>
           {selectedGroups.length > 0 && <Button variant="ghost" size="sm" aria-label="Sektorauswahl zurücksetzen" onClick={onClearSector} className="shrink-0">
             <RotateCcw className="h-4 w-4" /><span>Zurücksetzen</span>
           </Button>}
         </div>
-        {selectedGroups.length > 0 && <div className="flex flex-wrap gap-2">
+        {selectedGroups.length > 0 && <div className={fitContainer ? 'flex min-w-0 flex-1 gap-2 overflow-x-auto py-1' : 'flex flex-wrap gap-2'}>
           {selectedGroups.map(group => {
             const name = resolveSectorArea(group.sectors[0]).publicName;
-            return <button key={group.key} type="button" aria-label={`${name} abwählen`} onClick={() => handleDeselectGroup(group)} className="inline-flex min-h-11 items-center gap-2 rounded-kws-control bg-white px-3 text-xs font-semibold text-foreground shadow-soft hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            return <button key={group.key} type="button" aria-label={`${name} abwählen`} onClick={() => handleDeselectGroup(group)} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-kws-control bg-white px-3 text-xs font-semibold text-foreground shadow-soft hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <Check className="h-4 w-4 text-primary-ink" aria-hidden="true" />{name}<X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>;
           })}
@@ -843,7 +849,7 @@ export function HallMapView({
       </div>}
 
       {frameless && onClose && !imageError && renderedRegions.length > 0 && (
-        <Button className="w-full" onClick={onClose}>Boulder anzeigen</Button>
+        <Button className="w-full shrink-0" onClick={onClose}>{fitContainer && selectedGroups.length === 0 ? 'Alle Boulder anzeigen' : 'Boulder anzeigen'}</Button>
       )}
 
       {renderedRegions.length === 0 && !imageError && !frameless && (

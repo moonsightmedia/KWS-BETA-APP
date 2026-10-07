@@ -84,11 +84,11 @@ test('app layouts preserve vector geometry without requiring the obsolete backgr
   await expect(page.locator('img[src*="hall-map-base"]')).toHaveCount(0);
 });
 
-test('new main area appears in both map legends and extended code fits its marker', async ({ page }) => {
+test('new main area keeps its accessible name and extended code fits its marker', async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 900 });
   await openFixture(page, 'hallmap', 'public');
   await page.goto('/test/fixtures/admin-hallmap.html?state=hierarchy&view=public&extended=1');
-  await expect(page.locator('[data-map-area-label="training"]')).toContainText('Training');
+  await expect(page.locator('[data-map-area-label="training"]')).toHaveCount(0);
   const label = page.locator('svg text').filter({ hasText: /^A12$/ });
   await expect(label).toBeVisible();
   const fits = await label.evaluate((element: SVGGraphicsElement) => {
@@ -96,6 +96,7 @@ test('new main area appears in both map legends and extended code fits its marke
     return element.getBBox().width < Number(rect.getAttribute('width'));
   });
   expect(fits).toBe(true);
+  await expect(page.locator('[data-sector-marker-group="training:A12"]')).toHaveAttribute('aria-label', /Training A12/);
   await page.goto('/test/fixtures/admin-hallmap.html?state=hierarchy&extended=1');
   await expect(page.getByLabel('Farblegende der Hallenbereiche')).toContainText('Training');
   expect(await page.evaluate(() => window.hallMapQA.writes)).toEqual([]);
