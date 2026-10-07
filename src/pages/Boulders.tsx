@@ -690,6 +690,10 @@ const Boulders = () => {
         >
           {showMap && (
             <section data-swipe-ignore className="-mx-4 mb-4 bg-[#FAFCF9] px-3 py-3 animate-in slide-in-from-top-2 duration-200 md:-mx-8 md:px-8 md:py-5">
+              <div role="group" aria-label="Boulderansicht" className="mx-auto mb-4 flex h-11 max-w-[280px] rounded-kws-control bg-secondary p-1">
+                <button type="button" aria-pressed={false} onClick={() => setShowMap(false)} className="flex-1 rounded-kws-control text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Liste</button>
+                <button type="button" aria-label="Kartenansicht aktiv" aria-pressed={true} className="flex-1 rounded-kws-control bg-primary text-sm font-semibold text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground">Karte</button>
+              </div>
               <HallMapView
                 sectors={sectors ?? []}
                 countsBySectorId={hallMapCounts}
@@ -697,6 +701,7 @@ const Boulders = () => {
                 selectedSectorNames={sectorFilters}
                 onSelectSector={handleMapSectorSelect}
                 onClearSector={() => setSectorFilters([])}
+                onClose={() => setShowMap(false)}
                 compact
                 frameless
               />

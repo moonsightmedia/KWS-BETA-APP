@@ -55,6 +55,11 @@ All colors MUST be HSL.
     --radius-kws-control: 0.5rem;
     --radius-kws-card: 0.75rem;
     --kws-icon-stroke: 1.75;
+    /* Neutral architectural hall map: white walls, softly tinted floor. */
+    --hall-map-floor: 132 13% 88%;
+    --hall-map-wall-top: 0 0% 100%;
+    --hall-map-wall-bottom: 120 6% 96%;
+    --hall-map-wall-edge: 130 5% 72%;
 
     /* Dashboard specific colors */
     --sidebar-bg: 0 0% 100%;

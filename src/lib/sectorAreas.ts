@@ -5,6 +5,7 @@ export type CanonicalSectorAreaSlug =
   | 'couch-ecke'
   | 'top-out'
   | 'lange-platte'
+  | 'kurze-platte'
   | 'grotte';
 
 export interface CanonicalSectorArea extends SectorArea {
@@ -23,17 +24,23 @@ export interface SectorAreaPalette {
   tagTextHighlighted: string;
 }
 
-/** The five stable, customer-facing names used throughout the app. */
+/** The stable, customer-facing names used throughout the app. */
 export const SECTOR_AREAS: readonly CanonicalSectorArea[] = [
   { name: 'Bug', slug: 'bug', sortOrder: 1 },
   { name: 'Couch-Ecke', slug: 'couch-ecke', sortOrder: 2 },
   { name: 'Top-Out', slug: 'top-out', sortOrder: 3 },
   { name: 'Lange Platte', slug: 'lange-platte', sortOrder: 4 },
   { name: 'Grotte', slug: 'grotte', sortOrder: 5 },
+  { name: 'Kurze Platte', slug: 'kurze-platte', sortOrder: 6 },
 ] as const;
 
 /** Stable wayfinding colors: every A-D subarea inherits its parent area's palette. */
 export const SECTOR_AREA_PALETTES: Readonly<Record<CanonicalSectorAreaSlug, SectorAreaPalette>> = {
+  'kurze-platte': {
+    regionFill: '#E9F0E7', regionFillHighlighted: '#CEE3CA', regionStroke: 'white',
+    regionStrokeHighlighted: '#36B531', tagFill: 'white', tagFillHighlighted: '#36B531',
+    tagStroke: '#D4E1D6', tagText: '#192436', tagTextHighlighted: '#192436',
+  },
   bug: {
     regionFill: '#55D04A',
     regionFillHighlighted: '#2FAF2A',
@@ -116,14 +123,14 @@ export interface LegacySectorAreaMapping {
 /**
  * LEGACY COMPATIBILITY ONLY.
  *
- * This matrix keeps the five-area UI functional before all environments have
+ * This matrix keeps the canonical area UI functional before all environments have
  * the structured `area`/`subarea_code` database fields. Structured data always
  * wins. Keep the old names because map polygons, QR links and boulders still
  * reference the corresponding technical sector IDs.
  */
 export const LEGACY_SECTOR_AREA_MAPPING: readonly LegacySectorAreaMapping[] = [
   { legacyName: 'Atta-Höhle', areaSlug: 'bug', subareaCode: 'A', sortOrder: 1 },
-  { legacyName: 'Felsenmeer', areaSlug: 'bug', subareaCode: 'A', sortOrder: 2 },
+  { legacyName: 'Felsenmeer', areaSlug: 'kurze-platte', subareaCode: 'A', sortOrder: 1 },
   { legacyName: 'Steuerbord', areaSlug: 'bug', subareaCode: 'B', sortOrder: 3 },
   { legacyName: 'Bug', areaSlug: 'bug', subareaCode: 'C', sortOrder: 4 },
   { legacyName: 'Buckbord', areaSlug: 'bug', subareaCode: 'D', sortOrder: 5 },
@@ -251,6 +258,16 @@ export const resolveSectorArea = (sector: SectorAreaSource): ResolvedSectorArea 
 
   const structuredAreaName = sector.area?.name?.trim();
   const structuredAreaSlug = normalizeAreaSlug(sector.area?.slug || structuredAreaName);
+  // Confirmed KWS correction: only the obsolete Felsenmeer -> Bug A mapping
+  // is superseded. Preserve physical IDs and honour later explicit reassignments.
+  const storedCode = normalizeSubareaCode(sector.subareaCode ?? sector.subarea_code);
+  if (legacyName === 'Felsenmeer' && (!structuredAreaSlug || structuredAreaSlug === 'bug')
+    && (!storedCode || storedCode === 'A')) {
+    return {
+      legacyName, publicName: 'Kurze Platte', area: canonicalAreaBySlug.get('kurze-platte'),
+      subareaCode: 'A', sortOrder: 1, usedLegacyMapping: true,
+    };
+  }
   const areaTemplate = canonicalStructuredArea || fallbackArea;
   const areaName = structuredAreaName || areaTemplate?.name;
   const areaSlug = structuredAreaSlug || areaTemplate?.slug;
@@ -274,7 +291,8 @@ export const resolveSectorArea = (sector: SectorAreaSource): ResolvedSectorArea 
 
   return {
     legacyName,
-    publicName: area && subareaCode ? `${area.name} ${subareaCode}` : legacyName,
+    publicName: area?.slug === 'kurze-platte' && subareaCode === 'A'
+      ? area.name : area && subareaCode ? `${area.name} ${subareaCode}` : legacyName,
     area,
     subareaCode,
     sortOrder,
@@ -292,7 +310,7 @@ export const getSectorAreas = (sectors: readonly SectorAreaSource[]): SectorArea
   return [...areas.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'de-DE'));
 };
 
-/** Retains the five initial areas and includes new structured areas without losing IDs. */
+/** Retains the canonical areas and includes new structured areas without losing IDs. */
 export const groupSectorsByArea = (sectors: readonly Sector[]): SectorAreaGroup[] => {
   return getSectorAreas(sectors).map((canonicalArea) => {
     const areaSectors = sectors
@@ -323,7 +341,7 @@ export const groupSectorsByArea = (sectors: readonly Sector[]): SectorAreaGroup[
 
       subareaMap.set(resolved.subareaCode, {
         code: resolved.subareaCode,
-        name: `${canonicalArea.name} ${resolved.subareaCode}`,
+        name: resolved.publicName,
         sectors: [sector],
         sectorIds: [sector.id],
         sortOrder: resolved.sortOrder ?? Number.MAX_SAFE_INTEGER,
@@ -366,7 +384,7 @@ export const countActiveBouldersForSectorIds = (
 };
 
 /** Admin views retain every physical record, including unassigned/custom areas.
- * Never merge IDs here: Bug A intentionally has two independently editable polygons.
+ * Never merge IDs here: physical records remain independently editable.
  */
 export const groupAdminSectors = <T extends SectorAreaSource>(sectors: readonly T[], search = '') => {
   const term = search.trim().toLocaleLowerCase('de-DE');

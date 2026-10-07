@@ -59,7 +59,7 @@ test('edit: public areas are grouped once; footer stays reachable when scrolling
   await page.getByRole('button', { name: /Filter öffnen/ }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('button', { name: 'Sektor Bug A', exact: true })).toHaveCount(1);
-  await expect(dialog.getByRole('button', { name: /^Sektor / })).toHaveCount(18);
+  await expect(dialog.getByRole('button', { name: /^Sektor / })).toHaveCount(19);
   await dialog.getByRole('button', { name: 'Bug: alle Teilbereiche', exact: true }).click();
   await expect(dialog.getByRole('button', { name: 'Sektor Bug A', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(dialog.getByRole('button', { name: 'Sektor Bug D', exact: true })).toHaveAttribute('aria-pressed', 'true');

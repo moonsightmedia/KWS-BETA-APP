@@ -1,16 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { AlertCircle, Check, ImageOff, MapPinned, RotateCcw, X } from 'lucide-react';
 
 import { InteractiveMapStage } from '@/components/InteractiveMapStage';
+import { HallMap3DWalls } from '@/components/HallMap3DWalls';
 import { resolveHallMapSource } from '@/lib/hallMapSource';
+import { getHallMapDisplayGeometry, toHallMapDisplayPoint } from '@/lib/hallMapOrientation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useActiveHallMap, useSectorMapRegions } from '@/hooks/useHallMaps';
 import {
   countActiveBouldersForSectorIds,
-  getSectorAreaPalette,
   resolveSectorArea,
   getSectorAreas,
   type BoulderSectorReference,
@@ -66,8 +68,9 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function polygonToString(points: MapPoint[], width: number, height: number) {
+function polygonToString(points: MapPoint[], width: number, height: number, rotateClockwise: boolean) {
   return points
+    .map(point => toHallMapDisplayPoint(point, rotateClockwise))
     .map((point) => `${(point.x / 100) * width},${(point.y / 100) * height}`)
     .join(' ');
 }
@@ -280,9 +283,19 @@ export function HallMapView({
   lockAspectRatio = true,
   viewportClassName,
 }: HallMapViewProps) {
+  const appearanceId = useId().replace(/:/g, '');
+  const wallFillId = `${appearanceId}-wall-fill`;
+  const wallShadowId = `${appearanceId}-wall-shadow`;
+  const markerShadowId = `${appearanceId}-marker-shadow`;
   const [imageError, setImageError] = useState(false);
+  const isMobile = useIsMobile();
   const [hoveredSectorKey, setHoveredSectorKey] = useState<string | null>(null);
   const [focusedSectorKey, setFocusedSectorKey] = useState<string | null>(null);
+  const [mapScale, setMapScale] = useState(1);
+  const [walls3DReady, setWalls3DReady] = useState(false);
+  // vectorEffect handles SVG/viewBox scaling; the stage's CSS zoom needs
+  // separate compensation to keep the contour visually fine when enlarged.
+  const handleMapViewportChange = useCallback(({ scale }: { scale: number }) => setMapScale(scale), []);
   const { session, loading: authLoading } = useAuth();
   const queriesEnabled = !authLoading;
   const accessToken = session?.access_token ?? null;
@@ -331,6 +344,8 @@ export function HallMapView({
       left.anchorY - right.anchorY || left.anchorX - right.anchorX,
     );
   }, [renderedRegions]);
+
+  const wallRegions = useMemo(() => renderedRegions.map(({ region }) => region), [renderedRegions]);
 
   const logicalGroupKeysBySectorId = useMemo(
     () => new Map(logicalMapGroups.flatMap((group) => group.sectors.map((sector) => [sector.id, group.key] as const))),
@@ -392,7 +407,11 @@ export function HallMapView({
 
   const selectedGroups = logicalMapGroups.filter(group => selectedLogicalGroupKeys.has(group.key));
 
-  const { src: backgroundImageSrc, width: mapWidth, height: mapHeight } = resolveHallMapSource(activeMap);
+  const { src: backgroundImageSrc, width: sourceWidth, height: sourceHeight, supportsProposals: isKwsDrawing } = resolveHallMapSource(activeMap);
+  // Fixed-height editor previews stay horizontal; full mobile maps use portrait.
+  const { width: mapWidth, height: mapHeight, rotateClockwise } = getHallMapDisplayGeometry(
+    sourceWidth, sourceHeight, isMobile && lockAspectRatio,
+  );
   const mapUnit = Math.max(Math.min(mapWidth, mapHeight) / 100, 1);
   useEffect(() => setImageError(false), [backgroundImageSrc]);
 
@@ -408,14 +427,17 @@ export function HallMapView({
       const count = boulderSectorReferences
         ? countActiveBouldersForSectorIds(boulderSectorReferences, sectorIds)
         : sectorIds.reduce((sum, sectorId) => sum + (countsBySectorId[sectorId] ?? 0), 0);
+      const anchor = toHallMapDisplayPoint({ x: group.anchorX, y: group.anchorY }, rotateClockwise);
 
       return {
         key: group.key,
         marker: buildMarkerLayout({
-          anchorX: group.anchorX,
-          anchorY: group.anchorY,
+          anchorX: anchor.x,
+          anchorY: anchor.y,
           line1: frameless
-            ? group.subareaCode ?? group.areaName ?? group.sectors[0]?.name ?? 'Bereich'
+            ? group.areaSlug === 'kurze-platte' ? group.subareaCode ?? 'A'
+              : selectedLogicalGroupKeys.has(group.key) ? resolveSectorArea(group.sectors[0]).publicName
+                : group.subareaCode ?? group.areaName ?? group.sectors[0]?.name ?? 'Bereich'
             : group.areaName ?? group.sectors[0]?.name ?? 'Bereich',
           line2: frameless ? undefined : group.subareaCode,
           count,
@@ -430,12 +452,29 @@ export function HallMapView({
     });
 
     return placeMarkerLayouts(entries, mapWidth, mapHeight, mapUnit);
-  }, [boulderSectorReferences, countsBySectorId, frameless, logicalGroupSectorIds, logicalMapGroups, mapHeight, mapUnit, mapWidth, showCounts]);
+  }, [boulderSectorReferences, countsBySectorId, frameless, logicalGroupSectorIds, logicalMapGroups, mapHeight, mapUnit, mapWidth, rotateClockwise, selectedLogicalGroupKeys, showCounts]);
 
-  const visibleAreaSlugs = useMemo(
-    () => new Set(logicalMapGroups.map((group) => group.areaSlug).filter(Boolean)),
-    [logicalMapGroups],
-  );
+  // Wayfinding anchors sit in the open floor of the KWS plan, not in the
+  // bounding boxes of walls. Rotate labels with the same transform as polygons.
+  // Other plans use their wall bounds; these anchors never alter saved geometry.
+  const areaLabels = useMemo(() => getSectorAreas(sectors).flatMap(area => {
+    if (area.slug === 'kurze-platte') return [];
+    const members = renderedRegions.filter(({ sector }) => resolveSectorArea(sector).area?.slug === area.slug);
+    if (!members.length) return [];
+    const points = members.flatMap(({ region }) => region.points_json.map(point => toHallMapDisplayPoint(point, rotateClockwise)));
+    const minX = Math.min(...points.map(p => p.x)), maxX = Math.max(...points.map(p => p.x));
+    const minY = Math.min(...points.map(p => p.y)), maxY = Math.max(...points.map(p => p.y));
+    let x = (minX + maxX) / 2, y = (minY + maxY) / 2;
+    const floorAnchors: Record<string, MapPoint> = {
+      grotte: { x: 22, y: 74 }, bug: { x: 64, y: 75 },
+      'lange-platte': { x: 38, y: 33 }, 'top-out': { x: 56, y: 28 },
+      'couch-ecke': { x: 84, y: 57 },
+    };
+    if (isKwsDrawing && floorAnchors[area.slug]) {
+      ({ x, y } = toHallMapDisplayPoint(floorAnchors[area.slug], rotateClockwise));
+    }
+    return [{ ...area, x: clamp(x, 10, 90), y: clamp(y, 8, 92) }];
+  }), [isKwsDrawing, renderedRegions, rotateClockwise, sectors]);
 
   const handleSelectSector = (sector: Sector) => {
     setHoveredSectorKey(null);
@@ -541,79 +580,125 @@ export function HallMapView({
             height={mapHeight}
             viewportClassName={cn(
               frameless
-                ? 'min-h-[340px] rounded-kws-card border-0 bg-[#FBFDF9] shadow-[0_8px_26px_rgba(25,36,54,0.08)] sm:min-h-[500px]'
+                ? 'min-h-[340px] rounded-kws-card border-0 bg-[hsl(var(--hall-map-floor))] sm:min-h-[500px]'
                 : compact
-                  ? 'rounded-kws-card bg-white'
-                  : 'min-h-[340px] rounded-kws-card bg-white sm:min-h-[480px]',
+                  ? 'rounded-kws-card bg-[hsl(var(--hall-map-floor))]'
+                  : 'min-h-[340px] rounded-kws-card bg-[hsl(var(--hall-map-floor))] sm:min-h-[480px]',
               viewportClassName,
             )}
             compact={compact}
             lockAspectRatio={lockAspectRatio}
             disablePanZoom={disablePanZoom}
+            onViewportChange={handleMapViewportChange}
             panPadding={frameless ? 180 : 0}
           >
-            {!frameless && (
+            {renderedRegions.length === 0 && (
               <img
                 src={backgroundImageSrc}
                 alt={activeMap.name}
-                className="block h-full w-full select-none object-contain"
+                className={cn('block select-none object-contain', rotateClockwise ? 'absolute left-1/2 top-1/2' : 'h-full w-full')}
+                style={rotateClockwise ? {
+                  width: `${(mapHeight / mapWidth) * 100}%`,
+                  height: `${(mapWidth / mapHeight) * 100}%`,
+                  maxWidth: 'none',
+                  transform: 'translate(-50%, -50%) rotate(90deg)',
+                } : undefined}
                 draggable={false}
                 onError={() => setImageError(true)}
               />
             )}
+            {frameless && wallRegions.length > 0 && <HallMap3DWalls
+              regions={wallRegions} width={mapWidth} height={mapHeight}
+              rotateClockwise={rotateClockwise} onReady={setWalls3DReady}
+            />}
             <svg
-              viewBox={`0 0 ${mapWidth} ${mapHeight}`}
+              data-map-orientation={rotateClockwise ? 'portrait' : 'landscape'}
+              data-map-width={mapWidth}
+              data-map-height={mapHeight}
+              data-map-appearance="white-walls"
+              viewBox={`${-4 * mapUnit} ${-4 * mapUnit} ${mapWidth + 8 * mapUnit} ${mapHeight + 8 * mapUnit}`}
               preserveAspectRatio="xMidYMid meet"
               className="absolute inset-0 h-full w-full"
             >
               <defs>
-                <filter id="sector-region-shadow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feDropShadow dx="0" dy={0.2 * mapUnit} stdDeviation={0.34 * mapUnit} floodColor="#192436" floodOpacity="0.09" />
+                <linearGradient id={wallFillId} x1="0" y1="0" x2="0.3" y2="1">
+                  <stop offset="0" stopColor="hsl(var(--hall-map-wall-top))" />
+                  <stop offset="1" stopColor="hsl(var(--hall-map-wall-bottom))" />
+                </linearGradient>
+                <filter id={wallShadowId} x="-30%" y="-30%" width="160%" height="180%">
+                  <feDropShadow dx={0.3 * mapUnit} dy={1 * mapUnit} stdDeviation={0.8 * mapUnit} floodColor="#192436" floodOpacity="0.2" />
+                </filter>
+                <filter id={markerShadowId} x="-40%" y="-40%" width="180%" height="200%">
+                  <feDropShadow dx="0" dy={0.3 * mapUnit} stdDeviation={0.35 * mapUnit} floodColor="#192436" floodOpacity="0.18" />
                 </filter>
               </defs>
+              {(!frameless || !walls3DReady) && <g pointerEvents="none" aria-hidden="true">
+                {renderedRegions.map(({ region }) => <polygon key={`depth-${region.id}`}
+                  points={polygonToString(region.points_json, mapWidth, mapHeight, rotateClockwise)}
+                  transform={`translate(${0.25 * mapUnit} ${1 * mapUnit})`}
+                  fill="hsl(var(--hall-map-wall-edge))" filter={`url(#${wallShadowId})`} />)}
+              </g>}
               {renderedRegions.map(({ region, sector }) => {
                 const logicalSectorKey = getLogicalSectorKey(sector);
                 const isSelected = selectedLogicalGroupKeys.has(logicalSectorKey);
-                const isHovered = hoveredSectorKey === logicalSectorKey;
-                const resolvedSector = resolveSectorArea(sector);
-                const areaPalette = getSectorAreaPalette(resolvedSector.area?.slug);
-                const regionFill = isSelected
-                  ? areaPalette.regionFillHighlighted
-                  : areaPalette.regionFill;
 
                 return (
                   <g key={region.id}>
                     <polygon
                       data-sector-region-group={logicalSectorKey}
                       data-selected={isSelected}
-                      points={polygonToString(region.points_json, mapWidth, mapHeight)}
-                      fill={regionFill}
-                      fillOpacity={selectedGroups.length > 0 && !isSelected ? 0.35 : 1}
-                      stroke={areaPalette.regionStroke}
-                      filter={!frameless && !isSelected ? 'url(#sector-region-shadow)' : undefined}
-                      strokeWidth={1.02 * mapUnit}
+                      points={polygonToString(region.points_json, mapWidth, mapHeight, rotateClockwise)}
+                      fill={`url(#${wallFillId})`}
+                      fillOpacity={1}
+                      stroke="hsl(var(--hall-map-wall-edge))"
+                      strokeWidth={0.65 / mapScale}
+                      strokeLinejoin="round"
+                      vectorEffect="non-scaling-stroke"
                       className="cursor-pointer motion-safe:transition-[fill,fill-opacity] motion-safe:duration-150"
                       style={{
                         // Hit only the actual surface, never a neighbouring sector
                         // through an oversized invisible stroke.
                         pointerEvents: 'fill',
+                        fillOpacity: frameless && walls3DReady ? 0 : 1,
                       }}
                       onPointerEnter={event => event.pointerType === 'mouse' && setHoveredSectorKey(logicalSectorKey)}
                       onPointerLeave={() => setHoveredSectorKey((current) => (current === logicalSectorKey ? null : current))}
                       onClick={() => handleSelectSector(sector)}
                     />
-                    {(isSelected || isHovered) && <polygon
-                      points={polygonToString(region.points_json, mapWidth, mapHeight)}
-                      fill="none"
-                      stroke="#192436"
-                      strokeWidth={isSelected ? 2.5 : 1.5}
-                      strokeDasharray={isSelected ? undefined : '4 3'}
-                      vectorEffect="non-scaling-stroke"
-                      pointerEvents="none"
-                    />}
                   </g>
                 );
               })}
+              {/* Keep fine outlines above every surface so neighbouring separators
+                  cannot hide an edge. Rounded joins avoid spikes at acute corners. */}
+              {renderedRegions.map(({ region, sector }) => {
+                const logicalSectorKey = getLogicalSectorKey(sector);
+                const isSelected = selectedLogicalGroupKeys.has(logicalSectorKey);
+                const isHovered = hoveredSectorKey === logicalSectorKey;
+                if (!isSelected && !isHovered) return null;
+
+                return <polygon
+                  key={`outline-${region.id}`}
+                  data-sector-region-outline={logicalSectorKey}
+                  points={polygonToString(region.points_json, mapWidth, mapHeight, rotateClockwise)}
+                  fill="none"
+                  stroke={isSelected ? '#36B531' : '#192436'}
+                  strokeWidth={(isSelected ? 1.5 : 1.25) / mapScale}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  strokeDasharray={isSelected ? undefined : `${3 / mapScale} ${3 / mapScale}`}
+                  vectorEffect="non-scaling-stroke"
+                  pointerEvents="none"
+                />;
+              })}
+              {frameless && <g pointerEvents="none" aria-hidden="true">
+                {areaLabels.map(area => <text key={area.slug} data-map-area-label={area.slug}
+                  x={area.x * mapWidth / 100} y={area.y * mapHeight / 100} textAnchor="middle"
+                  fill="#192436" fontWeight="600" fontSize={3.6 * mapUnit}>
+                  {rotateClockwise && area.slug === 'lange-platte'
+                    ? <><tspan x={area.x * mapWidth / 100}>Lange</tspan><tspan x={area.x * mapWidth / 100} dy={4.4 * mapUnit}>Platte</tspan></>
+                    : area.name}
+                </text>)}
+              </g>}
               {logicalMapGroups.map((group) => {
                 const marker = markerLayouts.get(group.key);
                 if (!marker) return null;
@@ -626,9 +711,8 @@ export function HallMapView({
                 const isSelected = selectedLogicalGroupKeys.has(group.key);
                 const isHovered = hoveredSectorKey === group.key;
                 const isFocused = focusedSectorKey === group.key;
-                const areaPalette = getSectorAreaPalette(group.areaSlug);
-                const markerFill = isSelected ? '#36B531' : areaPalette.tagFill;
-                const markerStroke = isSelected || isHovered || isFocused ? '#192436' : areaPalette.tagStroke;
+                const markerFill = '#FFFFFF';
+                const markerStroke = isSelected ? '#36B531' : isHovered || isFocused ? '#192436' : 'transparent';
                 const markerText = '#192436';
 
                 return (
@@ -636,7 +720,7 @@ export function HallMapView({
                     key={`marker-${group.key}`}
                     role="button"
                     tabIndex={0}
-                    aria-label={`${group.areaName ?? markerSector?.name ?? 'Teilbereich'}${group.subareaCode ? ` ${group.subareaCode}` : ''}, ${count} Boulder filtern`}
+                    aria-label={`${resolveSectorArea(markerSector).publicName}, ${count} Boulder filtern`}
                     aria-pressed={isSelected}
                     className="cursor-pointer outline-none"
                     data-sector-marker-group={group.key}
@@ -665,9 +749,9 @@ export function HallMapView({
                       rx={0.62 * mapUnit}
                       fill={markerFill}
                       stroke={markerStroke}
-                      strokeWidth={isSelected || isFocused ? 2 : 1}
+                      strokeWidth={isSelected || isFocused ? 1.5 : 1}
                       vectorEffect="non-scaling-stroke"
-                      style={{ filter: 'drop-shadow(0 0.5px 1px rgba(25,36,54,0.14))' }}
+                    filter={`url(#${markerShadowId})`}
                     />
                     {isFocused && <rect
                       x={marker.x - marker.width / 2 - 1.1 * mapUnit}
@@ -716,18 +800,17 @@ export function HallMapView({
           </InteractiveMapStage>
         )}
 
-        {frameless && !imageError ? (
+        {frameless && !imageError && areaLabels.length === 0 ? (
           <div
             className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 px-2"
-            aria-label="Farblegende der Hallenbereiche"
+            aria-label="Hallenbereiche"
           >
-            {getSectorAreas(sectors).filter((area) => visibleAreaSlugs.has(area.slug)).map((area) => {
-              const palette = getSectorAreaPalette(area.slug);
+            {getSectorAreas(sectors).filter((area) => logicalMapGroups.some(group => group.areaSlug === area.slug)).map((area) => {
               return (
                 <div key={area.slug} className="inline-flex items-center gap-1.5">
                   <span
                     className="h-2.5 w-2.5 shrink-0 rounded-[2px] ring-1 ring-[#192436]/10"
-                    style={{ backgroundColor: palette.regionFill }}
+                    style={{ backgroundColor: 'white' }}
                     aria-hidden="true"
                   />
                   <span className="text-[10px] font-semibold leading-none text-[#192436]/70">
@@ -743,7 +826,7 @@ export function HallMapView({
       {!imageError && renderedRegions.length > 0 && <div className="space-y-2">
         <div className="flex min-h-11 items-center justify-between gap-3">
           <p role="status" aria-live="polite" className="text-xs font-medium text-foreground">
-            {selectedGroups.length ? <>{selectedGroups.length} {selectedGroups.length === 1 ? 'Teilbereich' : 'Teilbereiche'} ausgewählt<span className="sr-only">: {selectedGroups.map(group => `${group.areaName ?? group.sectors[0].name}${group.subareaCode ? ` ${group.subareaCode}` : ''}`).join(', ')}</span></> : 'Ganze Halle'}
+            {selectedGroups.length ? <>{selectedGroups.length} {selectedGroups.length === 1 ? 'Teilbereich' : 'Teilbereiche'} ausgewählt<span className="sr-only">: {selectedGroups.map(group => resolveSectorArea(group.sectors[0]).publicName).join(', ')}</span></> : 'Ganze Halle'}
           </p>
           {selectedGroups.length > 0 && <Button variant="ghost" size="sm" aria-label="Sektorauswahl zurücksetzen" onClick={onClearSector} className="shrink-0">
             <RotateCcw className="h-4 w-4" /><span>Zurücksetzen</span>
@@ -751,13 +834,17 @@ export function HallMapView({
         </div>
         {selectedGroups.length > 0 && <div className="flex flex-wrap gap-2">
           {selectedGroups.map(group => {
-            const name = `${group.areaName ?? group.sectors[0].name}${group.subareaCode ? ` ${group.subareaCode}` : ''}`;
-            return <button key={group.key} type="button" aria-label={`${name} abwählen`} onClick={() => handleDeselectGroup(group)} className="inline-flex min-h-11 items-center gap-2 rounded-kws-control bg-primary/10 px-3 text-xs font-semibold text-foreground hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            const name = resolveSectorArea(group.sectors[0]).publicName;
+            return <button key={group.key} type="button" aria-label={`${name} abwählen`} onClick={() => handleDeselectGroup(group)} className="inline-flex min-h-11 items-center gap-2 rounded-kws-control bg-white px-3 text-xs font-semibold text-foreground shadow-soft hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <Check className="h-4 w-4 text-primary-ink" aria-hidden="true" />{name}<X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>;
           })}
         </div>}
       </div>}
+
+      {frameless && onClose && !imageError && renderedRegions.length > 0 && (
+        <Button className="w-full" onClick={onClose}>Boulder anzeigen</Button>
+      )}
 
       {renderedRegions.length === 0 && !imageError && !frameless && (
         <Alert className="rounded-kws-card border-[#E7F7E9] bg-[#F8FCF9]">

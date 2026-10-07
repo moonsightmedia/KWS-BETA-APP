@@ -25,18 +25,16 @@ for (const width of [375, 768, 1280, 1920]) {
     await mkdir(output, { recursive: true });
     await openFixture(page, 'sectors');
     for (const name of ['Bug', 'Couch-Ecke', 'Top-Out', 'Lange Platte', 'Grotte']) await expect(page.getByRole('region', { name, exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: /bearbeiten$/ })).toHaveCount(18);
-    await expect(page.getByRole('button', { name: 'Bug A Details öffnen', exact: true })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: /bearbeiten$/ })).toHaveCount(19);
+    await expect(page.getByRole('button', { name: 'Bug A bearbeiten', exact: true })).toHaveCount(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
     await page.screenshot({ path: `${output}/sectors-${width}.png`, fullPage: true, animations: 'disabled' });
     await page.getByLabel('Sektoren suchen').fill('Bug A');
     await expect(page.getByRole('button', { name: /bearbeiten$/ })).toHaveCount(1);
     await page.getByLabel('Sektoren suchen').fill('Felsenmeer');
-    await page.getByRole('button', { name: 'Bug A bearbeiten', exact: true }).click();
-    await expect(page.getByRole('dialog')).toContainText('Atta-Höhle');
-    await page.getByRole('button', { name: 'Bug A · Felsenmeer bearbeiten', exact: true }).click();
+    await page.getByRole('button', { name: 'Kurze Platte bearbeiten', exact: true }).click();
     await expect(page.getByLabel('Name *')).toHaveAttribute('readonly', '');
-    await expect(page.getByRole('dialog')).toContainText('Bug A');
+    await expect(page.getByRole('dialog')).toContainText('Kurze Platte');
     await page.screenshot({ path: `${output}/sector-editor-${width}.png`, animations: 'disabled' });
     expect(await page.evaluate(() => window.sectorQA.writes)).toEqual([]);
 
@@ -48,7 +46,7 @@ for (const width of [375, 768, 1280, 1920]) {
     await page.screenshot({ path: `${output}/hallmap-${width}.png`, animations: 'disabled' });
     if (width < 1024) await page.getByRole('button', { name: 'Sektoren', exact: true }).click();
     for (const name of ['Bug', 'Couch-Ecke', 'Top-Out', 'Lange Platte', 'Grotte']) await expect(page.getByRole('heading', { name, exact: true })).toBeAttached();
-    await page.getByRole('button', { name: 'Bug A · Felsenmeer', exact: true }).click();
+    await page.getByRole('button', { name: 'Kurze Platte · Felsenmeer', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Sektorfläche speichern', exact: true })).toBeVisible();
     await expect(page.getByText('Vorschlagsmodus', { exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => window.hallMapQA.writes)).toEqual([]);
@@ -59,8 +57,7 @@ for (const width of [375, 768, 1280, 1920]) {
 
 test('structured hierarchy updates existing physical ID, not a replacement row', async ({ page }) => {
   await openFixture(page, 'sectors', 'structured');
-  await page.getByRole('button', { name: 'Bug A bearbeiten', exact: true }).click();
-  await page.getByRole('button', { name: 'Bug A · Felsenmeer bearbeiten', exact: true }).click();
+  await page.getByRole('button', { name: 'Kurze Platte bearbeiten', exact: true }).click();
   await page.getByRole('combobox', { name: 'Hauptbereich', exact: true }).click();
   await page.getByRole('option', { name: 'Grotte', exact: true }).click();
   await page.getByRole('combobox', { name: 'Teilbereich', exact: true }).click();
@@ -72,17 +69,18 @@ test('structured hierarchy updates existing physical ID, not a replacement row',
   expect(writes[0]).toMatchObject({ operation: 'update', id: snapshot.sectors.find(s => s.name === 'Felsenmeer')!.id, payload: { name: 'Felsenmeer', area_id: 'fixture-grotte', subarea_code: 'B' } });
 });
 
-test('app layouts preserve saved geometry and do not fall back to the wrong SVG on image failure', async ({ page }) => {
+test('app layouts preserve vector geometry without requiring the obsolete background image', async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 900 });
   await openFixture(page, 'hallmap', 'public');
-  await expect(page.locator('svg[viewBox="0 0 735 466"]')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Boulder filtern/ })).toHaveCount(18);
+  await expect(page.locator('svg[data-map-appearance="white-walls"]')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Boulder filtern/ })).toHaveCount(19);
   await page.screenshot({ path: `${output}/app-map-768.png`, animations: 'disabled' });
   await page.goto('/test/fixtures/admin-hallmap.html?state=hierarchy&view=framed');
-  await expect(page.locator('img').first()).toHaveAttribute('src', /boulderkarte-original.*\.png/);
+  await expect(page.locator('img')).toHaveCount(0);
   await page.route('**/src/assets/boulderkarte-original.png*', route => route.request().resourceType() === 'image' ? route.abort() : route.continue());
   await page.reload();
-  await expect(page.getByText('Bild konnte nicht geladen werden', { exact: true })).toBeVisible();
+  await expect(page.getByText('Bild konnte nicht geladen werden', { exact: true })).toHaveCount(0);
+  await expect(page.locator('[data-sector-region-group]')).toHaveCount(19);
   await expect(page.locator('img[src*="hall-map-base"]')).toHaveCount(0);
 });
 
@@ -90,7 +88,7 @@ test('new main area appears in both map legends and extended code fits its marke
   await page.setViewportSize({ width: 768, height: 900 });
   await openFixture(page, 'hallmap', 'public');
   await page.goto('/test/fixtures/admin-hallmap.html?state=hierarchy&view=public&extended=1');
-  await expect(page.getByLabel('Farblegende der Hallenbereiche')).toContainText('Training');
+  await expect(page.locator('[data-map-area-label="training"]')).toContainText('Training');
   const label = page.locator('svg text').filter({ hasText: /^A12$/ });
   await expect(label).toBeVisible();
   const fits = await label.evaluate((element: SVGGraphicsElement) => {

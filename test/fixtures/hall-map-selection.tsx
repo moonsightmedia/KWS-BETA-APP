@@ -40,6 +40,8 @@ function Fixture() {
       frameless={!query.has('framed')}
       compact={!query.has('framed')}
       disablePanZoom={query.has('static')}
+      lockAspectRatio={!query.has('fixed')}
+      viewportClassName={query.has('fixed') ? 'h-[240px] min-h-0' : undefined}
     />
     <span data-testid="selection" className="sr-only">{JSON.stringify(selected)}</span>
   </main>;

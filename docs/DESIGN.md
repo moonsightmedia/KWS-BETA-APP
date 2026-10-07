@@ -100,6 +100,12 @@ Regeln:
 
 ### 3.2 Hallenkartenpalette
 
+Nutzerfreigabe 07.10.2026: `HallMapView` verwendet die neutrale architektonische
+Darstellung: graugrüner Boden (`--hall-map-floor`), weiße Wandflächen und dezente
+Tiefe aus denselben gespeicherten Polygonen. Keine eingefärbten Bereichsflächen
+oder Farblegende in der öffentlichen Karte. Die folgende Palette bleibt für den
+Zeicheneditor und bestehende semantische Bereichsmetadaten erhalten.
+
 Die ursprünglichen kundenorientierten Bereiche erhalten ausschließlich Grüntöne. Alle
 Teilbereiche erben die Palette ihres Elternbereichs. Die fünf ursprünglichen
 Bereichsfarben bleiben unverändert; neue Hauptbereiche verwenden zunächst die
@@ -542,7 +548,8 @@ Standard ist `Neueste zuerst`.
 - Neben der Sortierung gibt es `Alle einklappen / Alle ausklappen`.
 - Der Gruppenkopf zeigt Bereichsname, Anzahl und eine dünne ruhige Trennlinie.
 
-Die fünf ursprünglichen öffentlichen Bereichsnamen sind:
+Die fünf ursprünglichen öffentlichen Bereichsnamen sind (zusätzlich eigenständig:
+Kurze Platte, vormals Felsenmeer, Nutzerkorrektur 07.10.2026):
 
 1. Bug
 2. Couch-Ecke
@@ -624,13 +631,53 @@ bleibt die Karte lesbar, ohne die Kundschaft mit Altsektornamen zu belasten.
 
 ### 7.2 Zustände
 
+Freigegebene neutrale Darstellung (07.10.2026), ersetzt die bisherigen farbigen
+Flächenzustände in `HallMapView`:
+
+- Wandoberflächen bleiben weiß, auch bei Auswahl. Die räumliche Unterkante und
+  der weiche Kontaktschatten sind rein dekorativ, niemals zusätzliche Klickflächen.
+- Auswahl: Markengrün-Kontur, weißer benannter Tag und dunkelblaues Häkchen.
+  Hover bleibt gestrichelt dunkelblau; Tastaturfokus separat sichtbar.
+- Nicht gewählte Wände bleiben vollständig sichtbar, ohne Ausblenden/Abdunkeln.
+- Direktbeschriftungen im Kartenboden und kleine weiße Teilbereich-Tags ersetzen
+  die bunte Legende. Die ausgewählten Bereiche stehen als kompakte weiße
+  Abwahlaktionen darunter; Rücksetzen bleibt benannt erreichbar.
+- Die Karte wird aus den echten Polygonen gezeichnet, nicht als generiertes Bild.
+  Das gespeicherte Kartenbild bleibt Zeichenreferenz bzw. Fallback ohne Polygone.
+- Die kompakte Boulderkarte rendert mit Three.js tatsächlich extrudierte
+  Wandkörper, abgeschrägte Kanten, Beleuchtung und Kontaktschatten. Ihre
+  schematische Dicke ist eine Tiefenhilfe, kein vermessenes 3D-Modell der Halle.
+  Die feste orthografische Ansicht bleibt an den gespeicherten Polygonen
+  ausgerichtet; Auswahl und Tastaturbedienung laufen über dieselbe SVG-Ebene.
+- Three.js wird nur beim Öffnen der kompakten Karte nachgeladen. Bei fehlendem
+  WebGL oder Kontextverlust bleibt die weiße SVG-Karte bedienbar; eine erfolgreiche
+  Kontextwiederherstellung aktiviert die 3D-Wände ohne Auswahlverlust. Die Szene
+  rendert nur bei Aufbau, Größenwechsel und Wiederherstellung, nicht fortlaufend.
+  Geometrien, Materialien, Schattentexturen, Observer und Grafik-Kontext werden
+  beim Schließen freigegeben. Editor-/Rahmenvorschauen bleiben SVG.
+- Neutrale Wandtrennlinien: 0,65 CSSpx mit Zoomkompensation; aktive Kontur
+  1,5 CSSpx. Namen der KWS-Bereiche liegen auf kuratierten Bodenankern der
+  bekannten Zeichenvorlage und drehen sich mit der Karte, nicht mit dem Text.
+- In der Boulderansicht: Liste/Karte-Umschalter, benannte Abwahl-Chips und
+  `Boulder anzeigen` schließen die Karte ohne Verlust der Sektorauswahl.
+
+Bisherige farbige Darstellung (historisch, weiterhin Referenz für Zeicheneditor):
+
 - Standardfläche: Grundton des Elternbereichs.
 - Hover: nur eine gestrichelte dunkelblaue Kontur, keine Auswahlfärbung. Touch
   erzeugt keinen bleibenden Hover; Tastaturfokus erhält eine eigene Tagkontur.
 - Ausgewählt: dunklere Bereichsfläche mit durchgezogener dunkelblauer Kontur,
   Markengrün-Tag mit dunkelblauer Schrift und zusätzlichem Häkchen. Sobald eine
   Auswahl besteht, treten übrige Flächen zurück. Die Bereichspalette bleibt erhalten.
-- Weiße Trennlinien separieren die Flächen klar.
+- Weiße Trennlinien separieren die Flächen klar, bleiben aber fein: 1,25 CSSpx,
+  unabhängig von Kartenmaß und Zoom. Abgerundete Linienverbindungen vermeiden
+  spitze Ecken, ohne die gespeicherten Polygonpunkte zu verändern.
+- Auswahlkonturen verwenden 1,5 CSSpx mit abgerundeten Verbindungen; Hover bleibt
+  mit 1,25 CSSpx gestrichelt. Die Konturen liegen über allen farbigen Flächen,
+  damit benachbarte Trennlinien keine Kanten verdecken. Tags liegen darüber.
+  Nicht gewählte Flächen bleiben bei einer Auswahl mit 65% Deckkraft gut
+  erkennbar (Nutzerkorrektur vom 07.10.2026). Häkchen und benannte Chips erhalten
+  die eindeutige Auswahl, ohne kräftige schwarze Umrandungen zu benötigen.
 - Jede sichtbare Wandkante wird nur einmal gezeichnet. Grundkarte und
   interaktive Polygone dürfen nicht als zwei versetzte Konturen übereinander
   erscheinen.
@@ -641,13 +688,21 @@ bleibt die Karte lesbar, ohne die Kundschaft mit Altsektornamen zu belasten.
   ID-/Namenskanäle. Reset stellt „Ganze Halle“ wieder her.
 - Klickflächen bleiben innerhalb der echten Polygone: keine unsichtbaren breiten
   Außenkonturen, die benachbarte Sektoren abfangen. Physische Flächen desselben
-  Teilbereichs (z. B. Bug A) bleiben bewusst gemeinsam markiert. Gelieferte IDs
+  Teilbereichs bleiben bewusst gemeinsam markiert. Die bestätigte Ausnahme für
+  Bug A und Kurze Platte steht in Abschnitt 7.4. Gelieferte IDs
   sind gegenüber Namensfiltern führend; explizit leere Arrays sind keine alte Auswahl.
 - Mehrere Teilbereiche dürfen gleichzeitig ausgewählt werden.
 - Erneutes Anklicken entfernt nur diesen Teilbereich aus der Auswahl.
 
 ### 7.3 Verhalten
 
+- Vollständige querformatige Hallenkarten werden unter 768px im Uhrzeigersinn
+  um 90° hochkant angezeigt, ab 768px bleibt die ursprüngliche Queransicht.
+  Punkte, Bild und Tag-Anker teilen dieselbe Anzeigetransformation; die Tags
+  bleiben aufrecht und werden im gedrehten Koordinatenraum neu positioniert.
+  Auswahl und Sektor-IDs bleiben bei Größenwechsel erhalten. Bereits hochkantige
+  Karten und ausdrücklich höhenbegrenzte Editor-Vorschauen werden nicht gedreht.
+  Gespeicherte Kartendaten bleiben unverändert (Nutzerentscheidung 07.10.2026).
 - Kartenwahl und Standard-Boulderfilter teilen denselben Zustand.
 - Zählungen berücksichtigen nur aktive/hängende Boulder und zählen einen
   Boulder innerhalb derselben logischen Gruppe nur einmal.
@@ -658,6 +713,28 @@ bleibt die Karte lesbar, ohne die Kundschaft mit Altsektornamen zu belasten.
   auslösen.
 - Die kompakte Boulderkarte erscheint hell, rahmenarm und mit der Legende direkt
   darunter.
+
+### 7.4 Bestätigte Korrektur: Bug A und Kurze Platte (07.10.2026)
+
+- Das obere keilförmige Segment der bisher gemeinsam ausgewählten Bug-A-Form
+  bleibt Bug A. Der direkt links angrenzende lange Streifen ist die eigenständige
+  Kurze Platte, nicht ein zweites Bug A und nicht Lange Platte.
+- Die alte Zusammenfassung von Atta-Höhle und Felsenmeer unter `bug:A` ist
+  damit fachlich überholt. Im gespeicherten Karten-Snapshot gehört das obere
+  Segment zu Atta-Höhle, der linke Streifen zu Felsenmeer.
+- Auswahl, öffentliche Beschriftungen und Filter müssen diese beiden Bereiche
+  getrennt behandeln. Technische Sektor-/Polygon-IDs, bestehende Boulder- und
+  QR-Verweise bleiben erhalten; es werden keine Datensätze gelöscht.
+- Umsetzungsstand: Gemeinsame App-Auflösung trennt Felsenmeer von der alten
+  Bug-A-Zuordnung (auch alte strukturierte `bug:A`-Daten). Spätere ausdrückliche
+  Zuordnungen zu anderen Bereichen/Kürzeln bleiben führend. Physische IDs bleiben
+  unverändert. Keine Live-Datenbankmutation in diesem Schritt; die Kompatibilität
+  korrigiert genau die fachlich überholte Zuordnung und übernimmt keine Bug-area-ID.
+- Neutrale weiße Wandkarte mit graugrünem Boden und dezenter Tiefe ist am
+  07.10.2026 anhand des Nutzerbildes zur Implementierung freigegeben.
+- Kurze Platte trägt auf der kompakten Karte nur `A`, auch bei Auswahl
+  (Nutzerkorrektur 07.10.2026). Vollständiger Name in Abwahl-Chip und
+  zugänglicher Beschriftung; keine Zusammenfassung mit Bug A.
 
 ## 8. Gastansicht und Boulder-Detail
 
@@ -1025,11 +1102,15 @@ Verbindliche Regeln:
 
 - Admin und App verwenden `resolveSectorArea`: Bug, Couch-Ecke, Top-Out,
   Lange Platte und Grotte sowie neue strukturierte Haupt-/Teilbereiche. Die Verwaltung erhält alle physischen IDs;
-  Bug A besteht weiterhin aus Atta-Höhle und Felsenmeer. Alte Namen dienen nur
+  Die bisherige Zusammenfassung von Atta-Höhle und Felsenmeer als Bug A ist
+  durch die Nutzerkorrektur in Abschnitt 7.4 fachlich überholt und wird in der
+  gemeinsamen App-Auflösung getrennt. Alte Namen dienen nur
   der eindeutigen Detailbearbeitung, nicht als parallele Bereichsstruktur.
 - Die Sektorverwaltung übernimmt die aufklappbaren Hauptbereiche der Boulderansicht.
-  Darunter steht genau eine Karte pro logischem Teilbereich, dieselben 18 Einträge
-  wie auf der Hallenkarte. Bug A erscheint genau einmal. Keine äußere Card um die Liste.
+  Darunter steht genau eine Karte pro logischem Teilbereich, dieselben Einträge
+  wie auf der Hallenkarte. Der bekannte Bestand enthält nach Trennung der Kurzen
+  Platte 19 physische und 19 logische Einträge. Bug A erscheint genau einmal.
+  Keine äußere Card um die Liste.
   Die 19 physischen Datensätze mit alten Namen erscheinen erst im Detaildialog.
   Dort werden einzelne Flächen bearbeitet oder nach Bestätigung gelöscht.
   Die Übersicht bietet QR-Codes für den gesamten Teilbereich. Bestehende alte QR-Links
