@@ -39,3 +39,13 @@ test('legacy source matching tolerates whitespace and cache query but not other 
 test('legacy drawing with missing dimensions retains its original editing frame', () => {
   assert.deepEqual(resolveHallMapSource({ image_url: legacyUrl, width: 0, height: NaN }), { src: '/bundled.png', width: 735, height: 466, supportsProposals: true });
 });
+
+test('migration preserves the legacy coordinate correction only on the configured API origin', () => {
+  const api = 'https://beta-api.kletterwelt-sauerland.de';
+  const migrated = legacyUrl.replace('https://pkzzxtsyxwxoraytyjau.supabase.co', api);
+  assert.deepEqual(resolveHallMapSource({ image_url: migrated + '?v=3', width: 735, height: 466 }, api),
+    { src: '/bundled.png', width: 735, height: 466, supportsProposals: true });
+  for (const image_url of [migrated.replace(api, 'https://example.com'), migrated.replace('hall-map-base.svg', 'new.svg')]) {
+    assert.equal(resolveHallMapSource({ image_url }, api).src, image_url);
+  }
+});

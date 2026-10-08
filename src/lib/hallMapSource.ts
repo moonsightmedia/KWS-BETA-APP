@@ -7,11 +7,24 @@ const positive = (value: number | null | undefined, fallback: number) => value &
 // Those polygons were traced from bundledMap (verified against the live map).
 // Keep this compatibility correction narrow so future/custom uploads still win.
 const legacyKwsDrawing = 'https://pkzzxtsyxwxoraytyjau.supabase.co/storage/v1/object/public/hall-maps/09edc012-45ac-4938-a267-d13fc3acf220/hall-map-base.svg';
+const legacyDrawingUrl = new URL(legacyKwsDrawing);
+
+const matchesLegacyDrawing = (savedSrc: string | undefined, apiBaseUrl?: string) => {
+  if (!savedSrc) return false;
+  try {
+    const saved = new URL(savedSrc);
+    const allowedOrigin = saved.origin === legacyDrawingUrl.origin
+      || (!!apiBaseUrl && saved.origin === new URL(apiBaseUrl).origin);
+    return allowedOrigin && saved.pathname === legacyDrawingUrl.pathname;
+  } catch {
+    return false;
+  }
+};
 
 /** Image and geometry must use the same source in every layout, including frameless. */
-export const resolveHallMapSource = (map?: MapSource | null) => {
+export const resolveHallMapSource = (map?: MapSource | null, apiBaseUrl = import.meta.env?.VITE_SUPABASE_URL) => {
   const savedSrc = map?.image_url?.trim();
-  const isLegacyKwsDrawing = savedSrc?.split(/[?#]/, 1)[0] === legacyKwsDrawing;
+  const isLegacyKwsDrawing = matchesLegacyDrawing(savedSrc, apiBaseUrl);
   const src = isLegacyKwsDrawing ? bundledMap : savedSrc || bundledMap;
   const isBundled = src === bundledMap;
   return {

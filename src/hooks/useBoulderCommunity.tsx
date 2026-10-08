@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 
 import { useAuth } from '@/hooks/useAuth';
 import { supabaseRestRequest } from '@/lib/supabaseRest';
+import { readDisplayProfiles } from '@/lib/displayProfiles';
 import { readPersonalRows, readTrackedBoulders, type TrackedBoulderItem } from '@/lib/personalProgress';
 import type {
   BoulderAttributeOption,
@@ -36,7 +37,6 @@ interface AttributeAssignmentRow {
 interface ProfileRow {
   id: string;
   full_name: string | null;
-  email: string | null;
 }
 
 interface BoulderListItem {
@@ -74,10 +74,7 @@ async function fetchProfiles(accessToken: string | null | undefined, userIds: st
     return new Map<string, ProfileRow>();
   }
 
-  const profiles = await supabaseRestRequest<ProfileRow[]>(
-    `/rest/v1/profiles?id=in.(${buildInFilter(userIds)})&select=id,full_name,email`,
-    { accessToken },
-  );
+  const profiles = await readDisplayProfiles(userIds, accessToken);
 
   return new Map(profiles.map((profile) => [profile.id, profile]));
 }
@@ -529,8 +526,8 @@ export function useBoulderComments(boulderId: string | undefined) {
         const profile = profileMap.get(comment.user_id);
         return {
           ...comment,
-          author_name: profile?.full_name || profile?.email || 'Unbekannter Nutzer',
-          author_email: profile?.email || null,
+          author_name: profile?.full_name || 'Unbekannter Nutzer',
+          author_email: null,
         };
       });
     },
@@ -709,8 +706,8 @@ export function useAdminBoulderComments() {
         return {
           ...comment,
           boulder_name: boulderMap.get(comment.boulder_id)?.name || 'Unbekannter Boulder',
-          author_name: profile?.full_name || profile?.email || 'Unbekannter Nutzer',
-          author_email: profile?.email || null,
+          author_name: profile?.full_name || 'Unbekannter Nutzer',
+          author_email: null,
         };
       });
     },

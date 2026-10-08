@@ -5,6 +5,8 @@ umask 077
 cd /opt/kws/supabase/runtime
 cat > docker-compose.local.yml <<'EOF'
 services:
+  auth:
+    image: supabase/gotrue:v2.197.0
   api-gw:
     ports: !override
       - "127.0.0.1:8000:8000"

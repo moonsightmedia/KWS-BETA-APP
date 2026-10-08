@@ -38,6 +38,19 @@ for archive in sorted(base.glob('*-precopy-*.age')):
     decrypt.stdout.close()
     assert decrypt.wait()==0, 'Archive authentication failed'
     verified_objects=0
+    verified_database_files=0
+    if archive.name.startswith('database-'):
+        manifests=list(restore.glob('*/manifest.json'))
+        assert len(manifests)==1
+        manifest_path=manifests[0]
+        manifest=json.loads(manifest_path.read_text())
+        for name,expected in manifest['files'].items():
+            path=manifest_path.parent/name
+            assert path.resolve().is_relative_to(manifest_path.parent.resolve())
+            assert path.stat().st_size==expected['bytes']
+            with path.open('rb') as stream: actual=hashlib.file_digest(stream,'sha256').hexdigest()
+            assert actual==expected['sha256'], 'Restored database file checksum mismatch'
+            verified_database_files+=1
     if archive.name.startswith('storage-'):
         manifests=list(restore.glob('*/manifest.json'))
         assert len(manifests)==1
@@ -52,6 +65,7 @@ for archive in sorted(base.glob('*-precopy-*.age')):
             verified_objects+=1
     result={'archive':archive.name,'restored_files':count,'restored_bytes':byte_count,
             'video_qualities':dict(qualities),'verified_storage_objects':verified_objects,
+            'verified_database_files':verified_database_files,
             'authenticated_decryption':True,'final_source_comparison':False}
     (restore/'RESTORE-VERIFIED.json').write_text(json.dumps(result)+'\n')
     print(json.dumps(result))
