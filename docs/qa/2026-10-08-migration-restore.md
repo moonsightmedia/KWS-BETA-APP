@@ -9,6 +9,7 @@ Stand: 8. Oktober 2026. Quelle bleibt live; keine DNS- oder Produktionsumschaltu
 | Datenbank | `database-precopy-20261008T120213Z.tar.age`: Rollen, Schema, COPY-Daten, vollständiges PostgreSQL-Custom-Archiv, internes Auth-/Storage-Schema und Inventar. Exportierter gemeinsamer Read-only-Snapshot; 76 Tabellen inventarisiert, 44 Auth-Nutzer. Alle sechs DB-Dateien nach Entschlüsselung per Größe/SHA-256 verifiziert. |
 | Storage | `storage-precopy-20261008T105603Z.tar.gz.age`: 2.389 Objekte, 440.125.701 Bytes, vollständig entschlüsselt und geprüft. Anschließend alle Bytes über Storage-API importiert und wieder heruntergeladen; alle SHA-256 gleich. Quell-IDs, Eigentümer und ursprüngliche Datumsfelder erhalten; API-Versionen neu erzeugt. |
 | Video | `video-precopy-20261008T105817Z.tar.age`: 590 Dateien, 2.018.204.725 Bytes, authentifiziert entschlüsselt/wiederhergestellt. Neue private Wiedergabe HD/SD/Low und Range geprüft; 23 Diensttests bestanden. |
+| Referenzierte CDN-Bilder | `cdn-precopy-20261008T125923Z.tar.gz.age`: 136 Dateien, 195.766.433 Bytes, verschlüsselt und vollständig entschlüsselt/per SHA-256 wiederhergestellt. Alle 136 zusätzlich über privaten neuen Webdienst mit gleichem Hash/MIME/Byteumfang abgerufen. 147 eindeutige CDN-URLs gefunden; elf bereits an der Quelle 404, ausschließlich aus historischen Operationslogs. Alle aktuellen Boulder-Vorschaubilder und Sektorbilder vorhanden. |
 
 Alle Daten und detaillierten Manifeste liegen rootgeschützt ausschließlich auf dem neuen VPS unter `/var/backups/kws/migration`. Kein Rohbestand im Repository, Vault oder auf dem Laptop. Medien und Datenbank wurden zu verschiedenen Zeiten gesichert; dies ist noch kein finaler ruhender Gesamtbestand.
 
@@ -37,7 +38,24 @@ Reproduzierte Quelllücken: Ranglisten-Policy erlaubte jedem angemeldeten Nutzer
 
 Danach **39/39 API-Prüfungen** bestanden: Login aller drei Rollen, automatische Profil-/Benutzerrollenanlage, Session-Refresh, falsches Passwort, Admin-API-Schutz, Gast-Boulderanzeige, private Profilfelder, sichere Peer-Namen, Selbstbeförderung verboten, Admin-Farbverwaltung, Video-Publisher-RPC und Setter-Jobrechte, Storage-Uploadrechte und Download-Hash sowie private Feedback-Leserechte.
 
-139 vorhandene App-Unit-Tests bestanden; zusätzlicher Hallenkarten-Test bestätigt dieselbe Geometrie nach URL-Umstellung und lehnt fremde Hosts/abweichende Dateien ab. Production-Build erfolgreich. TypeScript: 79 weiterhin offene Diagnosen außerhalb der geänderten Dateien. Keine vollständige gerenderte App-, Mobilgeräte- oder Store-Abnahme.
+139 vorhandene App-Unit-Tests bestanden; zusätzlicher Hallenkarten-Test bestätigt dieselbe Geometrie nach URL-Umstellung und lehnt fremde Hosts/abweichende Dateien ab. Production-Build erfolgreich. TypeScript: 79 weiterhin offene Diagnosen außerhalb der geänderten Dateien. Keine vollständige App-, Mobilgeräte- oder Store-Abnahme.
+
+## Private Web-Integration
+
+Zusätzliches Frontend `/opt/kws/probe-web/source` aus Commit `3c6e234`, Caddy auf `127.0.0.1:9090`, getrennt vom bisherigen privaten Build und vom leeren Hauptziel. Auth/REST/Storage gehen ausschließlich auf die Probe-Dienste; Video auf den privaten Videodienst. Realtime/Functions und Legacy-Upload liefern bewusst 503 und sind noch nicht abgenommen. Keine echten Push-/Mail-Ausgänge.
+
+URL-Anpassungen ausschließlich in der Probe: 1.252 geänderte Spaltenwerte, 888 Storage-, 416 Video- und 189 CDN-URL-Vorkommen, rekursiv auch JSON. Storage-Zuordnungen gegen vorhandene Objekte, Video-Dateipfade gegen veröffentlichte Dateien und CDN-Bilder gegen gesichertes Manifest geprüft. Originalwerte/SQL rootgeschützt für Rückweg erhalten. Elf bereits fehlende historische CDN-Dateien nicht erfunden; ihre ursprünglichen Logreferenzen bleiben erhalten. Auth-Nutzermetadaten enthalten keine alten Storage-URLs. Noch keine allgemeine, wiederholbare Produktions-URL-Migration.
+
+Browser im KWS-Chromeprofil über privaten SSH-Tunnel dieses Laptops:
+
+- Gastübersicht: 104 Boulder mit Ziel-Vorschaubildern.
+- Suche „Komet“: sechs Treffer.
+- Grad 6: 13 gerenderte Treffer; Entfernen des Filters wieder 104.
+- Sektorübersicht: sechs Hallenbereiche und 19 Teilbereiche; alle sechs Bereichsbilder vom privaten Ziel geladen (1440 × 1080).
+- Sektor Bug A öffnet vier passende Boulder.
+- Boulder-Detail: HD-Video 1080 × 1920 und nach Qualitätswechsel Low 360 × 640, jeweils `readyState=4`, kein Medienfehler, Quelle eigener privater Webdienst.
+
+Frontend-Bundle enthält weder Service-Schlüssel noch Postgres-Passwort. Bindung auf Loopback verifiziert. SSH-Tunnelprozess auf Laptop: PID 58232; Agent hat ausschließlich diesen eigenen Tunnel erstellt. Kein öffentlicher App-Zugang. API-Rollentests ersetzen weiterhin keine gerenderte angemeldete Admin-/Setter-/Nutzerrunde; diese sowie native Geräte bleiben offen.
 
 ## Offene Umschaltgates
 

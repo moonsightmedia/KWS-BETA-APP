@@ -10,6 +10,7 @@ Diese Skripte sind für `srv2044594` (`187.7.70.230`) und den geprüften Geräte
 - `/opt/kws/video-private`: privater Testdienst, `127.0.0.1:9000`; keine kopierten Jobs, Publisher deaktiviert.
 - `/var/backups/kws/migration`: vollständige verschlüsselte Datenbankvorsicherung, Medienarchive und geprüfte Restore-Nachweise.
 - `kws_restore_probe_20261008_121055`: separate wiederhergestellte Probe-Datenbank; Hauptdatenbank weiterhin leer. Private Auth/REST/Storage-Dienste auf 9998/9996/9997. Probe inzwischen bewusst durch Sicherheitspatches und Tests verändert; nicht für Cutover verwenden.
+- `/opt/kws/probe-web`: aktualisiertes privates Frontend mit API/Storage auf Probe und Medien auf verifiziertem Zielbestand, Port 9090 Loopback. Realtime/Functions/Legacy-Uploads noch 503. Gast-Browserrunde bestanden; SMTP und angemeldete/native Abnahme offen.
 
 ## Lesende Prüfungen
 
@@ -36,7 +37,7 @@ Vorläufig sind Sicherungen nur auf dem neuen VPS beauftragt. Das schützt nicht
 
 Quell-Dashboard und Postgres 17.6 sind bestätigt. `source-preflight.sql` wurde im Dashboard rein lesend ausgeführt; keine Inhalte von Auth-Hashes oder Tokens ausgeben. `prepare-database-export.sh` installiert die geprüfte CLI 2.120.0 separat auf dem Ziel; `check-source-tls.sh` verifiziert den Session-Pooler mit der aus dem angemeldeten Dashboard bezogenen öffentlichen Supabase-CA. Diese Vorbereitung stellt keine authentifizierte DB-Verbindung her und erzeugt keinen Dump.
 
-DB-Zugang ist bestätigt und vollständiger Export/Probe-Restore geprüft; siehe `docs/qa/2026-10-08-migration-restore.md`. Nächste Phase: DNS-Zugang/API-Domain und SMTP bereitstellen; URLs, öffentliche TLS-Konfiguration, Realtime/Functions/Push und Web/native Clients prüfen. Erst danach finale Schreibsperre, neuen ruhenden Gesamtbestand sichern, sauberes finales Ziel wiederherstellen und Umschaltung koordinieren. Quelle und vorbereitende Sicherungen erhalten.
+DB- und DNS-Zugang sind bestätigt und vollständiger Export/Probe-Restore geprüft; siehe `docs/qa/2026-10-08-migration-restore.md`. Benutzer wählt app@ als Absender und marketing@ für Antworten. Zuständige Microsoft-365-Administration liegt bei anderer Person; vorbereitete Anforderung in `docs/KWS_MAIL_ADMIN_REQUEST.md`, nicht gesendet. Nächste Phase: kompatiblen Versandzugang, API-Domain/TLS, Realtime/Functions/Push und angemeldete Web/native Clients prüfen. Erst danach finale Schreibsperre, neuen ruhenden Gesamtbestand sichern, sauberes finales Ziel wiederherstellen und Umschaltung koordinieren. Quelle und vorbereitende Sicherungen erhalten.
 
 `capture-source-db-secret.ps1` ist die manuelle, verborgene Eingabe für die neue Bitwarden-Referenz `AI Shared/KWS_SUPABASE_DB_PASSWORD`. Es verändert kein Passwort bei Supabase. Offengelegte Werte gemäß Zugangsablauf zuerst manuell erneuern. Das Skript verweigert das Ersetzen einer vorhandenen Referenz und zeigt nur den Referenznamen, niemals den Wert.
 
@@ -54,3 +55,9 @@ Diese Befehle dokumentieren die ausgeführten Schritte; nicht blind als wiederho
 8. `test-probe-api.sh` verändert ausschließlich die Probe: neue getrennte Testkonten, Testfarbe/-bilder und zwei ausgehende Push-Trigger als Stubs. Frühere fehlgeschlagene Ergebnisse bleiben erhalten. `apply-probe-security.sh` hat die separat versionierte Sicherheitsmigration nur in dieser Probe angewandt. Danach alle 39 Prüfungen bestanden.
 
 Bei der finalen Migration: neuen Dump und Dateidelta nach nachgewiesener Schreibsperre, sauberes Ziel ohne Testkonten/Stubs, identischen vollständigen Vergleich **vor** bewussten Sicherheits-/URL-Anpassungen, diese Änderungen gesondert prüfen. Der vorhandene Probe-Stand ist kein finales Deployment.
+
+## Ergänzende CDN-Kopie und Web-Probe
+
+`inspect-probe-urls.sh` hat weitere Bilder auf dem All-Inkl-CDN identifiziert. `copy-referenced-cdn.sh` liest ausschließlich diese HTTPS-Herkunft mit begrenzten gleichzeitigen GETs, speichert geschützte Referenzen/Manifest und verschlüsselt sowie entschlüsselt/verifiziert den Bestand auf dem VPS. 136 Dateien kopiert, elf ältere Log-URLs bereits 404; aktuelle Vorschaubilder und Sektorbilder vollständig vorhanden. Es ist keine vollständige Inventur aller unreferenzierten All-Inkl-Dateien.
+
+`prepare-probe-web-urls.sh` ist einmalig für die benannte Probe und bewahrt Originalwerte. Es prüft Storage-Zuordnungen und veröffentlichte Videodateien, verwendet manifestgeprüfte CDN-Bilder und schreibt nur das Testziel um. `transfer-probe-web.mjs`, `build-probe-web.sh` und `start-probe-web.sh` haben den aktualisierten separaten Frontend-Build bereitgestellt. `verify-probe-web-assets.sh` hat sämtliche 136 CDN-Dateien über den neuen Webdienst per Hash/MIME/Größe geprüft. Hauptdienste und Quellbestand bleiben unverändert. Diese Werkzeuge nicht ungeprüft auf das spätere Produktionsziel anwenden.
