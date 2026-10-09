@@ -1,0 +1,16 @@
+[Unit]
+Description=KWS read-only operating dashboard snapshot
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/kws/operations-dashboard/collect-status.py
+TimeoutStartSec=80
+UMask=0022
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/opt/kws/operations-dashboard/public/ops
+StandardOutput=null
+StandardError=null

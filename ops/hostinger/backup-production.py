@@ -133,6 +133,13 @@ try:
   for path in source.iterdir():
    if path.is_file():shutil.copyfile(path,destination/path.name)
  copy_tree(Path('/opt/kws/web-production/source/dist'),work/'web')
+ # The operating overview and its read-only collector are part of the restore set.
+ dashboard=Path('/opt/kws/operations-dashboard')
+ if dashboard.is_dir():
+  copy_tree(dashboard,config/'operations-dashboard')
+  units=config/'systemd';units.mkdir(mode=0o700)
+  for name in ('kws-operations-status.service','kws-operations-status.timer'):
+   shutil.copyfile(Path('/etc/systemd/system')/name,units/name)
  gateway=json.loads(subprocess.check_output(['docker','inspect','kws-public-gateway-caddy-1'],stderr=log))[0]
  for mount in gateway['Mounts']:
   if mount['Destination']=='/data':copy_tree(Path(mount['Source']),config/'tls-data')

@@ -167,3 +167,22 @@ Video weiterhin erreichbar. Belege: `PUBLIC-STUDIO-VERIFIED.json` und
 Die Chrome-Automation konnte den HTTP-Basic-Dialog nicht bedienen und zeigte
 `ERR_BLOCKED_BY_CLIENT`; der authentifizierte HTTP- und Datenbankzugriff wurde
 serverseitig verifiziert. Manueller Browser-Login bleibt separat zu bestätigen.
+# Betriebsübersicht ergänzt am 9. Oktober, 17:42 MESZ
+
+Die geschützte Domainwurzel https://supabase.kletterwelt-sauerland.de/ zeigt jetzt
+eine KWS-Betriebsübersicht. Native Studio bleibt unter `/project/default` erreichbar
+und heißt **KWS Beta App**. Die Übersicht liest nur aggregierte Produktionsdaten:
+Bestand, Serverressourcen, zwölf benannte Dienste, Videos und Sicherungsnachweise.
+Server- und Browseraktualisierung laufen minütlich. Unbekannte/alte Werte werden
+gekennzeichnet; die fehlende unabhängige Sicherung außerhalb des VPS bleibt sichtbar.
+
+Neuer vollständiger verschlüsselter Sicherungssatz **20261009T154201Z.tar.age**:
+4.251 Dateien entschlüsselt/hashgeprüft, 2.389 Storage-Versionen und 448
+referenzierte Medien nachgewiesen. Dashboard und systemd-Units sind enthalten.
+Der bestätigte Datenbank-Restore-Test bezieht sich weiterhin auf den älteren
+Sicherungssatz von 14:33:59 UTC; kein neuer Restore-Test wird behauptet.
+
+Implementierung: `ops/hostinger/dashboard/`; Betriebsanleitung im dortigen README.
+Prüfbericht: `docs/qa/2026-10-09-operations-dashboard.md`. Bestehender Zugang und
+Bitwarden-Referenz **KWS_HOSTINGER_SUPABASE_CONFIG** bleiben gültig; Referenz nach
+Projektumbenennung mit der tatsächlichen Serverkonfiguration abgeglichen.
