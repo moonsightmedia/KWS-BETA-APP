@@ -70,8 +70,9 @@ Archive liegen unter `/var/backups/kws/production`.
 Die Entschlüsselungsidentität liegt zusätzlich in Bitwarden unter
 `AI Shared/KWS_HOSTINGER_MIGRATION_AGE_IDENTITY`.
 
-Eine zusätzliche NAS-Übertragung läuft. Bisher verifizierte Vorsicherungen:
-Datenbank und Storage. Vollständigkeit der NAS-Medienkopie und des finalen
+Eine zusätzliche NAS-Übertragung läuft. Bisher per SHA256 verifiziert:
+Datenbank- und Storage-Vorsicherung sowie der finale Cloud-Datenbankexport
+`database-final-20261009T140930Z.tar.age`. Vollständigkeit der NAS-Medienkopie und des finalen
 NAS-Gesamtstands noch nicht bestätigt; keine automatisierte tägliche
 Offsite-Synchronisierung eingerichtet. NAS-Ziel:
 `M:\Customer\Boulder und Kletterwelt GmbH\KWS BETA APP\Backups\Hostinger Migration\2026-10-09`.
