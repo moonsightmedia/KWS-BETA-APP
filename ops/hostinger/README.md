@@ -14,6 +14,12 @@ Diese Skripte sind für `srv2044594` (`187.7.70.230`) und den geprüften Geräte
 
 ## Lesende Prüfungen
 
+### Zugang zur bestehenden Supabase-Verwaltung
+
+`pwsh -NoProfile -File ops/hostinger/open-supabase-dashboard.ps1` öffnet beziehungsweise prüft den gerätespezifischen SSH-Tunnel zum bestehenden privaten Studio. Adresse auf diesem Laptop: `http://127.0.0.1:18000/`. Bestehende Dashboard-Anmeldung steht in Bitwarden `AI Shared/KWS_HOSTINGER_SUPABASE_CONFIG`, Felder `DASHBOARD_USERNAME` und `DASHBOARD_PASSWORD`. Keine Passwörter in Chat oder Logs ausgeben. Ohne Anmeldung HTTP 401, mit bestehender Anmeldung HTML 200 geprüft; gespeichertes Passwort gegen den Server verifiziert.
+
+Studio zeigt das vorbereitete Hauptziel `postgres`, das weiterhin leer ist. Die restaurierte Testdatenbank bleibt davon getrennt. Keine neue öffentliche Bindung, DNS- oder Rollenänderung. Tunnel gilt nur für dieses Gerät, solange der SSH-Prozess läuft; bei belegtem Port durch anderen Prozess verweigert das Skript jede Änderung.
+
 ```powershell
 node ops/hostinger/run-remote.mjs ops/hostinger/check-private-runtime.sh
 node ops/hostinger/run-remote.mjs ops/hostinger/verify-media-backups.sh
