@@ -5,23 +5,34 @@ public media. Concurrent deletion can fail a run; it never yields a verified set
 Extra pre-copied files are harmless. In-flight video jobs are recorded as such.
 """
 from pathlib import Path
-import datetime,fcntl,hashlib,json,os,re,shutil,socket,subprocess,tarfile,urllib.parse
+import argparse,datetime,fcntl,hashlib,json,os,re,shutil,socket,subprocess,tarfile,traceback,urllib.parse
 
 assert os.geteuid()==0 and socket.gethostname().split('.')[0]=='srv2044594'
 os.umask(0o077)
-base=Path('/var/backups/kws/production');base.mkdir(mode=0o700,exist_ok=True)
+parser=argparse.ArgumentParser()
+parser.add_argument('--rehearsal-database')
+args=parser.parse_args()
+database=args.rehearsal_database or 'postgres'
+if args.rehearsal_database:
+ assert re.fullmatch(r'kws_restore_probe_\d{8}_\d{6}',database)
+ candidate=Path('/var/backups/kws/migration')/database
+ assert json.loads((candidate/'DATA-VERIFIED.json').read_text())['database']==database
+ assert json.loads((candidate/'STORAGE-VERIFIED.json').read_text())['all_sha256_match'] is True
+else:
+ assert Path('/opt/kws/production/CUTOVER-COMPLETE.json').exists(), 'Cutover not verified'
+base=Path('/var/backups/kws/rehearsal' if args.rehearsal_database else '/var/backups/kws/production');base.mkdir(mode=0o700,exist_ok=True)
 lock=(base/'backup.lock').open('a');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-assert Path('/opt/kws/production/CUTOVER-COMPLETE.json').exists(), 'Cutover not verified'
 stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
 work=base/(stamp+'.work');work.mkdir(mode=0o700)
 log=(work/'diagnostics.log').open('wb');controller=None
-client=['docker','exec','-i','supabase-db','psql','-U','supabase_admin','-d','postgres','-X','-qAt','-v','ON_ERROR_STOP=1']
+client=['docker','exec','-i','supabase-db','psql','-U','supabase_admin','-d',database,'-X','-qAt','-v','ON_ERROR_STOP=1']
 def sql(query):
  return subprocess.check_output(client,input=query.encode(),stderr=log).decode().strip()
 def digest(path):
  with path.open('rb') as stream:return hashlib.file_digest(stream,'sha256').hexdigest()
 def copy_tree(source,target):
  assert source.is_dir() and not source.is_symlink()
+ assert not any(path.is_symlink() for path in source.rglob('*')), 'Symlink in backup tree'
  shutil.copytree(source,target,symlinks=False)
 def copy_required(source,target):
  assert source.is_file() and not source.is_symlink(), 'Required media absent'
@@ -37,13 +48,26 @@ try:
  snapshot=controller.stdout.readline().strip();assert re.fullmatch(r'[0-9A-F]+-[0-9A-F]+-\d+',snapshot)
  def snap(query):return sql("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; SET TRANSACTION SNAPSHOT '"+snapshot+"'; "+query+' ROLLBACK;')
  assert int(snap('SELECT count(*) FROM auth.users;'))>0
+ table_names=json.loads(snap("SELECT json_agg(json_build_object('schema',schemaname,'table',tablename)) FROM pg_tables WHERE schemaname IN ('public','auth','storage','vault');"))
+ database_rows={}
+ for item in table_names:
+  assert all(v.replace('_','').isalnum() for v in item.values())
+  relation='"'+item['schema']+'"."'+item['table']+'"'
+  canonical=snap("SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]'::jsonb)::text FROM "+relation+' t;')
+  database_rows[item['schema']+'.'+item['table']]={'rows':len(json.loads(canonical)),'sha256':hashlib.sha256(canonical.encode()).hexdigest()}
+ sequence_names=json.loads(snap("SELECT coalesce(json_agg(json_build_object('schema',n.nspname,'name',c.relname)),'[]') FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind='S' AND n.nspname IN ('public','auth','storage','vault');"))
+ sequences={}
+ for item in sequence_names:
+  assert all(v.replace('_','').isalnum() for v in item.values())
+  sequences[item['schema']+'.'+item['name']]=json.loads(snap('SELECT json_build_object(\'last_value\',last_value,\'is_called\',is_called) FROM "'+item['schema']+'"."'+item['name']+'";'))
  with (work/'database.dump').open('wb') as output:
-  subprocess.run(['docker','exec','supabase-db','pg_dump','-U','supabase_admin','-d','postgres','-Fc','--snapshot',snapshot],stdout=output,stderr=log,check=True)
+  subprocess.run(['docker','exec','supabase-db','pg_dump','-U','supabase_admin','-d',database,'-Fc','--snapshot',snapshot],stdout=output,stderr=log,check=True)
  with (work/'roles.sql').open('wb') as output:
   subprocess.run(['docker','exec','supabase-db','pg_dumpall','-U','supabase_admin','--roles-only'],stdout=output,stderr=log,check=True)
  storage=json.loads(snap("SELECT coalesce(json_agg(json_build_object('bucket',bucket_id,'name',name,'version',version,'size',(metadata->>'size')::bigint)),'[]') FROM storage.objects;"))
- service=json.loads(subprocess.check_output(['docker','inspect','supabase-storage'],stderr=log))[0]
+ service=json.loads(subprocess.check_output(['docker','inspect','kws-storage-candidate' if args.rehearsal_database else 'supabase-storage'],stderr=log))[0]
  environment=dict(line.split('=',1) for line in service['Config']['Env'])
+ assert urllib.parse.urlsplit(environment['DATABASE_URL']).path=='/'+database
  mount=next(m for m in service['Mounts'] if m['Destination']=='/var/lib/storage')
  storage_root=Path(mount['Source']).resolve()
  for row in storage:
@@ -79,14 +103,26 @@ try:
  assert controller.returncode==0;controller=None
  # Encryption keys/config are necessary to restore Vault, Auth and SMTP.
  config=work/'config';config.mkdir(mode=0o700)
+ db_service=json.loads(subprocess.check_output(['docker','inspect','supabase-db'],stderr=log))[0]
+ db_config_mount=next(m for m in db_service['Mounts'] if m['Destination']=='/etc/postgresql-custom')
+ db_config_root=Path(db_config_mount['Source'])
+ assert (db_config_root/'pgsodium_root.key').is_file(), 'Vault encryption root key absent'
+ copy_tree(db_config_root,config/'postgres-custom')
  runtime=Path('/opt/kws/supabase/runtime')
  for name in ('.env','docker-compose.yml','docker-compose.local.yml','docker-compose.production.json'):
   shutil.copyfile(runtime/name,config/name)
+ (config/'volumes').mkdir(mode=0o700)
  for name in ('db','pooler','functions','api'):
   source=runtime/'volumes'/name
   if source.is_dir():
    # pg_dump is authoritative; never copy a running PostgreSQL data directory.
-   if name=='db':shutil.copytree(source,config/'volumes'/name,ignore=shutil.ignore_patterns('data'))
+   if name=='db':
+    target=config/'volumes'/name;target.mkdir(mode=0o700)
+    for path in source.iterdir():
+     if path.name=='data':continue
+     assert not path.is_symlink()
+     if path.is_dir():copy_tree(path,target/path.name)
+     else:shutil.copyfile(path,target/path.name)
    else:copy_tree(source,config/'volumes'/name)
  for name in ('integrations','production','public-gateway'):
   source=Path('/opt/kws')/name;destination=config/name;destination.mkdir(mode=0o700)
@@ -105,7 +141,7 @@ try:
  for path in (work/'video/jobs').glob('*.json'):
   value=json.loads(path.read_text());jobs.append(value.get('status','unknown'))
  files={str(path.relative_to(work)):{'bytes':path.stat().st_size,'sha256':digest(path)} for path in work.rglob('*') if path.is_file() and path.name!='diagnostics.log'}
- manifest={'created_at':stamp,'consistent_database_snapshot':True,'storage_versions_verified':len(storage),'public_media_references_present':len(media_refs),'in_flight_video_jobs':sum(v in ('queued','processing') for v in jobs),'files':files}
+ manifest={'created_at':stamp,'database':database,'rehearsal':bool(args.rehearsal_database),'consistent_database_snapshot':True,'database_rows':database_rows,'sequences':sequences,'vault_root_key_included':True,'storage_versions_verified':len(storage),'public_media_references_present':len(media_refs),'in_flight_video_jobs':sum(v in ('queued','processing') for v in jobs),'files':files}
  (work/'manifest.json').write_text(json.dumps(manifest)+'\n')
  recipient=subprocess.check_output(['age-keygen','-y','/root/.config/kws-migration/age-key.txt'],text=True).strip()
  archive=base/(stamp+'.tar.age');partial=Path(str(archive)+'.partial')
@@ -129,7 +165,7 @@ try:
  assert decrypt.wait()==0 and verified==set(files) and restored_manifest==manifest
  partial.rename(archive);checksum=digest(archive)
  Path(str(archive)+'.sha256').write_text(checksum+'  '+archive.name+'\n')
- report={'archive':archive.name,'decrypted_files_verified':len(verified),'storage_versions_verified':len(storage),'media_references_present':len(media_refs),'database_restore_tested':False,'independent_backup_location':False}
+ report={'archive':archive.name,'database':database,'rehearsal':bool(args.rehearsal_database),'decrypted_files_verified':len(verified),'vault_root_key_included':True,'storage_versions_verified':len(storage),'media_references_present':len(media_refs),'database_restore_tested':False,'independent_backup_location':False}
  Path(str(archive)+'.verified.json').write_text(json.dumps(report)+'\n')
  # Bounded retention: latest seven daily sets plus one per each of four weeks.
  backups=sorted(base.glob('*.tar.age'));keep=set(backups[-7:]);weeks={}
@@ -143,9 +179,17 @@ try:
  log.close();shutil.rmtree(work)
  print(json.dumps(report))
 except Exception as error:
- print(json.dumps({'backup_failed':True,'error_class':type(error).__name__,'last_verified_backups_retained':True}))
+ frames=traceback.extract_tb(error.__traceback__)
+ failure_line=next((frame.lineno for frame in frames if frame.filename==__file__),None)
+ print(json.dumps({'backup_failed':True,'error_class':type(error).__name__,'failure_line':failure_line,'last_verified_backups_retained':True}))
  raise SystemExit(1)
 finally:
  if controller is not None:
   try:controller.stdin.write('ROLLBACK;\n\\q\n');controller.stdin.flush();controller.communicate(timeout=10)
   except Exception:controller.kill();controller.wait()
+ # Plain dumps/config must not accumulate after an interrupted or failed run.
+ # Encrypted .partial archives may remain for diagnosis; verified sets survive.
+ if not log.closed:log.close()
+ if work.exists():
+  assert work.parent==base and re.fullmatch(r'\d{8}T\d{6}Z\.work',work.name)
+  shutil.rmtree(work)

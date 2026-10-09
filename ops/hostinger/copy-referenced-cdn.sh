@@ -5,13 +5,18 @@ umask 077
 python3 - <<'PY'
 import collections,concurrent.futures,datetime,hashlib,json,subprocess,tarfile,urllib.request,urllib.error,urllib.parse
 from pathlib import Path
-probe=Path('/var/backups/kws/migration/kws_restore_probe_20261008_121055')
-assert (probe/'API-VERIFIED.json').is_file()
-db='kws_restore_probe_20261008_121055'
+probe=sorted(p for p in Path('/var/backups/kws/migration').glob('kws_restore_probe_*') if (p/'DATA-VERIFIED.json').is_file())[-1]
+assert (probe/'STORAGE-VERIFIED.json').is_file()
+db=json.loads((probe/'DATA-VERIFIED.json').read_text())['database']
+source_manifest=json.loads((Path(json.loads((probe/'RESTORE-COMMITTED.json').read_text())['source'])/'manifest.json').read_text())
+final=source_manifest.get('stage')=='final'
+if final:
+ gate=json.loads(Path('/var/backups/kws/migration/SOURCE-MAINTENANCE-GATE.json').read_text())
+ assert gate['active'] and gate['api_rejection_verified']
 def query(sql):
     return subprocess.check_output(['docker','exec','-i','supabase-db','psql','-U','supabase_admin','-d',db,'-X','-qAt','-v','ON_ERROR_STOP=1'],input=sql,text=True)
 stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-root=Path('/var/backups/kws/migration')/('cdn-precopy-'+stamp)
+root=Path('/var/backups/kws/migration')/('cdn-'+('final' if final else 'precopy')+'-'+stamp)
 root.mkdir(mode=0o700);(root/'objects').mkdir(mode=0o700)
 references=collections.defaultdict(set)
 def visit(value,location):
@@ -57,7 +62,7 @@ def download(url):
     return result
 with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
     objects=list(pool.map(download,sorted(references)))
-manifest={'kind':'referenced-cdn-precopy','captured_at':stamp,'writers_frozen':False,'objects':objects}
+manifest={'kind':'referenced-cdn-'+('final' if final else 'precopy'),'captured_at':stamp,'writers_frozen':final,'objects':objects}
 (root/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2))
 recipient=subprocess.check_output(['age-keygen','-y','/root/.config/kws-migration/age-key.txt'],text=True).strip()
 archive=Path(str(root)+'.tar.gz.age');partial=Path(str(archive)+'.partial')
@@ -79,7 +84,7 @@ for item in objects:
     if item['status']==200:
         f=restored/item['local'];assert f.stat().st_size==item['bytes']
         with f.open('rb') as content:assert hashlib.file_digest(content,'sha256').hexdigest()==item['sha256']
-summary={'archive':archive.name,'referenced_urls':len(objects),'copied_files':sum(o['status']==200 for o in objects),'bytes':sum(o.get('bytes',0) for o in objects),'status_counts':dict(collections.Counter(str(o['status']) for o in objects)),'unavailable_reference_locations':dict(collections.Counter(location for o in objects if o['status']!=200 for location in o['references'])),'decrypted_restore_verified':True,'source_changed':False,'final_cutover_copy':False}
+summary={'archive':archive.name,'referenced_urls':len(objects),'copied_files':sum(o['status']==200 for o in objects),'bytes':sum(o.get('bytes',0) for o in objects),'status_counts':dict(collections.Counter(str(o['status']) for o in objects)),'unavailable_reference_locations':dict(collections.Counter(location for o in objects if o['status']!=200 for location in o['references'])),'decrypted_restore_verified':True,'source_changed':False,'final_cutover_copy':final}
 (root/'RESTORE-VERIFIED.json').write_text(json.dumps(summary,indent=2))
 (probe/'CDN-PRECOPY.json').write_text(json.dumps(summary,indent=2))
 print(json.dumps(summary))

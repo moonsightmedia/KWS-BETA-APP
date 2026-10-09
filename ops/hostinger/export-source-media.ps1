@@ -1,4 +1,5 @@
-param([ValidateSet('export-source-media.py','inventory-source-rest.py','inventory-storage-counts.py')][string]$Tool = 'export-source-media.py')
+param([ValidateSet('export-source-media.py','inventory-source-rest.py','inventory-storage-counts.py','verify-source-freeze.py')][string]$Tool = 'export-source-media.py',
+      [ValidateSet('precopy','final')][string]$ExportStage = 'precopy')
 $ErrorActionPreference = 'Stop'
 $taskKnownHosts = Join-Path $env:USERPROFILE '.ssh\known_hosts_kws'
 $taskSshArgs = @('-T','-i',"$env:USERPROFILE\.ssh\id_ed25519_kws_vps_laptop",'-o','IdentitiesOnly=yes','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o',"UserKnownHostsFile=$taskKnownHosts",'-o','HostKeyAlgorithms=ssh-ed25519','-o','KexAlgorithms=curve25519-sha256','kws-admin@187.7.70.230')
@@ -20,10 +21,10 @@ foreach ($taskArg in $taskSshArgs) { $taskProcess.StartInfo.ArgumentList.Add($ta
 $taskProcess.StartInfo.ArgumentList.Add("sudo -n python3 /opt/kws/tools/$Tool")
 try {
     if (-not $taskProcess.Start()) { throw 'Migration process did not start' }
-    $taskProcess.StandardInput.WriteLine((@{service_key=$taskSecret.value} | ConvertTo-Json -Compress))
+    $taskProcess.StandardInput.WriteLine((@{service_key=$taskSecret.value;export_stage=$ExportStage} | ConvertTo-Json -Compress))
     $taskProcess.StandardInput.Close()
     $taskProcess.WaitForExit()
-    if ($taskProcess.ExitCode -ne 0) { throw 'Preliminary media export failed; source unchanged' }
+    if ($taskProcess.ExitCode -ne 0) { throw 'Protected source API operation failed; inspect named checks before continuing' }
 } finally {
     $taskSecret=$null; $taskRaw=$null; $taskProcess.Dispose()
 }

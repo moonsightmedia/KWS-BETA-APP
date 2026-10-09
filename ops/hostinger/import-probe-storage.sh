@@ -12,9 +12,12 @@ services=json.loads((work/'services.json').read_text());db=services['database']
 storage_port=next(s['port'] for s in services['services'] if 'storage' in s['name'])
 assert isinstance(storage_port,int) and 9900<=storage_port<=9999
 storage_origin='http://127.0.0.1:'+str(storage_port)
-storage=sorted(p for p in base.glob('storage-precopy-*.age.restore-test') if (p/'RESTORE-VERIFIED.json').is_file())[-1]
+storage=max((p for p in base.glob('storage-*.age.restore-test') if (p/'RESTORE-VERIFIED.json').is_file()),key=lambda p:json.loads(next(p.glob('*/manifest.json')).read_text())['captured_at'])
 manifest_path=next(storage.glob('*/manifest.json'))
 manifest=json.loads(manifest_path.read_text())
+source_database_manifest=json.loads((Path(json.loads((work/'RESTORE-COMMITTED.json').read_text())['source'])/'manifest.json').read_text())
+if source_database_manifest.get('stage')=='final':
+    assert manifest.get('writers_frozen') is True, 'Final database requires frozen Storage set'
 config={}
 for line in Path('/opt/kws/supabase/runtime/.env').read_text().splitlines():
     if line and not line.startswith('#') and '=' in line:

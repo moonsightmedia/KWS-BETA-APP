@@ -4,12 +4,17 @@ umask 077
 [[ $(id -u) == 0 && $(hostname -s) == srv2044594 ]] || exit 1
 python3 - <<'PY'
 from pathlib import Path
-import json,subprocess,time,urllib.request,urllib.error
-db='kws_restore_probe_20261009_092807';work=Path('/var/backups/kws/migration')/db
+import json,subprocess,time,urllib.request,urllib.error,urllib.parse
+work=max(p for p in Path('/var/backups/kws/migration').glob('kws_restore_probe_*') if (p/'DATA-VERIFIED.json').exists())
+db=json.loads((work/'DATA-VERIFIED.json').read_text())['database']
 assert json.loads((work/'DATA-VERIFIED.json').read_text())['database']==db
 comparison=json.loads((work/'SCHEMA-COMPARISON.json').read_text())
 assert comparison and not any(v['missing'] or v['extra'] or v['different'] for v in comparison.values()), 'Full schema evidence required'
 integrations=json.loads(Path('/opt/kws/integrations/runtime.json').read_text())
+source=Path(json.loads((work/'RESTORE-COMMITTED.json').read_text())['source'])
+inventory=json.loads((source/'inventory.json').read_text())
+expected_users=next(t['rows'] for t in inventory['tables'] if (t['schema'],t['name'])==('auth','users'))
+final=json.loads((source/'manifest.json').read_text()).get('stage')=='final'
 runtime=dict(line.split('=',1) for line in Path('/opt/kws/supabase/runtime/.env').read_text().splitlines() if '=' in line and not line.startswith('#'))
 log=(work/'candidate-services.log').open('ab');services=[]
 for original,name,port,container_port in [('supabase-rest','kws-rest-candidate',9992,3000),('supabase-auth','kws-auth-candidate',9994,9999),('supabase-storage','kws-storage-candidate',9993,5000)]:
@@ -33,6 +38,16 @@ for original,name,port,container_port in [('supabase-rest','kws-rest-candidate',
  existing=subprocess.run(['docker','inspect',name],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
  if existing.returncode==0:
   actual=json.loads(existing.stdout)[0]
+  old_url=dict(line.split('=',1) for line in actual['Config']['Env'])[dbkey]
+  if old_url!=env[dbkey]:
+   assert final, 'Only frozen final candidate may replace earlier rehearsal services'
+   old_database=urllib.parse.urlsplit(old_url).path.removeprefix('/')
+   assert old_database.startswith('kws_restore_probe_') and old_database!=db
+   subprocess.run(['docker','stop',name],stdout=log,stderr=log,check=True)
+   subprocess.run(['docker','rename',name,name+'-'+old_database.removeprefix('kws_restore_probe_')],stdout=log,stderr=log,check=True)
+   existing=subprocess.run(['docker','inspect',name],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
+ if existing.returncode==0:
+  actual=json.loads(existing.stdout)[0]
   assert dict(line.split('=',1) for line in actual['Config']['Env'])[dbkey]==env[dbkey]
   assert actual['State']['Running'], 'Existing candidate must be inspected rather than silently recreated'
  else:
@@ -46,7 +61,7 @@ for attempt in range(30):
   assert urllib.request.urlopen('http://127.0.0.1:9994/health',timeout=5).status==200
   assert urllib.request.urlopen('http://127.0.0.1:9993/status',timeout=5).status==200
   req=urllib.request.Request('http://127.0.0.1:9994/admin/users?page=1&per_page=100',headers={'Authorization':'Bearer '+runtime['SERVICE_ROLE_KEY']})
-  with urllib.request.urlopen(req,timeout=5) as r:users=json.load(r)['users'];assert len(users)==44
+  with urllib.request.urlopen(req,timeout=5) as r:users=json.load(r)['users'];assert len(users)==expected_users
   break
  except (urllib.error.URLError,AssertionError,ConnectionError):
   if attempt==29:raise

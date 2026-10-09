@@ -1,4 +1,4 @@
-"""Create an encrypted preliminary Storage copy on the KWS target only.
+"""Create an encrypted Storage copy on the KWS target only.
 
 Credentials arrive through stdin, never argv or output. This is not a database
 backup or a consistent final migration snapshot while the source is writable.
@@ -21,9 +21,22 @@ if os.geteuid() != 0 or socket.gethostname().split('.')[0] != 'srv2044594':
 os.umask(0o077)
 credential = json.loads(sys.stdin.readline())
 key = credential['service_key']
+export_stage = credential.get('export_stage', 'precopy')
+assert export_stage in ('precopy','final')
+backup_base = Path('/var/backups/kws/migration')
+reusable = {}
+if export_stage == 'final':
+    gate=json.loads((backup_base/'SOURCE-MAINTENANCE-GATE.json').read_text())
+    video=json.loads((backup_base/'SOURCE-VIDEO-FROZEN.json').read_text())
+    assert gate['active'] is True and gate['api_rejection_verified'] is True
+    assert video['stopped'] is True and video['drained'] is True
+    previous=max(p for p in backup_base.glob('storage-precopy-*.age.restore-test') if (p/'RESTORE-VERIFIED.json').is_file())
+    previous_manifest=next(previous.glob('*/manifest.json'))
+    for item in json.loads(previous_manifest.read_text())['objects']:
+        reusable[(item['bucket'],item['path'])]=(previous_manifest.parent,item)
 base = 'https://pkzzxtsyxwxoraytyjau.supabase.co'
 stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-root = Path('/var/backups/kws/migration') / ('storage-precopy-' + stamp)
+root = backup_base / ('storage-' + export_stage + '-' + stamp)
 root.mkdir(mode=0o700)
 
 def request(path, body=None):
@@ -42,10 +55,12 @@ def get_json(path, body=None):
         return json.load(response)
 
 buckets = get_json('/storage/v1/bucket')
-manifest = {'source': base, 'captured_at': stamp, 'kind': 'preliminary-copy',
+manifest = {'source': base, 'captured_at': stamp, 'kind': export_stage+'-storage-copy',
+            'writers_frozen': export_stage == 'final',
             'buckets': buckets, 'objects': []}
 total_bytes = 0
 summaries = []
+downloaded_files = reused_files = 0
 for bucket in buckets:
     bucket_id = bucket['id']
     count = 0
@@ -74,9 +89,26 @@ for bucket in buckets:
                 sha = hashlib.sha256()
                 length = 0
                 download = '/storage/v1/object/authenticated/' + urllib.parse.quote(bucket_id, safe='') + '/' + urllib.parse.quote(path, safe='/')
-                with request(download) as response, local.open('xb') as output:
-                    while chunk := response.read(1024 * 1024):
-                        output.write(chunk); sha.update(chunk); length += len(chunk)
+                previous=reusable.get((bucket_id,path))
+                # Storage updates immutable version/etag and updated_at on every
+                # API upload. Only identical metadata can reuse verified bytes.
+                signature=('id','updated_at','created_at','version','metadata')
+                if previous and all(obj.get(field)==previous[1]['source_metadata'].get(field) for field in signature):
+                    previous_path=previous[0]/previous[1]['local']
+                    assert previous_path.resolve().is_relative_to(previous[0].resolve())
+                    with previous_path.open('rb') as content:
+                        assert hashlib.file_digest(content,'sha256').hexdigest()==previous[1]['sha256']
+                    import shutil
+                    shutil.copyfile(previous_path,local)
+                    length=local.stat().st_size
+                    with local.open('rb') as content:sha.update(content.read())
+                    assert length==previous[1]['bytes']
+                    reused_files+=1
+                else:
+                    with request(download) as response, local.open('xb') as output:
+                        while chunk := response.read(1024 * 1024):
+                            output.write(chunk); sha.update(chunk); length += len(chunk)
+                    downloaded_files+=1
                 expected_size = (obj.get('metadata') or {}).get('size')
                 if expected_size is not None and int(expected_size) != length:
                     raise RuntimeError('Source object changed or download incomplete')
@@ -85,6 +117,8 @@ for bucket in buckets:
                                             'sha256': sha.hexdigest(), 'bytes': length,
                                             'source_metadata': obj})
                 count += 1; size += length
+                if (downloaded_files+reused_files)%250==0:
+                    print(json.dumps({'storage_files_processed':downloaded_files+reused_files,'source_files_downloaded':downloaded_files,'verified_files_reused':reused_files}),flush=True)
             if len(objects) < 1000:
                 break
             offset += len(objects)
@@ -108,6 +142,7 @@ temporary.rename(archive)
 with archive.open('rb') as backup:
     checksum = hashlib.file_digest(backup, 'sha256').hexdigest()
 Path(str(archive) + '.sha256').write_text(checksum + '  ' + archive.name + '\n')
-print(json.dumps({'kind': 'preliminary-storage-copy', 'buckets': summaries,
+print(json.dumps({'kind': export_stage+'-storage-copy', 'buckets': summaries,
                   'total_bytes': total_bytes, 'encrypted_archive': str(archive),
+                  'source_writers_frozen':export_stage=='final','source_files_downloaded':downloaded_files,'verified_files_reused':reused_files,
                   'database_backup_included': False, 'raw_staging_retained': True}))

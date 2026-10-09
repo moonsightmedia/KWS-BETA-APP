@@ -50,13 +50,14 @@ http://:80 {
     X-Frame-Options DENY
     Referrer-Policy no-referrer
   }
-  @cors header Origin https://beta.kletterwelt-sauerland.de https://localhost capacitor://localhost http://localhost
+  @cors header_regexp Origin ^(https://beta\.kletterwelt-sauerland\.de|https://localhost|capacitor://localhost|http://localhost)$
   header @cors {
     Access-Control-Allow-Origin {http.request.header.Origin}
     Access-Control-Allow-Methods "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS"
     Access-Control-Allow-Headers "authorization, apikey, content-type, x-client-info, prefer, range, x-upsert, x-supabase-api-version"
     Access-Control-Expose-Headers "content-range, range, x-total-count"
     Vary Origin
+    defer
   }
   @preflight method OPTIONS
   handle @preflight {
