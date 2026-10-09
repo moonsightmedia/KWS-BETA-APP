@@ -16,6 +16,7 @@ import Boulders from "./pages/Boulders";
 import BoulderDetail from "./pages/BoulderDetail";
 import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
+import ResetPassword from "./pages/ResetPassword";
 import Profile from "./pages/Profile";
 import ProfileEdit from "./pages/ProfileEdit";
 import NotificationSettings from "./pages/NotificationSettings";
@@ -127,6 +128,7 @@ const ConditionalSidebar = () => {
   if (
     location.pathname === '/auth' ||
     location.pathname === '/auth/callback' ||
+    location.pathname === '/reset-password' ||
     location.pathname === '/competition'
   ) {
     return null;
@@ -302,6 +304,7 @@ const Root = () => {
   const isPublicRoute =
     location.pathname === '/auth' ||
     location.pathname === '/auth/callback' ||
+    location.pathname === '/reset-password' ||
     location.pathname === '/competition';
   
   if ((authLoading || isInitialLoad) && !isPublicRoute) {
@@ -337,7 +340,7 @@ const restoreRouteOnInit = () => {
     const currentPath = window.location.pathname;
     
     // Don't restore route if we're on /auth - user might be trying to log in
-    if (currentPath.startsWith('/auth')) {
+    if (currentPath.startsWith('/auth') || currentPath === '/reset-password') {
       if (preserveRoute) {
         console.log(`[RouterInit] On /auth page, clearing preserved route: ${preserveRoute}`);
         sessionStorage.removeItem('preserveRoute');
@@ -385,6 +388,7 @@ const router = createBrowserRouter([
       { path: "boulders/:id", element: <BoulderDetail /> },
       { path: "auth", element: <Auth /> },
       { path: "auth/callback", element: <AuthCallback /> },
+      { path: "reset-password", element: <ResetPassword /> },
       { path: "profile", element: (
         <RequireAuth>
           <Profile />

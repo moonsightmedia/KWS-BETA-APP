@@ -9,6 +9,10 @@ import { usePreloadSectorImages } from './usePreloadSectorImages';
 import { usePreloadBoulderThumbnails } from './usePreloadBoulderThumbnails';
 import { authenticatedFetch, getCurrentSession, SESSION_REQUIRED_EVENT } from '@/lib/authenticatedFetch';
 import { SessionRecoveryDialog } from '@/components/SessionRecoveryDialog';
+import { Capacitor } from '@capacitor/core';
+import { emailRedirectUrl } from '@/lib/emailAuth';
+
+const emailRedirect = (path: string) => emailRedirectUrl(path, Capacitor.isNativePlatform(), window.location.origin, import.meta.env.VITE_AUTH_SITE_URL);
 
 interface AuthContextType {
   user: User | null;
@@ -45,7 +49,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     if (next && lastSession.current && next.user.id !== lastSession.current.user.id) {
       queryClient.clear();
-      window.location.assign('/'); // Do not transfer an old account's drafts.
+      const emailPage = window.location.pathname === '/reset-password' || window.location.pathname === '/auth/callback';
+      window.location.assign(emailPage ? window.location.pathname : '/'); // Do not transfer an old account's drafts.
       return;
     }
     lastSession.current = next;
@@ -663,7 +668,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = async (email: string, password: string, meta?: { firstName?: string; lastName?: string; birthDate?: string }) => {
     setAuthTransition('signing-up');
     try {
-      const redirectUrl = `${window.location.origin}/auth/callback?next=/`;
+      const redirectUrl = emailRedirect('/auth/callback?next=/');
 
       // Validate email format before sending to Supabase
       const emailTrimmed = email.trim();
@@ -754,7 +759,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.error('Bitte E-Mail-Adresse eingeben.');
       return;
     }
-    const redirectUrl = `${window.location.origin}/auth/callback?next=/`;
+    const redirectUrl = emailRedirect('/auth/callback?next=/');
     const { data, error } = await supabase.auth.resend({
       type: 'signup',
       email: emailTrimmed,
@@ -866,7 +871,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const resetPassword = async (email: string) => {
-    const redirectUrl = `${window.location.origin}/auth`;
+    const redirectUrl = emailRedirect('/reset-password');
     
     const { error } = await withSingleRetry(() => supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl

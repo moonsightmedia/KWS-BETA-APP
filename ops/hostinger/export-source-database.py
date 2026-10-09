@@ -83,7 +83,10 @@ ROLLBACK;
     for name,flags in [('roles',['--role-only']),('schema',[]),('data',['--data-only','--use-copy'])]:
         # Official CLI transformations, generated without the real password.
         dry_env=os.environ.copy(); dry_env['PGPASSWORD']='NONSECRET_PLACEHOLDER'
-        script=subprocess.run(['/opt/kws/tools/supabase','db','dump','--db-url',uri,'--dry-run','--keep-comments']+flags,
+        # CLI permits --keep-comments for schema/roles, but rejects combining
+        # it with --data-only. COPY data has no function body comments to keep.
+        comments=['--keep-comments'] if name!='data' else []
+        script=subprocess.run(['/opt/kws/tools/supabase','db','dump','--db-url',uri,'--dry-run']+comments+flags,
              cwd='/opt/kws/migration-work',env=dry_env,stdout=subprocess.PIPE,stderr=log,check=True).stdout.decode()
         script=re.sub(r'^export PG(?:HOST|PORT|USER|PASSWORD|DATABASE)=.*\n','',script,flags=re.M)
         assert 'NONSECRET_PLACEHOLDER' not in script

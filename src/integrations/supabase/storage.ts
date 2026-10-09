@@ -2028,6 +2028,12 @@ export async function deleteThumbnail(thumbnailUrl: string | null): Promise<void
   if (!thumbnailUrl) return;
 
   try {
+    const assetUrl = new URL(thumbnailUrl);
+    if (getHostingerVideoOrigins().has(assetUrl.origin) && assetUrl.pathname.startsWith('/videos/')) {
+      const { data: { session } } = await supabase.auth.getSession();
+      await deleteBetaVideo(thumbnailUrl, session?.access_token);
+      return;
+    }
     // Check if it's an All-Inkl URL
     if (thumbnailUrl.includes('cdn.kletterwelt-sauerland.de')) {
       const response = await fetch(`${ALLINKL_API_URL}/delete.php`, {

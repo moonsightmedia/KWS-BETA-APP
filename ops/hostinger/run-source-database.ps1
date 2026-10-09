@@ -1,4 +1,4 @@
-param([ValidateSet('export-source-database.py','compare-source-database-metadata.py')][string]$Tool='export-source-database.py')
+param([ValidateSet('export-source-database.py','compare-source-database-metadata.py','inspect-source-writegate.py')][string]$Tool='export-source-database.py')
 $ErrorActionPreference='Stop'
 $taskKnownHosts=Join-Path $env:USERPROFILE '.ssh\known_hosts_kws'
 $taskSshArgs=@('-T','-i',"$env:USERPROFILE\.ssh\id_ed25519_kws_vps_laptop",'-o','IdentitiesOnly=yes','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o',"UserKnownHostsFile=$taskKnownHosts",'-o','HostKeyAlgorithms=ssh-ed25519','-o','KexAlgorithms=curve25519-sha256','kws-admin@187.7.70.230')

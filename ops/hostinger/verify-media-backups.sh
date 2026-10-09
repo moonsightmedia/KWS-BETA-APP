@@ -4,10 +4,17 @@ umask 077
 [[ $(id -u) == 0 && $(hostname -s) == srv2044594 ]] || exit 1
 python3 - <<'PY'
 from pathlib import Path
-import collections,hashlib,json,subprocess,tarfile
+import collections,hashlib,json,os,re,subprocess,tarfile
 base=Path('/var/backups/kws/migration')
 identity='/root/.config/kws-migration/age-key.txt'
-for archive in sorted(base.glob('*-precopy-*.age')):
+selected=os.environ.get('KWS_BACKUP_ARCHIVE')
+if selected:
+    assert re.fullmatch(r'(database|storage|video|cdn)-precopy-[0-9TZ]+\.tar(?:\.gz)?\.age',selected), 'Invalid archive selection'
+    archives=[base/selected]
+    assert archives[0].is_file(), 'Selected archive missing'
+else:
+    archives=sorted(base.glob('*-precopy-*.age'))
+for archive in archives:
     if archive.name.endswith('.partial'): continue
     digest=hashlib.file_digest(archive.open('rb'),'sha256').hexdigest()
     recorded=Path(str(archive)+'.sha256').read_text().split()[0]

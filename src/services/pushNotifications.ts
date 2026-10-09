@@ -157,7 +157,8 @@ export const sendPushNotification = async (
       method: 'POST',
       signal: controller.signal,
       headers: {
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': SUPABASE_KEY,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
