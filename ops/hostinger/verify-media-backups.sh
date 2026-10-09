@@ -9,7 +9,7 @@ base=Path('/var/backups/kws/migration')
 identity='/root/.config/kws-migration/age-key.txt'
 selected=os.environ.get('KWS_BACKUP_ARCHIVE')
 if selected:
-    assert re.fullmatch(r'(database|storage|video|cdn)-precopy-[0-9TZ]+\.tar(?:\.gz)?\.age',selected), 'Invalid archive selection'
+    assert re.fullmatch(r'(database|storage|video|cdn)-(precopy|final)-[0-9TZ]+\.tar(?:\.gz)?\.age',selected), 'Invalid archive selection'
     archives=[base/selected]
     assert archives[0].is_file(), 'Selected archive missing'
 else:

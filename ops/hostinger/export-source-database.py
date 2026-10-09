@@ -15,7 +15,16 @@ import sys
 
 assert os.geteuid() == 0 and socket.gethostname().split('.')[0] == 'srv2044594'
 os.umask(0o077)
-secret = json.loads(sys.stdin.readline())['password']
+request = json.loads(sys.stdin.readline())
+secret = request['password']
+export_stage = request.get('export_stage', 'precopy')
+assert export_stage in ('precopy', 'final')
+if export_stage == 'final':
+    root = Path('/var/backups/kws/migration')
+    gate = json.loads((root/'SOURCE-MAINTENANCE-GATE.json').read_text())
+    video = json.loads((root/'SOURCE-VIDEO-FROZEN.json').read_text())
+    assert gate['active'] is True and gate['api_rejection_verified'] is True
+    assert video['stopped'] is True and video['drained'] is True
 assert isinstance(secret, str) and secret and '\n' not in secret
 env = os.environ.copy()
 env.update(PGHOST='aws-1-eu-north-1.pooler.supabase.com', PGPORT='5432',
@@ -24,7 +33,7 @@ env.update(PGHOST='aws-1-eu-north-1.pooler.supabase.com', PGPORT='5432',
            PGSSLROOTCERT='/source-ca.crt', PGCONNECT_TIMEOUT='15')
 image = 'supabase/postgres:17.6.1.136'
 stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-stage = Path('/var/backups/kws/migration') / ('database-precopy-' + stamp)
+stage = Path('/var/backups/kws/migration') / ('database-' + export_stage + '-' + stamp)
 stage.mkdir(mode=0o700)
 log = (stage / 'diagnostics.log').open('wb')
 base = ['docker', 'run', '--rm', '--network', 'host', '--read-only',
@@ -53,6 +62,10 @@ try:
         raise RuntimeError('Source authentication or snapshot failed; protected diagnostics retained')
     print('SOURCE_DB_AUTHENTICATED_VERIFY_FULL_READ_ONLY_SNAPSHOT_OPEN', flush=True)
 
+    if export_stage == 'final':
+        run_client('psql', ['-X','-qAt','-w','-v','ON_ERROR_STOP=1'], stage/'gate-count.txt',
+            "SELECT count(*) FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='kws_migration_write_gate';")
+        assert (stage/'gate-count.txt').read_text().strip() == '66'
     inventory_sql = """
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SET TRANSACTION SNAPSHOT '%s';
@@ -105,8 +118,8 @@ ROLLBACK;
     controller.communicate(timeout=30)
     assert controller.returncode==0
     controller=None
-    manifest={'source_project':'pkzzxtsyxwxoraytyjau','stage':'precopy',
-              'consistent_database_snapshot':True,'writers_frozen':False,
+    manifest={'source_project':'pkzzxtsyxwxoraytyjau','stage':export_stage,
+              'consistent_database_snapshot':True,'writers_frozen':export_stage == 'final',
               'storage_and_video_snapshot_aligned':False,'created_at':stamp,
               'postgres_version':inventory['version'],'files':{}}
     for path in stage.iterdir():
@@ -121,7 +134,7 @@ ROLLBACK;
     digest=hashlib.sha256(agefile.read_bytes()).hexdigest()
     agefile.with_suffix(agefile.suffix+'.sha256').write_text(digest+'  '+agefile.name+'\n')
     print(json.dumps({'database_encrypted_backup':str(agefile),'bytes':agefile.stat().st_size,
-                     'consistent_database_snapshot':True,'final_cutover_backup':False}),flush=True)
+                     'consistent_database_snapshot':True,'final_cutover_backup':export_stage == 'final'}),flush=True)
 except Exception as error:
     # Exception payloads/SQL stderr can contain credentials or records.
     print('DATABASE_EXPORT_FAILED_'+type(error).__name__+'_PROTECTED_DIAGNOSTICS_ONLY',flush=True)

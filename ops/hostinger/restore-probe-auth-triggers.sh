@@ -8,7 +8,7 @@ import json,subprocess
 p=sorted(p for p in Path('/var/backups/kws/migration').glob('kws_restore_probe_*') if (p/'SCHEMA-COMPARISON.json').is_file())[-1]
 details=json.loads((p/'RESTORE-COMMITTED.json').read_text());db=details['database'];source=Path(details['source'])
 meta=json.loads((p/'source-schema-metadata.json').read_text())
-expected=[r['name'].split('.',2)[2] for r in meta['triggers'] if r['name'].startswith('auth.users.')]
+expected=[r['name'].split('.',2)[2] for r in meta['triggers'] if r['name'].startswith('auth.users.') and not r['name'].endswith('.kws_migration_write_gate')]
 assert sorted(expected)==['on_auth_user_created','on_auth_user_default_role']
 client=['docker','run','--rm','--read-only','--network','none','--cap-drop','ALL','--security-opt','no-new-privileges',
  '-v',str(source)+':/source:ro','-v',str(p)+':/work:ro','--entrypoint','pg_restore','supabase/postgres:17.6.1.136']

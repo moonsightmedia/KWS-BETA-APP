@@ -1,4 +1,4 @@
-param([ValidateSet('export-source-database.py','compare-source-database-metadata.py','inspect-source-writegate.py')][string]$Tool='export-source-database.py')
+param([ValidateSet('export-source-database.py','compare-source-database-metadata.py','inspect-source-writegate.py','source-maintenance-gate.py')][string]$Tool='export-source-database.py', [ValidateSet('inspect','install','remove')][string]$Action='inspect', [ValidateSet('precopy','final')][string]$ExportStage='precopy')
 $ErrorActionPreference='Stop'
 $taskKnownHosts=Join-Path $env:USERPROFILE '.ssh\known_hosts_kws'
 $taskSshArgs=@('-T','-i',"$env:USERPROFILE\.ssh\id_ed25519_kws_vps_laptop",'-o','IdentitiesOnly=yes','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o',"UserKnownHostsFile=$taskKnownHosts",'-o','HostKeyAlgorithms=ssh-ed25519','-o','KexAlgorithms=curve25519-sha256','kws-admin@187.7.70.230')
@@ -22,7 +22,7 @@ try {
     if (-not $taskProcess.Start()) {throw 'Source DB operation did not start'}
     $taskStdout=$taskProcess.StandardOutput.ReadToEndAsync()
     $taskStderr=$taskProcess.StandardError.ReadToEndAsync()
-    $taskProcess.StandardInput.WriteLine((@{password=$taskSecret.value}|ConvertTo-Json -Compress))
+    $taskProcess.StandardInput.WriteLine((@{password=$taskSecret.value;action=$Action;export_stage=$ExportStage}|ConvertTo-Json -Compress))
     $taskProcess.StandardInput.Close()
     $taskProcess.WaitForExit()
     Write-Output $taskStdout.GetAwaiter().GetResult()

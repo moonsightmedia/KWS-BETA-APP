@@ -6,13 +6,14 @@ python3 - <<'PY'
 from pathlib import Path
 import datetime,json,os,re,subprocess
 base=Path('/var/backups/kws/migration')
-stage=sorted(p for p in base.glob('database-precopy-*.tar.age.restore-test') if (p/'RESTORE-VERIFIED.json').is_file())[-1]
+stage=max((p for p in base.glob('database-*.tar.age.restore-test') if (p/'RESTORE-VERIFIED.json').is_file()),key=lambda p:json.loads(next(p.glob('*/manifest.json')).read_text())['created_at'])
 source=next(stage.glob('*/inventory.json')).parent
 probe='kws_restore_probe_'+datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S')
 work=base/probe;work.mkdir(mode=0o700)
 log=(work/'restore.log').open('wb')
 runtime='/opt/kws/supabase/runtime'
 compose=['docker','compose','-f','docker-compose.yml','-f','docker-compose.local.yml']
+if Path(runtime,'docker-compose.production.json').exists():compose+=['-f','docker-compose.production.json']
 def sql(query,db='postgres',capture=False):
     result=subprocess.run(['docker','exec','-i','supabase-db','psql','-U','supabase_admin','-d',db,
        '-X','-qAt','-v','ON_ERROR_STOP=1'],input=query.encode(),stdout=subprocess.PIPE,stderr=log,check=True)
