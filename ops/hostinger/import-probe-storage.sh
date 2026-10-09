@@ -8,7 +8,10 @@ import concurrent.futures,hashlib,json,subprocess,urllib.request,urllib.parse,ur
 base=Path('/var/backups/kws/migration')
 work=sorted(p for p in base.glob('kws_restore_probe_*') if (p/'services.json').is_file())[-1]
 assert not (work/'STORAGE-VERIFIED.json').exists(), 'Import already verified; do not repeat automatically'
-db=json.loads((work/'services.json').read_text())['database']
+services=json.loads((work/'services.json').read_text());db=services['database']
+storage_port=next(s['port'] for s in services['services'] if 'storage' in s['name'])
+assert isinstance(storage_port,int) and 9900<=storage_port<=9999
+storage_origin='http://127.0.0.1:'+str(storage_port)
 storage=sorted(p for p in base.glob('storage-precopy-*.age.restore-test') if (p/'RESTORE-VERIFIED.json').is_file())[-1]
 manifest_path=next(storage.glob('*/manifest.json'))
 manifest=json.loads(manifest_path.read_text())
@@ -22,7 +25,11 @@ def sql(query):
     return subprocess.check_output(['docker','exec','-i','supabase-db','psql','-U','supabase_admin','-d',db,
       '-X','-qAt','-v','ON_ERROR_STOP=1'],input=query.encode(),stderr=log)
 rows=json.loads(sql('SELECT coalesce(json_agg(t),\'[]\'::json) FROM storage.objects t;'))
-assert len(rows)==len(manifest['objects'])==2389
+current_rows={(r['bucket_id'],r['name']):r for r in rows}
+storage_service=next(s for s in services['services'] if 'storage' in s['name'])
+storage_env=dict(line.split('=',1) for line in json.loads(subprocess.check_output(['docker','inspect',storage_service['name']]))[0]['Config']['Env'])
+storage_root=(work/'storage-files').resolve()
+assert len(rows)==len(manifest['objects']) and len(rows)>0
 original_metadata=work/'storage-metadata-before.json'
 if original_metadata.exists():
     rows=json.loads(original_metadata.read_text())
@@ -33,7 +40,7 @@ for item in manifest['objects']:
     row=source_rows[(item['bucket'],item['path'])]
     assert row['id']==item['source_metadata']['id'], 'Media precopy differs from database snapshot'
     assert int(row['metadata']['size'])==item['bytes']
-print('STORAGE_PRECOPY_AND_DATABASE_METADATA_MATCH_ALL_2389_OBJECTS',flush=True)
+print(json.dumps({'storage_precopy_metadata_matches':len(rows),'database':db}),flush=True)
 
 def transfer(item):
     local=manifest_path.parent/item['local']
@@ -44,18 +51,27 @@ def transfer(item):
     headers={'Authorization':'Bearer '+key,'Content-Type':mime,'x-upsert':'true'}
     try:
         # Resume interrupted imports by proving existing bytes before uploading.
+        existing_row=current_rows[(item['bucket'],item['path'])]
+        physical=(storage_root/storage_env['TENANT_ID']/storage_env['GLOBAL_S3_BUCKET']/item['bucket']/item['path']/existing_row['version']).resolve()
+        assert physical.is_relative_to(storage_root)
+        # Imported metadata can precede physical files. Storage API v1.74 returns
+        # a generic 500/ENOENT for that state; avoid the read rather than masking
+        # every server error. Once a file exists, any unexpected 500 is fatal.
         try:
-            with urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:9997/object/authenticated/'+path,
+            if not physical.is_file():raise FileNotFoundError
+            with urllib.request.urlopen(urllib.request.Request(storage_origin+'/object/authenticated/'+path,
                     headers={'Authorization':'Bearer '+key}),timeout=120) as response:
                 existing=response.read()
             if len(existing)==item['bytes'] and hashlib.sha256(existing).hexdigest()==item['sha256']:
                 return item['bytes']
+        except FileNotFoundError:
+            pass
         except urllib.error.HTTPError as error:
             if error.code not in (400,404):raise
-        with urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:9997/object/'+path,
+        with urllib.request.urlopen(urllib.request.Request(storage_origin+'/object/'+path,
                     data=payload,headers=headers,method='POST'),timeout=120) as response:
             assert response.status in (200,201);response.read()
-        with urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:9997/object/authenticated/'+path,
+        with urllib.request.urlopen(urllib.request.Request(storage_origin+'/object/authenticated/'+path,
                     headers={'Authorization':'Bearer '+key}),timeout=120) as response:
             downloaded=response.read()
         assert len(downloaded)==item['bytes'] and hashlib.sha256(downloaded).hexdigest()==item['sha256']
@@ -69,7 +85,7 @@ total_bytes=0;count=0
 with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
     for length in executor.map(transfer,manifest['objects']):
         total_bytes+=length;count+=1
-        if count%250==0:print(json.dumps({'storage_import_verified':count,'total':2389}),flush=True)
+        if count%250==0:print(json.dumps({'storage_import_verified':count,'total':len(rows)}),flush=True)
 # Upload APIs update storage versions; preserve versions needed for serving the
 # new physical files, while restoring source ownership, IDs and original dates.
 def literal(value):
