@@ -2,7 +2,7 @@ import { useState, useEffect, createContext, useContext } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { X, ChevronRight, MessageSquare, AlertCircle, Heart, LucideIcon } from 'lucide-react';
+import { X, ChevronRight, MessageSquare, Lightbulb, Heart, LucideIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -52,9 +52,9 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     content: 'Schaue dir Statistiken über die Boulder an und verfolge deine Fortschritte.',
   },
   {
-    title: 'Beta-Version',
-    content: 'Du nutzt aktuell die Beta-Version der App. Es können noch Fehler auftreten oder Features fehlen. Wir arbeiten kontinuierlich an Verbesserungen!',
-    icon: AlertCircle,
+    title: 'Beta entdecken',
+    content: 'Beta steht beim Bouldern für Tipps und Bewegungsfolgen zum Lösen eines Boulders. In den Boulder-Details findest du die verfügbaren Videos der Halle.',
+    icon: Lightbulb,
     badge: 'Beta',
   },
   {

@@ -22,7 +22,7 @@ def visit(node):
             visit(child)
     elif isinstance(node, dict):
         name = str(node.get("suggestedHumanReadableName", node.get("name", "")))
-        filename = node.get("fileName", node.get("filename"))
+        filename = node.get("exportedFileName", node.get("fileName", node.get("filename")))
         if name.startswith("store-") and filename:
             raw = source / filename
             if not raw.exists():
@@ -36,7 +36,7 @@ def visit(node):
             dimensions = struct.unpack(">II", data[16:24])
             if dimensions not in allowed:
                 raise ValueError(f"Unexpected {family} screenshot dimensions {dimensions}")
-            basename = name.split(".png")[0] + ".png"
+            basename = name.split("_")[0].split(".png")[0] + ".png"
             if pathlib.Path(basename).name != basename:
                 raise ValueError("Unsafe attachment filename")
             shutil.copyfile(raw, output / basename)

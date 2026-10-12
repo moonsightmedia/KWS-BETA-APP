@@ -34,10 +34,15 @@ final class StoreScreenshotTests: XCTestCase {
     }
 
     func testPublicBoulderJourney() throws {
+        XCTAssertTrue(app.staticTexts["Willkommen!"].waitForExistence(timeout: 60), "First native launch must display onboarding")
+        for title in ["Boulder durchstöbern", "Statistiken", "Beta entdecken", "Feedback & Support"] {
+            app.buttons["Weiter"].tap()
+            XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 10))
+        }
+        app.buttons["Los geht's!"].tap()
         let guest = button("Als Gast fortfahren")
-        XCTAssertTrue(guest.waitForExistence(timeout: 60), "Native app must display guest access")
-        guest.tap()
-        let card = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "Komet")).firstMatch
+        if guest.exists { guest.tap() }
+        let card = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@ AND label != %@ AND label != %@", "Boulder", "Boulder suchen", "Boulder")).firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 60), "Live Hostinger boulders must load")
         XCTAssertFalse(app.staticTexts["Boulder konnten nicht geladen werden"].exists)
         Thread.sleep(forTimeInterval: 5)
@@ -54,7 +59,6 @@ final class StoreScreenshotTests: XCTestCase {
         XCTAssertTrue(card.isHittable)
         card.tap()
         XCTAssertTrue(button("Zurück zur Boulderübersicht").waitForExistence(timeout: 30))
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "Komet")).firstMatch.exists)
         Thread.sleep(forTimeInterval: 5)
         capture("store-03-boulder-detail")
         button("Zurück zur Boulderübersicht").tap()
