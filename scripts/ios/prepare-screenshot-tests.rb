@@ -12,6 +12,8 @@ source = project.main_group.new_file(File.expand_path('scripts/ios/StoreScreensh
 tests.source_build_phase.add_file_reference(source)
 tests.build_configurations.each do |configuration|
   configuration.build_settings.merge!({
+    'PRODUCT_NAME' => '$(TARGET_NAME)',
+    'PRODUCT_MODULE_NAME' => 'KWSScreenshotTests',
     'PRODUCT_BUNDLE_IDENTIFIER' => 'com.kletterwelt.beta.screenshot-tests',
     'GENERATE_INFOPLIST_FILE' => 'YES',
     'SWIFT_VERSION' => '5.0',
