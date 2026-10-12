@@ -363,6 +363,9 @@ Inhaltswechsel wie `Info / Track / Beta` oder Statistikzeiträume.
   Text und Schließen-Aktion.
 - Fokus erzeugt keinen grünen Rahmen um das ganze Feld. Verwendet wird ein
   zurückhaltender, nicht layoutverändernder dunkelblauer Fokusindikator.
+- Auswahlfelder (`SelectTrigger`) zeigen diesen äußeren Indikator nur bei
+  Tastaturbedienung (`focus-visible`). Nach Maus- oder Touch-Auswahl bleibt
+  die normale Feldkontur erhalten; Fokus allein erzeugt keinen zweiten Rahmen.
 - Löschen/Schließen darf die Höhe des Feldes nicht verändern.
 
 ### 5.7 Menüs, Popover, Dialoge und Filterpanels

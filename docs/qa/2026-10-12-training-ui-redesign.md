@@ -88,3 +88,10 @@ Freigabe, echte Demonstrationsmedien, persistente Trainingsdaten und eine physis
 iOS-/Android-Abnahme bleiben offen. Die gestalterische Nutzerabnahme ist nicht
 durch technische Tests ersetzt. Nächster Schritt: diese neue Oberfläche mit dem
 Nutzer anhand der laufenden Vorschau beurteilen.
+
+Nachkorrektur auf Nutzerfeedback: Der gemeinsame Select-Trigger verwendete
+`focus:ring-*`, weshalb nach Maus-/Touch-Auswahl ein doppelter Außenrahmen blieb.
+Auf `focus-visible:ring-*` umgestellt. Nach Mausauswahl in allen vier Breiten
+und emulierter Touch-Auswahl kein zusätzlicher Ring; Tastaturfokus weiterhin
+sichtbar und Auswahl bedienbar. Beide visuellen Zustände geprüft, kein Überlauf.
+Gezielter Tastatur-/Quellen-Playwright-Test bestanden, Select-ESLint ohne Fehler.
