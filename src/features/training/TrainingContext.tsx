@@ -8,6 +8,7 @@ interface TrainingState {
   draft: TrainingSession;
   updateDraft: Dispatch<SetStateAction<TrainingSession>>;
   addToDraft: (exerciseId: string) => void;
+  addToSession: (sessionId: string, exerciseId: string) => void;
   saveDraft: () => string | null;
   sessions: TrainingSession[];
   updateSession: (id: string, update: Partial<TrainingSession>) => void;
@@ -33,11 +34,16 @@ export function TrainingProvider({ children }: { children: ReactNode }) {
     updateDraft(previous => previous.exercises.some(item => item.exerciseId === exerciseId) ? previous : { ...previous, exercises: [...previous.exercises, { ...makeSessionItem(exerciseId), id: crypto.randomUUID() }] });
   };
   const saveDraft = () => {
-    if (!draft.title.trim() || !draft.exercises.length) return null;
+    if (!draft.title.trim() || !draft.exercises.length || draft.exercises.some(item => !item.repetitions.trim())) return null;
     const id = crypto.randomUUID();
     setSessions(previous => [...previous, { ...draft, id, title: draft.title.trim(), minutes: getSessionMinutes(draft) }]);
     updateDraft(EMPTY_SESSION);
     return id;
+  };
+  const addToSession = (sessionId: string, exerciseId: string) => {
+    const exercise = getExercise(exerciseId);
+    if (!exercise || exercise.area === 'rehab') return;
+    setSessions(previous => previous.map(session => session.id !== sessionId || session.exercises.some(item => item.exerciseId === exerciseId) ? session : { ...session, exercises: [...session.exercises, { ...makeSessionItem(exerciseId), id: crypto.randomUUID() }] }));
   };
   const updateSession = (id: string, update: Partial<TrainingSession>) => setSessions(previous => previous.map(session => session.id === id ? { ...session, ...update } : session));
   const replaceExercise = (sessionId: string, itemId: string, exerciseId: string) => {
@@ -66,7 +72,7 @@ export function TrainingProvider({ children }: { children: ReactNode }) {
   };
   const movePlanEntry = (id: string, day: number) => setPlan(previous => !previous || previous.entries.some(entry => entry.day === day) ? previous : { ...previous, entries: previous.entries.map(entry => entry.id === id && !entry.fixed ? { ...entry, day } : entry) });
   const togglePlanEntry = (id: string) => setPlan(previous => previous ? { ...previous, entries: previous.entries.map(entry => entry.id === id ? { ...entry, completed: !entry.completed } : entry) } : previous);
-  return <Context.Provider value={{ favorites, toggleFavorite, draft, updateDraft, addToDraft, saveDraft, sessions, updateSession, replaceExercise, answers, setAnswers, plan, createPlan, movePlanEntry, togglePlanEntry }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ favorites, toggleFavorite, draft, updateDraft, addToDraft, addToSession, saveDraft, sessions, updateSession, replaceExercise, answers, setAnswers, plan, createPlan, movePlanEntry, togglePlanEntry }}>{children}</Context.Provider>;
 }
 export function useTraining() {
   const value = useContext(Context);

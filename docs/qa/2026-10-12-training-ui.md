@@ -1,5 +1,9 @@
 # Training-UI – lokale Vorschau und Abnahme
 
+Diese erste UI-Fassung wurde vom Nutzer als gestalterisch unzureichend bewertet.
+Die anschließende Neugestaltung und ihre aktuelle Prüfung stehen in
+[2026-10-12-training-ui-redesign.md](2026-10-12-training-ui-redesign.md).
+
 ## Ergebnis
 
 Branch `codex/training-ui`, Basis `origin/codex/hostinger-migration` / `68b7d78`.

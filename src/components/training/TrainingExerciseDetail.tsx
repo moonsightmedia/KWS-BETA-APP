@@ -1,5 +1,6 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Check, ChevronLeft, ExternalLink, Plus, Star } from 'lucide-react';
+import { useState } from 'react';
+import { Activity, Check, Clock3, Dumbbell, ExternalLink, Mountain, Plus, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { KwsSurface } from '@/components/ui/kws-surface';
 import { getExercise } from '@/features/training/data';
@@ -10,10 +11,13 @@ export default function TrainingExerciseDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { favorites, toggleFavorite, addToDraft, replaceExercise, sessions, draft } = useTraining();
+  const [notice, setNotice] = useState('');
+  const { favorites, toggleFavorite, addToDraft, addToSession, replaceExercise, sessions, draft } = useTraining();
   const exercise = getExercise(id ?? '');
   const sessionId = searchParams.get('session');
   const itemId = searchParams.get('item');
+  const appendId = searchParams.get('append');
+  const appendSession = appendId ? sessions.find(session => session.id === appendId) : undefined;
   const replacementRequested = Boolean(sessionId || itemId);
   const replacementValid = Boolean(sessionId && itemId && sessions.some(session => session.id === sessionId && session.exercises.some(item => item.id === itemId)));
 
@@ -26,14 +30,10 @@ export default function TrainingExerciseDetail() {
   }
 
   const rehab = exercise.area === 'rehab';
+  const title = rehab ? exercise.topic : exercise.title;
+  const Icon = exercise.area === 'strength' ? Dumbbell : rehab ? Activity : Mountain;
   const favorite = favorites.includes(exercise.id);
-  const added = !replacementRequested && draft.exercises.some(item => item.exerciseId === exercise.id);
-  const libraryParams = new URLSearchParams();
-  ['q', 'topic', 'equipment', 'session', 'item'].forEach(key => {
-    const value = searchParams.get(key);
-    if (value) libraryParams.set(key, value);
-  });
-  const librarySuffix = libraryParams.toString();
+  const added = !replacementRequested && (appendId ? appendSession?.exercises : draft.exercises)?.some(item => item.exerciseId === exercise.id);
   const addExercise = () => {
     if (rehab) return;
     if (replacementRequested) {
@@ -43,61 +43,45 @@ export default function TrainingExerciseDetail() {
       return;
     }
     if (added) return;
-    addToDraft(exercise.id);
+    if (appendId) {
+      if (appendSession) addToSession(appendId, exercise.id);
+    } else addToDraft(exercise.id);
+    setNotice(`${title}: zur Einheit hinzugefügt.`);
   };
 
   return (
-    <div className="space-y-5" data-swipe-ignore>
-      <Button asChild variant="ghost" className="-ml-2 px-2"><Link to={`/training/library/${exercise.area}${librarySuffix ? `?${librarySuffix}` : ''}`}><ChevronLeft aria-hidden="true" />Zur Bibliothek</Link></Button>
-
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1 space-y-2">
-          <p className="text-xs text-muted-foreground">{exercise.topic} · {exercise.equipment}</p>
-          <h2 className="font-sans text-base font-semibold leading-snug">{exercise.title}</h2>
-          <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">{exercise.goal}</p>
-        </div>
-        <Button type="button" variant="ghost" size="icon" className={cn('shrink-0', favorite && 'text-primary-ink')} aria-pressed={favorite} aria-label={favorite ? 'Aus Favoriten entfernen' : 'Als Favorit merken'} onClick={() => toggleFavorite(exercise.id)}><Star aria-hidden="true" className={cn(favorite && 'fill-current')} /></Button>
-      </div>
-
-      {!rehab && <div className="flex min-h-24 items-center justify-center rounded-kws-card bg-secondary p-4 text-center text-xs text-muted-foreground" aria-label="Demonstration noch nicht verfügbar">Demonstration folgt · Für diese Vorschau ist noch kein Übungsvideo hinterlegt.</div>}
-
-      {rehab ? <KwsSurface className="space-y-3 p-4 sm:p-5">
-        <h3 className="text-base font-semibold">Für deine fachliche Betreuung vorbereitet</h3>
-        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">Individuelle Reha-Übungen, Dosierungen und die Wiederaufnahme des Trainings werden mit der behandelnden Fachperson abgestimmt. Hier wird kein Therapieplan erstellt.</p>
+    <div className="space-y-4" data-swipe-ignore>
+      <p className="sr-only" role="status" aria-live="polite">{notice}</p>
+      {rehab ? <KwsSurface className="space-y-4 p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3"><Activity aria-hidden="true" className="h-6 w-6 text-primary-ink" /><span className="rounded-kws-badge bg-secondary px-2 py-1 text-xs font-semibold">Entwurf · nicht zum Einplanen</span><Button type="button" variant="ghost" size="icon" className={cn('shrink-0', favorite && 'text-primary-ink')} aria-pressed={favorite} aria-label={`${title}: ${favorite ? 'aus Favoriten entfernen' : 'als Favorit merken'}`} onClick={() => toggleFavorite(exercise.id)}><Star aria-hidden="true" className={cn(favorite && 'fill-current')} /></Button></div>
+        <div className="max-w-2xl space-y-2"><h2 className="font-sans text-lg font-semibold">{title}</h2><p className="text-sm leading-relaxed text-muted-foreground">Für den Bereich {exercise.topic} werden Voraussetzungen, Demonstrationen und Hinweise fachlich geprüft. Sobald diese Inhalte freigegeben sind, findest du sie hier.</p></div>
+        <p className="max-w-2xl border-t border-border pt-4 text-sm leading-relaxed text-muted-foreground">Individuelle Reha-Übungen und die Wiederaufnahme des Trainings stimmen behandelnde Fachpersonen mit dir ab.</p>
       </KwsSurface> : <>
-        <dl className="flex flex-wrap gap-x-8 gap-y-3 rounded-kws-control bg-secondary px-4 py-3 text-sm">
-          <div><dt className="text-xs text-muted-foreground">Niveau</dt><dd className="mt-1 font-medium">{exercise.level}</dd></div>
-          <div><dt className="text-xs text-muted-foreground">Zeit mit Pausen</dt><dd className="mt-1 font-medium">{exercise.minutes} Minuten</dd></div>
-          <div><dt className="text-xs text-muted-foreground">Equipment</dt><dd className="mt-1 font-medium">{exercise.equipment}</dd></div>
-        </dl>
-
         <KwsSurface className="space-y-4 p-4 sm:p-5">
-          <h3 className="text-base font-semibold">So gehst du vor</h3>
-          <ol className="max-w-2xl space-y-4">
-            {exercise.steps.map((step, index) => <li key={`${exercise.id}-${index}`} className="flex gap-3 text-sm leading-relaxed">
-              <span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center rounded-kws-badge bg-secondary text-xs font-semibold">{index + 1}</span>
-              <span>{step}</span>
-            </li>)}
-          </ol>
-        </KwsSurface>
-
-        <KwsSurface className="divide-y divide-border/60">
-          <div className="space-y-2 p-4 sm:p-5"><h3 className="text-base font-semibold">Umfang & Pausen</h3><p className="max-w-2xl text-sm leading-relaxed">{exercise.dose}</p><p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">{exercise.rest}</p></div>
-          <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-5">
-            <div className="space-y-2"><h3 className="text-sm font-semibold">Einfacher</h3><p className="text-sm leading-relaxed text-muted-foreground">{exercise.easier}</p></div>
-            <div className="space-y-2"><h3 className="text-sm font-semibold">Anspruchsvoller</h3><p className="text-sm leading-relaxed text-muted-foreground">{exercise.harder}</p></div>
-          </div>
-          <div className="space-y-2 p-4 sm:p-5"><h3 className="text-sm font-semibold">Darauf achten</h3><p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">{exercise.note}</p></div>
-        </KwsSurface>
-
-        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-primary-ink"><Icon aria-hidden="true" className="h-4 w-4" />{exercise.topic}<span className="font-normal text-muted-foreground">· {exercise.level}</span></div><Button type="button" variant="ghost" size="icon" className={cn('shrink-0', favorite && 'text-primary-ink')} aria-pressed={favorite} aria-label={`${title}: ${favorite ? 'aus Favoriten entfernen' : 'als Favorit merken'}`} onClick={() => toggleFavorite(exercise.id)}><Star aria-hidden="true" className={cn(favorite && 'fill-current')} /></Button></div>
+          <div className="max-w-2xl space-y-2"><h2 className="font-sans text-lg font-semibold leading-snug">{title}</h2><p className="text-sm leading-relaxed text-muted-foreground">{exercise.goal}</p></div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1.5"><Clock3 aria-hidden="true" className="h-4 w-4" />{exercise.minutes} Min. mit Pausen</span><span>{exercise.equipment}</span></div>
           {replacementRequested && !replacementValid && <p role="alert" className="text-sm text-destructive">Die zu ersetzende Übung ist nicht mehr verfügbar. Öffne deine Einheit und wähle die Übung erneut.</p>}
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button type="button" className="h-auto min-h-11 whitespace-normal py-3" onClick={addExercise} disabled={added || (replacementRequested && !replacementValid)}>{added ? <Check aria-hidden="true" /> : <Plus aria-hidden="true" />}{added ? 'In eigener Einheit' : replacementRequested ? 'Übung ersetzen' : 'Zur eigenen Einheit hinzufügen'}</Button>
-            {!replacementRequested && <Button asChild variant="secondary"><Link to="/training/sessions/new">Eigene Einheit öffnen</Link></Button>}
+          {!replacementRequested && appendId && <p role={appendSession ? 'status' : 'alert'} className={cn('text-xs leading-relaxed', appendSession ? 'text-muted-foreground' : 'text-destructive')}>{appendSession ? `Ergänzen für „${appendSession.title}“` : 'Diese Einheit ist nicht mehr verfügbar. Öffne deine Einheiten erneut.'}</p>}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button type="button" variant={added ? 'secondary' : 'default'} className="h-auto min-h-11 whitespace-normal py-3 sm:min-w-48" aria-disabled={added || undefined} onClick={addExercise} disabled={(replacementRequested && !replacementValid) || (!replacementRequested && Boolean(appendId) && !appendSession)}>{added ? <Check aria-hidden="true" /> : <Plus aria-hidden="true" />}{added ? 'In eigener Einheit' : replacementRequested ? 'Übung ersetzen' : 'Zur Einheit hinzufügen'}</Button>
+            {added && <Button asChild variant="secondary"><Link to={appendId ? `/training/sessions/${encodeURIComponent(appendId)}` : '/training/sessions/new'}>Einheit ansehen</Link></Button>}
           </div>
-          {added && <p role="status" className="text-xs text-muted-foreground">Du kannst Umfang und Pausen in deiner eigenen Einheit anpassen.</p>}
+          {added && <p role="status" className="text-xs text-muted-foreground">Ausgewählt. Umfang und Pausen kannst du in deiner Einheit anpassen.</p>}
+        </KwsSurface>
+        <div className="grid items-start gap-4 lg:grid-cols-3">
+          <KwsSurface className="p-4 sm:p-5 lg:col-span-2">
+            <h2 className="mb-4 font-sans text-sm font-semibold">Ausführung</h2>
+            <ol className="divide-y divide-border/60">
+              {exercise.steps.map((step, index) => <li key={`${exercise.id}-${index}`} className="flex gap-3 py-4 first:pt-0 last:pb-0 text-sm leading-relaxed"><span aria-hidden="true" className="grid h-7 w-7 shrink-0 place-items-center rounded-kws-badge bg-secondary text-xs font-semibold tabular-nums">{String(index + 1).padStart(2, '0')}</span><span>{step}</span></li>)}
+            </ol>
+          </KwsSurface>
+          <div className="space-y-4">
+            <KwsSurface className="space-y-3 p-4 sm:p-5"><h2 className="font-sans text-sm font-semibold">Umfang & Pausen</h2><p className="text-sm font-medium leading-relaxed">{exercise.dose}</p><p className="border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">{exercise.rest}</p></KwsSurface>
+            <KwsSurface className="p-4 sm:p-5"><h2 className="mb-2 font-sans text-sm font-semibold">Darauf achten</h2><p className="text-sm leading-relaxed text-muted-foreground">{exercise.note}</p></KwsSurface>
+          </div>
         </div>
+        <details className="rounded-kws-control border-t border-border pt-1"><summary className="min-h-11 cursor-pointer rounded-kws-control py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Übung anpassen</summary><div className="grid gap-4 pb-3 pt-2 sm:grid-cols-2"><div className="space-y-1"><h3 className="text-xs font-semibold">Einfacher</h3><p className="text-sm leading-relaxed text-muted-foreground">{exercise.easier}</p></div><div className="space-y-1"><h3 className="text-xs font-semibold">Anspruchsvoller</h3><p className="text-sm leading-relaxed text-muted-foreground">{exercise.harder}</p></div></div></details>
       </>}
 
       {exercise.sources.length > 0 && <details className="rounded-kws-control border-t border-border pt-3">

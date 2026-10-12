@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, CalendarDays, Check, Eye } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { KwsSurface } from '@/components/ui/kws-surface';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -18,17 +18,17 @@ function Choices({ label, options, values, onChange, multiple = false }: {
   return (
     <fieldset className="space-y-3">
       <legend className="text-sm font-semibold">{label}</legend>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-2">
         {options.map((value) => {
           const selected = values.includes(value);
           return <Button key={value} type="button" variant="secondary" aria-pressed={selected}
             disabled={multiple && values.length >= 2 && !selected && value !== UNKNOWN}
-            onClick={() => onChange(value)} className={cn('h-auto min-h-11 justify-between whitespace-normal px-3 py-3 text-left', selected && 'bg-primary/15 text-foreground hover:bg-primary/20')}>
-            <span>{value}</span>{selected && <Check className="text-primary-ink" aria-hidden="true" />}
+            onClick={() => onChange(value)} className={cn('h-auto min-h-11 justify-between whitespace-normal px-3 py-2 text-left text-xs sm:text-sm', value === UNKNOWN && 'col-span-2', selected && 'bg-primary text-primary-foreground hover:bg-primary/95')}>
+            <span>{value}</span>{selected && <Check className="text-primary-foreground" aria-hidden="true" />}
           </Button>;
         })}
       </div>
-      {multiple && <p className="text-xs text-muted-foreground">Bis zu zwei auswählen. „{UNKNOWN}“ bleibt eine eigene Auswahl.</p>}
+      {multiple && <p className="text-xs text-muted-foreground">Bis zu zwei auswählen oder „{UNKNOWN}“.</p>}
     </fieldset>
   );
 }
@@ -50,7 +50,10 @@ export default function TrainingPlanner() {
   const [step, setStep] = useState(0);
   const [error, setError] = useState('');
   const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { heading.current?.focus(); }, [step]);
+  useEffect(() => {
+    heading.current?.focus({ preventScroll: true });
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [step]);
 
   const selectFocus = (field: 'strengths' | 'weaknesses', value: string) => {
     setAnswers((previous) => {
@@ -80,23 +83,23 @@ export default function TrainingPlanner() {
     else setStep(step + 1);
   };
 
-  return <div className="space-y-5">
-    <p className="text-sm text-muted-foreground">Stelle eine Beispielwoche zusammen. Deine Angaben sind Selbsteinschätzungen, keine Leistungstests.</p>
-    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+  return <div className="mx-auto max-w-2xl">
       <KwsSurface className="min-w-0 p-4 sm:p-6">
-        <div className="mb-6 space-y-3">
-          <p className="text-xs font-medium text-muted-foreground" aria-live="polite">Schritt {step + 1} von {STEPS.length}</p>
+        <div className="mb-5 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 ref={heading} tabIndex={-1} className="text-base font-semibold outline-none">{STEPS[step]}</h2>
+            <p className="text-xs text-muted-foreground" aria-live="polite">Schritt {step + 1} von {STEPS.length}</p>
+          </div>
           <div className="grid grid-cols-6 gap-1" aria-hidden="true">
             {STEPS.map((title, index) => <span key={title} className={cn('h-1 rounded-kws-badge', index <= step ? 'bg-primary' : 'bg-secondary')} />)}
           </div>
-          <h2 ref={heading} tabIndex={-1} className="text-base font-semibold outline-none">{STEPS[step]}</h2>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-5">
           {step === 0 && <>
             <Choices label="Was möchtest du üben?" options={['Bouldern allgemein', 'Technik verbessern', 'Kraft aufbauen', 'Wettkampf vorbereiten']}
               values={[answers.goal]} onChange={(goal) => setAnswers((previous) => ({ ...previous, goal }))} />
-            {answers.goal.includes('Wettkampf') && <p className="text-sm text-muted-foreground">Die Demo zeigt eine mögliche Struktur. Stimme Wettkampfbelastungen mit deinem Coach und deinem bestehenden Plan ab.</p>}
+            {answers.goal.includes('Wettkampf') && <p className="text-xs text-muted-foreground">Dein bestehender Coachplan bleibt die Grundlage für Wettkampfbelastungen.</p>}
           </>}
           {step === 1 && <>
             <Selection id="training-experience" label="Wie lange boulderst du?" value={answers.experience}
@@ -105,14 +108,14 @@ export default function TrainingPlanner() {
             <Selection id="training-grade" label="Welchen KWS-Hallengrad schaffst du häufiger?" value={answers.grade}
               options={['Weiß ich nicht', '1', '2', '3', '4', '5', '6', '7', '8']}
               onChange={(grade) => setAnswers((previous) => ({ ...previous, grade }))} />
-            <p className="text-xs text-muted-foreground">Die Hallengrade sind eine Orientierung. Ein Grad allein bestimmt keine passende Trainingslast.</p>
+            <p className="text-xs text-muted-foreground">Hallengrad als Orientierung, keine Lastvorgabe.</p>
           </>}
           {step === 2 && <>
             <Choices label="Was fühlt sich schon vertraut an?" options={MOVEMENTS} values={answers.strengths} multiple onChange={(value) => selectFocus('strengths', value)} />
             <Choices label="Was möchtest du besser kennenlernen?" options={MOVEMENTS} values={answers.weaknesses} multiple onChange={(value) => selectFocus('weaknesses', value)} />
           </>}
           {step === 3 && <>
-            <p className="text-sm text-muted-foreground">Nutze nur Werte, die du bereits kennst. Du brauchst dafür keinen Maximaltest.</p>
+            <p className="text-xs text-muted-foreground">Nur bekannte Werte angeben. „Weiß ich nicht“ ist ausreichend; kein Test nötig.</p>
             <Selection id="training-strength-experience" label="Deine Erfahrung mit Kraftübungen" value={answers.strengthExperience}
               options={['Wenig Erfahrung', 'Gelegentlich', 'Regelmäßig', 'Weiß ich nicht']}
               onChange={(strengthExperience) => setAnswers((previous) => ({ ...previous, strengthExperience }))} />
@@ -134,7 +137,7 @@ export default function TrainingPlanner() {
                   {day}{answers.days.includes(index) && <Check className="h-4 w-4 text-primary-ink" aria-hidden="true" />}
                 </Button>)}
               </div>
-              <p className="text-xs text-muted-foreground">{answers.days.length} mögliche {answers.days.length === 1 ? 'Termin' : 'Termine'}. Du kannst später verschieben oder auslassen.</p>
+              <p className="text-xs text-muted-foreground">{answers.days.length} mögliche {answers.days.length === 1 ? 'Termin' : 'Termine'}</p>
             </fieldset>
             {answers.days.length > 0 && <fieldset className="space-y-3">
               <legend className="text-sm font-semibold">Welche davon sind fest? <span className="font-normal text-muted-foreground">Optional</span></legend>
@@ -144,9 +147,8 @@ export default function TrainingPlanner() {
                 {WEEKDAYS[day]}{answers.fixedDays.includes(day) && <Check className="text-primary-ink" aria-hidden="true" />}
               </Button>)}</div>
             </fieldset>}
-            <Selection id="training-minutes" label="Zeitbudget pro Termin" value={String(answers.minutes)} options={['30', '45', '60', '75', '90']}
+            <Selection id="training-minutes" label="Minuten pro Termin, inklusive Pausen" value={String(answers.minutes)} options={['30', '45', '60', '75', '90']}
               onChange={(minutes) => setAnswers((previous) => ({ ...previous, minutes: Number(minutes) }))} />
-            <p className="-mt-4 text-xs text-muted-foreground">Angabe in Minuten, einschließlich Pausen.</p>
             <Choices label="Welches Equipment steht dir zur Verfügung?" options={TRAINING_EQUIPMENT} values={answers.equipment}
               onChange={(value) => setAnswers((previous) => {
                 const equipment = value as typeof previous.equipment[number];
@@ -157,7 +159,17 @@ export default function TrainingPlanner() {
           {step === 5 && <>
             <Choices label="Was sollen wir bei der Vorschau berücksichtigen?" options={['Keine', 'Wiedereinstieg nach Pause', 'Belastung aktuell eingeschränkt', 'Möchte ich überspringen']}
               values={[answers.constraints]} onChange={(constraints) => setAnswers((previous) => ({ ...previous, constraints }))} />
-            <p className="text-sm text-muted-foreground">Du brauchst keine Diagnose anzugeben. Bei Beschwerden wird daraus keine Trainings- oder Rehafreigabe. Die Demo bleibt eine Beispielansicht.</p>
+            <p className="text-xs text-muted-foreground">Keine Diagnose nötig. Bei Beschwerden ersetzt die Vorschau keine fachliche Abklärung.</p>
+            <section className="space-y-3 border-t border-border pt-4" aria-label="Zusammenfassung deiner Angaben">
+              <h3 className="text-sm font-semibold">Deine Angaben</h3>
+              <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                <div><dt className="text-xs text-muted-foreground">Ziel</dt><dd>{answers.goal}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Zeitbudget</dt><dd>{answers.minutes} Min. je Termin</dd></div>
+                <div className="sm:col-span-2"><dt className="text-xs text-muted-foreground">Tage</dt><dd>{answers.days.map((day) => `${WEEKDAYS[day]}${answers.fixedDays.includes(day) ? ' (fest)' : ''}`).join(' · ') || 'Noch keine'}</dd></div>
+                <div className="sm:col-span-2"><dt className="text-xs text-muted-foreground">Equipment</dt><dd>{answers.equipment.join(' · ') || 'Noch nicht gewählt'}</dd></div>
+                <div className="sm:col-span-2"><dt className="text-xs text-muted-foreground">Lernfelder</dt><dd>{answers.weaknesses.join(' · ') || UNKNOWN}</dd></div>
+              </dl>
+            </section>
           </>}
         </div>
 
@@ -169,24 +181,5 @@ export default function TrainingPlanner() {
           </Button>
         </div>
       </KwsSurface>
-
-      <KwsSurface className="space-y-4 p-4 lg:sticky lg:top-28" aria-label="Beispielplanvorschau">
-        <div className="flex items-center gap-2"><Eye className="h-5 w-5 text-primary-ink" aria-hidden="true" /><h2 className="text-base font-semibold">Deine Vorschau</h2></div>
-        <p className="text-sm font-semibold">{answers.goal}</p>
-        <dl className="space-y-2 text-sm">
-          <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Zeitbudget</dt><dd>{answers.minutes} Min.</dd></div>
-          <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Mögliche Termine</dt><dd>{answers.days.length}</dd></div>
-        </dl>
-        <p className="text-xs text-muted-foreground">Equipment: {answers.equipment.length ? answers.equipment.join(' · ') : 'noch nicht ausgewählt'}</p>
-        <div className="space-y-3 border-t border-border pt-4">
-          {answers.days.length ? answers.days.map((day) => <div key={day} className="flex items-start gap-3">
-            <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <div className="text-sm"><p className="font-semibold">{WEEKDAYS[day]}{answers.fixedDays.includes(day) ? ' · fest' : ''}</p><p className="text-xs text-muted-foreground">Vorbereitung · Lernblock · Reflexion</p></div>
-          </div>) : <p className="text-sm text-muted-foreground">Wähle mögliche Tage für deine Beispielwoche.</p>}
-        </div>
-        {answers.weaknesses.filter((item) => item !== UNKNOWN).length > 0 && <p className="text-xs text-muted-foreground">Deine Lernfelder: {answers.weaknesses.filter((item) => item !== UNKNOWN).join(', ')}</p>}
-        <p className="border-t border-border pt-3 text-xs text-muted-foreground">Beispielstruktur, keine individuell freigegebene Trainingsverschreibung. Antworten bleiben beim Schrittwechsel erhalten.</p>
-      </KwsSurface>
-    </div>
   </div>;
 }
