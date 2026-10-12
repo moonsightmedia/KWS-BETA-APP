@@ -24,22 +24,23 @@ App Store Connect zeigt aktuell den Status **Nicht-Händler** für diese App. F�
 
 ## Build und technische Verifikation
 
-Build 82 wurde erfolgreich hochgeladen und erscheint in TestFlight mit der internen Gruppe KWS Team (ein Tester). Die Testhinweise sind gespeichert. Eine Installation auf einem Gerät oder die Auswahl als öffentliche Releaseversion ist noch nicht verifiziert.
+Build 84 wurde erfolgreich hochgeladen, von Apple verarbeitet und erscheint in TestFlight mit der internen Gruppe KWS Team (ein Tester). Die Testhinweise zu Altersprüfung und Kontolöschung sind gespeichert. Eine Installation auf einem Gerät oder die Auswahl als öffentliche Releaseversion ist noch nicht verifiziert. Zwischenbuild 83 wurde wegen eines in der Live-Abnahme gefundenen Auth-Header-Fehlers zurückgezogen und zeigt den Status Abgelaufen. Build 82 bleibt erhalten.
 
 Capacitor Android, iOS, Core und CLI wurden von 7.4.4 auf exakt 7.6.9 aktualisiert. Damit wird das offizielle Advisory GHSA-rvm3-566m-v7fv berücksichtigt. Commit `1c106a1` liegt auf `codex/hostinger-migration` und wurde gepusht.
 
-- 156 Node-Tests bestanden.
+- 162 Node-Tests und neun Python-Tests bestanden.
 - Hostinger-Webbuild erfolgreich, Version 1.0.230 unverändert.
 - Hostinger-API und Passwort-Recovery in den Assets nachgewiesen; keine privaten Schlüsselmarker oder JWT mit `service_role` gefunden. Diese Prüfung ersetzt keine vollständige Sicherheitsabnahme.
 - Neue macOS-Pipeline: https://github.com/moonsightmedia/KWS-BETA-APP/actions/runs/38216753369, erfolgreich abgeschlossen, Buildnummer 82, Backend Hostinger.
 - Das heruntergeladene IPA wurde mit `ops/hostinger/verify-android-artifact.ps1 -Platform ios -ArtifactPath` geprüft: 15 Assets, neue API, Video-Endpunkt und Recovery vorhanden; keine der geschützten privaten Zugangsdaten gefunden. Bericht: `output/hostinger-cutover/ios-82/IPA-VERIFIED.json`. Enthaltene SDK-Datenschutzmanifeste ersetzen nicht die vollständige Datenschutzabnahme.
+- Aktueller Build 84: https://github.com/moonsightmedia/KWS-BETA-APP/actions/runs/38226836397, Quellstand `f37d7bd`, ebenfalls erfolgreich. IPA und neue Konto-Funktionen geprüft; Nachweise in `output/hostinger-cutover/ios-84/`. Web-Release desselben Quellstands live. Neue verschlüsselte Gesamtsicherung inklusive isolierter DB-Wiederherstellung geprüft. Details: `docs/qa/2026-10-12-account-release.md`.
 
 Die vorher begonnenen Android-Änderungen an SDK/Versionsnummer/Analytics bleiben lokal; auf Wunsch des Auftraggebers wird zunächst nur Apple bearbeitet.
 
 ## Noch offene Voraussetzungen
 
 1. **Kontolöschung**: Antrag im Profil und private Adminwarteschlange implementiert. Marketing übernimmt die Bearbeitung spätestens innerhalb von sieben Tagen. Geschützter Operatorablauf für Dateien, DB und Bestätigung ergänzt; Rollen-/FK-Probe zurückgerollt, keine echten Konten entfernt. Vollständige Geräte-/Ende-zu-Ende-Abnahme noch offen. Betriebsablauf: `ops/hostinger/ACCOUNT_DELETION.md`.
-2. **Nutzerinhalte**: Kommentare und Uploads vorhanden. Filter, Meldungen, zeitnahe Moderation, Sperren missbräuchlicher Nutzer und sichtbarer Kontakt müssen umgesetzt und getestet sein. Zuständigkeit und Regeln sind festzulegen.
+2. **Nutzerinhalte**: Kommentare und Uploads vorhanden. Filter, Meldungen, zeitnahe Moderation, Sperren missbräuchlicher Nutzer und sichtbarer Kontakt müssen umgesetzt und getestet sein. Marketing ist vom Auftraggeber als zuständig bestätigt; Moderationsregeln und Bearbeitungsablauf sind noch festzulegen.
 3. **Datenschutz**: App-spezifische öffentlich erreichbare Erklärung und In-App-Zugriff fehlen; App-Datenschutzformular ist leer. Bestehende Website-Erklärung deckt App-Daten nicht ausreichend ab. Datenschutzauskunft muss dem finalen Artefakt und Serverbetrieb entsprechen.
 4. **Screenshots**: In der geprüften iPhone-Gruppe 0 Bildschirmfotos. Echte App-Ansichten für die von Apple verlangten Gerätegrößen erstellen; iPad-Unterstützung ist im Projekt aktiviert und erfordert ebenfalls Prüfung. Optionale Kopfzeile ist kein Ersatz für Screenshots.
 5. **Review-Zugang**: Ein dediziertes Testkonto ohne Administratorrechte und ohne Zugang zu fremden privaten Daten vorbereiten. Zugang nur geschützt speichern und gezielt an Apple freigeben; keine Passwörter in Dokumentation oder Logs.
@@ -51,7 +52,7 @@ Die vorher begonnenen Android-Änderungen an SDK/Versionsnummer/Analytics bleibe
 
 **Produktentscheidung vom 12. Oktober 2026:** Zum öffentlichen Start sind eigene App-Konten zunächst ab 16 Jahren vorgesehen. Konten für unter 16-Jährige werden als spätere Erweiterung geführt; sie sind keine Voraussetzung für den ersten Release.
 
-Die Registrierung verlangt jetzt ein gültiges Geburtsdatum und prüft die Altersgrenze auch im Auth-Hook auf dem Hostinger-Server. Fehlende/ungültige Daten und unter 16-Jährige werden abgewiesen; exakt 16 am Kalendertag in Deutschland ist zulässig. Drei Kalender-/Zeitzonen-Tests, SQL-Grenzfälle und eine öffentliche Unter-16-Signup-Anfrage geprüft. Es handelt sich um Selbstauskunft, nicht um einen amtlichen Altersnachweis. Bestehende 44 Konten werden aufgrund dieser Entscheidung nicht automatisch gelöscht oder gesperrt. Build 82 enthält noch keine neue Formularprüfung; ein neuer Build folgt.
+Die Registrierung verlangt jetzt ein gültiges Geburtsdatum und prüft die Altersgrenze auch im Auth-Hook auf dem Hostinger-Server. Fehlende/ungültige Daten und unter 16-Jährige werden abgewiesen; exakt 16 am Kalendertag in Deutschland ist zulässig. Drei Kalender-/Zeitzonen-Tests, SQL-Grenzfälle und eine öffentliche Unter-16-Signup-Anfrage geprüft. Es handelt sich um Selbstauskunft, nicht um einen amtlichen Altersnachweis. Bestehende 44 Konten werden aufgrund dieser Entscheidung nicht automatisch gelöscht oder gesperrt. Neue Formularprüfung im Web live und in Build 84 enthalten; Geräteabnahme noch offen.
 
 Artikel 8 DSGVO ist kein allgemeines Verbot von Konten unter 16: Die dortige Altersgrenze betrifft eine auf Einwilligung gestützte Verarbeitung bei direkt angebotenen Online-Diensten. Apples Inhaltsaltersfreigabe ist von der festgelegten Konto-Altersgrenze getrennt.
 
