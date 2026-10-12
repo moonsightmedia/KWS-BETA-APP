@@ -276,7 +276,8 @@ anderes Design ersetzt.
 - Scrollbars sind schmal, abgerundet und neutralgrau; derselbe Token gilt für
   Browser- und Radix-Scrollbars. Grün bleibt fachlichen Aktivzuständen vorbehalten.
 
-- Hauptreihenfolge: `Home → Boulder → Statistiken`.
+- Hauptreihenfolge: `Home → Boulder → Statistiken`, mit aktivierter Training-Vorschau ergänzt um `→ Training` (Nutzerentscheidung 12.10.2026).
+- Training enthält die drei direkt zugänglichen Bibliotheken Krafttraining, Boulderübungen und Reha-Ideen sowie eine optionale Wochenplanung. Thematische Übungssuche ist hier dauerhaft sichtbar. Die Vorschau verwendet ausdrücklich gekennzeichnete Beispieldaten; Quellen liegen unter „Hintergrund“. Training-Unterseiten halten den Haupttab aktiv, eigene Formulare und Wochenansichten erhalten keinen globalen Route-Swipe.
 - Die Bottom-Navigation und Desktop-Navigation verwenden dieselben Labels,
   Icons und Aktivzustände.
 - Bei normalem Wechsel auf eine andere Route beginnt die neue Seite oben.

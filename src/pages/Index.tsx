@@ -31,6 +31,7 @@ import { useSectorsTransformed } from '@/hooks/useSectors';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { useHorizontalRouteSwipe } from '@/hooks/useHorizontalRouteSwipe';
+import { APP_USER_ROUTES } from '@/features/training/flags';
 import type { Boulder } from '@/types/boulder';
 
 const getThumbnailUrl = (thumbnailUrl?: string | null) => {
@@ -137,7 +138,7 @@ const Index = () => {
   const queryClient = useQueryClient();
   const { isExpanded } = useSidebar();
   const { user, loading: authLoading } = useAuth();
-  const swipeRef = useHorizontalRouteSwipe({ routes: ['/', '/boulders', '/statistics'] });
+  const swipeRef = useHorizontalRouteSwipe({ routes: APP_USER_ROUTES });
 
   const queriesEnabled = !authLoading && !!user;
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(queriesEnabled);

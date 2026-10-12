@@ -23,6 +23,9 @@ import NotificationSettings from "./pages/NotificationSettings";
 import AboutApp from "./pages/AboutApp";
 import AppLegal from "./pages/AppLegal";
 import Statistics from "./pages/Statistics";
+import Training from './pages/Training';
+import { TrainingProvider } from '@/features/training/TrainingContext';
+import { TRAINING_UI_ENABLED } from '@/features/training/flags';
 import Admin from "./pages/Admin";
 import Setter from "./pages/Setter";
 import SetterCreatePage from "./pages/setter/SetterCreatePage";
@@ -325,7 +328,7 @@ const Root = () => {
               <ConditionalSidebar />
               <UploadOverview />
               <EmergencyReset />
-              <Outlet />
+              <TrainingProvider key={user?.id ?? 'guest'}><Outlet /></TrainingProvider>
             </ErrorBoundaryWithAuth>
           </UploadProvider>
       </SidebarProvider>
@@ -424,6 +427,7 @@ const router = createBrowserRouter([
           <Statistics />
         </RequireAuth>
       ) },
+      { path: 'training/*', element: TRAINING_UI_ENABLED ? <RequireAuth><Training /></RequireAuth> : <NotFound /> },
       { path: "admin", element: <Admin /> },
       {
         path: "setter",

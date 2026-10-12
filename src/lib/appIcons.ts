@@ -5,5 +5,6 @@ export {
   SquarePen as EditIcon,
   UsersRound as UsersIcon,
   UserRound as AccountIcon,
+  Dumbbell as TrainingIcon,
 } from 'lucide-react';
 export { BoulderIcon as BouldersIcon } from '@/components/icons/BoulderIcon';

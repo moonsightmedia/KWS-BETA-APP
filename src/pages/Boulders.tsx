@@ -18,6 +18,7 @@ import { PersonalDataState } from '@/components/PersonalDataState';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useColors } from '@/hooks/useColors';
 import { useHorizontalRouteSwipe } from '@/hooks/useHorizontalRouteSwipe';
+import { APP_USER_ROUTES } from '@/features/training/flags';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { cn } from '@/lib/utils';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
@@ -93,7 +94,7 @@ const sortOptions = [
 const Boulders = () => {
   const { isExpanded } = useSidebar();
   const navigate = useNavigate();
-  const swipeRef = useHorizontalRouteSwipe({ routes: ['/', '/boulders', '/statistics'] });
+  const swipeRef = useHorizontalRouteSwipe({ routes: APP_USER_ROUTES });
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');

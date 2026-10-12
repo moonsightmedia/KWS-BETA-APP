@@ -10,6 +10,7 @@ import { KwsSurface } from '@/components/ui/kws-surface';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderCommunity';
 import { useHorizontalRouteSwipe } from '@/hooks/useHorizontalRouteSwipe';
+import { APP_USER_ROUTES } from '@/features/training/flags';
 import { buildPersonalProgress, gradeKey, isSuccessful } from '@/lib/personalProgress';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +24,7 @@ export default function Statistics() {
   const [params, setParams] = useSearchParams();
   const [refreshing, setRefreshing] = useState(false);
   const [visibleDays, setVisibleDays] = useState(4);
-  const swipeRef = useHorizontalRouteSwipe({ routes: ['/', '/boulders', '/statistics'] });
+  const swipeRef = useHorizontalRouteSwipe({ routes: APP_USER_ROUTES });
   const view = params.get('view') === 'collection' ? 'collection' : 'progress';
   const collection = params.get('collection') === 'saved' ? 'saved' : 'projects';
   const period = periods.some(p => p.value === params.get('period')) ? params.get('period')! : '30';

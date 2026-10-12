@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --force",
+    "dev:training": "vite --config vite.training-preview.config.ts",
+    "test:training-ui": "playwright test --config playwright.training.config.ts",
     "dev:connected": "vite --mode production --host 127.0.0.1 --port 5173 --strictPort",
     "version:patch": "node scripts/version-bump.cjs patch",
     "version:minor": "node scripts/version-bump.cjs minor",

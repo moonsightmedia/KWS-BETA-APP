@@ -44,6 +44,9 @@ temp-video-processing/
 .codex-screenshots/
 .playwright-cli/
 output/
+/test-results/training-ui/
+/test-results/training-artifacts/
+/test-results/header-stability-20261006/
 
 # Local design/reference material
 references/
