@@ -1,14 +1,14 @@
-# Apple Build 85 – Abnahme auf dem Gerät
+# Apple Build 86 – Abnahmestand und spätere Geräteprüfung
 
 ## Aktualisierter Auftrag vom 12. Oktober 2026
 
 Der Auftraggeber hat weder iPhone noch Mac und möchte den Routenbauer ausdrücklich nicht mit Tests beauftragen. Die folgende Geräteprüfliste beschreibt mögliche spätere Prüfungen; sie ist kein aktueller Auftrag an den Routenbauer. Native Simulatorprüfungen und unveränderte Screenshots der iOS-App werden mit GitHub-Mac-Runnern erstellt. Das erfordert keinen eigenen Mac und kein physisches iPhone. Kamera, konkrete Geräteberechtigungen und tatsächliche TestFlight-Installation bleiben damit unbestätigt.
 
-Apples aktuelle Live-Validierung verlangt Screenshots für iPhone Dynamic Island (mittleres Display, Hochformat 1179 × 2556 oder 1206 × 2622) und iPad 13 Zoll (2048 × 2732 oder 2064 × 2752). Der laufende Simulatorablauf prüft zunächst den öffentlichen Gastzugang, Boulderübersicht, Filter und Detailansicht. Er ist keine vollständige Konten-, Upload- oder Löschabnahme. Pipeline und Originalbilder werden erst nach erfolgreicher Prüfung als Nachweis geführt.
+Apples aktuelle Live-Validierung verlangt Screenshots für iPhone Dynamic Island (mittleres Display, Hochformat 1179 × 2556 oder 1206 × 2622) und iPad 13 Zoll (2048 × 2732 oder 2064 × 2752). Der native Simulatorlauf `38254354855` aus `5884e22` hat auf beiden Plattformen bestanden: Willkommensablauf, geladene Gastübersicht, Öffnen/Schließen des Filters, Detail und Rückkehr. Sechs Originalbilder wurden visuell, auf Abmessungen und SHA256 geprüft und auf dem NAS gesichert. Details: `docs/qa/2026-10-12-public-onboarding.md`. Dies ist keine vollständige Konten-, Upload- oder Löschabnahme.
 
 Die App ist noch nicht öffentlich im App Store. Der bestehende interne Tester
-kann in **TestFlight → KWS BETA APP → Aktualisieren** Build **1.0 (85)** installieren.
-Falls 85 nicht erscheint: TestFlight aktualisieren und unter vorherigen Builds
+kann in **TestFlight → KWS BETA APP → Aktualisieren** Build **1.0 (86)** installieren.
+Falls 86 nicht erscheint: TestFlight aktualisieren und unter vorherigen Builds
 nachsehen. Keine erneute Einladung anfordern, solange das bestehende Konto
 Zugriff auf die KWS-Team-Gruppe hat. Eine Installation wurde noch nicht bestätigt.
 
@@ -61,5 +61,5 @@ synthetische Browser-QA-Fixture oder erfundene App-Screens ersetzt werden.
 Ergebnis pro Prüfschritt mit Gerät/Build und gegebenenfalls Screenshot melden;
 Auffälligkeiten über das App-Feedbackformular erfassen. Marketing muss den
 Moderations- und Löschablauf tatsächlich übernehmen. Apple-Organisationsumstellung
-und öffentliche DSA-Angaben sind ein separater Freigabeschritt. Build 85 bleibt
+und öffentliche DSA-Angaben sind ein separater Freigabeschritt. Build 86 bleibt
 bis zur Abnahme und den vollständigen Store-Angaben ein Release-Entwurf.
