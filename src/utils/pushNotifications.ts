@@ -15,6 +15,8 @@ const removeListeners = async () => {
   const handles = listenerHandles; listenerHandles = [];
   await Promise.all(handles.map(handle => handle.remove().catch(() => undefined)));
 };
+// iOS remains on in-app notifications until the APNs bridge is configured and verified.
+export const isNativePushSupported = () => Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 export const resetPushInitializationState = () => {
   generation++; registeredOwner = null; activeSession = null;
   cancelRegistration?.(); cancelRegistration = null; flight = null;
@@ -25,7 +27,7 @@ export async function stopPushListeners() {
 }
 export async function unregisterPushOnDevice() {
   await stopPushListeners();
-  if (Capacitor.isNativePlatform()) await PushNotifications.unregister();
+  if (isNativePushSupported()) await PushNotifications.unregister();
 }
 export function getPushDeviceId() {
   let id = localStorage.getItem('device_id');
@@ -33,6 +35,7 @@ export function getPushDeviceId() {
   return id;
 }
 export async function registerPushToken(token: string, sessionOverride?: SessionForPush) {
+  if (!isNativePushSupported()) throw new Error('Push ist auf diesem Gerät noch nicht verfügbar.');
   const session = sessionOverride ?? await getCurrentSession();
   if (!session || !token) throw new Error('Gerät konnte nicht zugeordnet werden.');
   const { data } = await notificationRequest('/rest/v1/push_tokens?on_conflict=token', session.access_token, {
@@ -44,7 +47,7 @@ export async function registerPushToken(token: string, sessionOverride?: Session
 
 /** Resolves true only after the native registration event AND confirmed persistence. */
 export async function initializePushNotifications(sessionOverride?: SessionForPush, force = false): Promise<boolean> {
-  if (!Capacitor.isNativePlatform()) return false;
+  if (!isNativePushSupported()) return false;
   const session = sessionOverride ?? await getCurrentSession();
   if (!session) throw new Error('Bitte melde dich erneut an.');
   if (activeSession && activeSession.user.id !== session.user.id) await stopPushListeners();
@@ -109,11 +112,11 @@ export async function requestTokenAndRegister() {
   if (!await initializePushNotifications(undefined, true)) throw new Error('Push-Berechtigung fehlt.');
 }
 export async function requestPermission(): Promise<boolean> {
-  if (!Capacitor.isNativePlatform()) return false;
+  if (!isNativePushSupported()) return false;
   return (await PushNotifications.requestPermissions()).receive === 'granted';
 }
 export async function getPushPermissionStatus(): Promise<'granted' | 'denied' | 'prompt' | null> {
-  if (!Capacitor.isNativePlatform()) return null;
+  if (!isNativePushSupported()) return null;
   const value = (await PushNotifications.checkPermissions()).receive;
   return value === 'granted' || value === 'denied' ? value : 'prompt';
 }

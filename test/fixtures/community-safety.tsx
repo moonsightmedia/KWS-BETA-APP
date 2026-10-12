@@ -1,0 +1,14 @@
+import {createRoot} from 'react-dom/client';
+import {MemoryRouter} from 'react-router-dom';
+import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
+import {Toaster} from 'sonner';
+import {ContentSafetyActions} from '@/components/ContentSafetyActions';
+import {BlockedUsers} from '@/components/BlockedUsers';
+import {ContentModeration} from '@/components/admin/ContentModeration';
+import AppLegal from '@/pages/AppLegal';
+import {ExternalBetaVideo} from '@/components/boulder/ExternalBetaVideo';
+import NotificationSettings from '@/pages/NotificationSettings';
+import '@/index.css';
+const params=new URLSearchParams(location.search);const view=params.get('view')||'actions';
+const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+createRoot(document.getElementById('root')!).render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[view==='legal'?(params.get('path')||'/privacy'):'/']}><div className="bg-secondary px-4 py-2 text-xs text-muted-foreground">Lokale Prüfung · ausschließlich Testdaten</div>{view==='legal'?<AppLegal/>:view==='notifications'?<NotificationSettings/>:<main className="mx-auto max-w-4xl space-y-6 p-4 md:p-8"><h1 className="font-heading text-4xl">Community-Sicherheit</h1>{view==='admin'?<ContentModeration/>:view==='blocked'?<BlockedUsers/>:view==='external'?<section className="min-h-80 rounded-kws-card bg-card shadow-soft"><ExternalBetaVideo src="https://example.invalid/isolated-video" provider="YouTube"/></section>:<section className="rounded-kws-card bg-card p-5 shadow-soft"><p className="mb-4 text-sm">Hilfreicher Hinweis zum Testboulder.</p><ContentSafetyActions kind="comment" targetId="comment-fixture" authorId="another-user-fixture"/></section>}</main>}<Toaster/></MemoryRouter></QueryClientProvider>);

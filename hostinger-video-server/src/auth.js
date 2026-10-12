@@ -11,6 +11,14 @@ const REQUIRED_ROLES = (process.env.REQUIRED_ROLES || 'admin,setter')
 const tokenCache = new Map();
 const CACHE_TTL_MS = 60_000;
 
+async function communityAllowed(token, userId) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/kws_community_allowed`, {
+    method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ actor: userId }), signal: AbortSignal.timeout(10_000),
+  });
+  return response.ok && await response.json() === true;
+}
+
 function getBearerToken(req) {
   const raw = req.headers['x-upload-auth'] || req.headers['authorization'] || '';
   if (typeof raw === 'string' && raw.toLowerCase().startsWith('bearer ')) {
@@ -31,6 +39,8 @@ export async function requireSupabaseUser(req, res, next) {
 
     const cached = tokenCache.get(token);
     if (cached && cached.expires > Date.now()) {
+      // A moderation ban must also stop an upload whose token is cached.
+      if (!await communityAllowed(token,cached.userId)) return res.status(403).json({ error: 'Publication permission denied' });
       req.userId = cached.userId;
       req.roles = [...cached.roles];
       return next();
@@ -46,6 +56,7 @@ export async function requireSupabaseUser(req, res, next) {
     if (!user?.id) {
       return res.status(401).json({ error: 'Unable to resolve user' });
     }
+    if (!await communityAllowed(token,user.id)) return res.status(403).json({ error: 'Publication permission denied' });
 
     let roles = [];
     if (REQUIRED_ROLES.length > 0) {

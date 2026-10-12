@@ -60,7 +60,7 @@ def main():
         assert b'-----BEGIN PRIVATE KEY-----' not in content
         if path.suffix in ('.js','.html'): texts.append(content.decode())
     bundle = '\n'.join(texts)
-    for marker in ('https://beta-api.kletterwelt-sauerland.de','Eigene Konten sind derzeit ab','Löschung beantragen','Kontolöschungen','kws_request_account_deletion'):
+    for marker in ('https://beta-api.kletterwelt-sauerland.de','Eigene Konten sind derzeit ab','Löschung beantragen','Kontolöschungen','kws_request_account_deletion','kws_report_content','kws_open_content_reports','Datenschutz der App','Community-Regeln'):
         assert marker in bundle, 'Required account feature absent'
     # Open tabs may still request lazy chunks from the previous entry file.
     for path in (old / 'dist/assets').rglob('*'):
@@ -86,7 +86,7 @@ def main():
                 except (OSError, AssertionError):
                     if attempt == 9: raise
                     time.sleep(2)
-            for route in ('/','/auth','/reset-password','/auth/callback'):
+            for route in ('/','/auth','/reset-password','/auth/callback','/privacy','/imprint','/community-rules'):
                 with urllib.request.urlopen('http://127.0.0.1:9091'+route, timeout=30) as response:
                     assert response.status == 200 and response.read().decode() == html
         except Exception:

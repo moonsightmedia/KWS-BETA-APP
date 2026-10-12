@@ -501,7 +501,8 @@ export function useBoulderComments(boulderId: string | undefined) {
   const queryClient = useQueryClient();
 
   const commentsQuery = useQuery({
-    queryKey: ['boulder-comments', boulderId],
+    queryKey: ['boulder-comments', boulderId, user?.id],
+    // Never reuse another account's view of pending or personally blocked content.
     enabled: !loading && !!session && !!user && !!boulderId,
     queryFn: async (): Promise<BoulderComment[]> => {
       const accessToken = session?.access_token;
@@ -514,9 +515,10 @@ export function useBoulderComments(boulderId: string | undefined) {
           created_at: string;
           updated_at: string;
           edited: boolean;
+          moderation_status: 'pending' | 'approved' | 'rejected';
         }[]
       >(
-        `/rest/v1/boulder_comments?boulder_id=eq.${boulderId}&select=id,boulder_id,user_id,comment,created_at,updated_at,edited&order=created_at.asc`,
+        `/rest/v1/boulder_comments?boulder_id=eq.${boulderId}&select=id,boulder_id,user_id,comment,created_at,updated_at,edited,moderation_status&order=created_at.asc`,
         { accessToken },
       );
 
@@ -553,6 +555,7 @@ export function useBoulderComments(boulderId: string | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['boulder-comments', boulderId] });
       queryClient.invalidateQueries({ queryKey: ['admin-boulder-comments'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-comments'] });
     },
     onError: (error: Error) => {
       toast.error(`Kommentar konnte nicht gespeichert werden: ${error.message}`);
@@ -565,16 +568,18 @@ export function useBoulderComments(boulderId: string | undefined) {
         throw new Error('Bitte melde dich an.');
       }
 
-      await supabaseRestRequest(`/rest/v1/boulder_comments?id=eq.${id}`, {
+      const rows = await supabaseRestRequest<Array<{ id: string }>>(`/rest/v1/boulder_comments?id=eq.${id}`, {
         accessToken: session.access_token,
         method: 'PATCH',
-        prefer: 'return=minimal',
+        prefer: 'return=representation',
         body: { comment: comment.trim() },
       });
+      if (rows.length !== 1) throw new Error('Die Änderung wurde nicht bestätigt. Bitte aktualisiere die Kommentare.');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['boulder-comments', boulderId] });
       queryClient.invalidateQueries({ queryKey: ['admin-boulder-comments'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-comments'] });
     },
     onError: (error: Error) => {
       toast.error(`Kommentar konnte nicht aktualisiert werden: ${error.message}`);

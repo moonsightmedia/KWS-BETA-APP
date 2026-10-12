@@ -53,6 +53,14 @@ export class SupabasePublisher {
       const requestController = new AbortController();
       const requestTimeout = setTimeout(() => requestController.abort(), this.requestTimeoutMs);
       try {
+        // Recheck the owner after queueing: a cached upload or in-flight encode
+        // must not publish via the service role after a moderation ban.
+        if (!job.owner_id || !BOULDER_ID.test(job.owner_id)) {
+          await this.recordFailure(job, 'OWNER_MISSING'); return false;
+        }
+        const permission = await this.fetch(`${this.supabaseUrl}/rest/v1/rpc/kws_community_allowed`, { method: 'POST', headers: { apikey: this.serviceRoleKey, authorization: `Bearer ${this.serviceRoleKey}`, 'content-type': 'application/json' }, body: JSON.stringify({ actor: job.owner_id }), signal: requestController.signal });
+        if (!permission?.ok) { const error = new Error('Publication authorization unavailable'); error.status = permission?.status; throw error; }
+        if (await permission.json() !== true) { await this.recordFailure(job, 'OWNER_PUBLICATION_DENIED'); return false; }
         const response = await this.fetch(`${this.supabaseUrl}/rest/v1/rpc/sync_boulder_video_job`, { method: 'POST', headers: { apikey: this.serviceRoleKey, authorization: `Bearer ${this.serviceRoleKey}`, 'content-type': 'application/json' }, body: JSON.stringify(body), signal: requestController.signal });
         if (!response?.ok) { const error = new Error('Supabase RPC failed'); error.status = response?.status; throw error; }
         job.published_status = target; job.published_target_status = job.status === target ? null : job.status; job.published_attempts = 0; job.published_next_retry_at = null; job.published_error_code = null; await this.queue.save(job); return true;

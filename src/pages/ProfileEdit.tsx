@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { DashboardPageLayout } from '@/components/DashboardPageLayout';
 import { AccountDeletion } from '@/components/AccountDeletion';
+import { BlockedUsers } from '@/components/BlockedUsers';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -450,7 +451,7 @@ const ProfileEdit = () => {
             Passwort ändern
           </Button>
         </div>
-        {user && <AccountDeletion userId={user.id} />}
+        {user && <><BlockedUsers /><AccountDeletion userId={user.id} /></>}
       </div>
     </DashboardPageLayout>
   );

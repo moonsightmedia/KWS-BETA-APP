@@ -19,6 +19,8 @@ import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useColors } from '@/hooks/useColors';
 import type { Boulder } from '@/types/boulder';
 import { KwsSegmentedControl } from '@/components/ui/kws-segmented-control';
+import { ContentSafetyActions } from '@/components/ContentSafetyActions';
+import { ExternalBetaVideo } from '@/components/boulder/ExternalBetaVideo';
 
 const tabs = ['Info', 'Track', 'Beta'] as const;
 type DetailTab = (typeof tabs)[number];
@@ -229,23 +231,9 @@ export default function BoulderDetail() {
           <div className="relative mx-auto flex aspect-[9/16] max-h-[min(60vh,720px)] w-full max-w-md items-center justify-center overflow-hidden rounded-kws-card bg-secondary shadow-[0_3px_14px_rgba(19,17,43,0.08)] lg:mx-0 lg:max-h-[calc(100vh-8rem)] lg:max-w-none">
             {videoUrl ? (
               isYouTube ? (
-                <iframe
-                  src={getYouTubeEmbedUrl(videoUrl)}
-                  className="h-full w-full"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                  allowFullScreen
-                  title="YouTube video player"
-                />
+                <ExternalBetaVideo key={videoUrl} src={getYouTubeEmbedUrl(videoUrl)} provider="YouTube" />
               ) : isVimeo ? (
-                <iframe
-                  src={getVimeoEmbedUrl(videoUrl)}
-                  className="h-full w-full"
-                  frameBorder="0"
-                  allow="autoplay; fullscreen; picture-in-picture"
-                  allowFullScreen
-                  title="Vimeo video player"
-                />
+                <ExternalBetaVideo key={videoUrl} src={getVimeoEmbedUrl(videoUrl)} provider="Vimeo" />
               ) : (
                 <BoulderVideoPlayer
                   betaVideoUrls={boulder.betaVideoUrls}
@@ -319,6 +307,7 @@ export default function BoulderDetail() {
           </div>
         </section>
       </div>
+      <ContentSafetyActions kind="boulder" targetId={boulder.id} />
     </DashboardPageLayout>
   );
 }

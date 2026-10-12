@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { KwsSurface } from '@/components/ui/kws-surface';
 import { clearAllCaches } from '@/utils/cacheUtils';
 import { checkForUpdates, getVersionInfo } from '@/utils/version';
+import { Link } from 'react-router-dom';
 
 const AboutApp = () => {
   const queryClient = useQueryClient();
@@ -120,6 +121,7 @@ const AboutApp = () => {
                 </div>
         </KwsSurface>
 
+        <KwsSurface className="space-y-3 p-4"><h2 className="text-base font-semibold">Eine App der Kletterwelt Sauerland</h2><p className="text-sm text-muted-foreground">Digitaler Partner: Moonsight Media</p><nav className="flex flex-wrap gap-4 text-sm" aria-label="Rechtliches"><Link className="text-primary-ink underline" to="/privacy">Datenschutz</Link><Link className="text-primary-ink underline" to="/imprint">Impressum</Link><Link className="text-primary-ink underline" to="/community-rules">Community-Regeln</Link></nav><a className="break-words text-sm text-primary-ink underline" href="mailto:marketing@kletterwelt-sauerland.de">marketing@kletterwelt-sauerland.de</a></KwsSurface>
         <p className="px-1 font-sans text-[10px] leading-relaxed text-muted-foreground sm:text-xs">
           Die Versionsprüfung und das Leeren des Caches verändern keine persönlichen Boulder- oder Profildaten.
         </p>

@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { SupabasePublisher } from '../src/supabase-publisher.js';
 
 function fakeQueue(job) {
+  job.owner_id ||= '12345678-1234-4234-8234-123456789012';
   return { job, saves: 0, async get() { return this.job; }, async list() { return [this.job]; }, async save(next) { this.job = { ...next }; this.saves++; }, async withJobLock(_id, work) { return work(); } };
 }
 
 test('publisher retries durably, recovers after restart, and is idempotent', async () => {
   const job = { job_id: '11111111-1111-4111-8111-111111111111', boulder_id: '22222222-2222-4222-8222-222222222222', session_id: '55555555-5555-4555-8555-555555555555', status: 'queued', urls: { hd: 'https://video/hd' } }; const queue = fakeQueue(job); let now = 1_000; let calls = 0;
-  const fetchFn = async () => { calls++; return calls === 1 ? { ok: false, status: 503 } : { ok: true }; };
+  const fetchFn = async (url) => { if (url.endsWith('kws_community_allowed')) return { ok: true, json: async () => true }; calls++; return calls === 1 ? { ok: false, status: 503 } : { ok: true }; };
   const first = new SupabasePublisher({ queue, supabaseUrl: 'https://supabase.example', serviceRoleKey: 'not-logged', fetchFn, now: () => now, retryBaseMs: 100, retryMaxMs: 100 });
   assert.equal(await first.publish(job.job_id, { force: true }), false); assert.equal(queue.job.published_attempts, 1); assert.equal(queue.job.published_error_code, 'HTTP_503');
   now += 100; const restarted = new SupabasePublisher({ queue, supabaseUrl: 'https://supabase.example', serviceRoleKey: 'not-logged', fetchFn, now: () => now }); await restarted.recover(); await new Promise((resolve) => setTimeout(resolve, 0)); assert.equal(queue.job.published_status, 'queued'); assert.equal(calls, 2); await restarted.publish(job.job_id); assert.equal(calls, 2);
@@ -35,7 +36,7 @@ test('publisher sends the exact PostgREST RPC parameter contract', async () => {
   const queue = fakeQueue(job); let requestBody;
   const publisher = new SupabasePublisher({
     queue, supabaseUrl: 'https://supabase.example', serviceRoleKey: 'not-logged',
-    fetchFn: async (_url, init) => { requestBody = JSON.parse(init.body); return { ok: true }; },
+    fetchFn: async (url, init) => { if (url.endsWith('kws_community_allowed')) return { ok: true, json: async () => true }; requestBody = JSON.parse(init.body); return { ok: true }; },
   });
   assert.equal(await publisher.publish(job.job_id, { force: true }), true);
   assert.deepEqual(requestBody, {
@@ -60,7 +61,7 @@ test('a processing transition supersedes queued publication durably', async () =
   const queue = fakeQueue(job); const states = [];
   const publisher = new SupabasePublisher({
     queue, supabaseUrl: 'https://supabase.example', serviceRoleKey: 'not-logged',
-    fetchFn: async (_url, init) => { states.push(JSON.parse(init.body).p_status); return { ok: true }; },
+    fetchFn: async (url, init) => { if (url.endsWith('kws_community_allowed')) return { ok: true, json: async () => true }; states.push(JSON.parse(init.body).p_status); return { ok: true }; },
   });
   await publisher.schedule(job);
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -69,4 +70,23 @@ test('a processing transition supersedes queued publication durably', async () =
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepEqual(states, ['queued', 'processing']);
   assert.equal(queue.job.published_status, 'processing');
+});
+
+test('queued video cannot publish after owner ban; permission service failure also fails closed', async () => {
+  const queue = fakeQueue({ job_id:'11111111-1111-4111-8111-111111111111', boulder_id:'22222222-2222-4222-8222-222222222222', session_id:'55555555-5555-4555-8555-555555555555', status:'completed', urls:{hd:'https://video/hd'} });
+  let allowed = false; let available = true; const urls = [];
+  const publisher = new SupabasePublisher({ queue, supabaseUrl:'https://supabase.example', serviceRoleKey:'fixture-key', fetchFn:async(url,init)=>{
+    urls.push(url); assert.equal(JSON.parse(init.body).actor,queue.job.owner_id);
+    return {ok:available,status:503,json:async()=>allowed};
+  }});
+  assert.equal(await publisher.publish(queue.job.job_id,{force:true}),false);
+  assert.equal(queue.job.published_error_code,'OWNER_PUBLICATION_DENIED');
+  available=false; allowed=true;
+  assert.equal(await publisher.publish(queue.job.job_id,{force:true}),false);
+  assert.equal(queue.job.published_error_code,'HTTP_503');
+  assert.ok(urls.every(url=>url.endsWith('kws_community_allowed')));
+  delete queue.job.owner_id;
+  assert.equal(await publisher.publish(queue.job.job_id,{force:true}),false);
+  assert.equal(queue.job.published_error_code,'OWNER_MISSING');
+  assert.equal(urls.length,2);
 });

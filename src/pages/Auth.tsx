@@ -439,6 +439,7 @@ const Auth = () => {
               <Button type="button" variant="secondary" size="lg" onClick={() => navigate('/guest')} className="mt-4 h-12 w-full text-[#192436]">
                 Als Gast fortfahren <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Button>
+              <nav aria-label="Rechtliche Informationen" className="mt-4 flex flex-wrap justify-center gap-4 text-xs"><a className="text-primary-ink underline" href="/privacy">Datenschutz</a><a className="text-primary-ink underline" href="/imprint">Impressum</a><a className="text-primary-ink underline" href="/community-rules">Community-Regeln</a></nav>
             </div>
           </div>
         </section>

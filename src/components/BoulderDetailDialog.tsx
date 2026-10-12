@@ -16,6 +16,7 @@ import {
 
 import { BoulderBetaPreview, BoulderStatsPanel, BoulderTrackingPanel } from '@/components/BoulderCommunityPanel';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
+import { ExternalBetaVideo } from '@/components/boulder/ExternalBetaVideo';
 import {
   BoulderVideoPlayer,
   getVimeoEmbedUrl,
@@ -108,27 +109,11 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
           className="relative mx-auto aspect-[4/5] w-full max-w-[22rem] overflow-hidden rounded-kws-card bg-[#EAF1EB] shadow-[0_10px_28px_rgba(19,17,43,0.11)] lg:max-w-none"
         >
           {videoUrl && isYouTube && (
-            <iframe
-              src={open && activeTab === 'beta' ? getYouTubeEmbedUrl(videoUrl) : undefined}
-              className="h-full w-full"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-              allowFullScreen
-              loading="lazy"
-              title={`Beta-Video für ${boulder.name}`}
-            />
+            <ExternalBetaVideo key={videoUrl} src={getYouTubeEmbedUrl(videoUrl)} provider="YouTube" visible={open && activeTab === 'beta'} />
           )}
 
           {videoUrl && isVimeo && (
-            <iframe
-              src={open && activeTab === 'beta' ? getVimeoEmbedUrl(videoUrl) : undefined}
-              className="h-full w-full"
-              frameBorder="0"
-              allow="autoplay; fullscreen; picture-in-picture"
-              allowFullScreen
-              loading="lazy"
-              title={`Beta-Video für ${boulder.name}`}
-            />
+            <ExternalBetaVideo key={videoUrl} src={getVimeoEmbedUrl(videoUrl)} provider="Vimeo" visible={open && activeTab === 'beta'} />
           )}
 
           {isDirectVideo && (

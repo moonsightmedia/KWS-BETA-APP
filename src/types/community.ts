@@ -18,6 +18,7 @@ export interface BoulderComment {
   created_at: string;
   updated_at: string;
   edited: boolean;
+  moderation_status?: 'pending' | 'approved' | 'rejected';
   author_name: string;
   author_email: string | null;
 }

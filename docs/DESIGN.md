@@ -1436,6 +1436,11 @@ Prüfbelege: `docs/qa/2026-09-15-personal-progress-design.md`,
 - Browser-Push bleibt deaktiviert. Die native Anmeldung gilt erst nach Geräteevent
   und bestätigter Speicherung als erfolgreich. Registrierung ist kein Zustellnachweis.
   Empfang aktualisiert nur den Posteingang und löst keinen zweiten Push aus.
+- Für die erste öffentliche iPhone-Version bleiben Mitteilungen innerhalb der
+  App aktiv. iPhone-Push folgt nach Einrichtung und Gerätetest der APNs-Anbindung;
+  bis dahin gibt es keinen Push-Schalter und keinen Registrierungsversuch auf iOS.
+  Die Einstellungen benennen diese Einschränkung ausdrücklich. Android bleibt
+  unabhängig davon verfügbar; eine Registrierung ist weiterhin kein Zustellnachweis.
 - Native Aktionen und In-App-Links verwenden validierte interne Ziele. Queries und
   Änderungen sind kontogebunden. Markengrün, gemeinsame Controls und Radien bleiben.
 

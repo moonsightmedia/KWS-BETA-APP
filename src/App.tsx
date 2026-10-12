@@ -21,6 +21,7 @@ import Profile from "./pages/Profile";
 import ProfileEdit from "./pages/ProfileEdit";
 import NotificationSettings from "./pages/NotificationSettings";
 import AboutApp from "./pages/AboutApp";
+import AppLegal from "./pages/AppLegal";
 import Statistics from "./pages/Statistics";
 import Admin from "./pages/Admin";
 import Setter from "./pages/Setter";
@@ -129,7 +130,8 @@ const ConditionalSidebar = () => {
     location.pathname === '/auth' ||
     location.pathname === '/auth/callback' ||
     location.pathname === '/reset-password' ||
-    location.pathname === '/competition'
+    location.pathname === '/competition' ||
+    ['/privacy','/imprint','/community-rules'].includes(location.pathname)
   ) {
     return null;
   }
@@ -389,6 +391,9 @@ const router = createBrowserRouter([
       { path: "auth", element: <Auth /> },
       { path: "auth/callback", element: <AuthCallback /> },
       { path: "reset-password", element: <ResetPassword /> },
+      { path: "privacy", element: <AppLegal /> },
+      { path: "imprint", element: <AppLegal /> },
+      { path: "community-rules", element: <AppLegal /> },
       { path: "profile", element: (
         <RequireAuth>
           <Profile />
