@@ -1,4 +1,7 @@
-param([ValidateSet('android','ios')][string]$Platform='android')
+param(
+ [ValidateSet('android','ios')][string]$Platform='android',
+ [string]$ArtifactPath
+)
 $ErrorActionPreference='Stop'
 $taskWrapper=Join-Path $env:LOCALAPPDATA 'JanoschAI\Bitwarden\Invoke-BwsDevice.ps1'
 $taskRaw=& $taskWrapper -DeviceName codex-laptop secret get e7d39de8-444a-4a66-b3ad-b4dd00b38158 --output json
@@ -13,7 +16,8 @@ $taskPrivateKey=(($taskFcmRaw|ConvertFrom-Json).value|ConvertFrom-Json).private_
 $taskSecrets=@($taskEnvironment['SERVICE_ROLE_KEY'],$taskEnvironment['POSTGRES_PASSWORD'],$taskPrivateKey)
 if(@($taskSecrets | Where-Object {[string]::IsNullOrWhiteSpace($_)}).Count){throw 'Verification material incomplete'}
 $taskRelative=if($Platform -eq 'ios'){'..\..\output\hostinger-cutover\ios-81\App.ipa'}else{'..\..\output\hostinger-cutover\KWS-Beta-Hostinger-1.0.53.apk'}
-$taskApk=(Resolve-Path -LiteralPath (Join-Path $PSScriptRoot $taskRelative)).Path
+$taskArtifactSource=if([string]::IsNullOrWhiteSpace($ArtifactPath)){Join-Path $PSScriptRoot $taskRelative}else{$ArtifactPath}
+$taskApk=(Resolve-Path -LiteralPath $taskArtifactSource).Path
 $taskZip=[IO.Compression.ZipFile]::OpenRead($taskApk)
 $taskCount=0;$taskHasApi=$false;$taskHasVideo=$false;$taskHasRecovery=$false
 try {
