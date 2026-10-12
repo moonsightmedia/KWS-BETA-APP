@@ -4,52 +4,104 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: Git branch to build
-        required: false
-        default: main
+        description: Release branch to test and capture (Hostinger backend)
+        required: true
+        default: codex/hostinger-migration
         type: string
 
+permissions:
+  contents: read
+
 jobs:
-  build-ios:
+  screenshots:
     runs-on: macos-latest
-    timeout-minutes: 45
-
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        family: [iphone, ipad]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.branch || github.ref_name }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+          ref: ${{ inputs.branch }}
+      - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: '20'
           cache: npm
-
-      - name: Install npm dependencies
-        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
-
-      - name: Build web app and sync Capacitor iOS
-        run: |
-          npm run build
-          npx cap sync ios
-
-      - name: Install CocoaPods
-        run: pod install --project-directory=ios/App
-
-      - name: Build iOS app (Simulator)
-        run: |
-          xcodebuild \
-            -workspace ios/App/App.xcworkspace \
-            -scheme App \
-            -configuration Debug \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
-            -derivedDataPath ios/App/build \
-            build
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+      - name: Install locked dependencies
+        run: npm ci --legacy-peer-deps
+      - uses: maxim-lobanov/setup-xcode@v1
         with:
-          name: ios-simulator-build
-          path: ios/App/build/**/*
-          retention-days: 3
+          xcode-version: latest-stable
+      - name: Build the release web assets and native bridge
+        env:
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.KWS_HOSTINGER_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: https://beta-api.kletterwelt-sauerland.de
+          VITE_VIDEO_API_URL: https://video.kletterwelt-sauerland.de
+          VITE_NATIVE_VIDEO_API_URL: https://video.kletterwelt-sauerland.de
+          VITE_ALLINKL_API_URL: https://video.kletterwelt-sauerland.de
+          VITE_AUTH_SITE_URL: https://beta.kletterwelt-sauerland.de
+          VITE_USE_ALLINKL_STORAGE: 'false'
+          VITE_TELEMETRY_ENABLED: 'false'
+          VITE_SENTRY_DSN: ''
+        run: |
+          set -eo pipefail
+          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY"
+          ./node_modules/.bin/vite build --mode hostinger --base=./
+          npx cap sync ios
+          pod install --project-directory=ios/App
+          ruby scripts/ios/prepare-screenshot-tests.rb
+      - name: Select an available simulator in the required Apple size group
+        env:
+          DEVICE_FAMILY: ${{ matrix.family }}
+        run: |
+          xcrun simctl list devices available --json > "$RUNNER_TEMP/simulators.json"
+          python3 - <<'PY'
+          import json, os
+          data = json.load(open(os.environ['RUNNER_TEMP'] + '/simulators.json'))
+          devices = [d for runtime, rows in data['devices'].items() if 'iOS' in runtime for d in rows]
+          names = (['iPhone 16 Pro', 'iPhone 17 Pro', 'iPhone 16', 'iPhone 15 Pro']
+                   if os.environ['DEVICE_FAMILY'] == 'iphone'
+                   else ['iPad Pro 13-inch (M4)', 'iPad Pro 13-inch (M5)', 'iPad Pro (12.9-inch) (6th generation)'])
+          chosen = next((d for name in names for d in devices if d['name'] == name), None)
+          if not chosen:
+              raise SystemExit('Required simulator missing: ' + ', '.join(d['name'] for d in devices))
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write('SIMULATOR_ID=' + chosen['udid'] + '\n')
+              f.write('SIMULATOR_NAME=' + chosen['name'] + '\n')
+          print('Selected ' + chosen['name'])
+          PY
+      - name: Test genuine native guest views and capture screenshots
+        run: |
+          set -eo pipefail
+          mkdir -p output/ios-screenshots
+          git rev-parse HEAD > output/ios-screenshots/source-commit.txt
+          xcrun simctl boot "$SIMULATOR_ID"
+          xcrun simctl bootstatus "$SIMULATOR_ID" -b
+          xcrun simctl ui "$SIMULATOR_ID" appearance light
+          xcrun simctl status_bar "$SIMULATOR_ID" override --time 9:41 --batteryState charged --batteryLevel 100
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme KWSScreenshots \
+            -configuration Release -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -derivedDataPath "$RUNNER_TEMP/kws-screenshot-build" \
+            -resultBundlePath output/ios-screenshots/GuestJourney.xcresult \
+            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO test \
+            > output/ios-screenshots/xcodebuild.log 2>&1 || {
+              tail -100 output/ios-screenshots/xcodebuild.log
+              exit 1
+            }
+      - name: Export test attachments and results
+        if: always()
+        run: |
+          if [ -d output/ios-screenshots/GuestJourney.xcresult ]; then
+            xcrun xcresulttool export attachments --path output/ios-screenshots/GuestJourney.xcresult --output-path output/ios-screenshots/attachments
+            xcrun xcresulttool get test-results summary --path output/ios-screenshots/GuestJourney.xcresult > output/ios-screenshots/test-summary.json
+          fi
+      - name: Verify the original Store screenshots
+        run: python3 scripts/ios/export-store-screenshots.py output/ios-screenshots/attachments output/ios-screenshots/store ${{ matrix.family }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-store-${{ matrix.family }}-${{ github.run_id }}
+          path: output/ios-screenshots
+          retention-days: 7
+          if-no-files-found: warn
