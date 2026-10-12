@@ -1,6 +1,8 @@
 # Apple-Support – Veröffentlichungszugang während Migration
 
-Entwurf, nicht versendet. Keine Rücknahme der Organisationsmigration beauftragt.
+Am 12. Oktober 2026 nach ausdrücklicher Versandfreigabe über das angemeldete Apple-Developer-Supportformular im bestehenden Fall **102994128035** (Änderung des Organisationsnamens) versendet. Apple bestätigt „Vielen Dank für Ihre Nachricht“ und eine Rückmeldung so schnell wie möglich, ohne zugesagten Termin. Keine Rücknahme der Organisationsmigration beauftragt. Nachweis: `test-results/apple-store-2026-10-12/publishing-access-support-sent.jpg`.
+
+Das Formular hatte nur ein Nachrichtenfeld; der folgende Nachrichtentext wurde unverändert gesendet. Die unten aufgeführte Betreffzeile dient der Dokumentation und wurde nicht in ein separates Betrefffeld eingetragen. Kein zusätzlicher Fall angelegt, keine neue E-Mail-Adresse oder Telefonnummer übermittelt.
 
 **Subject:** Publishing access during individual-to-organization membership migration
 

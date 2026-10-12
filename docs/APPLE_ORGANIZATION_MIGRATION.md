@@ -2,7 +2,7 @@
 
 Stand: 12. Oktober 2026. Auftraggeber wünscht Moonsight Media als Herausgeber seiner Apps; Kletterwelt bleibt als Betreiber der KWS-App vorgesehen.
 
-Spätere Entscheidung vom selben Tag: Erste Veröffentlichung der KWS-App unter Janosch Althoff ausdrücklich autorisiert. Auf Moonsight als Verkäufer muss für diesen Release nicht gewartet werden. Der bestehende Migrationsantrag wurde damit nicht automatisch storniert; keine Rücknahme oder Supportnachricht durchgeführt. Apples live weiter angezeigte Deaktivierung verhindert aktuell den neuen signierten Build mit korrektem App-Symbol.
+Spätere Entscheidung vom selben Tag: Erste Veröffentlichung der KWS-App unter Janosch Althoff ausdrücklich autorisiert. Auf Moonsight als Verkäufer muss für diesen Release nicht gewartet werden. Der bestehende Migrationsantrag wurde damit nicht automatisch storniert. Nach gesonderter Versandfreigabe wurde der vorbereitete Supporttext im vorhandenen Fall 102994128035 gesendet; Apple bestätigt den Eingang. Er bittet um Freigabe für eine individuelle Veröffentlichung bei weiterlaufender Umstellung und um Erläuterung der Optionen vor einer Änderung oder Stornierung. Keine Rücknahme durchgeführt, keine Reaktivierung bestätigt. Apples weiter bestehende Deaktivierung verhindert aktuell den neuen signierten Build mit korrektem App-Symbol.
 
 ## Aktueller Live-Status
 
