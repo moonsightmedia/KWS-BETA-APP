@@ -2,6 +2,8 @@
 
 Stand: 12. Oktober 2026. Auftraggeber wünscht Moonsight Media als Herausgeber seiner Apps; Kletterwelt bleibt als Betreiber der KWS-App vorgesehen.
 
+Spätere Entscheidung vom selben Tag: Erste Veröffentlichung der KWS-App unter Janosch Althoff ausdrücklich autorisiert. Auf Moonsight als Verkäufer muss für diesen Release nicht gewartet werden. Der bestehende Migrationsantrag wurde damit nicht automatisch storniert; keine Rücknahme oder Supportnachricht durchgeführt. Apples live weiter angezeigte Deaktivierung verhindert aktuell den neuen signierten Build mit korrektem App-Symbol.
+
 ## Aktueller Live-Status
 
 Apple Developer zeigt jetzt ausdrücklich, dass die Mitgliedschaftsmigration von einer Einzelperson zu einer Organisation bearbeitet wird. Mitgliedschaftsleistungen sind währenddessen vorübergehend deaktiviert. Es ist kein Abschluss und kein zugesagter Termin. Sichtnachweis: `test-results/apple-store-2026-10-12/membership-migration-active.jpg`.
