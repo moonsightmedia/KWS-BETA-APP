@@ -13,6 +13,10 @@ Stand: 12. Oktober 2026. App-ID 6756424260, Bundle-ID `com.kletterwelt.beta`, Ve
 - Kostenloser Download (0,00 EUR), Preisbasis Deutschland.
 - Verfügbarkeit ausschließlich Deutschland, vom Auftraggeber ausdrücklich bestätigt. Keine automatische Erweiterung auf neue Länder.
 - Öffentliche Verteilung bereits ausgewählt. Zusätzliche Verfügbarkeit auf Apple Silicon Macs und Vision Pro deaktiviert, da diese Plattformen nicht abgenommen sind.
+- Altersfreigabe 16+ eingerichtet; Inhaltsrechte vom Auftraggeber bestätigt und bei Apple gespeichert.
+- Dedizierter Prüfzugang ohne Mitarbeiterrechte sowie Prüfkontakt gespeichert. Private Kontaktangaben bleiben ausschließlich im freigegebenen Apple-Formular.
+- Datenschutz-URL: https://beta.kletterwelt-sauerland.de/privacy. Das vollständige Datenschutzlabel wurde nach ausdrücklicher Freigabe veröffentlicht; dies veröffentlicht nicht die App selbst.
+- Build 85 im Entwurf der öffentlichen Version 1.0 ausgewählt und gespeichert.
 
 Die Angaben wurden nach Speichern und erneutem Aufrufen geprüft. Screenshots liegen in `test-results/apple-store-2026-10-12/`.
 
@@ -24,7 +28,14 @@ App Store Connect zeigt aktuell den Status **Nicht-Händler** für diese App. F�
 
 ## Build und technische Verifikation
 
-Build 84 wurde erfolgreich hochgeladen, von Apple verarbeitet und erscheint in TestFlight mit der internen Gruppe KWS Team (ein Tester). Die Testhinweise zu Altersprüfung und Kontolöschung sind gespeichert. Eine Installation auf einem Gerät oder die Auswahl als öffentliche Releaseversion ist noch nicht verifiziert. Zwischenbuild 83 wurde wegen eines in der Live-Abnahme gefundenen Auth-Header-Fehlers zurückgezogen und zeigt den Status Abgelaufen. Build 82 bleibt erhalten.
+Build 85 wurde erfolgreich hochgeladen, von Apple verarbeitet und erscheint in TestFlight mit der internen Gruppe KWS Team (ein Tester). Eine konkrete Prüfliste ist gespeichert; die Installation und Abnahme auf dem iPhone sind noch nicht bestätigt. Build 85 ist im Entwurf der öffentlichen Storeversion ausgewählt. Build 84 bleibt erhalten. Zwischenbuild 83 wurde wegen eines in der Live-Abnahme gefundenen Auth-Header-Fehlers zurückgezogen und zeigt den Status Abgelaufen.
+
+Aktueller Quellstand `533960035fa08afc88301e952f70e172e53af4f3` enthält Meldungen, persönliche Sperren, Kommentarfreigabe, Moderation, öffentliche rechtliche Seiten, lokal ausgelieferte Schriften und die absichtlich deaktivierte iPhone-Push-Registrierung. Web und Videodienst dieses Stands sind live; 44 Bestandsnutzer, 104 Boulder und 2389 Storage-Objekte erhalten. Hinzu kommt ein synthetischer Apple-Prüfnutzer ohne Mitarbeiterrolle. Sein Login wurde über die öffentliche Produktions-API geprüft.
+
+- 166 Frontendtests, 26 Videodiensttests und isolierte SQL-Proben einschließlich Spamgrenzen bestanden. Neue Module lint-geprüft; Vite-Produktionsbuild erfolgreich. Der vollständige TypeScript-Check hat weiterhin bekannte Fehler in bestehenden Modulen.
+- [Build-85-Pipeline](https://github.com/moonsightmedia/KWS-BETA-APP/actions/runs/38241918109) erfolgreich. IPA: 30 Assets auf tatsächliche geschützte Zugangsdaten geprüft, keine gefunden. Neue API, Video-Endpunkt und Recovery vorhanden. Elf lokale WOFF2-Schriften, relative Fontpfade und Datenschutzmanifeste nachgewiesen. Keine physische Geräteabnahme damit ersetzt.
+- IPA und Prüfberichte mit identischen SHA256-Prüfsummen zusätzlich im Kunden-NAS unter `KWS BETA APP/Releases/iOS/85` gespeichert.
+- Verschlüsselte Produktionssätze `20261012T085928Z` und `20261012T104355Z` auf dem Kunden-NAS vollständig hashgeprüft, inklusive Wiederherstellungsnachweisen. Zweiter Satz zuvor auf dem VPS vollständig dateigeprüft und isoliert wiederhergestellt: 4258 Dateien, 2389 Storage-Objekte, 448 Medienreferenzen, 74 Tabellen, 17629 Zeilen, zwei Sequenzen und Vault. NAS-Bericht für den zweiten Satz vom 12. Oktober, 11:48:58 UTC. Regelmäßige unabhängige NAS-Sicherung bleibt separat einzurichten.
 
 Capacitor Android, iOS, Core und CLI wurden von 7.4.4 auf exakt 7.6.9 aktualisiert. Damit wird das offizielle Advisory GHSA-rvm3-566m-v7fv berücksichtigt. Commit `1c106a1` liegt auf `codex/hostinger-migration` und wurde gepusht.
 
@@ -40,15 +51,15 @@ Die vorher begonnenen Android-Änderungen an SDK/Versionsnummer/Analytics bleibe
 ## Noch offene Voraussetzungen
 
 1. **Kontolöschung**: Antrag im Profil und private Adminwarteschlange implementiert. Marketing übernimmt die Bearbeitung spätestens innerhalb von sieben Tagen. Geschützter Operatorablauf für Dateien, DB und Bestätigung ergänzt; Rollen-/FK-Probe zurückgerollt, keine echten Konten entfernt. Vollständige Geräte-/Ende-zu-Ende-Abnahme noch offen. Betriebsablauf: `ops/hostinger/ACCOUNT_DELETION.md`.
-2. **Nutzerinhalte**: Kommentare und Uploads vorhanden. Filter, Meldungen, zeitnahe Moderation, Sperren missbräuchlicher Nutzer und sichtbarer Kontakt müssen umgesetzt und getestet sein. Marketing ist vom Auftraggeber als zuständig bestätigt; Moderationsregeln und Bearbeitungsablauf sind noch festzulegen.
-3. **Datenschutz**: App-spezifische öffentlich erreichbare Erklärung und In-App-Zugriff fehlen; App-Datenschutzformular ist leer. Bestehende Website-Erklärung deckt App-Daten nicht ausreichend ab. Datenschutzauskunft muss dem finalen Artefakt und Serverbetrieb entsprechen.
+2. **Nutzerinhalte**: Meldungen, persönliche Nutzersperren, Vorabfreigabe neuer/bearbeiteter Kommentare und Admin-Moderation implementiert, serverseitig abgesichert und live. Marketing ist zuständig; Ablauf unter `ops/hostinger/COMMUNITY_MODERATION.md`. Abschließende native Geräteabnahme und tägliche tatsächliche Bearbeitung durch Marketing sicherstellen.
+3. **Datenschutz**: App-spezifische Erklärung, Impressum und Community-Regeln öffentlich sowie innerhalb der App erreichbar. Apple-Datenschutzlabel mit zehn Datenarten, App-Funktionalität, Nutzerbezug und ohne Tracking veröffentlicht. Bei Änderungen an Verarbeitung oder nativen SDKs erneut prüfen und aktualisieren.
 4. **Screenshots**: In der geprüften iPhone-Gruppe 0 Bildschirmfotos. Echte App-Ansichten für die von Apple verlangten Gerätegrößen erstellen; iPad-Unterstützung ist im Projekt aktiviert und erfordert ebenfalls Prüfung. Optionale Kopfzeile ist kein Ersatz für Screenshots.
-5. **Review-Zugang**: Ein dediziertes Testkonto ohne Administratorrechte und ohne Zugang zu fremden privaten Daten vorbereiten. Zugang nur geschützt speichern und gezielt an Apple freigeben; keine Passwörter in Dokumentation oder Logs.
-6. **Pflichtformulare**: Altersfreigabe und Inhaltsrechte noch nicht eingerichtet. Review-Kontakt fehlt. Factual declarations erst passend zur fertigen App; keine erfundenen Angaben.
-7. **Funktionsabnahme**: `Map`-Importkonflikt in `BoulderManagement.tsx` behoben und Komponente gerendert geprüft. Registrierung, Anmeldung, Reset, Konto-Löschung, Videos, Komprimierung, Kommentare und Moderation im finalen nativen Build prüfen. iOS-Push ist noch nicht vollständig eingerichtet; nicht als funktionierend bewerben.
+5. **Review-Zugang**: In Produktion eingerichtet, gewöhnlicher Nutzer, Login öffentlich geprüft und mit ausdrücklicher Freigabe ausschließlich in Apples Prüfformular gespeichert. Bitwarden-Referenz `KWS_APPLE_REVIEW_ACCOUNT`. Keine Zugangsdaten in Dokumentation oder Logs.
+6. **Pflichtformulare**: Altersfreigabe, Inhaltsrechte und Review-Kontakt gespeichert; Datenschutzlabel veröffentlicht. Eine endgültige App-Einreichung ist nicht erfolgt.
+7. **Funktionsabnahme**: `Map`-Importkonflikt in `BoulderManagement.tsx` behoben und Komponente gerendert geprüft. Registrierung, Anmeldung, Reset, Konto-Löschung, Videos, Komprimierung, Kommentare und Moderation im finalen nativen Build prüfen. Der Auftraggeber hat iPhone-Push auf später verschoben. Die erste Version verwendet In-App-Mitteilungen und registriert auf iOS kein Push-Token; Android-Steuerung bleibt erhalten.
 8. **Herausgeber**: Moonsight-Organisationsumstellung und zutreffende DSA-Angaben abschließen, bevor mit Moonsight als Store-Herausgeber veröffentlicht wird.
 
-## Datenschutz-Angaben vorbereiten – noch kein veröffentlichtes Label
+## Datenschutz-Angaben – veröffentlichtes Label
 
 **Produktentscheidung vom 12. Oktober 2026:** Zum öffentlichen Start sind eigene App-Konten zunächst ab 16 Jahren vorgesehen. Konten für unter 16-Jährige werden als spätere Erweiterung geführt; sie sind keine Voraussetzung für den ersten Release.
 
@@ -75,11 +86,13 @@ Die folgenden Zuordnungen beruhen auf dem aktuellen Quellcode. Zweck überwiegen
 | Kommentare, Notizen | Andere Nutzerinhalte | `src/hooks/useBoulderCommunity.tsx` |
 | Begehungen, Versuche, Trainingstage | Fitnessdaten und/oder passende Aktivitätskategorie prüfen | `boulder_ticks`, `boulder_tracking_sessions` |
 | Bewertungen, Favoriten, Projekte | Andere Nutzerinhalte / Produktinteraktion entsprechend Zweck | Community-Hook |
-| Push-Token und Plattform | Geräte-ID bzw. passende Kennung nach endgültiger Implementierung prüfen | Push-Registrierung und `push_tokens` |
+| Push-Token und Plattform | In Build 85 auf iOS keine Registrierung; Android separat. Bei späterem iPhone-Push Apple-Kategorien neu prüfen | `src/utils/pushNotifications.ts`, `push_tokens` |
 | Feedback | Kundensupport; mögliche optionale Ausnahme nur nach Apples vollständigen Kriterien | Feedback-Formulare |
 | Serverzugriffe/Diagnosen | IP-Nutzung, Protokollinhalt und Aufbewahrung im Betrieb prüfen | VPS-/Proxy-/Auth-Konfiguration |
 
 Für Hostinger-Builds sind eigene Telemetrie deaktiviert und Sentry-DSN leer. Die SDKs sind weiterhin eingebunden; finalen nativen Build und Datenschutz-Manifeste prüfen. Apple-Auswertungen im Store sind von selbst erhobenen App-Daten zu unterscheiden. Kein appübergreifendes Werbetracking im untersuchten Code nachgewiesen; keine pauschale Zusicherung ohne Prüfung des finalen Artefakts.
+
+In Apple eingerichtet: Name, E-Mail-Adresse, Fitness, Fotos/Videos, Kundendienst, sonstige Benutzerinhalte, Benutzer-ID, Produktinteraktion, sonstige Diagnosedaten und sonstige Daten. Für jede Kategorie App-Funktionalität, mit Nutzeridentität verknüpft, kein Tracking. Die Diagnosen beziehen sich auf freiwillige Fehlerberichte und notwendige Betriebsdiagnosen; keine aktivierte Sentry- oder eigene Nutzungsanalyse. Geburtsdatum fällt unter sonstige Daten, gespeicherte Mitteilungs-Lesestände unter Produktinteraktion. Veröffentlichung der Angaben vom Auftraggeber ausdrücklich bestätigt; Apple zeigt den Veröffentlichungszeitpunkt.
 
 ## Quellen
 
@@ -92,4 +105,4 @@ Für Hostinger-Builds sind eigene Telemetrie deaktiviert und Sentry-DSN leer. Di
 
 ## Exakt nächster Schritt
 
-Neue Altersprüfung und Kontolöschung im nächsten nativen Build abnehmen; danach Moderation/Melden/Sperren und den appbezogenen Datenschutz fertigstellen. Konten unter 16 bleiben eine spätere Erweiterung. Parallel muss Apple die beantragte Organisationsumstellung abschließen. Die aktuelle Storeversion bleibt bis dahin in Vorbereitung.
+Der Routenbauer muss Build 85 über TestFlight aktualisieren und die gespeicherte Prüfliste auf dem iPhone abarbeiten; echte native Store-Screenshots bereitstellen. Anleitung: `docs/APPLE_DEVICE_ACCEPTANCE.md`. Vollständige Kontolöschprobe mit separat freigegebenem Wegwerf-Testkonto und Bestätigungsempfänger abschließen. Parallel Apples Organisationsumstellung und zutreffende öffentliche DSA-Kontaktdaten verifizieren. Konten unter 16 und iPhone-Push folgen später. Die Storeversion bleibt in Vorbereitung.
