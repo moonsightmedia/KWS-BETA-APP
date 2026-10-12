@@ -1,5 +1,11 @@
 # Apple Build 85 – Abnahme auf dem Gerät
 
+## Aktualisierter Auftrag vom 12. Oktober 2026
+
+Der Auftraggeber hat weder iPhone noch Mac und möchte den Routenbauer ausdrücklich nicht mit Tests beauftragen. Die folgende Geräteprüfliste beschreibt mögliche spätere Prüfungen; sie ist kein aktueller Auftrag an den Routenbauer. Native Simulatorprüfungen und unveränderte Screenshots der iOS-App werden mit GitHub-Mac-Runnern erstellt. Das erfordert keinen eigenen Mac und kein physisches iPhone. Kamera, konkrete Geräteberechtigungen und tatsächliche TestFlight-Installation bleiben damit unbestätigt.
+
+Apples aktuelle Live-Validierung verlangt Screenshots für iPhone Dynamic Island (mittleres Display, Hochformat 1179 × 2556 oder 1206 × 2622) und iPad 13 Zoll (2048 × 2732 oder 2064 × 2752). Der laufende Simulatorablauf prüft zunächst den öffentlichen Gastzugang, Boulderübersicht, Filter und Detailansicht. Er ist keine vollständige Konten-, Upload- oder Löschabnahme. Pipeline und Originalbilder werden erst nach erfolgreicher Prüfung als Nachweis geführt.
+
 Die App ist noch nicht öffentlich im App Store. Der bestehende interne Tester
 kann in **TestFlight → KWS BETA APP → Aktualisieren** Build **1.0 (85)** installieren.
 Falls 85 nicht erscheint: TestFlight aktualisieren und unter vorherigen Builds
