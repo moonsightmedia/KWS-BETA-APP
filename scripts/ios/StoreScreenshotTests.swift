@@ -42,7 +42,7 @@ final class StoreScreenshotTests: XCTestCase {
         app.buttons["Los geht's!"].tap()
         let guest = button("Als Gast fortfahren")
         if guest.exists { guest.tap() }
-        let card = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@ AND label != %@ AND label != %@", "Boulder", "Boulder suchen", "Boulder")).firstMatch
+        let card = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@ AND label CONTAINS[c] %@", "Grad", "Farbe")).firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 60), "Live Hostinger boulders must load")
         XCTAssertFalse(app.staticTexts["Boulder konnten nicht geladen werden"].exists)
         Thread.sleep(forTimeInterval: 5)
