@@ -19,7 +19,11 @@ Der native UI-Test verarbeitet jetzt die fünf tatsächlichen Willkommensschritt
 
 - Screenshotlauf: https://github.com/moonsightmedia/KWS-BETA-APP/actions/runs/38251816592
 - Neuer TestFlight-Build nach Textänderung: https://github.com/moonsightmedia/KWS-BETA-APP/actions/runs/38252239773
-- Ergebnisse beim Schreiben noch offen. App Store Connect weiterhin Version 1.0 Build 85, manuelle Veröffentlichung; noch keine öffentliche Einreichung.
+- Build 86 erfolgreich signiert und zu Apple hochgeladen. IPA: 30 Assets geprüft, keine tatsächlichen geschützten Zugangsdaten gefunden; Hostinger-API, Video-Endpunkt und Recovery vorhanden. Kopie auf dem Kunden-NAS unter `Releases/iOS/86` mit identischer SHA256 `5538933B7932AC3C1109E9C824689937FB4989FD22074A3DB682284F7819F852` verifiziert.
+- Apple hat Build 86 verarbeitet; Version 1.0 mit Build 86 gespeichert, interne TestFlight-Gruppe KWS Team zugeordnet. Manuelle Veröffentlichung bleibt ausgewählt; keine öffentliche Einreichung. Nachweis `test-results/apple-store-2026-10-12/build-86-selected.jpg`.
+- Lauf `38251816592`: iPhone hat alle fünf Willkommensschritte absolviert, 104 echte Boulder samt Bildern geladen. Fehler im Test: Kartenlabels enthalten konkrete Namen, `Grad` und `Farbe`, nicht den Oberbegriff `Boulder`. Karte wurde deshalb nicht gefunden. Keine erfolgreichen drei Store-Bilder aus diesem Lauf behauptet; iPad-Job des überholten Laufs abgebrochen.
+- Korrektur `5884e22`: Suche nach tatsächlich beobachteten Kartenmerkmalen und nur aktive Simulatorarchitektur kompilieren. Neuer Lauf https://github.com/moonsightmedia/KWS-BETA-APP/actions/runs/38254354855 noch offen.
+- Noch vorhandenes iOS-Platzhalter-Icon entdeckt. Auftraggeber bestätigt Original-Kletterwelt-Logo per Bildskript. `b0bdd46`: Originalproportionen erhalten, weißer Rand, 1024x1024 RGB ohne Alpha, visuell geprüft; SHA256 `f31d33d02f5196ce013bb54b23a6ad69eec9f3ba548eb2e5868ea0010dbad27d`. Neuer signierter Uploadlauf https://github.com/moonsightmedia/KWS-BETA-APP/actions/runs/38254807083 gestartet.
 
 Originale iPhone-/iPad-Bilder erst nach erfolgreichem Export, Größen-/Hashprüfung und visueller Prüfung hochladen. Neuen verarbeiteten Build erst nach erfolgreicher IPA-Prüfung auswählen. Firmenumstellung und zutreffende DSA-Angaben bleiben offen. Kamera, konkrete Hardware und vollständige Kontolöschprobe wurden nicht durch Simulator oder Layoutprüfung bestätigt.
 
