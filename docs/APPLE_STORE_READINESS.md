@@ -17,6 +17,7 @@ Stand: 12. Oktober 2026. App-ID 6756424260, Bundle-ID `com.kletterwelt.beta`, Ve
 - Dedizierter Prüfzugang ohne Mitarbeiterrechte sowie Prüfkontakt gespeichert. Private Kontaktangaben bleiben ausschließlich im freigegebenen Apple-Formular.
 - Datenschutz-URL: https://beta.kletterwelt-sauerland.de/privacy. Das vollständige Datenschutzlabel wurde nach ausdrücklicher Freigabe veröffentlicht; dies veröffentlicht nicht die App selbst.
 - Build 85 im Entwurf der öffentlichen Version 1.0 ausgewählt und gespeichert.
+- Veröffentlichung am 12. Oktober auf manuelle Freigabe umgestellt und gespeichert, damit eine spätere Review-Genehmigung nicht automatisch unter dem noch persönlichen Verkäufer veröffentlicht. Die App ist weiterhin nicht eingereicht. Sichtnachweis: `test-results/apple-store-2026-10-12/manual-release-pending-moonsight.png`.
 
 Die Angaben wurden nach Speichern und erneutem Aufrufen geprüft. Screenshots liegen in `test-results/apple-store-2026-10-12/`.
 
