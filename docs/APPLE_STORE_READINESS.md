@@ -49,7 +49,19 @@ Die vorher begonnenen Android-Änderungen an SDK/Versionsnummer/Analytics bleibe
 
 ## Datenschutz-Angaben vorbereiten – noch kein veröffentlichtes Label
 
-Ein Mindestalter für eigene Konten ist noch nicht entschieden. Artikel 8 DSGVO ist kein allgemeines Verbot von Konten unter 16: Die dortige Altersgrenze betrifft eine auf Einwilligung gestützte Verarbeitung bei direkt angebotenen Online-Diensten. In diesem Fall ist unter 16 in Deutschland die Einwilligung beziehungsweise Autorisierung durch die Sorgeberechtigten erforderlich. Die tatsächlichen Rechtsgrundlagen und ein geeigneter Ablauf sind vor Umsetzung zu klären. Apples Inhaltsaltersfreigabe ist davon getrennt. Es wurde noch keine Registrierungssperre eingerichtet.
+**Produktentscheidung vom 12. Oktober 2026:** Zum öffentlichen Start sind eigene App-Konten zunächst ab 16 Jahren vorgesehen. Konten für unter 16-Jährige werden als spätere Erweiterung geführt; sie sind keine Voraussetzung für den ersten Release.
+
+Die technische Durchsetzung ist noch offen: Die Registrierung fragt das Geburtsdatum derzeit optional ab. Vor Veröffentlichung müssen eine verständliche Altersabfrage, die Prüfung bei der Kontoerstellung und ein Umgang mit vorhandenen Konten vorbereitet und getestet werden. Bestehende Konten werden aufgrund dieser Entscheidung nicht automatisch gelöscht oder gesperrt. Build 82 enthält noch keine neue Altersgrenze.
+
+Artikel 8 DSGVO ist kein allgemeines Verbot von Konten unter 16: Die dortige Altersgrenze betrifft eine auf Einwilligung gestützte Verarbeitung bei direkt angebotenen Online-Diensten. Apples Inhaltsaltersfreigabe ist von der festgelegten Konto-Altersgrenze getrennt.
+
+### Spätere Erweiterung: Konten unter 16
+
+- [ ] Rechtsgrundlagen und altersgerechte Datennutzung prüfen; den erforderlichen Ablauf zur Zustimmung der Sorgeberechtigten festlegen.
+- [ ] Elternablauf, verständliche Datenschutzhinweise und geeignete Schutzfunktionen für jüngere Nutzer umsetzen und prüfen.
+- [ ] Erst nach Abnahme die Registrierung auf unter 16-Jährige erweitern.
+
+Diese Erweiterung hat noch keine Deadline und wird nach dem ersten Release eingeplant. Die Aufgaben werden im bestehenden Notion-Projekt geführt.
 
 Die folgenden Zuordnungen beruhen auf dem aktuellen Quellcode. Zweck überwiegend App-Funktionalität; Nutzerbezug bleibt bestehen. Optional eingegebene Daten sind nicht automatisch von Apples Deklaration befreit.
 
@@ -79,4 +91,4 @@ Für Hostinger-Builds sind eigene Telemetrie deaktiviert und Sentry-DSN leer. Di
 
 ## Exakt nächster Schritt
 
-Kontolöschung und Moderation umsetzen und im nativen Build abnehmen. Die Registrierung für Minderjährige nach einer begründeten Produktentscheidung vorbereiten. Parallel muss Apple die beantragte Organisationsumstellung abschließen. Die aktuelle Storeversion bleibt bis dahin in Vorbereitung.
+Kontolöschung, Moderation und Registrierung ab 16 umsetzen und im nativen Build abnehmen. Konten unter 16 bleiben eine spätere Erweiterung. Parallel muss Apple die beantragte Organisationsumstellung abschließen. Die aktuelle Storeversion bleibt bis dahin in Vorbereitung.
