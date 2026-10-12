@@ -46,6 +46,7 @@ temp-video-processing/
 output/
 /test-results/training-ui/
 /test-results/training-artifacts/
+/test-results/training-library-art-subagent-*/
 /test-results/header-stability-20261006/
 
 # Local design/reference material

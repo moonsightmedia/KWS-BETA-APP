@@ -15,7 +15,7 @@ function Preview() {
   const location = useLocation();
   const navigation = useNavigationType();
   useEffect(() => { if (navigation !== 'POP') window.scrollTo(0, 0); }, [location.pathname, navigation]);
-  return <SidebarProvider><Sidebar /><TrainingProvider key={user.id}><Routes>
+  return <SidebarProvider><Sidebar /><TrainingProvider key={user.id} accountId={user.id}><Routes>
     <Route path="/training/*" element={<Training />} />
     <Route path="/" element={<Navigate to="/training" replace />} />
     <Route path="*" element={<DashboardPageLayout><div className="space-y-4"><h2 className="font-sans text-base font-semibold">Lokale Training-Vorschau</h2><p className="text-sm text-muted-foreground">Die übrigen Appbereiche werden in dieser isolierten Vorschau nicht geladen.</p><Button asChild><Link to="/training">Training öffnen</Link></Button></div></DashboardPageLayout>} />

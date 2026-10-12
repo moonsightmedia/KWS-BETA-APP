@@ -328,7 +328,7 @@ const Root = () => {
               <ConditionalSidebar />
               <UploadOverview />
               <EmergencyReset />
-              <TrainingProvider key={user?.id ?? 'guest'}><Outlet /></TrainingProvider>
+              <TrainingProvider key={user?.id ?? 'guest'} accountId={user?.id ?? 'guest'}><Outlet /></TrainingProvider>
             </ErrorBoundaryWithAuth>
           </UploadProvider>
       </SidebarProvider>

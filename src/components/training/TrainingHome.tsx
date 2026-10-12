@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarDays, Dumbbell, Footprints, Heart, ListPlus, Star } from 'lucide-react';
+import { ArrowRight, CalendarDays, Dumbbell, Footprints, Heart, ListPlus, MessageCircle, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { KwsSurface } from '@/components/ui/kws-surface';
@@ -15,12 +15,13 @@ const shortcuts = [
   { title: 'Brust', description: 'Druckbewegungen aufbauen', area: 'strength', icon: Dumbbell },
 ];
 
-export default function TrainingHome() {
-  const { plan, sessions, favorites, draft } = useTraining();
+export default function TrainingHome({ onOpenAssistant }: { onOpenAssistant: () => void }) {
+  const { plan, sessions, favorites, draft, storageStatus } = useTraining();
   const next = plan?.entries.filter(entry => !entry.completed).sort((a, b) => a.day - b.day)[0];
   const nextSession = sessions.find(session => session.id === next?.sessionId);
   const ownCount = sessions.filter(session => !session.id.startsWith('preview-')).length;
-  return <div className="space-y-7">
+  return <div className="space-y-7 pb-24 md:pb-0">
+    {plan && <Link to="/training/week" className="flex min-h-24 items-center gap-4 rounded-kws-card bg-foreground p-4 text-white shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><CalendarDays className="h-6 w-6 shrink-0 text-primary" aria-hidden="true" /><span className="min-w-0 flex-1"><span className="block text-sm font-semibold">Mein Wochenplan</span><span className="mt-1 block text-xs text-white/80">{plan.status === 'needs-review' ? 'Angaben zur fachlichen Besprechung' : nextSession ? `${WEEKDAYS[next!.day]} · ${nextSession.title}` : 'Alle Termine erledigt'}</span></span><ArrowRight className="h-5 w-5 shrink-0" aria-hidden="true" /></Link>}
     <section aria-labelledby="training-library-heading" className="space-y-3">
       <div className="flex items-center justify-between gap-3"><h2 id="training-library-heading" className="font-sans text-base font-semibold">Übungen entdecken</h2><Link to="/training/favorites" className="inline-flex min-h-11 items-center gap-2 rounded-kws-control px-2 text-xs font-medium text-muted-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Star className="h-4 w-4" aria-hidden="true" />Favoriten{favorites.length > 0 ? ` (${favorites.length})` : ''}</Link></div>
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -38,15 +39,7 @@ export default function TrainingHome() {
     </section>
     <section aria-labelledby="training-week-heading" className="space-y-3">
       <h2 id="training-week-heading" className="font-sans text-base font-semibold">Mein Training</h2>
-      <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
-        <KwsSurface className="flex flex-col justify-between gap-5 bg-foreground p-5 text-white sm:p-6">
-          <div className="flex items-start gap-3"><CalendarDays className="mt-1 h-5 w-5 shrink-0 text-primary" aria-hidden="true" /><div>
-            <p className="text-xs font-medium text-white/80">{plan && next ? `Nächster Termin · ${WEEKDAYS[next.day]}` : 'Dein Wochenplan'}</p>
-            <h3 className="mt-2 font-sans text-lg font-semibold leading-snug">{plan ? nextSession?.title ?? 'Woche abgeschlossen' : 'Kraft und Technik in deiner Woche'}</h3>
-            <p className="mt-2 max-w-md text-xs leading-relaxed text-white/80">{plan ? plan.summary : 'Ziel, Boulderstand und verfügbare Tage auswählen. Deine Woche anschließend anpassen.'}</p>
-          </div></div>
-          <Button asChild className="self-start"><Link to={plan ? '/training/week' : '/training/plan'}>{plan ? 'Wochenplan öffnen' : 'Plan erstellen'}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></Button>
-        </KwsSurface>
+      <div>
         <KwsSurface className="flex flex-col justify-center p-4 sm:p-5">
           <ListPlus className="h-5 w-5 text-primary-ink" aria-hidden="true" /><h3 className="mt-3 text-sm font-semibold">Eigene Einheiten</h3>
           <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{draft.exercises.length ? `${draft.exercises.length} Übungen in deinem Entwurf. Lege Reihenfolge, Umfang und Pausen fest.` : ownCount ? `${ownCount} Einheiten zusammengestellt. Kraft und Technik in deiner Reihenfolge.` : 'Kraft und Technik selbst kombinieren. Wähle Übungen aus den Bibliotheken.'}</p>
@@ -54,5 +47,12 @@ export default function TrainingHome() {
         </KwsSurface>
       </div>
     </section>
+    <aside aria-label="Plan-Assistent" className="fixed inset-x-4 bottom-[calc(6.25rem+var(--app-safe-area-bottom))] z-20 mx-auto max-w-[440px] md:static md:max-w-none" data-swipe-ignore>
+      <button type="button" onClick={onOpenAssistant} className="flex min-h-20 w-full items-center gap-3 rounded-kws-card bg-card p-3 text-left shadow-medium transition-shadow hover:shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:p-4" aria-label={plan ? 'Plan weiterentwickeln' : 'Assistent starten'}>
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-kws-control bg-primary/10"><MessageCircle className="h-5 w-5 text-primary-ink" aria-hidden="true" /></span>
+        <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{plan ? 'Deinen Plan weiterentwickeln?' : 'Deinen eigenen Plan erstellen?'}</span><span className="mt-1 block text-xs text-muted-foreground">Plan-Assistent · gemeinsam Schritt für Schritt</span></span><ArrowRight className="h-5 w-5 shrink-0 text-primary-ink" aria-hidden="true" />
+      </button>
+    </aside>
+    {plan && <p className="text-xs text-muted-foreground">{storageStatus === 'saved' ? 'Auf diesem Gerät gespeichert · jederzeit über Mein Plan erreichbar' : 'Speichern nicht verfügbar · Plan bleibt nur in dieser Sitzung'}</p>}
   </div>;
 }

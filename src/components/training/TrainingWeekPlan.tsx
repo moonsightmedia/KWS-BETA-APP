@@ -3,14 +3,16 @@ import { Link } from 'react-router-dom';
 import { CalendarDays, Check, ChevronRight, Lock, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { KwsSurface } from '@/components/ui/kws-surface';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useTraining } from '@/features/training/TrainingContext';
-import { WEEKDAYS } from '@/features/training/data';
+import { getExercise, getSessionMinutes, WEEKDAYS } from '@/features/training/data';
+import TrainingExerciseArt from './TrainingExerciseArt';
 import { cn } from '@/lib/utils';
 
 export default function TrainingWeekPlan() {
-  const { plan, sessions, movePlanEntry, togglePlanEntry } = useTraining();
+  const { plan, sessions, movePlanEntry, togglePlanEntry, storageStatus } = useTraining();
   const [notice, setNotice] = useState('');
+  const [movingEntry, setMovingEntry] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState(() => plan?.entries[0]?.day ?? 0);
 
   if (!plan) return <KwsSurface className="mx-auto max-w-2xl space-y-4 p-5">
@@ -23,8 +25,14 @@ export default function TrainingWeekPlan() {
   const completed = plan.entries.filter((entry) => entry.completed).length;
   const selectedEntries = plan.entries.filter((entry) => entry.day === selectedDay);
   const otherEntries = [...plan.entries].filter((entry) => entry.day !== selectedDay).sort((a, b) => a.day - b.day);
+  const duration = (session: typeof sessions[number]) => getSessionMinutes(session) === null ? 'Dauer offen' : `ca. ${getSessionMinutes(session)} Min.`;
 
   return <div className="space-y-4">
+    <KwsSurface className="space-y-3 p-4 sm:p-5"><div className="flex items-start gap-3"><CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-primary-ink" aria-hidden="true" /><div><h2 className="font-sans text-base font-semibold">{plan.status === 'needs-review' ? 'Deine Planung zur Besprechung' : 'Kraft und Technik in deiner Woche'}</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{plan.summary}</p></div></div>
+      {plan.status === 'needs-review' && <p className="rounded-kws-control bg-secondary p-3 text-sm leading-relaxed">Für diese Angaben erstelle ich keine automatische Belastungsvorgabe. Besprich Ziel und verfügbare Tage mit einer passenden Fachperson. Deine festen Termine bleiben sichtbar.</p>}
+      {!!plan.notes?.length && <details><summary className="flex min-h-11 cursor-pointer items-center text-xs font-semibold">{plan.status === 'needs-review' ? 'Was vorher geklärt werden muss' : 'So wurde dein Plan zusammengestellt'}</summary><ul className="list-disc space-y-2 pl-5 text-xs leading-relaxed text-muted-foreground">{plan.notes.map((note, index) => <li key={index}>{note}</li>)}</ul></details>}
+      <p className="text-xs text-muted-foreground">{storageStatus === 'saved' ? 'Auf diesem Gerät gespeichert' : 'Speichern nicht verfügbar · nur in dieser Sitzung'}</p>
+    </KwsSurface>
     <div className="flex flex-wrap items-center justify-between gap-2">
       <p className="text-sm text-muted-foreground">{completed} von {plan.entries.length} erledigt</p>
       <Button asChild variant="secondary"><Link to="/training/plan"><Pencil aria-hidden="true" />Angaben ändern</Link></Button>
@@ -54,9 +62,15 @@ export default function TrainingWeekPlan() {
             const session = sessions.find((item) => item.id === entry.sessionId);
             if (!session) return <p key={entry.id} className="text-sm text-muted-foreground">Einheit nicht verfügbar. Ändere die Angaben für eine neue Beispielwoche.</p>;
             return <div key={entry.id} className="space-y-4">
-              <div><h3 className="text-sm font-semibold">{session.title}</h3><p className="mt-1 text-xs text-muted-foreground">{session.minutes} Min. · {session.focus}</p></div>
+              <div><h3 className="text-base font-semibold">{session.title}</h3><p className="mt-1 text-xs text-muted-foreground">{entry.fixed ? 'Eigener Termin · Umfang offen' : duration(session)} · {session.focus}</p>{session.rationale && <details className="mt-2"><summary className="flex min-h-11 cursor-pointer items-center text-xs font-semibold">Aufbau dieser Einheit</summary><p className="text-xs leading-relaxed text-muted-foreground">{session.rationale}</p></details>}</div>
+              {!entry.fixed && <div className="space-y-3">
+                {!!session.preparationMinutes && <div className="rounded-kws-control bg-secondary p-3"><p className="text-xs font-semibold">01 · Vorbereitung · {session.preparationMinutes} Min.</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Allgemein erwärmen, vertraute leichte Bewegungen und die erste Übung mit reduziertem Umfang vorbereiten.</p></div>}
+                <ol className="space-y-2" aria-label="Übungen im Wochenplan">{session.exercises.map(item => { const exercise = getExercise(item.exerciseId); if (!exercise) return null; return <li key={item.id}><Link to={`/training/exercises/${exercise.id}?returnSession=${encodeURIComponent(session.id)}&append=${encodeURIComponent(session.id)}`} className="flex gap-3 rounded-kws-control bg-secondary/40 p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><TrainingExerciseArt exerciseId={exercise.id} title={exercise.title} className="h-16 w-16 shrink-0 rounded-kws-control" /><span className="min-w-0 flex-1 py-1"><span className="block text-sm font-semibold">{exercise.title}</span><span className="mt-1 block text-xs text-muted-foreground">{item.sets} {item.sets === 1 ? 'Satz' : 'Sätze'} × {item.repetitions} {exercise.area === 'boulder' ? 'Versuche' : 'Wdh.'}{exercise.defaultDose?.sideMultiplier === 2 ? ' je Seite' : ''} · {item.restSeconds} Sek. {item.restScope === 'repetitions' ? 'zwischen Versuchen' : 'zwischen Sätzen'}</span></span></Link>{item.reason && <details className="px-2"><summary className="flex min-h-11 cursor-pointer items-center text-xs font-semibold">Warum diese Übung?</summary><p className="pb-3 text-xs leading-relaxed text-muted-foreground">{item.reason}</p></details>}</li>; })}</ol>
+                {!!session.cooldownMinutes && <div className="rounded-kws-control bg-secondary p-3"><p className="text-xs font-semibold">Abschluss · {session.cooldownMinutes} Min.</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Kurz reflektieren: Was hat gut funktioniert? Qualität und ungewohnte Beschwerden für die nächste Einheit beachten.</p></div>}
+                {session.budgetMinutes && <p className="text-xs text-muted-foreground">{duration(session)} einschließlich Pausen und Übergängen · Zeitfenster {session.budgetMinutes} Min.{(getSessionMinutes(session) ?? 0) > session.budgetMinutes ? ' · Dein angepasster Umfang überschreitet das Zeitfenster.' : ''}</p>}
+              </div>}
               <div className="flex flex-wrap gap-2">
-                <Button asChild><Link to={`/training/sessions/${session.id}`}>Einheit ansehen<ChevronRight aria-hidden="true" /></Link></Button>
+                {!entry.fixed && <Button asChild><Link to={`/training/sessions/${session.id}`}>Einheit anpassen<ChevronRight aria-hidden="true" /></Link></Button>}
                 <Button type="button" variant="secondary" aria-pressed={entry.completed}
                   aria-label={`${session.title}: ${entry.completed ? 'Erledigt-Markierung entfernen' : 'als erledigt markieren'}`}
                   className={cn(entry.completed && 'bg-primary/15 hover:bg-primary/20')}
@@ -65,19 +79,7 @@ export default function TrainingWeekPlan() {
                 </Button>
               </div>
               <div className="border-t border-border pt-4">
-                {entry.fixed ? <p className="flex items-center gap-2 text-xs text-muted-foreground"><Lock className="h-4 w-4 shrink-0" aria-hidden="true" />Fester Termin · Änderungen über deine Angaben</p> : <div className="max-w-xs space-y-2">
-                  <label htmlFor={`move-${entry.id}`} className="text-xs font-semibold">Tag ändern</label>
-                  <Select value={String(entry.day)} onValueChange={(value) => {
-                    const nextDay = Number(value);
-                    if (nextDay === entry.day || plan.entries.some((other) => other.id !== entry.id && other.day === nextDay)) return;
-                    movePlanEntry(entry.id, nextDay); setSelectedDay(nextDay);
-                    setNotice(`${session.title} nach ${WEEKDAYS[nextDay]} verschoben.`);
-                  }}>
-                    <SelectTrigger id={`move-${entry.id}`} aria-label={`${session.title}: Tag ändern`}><SelectValue /></SelectTrigger>
-                    <SelectContent>{WEEKDAYS.map((target, targetIndex) => <SelectItem key={target} value={String(targetIndex)}
-                      disabled={plan.entries.some((other) => other.id !== entry.id && other.day === targetIndex)}>{target}{plan.entries.some((other) => other.id !== entry.id && other.day === targetIndex) ? ' · belegt' : ''}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>}
+                {entry.fixed ? <p className="flex items-center gap-2 text-xs text-muted-foreground"><Lock className="h-4 w-4 shrink-0" aria-hidden="true" />Fester Termin · Änderungen über deine Angaben</p> : <Dialog open={movingEntry === entry.id} onOpenChange={open => setMovingEntry(open ? entry.id : null)}><DialogTrigger asChild><Button variant="outline">Termin verschieben</Button></DialogTrigger><DialogContent><DialogTitle>Termin verschieben</DialogTitle><DialogDescription>Wähle einen freien Tag für „{session.title}“. Berücksichtige dabei dein übriges Training und ausreichende Erholung.</DialogDescription><div className="grid grid-cols-2 gap-2" role="group" aria-label="Zieltag wählen">{WEEKDAYS.map((day, index) => <Button key={day} variant={index === entry.day ? 'default' : 'secondary'} disabled={index === entry.day || plan.entries.some(other => other.id !== entry.id && other.day === index)} onClick={() => { movePlanEntry(entry.id, index); setSelectedDay(index); setMovingEntry(null); setNotice(`${session.title} nach ${WEEKDAYS[index]} verschoben.`); }}>{day}{plan.entries.some(other => other.id !== entry.id && other.day === index) ? ' · belegt' : ''}</Button>)}</div></DialogContent></Dialog>}
               </div>
             </div>;
           })}
@@ -92,7 +94,7 @@ export default function TrainingWeekPlan() {
             return <button key={entry.id} type="button" onClick={() => setSelectedDay(entry.day)}
               className="flex min-h-16 w-full items-center gap-3 rounded-kws-control py-3 text-left transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kws-control bg-secondary text-xs font-semibold">{WEEKDAYS[entry.day].slice(0, 2)}</span>
-              <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{session?.title ?? 'Einheit nicht verfügbar'}</span><span className="mt-1 block text-xs text-muted-foreground">{session ? `${session.minutes} Min.` : WEEKDAYS[entry.day]}{entry.fixed ? ' · fest' : ''}{entry.completed ? ' · erledigt' : ''}</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{session?.title ?? 'Einheit nicht verfügbar'}</span><span className="mt-1 block text-xs text-muted-foreground">{entry.fixed ? 'Eigener Termin · fest' : session ? duration(session) : WEEKDAYS[entry.day]}{entry.completed ? ' · erledigt' : ''}</span></span>
               <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             </button>;
           })}

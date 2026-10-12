@@ -6,6 +6,7 @@ import { KwsSurface } from '@/components/ui/kws-surface';
 import { getExercise } from '@/features/training/data';
 import { useTraining } from '@/features/training/TrainingContext';
 import { cn } from '@/lib/utils';
+import TrainingExerciseArt from './TrainingExerciseArt';
 
 export default function TrainingExerciseDetail() {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +32,7 @@ export default function TrainingExerciseDetail() {
 
   const rehab = exercise.area === 'rehab';
   const title = rehab ? exercise.topic : exercise.title;
+  const orientationReady = rehab && !exercise.goal.startsWith('So könnte');
   const Icon = exercise.area === 'strength' ? Dumbbell : rehab ? Activity : Mountain;
   const favorite = favorites.includes(exercise.id);
   const added = !replacementRequested && (appendId ? appendSession?.exercises : draft.exercises)?.some(item => item.exerciseId === exercise.id);
@@ -53,11 +55,14 @@ export default function TrainingExerciseDetail() {
     <div className="space-y-4" data-swipe-ignore>
       <p className="sr-only" role="status" aria-live="polite">{notice}</p>
       {rehab ? <KwsSurface className="space-y-4 p-4 sm:p-5">
-        <div className="flex items-center justify-between gap-3"><Activity aria-hidden="true" className="h-6 w-6 text-primary-ink" /><span className="rounded-kws-badge bg-secondary px-2 py-1 text-xs font-semibold">Entwurf · nicht zum Einplanen</span><Button type="button" variant="ghost" size="icon" className={cn('shrink-0', favorite && 'text-primary-ink')} aria-pressed={favorite} aria-label={`${title}: ${favorite ? 'aus Favoriten entfernen' : 'als Favorit merken'}`} onClick={() => toggleFavorite(exercise.id)}><Star aria-hidden="true" className={cn(favorite && 'fill-current')} /></Button></div>
-        <div className="max-w-2xl space-y-2"><h2 className="font-sans text-lg font-semibold">{title}</h2><p className="text-sm leading-relaxed text-muted-foreground">Für den Bereich {exercise.topic} werden Voraussetzungen, Demonstrationen und Hinweise fachlich geprüft. Sobald diese Inhalte freigegeben sind, findest du sie hier.</p></div>
-        <p className="max-w-2xl border-t border-border pt-4 text-sm leading-relaxed text-muted-foreground">Individuelle Reha-Übungen und die Wiederaufnahme des Trainings stimmen behandelnde Fachpersonen mit dir ab.</p>
+        <div className="flex items-center justify-between gap-3"><Activity aria-hidden="true" className="h-6 w-6 text-primary-ink" /><span className="rounded-kws-badge bg-secondary px-2 py-1 text-xs font-semibold">Orientierung</span><Button type="button" variant="ghost" size="icon" className={cn('shrink-0', favorite && 'text-primary-ink')} aria-pressed={favorite} aria-label={`${title}: ${favorite ? 'aus Favoriten entfernen' : 'als Favorit merken'}`} onClick={() => toggleFavorite(exercise.id)}><Star aria-hidden="true" className={cn(favorite && 'fill-current')} /></Button></div>
+        <div className="max-w-2xl space-y-2"><h2 className="font-sans text-lg font-semibold">{title}</h2><p className="text-sm leading-relaxed text-muted-foreground">{orientationReady ? exercise.goal : 'Beobachtungen sammeln und das Gespräch mit einer behandelnden Fachperson vorbereiten.'}</p></div>
+        {orientationReady && <div className="max-w-2xl space-y-3"><h3 className="text-sm font-semibold">Für dein Gespräch</h3><ol className="list-decimal space-y-3 pl-5 text-sm leading-relaxed text-muted-foreground">{exercise.steps.map(step => <li key={step}>{step}</li>)}</ol>{exercise.cues?.map(cue => <p key={cue} className="text-sm font-medium leading-relaxed">{cue}</p>)}</div>}
+        <p className="max-w-2xl border-t border-border pt-4 text-sm leading-relaxed text-muted-foreground">{orientationReady ? exercise.note : 'Individuelle Reha-Übungen und die Wiederaufnahme des Trainings stimmen behandelnde Fachpersonen mit dir ab.'}</p>
       </KwsSurface> : <>
-        <KwsSurface className="space-y-4 p-4 sm:p-5">
+        <KwsSurface className="grid gap-4 p-4 sm:p-5 lg:grid-cols-3">
+          <figure className="space-y-2"><TrainingExerciseArt exerciseId={exercise.id} title={title} className="mx-auto w-full max-w-64 lg:max-w-none" /><figcaption className="text-xs text-muted-foreground">Schematische Illustration · Orientierung zur Übung</figcaption>{exercise.cues?.length ? <p className="text-sm font-medium leading-relaxed">{exercise.cues[0]}</p> : null}</figure>
+          <div className="space-y-4 lg:col-span-2">
           <div className="flex items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-primary-ink"><Icon aria-hidden="true" className="h-4 w-4" />{exercise.topic}<span className="font-normal text-muted-foreground">· {exercise.level}</span></div><Button type="button" variant="ghost" size="icon" className={cn('shrink-0', favorite && 'text-primary-ink')} aria-pressed={favorite} aria-label={`${title}: ${favorite ? 'aus Favoriten entfernen' : 'als Favorit merken'}`} onClick={() => toggleFavorite(exercise.id)}><Star aria-hidden="true" className={cn(favorite && 'fill-current')} /></Button></div>
           <div className="max-w-2xl space-y-2"><h2 className="font-sans text-lg font-semibold leading-snug">{title}</h2><p className="text-sm leading-relaxed text-muted-foreground">{exercise.goal}</p></div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1.5"><Clock3 aria-hidden="true" className="h-4 w-4" />{exercise.minutes} Min. mit Pausen</span><span>{exercise.equipment}</span></div>
@@ -68,9 +73,12 @@ export default function TrainingExerciseDetail() {
             {added && <Button asChild variant="secondary"><Link to={appendId ? `/training/sessions/${encodeURIComponent(appendId)}` : '/training/sessions/new'}>Einheit ansehen</Link></Button>}
           </div>
           {added && <p role="status" className="text-xs text-muted-foreground">Ausgewählt. Umfang und Pausen kannst du in deiner Einheit anpassen.</p>}
+          {exercise.selectionReason && <p className="border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">{exercise.selectionReason}</p>}
+          </div>
         </KwsSurface>
         <div className="grid items-start gap-4 lg:grid-cols-3">
           <KwsSurface className="p-4 sm:p-5 lg:col-span-2">
+            {exercise.setupRequirements?.length ? <div className="mb-5 space-y-2 border-b border-border pb-4"><h2 className="font-sans text-sm font-semibold">Vorbereiten</h2><ul className="list-disc space-y-1 pl-4 text-sm leading-relaxed text-muted-foreground">{exercise.setupRequirements.map(item => <li key={item}>{item}</li>)}</ul></div> : null}
             <h2 className="mb-4 font-sans text-sm font-semibold">Ausführung</h2>
             <ol className="divide-y divide-border/60">
               {exercise.steps.map((step, index) => <li key={`${exercise.id}-${index}`} className="flex gap-3 py-4 first:pt-0 last:pb-0 text-sm leading-relaxed"><span aria-hidden="true" className="grid h-7 w-7 shrink-0 place-items-center rounded-kws-badge bg-secondary text-xs font-semibold tabular-nums">{String(index + 1).padStart(2, '0')}</span><span>{step}</span></li>)}
@@ -81,6 +89,7 @@ export default function TrainingExerciseDetail() {
             <KwsSurface className="p-4 sm:p-5"><h2 className="mb-2 font-sans text-sm font-semibold">Darauf achten</h2><p className="text-sm leading-relaxed text-muted-foreground">{exercise.note}</p></KwsSurface>
           </div>
         </div>
+        {(exercise.cues?.length || exercise.mistakes?.length) ? <details className="rounded-kws-control border-t border-border pt-1"><summary className="min-h-11 cursor-pointer rounded-kws-control py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Bewegung verstehen</summary><div className="grid gap-4 pb-3 pt-2 sm:grid-cols-2">{exercise.cues?.length ? <div className="space-y-2"><h3 className="text-xs font-semibold">Merksätze</h3><ul className="list-disc space-y-2 pl-4 text-sm leading-relaxed text-muted-foreground">{exercise.cues.map(item => <li key={item}>{item}</li>)}</ul></div> : null}{exercise.mistakes?.length ? <div className="space-y-2"><h3 className="text-xs font-semibold">Typische Fehler erkennen</h3><ul className="list-disc space-y-2 pl-4 text-sm leading-relaxed text-muted-foreground">{exercise.mistakes.map(item => <li key={item}>{item}</li>)}</ul></div> : null}</div></details> : null}
         <details className="rounded-kws-control border-t border-border pt-1"><summary className="min-h-11 cursor-pointer rounded-kws-control py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Übung anpassen</summary><div className="grid gap-4 pb-3 pt-2 sm:grid-cols-2"><div className="space-y-1"><h3 className="text-xs font-semibold">Einfacher</h3><p className="text-sm leading-relaxed text-muted-foreground">{exercise.easier}</p></div><div className="space-y-1"><h3 className="text-xs font-semibold">Anspruchsvoller</h3><p className="text-sm leading-relaxed text-muted-foreground">{exercise.harder}</p></div></div></details>
       </>}
 

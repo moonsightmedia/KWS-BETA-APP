@@ -1,6 +1,8 @@
-import { createContext, useContext, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
-import { DEFAULT_ANSWERS, EMPTY_SESSION, getExercise, getSessionMinutes, makeSessionItem, TRAINING_EXERCISES } from './data';
-import type { TrainingAnswers, TrainingSession, TrainingWeekPlan } from './types';
+import { createContext, useContext, useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { DEFAULT_ANSWERS, EMPTY_SESSION, getExercise, getSessionMinutes, makeSessionItem } from './data';
+import { buildTrainingPlan } from './planBuilder';
+import { emptyTraining, readTraining, trainingStorageKey, writeTraining } from './storage';
+import type { TrainingAnswers, TrainingPlanIssue, TrainingSession, TrainingWeekPlan } from './types';
 
 interface TrainingState {
   favorites: string[];
@@ -16,17 +18,38 @@ interface TrainingState {
   answers: TrainingAnswers;
   setAnswers: Dispatch<SetStateAction<TrainingAnswers>>;
   plan: TrainingWeekPlan | null;
-  createPlan: () => void;
+  createPlan: () => { status: 'draft' | 'needs-review'; issues: TrainingPlanIssue[] };
+  storageStatus: 'saved' | 'unavailable';
+  clearSavedTraining: () => void;
+  scheduleSession: (sessionId: string, day: number) => boolean;
   movePlanEntry: (id: string, day: number) => void;
   togglePlanEntry: (id: string) => void;
 }
 const Context = createContext<TrainingState | null>(null);
-export function TrainingProvider({ children }: { children: ReactNode }) {
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [draft, updateDraft] = useState<TrainingSession>(EMPTY_SESSION);
-  const [sessions, setSessions] = useState<TrainingSession[]>([]);
+export function TrainingProvider({ children, accountId = 'training-demo' }: { children: ReactNode; accountId?: string }) {
+  const [initial] = useState(() => readTraining(accountId));
+  const [favorites, setFavorites] = useState<string[]>(initial.favorites);
+  const [draft, updateDraft] = useState<TrainingSession>(initial.draft);
+  const [sessions, setSessions] = useState<TrainingSession[]>(initial.sessions);
   const [answers, setAnswers] = useState<TrainingAnswers>(DEFAULT_ANSWERS);
-  const [plan, setPlan] = useState<TrainingWeekPlan | null>(null);
+  const [plan, setPlan] = useState<TrainingWeekPlan | null>(initial.plan);
+  const [storageStatus, setStorageStatus] = useState<'saved' | 'unavailable'>('saved');
+  useEffect(() => { setStorageStatus(writeTraining(accountId, { favorites, draft, sessions, plan }) ? 'saved' : 'unavailable'); }, [accountId, favorites, draft, sessions, plan]);
+  useEffect(() => {
+    const restore = (event: StorageEvent) => {
+      if (event.key !== trainingStorageKey(accountId) && event.key !== null) return;
+      const saved = readTraining(accountId);
+      setFavorites(saved.favorites); updateDraft(saved.draft); setSessions(saved.sessions); setPlan(saved.plan);
+    };
+    window.addEventListener('storage', restore);
+    return () => window.removeEventListener('storage', restore);
+  }, [accountId]);
+  const clearSavedTraining = () => { const cleared = emptyTraining(); setFavorites(cleared.favorites); updateDraft(cleared.draft); setSessions(cleared.sessions); setPlan(null); setAnswers(DEFAULT_ANSWERS); };
+  const scheduleSession = (sessionId: string, day: number) => {
+    if (!sessions.some(session => session.id === sessionId) || !Number.isInteger(day) || day < 0 || day > 6 || plan?.entries.some(entry => entry.day === day || entry.sessionId === sessionId) || plan?.status === 'needs-review') return false;
+    setPlan(previous => ({ ...(previous ?? { summary: 'Deine selbst zusammengestellte Woche', status: 'draft' }), entries: [...(previous?.entries ?? []), { id: crypto.randomUUID(), day, sessionId, fixed: false, completed: false }] }));
+    return true;
+  };
   const toggleFavorite = (id: string) => setFavorites(previous => previous.includes(id) ? previous.filter(value => value !== id) : [...previous, id]);
   const addToDraft = (exerciseId: string) => {
     const exercise = getExercise(exerciseId);
@@ -42,37 +65,35 @@ export function TrainingProvider({ children }: { children: ReactNode }) {
   };
   const addToSession = (sessionId: string, exerciseId: string) => {
     const exercise = getExercise(exerciseId);
-    if (!exercise || exercise.area === 'rehab') return;
-    setSessions(previous => previous.map(session => session.id !== sessionId || session.exercises.some(item => item.exerciseId === exerciseId) ? session : { ...session, exercises: [...session.exercises, { ...makeSessionItem(exerciseId), id: crypto.randomUUID() }] }));
+    if (!exercise || exercise.area === 'rehab' || plan?.entries.some(entry => entry.sessionId === sessionId && entry.fixed)) return;
+    setSessions(previous => previous.map(session => {
+      if (session.id !== sessionId || session.exercises.some(item => item.exerciseId === exerciseId)) return session;
+      const updated = { ...session, exercises: [...session.exercises, { ...makeSessionItem(exerciseId), id: crypto.randomUUID(), reason: 'Von dir zu dieser Einheit ergänzt.' }] };
+      return { ...updated, minutes: getSessionMinutes(updated) };
+    }));
   };
-  const updateSession = (id: string, update: Partial<TrainingSession>) => setSessions(previous => previous.map(session => session.id === id ? { ...session, ...update } : session));
+  const updateSession = (id: string, update: Partial<TrainingSession>) => {
+    if (plan?.entries.some(entry => entry.sessionId === id && entry.fixed)) return;
+    setSessions(previous => previous.map(session => { const updated = { ...session, ...update }; return session.id === id ? { ...updated, minutes: getSessionMinutes(updated) } : session; }));
+  };
   const replaceExercise = (sessionId: string, itemId: string, exerciseId: string) => {
     const exercise = getExercise(exerciseId);
-    if (!exercise || exercise.area === 'rehab') return;
-    setSessions(previous => previous.map(session => session.id === sessionId ? { ...session, exercises: session.exercises.map(item => item.id === itemId ? { ...makeSessionItem(exerciseId), id: item.id } : item) } : session));
+    if (!exercise || exercise.area === 'rehab' || plan?.entries.some(entry => entry.sessionId === sessionId && entry.fixed)) return;
+    setSessions(previous => previous.map(session => {
+      if (session.id !== sessionId) return session;
+      const updated = { ...session, exercises: session.exercises.map(item => item.id === itemId ? { ...makeSessionItem(exerciseId), id: item.id, reason: 'Von dir als Ersatz für diese Einheit ausgewählt.' } : item) };
+      return { ...updated, minutes: getSessionMinutes(updated) };
+    }));
   };
   const createPlan = () => {
-    const usable = TRAINING_EXERCISES.filter(exercise => exercise.area !== 'rehab' && (answers.equipment.includes(exercise.equipment) || (answers.equipment.includes('Ohne Gerät') && exercise.equipment === 'Körpergewicht')));
-    const focus = answers.weaknesses.find(value => value !== 'Weiß ich nicht') || (answers.goal === 'Technik verbessern' ? 'Fußtechnik' : 'Körperposition');
-    const focusExercises = usable.filter(exercise => exercise.area === 'boulder' && exercise.topic === focus);
-    const wallExercises = focusExercises.length ? focusExercises : usable.filter(exercise => exercise.area === 'boulder');
-    const strengthCandidates = usable.filter(exercise => exercise.area === 'strength' && (exercise.id !== 'pullup' || !['0', 'Weiß ich nicht', 'Mit Unterstützung'].includes(answers.pullUps)));
-    const strengthExercises = strengthCandidates.filter((exercise, index) => strengthCandidates.findIndex(candidate => candidate.topic === exercise.topic) === index);
-    const days = [...new Set(answers.days)].sort((a, b) => a - b);
-    const generated = days.map((day, index): TrainingSession => {
-      const fixed = answers.fixedDays.includes(day);
-      const strengthDay = !fixed && (wallExercises.length === 0 || answers.goal === 'Kraft aufbauen' || (index % 2 === 1 && strengthExercises.length > 0));
-      const available = fixed ? [] : strengthDay ? strengthExercises : wallExercises.length ? wallExercises : strengthExercises;
-      const count = Math.max(1, Math.min(3, Math.floor(answers.minutes / 20)));
-      const chosen = available.slice(0, count);
-      return { id: `preview-${day}`, title: fixed ? 'Dein fester Trainingstermin' : strengthDay ? 'Krafttraining' : `Technik · ${focus}`, focus: fixed ? 'Bestehender Termin' : strengthDay ? 'Kraft' : focus, minutes: answers.minutes, exercises: chosen.map((exercise, i) => makeSessionItem(exercise.id, i)) };
-    });
-    setSessions(previous => [...previous.filter(session => !session.id.startsWith('preview-')), ...generated]);
-    setPlan({ entries: generated.map((session, i) => ({ id: `entry-${days[i]}`, day: days[i], sessionId: session.id, completed: false, fixed: answers.fixedDays.includes(days[i]) })), summary: `${days.length} Trainingstage · ${answers.minutes} Min. je Termin · ${answers.goal}${answers.constraints !== 'Keine' ? ' · Einschränkungen müssen vor einer echten Planung fachlich berücksichtigt werden.' : ''}` });
+    const result = buildTrainingPlan(answers);
+    setSessions(previous => [...previous.filter(session => !session.id.startsWith('preview-')), ...result.sessions]);
+    setPlan(result.plan);
+    return { status: result.plan.status ?? 'draft', issues: result.issues };
   };
   const movePlanEntry = (id: string, day: number) => setPlan(previous => !previous || previous.entries.some(entry => entry.day === day) ? previous : { ...previous, entries: previous.entries.map(entry => entry.id === id && !entry.fixed ? { ...entry, day } : entry) });
   const togglePlanEntry = (id: string) => setPlan(previous => previous ? { ...previous, entries: previous.entries.map(entry => entry.id === id ? { ...entry, completed: !entry.completed } : entry) } : previous);
-  return <Context.Provider value={{ favorites, toggleFavorite, draft, updateDraft, addToDraft, addToSession, saveDraft, sessions, updateSession, replaceExercise, answers, setAnswers, plan, createPlan, movePlanEntry, togglePlanEntry }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ favorites, toggleFavorite, draft, updateDraft, addToDraft, addToSession, saveDraft, sessions, updateSession, replaceExercise, answers, setAnswers, plan, createPlan, storageStatus, clearSavedTraining, scheduleSession, movePlanEntry, togglePlanEntry }}>{children}</Context.Provider>;
 }
 export function useTraining() {
   const value = useContext(Context);
