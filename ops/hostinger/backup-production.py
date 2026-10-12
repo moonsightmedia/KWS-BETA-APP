@@ -133,6 +133,15 @@ try:
   for path in source.iterdir():
    if path.is_file():shutil.copyfile(path,destination/path.name)
  copy_tree(Path('/opt/kws/web-production/source/dist'),work/'web')
+ # Erasure history must survive a restore. Never reopen restored production
+ # until these tombstones have been replayed against DB and restored media.
+ erasure=Path('/var/lib/kws-account-deletion')
+ if erasure.is_dir():
+  target=config/'account-deletion';target.mkdir(mode=0o700)
+  for path in erasure.glob('*.tombstone.json'):copy_required(path,target/path.name)
+  for path in erasure.glob('*.notice.json'):copy_required(path,target/path.name)
+  operator=Path('/opt/kws/release-readiness/account-deletion.py')
+  if operator.is_file():copy_required(operator,target/'account-deletion.py')
  # The operating overview and its read-only collector are part of the restore set.
  dashboard=Path('/opt/kws/operations-dashboard')
  if dashboard.is_dir():

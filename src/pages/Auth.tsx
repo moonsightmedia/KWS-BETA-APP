@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
+import { accountBirthDateError } from '@/lib/accountEligibility';
 
 type AuthMode = 'login' | 'signup';
 type PendingAction = 'login' | 'signup' | 'reset' | null;
@@ -70,12 +71,15 @@ const Auth = () => {
   const [birthDay, setBirthDay] = useState('');
   const [birthMonth, setBirthMonth] = useState('');
   const [birthYear, setBirthYear] = useState('');
+  const [birthDateError, setBirthDateError] = useState<string | null>(null);
+  const birthDateTrigger = useRef<HTMLButtonElement>(null);
   const [resetEmail, setResetEmail] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [showResendConfirmation, setShowResendConfirmation] = useState(false);
   const [resendEmail, setResendEmail] = useState('');
   const [resendPending, setResendPending] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+
 
   const {
     signIn,
@@ -169,6 +173,9 @@ const Auth = () => {
         }
       }
 
+      const ageError = accountBirthDateError(birthDateString);
+      setBirthDateError(ageError);
+      if (ageError) { birthDateTrigger.current?.focus(); return; }
       await signUp(email, password, { firstName, lastName, birthDate: birthDateString });
       setEmail('');
       setPassword('');
@@ -214,6 +221,7 @@ const Auth = () => {
   };
 
   const handleMonthChange = (value: string) => {
+    setBirthDateError(null);
     setBirthMonth(value);
     if (birthDay && birthYear && Number(birthDay) > getDaysInMonth(Number(value), Number(birthYear))) {
       setBirthDay('');
@@ -221,6 +229,7 @@ const Auth = () => {
   };
 
   const handleYearChange = (value: string) => {
+    setBirthDateError(null);
     setBirthYear(value);
     if (birthDay && birthMonth && Number(birthDay) > getDaysInMonth(Number(birthMonth), Number(value))) {
       setBirthDay('');
@@ -358,29 +367,31 @@ const Auth = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="flex items-center gap-2 text-sm font-semibold text-[#192436]">
+                  <Label className="flex items-center gap-2 text-sm font-semibold text-[#192436]" id="signup-birth-label">
                     <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Geburtsdatum
                   </Label>
-                  <div className="grid grid-cols-[0.8fr_1.25fr_1fr] gap-2">
-                    <Select value={birthDay} onValueChange={setBirthDay}>
-                      <SelectTrigger className={selectClassName} aria-label="Geburtstag"><SelectValue placeholder="Tag" /></SelectTrigger>
+                  <div className="grid grid-cols-[0.8fr_1.25fr_1fr] gap-2" role="group" aria-labelledby="signup-birth-label" aria-describedby="signup-birth-help">
+                    <Select value={birthDay} onValueChange={value => { setBirthDay(value); setBirthDateError(null); }}>
+                      <SelectTrigger ref={birthDateTrigger} className={selectClassName} aria-label="Geburtstag" aria-required="true" aria-invalid={!!birthDateError}><SelectValue placeholder="Tag" /></SelectTrigger>
                       <SelectContent className="rounded-kws-control border-border text-[#192436]">
                         {Array.from({ length: validDays }, (_, index) => index + 1).map((day) => <SelectItem key={day} value={String(day)} className="rounded-kws-badge">{day}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     <Select value={birthMonth} onValueChange={handleMonthChange}>
-                      <SelectTrigger className={selectClassName} aria-label="Geburtsmonat"><SelectValue placeholder="Monat" /></SelectTrigger>
+                      <SelectTrigger className={selectClassName} aria-label="Geburtsmonat" aria-required="true" aria-invalid={!!birthDateError}><SelectValue placeholder="Monat" /></SelectTrigger>
                       <SelectContent className="rounded-kws-control border-border text-[#192436]">
                         {MONTHS.map((month) => <SelectItem key={month.value} value={month.value} className="rounded-kws-badge">{month.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     <Select value={birthYear} onValueChange={handleYearChange}>
-                      <SelectTrigger className={selectClassName} aria-label="Geburtsjahr"><SelectValue placeholder="Jahr" /></SelectTrigger>
+                      <SelectTrigger className={selectClassName} aria-label="Geburtsjahr" aria-required="true" aria-invalid={!!birthDateError}><SelectValue placeholder="Jahr" /></SelectTrigger>
                       <SelectContent className="rounded-kws-control border-border text-[#192436]">
                         {Array.from({ length: new Date().getFullYear() - 1899 }, (_, index) => new Date().getFullYear() - index).map((year) => <SelectItem key={year} value={String(year)} className="rounded-kws-badge">{year}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
+                  <p id="signup-birth-help" className="text-xs text-muted-foreground">Eigene Konten sind derzeit ab 16 Jahren möglich. Dein Geburtsdatum bleibt privat.</p>
+                  {birthDateError && <p role="alert" className="text-sm text-destructive">{birthDateError}</p>}
                 </div>
 
                 <div className="space-y-2">

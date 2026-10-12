@@ -769,6 +769,13 @@ Bisherige farbige Darstellung (historisch, weiterhin Referenz für Zeicheneditor
 
 ### 8.0 Login und Registrierung
 
+Produktentscheidung 12.10.2026: Neue eigene Konten zum Start ab 16 Jahren.
+Die Registrierung verlangt ein vollständiges, gültiges Geburtsdatum und erklärt
+die Altersgrenze direkt am Feld. Ein Fehler bleibt dort sichtbar und erhält alle
+anderen Eingaben. Die Kontoerstellung benötigt dieselbe Prüfung auf dem Server;
+ein UI-Hinweis allein gilt nicht als Durchsetzung. Konten unter 16 werden später
+mit geeignetem Elternablauf vorbereitet. Apples Inhaltsaltersfreigabe bleibt separat.
+
 Login und Registrierung bilden einen gemeinsamen Auth-Flow und verwenden die
 gleiche Marken-, Typografie- und Komponentenlogik wie Gast- und Nutzerbereich.
 
@@ -916,6 +923,15 @@ Bedienelemente auf wechselnden Wandfotos lesbar bleiben:
 - Farben sind semantisch, nicht dekorativ; Haupttext bleibt dunkelblau.
 
 ### 9.3 Profil und Unterseiten
+
+Kontolöschung steht im bearbeitbaren Profil als eigene ruhige Fläche mit
+destruktiver Aktion. Eine zugängliche Rückfrage nennt den Umfang und die
+Bearbeitungsfrist (Marketing, spätestens sieben Tage). Erst eine bestätigte
+Serverantwort ersetzt die Aktion durch den eingegangenen Antrag mit genauer
+Frist. Fehler bleiben im geöffneten Dialog sichtbar; wiederholtes Absenden
+erzeugt keinen zweiten Vorgang. Mobile Rückfragen verwenden das gemeinsame
+Confirmation-Surface-Verhalten. In der Administration stehen offene Anträge
+bei den Benutzern; ein Ladefehler darf nicht als leere Warteschlange erscheinen.
 
 - Dasselbe `ProfileMenu` muss aus Home, Boulder und Statistiken erscheinen.
 - Profilübersicht, Bearbeiten, Benachrichtigungen, Sektoren und „Über die App“

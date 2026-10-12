@@ -4,6 +4,7 @@ import { Camera, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { DashboardPageLayout } from '@/components/DashboardPageLayout';
+import { AccountDeletion } from '@/components/AccountDeletion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -234,7 +235,7 @@ const ProfileEdit = () => {
       if (avatarFile) {
         saveStage = 'Profilbild hochladen';
         uploadedAvatarUrl = await withTimeout(
-          uploadProfileAvatar(avatarFile, user.id, session?.access_token),
+          uploadProfileAvatar(avatarFile, user.id),
           AVATAR_UPLOAD_TIMEOUT_MS,
           'Das Profilbild konnte nicht rechtzeitig hochgeladen werden. Bitte versuche es erneut.',
         );
@@ -449,6 +450,7 @@ const ProfileEdit = () => {
             Passwort ändern
           </Button>
         </div>
+        {user && <AccountDeletion userId={user.id} />}
       </div>
     </DashboardPageLayout>
   );

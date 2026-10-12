@@ -11,6 +11,7 @@ import { authenticatedFetch, getCurrentSession, SESSION_REQUIRED_EVENT } from '@
 import { SessionRecoveryDialog } from '@/components/SessionRecoveryDialog';
 import { Capacitor } from '@capacitor/core';
 import { emailRedirectUrl } from '@/lib/emailAuth';
+import { accountBirthDateError } from '@/lib/accountEligibility';
 
 const emailRedirect = (path: string) => emailRedirectUrl(path, Capacitor.isNativePlatform(), window.location.origin, import.meta.env.VITE_AUTH_SITE_URL);
 
@@ -684,6 +685,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const lastName = meta?.lastName?.trim() || undefined;
       const fullName = [firstName, lastName].filter(Boolean).join(' ').trim() || undefined;
       const birthDate = meta?.birthDate?.trim() || undefined;
+      const eligibilityError = accountBirthDateError(birthDate);
+      if (eligibilityError) {
+        toast.error(eligibilityError);
+        throw new Error(eligibilityError);
+      }
 
       const { data, error } = await withSingleRetry(() => supabase.auth.signUp({
         email: emailTrimmed,

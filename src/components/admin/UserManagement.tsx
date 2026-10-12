@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserProfileEditor } from "@/components/admin/UserProfileEditor";
+import { AccountDeletionQueue } from "@/components/admin/AccountDeletionQueue";
 import type { ProfilePayload } from "@/lib/userProfileForm";
 import { AdminViewBar } from "@/components/admin/AdminViewBar";
 import { AdminSearchField } from "@/components/admin/AdminSearchField";
@@ -146,6 +147,7 @@ export const UserManagement = () => {
   const clearFilters = () => { setSearchTerm(""); setActiveSegment("all"); setVisibleLimit(PAGE_SIZE); };
 
   return <div className="space-y-4">
+    <AccountDeletionQueue enabled={!authLoading && !!user && !!session} names={Object.fromEntries(users.map(entry => [entry.id, entry.email || getDisplayName(entry)]))} />
     <AdminViewBar refreshing={isFetching} onRefresh={() => void refetch()} disabled={authLoading}>
       <KwsSegmentedControl value={activeSegment} onValueChange={value => { setActiveSegment(value); setVisibleLimit(PAGE_SIZE); setExpandedUserId(null); }} ariaLabel="Benutzer nach Rolle filtern" options={SEGMENTS} />
     </AdminViewBar>

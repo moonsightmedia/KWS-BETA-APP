@@ -38,20 +38,20 @@ Die vorher begonnenen Android-Änderungen an SDK/Versionsnummer/Analytics bleibe
 
 ## Noch offene Voraussetzungen
 
-1. **Kontolöschung in der App**: Registrierung vorhanden, Löschmöglichkeit im aktuellen Profil fehlt. Auth-Konto, Profil, Uploads, Kommentare und Sicherungskopien müssen in einem zusammenhängenden Löschkonzept behandelt werden. Reine Kontodeaktivierung reicht nicht.
+1. **Kontolöschung**: Antrag im Profil und private Adminwarteschlange implementiert. Marketing übernimmt die Bearbeitung spätestens innerhalb von sieben Tagen. Geschützter Operatorablauf für Dateien, DB und Bestätigung ergänzt; Rollen-/FK-Probe zurückgerollt, keine echten Konten entfernt. Vollständige Geräte-/Ende-zu-Ende-Abnahme noch offen. Betriebsablauf: `ops/hostinger/ACCOUNT_DELETION.md`.
 2. **Nutzerinhalte**: Kommentare und Uploads vorhanden. Filter, Meldungen, zeitnahe Moderation, Sperren missbräuchlicher Nutzer und sichtbarer Kontakt müssen umgesetzt und getestet sein. Zuständigkeit und Regeln sind festzulegen.
 3. **Datenschutz**: App-spezifische öffentlich erreichbare Erklärung und In-App-Zugriff fehlen; App-Datenschutzformular ist leer. Bestehende Website-Erklärung deckt App-Daten nicht ausreichend ab. Datenschutzauskunft muss dem finalen Artefakt und Serverbetrieb entsprechen.
 4. **Screenshots**: In der geprüften iPhone-Gruppe 0 Bildschirmfotos. Echte App-Ansichten für die von Apple verlangten Gerätegrößen erstellen; iPad-Unterstützung ist im Projekt aktiviert und erfordert ebenfalls Prüfung. Optionale Kopfzeile ist kein Ersatz für Screenshots.
 5. **Review-Zugang**: Ein dediziertes Testkonto ohne Administratorrechte und ohne Zugang zu fremden privaten Daten vorbereiten. Zugang nur geschützt speichern und gezielt an Apple freigeben; keine Passwörter in Dokumentation oder Logs.
 6. **Pflichtformulare**: Altersfreigabe und Inhaltsrechte noch nicht eingerichtet. Review-Kontakt fehlt. Factual declarations erst passend zur fertigen App; keine erfundenen Angaben.
-7. **Funktionsabnahme**: Bekannter `Map`-Importkonflikt in `BoulderManagement.tsx` beheben. Registrierung, Anmeldung, Reset, Konto-Löschung, Videos, Komprimierung, Kommentare und Moderation im finalen nativen Build prüfen. iOS-Push ist noch nicht vollständig eingerichtet; nicht als funktionierend bewerben.
+7. **Funktionsabnahme**: `Map`-Importkonflikt in `BoulderManagement.tsx` behoben und Komponente gerendert geprüft. Registrierung, Anmeldung, Reset, Konto-Löschung, Videos, Komprimierung, Kommentare und Moderation im finalen nativen Build prüfen. iOS-Push ist noch nicht vollständig eingerichtet; nicht als funktionierend bewerben.
 8. **Herausgeber**: Moonsight-Organisationsumstellung und zutreffende DSA-Angaben abschließen, bevor mit Moonsight als Store-Herausgeber veröffentlicht wird.
 
 ## Datenschutz-Angaben vorbereiten – noch kein veröffentlichtes Label
 
 **Produktentscheidung vom 12. Oktober 2026:** Zum öffentlichen Start sind eigene App-Konten zunächst ab 16 Jahren vorgesehen. Konten für unter 16-Jährige werden als spätere Erweiterung geführt; sie sind keine Voraussetzung für den ersten Release.
 
-Die technische Durchsetzung ist noch offen: Die Registrierung fragt das Geburtsdatum derzeit optional ab. Vor Veröffentlichung müssen eine verständliche Altersabfrage, die Prüfung bei der Kontoerstellung und ein Umgang mit vorhandenen Konten vorbereitet und getestet werden. Bestehende Konten werden aufgrund dieser Entscheidung nicht automatisch gelöscht oder gesperrt. Build 82 enthält noch keine neue Altersgrenze.
+Die Registrierung verlangt jetzt ein gültiges Geburtsdatum und prüft die Altersgrenze auch im Auth-Hook auf dem Hostinger-Server. Fehlende/ungültige Daten und unter 16-Jährige werden abgewiesen; exakt 16 am Kalendertag in Deutschland ist zulässig. Drei Kalender-/Zeitzonen-Tests, SQL-Grenzfälle und eine öffentliche Unter-16-Signup-Anfrage geprüft. Es handelt sich um Selbstauskunft, nicht um einen amtlichen Altersnachweis. Bestehende 44 Konten werden aufgrund dieser Entscheidung nicht automatisch gelöscht oder gesperrt. Build 82 enthält noch keine neue Formularprüfung; ein neuer Build folgt.
 
 Artikel 8 DSGVO ist kein allgemeines Verbot von Konten unter 16: Die dortige Altersgrenze betrifft eine auf Einwilligung gestützte Verarbeitung bei direkt angebotenen Online-Diensten. Apples Inhaltsaltersfreigabe ist von der festgelegten Konto-Altersgrenze getrennt.
 
@@ -69,7 +69,7 @@ Die folgenden Zuordnungen beruhen auf dem aktuellen Quellcode. Zweck überwiegen
 | --- | --- | --- |
 | Vorname, Nachname, E-Mail | Name, E-Mail-Adresse; Nutzerbezug | `src/hooks/useAuth.tsx` |
 | Benutzer-ID, Rollen | Benutzer-ID | Auth und nutzerbezogene REST-Abfragen |
-| Optionales Geburtsdatum | Weitere Datentypen; Zweck/Notwendigkeit klären | `src/hooks/useAuth.tsx` |
+| Geburtsdatum bei neuen Konten erforderlich | Weitere Datentypen; Altersprüfung, Nutzerbezug und Aufbewahrung angeben | `src/hooks/useAuth.tsx`, Auth-Hook |
 | Avatar, Boulderbilder/-videos | Fotos oder Videos | Profilbearbeitung, Medien-Upload |
 | Kommentare, Notizen | Andere Nutzerinhalte | `src/hooks/useBoulderCommunity.tsx` |
 | Begehungen, Versuche, Trainingstage | Fitnessdaten und/oder passende Aktivitätskategorie prüfen | `boulder_ticks`, `boulder_tracking_sessions` |
@@ -91,4 +91,4 @@ Für Hostinger-Builds sind eigene Telemetrie deaktiviert und Sentry-DSN leer. Di
 
 ## Exakt nächster Schritt
 
-Kontolöschung, Moderation und Registrierung ab 16 umsetzen und im nativen Build abnehmen. Konten unter 16 bleiben eine spätere Erweiterung. Parallel muss Apple die beantragte Organisationsumstellung abschließen. Die aktuelle Storeversion bleibt bis dahin in Vorbereitung.
+Neue Altersprüfung und Kontolöschung im nächsten nativen Build abnehmen; danach Moderation/Melden/Sperren und den appbezogenen Datenschutz fertigstellen. Konten unter 16 bleiben eine spätere Erweiterung. Parallel muss Apple die beantragte Organisationsumstellung abschließen. Die aktuelle Storeversion bleibt bis dahin in Vorbereitung.
