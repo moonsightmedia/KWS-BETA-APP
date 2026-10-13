@@ -143,6 +143,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                                    expectedDuration: Double?, expectedWidth: Int?, expectedHeight: Int?,
                                    requestedBitrate: Int, attempt: Int) {
         guard !job.isCancelled else { finish(job); rejectCancelled(call); return }
+        if attempt > 0, !job.renewOutputURL() { finish(job); rejectCancelled(call); return }
         let sourceVideos = asset.tracks(withMediaType: .video)
         let sourceAudios = asset.tracks(withMediaType: .audio)
         guard sourceVideos.count == 1, let videoTrack = sourceVideos.first else {
@@ -649,7 +650,9 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private func fileSize(_ url: URL) -> Int64 {
-        Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        // URL resource values can cache metadata for a previously written file.
+        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+        return (attributes?[.size] as? NSNumber)?.int64Value ?? 0
     }
 
     private func rejectCancelled(_ call: CAPPluginCall) {
@@ -658,13 +661,22 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private final class EncodingJob {
         let id: String
-        let outputURL: URL
+        private var storedOutputURL: URL
         private let lock = NSLock()
         private var cancelled = false
         private var reader: AVAssetReader?
         private var writer: AVAssetWriter?
         private var cancellationHandlers: [() -> Void] = []
-        init(id: String, outputURL: URL) { self.id = id; self.outputURL = outputURL }
+        init(id: String, outputURL: URL) { self.id = id; self.storedOutputURL = outputURL }
+        var outputURL: URL { lock.lock(); defer { lock.unlock() }; return storedOutputURL }
+        func renewOutputURL() -> Bool {
+            lock.lock(); defer { lock.unlock() }
+            guard !cancelled else { return false }
+            // Every pass has a new asset identity, avoiding stale URL/AVAsset data.
+            storedOutputURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("kws-upload-master-\(UUID().uuidString).mp4")
+            return true
+        }
         var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelled }
         func attach(reader: AVAssetReader, writer: AVAssetWriter) {
             lock.lock(); self.reader = reader; self.writer = writer; let shouldCancel = cancelled; lock.unlock()
@@ -675,6 +687,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
             cancelled = true
             let reader = self.reader
             let writer = self.writer
+            let outputURL = storedOutputURL
             let handlers = cancellationHandlers
             cancellationHandlers.removeAll()
             lock.unlock()
