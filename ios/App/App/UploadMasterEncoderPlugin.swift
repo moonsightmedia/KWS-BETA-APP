@@ -1,7 +1,8 @@
 import AVFoundation
 import Capacitor
+import VideoToolbox
 
-/** KWS Upload Master Encoder v1.2.0. App-local and registered by KWSBridgeViewController. */
+/** KWS Upload Master Encoder v1.2.1. App-local and registered by KWSBridgeViewController. */
 @objc(UploadMasterEncoderPlugin)
 public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "UploadMasterEncoderPlugin"
@@ -12,7 +13,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "deleteFile", returnType: CAPPluginReturnPromise)
     ]
 
-    private let encoderVersion = "1.2.0"
+    private let encoderVersion = "1.2.1"
     // Matches the server HD contract. The validation headroom permits normal
     // encoder variance without allowing an unexpectedly expensive upload.
     private let targetVideoBitrate = 4_000_000
@@ -463,6 +464,9 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
          AVVideoWidthKey: Int(size.width), AVVideoHeightKey: Int(size.height),
          AVVideoCompressionPropertiesKey: [
             AVVideoAverageBitRateKey: bitrate,
+            // AverageBitRate alone permits large peaks, especially in short clips.
+            // VideoToolbox expresses the sliding-window budget in BYTES, not bits.
+            kVTCompressionPropertyKey_DataRateLimits as String: [Double(bitrate) / 8.0, 1.0],
             AVVideoExpectedSourceFrameRateKey: Int(frameRate.rounded()),
             AVVideoMaxKeyFrameIntervalKey: max(1, Int(frameRate.rounded()) * 2),
             AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel

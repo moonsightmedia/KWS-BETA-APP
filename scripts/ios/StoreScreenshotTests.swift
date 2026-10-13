@@ -40,6 +40,13 @@ final class StoreScreenshotTests: XCTestCase {
             XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 10))
         }
         app.buttons["Los geht's!"].tap()
+        // A loaded guest page can remain covered if the final tap did not land.
+        // Report that boundary directly instead of calling it a backend failure.
+        let onboardingClosed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.buttons["Los geht's!"])
+        XCTAssertEqual(XCTWaiter.wait(for: [onboardingClosed], timeout: 30), .completed,
+                       "Onboarding must close before checking the guest page")
         let guest = button("Als Gast fortfahren")
         if guest.exists { guest.tap() }
         let card = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@ AND label CONTAINS[c] %@", "Grad", "Farbe")).firstMatch
