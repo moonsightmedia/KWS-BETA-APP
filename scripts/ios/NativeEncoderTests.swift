@@ -26,8 +26,10 @@ final class NativeEncoderTests: XCTestCase {
         let call = CAPPluginCall(callbackId: UUID().uuidString, methodName: method, options: options,
             success: { response, _ in result = response.map { $0.data ?? [:] }; done.fulfill() },
             error: { error in
+                var details: [String: Any] = [NSLocalizedDescriptionKey: error?.message ?? "Native rejection without details"]
+                if let cause = error?.error { details[NSUnderlyingErrorKey] = cause }
                 failure = NSError(domain: error?.code ?? "encoder", code: 1,
-                                  userInfo: [NSLocalizedDescriptionKey: error?.message ?? "Native rejection without details"])
+                                  userInfo: details)
                 done.fulfill()
             })!
         switch method {
@@ -67,7 +69,19 @@ final class NativeEncoderTests: XCTestCase {
             XCTAssertEqual(CVPixelBufferPoolCreatePixelBuffer(nil, try XCTUnwrap(adaptor.pixelBufferPool), &buffer), kCVReturnSuccess)
             let pixel = try XCTUnwrap(buffer)
             CVPixelBufferLockBaseAddress(pixel, [])
-            memset(CVPixelBufferGetBaseAddress(pixel), Int32((frame * 7) % 256), CVPixelBufferGetBytesPerRow(pixel) * height)
+            // A moving textured image exercises the real compression budget.
+            // A flat color clip can legitimately fall below the integrity floor.
+            let bytes = try XCTUnwrap(CVPixelBufferGetBaseAddress(pixel)).assumingMemoryBound(to: UInt32.self)
+            let stride = CVPixelBufferGetBytesPerRow(pixel) / 4
+            for y in 0..<height {
+                for x in 0..<width {
+                    let grid = ((x / 12 + y / 12 + frame / 3) % 2) * 100
+                    let blue = UInt32((x + frame * 11 + grid) % 256)
+                    let green = UInt32((y + frame * 7 + grid) % 256)
+                    let red = UInt32((x / 2 + y / 2 + frame * 13) % 256)
+                    bytes[y * stride + x] = 0xff000000 | (red << 16) | (green << 8) | blue
+                }
+            }
             CVPixelBufferUnlockBaseAddress(pixel, [])
             XCTAssertTrue(adaptor.append(pixel, withPresentationTime: CMTime(value: Int64(frame), timescale: fps)))
         }

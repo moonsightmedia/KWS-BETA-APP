@@ -483,7 +483,14 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                           sampleStats.videoBitrate <= self.maximumVideoBitrate,
                           (!expectedAudio || (audioBitrate >= 32_000 && audioBitrate <= 147_200)),
                           totalBitrate > 100_000, totalBitrate <= self.maximumTotalBitrate else {
-                        throw EncoderError.invalidBitrateOrFrameRate
+                        // Numeric diagnostics only: never a media path, name or account.
+                        throw NSError(domain: "KWSUploadEncoderValidation", code: 1, userInfo: [
+                            NSLocalizedDescriptionKey: "Encoded video exceeds bitrate or frame timing limits",
+                            "frameRate": sampleStats.frameRate, "frameCount": sampleStats.frameCount,
+                            "maximumFrameCount": maximumFrameCount, "videoBitrate": sampleStats.videoBitrate,
+                            "audioBitrate": audioBitrate, "totalBitrate": totalBitrate,
+                            "videoDuration": videoDuration
+                        ])
                     }
                     completion(.success(self.baseMetadata(path: url.path, bytes: bytes, duration: duration,
                                                          size: size, videoTracks: 1, audioTracks: audios.count,
