@@ -204,8 +204,11 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
             reader.add(videoOutput)
 
             let outputFrameRate = min(maxFrameRate, sourceFrameRate > 0 ? sourceFrameRate : maxFrameRate)
-            let videoInput = AVAssetWriterInput(mediaType: .video,
-                                                outputSettings: videoSettings(size: outputSize, frameRate: outputFrameRate))
+            let settings = videoSettings(size: outputSize, frameRate: outputFrameRate)
+            guard writer.canApply(outputSettings: settings, forMediaType: .video) else {
+                throw EncoderError.cannotAdd("unsupported video compression settings")
+            }
+            let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
             videoInput.expectsMediaDataInRealTime = false
             guard writer.canAdd(videoInput) else { throw EncoderError.cannotAdd("video writer input") }
             writer.add(videoInput)
@@ -398,7 +401,6 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
          AVVideoCompressionPropertiesKey: [
             AVVideoAverageBitRateKey: targetVideoBitrate,
             AVVideoExpectedSourceFrameRateKey: Int(frameRate.rounded()),
-            AVVideoAverageNonDroppableFrameRateKey: min(maxFrameRate, frameRate),
             AVVideoMaxKeyFrameIntervalKey: max(1, Int(frameRate.rounded()) * 2),
             AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
          ]]
