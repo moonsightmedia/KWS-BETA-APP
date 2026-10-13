@@ -24,10 +24,10 @@ final class NativeEncoderTests: XCTestCase {
         var result: [String: Any]?
         var failure: NSError?
         let call = CAPPluginCall(callbackId: UUID().uuidString, methodName: method, options: options,
-            success: { response, _ in result = response.data ?? [:]; done.fulfill() },
+            success: { response, _ in result = response.map { $0.data ?? [:] }; done.fulfill() },
             error: { error in
-                failure = NSError(domain: error.code ?? "encoder", code: 1,
-                                  userInfo: [NSLocalizedDescriptionKey: error.message])
+                failure = NSError(domain: error?.code ?? "encoder", code: 1,
+                                  userInfo: [NSLocalizedDescriptionKey: error?.message ?? "Native rejection without details"])
                 done.fulfill()
             })!
         switch method {
