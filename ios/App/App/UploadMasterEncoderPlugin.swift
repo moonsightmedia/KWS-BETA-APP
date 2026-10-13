@@ -349,15 +349,34 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                 guard let sample = output.copyNextSampleBuffer() else {
                     input.markAsFinished(); gate.finish(nil); return
                 }
+                var sampleToWrite = sample
                 if let minimumFrameSpacing {
+                    // Composition output can carry marker buffers and source timing.
+                    // Only image samples participate in frame selection/rate control.
+                    guard CMSampleBufferGetNumSamples(sample) > 0 else { continue }
                     let pts = CMSampleBufferGetPresentationTimeStamp(sample)
                     if lastWritten.isValid,
                        CMTimeGetSeconds(CMTimeSubtract(pts, lastWritten)) < minimumFrameSpacing - 0.001 {
                         continue
                     }
                     lastWritten = pts
+                    var timing = CMSampleTimingInfo(
+                        duration: CMTime(seconds: minimumFrameSpacing, preferredTimescale: 60_000),
+                        presentationTimeStamp: pts,
+                        decodeTimeStamp: CMSampleBufferGetDecodeTimeStamp(sample)
+                    )
+                    var timedSample: CMSampleBuffer?
+                    let status = CMSampleBufferCreateCopyWithNewTiming(
+                        allocator: kCFAllocatorDefault, sampleBuffer: sample,
+                        sampleTimingEntryCount: 1, sampleTimingArray: &timing,
+                        sampleBufferOut: &timedSample
+                    )
+                    guard status == noErr, let timedSample else {
+                        input.markAsFinished(); gate.finish(EncoderError.appendFailed); return
+                    }
+                    sampleToWrite = timedSample
                 }
-                if !input.append(sample) {
+                if !input.append(sampleToWrite) {
                     input.markAsFinished()
                     gate.finish(writer.error ?? EncoderError.appendFailed)
                     return
@@ -485,7 +504,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                           totalBitrate > 100_000, totalBitrate <= self.maximumTotalBitrate else {
                         // Numeric diagnostics only: never a media path, name or account.
                         throw NSError(domain: "KWSUploadEncoderValidation", code: 1, userInfo: [
-                            NSLocalizedDescriptionKey: "Encoded video exceeds bitrate or frame timing limits",
+                            NSLocalizedDescriptionKey: "Encoded video does not meet bitrate or frame timing limits",
                             "frameRate": sampleStats.frameRate, "frameCount": sampleStats.frameCount,
                             "maximumFrameCount": maximumFrameCount, "videoBitrate": sampleStats.videoBitrate,
                             "audioBitrate": audioBitrate, "totalBitrate": totalBitrate,
@@ -518,7 +537,8 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                 reader.cancelReading()
                 throw EncoderError.cancelled
             }
-            frames += 1
+            // Empty marker buffers are not frames; a buffer may hold several samples.
+            frames += CMSampleBufferGetNumSamples(sample)
             sampleBytes += CMSampleBufferGetTotalSampleSize(sample)
         }
         guard reader.status == .completed, frames > 0, duration > 0 else {
