@@ -38,7 +38,7 @@ final class NativeEncoderTests: XCTestCase {
         case "deleteFile": plugin.deleteFile(call)
         default: throw NSError(domain: "UnknownTestMethod", code: 1)
         }
-        wait(for: [done], timeout: 90)
+        wait(for: [done], timeout: 180)
         if let failure { throw failure }
         return try XCTUnwrap(result)
     }

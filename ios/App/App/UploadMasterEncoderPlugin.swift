@@ -134,6 +134,14 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private func encodeLoadedAsset(_ asset: AVAsset, inputURL: URL, job: EncodingJob, call: CAPPluginCall,
                                    expectedDuration: Double?, expectedWidth: Int?, expectedHeight: Int?) {
+        encodeLoadedAsset(asset, inputURL: inputURL, job: job, call: call,
+                          expectedDuration: expectedDuration, expectedWidth: expectedWidth,
+                          expectedHeight: expectedHeight, requestedBitrate: targetVideoBitrate, attempt: 0)
+    }
+
+    private func encodeLoadedAsset(_ asset: AVAsset, inputURL: URL, job: EncodingJob, call: CAPPluginCall,
+                                   expectedDuration: Double?, expectedWidth: Int?, expectedHeight: Int?,
+                                   requestedBitrate: Int, attempt: Int) {
         guard !job.isCancelled else { finish(job); rejectCancelled(call); return }
         let sourceVideos = asset.tracks(withMediaType: .video)
         let sourceAudios = asset.tracks(withMediaType: .audio)
@@ -204,7 +212,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
             reader.add(videoOutput)
 
             let outputFrameRate = min(maxFrameRate, sourceFrameRate > 0 ? sourceFrameRate : maxFrameRate)
-            let settings = videoSettings(size: outputSize, frameRate: outputFrameRate)
+            let settings = videoSettings(size: outputSize, frameRate: outputFrameRate, bitrate: requestedBitrate)
             guard writer.canApply(outputSettings: settings, forMediaType: .video) else {
                 throw EncoderError.cannotAdd("unsupported video compression settings")
             }
@@ -255,7 +263,22 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                          maximumFrameCount: sourceFrameCount,
                          expectedAudioChannels: expectedAudioChannels,
                          expectedAudioSampleRate: expectedAudioSampleRate,
-                         expectedAudioDuration: expectedAudioDuration, call: call)
+                         expectedAudioDuration: expectedAudioDuration,
+                         onBitrateOvershoot: { [weak self] measuredBitrate in
+                             guard let self, attempt < 2, measuredBitrate.isFinite,
+                                   measuredBitrate > self.maximumVideoBitrate else { return false }
+                             // The requested average is a target, not a guarantee.
+                             // Retry from the untouched original, keeping all final limits.
+                             let revised = max(250_000, Int(Double(requestedBitrate) *
+                                 Double(self.targetVideoBitrate) / measuredBitrate * 0.8))
+                             guard revised < requestedBitrate else { return false }
+                             self.workQueue.async {
+                                 self.encodeLoadedAsset(asset, inputURL: inputURL, job: job, call: call,
+                                     expectedDuration: expectedDuration, expectedWidth: expectedWidth,
+                                     expectedHeight: expectedHeight, requestedBitrate: revised, attempt: attempt + 1)
+                             }
+                             return true
+                         }, call: call)
         } catch {
             job.stopWithoutMarkingCancelled()
             try? FileManager.default.removeItem(at: job.outputURL)
@@ -274,6 +297,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                               maximumFrameCount: Int,
                               expectedAudioChannels: Int?, expectedAudioSampleRate: Double?,
                               expectedAudioDuration: Double?,
+                              onBitrateOvershoot: @escaping (Double) -> Bool,
                               call: CAPPluginCall) {
         let group = DispatchGroup()
         let result = AppendResult()
@@ -332,6 +356,12 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                         self.finish(job); call.resolve(metadata)
                     case .failure(let error):
                         try? FileManager.default.removeItem(at: job.outputURL)
+                        let diagnostic = error as NSError
+                        if diagnostic.domain == "KWSUploadEncoderValidation",
+                           let bitrate = diagnostic.userInfo["videoBitrate"] as? Double,
+                           let fps = diagnostic.userInfo["frameRate"] as? Double,
+                           fps > 0, fps <= self.maxFrameRate + 0.25,
+                           onBitrateOvershoot(bitrate) { return }
                         self.finish(job); call.reject("Encoded video validation failed", nil, error)
                     }
                 }
@@ -417,11 +447,11 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
         return composition
     }
 
-    private func videoSettings(size: CGSize, frameRate: Double) -> [String: Any] {
+    private func videoSettings(size: CGSize, frameRate: Double, bitrate: Int) -> [String: Any] {
         [AVVideoCodecKey: AVVideoCodecType.h264,
          AVVideoWidthKey: Int(size.width), AVVideoHeightKey: Int(size.height),
          AVVideoCompressionPropertiesKey: [
-            AVVideoAverageBitRateKey: targetVideoBitrate,
+            AVVideoAverageBitRateKey: bitrate,
             AVVideoExpectedSourceFrameRateKey: Int(frameRate.rounded()),
             AVVideoMaxKeyFrameIntervalKey: max(1, Int(frameRate.rounded()) * 2),
             AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
