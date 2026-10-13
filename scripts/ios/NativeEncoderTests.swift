@@ -97,6 +97,9 @@ final class NativeEncoderTests: XCTestCase {
     func testLargeHighFrameRateVideoIsEncodedAndDecodable() throws {
         let source = try fixture()
         let metadata = try invoke("encode", options: ["inputPath": source.path, "operationId": UUID().uuidString])
+        let numericKeys = ["width", "height", "frameRate", "videoBitrate", "averageBitrate",
+                           "durationSeconds", "fileSize", "encodingAttempts"]
+        print("KWS_NATIVE_ENCODER_VERIFIED", metadata.filter { numericKeys.contains($0.key) })
         XCTAssertEqual(metadata["skipped"] as? Bool, false)
         XCTAssertEqual(metadata["playable"] as? Bool, true)
         XCTAssertLessThanOrEqual(try XCTUnwrap(metadata["frameRate"] as? Double), 30.25)
@@ -111,6 +114,8 @@ final class NativeEncoderTests: XCTestCase {
         XCTAssertTrue(asset.isPlayable)
         XCTAssertEqual(asset.tracks(withMediaType: .video).count, 1)
         XCTAssertLessThanOrEqual(max(track.naturalSize.width, track.naturalSize.height), 1920)
+        XCTAssertGreaterThanOrEqual(max(track.naturalSize.width, track.naturalSize.height), 640)
+        XCTAssertEqual(track.naturalSize.width / track.naturalSize.height, 16.0 / 9.0, accuracy: 0.01)
         XCTAssertLessThanOrEqual(track.nominalFrameRate, 30.25)
         XCTAssertEqual(CMTimeGetSeconds(asset.duration), 1.5, accuracy: 0.25)
         let reader = try AVAssetReader(asset: asset)

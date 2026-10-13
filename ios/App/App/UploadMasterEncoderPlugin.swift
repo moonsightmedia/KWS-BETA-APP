@@ -2,7 +2,7 @@ import AVFoundation
 import Capacitor
 import VideoToolbox
 
-/** KWS Upload Master Encoder v1.2.1. App-local and registered by KWSBridgeViewController. */
+/** KWS Upload Master Encoder v1.2.2. App-local and registered by KWSBridgeViewController. */
 @objc(UploadMasterEncoderPlugin)
 public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "UploadMasterEncoderPlugin"
@@ -13,7 +13,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "deleteFile", returnType: CAPPluginReturnPromise)
     ]
 
-    private let encoderVersion = "1.2.1"
+    private let encoderVersion = "1.2.2"
     // Matches the server HD contract. The validation headroom permits normal
     // encoder variance without allowing an unexpectedly expensive upload.
     private let targetVideoBitrate = 4_000_000
@@ -137,12 +137,13 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                                    expectedDuration: Double?, expectedWidth: Int?, expectedHeight: Int?) {
         encodeLoadedAsset(asset, inputURL: inputURL, job: job, call: call,
                           expectedDuration: expectedDuration, expectedWidth: expectedWidth,
-                          expectedHeight: expectedHeight, requestedBitrate: targetVideoBitrate, attempt: 0)
+                          expectedHeight: expectedHeight, requestedBitrate: targetVideoBitrate,
+                          maximumLongEdge: 1920, attempt: 0)
     }
 
     private func encodeLoadedAsset(_ asset: AVAsset, inputURL: URL, job: EncodingJob, call: CAPPluginCall,
                                    expectedDuration: Double?, expectedWidth: Int?, expectedHeight: Int?,
-                                   requestedBitrate: Int, attempt: Int) {
+                                   requestedBitrate: Int, maximumLongEdge: Int, attempt: Int) {
         guard !job.isCancelled else { finish(job); rejectCancelled(call); return }
         if attempt > 0, !job.renewOutputURL() { finish(job); rejectCancelled(call); return }
         let sourceVideos = asset.tracks(withMediaType: .video)
@@ -193,7 +194,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        let outputSize = evenConstrainedSize(sourceDisplaySize)
+        let outputSize = evenConstrainedSize(sourceDisplaySize, maximumLongEdge: maximumLongEdge)
         guard !job.isCancelled else { finish(job); rejectCancelled(call); return }
         do {
             try? FileManager.default.removeItem(at: job.outputURL)
@@ -277,11 +278,17 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                              // Retry from the untouched original, keeping all final limits.
                              let revised = max(250_000, Int(Double(requestedBitrate) *
                                  Double(self.targetVideoBitrate) / measuredBitrate * 0.8))
-                             guard revised < requestedBitrate else { return false }
+                             // Some encoder paths ignore rate-control targets. Reduce pixel
+                             // load only after a measured failure, preserving aspect ratio.
+                             let edge = Int(max(outputSize.width, outputSize.height))
+                             let revisedEdge = max(min(640, edge), Int(Double(edge) *
+                                 sqrt(Double(self.targetVideoBitrate) / measuredBitrate) * 0.85))
+                             guard revised < requestedBitrate || revisedEdge < edge else { return false }
                              self.workQueue.async {
                                  self.encodeLoadedAsset(asset, inputURL: inputURL, job: job, call: call,
                                      expectedDuration: expectedDuration, expectedWidth: expectedWidth,
-                                     expectedHeight: expectedHeight, requestedBitrate: revised, attempt: attempt + 1)
+                                     expectedHeight: expectedHeight, requestedBitrate: revised,
+                                     maximumLongEdge: revisedEdge, attempt: attempt + 1)
                              }
                              return true
                          }, call: call)
@@ -362,7 +369,9 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                     }
                     switch validation {
                     case .success(let metadata):
-                        self.finish(job); call.resolve(metadata)
+                        var verified = metadata
+                        verified["encodingAttempts"] = encodingAttempt + 1
+                        self.finish(job); call.resolve(verified)
                     case .failure(let error):
                         try? FileManager.default.removeItem(at: job.outputURL)
                         let diagnostic = error as NSError
@@ -656,8 +665,8 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
         return CGSize(width: abs(rect.width), height: abs(rect.height))
     }
 
-    private func evenConstrainedSize(_ size: CGSize) -> CGSize {
-        let scale = min(1, 1920 / max(size.width, size.height))
+    private func evenConstrainedSize(_ size: CGSize, maximumLongEdge: Int = 1920) -> CGSize {
+        let scale = min(1, CGFloat(maximumLongEdge) / max(size.width, size.height))
         return CGSize(width: max(2, Int((size.width * scale).rounded(.down)) & ~1),
                       height: max(2, Int((size.height * scale).rounded(.down)) & ~1))
     }
