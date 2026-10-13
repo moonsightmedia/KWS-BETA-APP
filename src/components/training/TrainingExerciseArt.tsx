@@ -1,5 +1,7 @@
 import { cn } from '@/lib/utils';
 import { getExercise } from '@/features/training/data';
+import TrainingTopicIcon from './TrainingTopicIcon';
+import { TRAINING_GLYPHS } from './training-glyphs';
 import { KWS_EQUIPMENT_ILLUSTRATION_IDS, TRAINING_ILLUSTRATION_ATLASES, TRAINING_ILLUSTRATION_IDS, TRAINING_ILLUSTRATION_OVERRIDES } from './training-illustrations';
 
 interface TrainingExerciseArtProps {
@@ -9,7 +11,10 @@ interface TrainingExerciseArtProps {
 }
 
 export default function TrainingExerciseArt({ exerciseId, title, className }: TrainingExerciseArtProps) {
-  const illustrationId = getExercise(exerciseId)?.illustrationId ?? exerciseId;
+  const exercise = getExercise(exerciseId);
+  // Each authored learning task/game gets its own motif, never another card's picture.
+  if (TRAINING_GLYPHS[exerciseId] && (exercise?.illustrationId || exercise?.area === 'kids' || exercise?.area === 'rehab')) return <div role="img" aria-label={`Individuelles KWS-Motiv: ${title}. Symbolische Orientierung, keine Ausführungsanleitung.`} className={cn('grid aspect-square shrink-0 place-items-center rounded-kws-control bg-secondary/70 text-primary-ink', className)}><TrainingTopicIcon exerciseId={exerciseId} topic={exercise?.topic ?? ''} className="h-[62%] w-[62%]" /></div>;
+  const illustrationId = exerciseId;
   const index = TRAINING_ILLUSTRATION_IDS.findIndex(id => id === illustrationId);
   const equipmentIndex = KWS_EQUIPMENT_ILLUSTRATION_IDS.findIndex(id => id === illustrationId);
   if (index < 0 && equipmentIndex < 0) return null;

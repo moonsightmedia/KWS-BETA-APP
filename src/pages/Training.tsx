@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 
 export default function Training() {
   const { pathname, search } = useLocation();
-  const { draft, sessions, plan, storageStatus, clearSavedTraining } = useTraining();
+  const { draft, favorites, sessions, plan, storageStatus, clearSavedTraining } = useTraining();
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const swipe = useHorizontalRouteSwipe({ routes: APP_USER_ROUTES });
@@ -32,10 +32,11 @@ export default function Training() {
   libraryParams.delete('returnSession');
   const librarySearch = libraryParams.size ? `?${libraryParams}` : '';
   const backTo = exercise ? returningToSession ? `/training/sessions/${encodeURIComponent(returnSession!)}` : params.get('from') === 'favorites' ? `/training/favorites${librarySearch}` : `/training/library/${exercise.area}${librarySearch}` : pathname.startsWith('/training/sessions/') ? '/training/sessions' : '/training';
-  const showSelection = draft.exercises.length > 0 && !params.has('session') && !params.has('append') && !returningToSession && (pathname.startsWith('/training/library/') || pathname.startsWith('/training/exercises/') || pathname === '/training/favorites');
+  const kidsView = pathname === '/training/library/kids' || exercise?.area === 'kids' || (pathname === '/training/favorites' && favorites.length > 0 && favorites.every(id => getExercise(id)?.area === 'kids'));
+  const showSelection = !kidsView && draft.exercises.length > 0 && !params.has('session') && !params.has('append') && !returningToSession && (pathname.startsWith('/training/library/') || pathname.startsWith('/training/exercises/') || pathname === '/training/favorites');
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'auto' }); }, [pathname]);
   return <DashboardPageLayout headerBackTo={atHome ? undefined : backTo} headerBackLabel={exercise ? returningToSession ? 'Zur eigenen Einheit' : params.get('from') === 'favorites' ? 'Zur Favoritenliste' : 'Zur Bibliothek' : 'Training-Übersicht'} mainClassName={showSelection ? 'pb-52 md:pb-28' : undefined} rightSlot={<div className="flex items-center gap-1">
-    {plan && pathname !== '/training/week' && <Button asChild variant="ghost" size="icon"><Link to="/training/week" aria-label="Mein Plan"><CalendarDays className="h-5 w-5" aria-hidden="true" /></Link></Button>}
+    {plan && !kidsView && pathname !== '/training/week' && <Button asChild variant="ghost" size="icon"><Link to="/training/week" aria-label="Mein Plan"><CalendarDays className="h-5 w-5" aria-hidden="true" /></Link></Button>}
     <Popover onOpenChange={() => setConfirmClear(false)}>
     <PopoverTrigger asChild><Button variant="ghost" className="px-2 text-[11px] text-muted-foreground" aria-label="Informationen zur UI-Vorschau">Vorschau</Button></PopoverTrigger>
     <PopoverContent align="end" className="max-w-[calc(100vw-32px)] rounded-kws-card border-0 shadow-medium"><h2 className="font-sans text-sm font-semibold">Training-Vorschau</h2><p className="mt-2 text-xs leading-relaxed text-muted-foreground">Geführter Plan-Assistent mit lokalen Auswahlregeln. Inhalte und Pläne sind noch nicht fachlich freigegeben.</p><p className="mt-2 text-xs leading-relaxed text-muted-foreground">{storageStatus === 'saved' ? 'Plan, Einheiten und Favoriten werden auf diesem Gerät je Konto gespeichert. Angaben zu Alter und Beschwerden werden nicht gespeichert.' : 'Speichern ist in diesem Browser nicht möglich. Änderungen bleiben nur in dieser Sitzung.'}</p><Button variant="ghost" className="mt-3 h-auto min-h-11 whitespace-normal px-0 text-xs text-destructive" onClick={() => confirmClear ? (clearSavedTraining(), setConfirmClear(false)) : setConfirmClear(true)}>{confirmClear ? 'Lokale Trainingsdaten jetzt löschen' : 'Lokale Trainingsdaten zurücksetzen'}</Button></PopoverContent>

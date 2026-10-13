@@ -34,7 +34,7 @@ async function plan(page: Page, options: Parameters<typeof intake>[1] = {}) {
 for (const width of [375, 768, 1280, 1920]) test(`layout and illustrated states at ${width}px`, async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.setViewportSize({ width, height: 900 }); await mkdir(screenshots, { recursive: true });
-  for (const [name, route] of [['home', '/training'], ['strength', '/training/library/strength?q=Brust'], ['feet', '/training/library/boulder?q=Fußtechnik'], ['rehab', '/training/library/rehab'], ['detail', '/training/exercises/quiet-feet'], ['planner', '/training/plan'], ['empty', '/training/favorites']] as const) {
+  for (const [name, route] of [['home', '/training'], ['strength', '/training/library/strength?q=Brust'], ['feet', '/training/library/boulder?q=Fußtechnik'], ['rehab', '/training/library/rehab'], ['kids', '/training/library/kids'], ['kids-detail', '/training/exercises/kids-colour-post'], ['detail', '/training/exercises/quiet-feet'], ['planner', '/training/plan'], ['empty', '/training/favorites']] as const) {
     await open(page, route);
     await expect(page.getByRole('button', { name: 'Informationen zur UI-Vorschau' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
@@ -149,7 +149,7 @@ test('rehab orientation, lasting favorites, sources and unknown exercise', async
   await expect(page.getByText('Umfang & Pausen')).toHaveCount(0);
   await page.getByRole('button', { name: 'Als Favorit merken' }).click();
   await open(page, '/training/favorites'); await page.reload();
-  await expect(page.getByRole('list', { name: 'Gemerkte Übungen' }).getByRole('listitem')).toHaveCount(1);
+  await expect(page.getByRole('list', { name: 'Gemerkte Inhalte' }).getByRole('listitem')).toHaveCount(1);
   await open(page, '/training/exercises/incline-pushup');
   await page.getByText('Hintergrund & Quellen', { exact:true }).click();
   await expect(page.getByRole('link', { name: /ACSM/ })).toBeVisible();
@@ -244,7 +244,7 @@ test('expanded boulder library shows all 33 cards and ten games with stable sear
   await expect(page.getByRole('button', { name: /Weitere .* anzeigen/ })).toHaveCount(0);
   await page.getByRole('group', { name: 'Übungen oder Spiele wählen' }).getByRole('button', { name: 'Spiele', exact: true }).click();
   await expect(list.getByRole('listitem')).toHaveCount(10);
-  await expect(list.getByRole('img', { name: /Schematische Illustration/ })).toHaveCount(10);
+  await expect(list.getByRole('img', { name: /Individuelles KWS-Motiv/ })).toHaveCount(10);
   const gameTitle = await list.getByRole('heading').first().innerText();
   await list.getByRole('link', { name: `${gameTitle}: Anleitung öffnen`, exact: true }).click();
   await expect(page.getByRole('heading', { name: 'So läuft das Spiel', exact: true })).toBeVisible();
@@ -309,4 +309,46 @@ test('completed week snapshot survives regeneration and stays isolated from a di
   await expect(page.getByRole('region', { name: 'Zuletzt trainiert' }).getByRole('button', { name: /Erneut zusammenstellen:/ })).toHaveCount(1);
   await page.evaluate(async () => { const hooks = await import('/test/fixtures/training-preview-hooks.ts'); hooks.switchPreviewAccount(); });
   await expect(page.getByText('Hier erscheinen Einheiten, die du als trainiert markierst.', { exact: true })).toBeVisible();
+});
+
+test('kids games support nursery and school browsing, sources and favorites without adult prescriptions', async ({ page }) => {
+  await open(page, '/training/exercises/pushup');
+  await page.getByRole('button', { name: 'Zur Einheit hinzufügen', exact: true }).click();
+  await open(page, '/training/library/kids');
+  const list = page.getByRole('list', { name: 'Übungen', exact: true });
+  await expect(list.getByRole('listitem')).toHaveCount(12);
+  const motifs = await list.locator('[data-training-icon]').evaluateAll(nodes => [...new Set(nodes.map(node => node.getAttribute('data-training-icon')))]);
+  expect(motifs).toHaveLength(12);
+  await expect(page.getByRole('button', { name: /Zur Einheit hinzufügen/ })).toHaveCount(0);
+  await expect(page.getByRole('complementary', { name: 'Deine Übungsauswahl' })).toHaveCount(0);
+  await expect(page.getByText('In der KWS verfügbar', { exact: true })).toHaveCount(0);
+  await page.getByRole('group', { name: 'Altersbereich wählen' }).getByRole('button', { name: 'Kita', exact: true }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(6);
+  await list.getByRole('link', { name: 'Farbenpost: Spiel ansehen', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Kinderspiel', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Für Kitakinder vereinfachen', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Betreuung', exact: true })).toBeVisible();
+  await expect(page.getByText('Umfang & Pausen', { exact: true })).toHaveCount(0);
+  await page.getByText('Hintergrund & Quellen', { exact: true }).click();
+  await expect(page.getByRole('link', { name: /DGUV/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Farbenpost: als Favorit merken', exact: true }).click();
+  await page.getByRole('button', { name: 'Zur Bibliothek', exact: true }).click();
+  await expect(page).toHaveURL(/age=kita/);
+  await expect(list.getByRole('listitem')).toHaveCount(6);
+  await open(page, '/training/favorites'); await page.reload();
+  await expect(page.getByRole('list', { name: 'Gemerkte Inhalte' }).getByRole('listitem')).toHaveCount(1);
+  await expect(page.getByRole('complementary', { name: 'Deine Übungsauswahl' })).toHaveCount(0);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('kws-training-v2:training-demo')!));
+  expect(saved.draft.exercises.map((item: { exerciseId: string }) => item.exerciseId)).toEqual(['pushup']);
+  expect(saved.sessions).toHaveLength(0);
+});
+
+test('individual motifs follow the exercise rather than repeating a generic climbing icon', async ({ page }) => {
+  await open(page, '/training/exercises/heel-hook');
+  await expect(page.locator('svg[data-training-icon="heel-hook"]')).toHaveCount(1);
+  await expect(page.locator('main svg.lucide-mountain')).toHaveCount(0);
+  await open(page, '/training/library/boulder?format=game');
+  const icons = await page.getByRole('list', { name: 'Übungen', exact: true }).getByRole('listitem').evaluateAll(cards => cards.map(card => { const svg = card.querySelector('svg[data-training-icon]')!; return { id: svg.getAttribute('data-training-icon'), shape: svg.innerHTML }; }));
+  expect(new Set(icons.map(icon => icon.id)).size).toBe(10);
+  expect(new Set(icons.map(icon => icon.shape)).size).toBe(10);
 });

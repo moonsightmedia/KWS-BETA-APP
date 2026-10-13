@@ -50,6 +50,7 @@ output/
 /test-results/training-calm-filters-subagent-*/
 /test-results/training-all-results-subagent-*/
 /test-results/training-history-qa/
+/test-results/training-kids-ui-subagent-*/
 /test-results/header-stability-20261006/
 
 # Local design/reference material

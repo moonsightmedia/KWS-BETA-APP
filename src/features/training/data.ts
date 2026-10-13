@@ -1,11 +1,13 @@
 import type { SessionExercise, TrainingAnswers, TrainingArea, TrainingDose, TrainingEquipment, TrainingExercise, TrainingSession } from './types';
 import { additionalTrainingContent } from './trainingContent';
 import { additionalBoulderContent } from './boulderContent';
+import { additionalKidsContent } from './kidsContent';
 
 export const TRAINING_AREAS: { id: TrainingArea; title: string; description: string }[] = [
   { id: 'strength', title: 'Krafttraining', description: 'Nach Muskelbereich und Equipment auswählen.' },
   { id: 'boulder', title: 'Boulderübungen', description: 'Bewegungen üben und deine Technik verbessern.' },
   { id: 'rehab', title: 'Wiedereinstieg', description: 'Beschwerden einordnen und fachliche Begleitung vorbereiten.' },
+  { id: 'kids', title: 'Kinder', description: 'Betreute Spiele für den Kinderboulderbereich.' },
 ];
 export const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 export const KWS_AVAILABLE_EQUIPMENT: TrainingEquipment[] = ['Körpergewicht', 'Kettlebell', 'Trainingsbank', 'EZ-Stange', 'Klimmzugstange', 'Fingerboard', 'Boulderwand', 'Spraywall'];
@@ -204,7 +206,8 @@ export function isKwsExerciseAvailable(exercise: TrainingExercise): boolean {
   if (exercise.area === 'rehab') return true;
   return (exercise.requiredEquipment ?? [exercise.equipment]).every(equipment => KWS_AVAILABLE_EQUIPMENT.includes(equipment) || equipment === 'Ohne Gerät');
 }
-export const TRAINING_EXERCISES: TrainingExercise[] = [...RAW_EXERCISES, ...additionalTrainingContent(strengthSource), ...additionalBoulderContent(techniqueSource)].map(raw => {
+export const TRAINING_EXERCISES: TrainingExercise[] = [...RAW_EXERCISES, ...additionalTrainingContent(strengthSource), ...additionalBoulderContent(techniqueSource), ...additionalKidsContent()].map(raw => {
+  if (raw.area === 'kids') return { ...raw, planEligible: false, kwsAvailable: isKwsExerciseAvailable(raw) };
   if (raw.area === 'rehab' || raw.contentKind === 'orientation') return { ...raw, planEligible: false, contentKind: 'orientation', kwsAvailable: isKwsExerciseAvailable(raw) };
   const guidance = GUIDANCE[raw.id] ?? {};
   const defaultDose = guidance.defaultDose ?? raw.defaultDose ?? (raw.area === 'boulder' ? { ...TECHNIQUE_DOSE } : { ...STRENGTH_DOSE });
@@ -225,7 +228,7 @@ export const TRAINING_EXERCISES: TrainingExercise[] = [...RAW_EXERCISES, ...addi
 export const getExercise = (id: string) => TRAINING_EXERCISES.find(exercise => exercise.id === id);
 export function makeSessionItem(exerciseId: string, index = 0): SessionExercise {
   const exercise = getExercise(exerciseId), dose = exercise?.defaultDose;
-  if (!exercise || !dose || exercise.area === 'rehab' || exercise.contentKind === 'orientation') throw new Error('Diese Karte hat keine einplanbare Trainingsdosis.');
+  if (!exercise || !dose || exercise.area === 'kids' || exercise.area === 'rehab' || exercise.contentKind === 'orientation') throw new Error('Diese Karte hat keine einplanbare Trainingsdosis.');
   return { id: `${exerciseId}-${index}`, exerciseId, sets: dose.sets, repetitions: dose.repetitions, restSeconds: dose.restSeconds, restScope: dose.restScope };
 }
 export const EMPTY_SESSION: TrainingSession = { id: 'new', title: 'Meine Einheit', focus: 'Selbst zusammengestellt', minutes: null, preparationMinutes: 10, cooldownMinutes: 3, exercises: [] };

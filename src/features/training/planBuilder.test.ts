@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { buildTrainingPlan } from './planBuilder';
 import { DEFAULT_ANSWERS, KWS_AVAILABLE_EQUIPMENT, TRAINING_EXERCISES, getExercise, getSessionMinutes, isKwsExerciseAvailable, makeSessionItem, repetitionUpperBound } from './data';
 import type { TrainingAnswers, TrainingSession } from './types';
+import { TRAINING_GLYPHS } from '../../components/training/training-glyphs';
 
 const profile = (overrides: Partial<TrainingAnswers> = {}): TrainingAnswers => ({ ...DEFAULT_ANSWERS, ageGroup: 'adult', weaknesses: ['Fußtechnik', 'Körperposition'], ...overrides });
 const ids = (answers: TrainingAnswers) => buildTrainingPlan(answers).sessions.flatMap(session => session.exercises.map(item => item.exerciseId));
@@ -117,13 +118,13 @@ test('goal changes selected strength volume; input is unchanged and output deter
 });
 
 test('all active cards have coherent defaults; rehab has useful orientation and stays unplannable', () => {
-  assert.equal(TRAINING_EXERCISES.filter(exercise => exercise.area !== 'rehab' && exercise.contentKind !== 'orientation').length, 52);
+  assert.equal(TRAINING_EXERCISES.filter(exercise => exercise.defaultDose).length, 52);
   for (const exercise of TRAINING_EXERCISES) {
     assert.ok(exercise.steps.length >= 3);
     assert.ok(exercise.cues?.length);
     assert.ok(exercise.mistakes?.length);
     assert.ok(exercise.sources.length);
-    if (exercise.area === 'rehab' || exercise.contentKind === 'orientation') {
+    if (exercise.area === 'rehab' || exercise.area === 'kids' || exercise.contentKind === 'orientation') {
       assert.equal(exercise.planEligible, false);
       assert.throws(() => makeSessionItem(exercise.id));
     } else {
@@ -133,6 +134,26 @@ test('all active cards have coherent defaults; rehab has useful orientation and 
       assert.equal(item.restSeconds, exercise.defaultDose?.restSeconds);
     }
   }
+});
+
+test('each of the 69 cards has a distinct authored icon; kids guides cannot become adult prescriptions', () => {
+  assert.equal(TRAINING_EXERCISES.length, 69);
+  const motifs = TRAINING_EXERCISES.map(exercise => { const glyph = TRAINING_GLYPHS[exercise.id]; assert.ok(glyph, exercise.id); return JSON.stringify(glyph); });
+  assert.equal(new Set(motifs).size, motifs.length);
+  const children = TRAINING_EXERCISES.filter(exercise => exercise.area === 'kids');
+  assert.equal(children.length, 12);
+  const nursery = children.filter(child => child.kidsGuide?.audience === 'both');
+  assert.equal(nursery.length, 6);
+  assert.ok(nursery.every(child => child.kidsGuide?.preschoolVariant));
+  for (const child of children) {
+    assert.equal(child.format, 'game'); assert.equal(child.planEligible, false); assert.equal(child.defaultDose, undefined);
+    assert.ok(child.kidsGuide?.ages && child.kidsGuide.duration && child.kidsGuide.players && child.kidsGuide.supervision);
+    assert.equal(child.steps.length, 4); assert.ok(child.setupRequirements?.length);
+    assert.ok(child.sources.some(source => source.label.includes('DAV')));
+    assert.throws(() => makeSessionItem(child.id));
+  }
+  const generated = ids(profile());
+  assert.ok(children.every(child => !generated.includes(child.id)));
 });
 
 test('boulder games remain manually selectable learning tasks with real topics and bounded rules', () => {

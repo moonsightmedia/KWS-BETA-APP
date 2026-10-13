@@ -21,9 +21,11 @@ const getPageTitle = (pathname: string, setterTabTitle?: string, adminTabTitle?:
   if (pathname === '/training/library/strength') return 'Krafttraining';
   if (pathname === '/training/library/boulder') return 'Boulderübungen';
   if (pathname === '/training/library/rehab') return 'Wiedereinstieg';
+  if (pathname === '/training/library/kids') return 'Kinderbouldern';
   if (pathname === '/training/favorites') return 'Favoriten';
   if (pathname === '/training/plan') return 'Plan erstellen';
   if (pathname === '/training/week') return 'Mein Wochenplan';
+  if (pathname.startsWith('/training/exercises/kids-')) return 'Kinderspiel';
   if (pathname.startsWith('/training/exercises/')) return 'Übung';
   if (pathname === '/training/sessions') return 'Eigene Einheiten';
   if (pathname.startsWith('/training/sessions/')) return 'Meine Einheit';

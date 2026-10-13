@@ -59,7 +59,7 @@ export function TrainingProvider({ children, accountId = 'training-demo' }: { ch
   const toggleFavorite = (id: string) => setFavorites(previous => previous.includes(id) ? previous.filter(value => value !== id) : [...previous, id]);
   const addToDraft = (exerciseId: string) => {
     const exercise = getExercise(exerciseId);
-    if (!exercise || exercise.area === 'rehab' || !exercise.defaultDose || exercise.contentKind === 'orientation') return;
+    if (!exercise || exercise.area === 'rehab' || exercise.area === 'kids' || !exercise.defaultDose || exercise.contentKind === 'orientation') return;
     updateDraft(previous => previous.exercises.some(item => item.exerciseId === exerciseId) ? previous : { ...previous, exercises: [...previous.exercises, { ...makeSessionItem(exerciseId), id: crypto.randomUUID() }] });
   };
   const saveDraft = () => {
@@ -71,7 +71,7 @@ export function TrainingProvider({ children, accountId = 'training-demo' }: { ch
   };
   const addToSession = (sessionId: string, exerciseId: string) => {
     const exercise = getExercise(exerciseId);
-    if (!exercise || exercise.area === 'rehab' || !exercise.defaultDose || exercise.contentKind === 'orientation' || plan?.entries.some(entry => entry.sessionId === sessionId && entry.fixed)) return;
+    if (!exercise || exercise.area === 'rehab' || exercise.area === 'kids' || !exercise.defaultDose || exercise.contentKind === 'orientation' || plan?.entries.some(entry => entry.sessionId === sessionId && entry.fixed)) return;
     setSessions(previous => previous.map(session => {
       if (session.id !== sessionId || session.exercises.some(item => item.exerciseId === exerciseId)) return session;
       const updated = { ...session, exercises: [...session.exercises, { ...makeSessionItem(exerciseId), id: crypto.randomUUID(), reason: 'Von dir zu dieser Einheit ergänzt.' }] };
@@ -84,7 +84,7 @@ export function TrainingProvider({ children, accountId = 'training-demo' }: { ch
   };
   const replaceExercise = (sessionId: string, itemId: string, exerciseId: string) => {
     const exercise = getExercise(exerciseId);
-    if (!exercise || exercise.area === 'rehab' || !exercise.defaultDose || exercise.contentKind === 'orientation' || plan?.entries.some(entry => entry.sessionId === sessionId && entry.fixed)) return;
+    if (!exercise || exercise.area === 'rehab' || exercise.area === 'kids' || !exercise.defaultDose || exercise.contentKind === 'orientation' || plan?.entries.some(entry => entry.sessionId === sessionId && entry.fixed)) return;
     setSessions(previous => previous.map(session => {
       if (session.id !== sessionId) return session;
       const updated = { ...session, exercises: session.exercises.map(item => item.id === itemId ? { ...makeSessionItem(exerciseId), id: item.id, reason: 'Von dir als Ersatz für diese Einheit ausgewählt.' } : item) };
