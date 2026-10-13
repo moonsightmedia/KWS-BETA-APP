@@ -1,4 +1,5 @@
 import type { SessionExercise, TrainingAnswers, TrainingArea, TrainingDose, TrainingEquipment, TrainingExercise, TrainingSession } from './types';
+import { additionalTrainingContent } from './trainingContent';
 
 export const TRAINING_AREAS: { id: TrainingArea; title: string; description: string }[] = [
   { id: 'strength', title: 'Krafttraining', description: 'Nach Muskelbereich und Equipment auswählen.' },
@@ -6,11 +7,12 @@ export const TRAINING_AREAS: { id: TrainingArea; title: string; description: str
   { id: 'rehab', title: 'Reha & Wiedereinstieg', description: 'Beschwerden einordnen und fachliche Begleitung vorbereiten.' },
 ];
 export const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
-export const TRAINING_EQUIPMENT: TrainingEquipment[] = ['Körpergewicht', 'Kurzhanteln', 'Widerstandsband', 'Klimmzugstange', 'Boulderwand', 'Ohne Gerät'];
+export const KWS_AVAILABLE_EQUIPMENT: TrainingEquipment[] = ['Körpergewicht', 'Kettlebell', 'Trainingsbank', 'EZ-Stange', 'Klimmzugstange', 'Fingerboard', 'Boulderwand', 'Spraywall'];
+export const TRAINING_EQUIPMENT: TrainingEquipment[] = [...KWS_AVAILABLE_EQUIPMENT, 'Kurzhanteln', 'Widerstandsband', 'Ohne Gerät'];
 export const DEFAULT_ANSWERS: TrainingAnswers = {
   goal: 'Bouldern allgemein', experience: '6–12 Monate', grade: '3', strengths: [], weaknesses: [],
   pullUps: 'Weiß ich nicht', pushUps: 'Weiß ich nicht', strengthExperience: 'Wenig Erfahrung',
-  days: [0, 2, 5], fixedDays: [], minutes: 60, equipment: ['Körpergewicht', 'Boulderwand'], constraints: 'Keine', ageGroup: 'unknown',
+  days: [0, 2, 5], fixedDays: [], minutes: 60, equipment: [...KWS_AVAILABLE_EQUIPMENT], constraints: 'Keine', ageGroup: 'unknown',
 };
 const strengthSource = [{ label: 'ACSM Position Stand 2026', url: 'https://doi.org/10.1249/MSS.0000000000003897', context: 'Allgemeines Krafttraining gesunder Erwachsener, ausreichend anstrengend ohne Pflicht zum Versagen. Die konkrete Übung, Dosierung und Kombination sind redaktionell; kein nachgewiesener Bouldertransfer.' }, { label: 'Mayo Clinic: kontrollierte Kraftausführung', url: 'https://www.mayoclinic.org/healthy-lifestyle/fitness/in-depth/weight-training/art-20045842', context: 'Offizielle Gesundheitsinformation zu Einweisung, kontrollierter Bewegung und Atmung. Keine Studie zu diesem Boulderprogramm; kein Rehabilitationsprotokoll.' }];
 const techniqueSource = [{ label: 'Seifert et al. 2018: Lernen und Transfer', url: 'https://doi.org/10.3389/fpsyg.2018.00820', context: 'Kleine Lernstudie mit acht Kletternden an Seilrouten. Hintergrund für Lösungsvergleich und Transferbeobachtung; kein Nachweis dieses Boulderdrills oder seiner Dosierung.' }];
@@ -101,7 +103,7 @@ const GUIDANCE: Record<string, Partial<TrainingExercise>> = {
   'dumbbell-bench': {
     steps: ['Auf einer geprüften Bank einrichten; Aufnehmen und Ablegen leichter Hanteln vorher einweisen lassen.', 'Füße stabil unterstützen und Hanteln kontrolliert über dem Oberkörper halten.', 'In angenehmem Weg absenken und ruhig wieder hochdrücken; kein Aufprallen.', 'Mit dem bekannten Rückweg ablegen; keine erschöpfte Wiederholung erzwingen.'],
     cues: ['Auch Aufnehmen und Ablegen gehören zur Übung.', 'Beide Gewichte bleiben kontrollierbar.'], mistakes: ['Eine Bank allein aus „Kurzhanteln vorhanden“ ableiten.', 'Zu große Last oder erzwungene Schultertiefe.'],
-    setupRequirements: ['Geprüfte Trainingsbank und stabile Fußauflage', 'Einweisung in Aufnehmen, Ausführen und Ablegen'], planEligible: false, selectionReason: 'Bibliotheksoption bei tatsächlich vorhandener Bank. Ohne bestätigte Bank wird diese Karte nicht automatisch eingeplant.',
+    setupRequirements: ['Geprüfte Trainingsbank und stabile Fußauflage', 'Einweisung in Aufnehmen, Ausführen und Ablegen'], requiredEquipment: ['Kurzhanteln', 'Trainingsbank'], planEligible: true, selectionReason: 'Option bei tatsächlich vorhandener Bank UND Kurzhanteln. Die KWS-Bank allein macht diese zusätzliche Equipmentoption nicht verfügbar.',
   },
   'dumbbell-floor': {
     steps: ['Mit eingewiesenem Aufnahmeweg auf dem Rücken einrichten; leichte Hanteln kontrollieren.', 'Gewichte absenken, bis Oberarme den Boden kontrolliert erreichen; nicht fallen oder federn lassen.', 'Ruhig hochdrücken und weiteratmen, ohne mit der Last auszuweichen.', 'Mit bekanntem kontrolliertem Rückweg ablegen.'],
@@ -193,35 +195,41 @@ function estimateItemMinutes(exercise: TrainingExercise, item: SessionExercise):
   if (!dose || repetitions === null || !Number.isInteger(item.sets) || item.sets < 1 || !Number.isFinite(item.restSeconds) || item.restSeconds < 0) return null;
   const scope = item.restScope ?? dose.restScope;
   const work = item.sets * repetitions * (dose.sideMultiplier ?? 1) * dose.secondsPerRepetition;
-  const pauses = scope === 'repetitions' ? Math.max(0, item.sets * repetitions - 1) : Math.max(0, item.sets - 1);
+  const pauses = scope === 'repetitions' ? Math.max(0, item.sets * repetitions * (dose.sideMultiplier ?? 1) - 1) : Math.max(0, item.sets - 1);
   return Math.ceil((work + pauses * item.restSeconds + dose.setupMinutes * 60) / 60);
 }
 
-export const TRAINING_EXERCISES: TrainingExercise[] = RAW_EXERCISES.map(raw => {
-  if (raw.area === 'rehab') return { ...raw, planEligible: false };
+export function isKwsExerciseAvailable(exercise: TrainingExercise): boolean {
+  if (exercise.area === 'rehab') return true;
+  return (exercise.requiredEquipment ?? [exercise.equipment]).every(equipment => KWS_AVAILABLE_EQUIPMENT.includes(equipment) || equipment === 'Ohne Gerät');
+}
+export const TRAINING_EXERCISES: TrainingExercise[] = [...RAW_EXERCISES, ...additionalTrainingContent(strengthSource)].map(raw => {
+  if (raw.area === 'rehab' || raw.contentKind === 'orientation') return { ...raw, planEligible: false, contentKind: 'orientation', kwsAvailable: isKwsExerciseAvailable(raw) };
   const guidance = GUIDANCE[raw.id] ?? {};
-  const defaultDose = guidance.defaultDose ?? (raw.area === 'boulder' ? { ...TECHNIQUE_DOSE } : { ...STRENGTH_DOSE });
+  const defaultDose = guidance.defaultDose ?? raw.defaultDose ?? (raw.area === 'boulder' ? { ...TECHNIQUE_DOSE } : { ...STRENGTH_DOSE });
   const perSide = defaultDose.sideMultiplier === 2 ? ' je Seite' : '';
   const exercise: TrainingExercise = {
-    ...raw, ...guidance, defaultDose, planEligible: guidance.planEligible ?? true,
-    dose: raw.area === 'boulder' ? `Redaktioneller Lernblock: ${defaultDose.sets} Block · ${defaultDose.repetitions} kurze Versuche insgesamt an einer passenden Passage; ein Hauptcue.`
+    ...raw, ...guidance, defaultDose, planEligible: guidance.planEligible ?? raw.planEligible ?? true,
+    alternativeEquipment: ['quiet-feet', 'foot-swap', 'edge-choice', 'hip-position', 'read-boulder', 'controlled-move'].includes(raw.id) ? ['Spraywall'] : raw.alternativeEquipment,
+    dose: raw.id === 'side-plank' ? raw.dose : raw.area === 'boulder' ? `Redaktioneller Lernblock: ${defaultDose.sets} Block · ${defaultDose.repetitions} kurze Versuche insgesamt an einer passenden Passage; ein Hauptcue.`
       : `Redaktioneller Einstieg: ${defaultDose.sets} Sätze · ${defaultDose.repetitions} Wiederholungen${perSide}.${raw.id === 'dead-bug' ? ' Kontrolle bestimmt den Hebel; kein Versagenstest.' : ' Bei vertrauter Variante etwa 2–3 saubere Wiederholungen Reserve.'}`,
-    rest: `Etwa ${defaultDose.restSeconds} Sekunden zwischen ${defaultDose.restScope === 'repetitions' ? 'Versuchen' : 'Sätzen'}; länger, wenn Kontrolle noch nicht zurückkehrt.`,
+    rest: `Etwa ${defaultDose.restSeconds} Sekunden zwischen ${defaultDose.restScope === 'repetitions' ? defaultDose.repetitionUnit === 'Haltephasen' ? 'Haltephasen' : 'Versuchen' : 'Sätzen'}; länger, wenn Kontrolle noch nicht zurückkehrt.`,
     note: `${raw.area === 'boulder' ? 'Passage, Griffe und Rückweg vor Ort prüfen; Techniklabel bedeutet keine geringe Fingerlast.' : 'Allgemeine Kraft-/Kontrollübung; kein garantierter Bouldertransfer oder Verletzungsschutz.'} Konkretes Rezept noch nicht fachlich freigegeben. ${STOP}`,
-    setupRequirements: guidance.setupRequirements ?? (raw.area === 'boulder' ? ['Passende Passage, freier Mattenbereich und kontrollierbarer Abstieg', 'Geeignete Hallen-/Bewegungseinweisung'] : []),
+    setupRequirements: guidance.setupRequirements ?? raw.setupRequirements ?? (raw.area === 'boulder' ? ['Passende Passage, freier Mattenbereich und kontrollierbarer Abstieg', 'Geeignete Hallen-/Bewegungseinweisung'] : []),
   };
+  exercise.kwsAvailable = isKwsExerciseAvailable(exercise);
   exercise.minutes = estimateItemMinutes(exercise, { id: '', exerciseId: raw.id, sets: defaultDose.sets, repetitions: defaultDose.repetitions, restSeconds: defaultDose.restSeconds }) ?? 0;
   return exercise;
 });
 export const getExercise = (id: string) => TRAINING_EXERCISES.find(exercise => exercise.id === id);
 export function makeSessionItem(exerciseId: string, index = 0): SessionExercise {
   const exercise = getExercise(exerciseId), dose = exercise?.defaultDose;
-  if (!exercise || !dose || exercise.area === 'rehab') throw new Error('Diese Karte hat keine einplanbare Trainingsdosis.');
+  if (!exercise || !dose || exercise.area === 'rehab' || exercise.contentKind === 'orientation') throw new Error('Diese Karte hat keine einplanbare Trainingsdosis.');
   return { id: `${exerciseId}-${index}`, exerciseId, sets: dose.sets, repetitions: dose.repetitions, restSeconds: dose.restSeconds, restScope: dose.restScope };
 }
-export const EMPTY_SESSION: TrainingSession = { id: 'new', title: 'Meine Einheit', focus: 'Selbst zusammengestellt', minutes: 0, preparationMinutes: 10, cooldownMinutes: 3, exercises: [] };
+export const EMPTY_SESSION: TrainingSession = { id: 'new', title: 'Meine Einheit', focus: 'Selbst zusammengestellt', minutes: null, preparationMinutes: 10, cooldownMinutes: 3, exercises: [] };
 export function getSessionEstimate(session: TrainingSession): { minutes: number | null; notes: string[] } {
-  if (!session.exercises.length) return { minutes: session.preparationMinutes || session.cooldownMinutes ? null : 0, notes: ['Noch kein konkreter Übungsumfang.'] };
+  if (!session.exercises.length) return { minutes: null, notes: ['Noch kein konkreter Übungsumfang.'] };
   if ([session.preparationMinutes ?? 0, session.cooldownMinutes ?? 0].some(value => !Number.isFinite(value) || value < 0)) return { minutes: null, notes: ['Vorbereitungs-/Abschlusszeit offen.'] };
   let total = (session.preparationMinutes ?? 0) + (session.cooldownMinutes ?? 0);
   if (!Number.isFinite(total) || total < 0) return { minutes: null, notes: ['Vorbereitungs-/Abschlusszeit offen.'] };

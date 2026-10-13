@@ -31,13 +31,14 @@ export default function TrainingExerciseDetail() {
   }
 
   const rehab = exercise.area === 'rehab';
+  const orientation = rehab || exercise.contentKind === 'orientation';
   const title = rehab ? exercise.topic : exercise.title;
   const orientationReady = rehab && !exercise.goal.startsWith('So könnte');
   const Icon = exercise.area === 'strength' ? Dumbbell : rehab ? Activity : Mountain;
   const favorite = favorites.includes(exercise.id);
   const added = !replacementRequested && (appendId ? appendSession?.exercises : draft.exercises)?.some(item => item.exerciseId === exercise.id);
   const addExercise = () => {
-    if (rehab) return;
+    if (orientation || !exercise.defaultDose) return;
     if (replacementRequested) {
       if (!replacementValid || !sessionId || !itemId) return;
       replaceExercise(sessionId, itemId, exercise.id);
@@ -54,11 +55,12 @@ export default function TrainingExerciseDetail() {
   return (
     <div className="space-y-4" data-swipe-ignore>
       <p className="sr-only" role="status" aria-live="polite">{notice}</p>
-      {rehab ? <KwsSurface className="space-y-4 p-4 sm:p-5">
+      {orientation ? <KwsSurface className="space-y-4 p-4 sm:p-5">
         <div className="flex items-center justify-between gap-3"><Activity aria-hidden="true" className="h-6 w-6 text-primary-ink" /><span className="rounded-kws-badge bg-secondary px-2 py-1 text-xs font-semibold">Orientierung</span><Button type="button" variant="ghost" size="icon" className={cn('shrink-0', favorite && 'text-primary-ink')} aria-pressed={favorite} aria-label={`${title}: ${favorite ? 'aus Favoriten entfernen' : 'als Favorit merken'}`} onClick={() => toggleFavorite(exercise.id)}><Star aria-hidden="true" className={cn(favorite && 'fill-current')} /></Button></div>
-        <div className="max-w-2xl space-y-2"><h2 className="font-sans text-lg font-semibold">{title}</h2><p className="text-sm leading-relaxed text-muted-foreground">{orientationReady ? exercise.goal : 'Beobachtungen sammeln und das Gespräch mit einer behandelnden Fachperson vorbereiten.'}</p></div>
-        {orientationReady && <div className="max-w-2xl space-y-3"><h3 className="text-sm font-semibold">Für dein Gespräch</h3><ol className="list-decimal space-y-3 pl-5 text-sm leading-relaxed text-muted-foreground">{exercise.steps.map(step => <li key={step}>{step}</li>)}</ol>{exercise.cues?.map(cue => <p key={cue} className="text-sm font-medium leading-relaxed">{cue}</p>)}</div>}
-        <p className="max-w-2xl border-t border-border pt-4 text-sm leading-relaxed text-muted-foreground">{orientationReady ? exercise.note : 'Individuelle Reha-Übungen und die Wiederaufnahme des Trainings stimmen behandelnde Fachpersonen mit dir ab.'}</p>
+        <div className="max-w-2xl space-y-2"><h2 className="font-sans text-lg font-semibold">{title}</h2><p className="text-sm leading-relaxed text-muted-foreground">{orientationReady || !rehab ? exercise.goal : 'Beobachtungen sammeln und das Gespräch mit einer behandelnden Fachperson vorbereiten.'}</p></div>
+        {!rehab && <TrainingExerciseArt exerciseId={exercise.id} title={title} className="w-full max-w-64" />}
+        {(orientationReady || !rehab) && <div className="max-w-2xl space-y-3"><h3 className="text-sm font-semibold">{rehab ? 'Für dein Gespräch' : 'Vor dem Fingertraining'}</h3><ol className="list-decimal space-y-3 pl-5 text-sm leading-relaxed text-muted-foreground">{exercise.steps.map(step => <li key={step}>{step}</li>)}</ol>{exercise.cues?.map(cue => <p key={cue} className="text-sm font-medium leading-relaxed">{cue}</p>)}</div>}
+        <p className="max-w-2xl border-t border-border pt-4 text-sm leading-relaxed text-muted-foreground">{orientationReady || !rehab ? exercise.note : 'Individuelle Reha-Übungen und die Wiederaufnahme des Trainings stimmen behandelnde Fachpersonen mit dir ab.'}</p>
       </KwsSurface> : <>
         <KwsSurface className="grid gap-4 p-4 sm:p-5 lg:grid-cols-3">
           <figure className="space-y-2"><TrainingExerciseArt exerciseId={exercise.id} title={title} className="mx-auto w-full max-w-64 lg:max-w-none" /><figcaption className="text-xs text-muted-foreground">Schematische Illustration · Orientierung zur Übung</figcaption>{exercise.cues?.length ? <p className="text-sm font-medium leading-relaxed">{exercise.cues[0]}</p> : null}</figure>

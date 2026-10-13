@@ -16,7 +16,7 @@ function validSession(value: unknown): value is TrainingSession {
   if (!object(value) || !text(value.id, 100) || !text(value.title, 200) || !text(value.focus, 200) || !(value.minutes === null || finiteRange(value.minutes, 0, 1440)) || !Array.isArray(value.exercises) || value.exercises.length > 50) return false;
   if (value.rationale !== undefined && !text(value.rationale)) return false;
   for (const key of ['preparationMinutes', 'cooldownMinutes', 'budgetMinutes']) if (value[key] !== undefined && !finiteRange(value[key], 0, 1440)) return false;
-  return value.exercises.every(item => object(item) && text(item.id, 100) && text(item.exerciseId, 100) && getExercise(item.exerciseId)?.area !== 'rehab' && Boolean(getExercise(item.exerciseId)) && finiteRange(item.sets, 1, 20) && Number.isInteger(item.sets) && text(item.repetitions, 100) && finiteRange(item.restSeconds, 0, 600) && (item.reason === undefined || text(item.reason)) && (item.restScope === undefined || item.restScope === 'sets' || item.restScope === 'repetitions'));
+  return value.exercises.every(item => object(item) && text(item.id, 100) && text(item.exerciseId, 100) && getExercise(item.exerciseId)?.area !== 'rehab' && Boolean(getExercise(item.exerciseId)?.defaultDose) && finiteRange(item.sets, 1, 20) && Number.isInteger(item.sets) && text(item.repetitions, 100) && finiteRange(item.restSeconds, 0, 600) && (item.reason === undefined || text(item.reason)) && (item.restScope === undefined || item.restScope === 'sets' || item.restScope === 'repetitions'));
 }
 /** Intake answers are deliberately excluded; stored plans contain no complaint text. */
 export function readTraining(accountId: string): SavedTraining {

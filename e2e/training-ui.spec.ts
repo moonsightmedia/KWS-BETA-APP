@@ -10,7 +10,7 @@ async function open(page: Page, route = '/training') {
 }
 async function next(page: Page) { await page.getByRole('button', { name: 'Weiter', exact: true }).click(); }
 async function intake(page: Page, options: { age?: string; fixed?: boolean; constraints?: string; dialog?: boolean } = {}) {
-  if (options.dialog) { await open(page); await page.getByRole('button', { name: 'Assistent starten', exact: true }).click(); }
+  if (options.dialog) { await open(page); await page.getByRole('button', { name: 'Trainingschat öffnen', exact: true }).click(); }
   else await open(page, '/training/plan');
   await next(page);
   await page.getByRole('button', { name: options.age ?? '18 oder älter', exact: true }).click(); await next(page);
@@ -52,24 +52,26 @@ for (const width of [375, 768, 1280, 1920]) test(`layout and illustrated states 
 test('filters apply, cancel, reset and remove individually', async ({ page }) => {
   await open(page, '/training/library/strength?q=Brust');
   const list = page.getByRole('list', { name: 'Übungen', exact: true });
-  await expect(list.getByRole('listitem')).toHaveCount(5);
+  await expect(list.getByRole('listitem')).toHaveCount(3);
   await page.getByRole('button', { name: 'Filter', exact: true }).click();
-  await page.getByRole('button', { name: 'Kurzhanteln', exact: true }).click();
+  await page.getByRole('radio', { name: 'Kettlebell', exact: true }).check();
   await page.getByRole('button', { name: 'Filter schließen' }).click();
-  await expect(list.getByRole('listitem')).toHaveCount(5);
+  await expect(list.getByRole('listitem')).toHaveCount(3);
   await page.getByRole('button', { name: 'Filter', exact: true }).click();
-  await page.getByRole('button', { name: 'Kurzhanteln', exact: true }).click();
+  await page.getByRole('radio', { name: 'Kettlebell', exact: true }).check();
   await page.getByRole('button', { name: 'Übernehmen', exact: true }).click();
-  await expect(list.getByRole('listitem')).toHaveCount(2);
-  await page.getByRole('button', { name: 'Equipment Kurzhanteln entfernen' }).click();
-  await expect(list.getByRole('listitem')).toHaveCount(5);
+  await expect(list.getByRole('listitem')).toHaveCount(1);
+  await expect(list).toContainText('Kettlebell-Floor-Press');
+  await page.getByRole('button', { name: 'Equipment Kettlebell entfernen' }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(3);
   await page.getByRole('searchbox').fill('unpassend123');
   await expect(page.getByText('Keine passenden Übungen')).toBeVisible();
   await page.getByRole('button', { name: 'Filter zurücksetzen', exact: true }).click();
   await page.getByRole('button', { name: /Weitere .* anzeigen/ }).click();
-  await expect(list.getByRole('listitem')).toHaveCount(9);
+  await expect(list.getByRole('listitem')).toHaveCount(10);
+  while (await page.getByRole('button', { name: /Weitere .* anzeigen/ }).count()) await page.getByRole('button', { name: /Weitere .* anzeigen/ }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(16);
 });
-
 test('mixed manual session, unknown duration, reorder, editing, replacement and scheduling', async ({ page }) => {
   await open(page, '/training/exercises/incline-pushup');
   await page.getByRole('button', { name: 'Zur Einheit hinzufügen', exact: true }).click();
@@ -175,7 +177,7 @@ test('keyboard filter sheet preserves focus and topic selection resolves search'
   await expect(page.getByRole('group', { name:'Thema schnell wählen' }).getByRole('button', { name:'Brust',exact:true })).toHaveAttribute('aria-pressed','true');
   await page.getByRole('group', { name:'Thema schnell wählen' }).getByRole('button', { name:'Rücken',exact:true }).click();
   await expect(page.getByRole('searchbox')).toHaveValue('');
-  await expect(page.getByRole('list', { name:'Übungen',exact:true }).getByRole('listitem')).toHaveCount(2);
+  await expect(page.getByRole('list', { name:'Übungen',exact:true }).getByRole('listitem')).toHaveCount(3);
 });
 
 test('stale saved-session links cannot add or replace exercises', async ({ page }) => {
@@ -185,4 +187,52 @@ test('stale saved-session links cannot add or replace exercises', async ({ page 
   await open(page, '/training/library/boulder?session=missing&item=missing');
   await expect(page.getByRole('alert')).toContainText('Die ursprüngliche Übung ist nicht mehr verfügbar');
   await expect(page.getByRole('button', { name:'Präzise Fußplatzierung: als Ersatz wählen',exact:true })).toBeDisabled();
+});
+
+test('hall equipment, optional external equipment and supported spraywall passages', async ({ page }) => {
+  await open(page, '/training/library/strength?q=Kurzhanteln');
+  await expect(page.getByText('Keine passenden Übungen')).toBeVisible();
+  await page.getByRole('button', { name:'Alle Geräte einbeziehen',exact:true }).click();
+  await expect(page.getByRole('list', { name:'Übungen',exact:true }).getByRole('listitem')).toHaveCount(2);
+  await expect(page).toHaveURL(/allEquipment=1/);
+  await open(page, '/training/library/boulder?equipment=Spraywall');
+  await expect(page.getByRole('list', { name:'Übungen',exact:true }).getByRole('listitem')).toHaveCount(5);
+  await page.getByRole('button', { name:/Weitere .* anzeigen/ }).click();
+  await expect(page.getByRole('list', { name:'Übungen',exact:true }).getByRole('listitem')).toHaveCount(6);
+  await expect(page.getByRole('list', { name:'Übungen',exact:true })).not.toContainText('Heelhook');
+});
+
+test('typing has no outer outline or shadow; compact chat and own-unit entry', async ({ page }) => {
+  await page.setViewportSize({width:375,height:900}); await open(page);
+  const launcher = page.getByRole('button', {name:'Trainingschat öffnen',exact:true});
+  const box = await launcher.boundingBox(); expect(box!.width).toBe(56); expect(box!.height).toBe(56);
+  const own = await page.getByRole('link', {name:/Eigene Einheiten/}).boundingBox(); expect(own!.height).toBeLessThanOrEqual(80);
+  await launcher.click(); await expect(page.getByRole('dialog')).toBeVisible();
+  const chatBox = await page.getByRole('dialog').boundingBox(); expect(chatBox!.height).toBeCloseTo(630,0);
+  await page.keyboard.press('Escape'); await expect(launcher).toBeFocused();
+  await open(page, '/training/library/strength');
+  const field = page.getByRole('searchbox'); await field.click(); await field.fill('Kettlebell');
+  const focus = await field.evaluate(element=>{const style=getComputedStyle(element);return {outline:style.outlineStyle,shadow:style.boxShadow,border:style.borderWidth};});
+  expect(focus).toEqual({outline:'none',shadow:'none',border:'1px'});
+  await expect(page.getByRole('list', {name:'Übungen',exact:true}).getByRole('listitem')).toHaveCount(4);
+});
+
+test('fingerboard orientation has a graphic, source and no plannable prescription', async ({ page }) => {
+  await open(page, '/training/exercises/fingerboard-feet-supported');
+  await expect(page.getByRole('img', {name:/Schematische Illustration/})).toBeVisible();
+  await expect(page.getByRole('button', {name:'Zur Einheit hinzufügen',exact:true})).toHaveCount(0);
+  await expect(page.getByText('Umfang & Pausen', {exact:true})).toHaveCount(0);
+  await expect(page.getByText('Vor dem Fingertraining', {exact:true})).toBeVisible();
+  await page.getByText('Hintergrund & Quellen', {exact:true}).click();
+  await expect(page.getByRole('link', {name:/Devise/})).toBeVisible();
+});
+
+test('side plank uses hold phases rather than movement repetition labels', async ({ page }) => {
+  await open(page, '/training/exercises/side-plank');
+  await page.getByRole('button', {name:'Zur Einheit hinzufügen',exact:true}).click();
+  await page.getByRole('complementary', {name:'Deine Übungsauswahl'}).getByRole('link', {name:'Einheit ansehen',exact:true}).click();
+  await expect(page.getByRole('list', {name:'Übungen deiner Einheit'})).toContainText('Haltephasen');
+  await expect(page.getByRole('list', {name:'Übungen deiner Einheit'})).toContainText('je Seite');
+  await page.getByRole('button', {name:'Umfang anpassen'}).click();
+  await expect(page.getByLabel('Haltephasen', {exact:true})).toBeVisible();
 });

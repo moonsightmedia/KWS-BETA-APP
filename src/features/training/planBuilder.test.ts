@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrainingPlan } from './planBuilder';
-import { DEFAULT_ANSWERS, TRAINING_EXERCISES, getExercise, getSessionMinutes, makeSessionItem, repetitionUpperBound } from './data';
+import { DEFAULT_ANSWERS, KWS_AVAILABLE_EQUIPMENT, TRAINING_EXERCISES, getExercise, getSessionMinutes, isKwsExerciseAvailable, makeSessionItem, repetitionUpperBound } from './data';
 import type { TrainingAnswers, TrainingSession } from './types';
 
 const profile = (overrides: Partial<TrainingAnswers> = {}): TrainingAnswers => ({ ...DEFAULT_ANSWERS, ageGroup: 'adult', weaknesses: ['Fußtechnik', 'Körperposition'], ...overrides });
@@ -102,7 +102,9 @@ test('strict equipment selection does not invent a bench or dumbbells and uses a
   const bands = ids(profile({ goal: 'Kraft aufbauen', equipment: ['Widerstandsband', 'Boulderwand'] }));
   assert.ok(bands.includes('band-row'));
   assert.ok(bands.includes('band-press'));
-  assert.ok(ids(profile({ goal: 'Kraft aufbauen', equipment: ['Ohne Gerät'] })).every(id => ['incline-pushup', 'split-squat', 'dead-bug'].includes(id)));
+  const bodyOnly = ids(profile({ goal: 'Kraft aufbauen', equipment: ['Ohne Gerät'], weaknesses: [] }));
+  assert.ok(bodyOnly.length);
+  assert.ok(bodyOnly.every(id => ['incline-pushup', 'split-squat', 'dead-bug', 'glute-bridge', 'calf-raise'].includes(id)));
 });
 
 test('goal changes selected strength volume; input is unchanged and output deterministic', () => {
@@ -115,13 +117,13 @@ test('goal changes selected strength volume; input is unchanged and output deter
 });
 
 test('all active cards have coherent defaults; rehab has useful orientation and stays unplannable', () => {
-  assert.equal(TRAINING_EXERCISES.filter(exercise => exercise.area !== 'rehab').length, 18);
+  assert.equal(TRAINING_EXERCISES.filter(exercise => exercise.area !== 'rehab' && exercise.contentKind !== 'orientation').length, 28);
   for (const exercise of TRAINING_EXERCISES) {
     assert.ok(exercise.steps.length >= 3);
     assert.ok(exercise.cues?.length);
     assert.ok(exercise.mistakes?.length);
     assert.ok(exercise.sources.length);
-    if (exercise.area === 'rehab') {
+    if (exercise.area === 'rehab' || exercise.contentKind === 'orientation') {
       assert.equal(exercise.planEligible, false);
       assert.throws(() => makeSessionItem(exercise.id));
     } else {
@@ -133,7 +135,75 @@ test('all active cards have coherent defaults; rehab has useful orientation and 
   }
 });
 
+test('KWS inventory uses actual equipment and never infers dumbbells from the bank', () => {
+  assert.deepEqual(DEFAULT_ANSWERS.equipment, KWS_AVAILABLE_EQUIPMENT);
+  assert.ok(!KWS_AVAILABLE_EQUIPMENT.includes('Kurzhanteln'));
+  assert.ok(!KWS_AVAILABLE_EQUIPMENT.includes('Widerstandsband'));
+  assert.ok(isKwsExerciseAvailable(getExercise('kettlebell-row')!));
+  assert.ok(!isKwsExerciseAvailable(getExercise('dumbbell-bench')!));
+  assert.ok(!isKwsExerciseAvailable(getExercise('band-row')!));
+  assert.ok(TRAINING_EXERCISES.every(exercise => exercise.kwsAvailable === isKwsExerciseAvailable(exercise)));
+  const result = buildTrainingPlan(profile({ goal: 'Kraft aufbauen', strengthExperience: 'Regelmäßig' }));
+  assert.equal(result.plan.status, 'draft');
+  for (const id of result.sessions.flatMap(session => session.exercises.map(item => item.exerciseId))) assert.ok(isKwsExerciseAvailable(getExercise(id)!));
+});
+
+test('kettlebell alternatives appear in a familiar strength week, with bank requirements and realistic time', () => {
+  const result = buildTrainingPlan(profile({ goal: 'Kraft aufbauen', strengthExperience: 'Regelmäßig', minutes: 60 }));
+  const selected = result.sessions.flatMap(session => session.exercises.map(item => item.exerciseId));
+  for (const id of ['kettlebell-row', 'kettlebell-goblet-squat', 'kettlebell-floor-press', 'kettlebell-deadlift', 'ez-curl']) assert.ok(selected.includes(id), id);
+  assert.ok(result.sessions.every(session => session.minutes !== null && session.minutes <= 60));
+  const noBank = ids(profile({ goal: 'Kraft aufbauen', strengthExperience: 'Regelmäßig', equipment: ['Kettlebell', 'Boulderwand'] }));
+  assert.ok(noBank.includes('kettlebell-floor-press'));
+  assert.ok(noBank.includes('kettlebell-goblet-squat'));
+  assert.ok(!noBank.includes('kettlebell-row'));
+  assert.ok(!ids(profile({ goal: 'Kraft aufbauen', strengthExperience: 'Regelmäßig', equipment: ['Kurzhanteln', 'Boulderwand'] })).includes('dumbbell-bench'));
+  assert.ok(ids(profile({ goal: 'Kraft aufbauen', strengthExperience: 'Regelmäßig', equipment: ['Kurzhanteln', 'Trainingsbank', 'Boulderwand'] })).includes('dumbbell-bench'));
+});
+
+test('bodyweight introduction and fingerboard orientation do not become loaded prescriptions', () => {
+  const newcomer = profile({ experience: 'Ich fange gerade an', goal: 'Kraft aufbauen' });
+  const selected = ids(newcomer);
+  assert.ok(selected.includes('bodyweight-squat'));
+  assert.ok(!selected.some(id => id.startsWith('kettlebell-') || id === 'ez-curl' || id === 'fingerboard-feet-supported'));
+  const orientation = getExercise('fingerboard-feet-supported')!;
+  assert.equal(orientation.contentKind, 'orientation');
+  assert.equal(orientation.defaultDose, undefined);
+  assert.equal(orientation.planEligible, false);
+  assert.equal(orientation.requiresCoach, true);
+  assert.throws(() => makeSessionItem(orientation.id));
+  assert.ok(!ids(profile({ strengthExperience: 'Regelmäßig', coachGuided: true })).includes(orientation.id));
+});
+
+test('Spraywall can supply suitable learning passages without inventing a separate endurance recipe', () => {
+  const result = buildTrainingPlan(profile({ equipment: ['Körpergewicht', 'Spraywall'] }));
+  assert.equal(result.plan.status, 'draft');
+  assert.ok(result.sessions.some(session => session.exercises.some(item => item.exerciseId === 'edge-choice')));
+  assert.ok(result.plan.notes?.some(note => note.includes('Spraywall')));
+  assert.ok(getExercise('edge-choice')?.alternativeEquipment?.includes('Spraywall'));
+  assert.ok(!getExercise('smearing')?.alternativeEquipment?.includes('Spraywall'));
+  const unsupported = buildTrainingPlan(profile({ equipment: ['Körpergewicht', 'Spraywall'], weaknesses: ['Platte'], fixedDays: [5] }));
+  assert.equal(unsupported.plan.status, 'needs-review');
+  assert.ok(unsupported.issues.some(issue => issue.code === 'spraywall-specific-setup'));
+  assert.ok(unsupported.sessions.every(session => !session.exercises.length));
+});
+
+test('short side-plank holds preserve their unit and count per-side pauses', () => {
+  const exercise = getExercise('side-plank')!;
+  assert.ok(exercise.dose.includes('Haltephasen'));
+  assert.equal(exercise.defaultDose?.repetitionUnit, 'Haltephasen');
+  assert.ok(exercise.rest.includes('zwischen Haltephasen'));
+  assert.ok(!exercise.rest.includes('zwischen Versuchen'));
+  assert.ok(exercise.dose.includes('10 Sekunden'));
+  const item = makeSessionItem(exercise.id);
+  assert.equal(item.sets, 1);
+  assert.equal(item.repetitions, '2');
+  assert.equal(getSessionMinutes({ id: 'test', title: '', focus: '', minutes: 0, exercises: [item] }), 6);
+});
+
 test('time estimate responds to repetitions and rest, counts sides, and leaves freeform unknown', () => {
+  assert.equal(getSessionMinutes({ id: 'fixed', title: 'Bestehender Termin', focus: '', minutes: null, exercises: [] }), null);
+  assert.equal(getSessionMinutes({ id: 'empty', title: 'Neue Einheit', focus: '', minutes: 0, exercises: [] }), null);
   const session = (id: string): TrainingSession => ({ id, title: '', focus: '', minutes: 0, preparationMinutes: 8, cooldownMinutes: 3, exercises: [makeSessionItem(id)] });
   const strength = session('pushup');
   assert.equal(getSessionMinutes(strength), 17);

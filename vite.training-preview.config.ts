@@ -8,6 +8,7 @@ export default defineConfig(({ command }) => {
   if (command !== 'serve') throw new Error('Die Training-Demo ist ausschließlich eine lokale Entwicklungsvorschau.');
   return {
     server: { host: '127.0.0.1', port: 5184, strictPort: true },
+    optimizeDeps: { entries: ['test/fixtures/training-preview.tsx'] },
     define: { 'import.meta.env.VITE_TRAINING_UI_PREVIEW': JSON.stringify('true') },
     resolve: { alias: { '@': path.resolve(__dirname, './src') }, dedupe: ['react', 'react-dom'] },
     plugins: [{

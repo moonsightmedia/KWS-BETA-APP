@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, CalendarDays, Check, Clock3, Dumbbell, Flag, Footprints, MessageCircle, Pencil, PersonStanding, Target } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Check, Clock3, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { KwsSurface } from '@/components/ui/kws-surface';
 import { useTraining } from '@/features/training/TrainingContext';
@@ -29,7 +29,6 @@ const QUESTIONS: { key: QuestionKey; phase: number; title: string; prompt: strin
   { key: 'equipment', phase: 4, title: 'Equipment', prompt: 'Was steht dir zum Trainieren zur Verfügung?', options: TRAINING_EQUIPMENT },
   { key: 'constraints', phase: 5, title: 'Einschränkungen', prompt: 'Gibt es etwas, das vor einer Planung geklärt werden muss?', hint: 'Keine Diagnose angeben. Beschwerden werden fachlich geklärt, nicht vom Assistenten behandelt.', options: ['Keine', 'Wiedereinstieg nach Pause', 'Belastung aktuell eingeschränkt', 'Möchte ich überspringen'] },
 ];
-const iconFor = (value: string) => value === 'Fußtechnik' ? Footprints : value === 'Körperposition' ? PersonStanding : value.includes('Kraft') ? Dumbbell : value.includes('Wettkampf') ? Flag : Target;
 const ageLabel = (value?: string) => value === 'adult' ? '18 oder älter' : value === 'minor' ? '16–17 Jahre' : 'Keine Angabe';
 function answerLabel(answers: AnswersWithAge, key: QuestionKey) {
   if (key === 'ageGroup') return ageLabel(answers.ageGroup);
@@ -53,11 +52,13 @@ export function TrainingConversation({ onComplete, contained = false }: { onComp
   const [turn, setTurn] = useState(0);
   const [confirmed, setConfirmed] = useState<number[]>([]);
   const [editingReview, setEditingReview] = useState(false);
+  const [coachAnswer, setCoachAnswer] = useState<'yes' | 'no' | 'unknown'>(storedAnswers.coachGuided ? 'yes' : 'unknown');
   const [error, setError] = useState('');
   const promptRef = useRef<HTMLHeadingElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const review = turn === QUESTIONS.length;
   const question = QUESTIONS[turn];
+  const describeAnswer = (key: QuestionKey) => `${answerLabel(answers, key)}${key === 'weaknesses' && answers.weaknesses.includes('Hooks') ? ` · Anleitung: ${coachAnswer === 'yes' ? 'Ja, vor Ort' : coachAnswer === 'no' ? 'Nein' : 'Noch offen'}` : ''}`;
   const phase = review ? 5 : question.phase;
   useEffect(() => {
     promptRef.current?.focus({ preventScroll: true });
@@ -111,12 +112,10 @@ export function TrainingConversation({ onComplete, contained = false }: { onComp
     return <div className="grid grid-cols-2 gap-2" role="group" aria-label={question.prompt}>
       {options.map(value => {
         const selected = Array.isArray(current) ? current.includes(value as never) : String(current) === value;
-        const Icon = iconFor(value);
         return <Button key={value} type="button" variant="secondary" aria-pressed={selected}
           disabled={multiple && Array.isArray(current) && current.length >= 2 && !selected && value !== UNKNOWN}
           onClick={() => pick(key, value)}
           className={cn('h-auto min-h-11 justify-start whitespace-normal px-3 py-3 text-left text-xs sm:text-sm', value === UNKNOWN && 'col-span-2', selected && 'bg-primary text-primary-foreground hover:bg-primary/95')}>
-          {(key === 'goal' || multiple) && <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />}
           <span className="flex-1">{customLabels?.[value] ?? value}</span>{selected && <Check className="h-4 w-4 shrink-0" aria-hidden="true" />}
         </Button>;
       })}
@@ -132,13 +131,12 @@ export function TrainingConversation({ onComplete, contained = false }: { onComp
     </div>
     <div ref={scrollRef} className={cn('space-y-4', contained ? 'min-h-0 flex-1 overflow-y-auto px-4 py-4' : 'flex-1 py-5')}>
       {!review && confirmed.filter(index => index < turn).slice(-2).map(index => <div key={index} className="ml-8 flex justify-end">
-        <button type="button" onClick={() => edit(index)} className="max-w-full rounded-kws-control bg-primary/10 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${QUESTIONS[index].title} bearbeiten: ${answerLabel(answers, QUESTIONS[index].key)}`}>
+        <button type="button" onClick={() => edit(index)} className="max-w-full rounded-kws-control bg-primary/10 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${QUESTIONS[index].title} bearbeiten: ${describeAnswer(QUESTIONS[index].key)}`}>
           <span className="flex items-center gap-2 text-xs text-muted-foreground">Du · {QUESTIONS[index].title}<Pencil className="h-3 w-3" aria-hidden="true" /></span>
-          <span className="mt-1 block text-sm">{answerLabel(answers, QUESTIONS[index].key)}</span>
+          <span className="mt-1 block text-sm">{describeAnswer(QUESTIONS[index].key)}</span>
         </button>
       </div>)}
       <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-kws-control bg-secondary text-primary-ink"><MessageCircle className="h-5 w-5" aria-hidden="true" /></span>
         <KwsSurface className="min-w-0 flex-1 space-y-2 p-4">
           <h2 ref={promptRef} tabIndex={-1} className="text-sm font-semibold leading-relaxed outline-none">{review ? 'Passt das so? Prüfe deine Angaben, bevor du die Beispielwoche erstellst.' : question.prompt}</h2>
           {!review && question.hint && <p className="text-xs leading-relaxed text-muted-foreground">{question.hint}</p>}
@@ -146,10 +144,14 @@ export function TrainingConversation({ onComplete, contained = false }: { onComp
       </div>
       {review ? <KwsSurface className="divide-y divide-border px-4" role="region" aria-label="Angaben prüfen">
         {QUESTIONS.map((item, index) => <button key={item.key} type="button" onClick={() => edit(index)} className="flex min-h-14 w-full items-center gap-3 rounded-kws-control py-3 text-left hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <span className="min-w-0 flex-1"><span className="block text-xs text-muted-foreground">{item.title}</span><span className="mt-1 block text-sm">{answerLabel(answers, item.key)}</span></span><Pencil className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="min-w-0 flex-1"><span className="block text-xs text-muted-foreground">{item.title}</span><span className="mt-1 block text-sm">{describeAnswer(item.key)}</span></span><Pencil className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </button>)}
       </KwsSurface> : <div className="space-y-3" key={question.key}>
         {question.options && choices(question.options, question.key)}
+        {question.key === 'weaknesses' && answers.weaknesses.includes('Hooks') && <fieldset className="space-y-2 border-t border-border pt-3">
+          <legend className="pt-3 text-xs font-medium">Übst du Hooks mit qualifizierter Anleitung vor Ort?</legend>
+          <div className="grid grid-cols-3 gap-2">{([{ value: 'yes', label: 'Ja' }, { value: 'no', label: 'Nein' }, { value: 'unknown', label: 'Noch offen' }] as const).map(option => <Button key={option.value} type="button" variant="secondary" aria-pressed={coachAnswer === option.value} onClick={() => { setCoachAnswer(option.value); setAnswers(previous => ({ ...previous, coachGuided: option.value === 'yes' })); }} className={cn('px-2 text-xs', coachAnswer === option.value && 'bg-primary text-primary-foreground hover:bg-primary/95')}>{option.label}</Button>)}</div>
+        </fieldset>}
         {question.key === 'ageGroup' && choices(['adult', 'minor', 'unknown'], 'ageGroup', { adult: '18 oder älter', minor: '16–17 Jahre', unknown: 'Keine Angabe' })}
         {question.key === 'grade' && <>
           <div className="grid grid-cols-4 gap-2" role="group" aria-label="KWS-Hallengrad">{['1', '2', '3', '4', '5', '6', '7', '8'].map(value => <Button key={value} variant="secondary" type="button" aria-pressed={answers.grade === value} aria-label={`Hallengrad ${value}`} onClick={() => pick('grade', value)} className={cn('h-12 text-base', answers.grade === value && 'bg-primary text-primary-foreground hover:bg-primary/95')}>{value}</Button>)}</div>

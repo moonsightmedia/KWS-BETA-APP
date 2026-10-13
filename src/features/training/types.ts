@@ -1,10 +1,11 @@
 export type TrainingArea = 'strength' | 'boulder' | 'rehab';
-export type TrainingEquipment = 'Körpergewicht' | 'Kurzhanteln' | 'Widerstandsband' | 'Klimmzugstange' | 'Boulderwand' | 'Ohne Gerät';
+export type TrainingEquipment = 'Körpergewicht' | 'Kurzhanteln' | 'Widerstandsband' | 'Klimmzugstange' | 'Boulderwand' | 'Ohne Gerät' | 'Kettlebell' | 'Trainingsbank' | 'EZ-Stange' | 'Fingerboard' | 'Spraywall';
 
 /** Editorial starting dose; not a clinically validated individual prescription. */
 export interface TrainingDose {
   sets: number;
   repetitions: string;
+  repetitionUnit?: 'Wiederholungen' | 'Versuche' | 'Haltephasen';
   restSeconds: number;
   restScope: 'sets' | 'repetitions';
   secondsPerRepetition: number;
@@ -35,6 +36,10 @@ export interface TrainingExercise {
   setupRequirements?: string[];
   defaultDose?: TrainingDose;
   requiresCoach?: boolean;
+  requiredEquipment?: TrainingEquipment[];
+  alternativeEquipment?: TrainingEquipment[];
+  contentKind?: 'exercise' | 'orientation';
+  kwsAvailable?: boolean;
   /** Does not certify execution; identifies candidates for the draft generator. */
   planEligible?: boolean;
 }
