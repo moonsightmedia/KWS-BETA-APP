@@ -6,7 +6,7 @@ Apple Developer live neu geladen: weiterhin Janosch Althoff als Einzelperson, Or
 
 Alle drei iPhone- und alle drei iPad-Bildvorschauen sind jetzt vollständig gerendert, keine Cloud-Platzhalter mehr. Jeweils Originalansichten Übersicht, Filter und Detail. Nachweise unter `test-results/apple-store-2026-10-13/{iphone,ipad}-screenshots-ready.jpg`; Dateien aus geprüftem Lauf `38254354855` bleiben unverändert und auf dem NAS erhalten.
 
-Gmail-Fallprüfung: zum Supportfall `102994128035` nur Eingangsbestätigungen gefunden. Apples Organisationsmail vom 12. Oktober verlangt Identitäts-, Beschäftigungs-/Vertretungs- und Unternehmensnachweise. Ein zwischenzeitlicher Upload dieser Dokumente wurde nicht verifiziert; keine Dokumente eigenständig hochgeladen. Keine Freigabe oder Zusage einer Bearbeitungsfrist gefunden.
+Gmail-Fallprüfung aktualisiert nach Nutzerkorrektur: Der Auftraggeber hat die UG-Nachweise am 12. Oktober bereits eingereicht. Apple bestätigt den Eingang mit „We received your documents.“ vom 12. Oktober um 15:37:52 Uhr Europe/Berlin, Nachricht `1a13055829db0f4f`. Die vorherige Aussage eines unbestätigten Uploads ist damit überholt; die Bestätigung wurde zuvor übersehen. Apple kündigt Prüfung und baldige Rückmeldung an, ohne feste Bearbeitungsfrist. Zum separaten Supportfall `102994128035` weiterhin keine bestätigte Wiederfreigabe gefunden. Keine privaten Dokumente selbst hochgeladen oder in Git gespeichert. UG-Organisationsprüfung und die nachfolgend beschriebene DSA-Händlerverifizierung unter Janosch sind getrennte Vorgänge.
 
 ## Händlerangaben
 

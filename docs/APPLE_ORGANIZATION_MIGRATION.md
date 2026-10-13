@@ -1,6 +1,8 @@
 # Apple-Mitgliedschaft auf Moonsight Media umstellen
 
-Stand: 12. Oktober 2026. Auftraggeber wünscht Moonsight Media als Herausgeber seiner Apps; Kletterwelt bleibt als Betreiber der KWS-App vorgesehen.
+Stand: 13. Oktober 2026. Auftraggeber wünscht Moonsight Media als Herausgeber seiner Apps; Kletterwelt bleibt als Betreiber der KWS-App vorgesehen.
+
+**Unterlageneingang bestätigt:** Der Auftraggeber hat die angeforderten UG-Nachweise am 12. Oktober eingereicht. Live-Mailprüfung am 13. Oktober bestätigt Apples E-Mail „We received your documents.“ vom 12. Oktober um 15:37:52 Uhr Europe/Berlin: Apple hat die Unterlagen erhalten und wird sie prüfen; Rückmeldung so bald wie möglich, kein zugesagter Abschlusszeitpunkt. Gmail-Nachricht `1a13055829db0f4f`, Apple Developer Relations. Keine Unterlagen in Git übernommen. Die Eingangsmail bestätigt weder bereits abgeschlossene Organisationsumstellung noch wieder aktiven Signierungszugang. Die separate DSA-Händlerprüfung unter dem bisherigen Einzelpersonen-Konto fordert aktuell einen Namensnachweis; dies ist keine Aussage, dass die bereits eingereichten UG-Unterlagen fehlen. Keine erneute UG-Einreichung notwendig, solange Apple nicht ausdrücklich nachfordert.
 
 Spätere Entscheidung vom selben Tag: Erste Veröffentlichung der KWS-App unter Janosch Althoff ausdrücklich autorisiert. Auf Moonsight als Verkäufer muss für diesen Release nicht gewartet werden. Der bestehende Migrationsantrag wurde damit nicht automatisch storniert. Nach gesonderter Versandfreigabe wurde der vorbereitete Supporttext im vorhandenen Fall 102994128035 gesendet; Apple bestätigt den Eingang. Er bittet um Freigabe für eine individuelle Veröffentlichung bei weiterlaufender Umstellung und um Erläuterung der Optionen vor einer Änderung oder Stornierung. Keine Rücknahme durchgeführt, keine Reaktivierung bestätigt. Apples weiter bestehende Deaktivierung verhindert aktuell den neuen signierten Build mit korrektem App-Symbol.
 
