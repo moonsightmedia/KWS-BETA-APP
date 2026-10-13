@@ -13,7 +13,7 @@ on:
         required: true
         default: full
         type: choice
-        options: [full, encoder]
+        options: [full, encoder, guest]
 
 permissions:
   contents: read
@@ -91,6 +91,8 @@ jobs:
           test_filter=()
           if [ "$TEST_SUITE" = encoder ]; then
             test_filter=(-only-testing:KWSEncoderTests)
+          elif [ "$TEST_SUITE" = guest ]; then
+            test_filter=(-only-testing:KWSScreenshotTests)
           fi
           xcodebuild -workspace ios/App/App.xcworkspace -scheme KWSScreenshots \
             "${test_filter[@]}" \

@@ -33,14 +33,31 @@ final class StoreScreenshotTests: XCTestCase {
         add(attachment)
     }
 
+    private func tapStableButton(_ label: String) {
+        let next = app.buttons[label]
+        XCTAssertTrue(next.waitForExistence(timeout: 30), "Button must exist: \(label)")
+        let deadline = Date().addingTimeInterval(30)
+        var previousFrame: CGRect?
+        repeat {
+            let frame = next.frame
+            if next.isHittable, !frame.isEmpty, previousFrame == frame {
+                next.tap()
+                return
+            }
+            previousFrame = frame
+            Thread.sleep(forTimeInterval: 0.5)
+        } while Date() < deadline
+        XCTFail("Button must settle and be hittable before one tap: \(label)")
+    }
+
     func testPublicBoulderJourney() throws {
         XCTAssertTrue(app.staticTexts["Willkommen!"].waitForExistence(timeout: 60), "First native launch must display onboarding")
         for title in ["Boulder durchstöbern", "Statistiken", "Beta entdecken", "Feedback & Support"] {
-            app.buttons["Weiter"].tap()
+            tapStableButton("Weiter")
             XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 30),
                           "One tap must advance onboarding to \(title)")
         }
-        app.buttons["Los geht's!"].tap()
+        tapStableButton("Los geht's!")
         // A loaded guest page can remain covered if the final tap did not land.
         // Report that boundary directly instead of calling it a backend failure.
         let onboardingClosed = XCTNSPredicateExpectation(
