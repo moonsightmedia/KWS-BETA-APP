@@ -263,6 +263,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                          audioOutput: audioOutput, audioInput: audioInput,
                          sourceDuration: sourceDuration, sourceVideoDuration: sourceVideoDuration,
                          outputFrameRate: outputFrameRate,
+                         requestedBitrate: requestedBitrate, encodingAttempt: attempt,
                          expectedSize: outputSize,
                          maximumFrameCount: sourceFrameCount,
                          expectedAudioChannels: expectedAudioChannels,
@@ -298,6 +299,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                               audioOutput: AVAssetReaderOutput?, audioInput: AVAssetWriterInput?,
                               sourceDuration: Double, sourceVideoDuration: Double,
                               outputFrameRate: Double,
+                              requestedBitrate: Int, encodingAttempt: Int,
                               expectedSize: CGSize,
                               maximumFrameCount: Int,
                               expectedAudioChannels: Int?, expectedAudioSampleRate: Double?,
@@ -368,7 +370,14 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                            let fps = diagnostic.userInfo["frameRate"] as? Double,
                            fps > 0, fps <= self.maxFrameRate + 0.25,
                            onBitrateOvershoot(bitrate) { return }
-                        self.finish(job); call.reject("Encoded video validation failed", nil, error)
+                        var details = diagnostic.userInfo
+                        details["requestedVideoBitrate"] = requestedBitrate
+                        details["encodingAttempts"] = encodingAttempt + 1
+                        details["outputWidth"] = Int(expectedSize.width)
+                        details["outputHeight"] = Int(expectedSize.height)
+                        self.finish(job)
+                        call.reject("Encoded video validation failed", nil,
+                            NSError(domain: diagnostic.domain, code: diagnostic.code, userInfo: details))
                     }
                 }
             }
