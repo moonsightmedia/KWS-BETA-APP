@@ -220,6 +220,9 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
             videoInput.expectsMediaDataInRealTime = false
             guard writer.canAdd(videoInput) else { throw EncoderError.cannotAdd("video writer input") }
             writer.add(videoInput)
+            let videoAdaptor = AVAssetWriterInputPixelBufferAdaptor(
+                assetWriterInput: videoInput, sourcePixelBufferAttributes: nil
+            )
 
             var audioOutput: AVAssetReaderTrackOutput?
             var audioInput: AVAssetWriterInput?
@@ -255,7 +258,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
             writer.startSession(atSourceTime: .zero)
 
             appendTracks(reader: reader, writer: writer, job: job,
-                         videoOutput: videoOutput, videoInput: videoInput,
+                         videoOutput: videoOutput, videoInput: videoInput, videoAdaptor: videoAdaptor,
                          audioOutput: audioOutput, audioInput: audioInput,
                          sourceDuration: sourceDuration, sourceVideoDuration: sourceVideoDuration,
                          outputFrameRate: outputFrameRate,
@@ -290,6 +293,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private func appendTracks(reader: AVAssetReader, writer: AVAssetWriter, job: EncodingJob,
                               videoOutput: AVAssetReaderOutput, videoInput: AVAssetWriterInput,
+                              videoAdaptor: AVAssetWriterInputPixelBufferAdaptor,
                               audioOutput: AVAssetReaderOutput?, audioInput: AVAssetWriterInput?,
                               sourceDuration: Double, sourceVideoDuration: Double,
                               outputFrameRate: Double,
@@ -303,6 +307,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
         let result = AppendResult()
         group.enter()
         append(output: videoOutput, input: videoInput, writer: writer, job: job,
+               videoAdaptor: videoAdaptor,
                queueLabel: "de.kletterwelt.upload-master-encoder.video",
                minimumFrameSpacing: 1.0 / outputFrameRate) { error in
             result.record(error)
@@ -370,7 +375,8 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private func append(output: AVAssetReaderOutput, input: AVAssetWriterInput, writer: AVAssetWriter,
-                        job: EncodingJob, queueLabel: String, minimumFrameSpacing: Double?,
+                        job: EncodingJob, videoAdaptor: AVAssetWriterInputPixelBufferAdaptor? = nil,
+                        queueLabel: String, minimumFrameSpacing: Double?,
                         completion: @escaping (Error?) -> Void) {
         let callbackQueue = DispatchQueue(label: queueLabel)
         let gate = CompletionGate(completion)
@@ -382,7 +388,6 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                 guard let sample = output.copyNextSampleBuffer() else {
                     input.markAsFinished(); gate.finish(nil); return
                 }
-                var sampleToWrite = sample
                 if let minimumFrameSpacing {
                     // Composition output can carry marker buffers and source timing.
                     // Only image samples participate in frame selection/rate control.
@@ -393,23 +398,19 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                         continue
                     }
                     lastWritten = pts
-                    var timing = CMSampleTimingInfo(
-                        duration: CMTime(seconds: minimumFrameSpacing, preferredTimescale: 60_000),
-                        presentationTimeStamp: pts,
-                        decodeTimeStamp: CMSampleBufferGetDecodeTimeStamp(sample)
-                    )
-                    var timedSample: CMSampleBuffer?
-                    let status = CMSampleBufferCreateCopyWithNewTiming(
-                        allocator: kCFAllocatorDefault, sampleBuffer: sample,
-                        sampleTimingEntryCount: 1, sampleTimingArray: &timing,
-                        sampleBufferOut: &timedSample
-                    )
-                    guard status == noErr, let timedSample else {
+                }
+                let appended: Bool
+                if let videoAdaptor {
+                    // Feed raw composed pixels, not source compression attachments.
+                    guard let pixels = CMSampleBufferGetImageBuffer(sample) else {
                         input.markAsFinished(); gate.finish(EncoderError.appendFailed); return
                     }
-                    sampleToWrite = timedSample
+                    appended = videoAdaptor.append(pixels,
+                        withPresentationTime: CMSampleBufferGetPresentationTimeStamp(sample))
+                } else {
+                    appended = input.append(sample)
                 }
-                if !input.append(sampleToWrite) {
+                if !appended {
                     input.markAsFinished()
                     gate.finish(writer.error ?? EncoderError.appendFailed)
                     return
