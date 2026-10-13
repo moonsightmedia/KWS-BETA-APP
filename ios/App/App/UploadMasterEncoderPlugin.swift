@@ -250,6 +250,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                          videoOutput: videoOutput, videoInput: videoInput,
                          audioOutput: audioOutput, audioInput: audioInput,
                          sourceDuration: sourceDuration, sourceVideoDuration: sourceVideoDuration,
+                         outputFrameRate: outputFrameRate,
                          expectedSize: outputSize,
                          maximumFrameCount: sourceFrameCount,
                          expectedAudioChannels: expectedAudioChannels,
@@ -268,6 +269,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                               videoOutput: AVAssetReaderOutput, videoInput: AVAssetWriterInput,
                               audioOutput: AVAssetReaderOutput?, audioInput: AVAssetWriterInput?,
                               sourceDuration: Double, sourceVideoDuration: Double, expectedSize: CGSize,
+                              outputFrameRate: Double,
                               maximumFrameCount: Int,
                               expectedAudioChannels: Int?, expectedAudioSampleRate: Double?,
                               expectedAudioDuration: Double?,
@@ -277,7 +279,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
         group.enter()
         append(output: videoOutput, input: videoInput, writer: writer, job: job,
                queueLabel: "de.kletterwelt.upload-master-encoder.video",
-               minimumFrameSpacing: 1.0 / maxFrameRate) { error in
+               minimumFrameSpacing: 1.0 / outputFrameRate) { error in
             result.record(error)
             if error != nil { job.interruptPendingAppends() }
             group.leave()

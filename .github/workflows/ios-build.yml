@@ -8,6 +8,12 @@ on:
         required: true
         default: codex/hostinger-migration
         type: string
+      suite:
+        description: Tests to run (full also captures Store screenshots)
+        required: true
+        default: full
+        type: choice
+        options: [full, encoder]
 
 permissions:
   contents: read
@@ -72,6 +78,8 @@ jobs:
           print('Selected ' + chosen['name'])
           PY
       - name: Test native guest views and the real upload encoder
+        env:
+          TEST_SUITE: ${{ inputs.suite }}
         run: |
           set -eo pipefail
           mkdir -p output/ios-screenshots
@@ -80,7 +88,12 @@ jobs:
           xcrun simctl bootstatus "$SIMULATOR_ID" -b
           xcrun simctl ui "$SIMULATOR_ID" appearance light
           xcrun simctl status_bar "$SIMULATOR_ID" override --time 9:41 --batteryState charged --batteryLevel 100
+          test_filter=()
+          if [ "$TEST_SUITE" = encoder ]; then
+            test_filter=(-only-testing:KWSEncoderTests)
+          fi
           xcodebuild -workspace ios/App/App.xcworkspace -scheme KWSScreenshots \
+            "${test_filter[@]}" \
             -configuration Release -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -derivedDataPath "$RUNNER_TEMP/kws-screenshot-build" \
             -resultBundlePath output/ios-screenshots/GuestJourney.xcresult \
@@ -97,6 +110,7 @@ jobs:
             xcrun xcresulttool get test-results summary --path output/ios-screenshots/GuestJourney.xcresult > output/ios-screenshots/test-summary.json
           fi
       - name: Verify the original Store screenshots
+        if: inputs.suite != 'encoder'
         run: python3 scripts/ios/export-store-screenshots.py output/ios-screenshots/attachments output/ios-screenshots/store ${{ matrix.family }}
       - uses: actions/upload-artifact@v4
         if: always()
