@@ -2,7 +2,7 @@ import AVFoundation
 import Capacitor
 import VideoToolbox
 
-/** KWS Upload Master Encoder v1.2.2. App-local and registered by KWSBridgeViewController. */
+/** KWS Upload Master Encoder v1.2.3. App-local and registered by KWSBridgeViewController. */
 @objc(UploadMasterEncoderPlugin)
 public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "UploadMasterEncoderPlugin"
@@ -13,7 +13,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "deleteFile", returnType: CAPPluginReturnPromise)
     ]
 
-    private let encoderVersion = "1.2.2"
+    private let encoderVersion = "1.2.3"
     // Matches the server HD contract. The validation headroom permits normal
     // encoder variance without allowing an unexpectedly expensive upload.
     private let targetVideoBitrate = 4_000_000
@@ -138,12 +138,13 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
         encodeLoadedAsset(asset, inputURL: inputURL, job: job, call: call,
                           expectedDuration: expectedDuration, expectedWidth: expectedWidth,
                           expectedHeight: expectedHeight, requestedBitrate: targetVideoBitrate,
-                          maximumLongEdge: 1920, attempt: 0)
+                          maximumLongEdge: 1920, maximumOutputFrameRate: maxFrameRate, attempt: 0)
     }
 
     private func encodeLoadedAsset(_ asset: AVAsset, inputURL: URL, job: EncodingJob, call: CAPPluginCall,
                                    expectedDuration: Double?, expectedWidth: Int?, expectedHeight: Int?,
-                                   requestedBitrate: Int, maximumLongEdge: Int, attempt: Int) {
+                                   requestedBitrate: Int, maximumLongEdge: Int,
+                                   maximumOutputFrameRate: Double, attempt: Int) {
         guard !job.isCancelled else { finish(job); rejectCancelled(call); return }
         if attempt > 0, !job.renewOutputURL() { finish(job); rejectCancelled(call); return }
         let sourceVideos = asset.tracks(withMediaType: .video)
@@ -202,10 +203,12 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
             let writer = try AVAssetWriter(outputURL: job.outputURL, fileType: .mp4)
             writer.shouldOptimizeForNetworkUse = true
 
+            let outputFrameRate = min(maximumOutputFrameRate,
+                                      sourceFrameRate > 0 ? sourceFrameRate : maximumOutputFrameRate)
             let composition = makeVideoComposition(asset: asset, track: videoTrack,
                                                    sourceDisplaySize: sourceDisplaySize,
                                                    outputSize: outputSize,
-                                                   sourceFrameRate: sourceFrameRate)
+                                                   sourceFrameRate: outputFrameRate)
             let videoOutput = AVAssetReaderVideoCompositionOutput(videoTracks: [videoTrack], videoSettings: [
                 kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
             ])
@@ -214,7 +217,6 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
             guard reader.canAdd(videoOutput) else { throw EncoderError.cannotAdd("video composition output") }
             reader.add(videoOutput)
 
-            let outputFrameRate = min(maxFrameRate, sourceFrameRate > 0 ? sourceFrameRate : maxFrameRate)
             let settings = videoSettings(size: outputSize, frameRate: outputFrameRate, bitrate: requestedBitrate)
             guard writer.canApply(outputSettings: settings, forMediaType: .video) else {
                 throw EncoderError.cannotAdd("unsupported video compression settings")
@@ -283,12 +285,17 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                              let edge = Int(max(outputSize.width, outputSize.height))
                              let revisedEdge = max(min(640, edge), Int(Double(edge) *
                                  sqrt(Double(self.targetVideoBitrate) / measuredBitrate) * 0.85))
-                             guard revised < requestedBitrate || revisedEdge < edge else { return false }
+                             // Preserve the resolution floor; only this measured fallback
+                             // may lower a higher source cadence to standard 24 fps.
+                             let revisedFrameRate = revisedEdge <= 640 ? min(outputFrameRate, 24) : outputFrameRate
+                             guard revised < requestedBitrate || revisedEdge < edge ||
+                                   revisedFrameRate < outputFrameRate else { return false }
                              self.workQueue.async {
                                  self.encodeLoadedAsset(asset, inputURL: inputURL, job: job, call: call,
                                      expectedDuration: expectedDuration, expectedWidth: expectedWidth,
                                      expectedHeight: expectedHeight, requestedBitrate: revised,
-                                     maximumLongEdge: revisedEdge, attempt: attempt + 1)
+                                     maximumLongEdge: revisedEdge, maximumOutputFrameRate: revisedFrameRate,
+                                     attempt: attempt + 1)
                              }
                              return true
                          }, call: call)

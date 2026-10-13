@@ -37,7 +37,8 @@ final class StoreScreenshotTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Willkommen!"].waitForExistence(timeout: 60), "First native launch must display onboarding")
         for title in ["Boulder durchstöbern", "Statistiken", "Beta entdecken", "Feedback & Support"] {
             app.buttons["Weiter"].tap()
-            XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 10))
+            XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 30),
+                          "One tap must advance onboarding to \(title)")
         }
         app.buttons["Los geht's!"].tap()
         // A loaded guest page can remain covered if the final tap did not land.

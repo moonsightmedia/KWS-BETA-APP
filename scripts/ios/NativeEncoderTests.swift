@@ -103,6 +103,7 @@ final class NativeEncoderTests: XCTestCase {
         XCTAssertEqual(metadata["skipped"] as? Bool, false)
         XCTAssertEqual(metadata["playable"] as? Bool, true)
         XCTAssertLessThanOrEqual(try XCTUnwrap(metadata["frameRate"] as? Double), 30.25)
+        XCTAssertGreaterThanOrEqual(try XCTUnwrap(metadata["frameRate"] as? Double), 24)
         XCTAssertLessThanOrEqual(try XCTUnwrap(metadata["videoBitrate"] as? Int), 4_600_000)
         XCTAssertLessThanOrEqual(try XCTUnwrap(metadata["averageBitrate"] as? Int), 4_800_000)
         let output = URL(fileURLWithPath: try XCTUnwrap(metadata["path"] as? String))
