@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { resolveHorizontalSwipeIntent } from '@/lib/routeSwipe';
+import { useTrainingPreferences } from '@/features/training/trainingPreferences';
 
 export type SwipeRoute = string | { path: string; match?: (pathname: string) => boolean };
 
@@ -40,11 +41,12 @@ export const useHorizontalRouteSwipe = ({
   const ref = useRef<HTMLElement | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
+  const { trainingEnabled } = useTrainingPreferences();
   const routesRef = useRef(routes);
   const locationRef = useRef(location.pathname);
   const navigateRef = useRef(navigate);
 
-  routesRef.current = routes;
+  routesRef.current = trainingEnabled ? routes : routes.filter(route => routePath(route) !== '/training' && !routePath(route).startsWith('/training/'));
   locationRef.current = location.pathname;
   navigateRef.current = navigate;
 

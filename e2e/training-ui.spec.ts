@@ -6,7 +6,13 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/*', request => new URL(request.request().url()).hostname === '127.0.0.1' ? request.continue() : request.abort());
 });
 async function open(page: Page, route = '/training') {
-  await page.goto(route); await page.evaluate(() => document.fonts.ready);
+  await page.goto(route);
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    const urls = [...new Set([...document.querySelectorAll('[role="img"]')].map(node => getComputedStyle(node).backgroundImage.match(/url\(["']?([^"')]+)["']?\)/)?.[1]).filter(Boolean))];
+    await Promise.all([...document.images].map(image => image.decode().catch(() => {})));
+    await Promise.all(urls.map(url => new Promise<void>((resolve, reject) => { const image = new Image(); image.onload = () => resolve(); image.onerror = () => reject(new Error(`Illustration failed to load: ${url}`)); image.src = url!; })));
+  });
 }
 async function next(page: Page) { await page.getByRole('button', { name: 'Weiter', exact: true }).click(); }
 async function intake(page: Page, options: { age?: string; fixed?: boolean; constraints?: string; dialog?: boolean } = {}) {
@@ -114,7 +120,7 @@ test('chat review editing, both learning fields, persistence, navigation and acc
   expect(state).not.toHaveProperty('answers');
   await page.getByRole('button', { name: /als erledigt markieren/ }).first().click();
   await page.getByRole('link', { name: 'Boulder', exact: true }).first().click();
-  await page.getByRole('link', { name: 'Training öffnen' }).click();
+  await page.getByRole('link', { name: 'Training', exact: true }).first().click();
   await page.getByRole('link', { name: /Mein Wochenplan/ }).click();
   await expect(page.getByText('1 von 3 erledigt', { exact: true })).toBeVisible();
   await page.reload(); await expect(page.getByText('1 von 3 erledigt', { exact: true })).toBeVisible();
@@ -244,7 +250,7 @@ test('expanded boulder library shows all 33 cards and ten games with stable sear
   await expect(page.getByRole('button', { name: /Weitere .* anzeigen/ })).toHaveCount(0);
   await page.getByRole('group', { name: 'Übungen oder Spiele wählen' }).getByRole('button', { name: 'Spiele', exact: true }).click();
   await expect(list.getByRole('listitem')).toHaveCount(10);
-  await expect(list.getByRole('img', { name: /Individuelles KWS-Motiv/ })).toHaveCount(10);
+  await expect(list.getByRole('img', { name: /Schematische Illustration/ })).toHaveCount(10);
   const gameTitle = await list.getByRole('heading').first().innerText();
   await list.getByRole('link', { name: `${gameTitle}: Anleitung öffnen`, exact: true }).click();
   await expect(page.getByRole('heading', { name: 'So läuft das Spiel', exact: true })).toBeVisible();
@@ -317,8 +323,10 @@ test('kids games support nursery and school browsing, sources and favorites with
   await open(page, '/training/library/kids');
   const list = page.getByRole('list', { name: 'Übungen', exact: true });
   await expect(list.getByRole('listitem')).toHaveCount(12);
-  const motifs = await list.locator('[data-training-icon]').evaluateAll(nodes => [...new Set(nodes.map(node => node.getAttribute('data-training-icon')))]);
-  expect(motifs).toHaveLength(12);
+  const illustrations = list.getByRole('img', { name: /Schematische Illustration/ });
+  await expect(illustrations).toHaveCount(12);
+  const positions = await illustrations.evaluateAll(nodes => nodes.map(node => (node as HTMLElement).style.backgroundPosition));
+  expect(new Set(positions).size).toBe(12);
   await expect(page.getByRole('button', { name: /Zur Einheit hinzufügen/ })).toHaveCount(0);
   await expect(page.getByRole('complementary', { name: 'Deine Übungsauswahl' })).toHaveCount(0);
   await expect(page.getByText('In der KWS verfügbar', { exact: true })).toHaveCount(0);
@@ -343,12 +351,88 @@ test('kids games support nursery and school browsing, sources and favorites with
   expect(saved.sessions).toHaveLength(0);
 });
 
-test('individual motifs follow the exercise rather than repeating a generic climbing icon', async ({ page }) => {
+test('exercise illustrations remain primary and corrected single images override atlas cells', async ({ page }) => {
   await open(page, '/training/exercises/heel-hook');
-  await expect(page.locator('svg[data-training-icon="heel-hook"]')).toHaveCount(1);
-  await expect(page.locator('main svg.lucide-mountain')).toHaveCount(0);
+  const art = page.getByRole('img', { name: /Schematische Illustration/ });
+  await expect(art).toHaveCSS('background-image', /boulder-atlas/);
+  await expect(art.locator('svg')).toHaveCount(0);
+  await open(page, '/training/exercises/dead-bug');
+  await expect(art).toHaveCSS('background-image', /dead-bug-v3/);
+  await open(page, '/training/exercises/side-plank');
+  await expect(art).toHaveCSS('background-image', /side-plank-knees/);
   await open(page, '/training/library/boulder?format=game');
-  const icons = await page.getByRole('list', { name: 'Übungen', exact: true }).getByRole('listitem').evaluateAll(cards => cards.map(card => { const svg = card.querySelector('svg[data-training-icon]')!; return { id: svg.getAttribute('data-training-icon'), shape: svg.innerHTML }; }));
-  expect(new Set(icons.map(icon => icon.id)).size).toBe(10);
-  expect(new Set(icons.map(icon => icon.shape)).size).toBe(10);
+  const list = page.getByRole('list', { name: 'Übungen', exact: true });
+  await expect(list.getByRole('img', { name: /Schematische Illustration/ })).toHaveCount(10);
+  await expect(list.locator('svg[data-training-icon]')).toHaveCount(0);
+});
+
+test('visibility settings retain data, hide direct kids links and update another tab', async ({ page, context }) => {
+  await open(page, '/training/exercises/kids-colour-post');
+  await page.getByRole('button', { name: 'Farbenpost: als Favorit merken', exact: true }).click();
+  await open(page, '/training/exercises/pushup');
+  await page.getByRole('button', { name: 'Zur Einheit hinzufügen', exact: true }).click();
+  const saved = await page.evaluate(() => localStorage.getItem('kws-training-v2:training-demo'));
+  const second = await context.newPage(); await second.goto('/training/library/kids');
+  await open(page, '/profile/training');
+  await page.getByRole('switch', { name: 'Kinderbouldern anzeigen', exact: true }).uncheck();
+  await expect(second.getByRole('heading', { name: 'Kinderbouldern ist ausgeblendet', exact: true })).toBeVisible();
+  await open(page); await expect(page.getByRole('link', { name: 'Kinderspiele' })).toHaveCount(0);
+  await open(page, '/training/favorites');
+  await expect(page.getByRole('list', { name: 'Gemerkte Inhalte' })).toHaveCount(0);
+  await open(page, '/training/exercises/kids-colour-post');
+  await expect(page.getByRole('heading', { name: 'Kinderbouldern ist ausgeblendet', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Trainingseinstellungen', exact: true }).click();
+  await page.getByRole('switch', { name: 'Training anzeigen', exact: true }).uncheck();
+  await expect(second.getByRole('heading', { name: 'Training ist ausgeblendet', exact: true })).toBeVisible();
+  await expect(page.getByRole('navigation').getByRole('link', { name: 'Training', exact: true })).toHaveCount(0);
+  await page.reload(); await expect(page.getByRole('switch', { name: 'Training anzeigen', exact: true })).not.toBeChecked();
+  expect(await page.evaluate(() => localStorage.getItem('kws-training-v2:training-demo'))).toBe(saved);
+  await page.getByRole('switch', { name: 'Training anzeigen', exact: true }).check();
+  await page.getByRole('switch', { name: 'Kinderbouldern anzeigen', exact: true }).check();
+  await expect(second.getByRole('list', { name: 'Übungen', exact: true }).getByRole('listitem')).toHaveCount(12);
+  await open(page, '/training/favorites');
+  await expect(page.getByRole('list', { name: 'Gemerkte Inhalte' }).getByRole('listitem')).toHaveCount(1);
+  expect(await page.evaluate(() => localStorage.getItem('kws-training-v2:training-demo'))).toBe(saved);
+});
+
+test('visibility preferences stay isolated per account', async ({ page }) => {
+  await open(page, '/profile/training');
+  await page.getByRole('switch', { name: 'Training anzeigen', exact: true }).uncheck();
+  await page.getByRole('switch', { name: 'Kinderbouldern anzeigen', exact: true }).uncheck();
+  await page.evaluate(async () => { const hooks = await import('/test/fixtures/training-preview-hooks.ts'); hooks.switchPreviewAccount(); });
+  await expect(page.getByRole('switch', { name: 'Training anzeigen', exact: true })).toBeChecked();
+  await expect(page.getByRole('switch', { name: 'Kinderbouldern anzeigen', exact: true })).toBeChecked();
+  await page.evaluate(async () => { const hooks = await import('/test/fixtures/training-preview-hooks.ts'); hooks.switchPreviewAccount(); });
+  await expect(page.getByRole('switch', { name: 'Training anzeigen', exact: true })).not.toBeChecked();
+  await expect(page.getByRole('switch', { name: 'Kinderbouldern anzeigen', exact: true })).not.toBeChecked();
+});
+
+test('disabled training is excluded from horizontal main navigation', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 900 });
+  const swipe = async () => {
+    const surface = page.locator('main .min-h-\\[60dvh\\]');
+    await surface.dispatchEvent('pointerdown', { pointerId: 1, pointerType: 'mouse', isPrimary: true, button: 0, clientX: 80, clientY: 300 });
+    await surface.dispatchEvent('pointermove', { pointerId: 1, pointerType: 'mouse', isPrimary: true, clientX: 230, clientY: 300 });
+    await surface.dispatchEvent('pointerup', { pointerId: 1, pointerType: 'mouse', isPrimary: true, clientX: 230, clientY: 300 });
+  };
+  await open(page, '/statistics'); await swipe(); await expect(page).toHaveURL(/\/training$/);
+  await open(page, '/profile/training');
+  await page.getByRole('switch', { name: 'Training anzeigen', exact: true }).uncheck();
+  await open(page, '/statistics'); await swipe(); await expect(page).toHaveURL(/\/statistics$/);
+  await expect(page.getByRole('navigation').getByRole('link', { name: 'Training', exact: true })).toHaveCount(0);
+});
+
+test('failed preference persistence is visible while the current choice stays usable', async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key.startsWith('kws-training-preferences-v1:')) throw new DOMException('Quota exceeded', 'QuotaExceededError');
+      original.call(this, key, value);
+    };
+  });
+  await open(page, '/profile/training');
+  await page.getByRole('switch', { name: 'Training anzeigen', exact: true }).uncheck();
+  await expect(page.getByRole('alert')).toContainText('Auswahl gilt nur in diesem geöffneten App-Fenster');
+  await expect(page.getByRole('switch', { name: 'Training anzeigen', exact: true })).not.toBeChecked();
+  expect(await page.evaluate(() => localStorage.getItem('kws-training-preferences-v1:training-demo'))).toBeNull();
 });

@@ -19,6 +19,7 @@ import AuthCallback from "./pages/AuthCallback";
 import ResetPassword from "./pages/ResetPassword";
 import Profile from "./pages/Profile";
 import ProfileEdit from "./pages/ProfileEdit";
+import TrainingSettings from './pages/TrainingSettings';
 import NotificationSettings from "./pages/NotificationSettings";
 import AboutApp from "./pages/AboutApp";
 import AppLegal from "./pages/AppLegal";
@@ -428,6 +429,7 @@ const router = createBrowserRouter([
         </RequireAuth>
       ) },
       { path: 'training/*', element: TRAINING_UI_ENABLED ? <RequireAuth><Training /></RequireAuth> : <NotFound /> },
+      { path: 'profile/training', element: <RequireAuth><TrainingSettings /></RequireAuth> },
       { path: "admin", element: <Admin /> },
       {
         path: "setter",

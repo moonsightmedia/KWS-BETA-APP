@@ -1,5 +1,7 @@
 # Kinderbouldern und individuelle Trainingsmotive
 
+Historischer Stand vor der Nutzerkorrektur: Die hier beschriebene Verwendung großer SVG-Motive wurde durch `2026-10-13-training-graphics-preferences.md` ersetzt. Rasterillustrationen bleiben primär; kleine Symbole nur an passenden Stellen. Anzeigeeinstellungen für Training/Kinderbouldern sind dort dokumentiert.
+
 Stand: 13.10.2026, Branch `codex/training-ui`, lokale UI-Vorschau Port5184. Nutzerauftrag: individuelle Icons für sämtliche Übungs-/Spielkarten und ein eigener Kinderbereich für Kita- und Schulkinder.
 
 ## Ergebnis

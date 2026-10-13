@@ -12,6 +12,7 @@ import TrainingAssistant from '@/components/training/TrainingAssistant';
 import { useHorizontalRouteSwipe } from '@/hooks/useHorizontalRouteSwipe';
 import { APP_USER_ROUTES } from '@/features/training/flags';
 import { useTraining } from '@/features/training/TrainingContext';
+import { useTrainingPreferences } from '@/features/training/trainingPreferences';
 import { getExercise, getSessionMinutes } from '@/features/training/data';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -19,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 export default function Training() {
   const { pathname, search } = useLocation();
   const { draft, favorites, sessions, plan, storageStatus, clearSavedTraining } = useTraining();
+  const { trainingEnabled, kidsEnabled } = useTrainingPreferences();
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const swipe = useHorizontalRouteSwipe({ routes: APP_USER_ROUTES });
@@ -35,6 +37,9 @@ export default function Training() {
   const kidsView = pathname === '/training/library/kids' || exercise?.area === 'kids' || (pathname === '/training/favorites' && favorites.length > 0 && favorites.every(id => getExercise(id)?.area === 'kids'));
   const showSelection = !kidsView && draft.exercises.length > 0 && !params.has('session') && !params.has('append') && !returningToSession && (pathname.startsWith('/training/library/') || pathname.startsWith('/training/exercises/') || pathname === '/training/favorites');
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'auto' }); }, [pathname]);
+  useEffect(() => { if (!trainingEnabled) setAssistantOpen(false); }, [trainingEnabled]);
+  const hiddenKidsRoute = !kidsEnabled && (pathname === '/training/library/kids' || exercise?.area === 'kids');
+  if (!trainingEnabled || hiddenKidsRoute) return <DashboardPageLayout headerBackTo="/profile/training" headerBackLabel="Zu den Trainingseinstellungen"><section className="max-w-xl space-y-4 rounded-kws-card bg-card p-5 shadow-soft"><h2 className="text-base font-semibold">{!trainingEnabled ? 'Training ist ausgeblendet' : 'Kinderbouldern ist ausgeblendet'}</h2><p className="text-sm leading-relaxed text-muted-foreground">Du kannst den Bereich in deinen Einstellungen wieder einblenden. Deine gespeicherten Inhalte bleiben erhalten.</p><Button asChild><Link to="/profile/training">Trainingseinstellungen</Link></Button>{trainingEnabled && <Button asChild variant="secondary" className="ml-2"><Link to="/training">Zur Training-Übersicht</Link></Button>}</section></DashboardPageLayout>;
   return <DashboardPageLayout headerBackTo={atHome ? undefined : backTo} headerBackLabel={exercise ? returningToSession ? 'Zur eigenen Einheit' : params.get('from') === 'favorites' ? 'Zur Favoritenliste' : 'Zur Bibliothek' : 'Training-Übersicht'} mainClassName={showSelection ? 'pb-52 md:pb-28' : undefined} rightSlot={<div className="flex items-center gap-1">
     {plan && !kidsView && pathname !== '/training/week' && <Button asChild variant="ghost" size="icon"><Link to="/training/week" aria-label="Mein Plan"><CalendarDays className="h-5 w-5" aria-hidden="true" /></Link></Button>}
     <Popover onOpenChange={() => setConfirmClear(false)}>

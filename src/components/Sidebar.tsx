@@ -15,6 +15,7 @@ import { ProfileMenu } from '@/components/ProfileMenu';
 import { cn } from '@/lib/utils';
 import { TrainingIcon } from '@/lib/appIcons';
 import { TRAINING_UI_ENABLED } from '@/features/training/flags';
+import { useTrainingPreferences } from '@/features/training/trainingPreferences';
 import { AccountAvatar } from '@/components/AccountAvatar';
 import { AdminMobileNavigation } from '@/components/admin/AdminMobileNavigation';
 import { ADMIN_TABS } from '@/lib/adminNavigation';
@@ -116,6 +117,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { trainingEnabled } = useTrainingPreferences();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   const { hasRole: isSetter, loading: setterLoading } = useHasRole('setter');
   const [isMobileNavCompact, setIsMobileNavCompact] = useState(false);
@@ -309,11 +311,11 @@ export const Sidebar = ({ className }: SidebarProps) => {
         { icon: LayoutDashboard, label: 'Home', path: '/' },
         { icon: List, label: 'Boulder', path: '/boulders' },
         { icon: BarChart3, label: 'Statistiken', path: '/statistics' },
-        ...(TRAINING_UI_ENABLED && user ? [{ icon: TrainingIcon, label: 'Training', path: '/training' }] : []),
+        ...(TRAINING_UI_ENABLED && trainingEnabled && user ? [{ icon: TrainingIcon, label: 'Training', path: '/training' }] : []),
       ],
       visible: true,
     },
-  ], [location.pathname, stableIsAdmin, isSetterArea, stableIsSetter, user]);
+  ], [location.pathname, stableIsAdmin, isSetterArea, stableIsSetter, user, trainingEnabled]);
 
   const homePath = user ? '/' : '/guest';
   const isAdminArea = location.pathname === '/admin';
@@ -339,9 +341,9 @@ export const Sidebar = ({ className }: SidebarProps) => {
       { icon: LayoutDashboard, label: 'Home', path: homePath },
       { icon: List, label: 'Boulder', path: '/boulders' },
       { icon: BarChart3, label: 'Statistiken', path: '/statistics' },
-      ...(TRAINING_UI_ENABLED ? [{ icon: TrainingIcon, label: 'Training', path: '/training' }] : []),
+      ...(TRAINING_UI_ENABLED && trainingEnabled ? [{ icon: TrainingIcon, label: 'Training', path: '/training' }] : []),
     ];
-  }, [homePath, isSetterArea, stableIsSetter, user]);
+  }, [homePath, isSetterArea, stableIsSetter, user, trainingEnabled]);
 
   const accountLabel = stableIsAdmin ? 'Administrator' : stableIsSetter ? 'Setter' : 'Mitglied';
 

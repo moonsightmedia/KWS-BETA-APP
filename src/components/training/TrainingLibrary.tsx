@@ -13,6 +13,7 @@ import TrainingExerciseArt from './TrainingExerciseArt';
 import TrainingTopicIcon from './TrainingTopicIcon';
 import { TRAINING_AREAS, TRAINING_EXERCISES, isKwsExerciseAvailable } from '@/features/training/data';
 import { useTraining } from '@/features/training/TrainingContext';
+import { useTrainingPreferences } from '@/features/training/trainingPreferences';
 import type { TrainingArea, TrainingExercise } from '@/features/training/types';
 import { cn } from '@/lib/utils';
 
@@ -35,6 +36,7 @@ export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibra
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { favorites, toggleFavorite, draft, addToDraft, addToSession, replaceExercise, sessions } = useTraining();
+  const { kidsEnabled } = useTrainingPreferences();
   const searchId = useId();
   const resultsId = useId();
   const filtersId = useId();
@@ -51,7 +53,7 @@ export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibra
   const kidsArea = area === 'kids';
   const showEquipment = area !== 'rehab' && !kidsArea && (!favoritesOnly || TRAINING_EXERCISES.some(exercise => favorites.includes(exercise.id) && Boolean(exercise.defaultDose)));
   const areaOrder: Record<TrainingArea, number> = { strength: 0, boulder: 1, rehab: 2, kids: 3 };
-  const areaOptions = [...TRAINING_AREAS].sort((a, b) => areaOrder[a.id] - areaOrder[b.id]).map(item => ({ value: item.id, label: item.id === 'strength' ? 'Kraft' : item.id === 'boulder' ? 'Bouldern' : item.id === 'rehab' ? 'Wiedereinstieg' : 'Kinder' }));
+  const areaOptions = [...TRAINING_AREAS].filter(item => item.id !== 'kids' || kidsEnabled).sort((a, b) => areaOrder[a.id] - areaOrder[b.id]).map(item => ({ value: item.id, label: item.id === 'strength' ? 'Kraft' : item.id === 'boulder' ? 'Bouldern' : item.id === 'rehab' ? 'Wiedereinstieg' : 'Kinder' }));
   const query = searchParams.get('q') ?? '';
   const topic = searchParams.get('topic') ?? 'all';
   const equipment = showEquipment ? searchParams.get('equipment') ?? 'all' : 'all';
@@ -68,8 +70,8 @@ export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibra
   const replacementValid = Boolean(sessionId && itemId && sessions.some(session => session.id === sessionId && session.exercises.some(item => item.id === itemId)));
 
   const baseExercises = useMemo(() => TRAINING_EXERCISES.filter(exercise => (
-    favoritesOnly ? favorites.includes(exercise.id) : exercise.area === area
-  )), [area, favorites, favoritesOnly]);
+    (kidsEnabled || exercise.area !== 'kids') && (favoritesOnly ? favorites.includes(exercise.id) : exercise.area === area)
+  )), [area, favorites, favoritesOnly, kidsEnabled]);
   const hasAdultExercises = baseExercises.some(exercise => exercise.area !== 'kids' && Boolean(exercise.defaultDose));
   const formatExercises = useMemo(() => baseExercises.filter(exercise => (audience !== 'kita' || exercise.kidsGuide?.audience === 'both') && (format === 'all' || (format === 'game' ? exercise.format === 'game' : exercise.format !== 'game'))), [baseExercises, format, audience]);
   const topics = useMemo(() => [...new Set(formatExercises.map(exercise => exercise.topic))].sort((a, b) => Number(['Brust', 'Fußtechnik'].includes(b)) - Number(['Brust', 'Fußtechnik'].includes(a)) || a.localeCompare(b, 'de')), [formatExercises]);
@@ -258,7 +260,7 @@ export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibra
               <KwsSurface className="h-full p-3">
                 <div className="flex items-start gap-3">
                   <Link to={exerciseTarget(exercise.id)} className="shrink-0 rounded-kws-control outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${title}: Spiel ansehen`}><TrainingExerciseArt exerciseId={exercise.id} title={title} className="w-20 sm:w-24" /></Link>
-                  <div className="min-w-0 flex-1"><p className="flex items-center gap-1.5 text-xs text-muted-foreground"><TrainingTopicIcon topic={exercise.topic} exerciseId={exercise.id} className="h-4 w-4 shrink-0" />{exercise.topic}</p><Link to={exerciseTarget(exercise.id)} className="group block min-h-11 rounded-kws-control py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"><h3 className="text-sm font-semibold leading-snug group-hover:text-primary-ink">{title}</h3></Link></div>
+                  <div className="min-w-0 flex-1"><p className="flex items-center gap-1.5 text-xs text-muted-foreground">{exercise.topic}</p><Link to={exerciseTarget(exercise.id)} className="group block min-h-11 rounded-kws-control py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"><h3 className="text-sm font-semibold leading-snug group-hover:text-primary-ink">{title}</h3></Link></div>
                   <Button type="button" variant="ghost" size="icon" className={cn('shrink-0', favorite && 'text-primary-ink')} aria-pressed={favorite} aria-label={`${title}: ${favorite ? 'aus Favoriten entfernen' : 'als Favorit merken'}`} onClick={() => toggleFavorite(exercise.id)}><Star aria-hidden="true" className={cn(favorite && 'fill-current')} /></Button>
                 </div>
                 {exercise.kidsGuide && <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"><p>Alter: {exercise.kidsGuide.ageLabel ?? exercise.kidsGuide.ages}</p><p>Spielzeit: {exercise.kidsGuide.durationLabel ?? exercise.kidsGuide.duration}</p></div>}
@@ -271,7 +273,7 @@ export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibra
               <KwsSurface className={cn('h-full p-3 transition-shadow', selected && 'ring-1 ring-primary-strong')}>
                 <div className="flex items-start gap-3">
                   <Link to={exerciseTarget(exercise.id)} className="shrink-0 rounded-kws-control outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${title}: Anleitung öffnen`}><TrainingExerciseArt exerciseId={exercise.id} title={title} className="w-24 sm:w-28" /></Link>
-                  <div className="min-w-0 flex-1"><Link to={exerciseTarget(exercise.id)} className="group block min-h-11 rounded-kws-control py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"><p className="flex items-center gap-1.5 text-xs text-muted-foreground"><TrainingTopicIcon topic={exercise.topic} exerciseId={exercise.id} className="h-4 w-4 shrink-0" />{exercise.format === 'game' && exercise.topic === 'Spiele' ? 'Boulderspiel' : exercise.topic}{exercise.format === 'game' && exercise.topic !== 'Spiele' && ' · Spiel'}</p><h3 className="mt-1 text-sm font-semibold leading-snug group-hover:text-primary-ink">{title}</h3></Link><p className="mt-1 text-xs text-muted-foreground">{[exercise.equipment, ...(exercise.alternativeEquipment ?? [])].join(' / ')} · {exercise.contentKind === 'orientation' ? 'Einführung' : `${exercise.minutes} Min.`}</p></div>
+                  <div className="min-w-0 flex-1"><Link to={exerciseTarget(exercise.id)} className="group block min-h-11 rounded-kws-control py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"><p className="flex items-center gap-1.5 text-xs text-muted-foreground">{exercise.format === 'game' && exercise.topic === 'Spiele' ? 'Boulderspiel' : exercise.topic}{exercise.format === 'game' && exercise.topic !== 'Spiele' && ' · Spiel'}</p><h3 className="mt-1 text-sm font-semibold leading-snug group-hover:text-primary-ink">{title}</h3></Link><p className="mt-1 text-xs text-muted-foreground">{[exercise.equipment, ...(exercise.alternativeEquipment ?? [])].join(' / ')} · {exercise.contentKind === 'orientation' ? 'Einführung' : `${exercise.minutes} Min.`}</p></div>
                   <Button type="button" variant="ghost" size="icon" className={cn('shrink-0', favorite && 'text-primary-ink')} aria-pressed={favorite} aria-label={`${title}: ${favorite ? 'aus Favoriten entfernen' : 'als Favorit merken'}`} onClick={() => toggleFavorite(exercise.id)}><Star aria-hidden="true" className={cn(favorite && 'fill-current')} /></Button>
                 </div>
                 <>

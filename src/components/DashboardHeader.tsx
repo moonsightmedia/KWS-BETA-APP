@@ -50,6 +50,7 @@ const getPageTitle = (pathname: string, setterTabTitle?: string, adminTabTitle?:
     '/app/profile': 'Profil',
     '/profile/edit': 'Profil bearbeiten',
     '/profile/notifications': 'Benachrichtigungen',
+    '/profile/training': 'Trainingseinstellungen',
     '/profile/about': 'Über die App',
   };
 

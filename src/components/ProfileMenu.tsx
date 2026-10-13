@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { AccountAvatar } from '@/components/AccountAvatar';
 import { kwsPopoverClassName } from '@/components/ui/kws-surface';
 import { useHoverMenu } from '@/hooks/useHoverMenu';
+import { TRAINING_UI_ENABLED } from '@/features/training/flags';
 
 const STORAGE_KEY_ADMIN = 'nav_isAdmin';
 const STORAGE_KEY_SETTER = 'nav_isSetter';
@@ -138,6 +139,12 @@ export const ProfileMenu = ({
               <span className="min-w-0 flex-1">Profil & Einstellungen</span>
               <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             </DropdownMenuItem>
+
+            {TRAINING_UI_ENABLED && <DropdownMenuItem className={menuItemClassName} onSelect={() => navigate('/profile/training')}>
+              <Settings className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span className="min-w-0 flex-1">Trainingseinstellungen</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            </DropdownMenuItem>}
 
             <p className="px-3 pb-1 pt-3 font-sans text-xs font-medium text-muted-foreground">Bereich wechseln</p>
             {profileAreas.map((area) => {
