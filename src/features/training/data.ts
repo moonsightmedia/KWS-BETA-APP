@@ -1,10 +1,11 @@
 import type { SessionExercise, TrainingAnswers, TrainingArea, TrainingDose, TrainingEquipment, TrainingExercise, TrainingSession } from './types';
 import { additionalTrainingContent } from './trainingContent';
+import { additionalBoulderContent } from './boulderContent';
 
 export const TRAINING_AREAS: { id: TrainingArea; title: string; description: string }[] = [
   { id: 'strength', title: 'Krafttraining', description: 'Nach Muskelbereich und Equipment auswählen.' },
   { id: 'boulder', title: 'Boulderübungen', description: 'Bewegungen üben und deine Technik verbessern.' },
-  { id: 'rehab', title: 'Reha & Wiedereinstieg', description: 'Beschwerden einordnen und fachliche Begleitung vorbereiten.' },
+  { id: 'rehab', title: 'Wiedereinstieg', description: 'Beschwerden einordnen und fachliche Begleitung vorbereiten.' },
 ];
 export const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 export const KWS_AVAILABLE_EQUIPMENT: TrainingEquipment[] = ['Körpergewicht', 'Kettlebell', 'Trainingsbank', 'EZ-Stange', 'Klimmzugstange', 'Fingerboard', 'Boulderwand', 'Spraywall'];
@@ -203,7 +204,7 @@ export function isKwsExerciseAvailable(exercise: TrainingExercise): boolean {
   if (exercise.area === 'rehab') return true;
   return (exercise.requiredEquipment ?? [exercise.equipment]).every(equipment => KWS_AVAILABLE_EQUIPMENT.includes(equipment) || equipment === 'Ohne Gerät');
 }
-export const TRAINING_EXERCISES: TrainingExercise[] = [...RAW_EXERCISES, ...additionalTrainingContent(strengthSource)].map(raw => {
+export const TRAINING_EXERCISES: TrainingExercise[] = [...RAW_EXERCISES, ...additionalTrainingContent(strengthSource), ...additionalBoulderContent(techniqueSource)].map(raw => {
   if (raw.area === 'rehab' || raw.contentKind === 'orientation') return { ...raw, planEligible: false, contentKind: 'orientation', kwsAvailable: isKwsExerciseAvailable(raw) };
   const guidance = GUIDANCE[raw.id] ?? {};
   const defaultDose = guidance.defaultDose ?? raw.defaultDose ?? (raw.area === 'boulder' ? { ...TECHNIQUE_DOSE } : { ...STRENGTH_DOSE });
@@ -211,10 +212,10 @@ export const TRAINING_EXERCISES: TrainingExercise[] = [...RAW_EXERCISES, ...addi
   const exercise: TrainingExercise = {
     ...raw, ...guidance, defaultDose, planEligible: guidance.planEligible ?? raw.planEligible ?? true,
     alternativeEquipment: ['quiet-feet', 'foot-swap', 'edge-choice', 'hip-position', 'read-boulder', 'controlled-move'].includes(raw.id) ? ['Spraywall'] : raw.alternativeEquipment,
-    dose: raw.id === 'side-plank' ? raw.dose : raw.area === 'boulder' ? `Redaktioneller Lernblock: ${defaultDose.sets} Block · ${defaultDose.repetitions} kurze Versuche insgesamt an einer passenden Passage; ein Hauptcue.`
+    dose: raw.format || raw.id === 'side-plank' ? raw.dose : raw.area === 'boulder' ? `Redaktioneller Lernblock: ${defaultDose.sets} Block · ${defaultDose.repetitions} kurze Versuche insgesamt an einer passenden Passage; ein Hauptcue.`
       : `Redaktioneller Einstieg: ${defaultDose.sets} Sätze · ${defaultDose.repetitions} Wiederholungen${perSide}.${raw.id === 'dead-bug' ? ' Kontrolle bestimmt den Hebel; kein Versagenstest.' : ' Bei vertrauter Variante etwa 2–3 saubere Wiederholungen Reserve.'}`,
     rest: `Etwa ${defaultDose.restSeconds} Sekunden zwischen ${defaultDose.restScope === 'repetitions' ? defaultDose.repetitionUnit === 'Haltephasen' ? 'Haltephasen' : 'Versuchen' : 'Sätzen'}; länger, wenn Kontrolle noch nicht zurückkehrt.`,
-    note: `${raw.area === 'boulder' ? 'Passage, Griffe und Rückweg vor Ort prüfen; Techniklabel bedeutet keine geringe Fingerlast.' : 'Allgemeine Kraft-/Kontrollübung; kein garantierter Bouldertransfer oder Verletzungsschutz.'} Konkretes Rezept noch nicht fachlich freigegeben. ${STOP}`,
+    note: raw.format ? raw.note : `${raw.area === 'boulder' ? 'Passage, Griffe und Rückweg vor Ort prüfen; Techniklabel bedeutet keine geringe Fingerlast.' : 'Allgemeine Kraft-/Kontrollübung; kein garantierter Bouldertransfer oder Verletzungsschutz.'} Konkretes Rezept noch nicht fachlich freigegeben. ${STOP}`,
     setupRequirements: guidance.setupRequirements ?? raw.setupRequirements ?? (raw.area === 'boulder' ? ['Passende Passage, freier Mattenbereich und kontrollierbarer Abstieg', 'Geeignete Hallen-/Bewegungseinweisung'] : []),
   };
   exercise.kwsAvailable = isKwsExerciseAvailable(exercise);

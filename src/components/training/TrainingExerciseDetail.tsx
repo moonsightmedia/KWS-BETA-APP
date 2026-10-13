@@ -49,7 +49,7 @@ export default function TrainingExerciseDetail() {
     if (appendId) {
       if (appendSession) addToSession(appendId, exercise.id);
     } else addToDraft(exercise.id);
-    setNotice(`${title}: zur Einheit hinzugefügt.`);
+    setNotice(appendSession ? `${title}: zu „${appendSession.title}“ hinzugefügt.` : `${title}: zum Einheitsentwurf hinzugefügt. Du kannst die Einheit anschließend speichern.`);
   };
 
   return (
@@ -60,28 +60,28 @@ export default function TrainingExerciseDetail() {
         <div className="max-w-2xl space-y-2"><h2 className="font-sans text-lg font-semibold">{title}</h2><p className="text-sm leading-relaxed text-muted-foreground">{orientationReady || !rehab ? exercise.goal : 'Beobachtungen sammeln und das Gespräch mit einer behandelnden Fachperson vorbereiten.'}</p></div>
         {!rehab && <TrainingExerciseArt exerciseId={exercise.id} title={title} className="w-full max-w-64" />}
         {(orientationReady || !rehab) && <div className="max-w-2xl space-y-3"><h3 className="text-sm font-semibold">{rehab ? 'Für dein Gespräch' : 'Vor dem Fingertraining'}</h3><ol className="list-decimal space-y-3 pl-5 text-sm leading-relaxed text-muted-foreground">{exercise.steps.map(step => <li key={step}>{step}</li>)}</ol>{exercise.cues?.map(cue => <p key={cue} className="text-sm font-medium leading-relaxed">{cue}</p>)}</div>}
-        <p className="max-w-2xl border-t border-border pt-4 text-sm leading-relaxed text-muted-foreground">{orientationReady || !rehab ? exercise.note : 'Individuelle Reha-Übungen und die Wiederaufnahme des Trainings stimmen behandelnde Fachpersonen mit dir ab.'}</p>
+        <p className="max-w-2xl border-t border-border pt-4 text-sm leading-relaxed text-muted-foreground">{orientationReady || !rehab ? exercise.note : 'Übungen für deinen Wiedereinstieg und die Wiederaufnahme des Trainings stimmen behandelnde Fachpersonen mit dir ab.'}</p>
       </KwsSurface> : <>
         <KwsSurface className="grid gap-4 p-4 sm:p-5 lg:grid-cols-3">
           <figure className="space-y-2"><TrainingExerciseArt exerciseId={exercise.id} title={title} className="mx-auto w-full max-w-64 lg:max-w-none" /><figcaption className="text-xs text-muted-foreground">Schematische Illustration · Orientierung zur Übung</figcaption>{exercise.cues?.length ? <p className="text-sm font-medium leading-relaxed">{exercise.cues[0]}</p> : null}</figure>
           <div className="space-y-4 lg:col-span-2">
-          <div className="flex items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-primary-ink"><Icon aria-hidden="true" className="h-4 w-4" />{exercise.topic}<span className="font-normal text-muted-foreground">· {exercise.level}</span></div><Button type="button" variant="ghost" size="icon" className={cn('shrink-0', favorite && 'text-primary-ink')} aria-pressed={favorite} aria-label={`${title}: ${favorite ? 'aus Favoriten entfernen' : 'als Favorit merken'}`} onClick={() => toggleFavorite(exercise.id)}><Star aria-hidden="true" className={cn(favorite && 'fill-current')} /></Button></div>
+          <div className="flex items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-primary-ink"><Icon aria-hidden="true" className="h-4 w-4" />{exercise.format === 'game' && exercise.topic === 'Spiele' ? 'Boulderspiel' : exercise.topic}{exercise.format === 'game' && exercise.topic !== 'Spiele' && ' · Spiel'}<span className="font-normal text-muted-foreground">· {exercise.level}</span></div><Button type="button" variant="ghost" size="icon" className={cn('shrink-0', favorite && 'text-primary-ink')} aria-pressed={favorite} aria-label={`${title}: ${favorite ? 'aus Favoriten entfernen' : 'als Favorit merken'}`} onClick={() => toggleFavorite(exercise.id)}><Star aria-hidden="true" className={cn(favorite && 'fill-current')} /></Button></div>
           <div className="max-w-2xl space-y-2"><h2 className="font-sans text-lg font-semibold leading-snug">{title}</h2><p className="text-sm leading-relaxed text-muted-foreground">{exercise.goal}</p></div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1.5"><Clock3 aria-hidden="true" className="h-4 w-4" />{exercise.minutes} Min. mit Pausen</span><span>{exercise.equipment}</span></div>
           {replacementRequested && !replacementValid && <p role="alert" className="text-sm text-destructive">Die zu ersetzende Übung ist nicht mehr verfügbar. Öffne deine Einheit und wähle die Übung erneut.</p>}
-          {!replacementRequested && appendId && <p role={appendSession ? 'status' : 'alert'} className={cn('text-xs leading-relaxed', appendSession ? 'text-muted-foreground' : 'text-destructive')}>{appendSession ? `Ergänzen für „${appendSession.title}“` : 'Diese Einheit ist nicht mehr verfügbar. Öffne deine Einheiten erneut.'}</p>}
+          {!replacementRequested && appendId && !appendSession && <p role="alert" className="text-xs leading-relaxed text-destructive">Diese Einheit ist nicht mehr verfügbar. Öffne deine Einheiten erneut.</p>}
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button type="button" variant={added ? 'secondary' : 'default'} className="h-auto min-h-11 whitespace-normal py-3 sm:min-w-48" aria-disabled={added || undefined} onClick={addExercise} disabled={(replacementRequested && !replacementValid) || (!replacementRequested && Boolean(appendId) && !appendSession)}>{added ? <Check aria-hidden="true" /> : <Plus aria-hidden="true" />}{added ? 'In eigener Einheit' : replacementRequested ? 'Übung ersetzen' : 'Zur Einheit hinzufügen'}</Button>
-            {added && <Button asChild variant="secondary"><Link to={appendId ? `/training/sessions/${encodeURIComponent(appendId)}` : '/training/sessions/new'}>Einheit ansehen</Link></Button>}
+            <Button type="button" variant={added ? 'secondary' : 'default'} className="h-auto min-h-11 whitespace-normal py-3 sm:min-w-48" aria-disabled={added || undefined} onClick={addExercise} disabled={(replacementRequested && !replacementValid) || (!replacementRequested && Boolean(appendId) && !appendSession)}>{added ? <Check aria-hidden="true" /> : <Plus aria-hidden="true" />}{added ? appendSession ? 'In dieser Einheit' : 'Im Einheitsentwurf' : replacementRequested ? 'Übung ersetzen' : 'Zur Einheit hinzufügen'}</Button>
+            {added && <Button asChild variant="secondary"><Link to={appendId ? `/training/sessions/${encodeURIComponent(appendId)}` : '/training/sessions/new'}>{appendId ? 'Einheit ansehen' : 'Entwurf öffnen'}</Link></Button>}
           </div>
-          {added && <p role="status" className="text-xs text-muted-foreground">Ausgewählt. Umfang und Pausen kannst du in deiner Einheit anpassen.</p>}
+          {(!appendId || appendSession) && (!replacementRequested || replacementValid) && <p role={added ? 'status' : undefined} className="text-xs leading-relaxed text-muted-foreground">{replacementRequested ? 'Der Ersatz wird direkt in deiner gewählten Einheit gespeichert.' : appendSession ? `Hinzufügen ergänzt direkt „${appendSession.title}“. Umfang und Pausen dort anpassen; die Woche bei Bedarf wählen.` : added ? 'Im Einheitsentwurf gesammelt. Öffne den Entwurf, speichere deine Einheit und plane sie bei Bedarf in deine Woche ein.' : 'Hinzufügen sammelt diese Übung im Einheitsentwurf. Dort kannst du die Einheit speichern und bei Bedarf in deine Woche einplanen.'}</p>}
           {exercise.selectionReason && <p className="border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">{exercise.selectionReason}</p>}
           </div>
         </KwsSurface>
         <div className="grid items-start gap-4 lg:grid-cols-3">
           <KwsSurface className="p-4 sm:p-5 lg:col-span-2">
             {exercise.setupRequirements?.length ? <div className="mb-5 space-y-2 border-b border-border pb-4"><h2 className="font-sans text-sm font-semibold">Vorbereiten</h2><ul className="list-disc space-y-1 pl-4 text-sm leading-relaxed text-muted-foreground">{exercise.setupRequirements.map(item => <li key={item}>{item}</li>)}</ul></div> : null}
-            <h2 className="mb-4 font-sans text-sm font-semibold">Ausführung</h2>
+            <h2 className="mb-4 font-sans text-sm font-semibold">{exercise.format === 'game' ? 'So läuft das Spiel' : 'Ausführung'}</h2>
             <ol className="divide-y divide-border/60">
               {exercise.steps.map((step, index) => <li key={`${exercise.id}-${index}`} className="flex gap-3 py-4 first:pt-0 last:pb-0 text-sm leading-relaxed"><span aria-hidden="true" className="grid h-7 w-7 shrink-0 place-items-center rounded-kws-badge bg-secondary text-xs font-semibold tabular-nums">{String(index + 1).padStart(2, '0')}</span><span>{step}</span></li>)}
             </ol>

@@ -72,12 +72,14 @@ export default function TrainingWeekPlan() {
               <div className="flex flex-wrap gap-2">
                 {!entry.fixed && <Button asChild><Link to={`/training/sessions/${session.id}`}>Einheit anpassen<ChevronRight aria-hidden="true" /></Link></Button>}
                 <Button type="button" variant="secondary" aria-pressed={entry.completed}
+                  disabled={!entry.fixed && !entry.completed && !session.exercises.length}
                   aria-label={`${session.title}: ${entry.completed ? 'Erledigt-Markierung entfernen' : 'als erledigt markieren'}`}
                   className={cn(entry.completed && 'bg-primary/15 hover:bg-primary/20')}
                   onClick={() => { togglePlanEntry(entry.id); setNotice(`${session.title}: ${entry.completed ? 'wieder offen' : 'als erledigt markiert'}.`); }}>
-                  <Check className={entry.completed ? 'text-primary-ink' : 'text-muted-foreground'} aria-hidden="true" />{entry.completed ? 'Erledigt' : 'Abhaken'}
+                  <Check className={entry.completed ? 'text-primary-ink' : 'text-muted-foreground'} aria-hidden="true" />{entry.completed ? 'Erledigt' : entry.fixed ? 'Termin abhaken' : 'Als trainiert markieren'}
                 </Button>
               </div>
+              {!entry.fixed && <p className="text-xs leading-relaxed text-muted-foreground">{entry.completed ? 'Mit dieser Markierung werden abgeschlossene Einheiten unter „Zuletzt trainiert“ gespeichert. Entferne sie, falls du versehentlich abgeschlossen hast.' : session.exercises.length ? 'Nach dem Training markieren: Die Einheit wird in „Zuletzt trainiert“ gespeichert und lässt sich erneut zusammenstellen.' : 'Ergänze zuerst Übungen, um diese Einheit als trainiert zu markieren.'}</p>}
               <div className="border-t border-border pt-4">
                 {entry.fixed ? <p className="flex items-center gap-2 text-xs text-muted-foreground"><Lock className="h-4 w-4 shrink-0" aria-hidden="true" />Fester Termin · Änderungen über deine Angaben</p> : <Dialog open={movingEntry === entry.id} onOpenChange={open => setMovingEntry(open ? entry.id : null)}><DialogTrigger asChild><Button variant="outline">Termin verschieben</Button></DialogTrigger><DialogContent><DialogTitle>Termin verschieben</DialogTitle><DialogDescription>Wähle einen freien Tag für „{session.title}“. Berücksichtige dabei dein übriges Training und ausreichende Erholung.</DialogDescription><div className="grid grid-cols-2 gap-2" role="group" aria-label="Zieltag wählen">{WEEKDAYS.map((day, index) => <Button key={day} variant={index === entry.day ? 'default' : 'secondary'} disabled={index === entry.day || plan.entries.some(other => other.id !== entry.id && other.day === index)} onClick={() => { movePlanEntry(entry.id, index); setSelectedDay(index); setMovingEntry(null); setNotice(`${session.title} nach ${WEEKDAYS[index]} verschoben.`); }}>{day}{plan.entries.some(other => other.id !== entry.id && other.day === index) ? ' · belegt' : ''}</Button>)}</div></DialogContent></Dialog>}
               </div>

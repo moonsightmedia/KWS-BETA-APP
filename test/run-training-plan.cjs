@@ -9,3 +9,4 @@ require.extensions['.ts'] = (module, filename) => {
   module._compile(outputText, filename);
 };
 require('../src/features/training/planBuilder.test.ts');
+require('../src/features/training/trainingHistory.test.ts');

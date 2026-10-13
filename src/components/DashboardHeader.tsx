@@ -20,7 +20,7 @@ const getPageTitle = (pathname: string, setterTabTitle?: string, adminTabTitle?:
   if (pathname === '/training') return 'Training';
   if (pathname === '/training/library/strength') return 'Krafttraining';
   if (pathname === '/training/library/boulder') return 'Boulderübungen';
-  if (pathname === '/training/library/rehab') return 'Reha-Ideen';
+  if (pathname === '/training/library/rehab') return 'Wiedereinstieg';
   if (pathname === '/training/favorites') return 'Favoriten';
   if (pathname === '/training/plan') return 'Plan erstellen';
   if (pathname === '/training/week') return 'Mein Wochenplan';

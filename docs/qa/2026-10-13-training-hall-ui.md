@@ -2,6 +2,8 @@
 
 Stand: 13.10.2026. Umsetzung12.–13.10.2026 auf `codex/training-ui`, Vorschau5184. Diese Iteration übernimmt das erneute Nutzerfeedback zu Filter, Eingaberahmen, großem Planbutton, eigenen Einheiten, Hallenmaterial und den fünf Browsermarkierungen. Neue Gestaltungsabnahme weiterhin offen.
 
+Nachfolgende Iteration am selben Tag: [Trainingsverlauf, vollständige Listen und Boulder-Spiele](2026-10-13-training-history-games.md). Die dort dokumentierte echte Historie ersetzt die unten beschriebenen festen Themenlinks; Katalog und Abnahmestand sind dort aktualisiert.
+
 ## Ergebnis
 
 - Einzelner Fokusborder in TrainingInput, ohne Outline/BoxShadow/RingOffset beim Tippen. Der gemeinsame App-Input bleibt unverändert. Tastaturziele außerhalb der Eingabefelder bleiben erkennbar.

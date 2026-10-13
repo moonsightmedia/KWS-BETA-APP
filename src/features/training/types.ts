@@ -39,6 +39,9 @@ export interface TrainingExercise {
   requiredEquipment?: TrainingEquipment[];
   alternativeEquipment?: TrainingEquipment[];
   contentKind?: 'exercise' | 'orientation';
+  format?: 'drill' | 'game';
+  /** Reusable illustration of the movement, not a separate execution tutorial. */
+  illustrationId?: string;
   kwsAvailable?: boolean;
   /** Does not certify execution; identifies candidates for the draft generator. */
   planEligible?: boolean;
@@ -93,10 +96,19 @@ export interface TrainingWeekEntry {
 }
 
 export interface TrainingWeekPlan {
+  id?: string;
   entries: TrainingWeekEntry[];
   summary: string;
   status?: 'draft' | 'needs-review';
   notes?: string[];
+}
+
+/** A snapshot of an explicitly completed unit, independent of later plan edits. */
+export interface TrainingCompletion {
+  id: string;
+  completedAt: string;
+  session: TrainingSession;
+  originKey?: string;
 }
 
 export interface TrainingPlanIssue {

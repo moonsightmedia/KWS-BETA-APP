@@ -67,18 +67,16 @@ test('filters apply, cancel, reset and remove individually', async ({ page }) =>
   await page.getByRole('searchbox').fill('unpassend123');
   await expect(page.getByText('Keine passenden Übungen')).toBeVisible();
   await page.getByRole('button', { name: 'Filter zurücksetzen', exact: true }).click();
-  await page.getByRole('button', { name: /Weitere .* anzeigen/ }).click();
-  await expect(list.getByRole('listitem')).toHaveCount(10);
-  while (await page.getByRole('button', { name: /Weitere .* anzeigen/ }).count()) await page.getByRole('button', { name: /Weitere .* anzeigen/ }).click();
   await expect(list.getByRole('listitem')).toHaveCount(16);
+  await expect(page.getByRole('button', { name: /Weitere .* anzeigen/ })).toHaveCount(0);
 });
 test('mixed manual session, unknown duration, reorder, editing, replacement and scheduling', async ({ page }) => {
   await open(page, '/training/exercises/incline-pushup');
   await page.getByRole('button', { name: 'Zur Einheit hinzufügen', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'In eigener Einheit' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Im Einheitsentwurf' })).toBeDisabled();
   await open(page, '/training/exercises/quiet-feet');
   await page.getByRole('button', { name: 'Zur Einheit hinzufügen', exact: true }).click();
-  await page.getByRole('complementary', { name: 'Deine Übungsauswahl' }).getByRole('link', { name: 'Einheit ansehen', exact: true }).click();
+  await page.getByRole('complementary', { name: 'Deine Übungsauswahl' }).getByRole('link', { name: 'Einheit öffnen', exact: true }).click();
   await page.getByRole('textbox', { name: 'Name deiner Einheit' }).fill('Kraft und Füße');
   await page.getByRole('button', { name: 'Nach oben: Präzise Fußplatzierung' }).click();
   const list = page.getByRole('list', { name: 'Übungen deiner Einheit' });
@@ -86,9 +84,9 @@ test('mixed manual session, unknown duration, reorder, editing, replacement and 
   await page.getByRole('button', { name: 'Umfang anpassen' }).first().click();
   await page.getByLabel('Versuche', { exact: true }).fill('');
   await expect(page.getByText('Dauer offen', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Einheit übernehmen' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Einheit speichern' })).toBeDisabled();
   await page.getByLabel('Versuche', { exact: true }).fill('2');
-  await page.getByRole('button', { name: 'Einheit übernehmen' }).click();
+  await page.getByRole('button', { name: 'Einheit speichern' }).click();
   await expect(page.getByRole('heading', { name: 'Kraft und Füße', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Umfang anpassen' }).first().click();
   await page.getByRole('link', { name: 'Austauschen' }).first().click();
@@ -173,7 +171,9 @@ test('keyboard filter sheet preserves focus and topic selection resolves search'
   await page.setViewportSize({ width:375,height:900 }); await page.emulateMedia({ reducedMotion:'reduce' });
   await open(page, '/training/library/strength?q=Brust');
   const trigger = page.getByRole('button', { name:'Filter',exact:true }); await trigger.focus(); await page.keyboard.press('Enter');
-  await expect(page.getByRole('dialog')).toBeVisible(); await page.keyboard.press('Escape'); await expect(trigger).toBeFocused();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Filter schließen' })).toBeFocused();
+  await page.keyboard.press('Escape'); await expect(trigger).toBeFocused();
   await expect(page.getByRole('group', { name:'Thema schnell wählen' }).getByRole('button', { name:'Brust',exact:true })).toHaveAttribute('aria-pressed','true');
   await page.getByRole('group', { name:'Thema schnell wählen' }).getByRole('button', { name:'Rücken',exact:true }).click();
   await expect(page.getByRole('searchbox')).toHaveValue('');
@@ -183,10 +183,10 @@ test('keyboard filter sheet preserves focus and topic selection resolves search'
 test('stale saved-session links cannot add or replace exercises', async ({ page }) => {
   await open(page, '/training/library/strength?append=missing');
   await expect(page.getByRole('alert')).toContainText('Diese Einheit ist nicht mehr verfügbar');
-  await expect(page.getByRole('button', { name:'Erhöhter Liegestütz: zur eigenen Einheit hinzufügen',exact:true })).toBeDisabled();
+  await expect(page.getByRole('button', { name:/^Erhöhter Liegestütz: Zur Einheit hinzufügen/ })).toBeDisabled();
   await open(page, '/training/library/boulder?session=missing&item=missing');
   await expect(page.getByRole('alert')).toContainText('Die ursprüngliche Übung ist nicht mehr verfügbar');
-  await expect(page.getByRole('button', { name:'Präzise Fußplatzierung: als Ersatz wählen',exact:true })).toBeDisabled();
+  await expect(page.getByRole('button', { name:'Präzise Fußplatzierung: Übung ersetzen',exact:true })).toBeDisabled();
 });
 
 test('hall equipment, optional external equipment and supported spraywall passages', async ({ page }) => {
@@ -196,9 +196,8 @@ test('hall equipment, optional external equipment and supported spraywall passag
   await expect(page.getByRole('list', { name:'Übungen',exact:true }).getByRole('listitem')).toHaveCount(2);
   await expect(page).toHaveURL(/allEquipment=1/);
   await open(page, '/training/library/boulder?equipment=Spraywall');
-  await expect(page.getByRole('list', { name:'Übungen',exact:true }).getByRole('listitem')).toHaveCount(5);
-  await page.getByRole('button', { name:/Weitere .* anzeigen/ }).click();
-  await expect(page.getByRole('list', { name:'Übungen',exact:true }).getByRole('listitem')).toHaveCount(6);
+  expect(await page.getByRole('list', { name:'Übungen',exact:true }).getByRole('listitem').count()).toBeGreaterThanOrEqual(6);
+  await expect(page.getByRole('button', { name:/Weitere .* anzeigen/ })).toHaveCount(0);
   await expect(page.getByRole('list', { name:'Übungen',exact:true })).not.toContainText('Heelhook');
 });
 
@@ -230,9 +229,84 @@ test('fingerboard orientation has a graphic, source and no plannable prescriptio
 test('side plank uses hold phases rather than movement repetition labels', async ({ page }) => {
   await open(page, '/training/exercises/side-plank');
   await page.getByRole('button', {name:'Zur Einheit hinzufügen',exact:true}).click();
-  await page.getByRole('complementary', {name:'Deine Übungsauswahl'}).getByRole('link', {name:'Einheit ansehen',exact:true}).click();
+  await page.getByRole('complementary', {name:'Deine Übungsauswahl'}).getByRole('link', {name:'Einheit öffnen',exact:true}).click();
   await expect(page.getByRole('list', {name:'Übungen deiner Einheit'})).toContainText('Haltephasen');
   await expect(page.getByRole('list', {name:'Übungen deiner Einheit'})).toContainText('je Seite');
   await page.getByRole('button', {name:'Umfang anpassen'}).click();
   await expect(page.getByLabel('Haltephasen', {exact:true})).toBeVisible();
+});
+
+test('expanded boulder library shows all 33 cards and ten games with stable search and return', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 900 });
+  await open(page, '/training/library/boulder');
+  const list = page.getByRole('list', { name: 'Übungen', exact: true });
+  await expect(list.getByRole('listitem')).toHaveCount(33);
+  await expect(page.getByRole('button', { name: /Weitere .* anzeigen/ })).toHaveCount(0);
+  await page.getByRole('group', { name: 'Übungen oder Spiele wählen' }).getByRole('button', { name: 'Spiele', exact: true }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(10);
+  await expect(list.getByRole('img', { name: /Schematische Illustration/ })).toHaveCount(10);
+  const gameTitle = await list.getByRole('heading').first().innerText();
+  await list.getByRole('link', { name: `${gameTitle}: Anleitung öffnen`, exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'So läuft das Spiel', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Zur Bibliothek', exact: true }).click();
+  await expect(page).toHaveURL(/format=game/);
+  await expect(list.getByRole('listitem')).toHaveCount(10);
+  await page.getByRole('searchbox').fill('unpassend123');
+  await expect(page.getByText('Keine passenden Übungen')).toBeVisible();
+  await page.getByRole('button', { name: 'Filter zurücksetzen', exact: true }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(33);
+  await open(page, '/training/library/rehab');
+  await expect(page.getByRole('heading', { name: 'Wiedereinstieg', exact: true }).first()).toBeVisible();
+});
+
+test('completed sessions persist, repeat without losing a draft, and can be undone', async ({ page, context }) => {
+  await open(page);
+  await expect(page.getByText('Hier erscheinen Einheiten, die du als trainiert markierst.', { exact: true })).toBeVisible();
+  await open(page, '/training/exercises/quiet-feet');
+  await page.getByRole('button', { name: 'Zur Einheit hinzufügen', exact: true }).click();
+  await page.getByRole('link', { name: 'Einheit öffnen', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Name deiner Einheit' }).fill('Meine Fuß-Einheit');
+  await page.getByRole('button', { name: 'Einheit speichern', exact: true }).click();
+  const originalUrl = page.url();
+  await page.getByRole('button', { name: 'Als trainiert markieren', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('Als trainiert erfasst');
+  await open(page); await page.reload();
+  const recent = page.getByRole('region', { name: 'Zuletzt trainiert' });
+  await expect(recent.getByRole('heading', { name: 'Meine Fuß-Einheit', exact: true })).toBeVisible();
+  // Starting a different unit must not be overwritten when a previous unit is repeated.
+  await open(page, '/training/exercises/pushup');
+  await page.getByRole('button', { name: 'Zur Einheit hinzufügen', exact: true }).click();
+  await open(page);
+  await page.getByRole('button', { name: 'Erneut zusammenstellen: Meine Fuß-Einheit', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Meine Fuß-Einheit · Wiederholung', exact: true })).toBeVisible();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('kws-training-v2:training-demo')!));
+  expect(saved.history).toHaveLength(1);
+  expect(saved.draft.exercises.map((item: { exerciseId: string }) => item.exerciseId)).toEqual(['pushup']);
+  expect(saved.sessions).toHaveLength(2);
+  expect(saved.sessions[1].id).not.toBe(saved.history[0].session.id);
+  expect(saved.sessions[1].exercises[0].id).not.toBe(saved.history[0].session.exercises[0].id);
+  const otherTab = await context.newPage(); await otherTab.goto('/training');
+  await expect(otherTab.getByRole('button', { name: 'Erneut zusammenstellen: Meine Fuß-Einheit', exact: true })).toBeVisible();
+  await page.goto(originalUrl);
+  await page.getByRole('button', { name: 'Rückgängig', exact: true }).click();
+  await expect(otherTab.getByText('Hier erscheinen Einheiten, die du als trainiert markierst.', { exact: true })).toBeVisible();
+  await open(page);
+  await expect(page.getByText('Hier erscheinen Einheiten, die du als trainiert markierst.', { exact: true })).toBeVisible();
+});
+
+test('completed week snapshot survives regeneration and stays isolated from a different account', async ({ page }) => {
+  test.setTimeout(60000);
+  await plan(page);
+  await page.getByRole('button', { name: /als erledigt markieren/ }).first().click();
+  const before = await page.evaluate(() => JSON.parse(localStorage.getItem('kws-training-v2:training-demo')!));
+  expect(before.history).toHaveLength(1);
+  await plan(page);
+  const after = await page.evaluate(() => JSON.parse(localStorage.getItem('kws-training-v2:training-demo')!));
+  expect(after.plan.id).not.toBe(before.plan.id);
+  expect(after.history).toEqual(before.history);
+  expect(after.plan.entries.every((entry: { completed: boolean }) => !entry.completed)).toBeTruthy();
+  await open(page);
+  await expect(page.getByRole('region', { name: 'Zuletzt trainiert' }).getByRole('button', { name: /Erneut zusammenstellen:/ })).toHaveCount(1);
+  await page.evaluate(async () => { const hooks = await import('/test/fixtures/training-preview-hooks.ts'); hooks.switchPreviewAccount(); });
+  await expect(page.getByText('Hier erscheinen Einheiten, die du als trainiert markierst.', { exact: true })).toBeVisible();
 });

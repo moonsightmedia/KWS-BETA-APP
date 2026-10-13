@@ -54,8 +54,8 @@ export default function Training() {
       </Routes>
       {showSelection && <aside aria-label="Deine Übungsauswahl" className="fixed inset-x-4 bottom-[calc(6.25rem+var(--app-safe-area-bottom))] z-20 mx-auto flex max-w-[440px] items-center gap-3 rounded-kws-card bg-foreground p-3 text-white shadow-medium md:sticky md:inset-x-auto md:bottom-4 md:max-w-none md:p-4">
         <ListPlus className="hidden h-5 w-5 shrink-0 text-primary sm:block" aria-hidden="true" />
-        <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{draft.exercises.length} {draft.exercises.length === 1 ? 'Übung' : 'Übungen'} ausgewählt</p><p className="mt-0.5 text-xs text-white/80">Eigene Einheit · {getSessionMinutes(draft) === null ? 'Dauer offen' : `ca. ${getSessionMinutes(draft)} Min.`}</p></div>
-        <Button asChild className="shrink-0 px-3 text-xs"><Link to="/training/sessions/new">Einheit ansehen<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></Button>
+        <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{draft.exercises.length} {draft.exercises.length === 1 ? 'Übung' : 'Übungen'} im Entwurf</p><p className="mt-0.5 text-xs text-white/80">Umfang anpassen und speichern · {getSessionMinutes(draft) === null ? 'Dauer offen' : `ca. ${getSessionMinutes(draft)} Min.`}</p></div>
+        <Button asChild className="shrink-0 px-3 text-xs"><Link to="/training/sessions/new">Einheit öffnen<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></Button>
       </aside>}
     </div>
     <TrainingAssistant open={assistantOpen} onOpenChange={setAssistantOpen} />

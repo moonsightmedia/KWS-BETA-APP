@@ -117,7 +117,7 @@ test('goal changes selected strength volume; input is unchanged and output deter
 });
 
 test('all active cards have coherent defaults; rehab has useful orientation and stays unplannable', () => {
-  assert.equal(TRAINING_EXERCISES.filter(exercise => exercise.area !== 'rehab' && exercise.contentKind !== 'orientation').length, 28);
+  assert.equal(TRAINING_EXERCISES.filter(exercise => exercise.area !== 'rehab' && exercise.contentKind !== 'orientation').length, 52);
   for (const exercise of TRAINING_EXERCISES) {
     assert.ok(exercise.steps.length >= 3);
     assert.ok(exercise.cues?.length);
@@ -133,6 +133,26 @@ test('all active cards have coherent defaults; rehab has useful orientation and 
       assert.equal(item.restSeconds, exercise.defaultDose?.restSeconds);
     }
   }
+});
+
+test('boulder games remain manually selectable learning tasks with real topics and bounded rules', () => {
+  const boulder = TRAINING_EXERCISES.filter(exercise => exercise.area === 'boulder');
+  assert.equal(boulder.length, 33);
+  const games = boulder.filter(exercise => exercise.format === 'game');
+  assert.equal(games.length, 10);
+  assert.ok(games.some(exercise => exercise.topic === 'Fußtechnik'));
+  assert.ok(games.some(exercise => exercise.topic === 'Boulder lesen'));
+  for (const exercise of boulder.filter(item => item.format)) {
+    assert.equal(exercise.planEligible, false);
+    assert.ok(exercise.illustrationId && getExercise(exercise.illustrationId));
+    assert.equal(exercise.defaultDose?.repetitions, '2');
+    assert.equal(exercise.defaultDose?.restScope, 'repetitions');
+    assert.ok(exercise.sources.every(source => source.context.includes('kein') || source.context.includes('nicht')));
+    assert.ok(makeSessionItem(exercise.id));
+  }
+  assert.equal(getExercise('game-mini-addon')?.alternativeEquipment, undefined);
+  const generated = ids(profile());
+  assert.ok(games.every(exercise => !generated.includes(exercise.id)));
 });
 
 test('KWS inventory uses actual equipment and never infers dumbbells from the bank', () => {

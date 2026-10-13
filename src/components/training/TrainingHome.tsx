@@ -1,23 +1,24 @@
 import { useState } from 'react';
-import { ArrowRight, CalendarDays, ChevronRight, Dumbbell, Footprints, ListPlus, MessageCircle, Star, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { ArrowRight, CalendarDays, ChevronRight, ListPlus, MessageCircle, RotateCcw, Star, X } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { KwsSurface } from '@/components/ui/kws-surface';
 import { isKwsExerciseAvailable, TRAINING_EXERCISES, WEEKDAYS } from '@/features/training/data';
 import { useTraining } from '@/features/training/TrainingContext';
 
 const areas = [
-  { id: 'strength', title: 'Krafttraining', short: 'Kraft', subtitle: 'Muskeln & Kraft', position: '0%' },
-  { id: 'boulder', title: 'Boulderübungen', short: 'Bouldern', subtitle: 'Bewegung & Technik', position: '50%' },
-  { id: 'rehab', title: 'Reha-Ideen', short: 'Reha', subtitle: 'Körperregionen', position: '100%' },
+  { id: 'strength', title: 'Krafttraining', short: 'Kraft', position: '0%' },
+  { id: 'boulder', title: 'Boulderübungen', short: 'Bouldern', position: '50%' },
+  { id: 'rehab', title: 'Wiedereinstieg', short: 'Wiedereinstieg', position: '100%' },
 ];
-const shortcuts = [
-  { title: 'Fußtechnik', description: 'Tritte präzise nutzen', area: 'boulder', icon: Footprints },
-  { title: 'Brust', description: 'Druckbewegungen aufbauen', area: 'strength', icon: Dumbbell },
-];
+const completionDate = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const availableCounts = Object.fromEntries(areas.map(area => [area.id, TRAINING_EXERCISES.filter(exercise => exercise.area === area.id && isKwsExerciseAvailable(exercise)).length]));
 
 export default function TrainingHome({ onOpenAssistant }: { onOpenAssistant: () => void }) {
-  const { plan, sessions, favorites, draft, storageStatus } = useTraining();
+  const { plan, sessions, favorites, draft, storageStatus, history, repeatCompletion } = useTraining();
+  const navigate = useNavigate();
   const [showChatHint, setShowChatHint] = useState(true);
+  const [repeatError, setRepeatError] = useState('');
   const next = plan?.entries.filter(entry => !entry.completed).sort((a, b) => a.day - b.day)[0];
   const nextSession = sessions.find(session => session.id === next?.sessionId);
   const ownCount = sessions.filter(session => !session.id.startsWith('preview-')).length;
@@ -28,19 +29,19 @@ export default function TrainingHome({ onOpenAssistant }: { onOpenAssistant: () 
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {areas.map(area => <Link key={area.id} to={`/training/library/${area.id}`} aria-label={area.title} className="group overflow-hidden rounded-kws-card bg-card shadow-soft transition-shadow hover:shadow-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <span aria-hidden="true" className="block aspect-square w-full bg-secondary" style={{ backgroundImage: 'url(/training/areas.png?v=isolated-3)', backgroundSize: '300% 100%', backgroundPosition: `${area.position} center` }} />
-          <span className="block px-3 pb-3 pt-2 sm:px-4 sm:py-3"><span className="flex items-center justify-between gap-1"><span className="text-sm font-semibold sm:hidden">{area.short}</span><span className="hidden text-sm font-semibold sm:block">{area.title}</span><ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" /></span><span className="mt-1 hidden text-xs text-muted-foreground sm:block">{area.subtitle}</span></span>
+          <span className="block px-2 pb-3 pt-2 sm:px-4 sm:py-3"><span className="flex items-center justify-between gap-1"><span className="text-xs font-semibold sm:hidden">{area.short}</span><span className="hidden text-sm font-semibold sm:block">{area.title}</span><ArrowRight className={`h-4 w-4 shrink-0 text-muted-foreground ${area.id === 'rehab' ? 'hidden sm:block' : ''}`} aria-hidden="true" /></span><span className="mt-1 block text-xs text-muted-foreground">{availableCounts[area.id]} {area.id === 'rehab' ? 'Regionen' : area.id === 'boulder' ? 'Aufgaben' : 'Karten'}</span></span>
         </Link>)}
       </div>
-      <div className="space-y-1 pt-2"><p className="text-xs font-medium text-muted-foreground">Direkt zu einem Thema</p><div className="grid gap-0 divide-y divide-border sm:grid-cols-2 sm:gap-5 sm:divide-y-0">
-        {shortcuts.map(shortcut => {
-          const count = TRAINING_EXERCISES.filter(exercise => exercise.area === shortcut.area && exercise.topic === shortcut.title && isKwsExerciseAvailable(exercise)).length;
-          return <Link key={shortcut.title} to={`/training/library/${shortcut.area}?q=${encodeURIComponent(shortcut.title)}`} className="group flex min-h-16 items-center gap-3 rounded-kws-control px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <shortcut.icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span className="flex-1"><span className="block text-sm font-medium">{shortcut.title}</span><span className="mt-0.5 block text-xs text-muted-foreground">{shortcut.description} · {count} {count === 1 ? 'Übung' : 'Übungen'}</span></span><ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary-ink" aria-hidden="true" />
-          </Link>;
-        })}
-      </div></div>
     </section>
-    <Link to={draft.exercises.length ? '/training/sessions/new' : '/training/sessions'} className="flex min-h-16 items-center gap-3 rounded-kws-control border-y border-border px-1 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <section aria-labelledby="training-history-heading" className="space-y-3">
+      <h2 id="training-history-heading" className="font-sans text-base font-semibold">Zuletzt trainiert</h2>
+      {history.length ? <div className="grid gap-3 sm:grid-cols-2">{history.slice(0, 2).map(completion => <KwsSurface key={completion.id} className="space-y-3 p-4">
+        <div><p className="text-xs text-muted-foreground"><time dateTime={completion.completedAt}>{completionDate.format(new Date(completion.completedAt))}</time> · {completion.session.exercises.length} {completion.session.exercises.length === 1 ? 'Übung' : 'Übungen'}</p><h3 className="mt-2 text-sm font-semibold">{completion.session.title}</h3><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Fokus: {completion.session.focus}</p></div>
+        <Button type="button" variant="ghost" className="h-auto min-h-11 justify-start whitespace-normal px-0 text-left text-xs text-primary-ink" aria-label={`Erneut zusammenstellen: ${completion.session.title}`} onClick={() => { const sessionId = repeatCompletion(completion.id); if (sessionId) { setRepeatError(''); navigate(`/training/sessions/${sessionId}`); } else setRepeatError('Diese Einheit konnte nicht übernommen werden. Öffne deinen Trainingsverlauf erneut.'); }}><RotateCcw className="h-4 w-4 shrink-0" aria-hidden="true" />Erneut zusammenstellen<ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" /></Button>
+      </KwsSurface>)}</div> : <p className="text-sm leading-relaxed text-muted-foreground">Hier erscheinen Einheiten, die du als trainiert markierst.</p>}
+      {repeatError && <p role="alert" className="text-sm text-destructive">{repeatError}</p>}
+    </section>
+    <Link to={draft.exercises.length ? '/training/sessions/new' : '/training/sessions'} className="flex min-h-16 items-center gap-3 rounded-kws-control border-y border-border px-1 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:max-w-xl">
       <ListPlus className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" /><span className="min-w-0 flex-1"><span className="block text-sm font-medium">Eigene Einheiten</span><span className="mt-0.5 block text-xs text-muted-foreground">{draft.exercises.length ? `Entwurf fortsetzen · ${draft.exercises.length} Übungen` : ownCount ? `${ownCount} ${ownCount === 1 ? 'Einheit' : 'Einheiten'} in deiner Sammlung` : 'Optional selbst zusammenstellen'}</span></span><ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
     </Link>
     <aside aria-label="Plan-Assistent" className="pointer-events-none fixed bottom-[calc(var(--mobile-nav-floating-offset)+0.75rem)] right-4 z-40 flex items-end gap-2 md:bottom-6 md:right-6" data-swipe-ignore>

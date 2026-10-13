@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useId, useMemo, useState, type KeyboardEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Activity, Check, ChevronRight, Plus, Search, SlidersHorizontal, X, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -39,7 +39,6 @@ export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibra
   const filtersId = useId();
   const topicRadioName = useId();
   const mobile = useIsMobile();
-  const [visibleCount, setVisibleCount] = useState(5);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draftTopic, setDraftTopic] = useState('all');
   const [draftEquipment, setDraftEquipment] = useState('all');
@@ -51,6 +50,8 @@ export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibra
   const query = searchParams.get('q') ?? '';
   const topic = searchParams.get('topic') ?? 'all';
   const equipment = searchParams.get('equipment') ?? 'all';
+  const requestedFormat = searchParams.get('format');
+  const format = area === 'boulder' && (requestedFormat === 'exercise' || requestedFormat === 'game') ? requestedFormat : 'all';
   const kwsOnly = searchParams.get('allEquipment') !== '1';
   const sessionId = searchParams.get('session');
   const itemId = searchParams.get('item');
@@ -62,23 +63,22 @@ export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibra
   const baseExercises = useMemo(() => TRAINING_EXERCISES.filter(exercise => (
     favoritesOnly ? favorites.includes(exercise.id) : exercise.area === area
   )), [area, favorites, favoritesOnly]);
-  const topics = useMemo(() => [...new Set(baseExercises.map(exercise => exercise.topic))].sort((a, b) => Number(['Brust', 'Fußtechnik'].includes(b)) - Number(['Brust', 'Fußtechnik'].includes(a)) || a.localeCompare(b, 'de')), [baseExercises]);
-  const equipmentOptions = useMemo(() => [...new Set(baseExercises.filter(exercise => !draftKwsOnly || isKwsExerciseAvailable(exercise)).flatMap(exercise => [exercise.equipment, ...(exercise.requiredEquipment ?? []), ...(exercise.alternativeEquipment ?? [])]))].sort((a, b) => a.localeCompare(b, 'de')), [baseExercises, draftKwsOnly]);
+  const formatExercises = useMemo(() => baseExercises.filter(exercise => format === 'all' || (format === 'game' ? exercise.format === 'game' : exercise.format !== 'game')), [baseExercises, format]);
+  const topics = useMemo(() => [...new Set(formatExercises.map(exercise => exercise.topic))].sort((a, b) => Number(['Brust', 'Fußtechnik'].includes(b)) - Number(['Brust', 'Fußtechnik'].includes(a)) || a.localeCompare(b, 'de')), [formatExercises]);
+  const equipmentOptions = useMemo(() => [...new Set(formatExercises.filter(exercise => !draftKwsOnly || isKwsExerciseAvailable(exercise)).flatMap(exercise => [exercise.equipment, ...(exercise.requiredEquipment ?? []), ...(exercise.alternativeEquipment ?? [])]))].sort((a, b) => a.localeCompare(b, 'de')), [formatExercises, draftKwsOnly]);
   const inferredTopic = topics.find(value => normalize(query).trim().includes(normalize(value))) ?? (topics.includes('Fußtechnik') && /\b(fuss|fusse)\b/.test(normalize(query)) ? 'Fußtechnik' : undefined);
   const activeTopic = topic !== 'all' ? topic : inferredTopic ?? 'all';
   const matchingExercises = useMemo(() => {
     const terms = normalize(query).trim().split(/\s+/).filter(Boolean);
-    return baseExercises.filter(exercise => {
+    return formatExercises.filter(exercise => {
       const text = normalize([exercise.title, exercise.topic, exercise.goal, exercise.equipment, ...(exercise.requiredEquipment ?? []), ...(exercise.alternativeEquipment ?? []), ...exercise.keywords].join(' '));
       return (topic === 'all' || exercise.topic === topic)
         && (area === 'rehab' || equipment === 'all' || exercise.equipment === equipment || exercise.requiredEquipment?.some(item => item === equipment) || exercise.alternativeEquipment?.some(item => item === equipment))
         && terms.every(term => text.includes(term));
     }).sort((a, b) => matchScore(b, terms) - matchScore(a, terms));
-  }, [area, baseExercises, equipment, query, topic]);
+  }, [area, formatExercises, equipment, query, topic]);
   const results = useMemo(() => matchingExercises.filter(exercise => !kwsOnly || isKwsExerciseAvailable(exercise)), [matchingExercises, kwsOnly]);
   const matchesNeedOtherEquipment = !results.length && matchingExercises.length > 0 && kwsOnly;
-
-  useEffect(() => setVisibleCount(5), [area, favoritesOnly, query, topic, equipment, kwsOnly]);
 
   const updateFilter = (key: string, value: string) => {
     setSearchParams(current => {
@@ -91,13 +91,13 @@ export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibra
   const resetFilters = () => {
     setSearchParams(current => {
       const next = new URLSearchParams(current);
-      ['q', 'topic', 'equipment', 'allEquipment'].forEach(key => next.delete(key));
+      ['q', 'topic', 'equipment', 'allEquipment', 'format'].forEach(key => next.delete(key));
       return next;
     }, { replace: true });
   };
   const exerciseTarget = (id: string) => {
     const replacement = new URLSearchParams();
-    ['q', 'topic', 'equipment', 'allEquipment', 'session', 'item', 'append'].forEach(key => {
+    ['q', 'topic', 'equipment', 'allEquipment', 'format', 'session', 'item', 'append'].forEach(key => {
       const value = searchParams.get(key);
       if (value) replacement.set(key, value);
     });
@@ -105,16 +105,23 @@ export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibra
     const suffix = replacement.toString();
     return `/training/exercises/${encodeURIComponent(id)}${suffix ? `?${suffix}` : ''}`;
   };
-  const hasFilters = Boolean(query || topic !== 'all' || equipment !== 'all' || !kwsOnly);
+  const hasFilters = Boolean(query || topic !== 'all' || equipment !== 'all' || !kwsOnly || format !== 'all');
   const activeFilterCount = Number(topic !== 'all') + Number(area !== 'rehab' && equipment !== 'all') + Number(area !== 'rehab' && !kwsOnly);
   const openFilters = (open: boolean) => {
     if (open) { setDraftTopic(activeTopic); setDraftEquipment(equipment); setDraftKwsOnly(kwsOnly); setResetSearchOnApply(false); }
     setFiltersOpen(open);
   };
+  const onFilterKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape' || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setFiltersOpen(false);
+  };
   const applyFilters = () => {
     setSearchParams(current => {
       const next = new URLSearchParams(current);
       if (resetSearchOnApply || (inferredTopic && draftTopic !== inferredTopic)) next.delete('q');
+      if (resetSearchOnApply) next.delete('format');
       if (draftKwsOnly) next.delete('allEquipment'); else next.set('allEquipment', '1');
       if (draftTopic === 'all') next.delete('topic'); else next.set('topic', draftTopic);
       if (area === 'rehab' || draftEquipment === 'all') next.delete('equipment'); else next.set('equipment', draftEquipment);
@@ -126,6 +133,15 @@ export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibra
     setSearchParams(current => {
       const next = new URLSearchParams(current);
       if (value === 'all') next.delete('topic'); else next.set('topic', value);
+      if (inferredTopic) next.delete('q');
+      return next;
+    }, { replace: true });
+  };
+  const chooseFormat = (value: string) => {
+    setSearchParams(current => {
+      const next = new URLSearchParams(current);
+      if (value === 'all') next.delete('format'); else next.set('format', value);
+      next.delete('topic');
       if (inferredTopic) next.delete('q');
       return next;
     }, { replace: true });
@@ -158,7 +174,7 @@ export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibra
       navigate(`/training/sessions/${encodeURIComponent(sessionId)}`);
     } else if (appendId) {
       if (appendSession) { addToSession(appendId, exerciseId); setNotice(`${TRAINING_EXERCISES.find(item => item.id === exerciseId)?.title}: zu ${appendSession.title} hinzugefügt.`); }
-    } else { addToDraft(exerciseId); setNotice(`${TRAINING_EXERCISES.find(item => item.id === exerciseId)?.title}: zur eigenen Einheit hinzugefügt.`); }
+    } else { addToDraft(exerciseId); setNotice(`${TRAINING_EXERCISES.find(item => item.id === exerciseId)?.title}: zum Einheitsentwurf hinzugefügt. Du kannst die Einheit anschließend speichern.`); }
   };
   const changeArea = (nextArea: TrainingArea) => {
     const params = new URLSearchParams();
@@ -179,7 +195,7 @@ export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibra
 
   return (
     <div className="space-y-3" data-swipe-ignore>
-      <KwsSegmentedControl<TrainingArea | 'favorites'> value={favoritesOnly ? 'favorites' : area!} options={[{ value: 'strength', label: 'Kraft' }, { value: 'boulder', label: 'Bouldern' }, { value: 'rehab', label: 'Reha' }]} onValueChange={value => { if (value !== 'favorites') changeArea(value); }} ariaLabel="Trainingsbereich" />
+      <KwsSegmentedControl<TrainingArea | 'favorites'> value={favoritesOnly ? 'favorites' : area!} options={[{ value: 'strength', label: 'Kraft' }, { value: 'boulder', label: 'Bouldern' }, { value: 'rehab', label: 'Wiedereinstieg' }]} onValueChange={value => { if (value !== 'favorites') changeArea(value); }} ariaLabel="Trainingsbereich" />
       {favoritesOnly && <p className="text-xs text-muted-foreground">Deine gemerkten Übungen · nach Thema oder Name suchen</p>}
 
       <div className="space-y-3">
@@ -190,21 +206,25 @@ export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibra
             <TrainingInput id={searchId} type="search" value={query} onChange={event => updateFilter('q', event.target.value)} placeholder={area === 'rehab' ? 'Region suchen' : 'Übung suchen'} className="pl-10 pr-12 [&::-webkit-search-cancel-button]:appearance-none" />
             {query && <Button type="button" variant="ghost" size="icon" aria-label="Suche leeren" className="absolute right-0 top-0" onClick={() => updateFilter('q', '')}><X aria-hidden="true" /></Button>}
           </div>
-          {mobile ? <Dialog open={filtersOpen} onOpenChange={openFilters}><DialogTrigger asChild>{filterTrigger}</DialogTrigger><DialogContent scrollLayout="contained" className="flex flex-col overflow-hidden bg-card p-0" data-swipe-ignore>{filterControls}</DialogContent></Dialog> : <Popover open={filtersOpen} onOpenChange={openFilters}><PopoverTrigger asChild>{filterTrigger}</PopoverTrigger><PopoverContent align="end" collisionPadding={16} aria-labelledby={filtersId} className={cn(kwsPopoverClassName, 'z-[120] flex max-h-[var(--radix-popover-content-available-height)] w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden p-0')} data-swipe-ignore>{filterControls}</PopoverContent></Popover>}
+          {mobile ? <Dialog open={filtersOpen} onOpenChange={openFilters}><DialogTrigger asChild>{filterTrigger}</DialogTrigger><DialogContent onKeyDown={onFilterKeyDown} scrollLayout="contained" className="flex flex-col overflow-hidden bg-card p-0" data-swipe-ignore>{filterControls}</DialogContent></Dialog> : <Popover open={filtersOpen} onOpenChange={openFilters}><PopoverTrigger asChild>{filterTrigger}</PopoverTrigger><PopoverContent onKeyDown={onFilterKeyDown} align="end" collisionPadding={16} aria-labelledby={filtersId} className={cn(kwsPopoverClassName, 'z-[120] flex max-h-[var(--radix-popover-content-available-height)] w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden p-0')} data-swipe-ignore>{filterControls}</PopoverContent></Popover>}
         </div>
       </div>
-      {area !== 'rehab' && <div className="flex gap-5 overflow-x-auto border-b border-border" role="group" aria-label="Thema schnell wählen">
+      {area === 'boulder' && <div className="flex gap-5 overflow-x-auto" role="group" aria-label="Übungen oder Spiele wählen">
+        {[{ value: 'all', label: 'Alle' }, { value: 'exercise', label: 'Übungen' }, { value: 'game', label: 'Spiele' }].map(option => <button key={option.value} type="button" className={cn('min-h-11 shrink-0 border-b-2 px-1 text-sm transition-colors outline-none hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring', format === option.value ? 'border-primary-ink font-semibold text-foreground' : 'border-transparent text-muted-foreground')} aria-pressed={format === option.value} onClick={() => chooseFormat(option.value)}>{option.label}</button>)}
+      </div>}
+      {area !== 'rehab' && topics.length > 1 && <div className="flex gap-5 overflow-x-auto border-b border-border" role="group" aria-label="Thema schnell wählen">
         {['all', ...topics].map(value => <button key={value} type="button" className={cn('min-h-11 shrink-0 border-b-2 px-1 text-sm transition-colors outline-none hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring', activeTopic === value ? 'border-primary-ink font-semibold text-foreground' : 'border-transparent text-muted-foreground')} aria-pressed={activeTopic === value} onClick={() => chooseTopic(value)}>{value === 'all' ? 'Alle' : value}</button>)}
       </div>}
-      {hasFilters && <div className="flex flex-wrap gap-2" aria-label="Aktive Suchfilter">{query && <Button type="button" variant="ghost" className="max-w-full gap-2 bg-secondary px-3 text-xs" aria-label={`Suche ${query} entfernen`} onClick={() => updateFilter('q', '')}><span className="truncate">Suche: {query}</span><X aria-hidden="true" /></Button>}{topic !== 'all' && <Button type="button" variant="ghost" className="gap-2 bg-secondary px-3 text-xs" aria-label={`Thema ${topic} entfernen`} onClick={() => updateFilter('topic', 'all')}>{topic}<X aria-hidden="true" /></Button>}{area !== 'rehab' && equipment !== 'all' && <Button type="button" variant="ghost" className="gap-2 bg-secondary px-3 text-xs" aria-label={`Equipment ${equipment} entfernen`} onClick={() => updateFilter('equipment', 'all')}>{equipment}<X aria-hidden="true" /></Button>}</div>}
+      {Boolean(query || topic !== 'all' || (area !== 'rehab' && equipment !== 'all')) && <div className="flex flex-wrap gap-2" aria-label="Aktive Suchfilter">{query && <Button type="button" variant="ghost" className="max-w-full gap-2 bg-secondary px-3 text-xs" aria-label={`Suche ${query} entfernen`} onClick={() => updateFilter('q', '')}><span className="truncate">Suche: {query}</span><X aria-hidden="true" /></Button>}{topic !== 'all' && <Button type="button" variant="ghost" className="gap-2 bg-secondary px-3 text-xs" aria-label={`Thema ${topic} entfernen`} onClick={() => updateFilter('topic', 'all')}>{topic}<X aria-hidden="true" /></Button>}{area !== 'rehab' && equipment !== 'all' && <Button type="button" variant="ghost" className="gap-2 bg-secondary px-3 text-xs" aria-label={`Equipment ${equipment} entfernen`} onClick={() => updateFilter('equipment', 'all')}>{equipment}<X aria-hidden="true" /></Button>}</div>}
       {!favoritesOnly && area === 'rehab' && <p className="text-xs leading-relaxed text-muted-foreground">Orientierung für Beobachtungen und das Gespräch mit einer Fachperson. Kein individueller Therapieplan.</p>}
+      {area !== 'rehab' && !replacementRequested && !appendId && <p className="text-xs leading-relaxed text-muted-foreground">Mit „Zur Einheit hinzufügen“ sammelst du Übungen im Einheitsentwurf. Danach speichern und bei Bedarf in deine Woche einplanen.</p>}
       {replacementRequested && <p role={replacementValid ? 'status' : 'alert'} className={cn('text-xs leading-relaxed', replacementValid ? 'text-muted-foreground' : 'text-destructive')}>{replacementValid ? 'Wähle eine Übung als Ersatz für deine Einheit.' : 'Die ursprüngliche Übung ist nicht mehr verfügbar. Öffne deine Einheit erneut.'}</p>}
-      {!replacementRequested && appendId && <div className="flex items-center justify-between gap-3"><p role={appendSession ? 'status' : 'alert'} className={cn('min-w-0 text-xs leading-relaxed', appendSession ? 'text-muted-foreground' : 'text-destructive')}>{appendSession ? `Ergänzen für „${appendSession.title}“` : 'Diese Einheit ist nicht mehr verfügbar. Öffne deine Einheiten erneut.'}</p>{appendSession && <Button asChild variant="secondary" className="shrink-0 px-3"><Link to={`/training/sessions/${encodeURIComponent(appendId)}`}>Einheit ansehen</Link></Button>}</div>}
-      <div className="flex min-h-11 items-center justify-between gap-3"><p role="status" className="text-xs text-muted-foreground">{Math.min(visibleCount, results.length)} von {results.length} {area === 'rehab' ? results.length === 1 ? 'Region' : 'Regionen' : results.length === 1 ? 'Übung' : 'Übungen'}{area !== 'rehab' && equipment !== 'all' ? ` · ${equipment}` : ''}</p>{area !== 'rehab' && <label className="relative flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-kws-control px-1 text-xs has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-[-2px] has-[:focus-visible]:outline-ring"><input type="checkbox" className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0" checked={kwsOnly} onChange={event => updateFilter('allEquipment', event.target.checked ? '' : '1')} /><span aria-hidden="true" className={cn('grid h-4 w-4 place-items-center rounded-kws-badge border', kwsOnly ? 'border-primary-ink bg-primary/10 text-primary-ink' : 'border-input')}>{kwsOnly && <Check className="h-3 w-3" />}</span><span>In der KWS verfügbar</span></label>}</div>
+      {!replacementRequested && appendId && <div className="flex items-center justify-between gap-3"><p role={appendSession ? 'status' : 'alert'} className={cn('min-w-0 text-xs leading-relaxed', appendSession ? 'text-muted-foreground' : 'text-destructive')}>{appendSession ? `Hinzufügen ergänzt direkt „${appendSession.title}“. Die Woche kannst du anschließend in der Einheit wählen.` : 'Diese Einheit ist nicht mehr verfügbar. Öffne deine Einheiten erneut.'}</p>{appendSession && <Button asChild variant="secondary" className="shrink-0 px-3"><Link to={`/training/sessions/${encodeURIComponent(appendId)}`}>Einheit ansehen</Link></Button>}</div>}
+      <div className="flex min-h-11 items-center justify-between gap-3"><p role="status" className="text-xs text-muted-foreground">{results.length} {area === 'rehab' ? results.length === 1 ? 'Region' : 'Regionen' : area === 'boulder' && format === 'game' ? results.length === 1 ? 'Spiel' : 'Spiele' : area === 'boulder' && format === 'all' ? results.length === 1 ? 'Eintrag' : 'Einträge' : results.length === 1 ? 'Übung' : 'Übungen'}{area !== 'rehab' && equipment !== 'all' ? ` · ${equipment}` : ''}</p>{area !== 'rehab' && <label className="relative flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-kws-control px-1 text-xs has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-[-2px] has-[:focus-visible]:outline-ring"><input type="checkbox" className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0" checked={kwsOnly} onChange={event => updateFilter('allEquipment', event.target.checked ? '' : '1')} /><span aria-hidden="true" className={cn('grid h-4 w-4 place-items-center rounded-kws-badge border', kwsOnly ? 'border-primary-ink bg-primary/10 text-primary-ink' : 'border-input')}>{kwsOnly && <Check className="h-3 w-3" />}</span><span>In der KWS verfügbar</span></label>}</div>
 
       {results.length ? (
         <ul id={resultsId} className={cn('grid gap-3', area === 'rehab' ? 'grid-cols-2' : 'lg:grid-cols-2')} aria-label={favoritesOnly ? 'Gemerkte Übungen' : area === 'rehab' ? 'Körperregionen' : 'Übungen'}>
-          {results.slice(0, visibleCount).map(exercise => {
+          {results.map(exercise => {
             const favorite = favorites.includes(exercise.id);
             const rehab = exercise.area === 'rehab';
             const orientation = exercise.contentKind === 'orientation';
@@ -215,13 +235,13 @@ export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibra
               <KwsSurface className={cn('h-full p-3 transition-shadow', selected && 'ring-1 ring-primary-strong')}>
                 <div className="flex items-start gap-3">
                   <Link to={exerciseTarget(exercise.id)} className="shrink-0 rounded-kws-control outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${title}: Anleitung öffnen`}><TrainingExerciseArt exerciseId={exercise.id} title={title} className="w-24 sm:w-28" /></Link>
-                  <div className="min-w-0 flex-1"><Link to={exerciseTarget(exercise.id)} className="group block min-h-11 rounded-kws-control py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"><p className="text-xs text-muted-foreground">{exercise.topic}</p><h3 className="mt-1 text-sm font-semibold leading-snug group-hover:text-primary-ink">{title}</h3></Link><p className="mt-1 text-xs text-muted-foreground">{[exercise.equipment, ...(exercise.alternativeEquipment ?? [])].join(' / ')} · {exercise.contentKind === 'orientation' ? 'Einführung' : `${exercise.minutes} Min.`}</p></div>
+                  <div className="min-w-0 flex-1"><Link to={exerciseTarget(exercise.id)} className="group block min-h-11 rounded-kws-control py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"><p className="text-xs text-muted-foreground">{exercise.format === 'game' && exercise.topic === 'Spiele' ? 'Boulderspiel' : exercise.topic}{exercise.format === 'game' && exercise.topic !== 'Spiele' && ' · Spiel'}</p><h3 className="mt-1 text-sm font-semibold leading-snug group-hover:text-primary-ink">{title}</h3></Link><p className="mt-1 text-xs text-muted-foreground">{[exercise.equipment, ...(exercise.alternativeEquipment ?? [])].join(' / ')} · {exercise.contentKind === 'orientation' ? 'Einführung' : `${exercise.minutes} Min.`}</p></div>
                   <Button type="button" variant="ghost" size="icon" className={cn('shrink-0', favorite && 'text-primary-ink')} aria-pressed={favorite} aria-label={`${title}: ${favorite ? 'aus Favoriten entfernen' : 'als Favorit merken'}`} onClick={() => toggleFavorite(exercise.id)}><Star aria-hidden="true" className={cn(favorite && 'fill-current')} /></Button>
                 </div>
                 <>
-                  <div className="mt-3 flex items-center justify-between gap-2">
-                    <p className="min-w-0 flex-1 text-xs leading-relaxed text-muted-foreground">{exercise.goal}</p>
-                    {orientation ? <span className="shrink-0 text-xs text-muted-foreground">Orientierung</span> : <Button type="button" variant="secondary" className={cn('shrink-0 px-3', selected && 'text-primary-ink')} aria-disabled={selected || undefined} aria-label={`${title}: ${selected ? 'in eigener Einheit' : replacementRequested ? 'als Ersatz wählen' : 'zur eigenen Einheit hinzufügen'}`} disabled={(replacementRequested && !replacementValid) || (!replacementRequested && Boolean(appendId) && !appendSession)} onClick={() => addExercise(exercise.id)}>{selected ? <Check aria-hidden="true" /> : <Plus aria-hidden="true" />}{selected ? 'Ausgewählt' : replacementRequested ? 'Ersetzen' : 'Hinzufügen'}</Button>}
+                  <div className="mt-3 space-y-3">
+                    <p className="text-xs leading-relaxed text-muted-foreground">{exercise.goal}</p>
+                    {orientation ? <span className="shrink-0 text-xs text-muted-foreground">Orientierung</span> : <Button type="button" variant="secondary" className={cn('ml-auto flex h-auto min-h-11 max-w-full whitespace-normal px-3 py-2 text-left', selected && 'text-primary-ink')} aria-disabled={selected || undefined} aria-label={`${title}: ${selected ? appendSession ? 'In dieser Einheit' : 'Im Einheitsentwurf' : replacementRequested ? 'Übung ersetzen' : 'Zur Einheit hinzufügen'}${!selected && !replacementRequested ? appendSession ? ` · ${appendSession.title}` : ' · Einheitsentwurf' : ''}`} disabled={(replacementRequested && !replacementValid) || (!replacementRequested && Boolean(appendId) && !appendSession)} onClick={() => addExercise(exercise.id)}>{selected ? <Check aria-hidden="true" /> : <Plus aria-hidden="true" />}{selected ? appendSession ? 'In dieser Einheit' : 'Im Einheitsentwurf' : replacementRequested ? 'Übung ersetzen' : 'Zur Einheit hinzufügen'}</Button>}
                   </div>
                 </>
               </KwsSurface>
@@ -234,7 +254,6 @@ export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibra
         {matchesNeedOtherEquipment ? <Button type="button" variant="secondary" onClick={() => updateFilter('allEquipment', '1')}>Alle Geräte einbeziehen</Button> : hasFilters ? <Button type="button" variant="secondary" onClick={resetFilters}>Filter zurücksetzen</Button> : favoritesOnly ? <Button asChild variant="secondary"><Link to="/training">Bibliotheken öffnen</Link></Button> : null}
       </KwsSurface>}
 
-      {results.length > visibleCount && <Button type="button" variant="secondary" className="w-full sm:w-auto" aria-controls={resultsId} onClick={() => setVisibleCount(count => count + 5)}>Weitere {Math.min(5, results.length - visibleCount)} anzeigen</Button>}
       <p className="sr-only" role="status" aria-live="polite">{notice}</p>
     </div>
   );
