@@ -1,10 +1,11 @@
 {
-  "capturedAt": "2026-10-13T11:04:29.194Z",
+  "capturedAt": "2026-10-13T11:19:27.068Z",
   "mapId": "09edc012-45ac-4938-a267-d13fc3acf220",
   "orientation": "clockwise-portrait",
   "entries": [
     {
       "area": "Bug",
+      "areaNumber": "01",
       "number": "01",
       "code": "A",
       "name": "Bug A",
@@ -23,11 +24,12 @@
       ],
       "moduleCount": 33,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Bug",
-      "number": "01",
+      "areaNumber": "01",
+      "number": "02",
       "code": "B",
       "name": "Bug B",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Bug%20B",
@@ -45,11 +47,12 @@
       ],
       "moduleCount": 33,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Bug",
-      "number": "01",
+      "areaNumber": "01",
+      "number": "03",
       "code": "C",
       "name": "Bug C",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Bug%20C",
@@ -67,11 +70,12 @@
       ],
       "moduleCount": 33,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Bug",
-      "number": "01",
+      "areaNumber": "01",
+      "number": "04",
       "code": "D",
       "name": "Bug D",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Bug%20D",
@@ -89,11 +93,12 @@
       ],
       "moduleCount": 33,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Couch-Ecke",
-      "number": "02",
+      "areaNumber": "02",
+      "number": "05",
       "code": "A",
       "name": "Couch-Ecke A",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Couch-Ecke%20A",
@@ -111,11 +116,12 @@
       ],
       "moduleCount": 37,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Couch-Ecke",
-      "number": "02",
+      "areaNumber": "02",
+      "number": "06",
       "code": "B",
       "name": "Couch-Ecke B",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Couch-Ecke%20B",
@@ -133,11 +139,12 @@
       ],
       "moduleCount": 37,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Top-Out",
-      "number": "03",
+      "areaNumber": "03",
+      "number": "07",
       "code": "A",
       "name": "Top-Out A",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Top-Out%20A",
@@ -155,11 +162,12 @@
       ],
       "moduleCount": 33,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Top-Out",
-      "number": "03",
+      "areaNumber": "03",
+      "number": "08",
       "code": "B",
       "name": "Top-Out B",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Top-Out%20B",
@@ -177,11 +185,12 @@
       ],
       "moduleCount": 33,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Top-Out",
-      "number": "03",
+      "areaNumber": "03",
+      "number": "09",
       "code": "C",
       "name": "Top-Out C",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Top-Out%20C",
@@ -199,11 +208,12 @@
       ],
       "moduleCount": 33,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Top-Out",
-      "number": "03",
+      "areaNumber": "03",
+      "number": "10",
       "code": "D",
       "name": "Top-Out D",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Top-Out%20D",
@@ -221,11 +231,12 @@
       ],
       "moduleCount": 33,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Lange Platte",
-      "number": "04",
+      "areaNumber": "04",
+      "number": "11",
       "code": "A",
       "name": "Lange Platte A",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Lange%20Platte%20A",
@@ -243,11 +254,12 @@
       ],
       "moduleCount": 37,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Lange Platte",
-      "number": "04",
+      "areaNumber": "04",
+      "number": "12",
       "code": "B",
       "name": "Lange Platte B",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Lange%20Platte%20B",
@@ -265,11 +277,12 @@
       ],
       "moduleCount": 37,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Lange Platte",
-      "number": "04",
+      "areaNumber": "04",
+      "number": "13",
       "code": "C",
       "name": "Lange Platte C",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Lange%20Platte%20C",
@@ -287,11 +300,12 @@
       ],
       "moduleCount": 37,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Lange Platte",
-      "number": "04",
+      "areaNumber": "04",
+      "number": "14",
       "code": "D",
       "name": "Lange Platte D",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Lange%20Platte%20D",
@@ -309,11 +323,12 @@
       ],
       "moduleCount": 37,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Grotte",
-      "number": "05",
+      "areaNumber": "05",
+      "number": "15",
       "code": "A",
       "name": "Grotte A",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Grotte%20A",
@@ -331,11 +346,12 @@
       ],
       "moduleCount": 33,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Grotte",
-      "number": "05",
+      "areaNumber": "05",
+      "number": "16",
       "code": "B",
       "name": "Grotte B",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Grotte%20B",
@@ -353,11 +369,12 @@
       ],
       "moduleCount": 33,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Grotte",
-      "number": "05",
+      "areaNumber": "05",
+      "number": "17",
       "code": "C",
       "name": "Grotte C",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Grotte%20C",
@@ -375,11 +392,12 @@
       ],
       "moduleCount": 33,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Grotte",
-      "number": "05",
+      "areaNumber": "05",
+      "number": "18",
       "code": "D",
       "name": "Grotte D",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Grotte%20D",
@@ -397,11 +415,12 @@
       ],
       "moduleCount": 33,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     },
     {
       "area": "Kurze Platte",
-      "number": "06",
+      "areaNumber": "06",
+      "number": "19",
       "code": "A",
       "name": "Kurze Platte",
       "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Kurze%20Platte",
@@ -419,7 +438,7 @@
       ],
       "moduleCount": 37,
       "quietZoneModules": 4,
-      "sizeMm": 28
+      "sizeMm": 24
     }
   ]
 }

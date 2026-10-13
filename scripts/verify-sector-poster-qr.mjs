@@ -18,8 +18,8 @@ for (const entry of entries) {
   const qr = QRCode.create(entry.url, { errorCorrectionLevel: 'M' });
   const size = qr.modules.size + 8;
   for (let row = 0; row < size; row++) for (let col = 0; col < size; col++) {
-    const x = Math.round((rect.xMm + (col + .5) * 28 / size) * pxPerMm);
-    const y = Math.round((rect.yMm + (row + .5) * 28 / size) * pxPerMm);
+    const x = Math.round((rect.xMm + (col + .5) * entry.sizeMm / size) * pxPerMm);
+    const y = Math.round((rect.yMm + (row + .5) * entry.sizeMm / size) * pxPerMm);
     const offset = (y * info.width + x) * info.channels;
     const dark = data[offset] < 128;
     const expected = row >= 4 && col >= 4 && row < size - 4 && col < size - 4 && Boolean(qr.modules.get(row - 4, col - 4));

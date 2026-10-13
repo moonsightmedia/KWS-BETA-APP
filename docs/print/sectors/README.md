@@ -4,15 +4,15 @@
 
 ## Druckdateien
 
-- **kws-sektoren-a3.pdf**: 420 × 297 mm, A3 quer, eine Seite.
-- **kws-sektoren-a3-beschnitt.pdf**: 426 × 303 mm, 3 mm Beschnitt pro Seite;
-  PDF-TrimBox auf 420 × 297 mm. Hintergrund bis zum Rand, keine Schnittmarken.
+- **kws-sektoren-a3.pdf**: 297 × 420 mm, A3 hochkant, eine Seite.
+- **kws-sektoren-a3-beschnitt.pdf**: 303 × 426 mm, 3 mm Beschnitt pro Seite;
+  PDF-TrimBox auf 297 × 420 mm. Hintergrund bis zum Rand, keine Schnittmarken.
 - **kws-sektoren-a3.html**: vollständig eigenständige, editierbare Vorlage mit
   eingebetteten Fonts, Logo und SVG-QR-Codes. Kein CDN und keine Trackingdienste.
 - **hall-map.svg**: editierbare schematische Kartenzeichnung; Poppins als Schrift.
 
 In Originalgröße (100 %) drucken, nicht „An Seite anpassen“. QR-Codes sind
-28 mm groß und besitzen eine vier Module breite weiße Ruhezone. Ein Probedruck
+24 mm groß und besitzen eine vier Module breite weiße Ruhezone. Ein Probedruck
 mit dem tatsächlich eingesetzten Papier und Handy ist vor der Auflage nötig.
 Keine Logos, Farben oder Dekorationen in die QR-Codes setzen.
 
@@ -32,8 +32,15 @@ technische Altzuordnung von Felsenmeer wird wie in der App korrigiert.
 Die Kartenpunkte und Tag-Anker sind unverändert aus der aktiven Karte abgeleitet.
 Nur die Ansicht ist um 90° im Uhrzeigersinn gedreht. Weiße Wände, graugrüner Boden,
 dunkelblaue Schrift und originaler KWS-Akzent `#36B531` folgen dem App-Design.
-Die Nummern 01–06 sind ausschließlich die Plakat-Legende, keine neuen Sektor-IDs.
 Schematische Tiefe, keine Vermessung, kein Fluchtweg-/Sicherheitsplan.
+
+Revision 2 ersetzt die vom Nutzer abgelehnte QR-Tabelle: hochkant, freistehende
+Karte in der Mitte, QR-Codes in zwei schmalen seitlichen Spalten, nach ihrer
+ungefähren vertikalen Kartenposition geordnet. Keine Tabellenlinien oder
+zusätzlichen Gruppen-Nummern. Kleine Zuordnungsnummern 01–19 verbinden jede
+Wandmarkierung eindeutig mit ihrem QR-Namen; keine neuen Sektor-IDs. Öffentliche Namen unter jedem QR-Code; Bereichsnamen
+im Kartenboden und A–D direkt an den unveränderten Polygonankern. Hintergrund
+und räumliche Wanddarstellung folgen dem freigegebenen App-Kartenentwurf.
 
 Jeder QR-Code verwendet die bestehende Route:
 
@@ -68,13 +75,15 @@ bricht es ab. Nach geänderter Sektorenanzahl ist bewusst ein Layoutreview nöti
 Wenn das isolierte Plakat-Worktree keine eigenen node_modules besitzt, darf
 `KWS_POSTER_PACKAGE_ROOT` auf einen bestehenden Projektcheckout mit diesen
 Paketen gesetzt werden. Dieser Pfad bleibt lokal, nicht in der Vorlage.
-Generatoränderungen erfolgen im Skript, anschließend neu rendern; direkte
+Generatoränderungen erfolgen im Skript und `scripts/sector-poster.css`, anschließend neu rendern; direkte
 HTML-Korrekturen bleiben editierbar, werden aber beim Generieren überschrieben.
 
 ## QA am 13.10.2026
 
-- Zwei visuelle Prüfungen, einschließlich aus der finalen PDF gerenderter Ansicht.
-  Lesbarkeit der QR-Beschriftungen vergrößert, Couch-Ecke von Wand-Tag getrennt.
+- Der erste Entwurf wurde vom Nutzer abgelehnt und in Revision 2 komplett
+  neu komponiert. Visuelle Prüfungen erfolgen anhand der finalen PDF-Rasteransicht.
+- Unabhängige Brief-/System-/Craft-Kritik mit eigener Referenz und sichtbarem
+  Maßstab (`bar.md`, `design-system.md`); Ergebnisse in `design-loop.md`.
 - Eine Seite; exakte A3-/Beschnittmaße und eingebettete Fonts geprüft.
 - Alle 19 öffentlichen Namen und 19 richtigen, eindeutigen PDF-Linkziele geprüft.
 - 34.347 Modulpositionen der tatsächlich bei 300 DPI gerenderten PDF gegen die
