@@ -49,8 +49,8 @@ jobs:
           test -n "$VITE_SUPABASE_PUBLISHABLE_KEY"
           ./node_modules/.bin/vite build --mode hostinger --base=./
           npx cap sync ios
-          pod install --project-directory=ios/App
           ruby scripts/ios/prepare-screenshot-tests.rb
+          pod install --project-directory=ios/App
       - name: Select an available simulator in the required Apple size group
         env:
           DEVICE_FAMILY: ${{ matrix.family }}
@@ -71,7 +71,7 @@ jobs:
               f.write('SIMULATOR_NAME=' + chosen['name'] + '\n')
           print('Selected ' + chosen['name'])
           PY
-      - name: Test genuine native guest views and capture screenshots
+      - name: Test native guest views and the real upload encoder
         run: |
           set -eo pipefail
           mkdir -p output/ios-screenshots

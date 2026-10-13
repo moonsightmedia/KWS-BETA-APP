@@ -141,7 +141,9 @@ def main():
         auth_config = json.loads(subprocess.check_output(['docker', 'inspect', 'supabase-auth'], stderr=log))[0]
     auth = dict(line.split('=', 1) for line in auth_config['Config']['Env'])
     def api(route, method, payload):
-        req = urllib.request.Request('http://127.0.0.1:9090' + route, data=json.dumps(payload).encode(), headers={'apikey': runtime['ANON_KEY'], 'Authorization': 'Bearer ' + runtime['SERVICE_ROLE_KEY'], 'Content-Type': 'application/json'}, method=method)
+        # SQL above reads the production database. Auth and Storage must use
+        # that same backend; 9090 belongs to the isolated migration probe.
+        req = urllib.request.Request('http://127.0.0.1:9082' + route, data=json.dumps(payload).encode(), headers={'apikey': runtime['ANON_KEY'], 'Authorization': 'Bearer ' + runtime['SERVICE_ROLE_KEY'], 'Content-Type': 'application/json'}, method=method)
         with urllib.request.urlopen(req, timeout=30) as response: return response.read()
     if request['status'] != 'completed':
         # Persist the minimal restore tombstone and completion recipient before

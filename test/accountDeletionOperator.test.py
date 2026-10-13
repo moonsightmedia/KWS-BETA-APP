@@ -32,7 +32,12 @@ class OperatorTests(unittest.TestCase):
  def send_message(self,message):
   if self.fail_mail: raise ConnectionError('Synthetic SMTP failure')
   self.mail.append(message)
- def http(self,request,**kw): self.api.append(request.full_url); return Response()
+ def http(self,request,**kw):
+  # Model the actual split: production SQL/auth/storage on 9082, an unrelated
+  # restored migration database behind 9090. Never let a wrong gateway pass.
+  if not request.full_url.startswith('http://127.0.0.1:9082/'):
+   raise ConnectionError('Production identity cannot be erased via the probe gateway')
+  self.api.append(request.full_url); return Response()
  def command(self,command,input=None,**kw):
   if command[:2] == ['docker','inspect']:
    if command[2] == 'kws-video-production': return json.dumps([{'State':{'Running':self.video_running}}]).encode()
@@ -62,6 +67,7 @@ class OperatorTests(unittest.TestCase):
   sha = self.plan_sha(); self.run_operator(True,sha)
   self.assertFalse(owned.exists()); self.assertTrue(foreign.exists()); self.assertEqual(self.purges,1)
   self.assertEqual(len(self.mail),1); self.assertEqual(self.mail[0]['Reply-To'],'marketing@kletterwelt-sauerland.de')
+  self.assertIn('http://127.0.0.1:9082/auth/v1/admin/users/'+OWNER,self.api)
   self.assertTrue((self.private/(REQUEST+'.tombstone.json')).exists()); self.assertFalse((self.private/(REQUEST+'.notice.json')).exists())
  def test_changed_plan_business_and_legacy_guards_stop_before_network(self):
   for blocker in ('business','legacy',None):
