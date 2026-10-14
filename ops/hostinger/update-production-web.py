@@ -4,7 +4,34 @@ No database, mail, media or account mutation. Build before replacing the web
 directory, retain old hashed assets for open clients, and roll back failed starts.
 """
 from pathlib import Path
-import argparse, datetime, hashlib, io, json, os, re, shutil, socket, subprocess, tarfile, time, urllib.request
+import argparse, datetime, hashlib, io, json, os, re, shutil, socket, subprocess, tarfile, time, urllib.parse, urllib.request
+
+def preserve_downloads(previous_dist, next_dist):
+    """Carry distributed installers across a web build, verifying their bytes."""
+    downloads = previous_dist / 'downloads'
+    if not downloads.exists():
+        assert not downloads.is_symlink(), 'Dangling download directory'
+        return 0
+    assert downloads.is_dir() and not downloads.is_symlink(), 'Invalid download directory'
+    count = 0
+    for path in sorted(downloads.rglob('*')):
+        assert not path.is_symlink(), 'Linked download cannot be carried forward'
+        if path.is_dir(): continue
+        assert path.is_file(), 'Invalid download file'
+        destination = next_dist / 'downloads' / path.relative_to(downloads)
+        for parent in (destination.parent, *destination.parents):
+            assert not parent.is_symlink(), 'Linked download destination'
+            if parent == next_dist: break
+        assert not destination.is_symlink(), 'Linked download destination'
+        expected = hashlib.sha256(path.read_bytes()).digest()
+        if destination.exists():
+            assert destination.is_file() and hashlib.sha256(destination.read_bytes()).digest() == expected, 'Download differs from distributed installer'
+        else:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(path, destination)
+        assert hashlib.sha256(destination.read_bytes()).digest() == expected, 'Download copy differs'
+        count += 1
+    return count
 
 def main():
     assert os.geteuid() == 0 and socket.gethostname().split('.')[0] == 'srv2044594'
@@ -52,6 +79,7 @@ def main():
             'npm ci --legacy-peer-deps --no-audit --no-fund && ./node_modules/.bin/vite build --mode hostinger'], stdout=log, stderr=log, check=True)
     dist = source / 'dist'; html = (dist / 'index.html').read_text()
     assert '/assets/' in html
+    download_count = preserve_downloads(old / 'dist', dist)
     texts = []
     for path in dist.rglob('*'):
         if not path.is_file(): continue
@@ -89,6 +117,11 @@ def main():
             for route in ('/','/auth','/reset-password','/auth/callback','/privacy','/imprint','/community-rules'):
                 with urllib.request.urlopen('http://127.0.0.1:9091'+route, timeout=30) as response:
                     assert response.status == 200 and response.read().decode() == html
+            for path in (old / 'dist/downloads').rglob('*'):
+                if not path.is_file(): continue
+                route = '/downloads/' + urllib.parse.quote(path.relative_to(old / 'dist/downloads').as_posix(), safe='/')
+                with urllib.request.urlopen('http://127.0.0.1:9091'+route, timeout=30) as response:
+                    assert response.status == 200 and hashlib.sha256(response.read()).digest() == hashlib.sha256(path.read_bytes()).digest(), 'Installer download is not served correctly'
         except Exception:
             old.rename(stage / 'failed-source'); previous.rename(old); start()
             for name, content in metadata.items(): (root / name).write_bytes(content)
@@ -100,6 +133,7 @@ def main():
         shutil.copyfile(old / origin, destination); destination.chmod(0o700)
     report = {'revision':args.revision,'archive_sha256':args.archive_sha256,'deployed_at':stamp,'public_api_configured':True,'base':'/',
         'secret_in_bundle':False,'minimum_account_age':16,'account_deletion_request':True,'deadline_days':7,
+        'downloads_preserved':download_count,
         'previous_source':str(previous),'media_unchanged':True,'database_unchanged':True,'backup_operator_updated':True}
     (root / 'SOURCE.json').write_text(json.dumps({'revision':args.revision})+'\n')
     (root / 'BUILD-VERIFIED.json').write_text(json.dumps(report)+'\n')

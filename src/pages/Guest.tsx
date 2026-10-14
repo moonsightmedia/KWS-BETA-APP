@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
+import { boulderNavigationState } from '@/lib/boulderNavigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useSectorsTransformed } from '@/hooks/useSectors';
@@ -31,6 +32,7 @@ const Guest = () => {
   const isCompetitionEnabled = import.meta.env.VITE_ENABLE_COMPETITION === 'true';
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [loadedThumbnails, setLoadedThumbnails] = useState<Set<string>>(new Set());
   const colorsQuery = useColors();
@@ -454,7 +456,7 @@ const Guest = () => {
           <button
             key={b.id}
             type="button"
-            onClick={() => navigate(`/boulders/${b.id}`)}
+            onClick={() => navigate(`/boulders/${b.id}`, { state: boulderNavigationState(location) })}
             className="w-full overflow-hidden rounded-kws-card bg-white p-0 text-left shadow-[0_3px_14px_rgba(19,17,43,0.07)] transition-[transform,box-shadow] hover:shadow-[0_6px_20px_rgba(19,17,43,0.11)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36B531]/45 focus-visible:ring-offset-2"
           >
             <div className="flex min-h-[94px] items-stretch">

@@ -1,8 +1,8 @@
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { createBrowserRouter, RouterProvider, Outlet, useLocation, useNavigate, useNavigationType, Navigate } from "react-router-dom";
-import { useEffect, useState, useRef } from "react";
+import { createBrowserRouter, RouterProvider, useLocation, useNavigate, useNavigationType, Navigate } from "react-router-dom";
+import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -35,6 +35,7 @@ import TvSchedule from "./pages/TvSchedule";
 import NotFound from "./pages/NotFound";
 import { Sidebar } from "@/components/Sidebar";
 import { SetterAreaLayout } from "@/components/setter/SetterAreaLayout";
+import { BoulderRouteContinuity } from '@/components/BoulderRouteContinuity';
 
 // Configure QueryClient for optimal caching and prefetching
 const queryClient = new QueryClient({
@@ -146,11 +147,14 @@ const RouteScrollReset = () => {
   const navigationType = useNavigationType();
   const previousLocationRef = useRef({ pathname: location.pathname, hash: location.hash });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const previousLocation = previousLocationRef.current;
     const pathnameChanged = previousLocation.pathname !== location.pathname;
     const hashChanged = previousLocation.hash !== location.hash;
     previousLocationRef.current = { pathname: location.pathname, hash: location.hash };
+
+    // Boulder detail owns a fixed scroll layer; never move its source document.
+    if (/^\/boulders\/[^/]+$/.test(location.pathname)) return;
 
     if (location.hash && (pathnameChanged || hashChanged)) {
       requestAnimationFrame(() => {
@@ -325,7 +329,7 @@ const Root = () => {
               <ConditionalSidebar />
               <UploadOverview />
               <EmergencyReset />
-              <Outlet />
+              <BoulderRouteContinuity key={user?.id ?? 'guest'} />
             </ErrorBoundaryWithAuth>
           </UploadProvider>
       </SidebarProvider>

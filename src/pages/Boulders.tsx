@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { boulderNavigationState } from '@/lib/boulderNavigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Grid3X3, List, Map as MapIcon, RotateCcw, Search, SlidersHorizontal, Sparkles, Star, X } from 'lucide-react';
 import { BoulderFilterControls, BoulderFilterPanel, BoulderSortPanel, FilterSection, FilterToggle } from '@/components/boulder/BoulderFilterControls';
@@ -93,6 +94,7 @@ const sortOptions = [
 const Boulders = () => {
   const { isExpanded } = useSidebar();
   const navigate = useNavigate();
+  const location = useLocation();
   const swipeRef = useHorizontalRouteSwipe({ routes: ['/', '/boulders', '/statistics'] });
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -417,7 +419,7 @@ const Boulders = () => {
   };
 
   const handleBoulderClick = (boulderId: string) => {
-    navigate(`/boulders/${boulderId}`);
+    navigate(`/boulders/${boulderId}`, { state: boulderNavigationState(location) });
   };
 
   const handleMapSectorSelect = (sectorName: string) => {

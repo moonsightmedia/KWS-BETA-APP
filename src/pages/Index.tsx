@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { boulderNavigationState } from '@/lib/boulderNavigation';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
@@ -25,7 +26,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderCommunity';
 import { buildPersonalProgress, homeFocusBoulders } from '@/lib/personalProgress';
-import { usePreloadBoulderThumbnails } from '@/hooks/usePreloadBoulderThumbnails';
 import { useSectorSchedule } from '@/hooks/useSectorSchedule';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { supabase } from '@/integrations/supabase/client';
@@ -134,6 +134,7 @@ const HomePreviewCard = ({
 
 const Index = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { isExpanded } = useSidebar();
   const { user, loading: authLoading } = useAuth();
@@ -153,7 +154,6 @@ const Index = () => {
   const isLoading = isLoadingBoulders || isLoadingSectors;
   const error = bouldersError || sectorsError;
 
-  usePreloadBoulderThumbnails(!!user && !authLoading);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -455,7 +455,7 @@ const Index = () => {
                 <button
                   key={boulder.id}
                   type="button"
-                  onClick={() => navigate(`/boulders/${boulder.id}`)}
+                  onClick={() => navigate(`/boulders/${boulder.id}`, { state: boulderNavigationState(location) })}
                   aria-label={`${boulder.name}, Grad ${boulder.difficulty ?? '?'}, ${getSectorAreaLabel(boulder)}`}
                   className="group relative aspect-[4/5] w-full overflow-hidden rounded-kws-card bg-[#EEF2EE] p-0 text-left shadow-[0_3px_14px_rgba(19,17,43,0.10)] transition-[transform,box-shadow] hover:shadow-[0_7px_22px_rgba(19,17,43,0.16)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55 focus-visible:ring-offset-2"
                 >
@@ -550,7 +550,7 @@ const Index = () => {
                         key={item.tick.id}
                         boulder={item.boulder}
                         meta={`${item.tick.is_project ? 'Projekt' : item.tick.is_favorite ? 'Gespeichert' : 'In Arbeit'} · ${item.tick.attempt_count ?? 0} ${(item.tick.attempt_count ?? 0) === 1 ? 'Versuch' : 'Versuche'}`}
-                        onClick={() => navigate(`/boulders/${item.tick.boulder_id}`)}
+                        onClick={() => navigate(`/boulders/${item.tick.boulder_id}`, { state: boulderNavigationState(location) })}
                       />
                     ) : null,
                   )}

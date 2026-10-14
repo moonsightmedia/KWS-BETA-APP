@@ -6,7 +6,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePreloadSectorImages } from './usePreloadSectorImages';
-import { usePreloadBoulderThumbnails } from './usePreloadBoulderThumbnails';
 import { authenticatedFetch, getCurrentSession, SESSION_REQUIRED_EVENT } from '@/lib/authenticatedFetch';
 import { SessionRecoveryDialog } from '@/components/SessionRecoveryDialog';
 import { Capacitor } from '@capacitor/core';
@@ -905,8 +904,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Preload sector images when user is logged in
   usePreloadSectorImages(!!session && !reauthRequired);
   
-  // Preload boulder thumbnails when user is logged in
-  usePreloadBoulderThumbnails(!!session && !reauthRequired);
 
   const reconnectSession = async (password: string) => {
     const expected = lastSession.current;

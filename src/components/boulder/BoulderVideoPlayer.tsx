@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BadgeCheck, Check, ChevronDown, ExternalLink, Loader2, Maximize2, Minimize2, Settings, Video } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -76,18 +76,25 @@ type FullscreenVideoDocument = Document & {
 };
 
 export function BoulderVideoPlayer({
-  betaVideoUrls,
+  betaVideoUrls: incomingVideoUrls,
   betaVideoUrl,
   poster,
   isVisible = true,
   showOfficialBadge = false,
   className,
 }: BoulderVideoPlayerProps) {
+  // Data transforms may produce equivalent objects; media effects follow URLs, not object identity.
+  const hd = incomingVideoUrls?.hd;
+  const sd = incomingVideoUrls?.sd;
+  const low = incomingVideoUrls?.low;
+  const hasVideoUrls = Boolean(incomingVideoUrls);
+  const betaVideoUrls = useMemo(() => hasVideoUrls ? { hd, sd, low } : undefined, [hasVideoUrls, hd, sd, low]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isBuffering, setIsBuffering] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [currentQuality, setCurrentQuality] = useState<VideoQualityLevel>('sd');
+  const [currentQuality, setCurrentQuality] = useState<VideoQualityLevel>(() =>
+    getPreferredVideoQuality(betaVideoUrls, betaVideoUrl, getOptimalVideoQualityWithDataSaver(detectNetworkSpeed())));
   const [hasError, setHasError] = useState(false);
   const [sourceRevision, setSourceRevision] = useState(0);
   const showQualitySelector = hasMultipleVideoQualities(betaVideoUrls, betaVideoUrl);
@@ -117,21 +124,6 @@ export function BoulderVideoPlayer({
       wasPlaying: !video.paused && !video.ended,
     };
   }, []);
-
-  useEffect(() => {
-    if (!isVisible) return;
-
-    const availableQualities = getAvailableVideoQualities(betaVideoUrls, betaVideoUrl);
-    if (availableQualities.length <= 1) {
-      setCurrentQuality(availableQualities[0] ?? 'sd');
-      return;
-    }
-
-    const networkSpeed = detectNetworkSpeed();
-    const optimalQuality = getOptimalVideoQualityWithDataSaver(networkSpeed);
-    setCurrentQuality(getPreferredVideoQuality(betaVideoUrls, betaVideoUrl, optimalQuality));
-    console.log('[VideoPlayer] Network speed:', networkSpeed, 'Selected quality:', optimalQuality);
-  }, [isVisible, betaVideoUrls, betaVideoUrl]);
 
   const currentVideoUrl = getVideoUrl(betaVideoUrls, betaVideoUrl, currentQuality);
 
@@ -180,8 +172,6 @@ export function BoulderVideoPlayer({
     }
 
     const savedPlaybackState = playbackStateRef.current;
-    video.src = videoUrl;
-    video.preload = 'auto';
     clearLoadTimeout();
 
     loadTimeoutRef.current = setTimeout(() => {
@@ -195,7 +185,7 @@ export function BoulderVideoPlayer({
       }
     }, 10000);
 
-    video.load();
+    if (sourceRevision > 0) video.load();
 
     const handleLoadedMetadata = () => {
       if (savedPlaybackState) {
@@ -498,6 +488,7 @@ export function BoulderVideoPlayer({
 
       <video
         ref={videoRef}
+        src={isVisible ? currentVideoUrl : undefined}
         autoPlay
         controls
         muted
@@ -510,17 +501,6 @@ export function BoulderVideoPlayer({
         poster={poster || undefined}
         preload="auto"
       >
-        {currentVideoUrl.toLowerCase().endsWith('.mp4') ? (
-          <>
-            <source src={currentVideoUrl} type="video/mp4" />
-            <source src={currentVideoUrl} type="video/webm" />
-          </>
-        ) : (
-          <>
-            <source src={currentVideoUrl} type="video/webm" />
-            <source src={currentVideoUrl} type="video/mp4" />
-          </>
-        )}
         Dein Browser unterstuetzt keine Videos.
       </video>
 
