@@ -48,6 +48,7 @@ type DashboardHeaderProps = {
   rightSlot?: ReactNode;
   belowSlot?: ReactNode;
   backTo?: string;
+  onBack?: () => void;
   backLabel?: string;
   desktopTitle?: string;
   desktopSubtitle?: string;
@@ -57,6 +58,7 @@ export const DashboardHeader = forwardRef<HTMLDivElement, DashboardHeaderProps>(
   rightSlot,
   belowSlot,
   backTo,
+  onBack,
   backLabel = 'Zurück zum Profil',
   desktopTitle,
   desktopSubtitle,
@@ -78,7 +80,7 @@ export const DashboardHeader = forwardRef<HTMLDivElement, DashboardHeaderProps>(
             {backTo ? (
               <button
                 type="button"
-                onClick={() => navigate(backTo)}
+                onClick={onBack ?? (() => navigate(backTo))}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kws-control bg-secondary text-[#192436]/65 transition-[background-color,color,transform] hover:bg-[#E8EEE8] hover:text-[#192436] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
                 aria-label={backLabel}
               >

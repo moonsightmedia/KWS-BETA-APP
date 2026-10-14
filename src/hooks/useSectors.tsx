@@ -276,7 +276,7 @@ export const useSectors = (enabled: boolean = true) => {
     retry: 1, // Only retry once to prevent infinite loading
     retryDelay: 1000, // Wait 1 second between retries
     // CRITICAL: Set staleTime to 0 to ensure data is always refetched after reload
-    staleTime: 0,
+    staleTime: 30_000,
     // Use default query options from QueryClient (refetchOnMount: true)
   });
 };

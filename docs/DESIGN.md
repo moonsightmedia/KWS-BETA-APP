@@ -828,6 +828,16 @@ dieselbe visuelle Struktur.
 
 ### 8.2 Detailansicht
 
+- Rücknavigation führt zum tatsächlichen Einstieg: Home („Neu an der Wand“)
+  zurück zu Home, Boulder-/Gastübersicht zurück zur jeweiligen Übersicht.
+  Während eines Detailbesuchs bleibt genau diese Ausgangsseite im Speicher:
+  Bilder, Filter, Ansicht, Gruppen und Scrollposition bleiben erhalten. Andere
+  Navigation und Kontowechsel geben sie frei. Direktlinks haben einen sicheren
+  Rückweg zur Übersicht. Ein kurzer 180-ms-Übergang entfällt bei Reduced Motion.
+- Videos wählen ihre Netzwerkqualität vor der ersten Medienanfrage. Gleiche
+  URLs oder Änderungen anderer Detaildaten dürfen Wiedergabe nicht neu starten.
+  Sichtbare Bilder haben Vorrang vor einem Vorladen des gesamten Katalogs.
+
 - Die Seite verwendet `DashboardHeader`/`DashboardPageLayout`; es gibt keinen
   eigenen fixierten Header und keinen pauschalen mobilen Top-Abstand.
 - Im gemeinsamen Header steht der Seitentitel `Boulder`; Bouldername, Grad,

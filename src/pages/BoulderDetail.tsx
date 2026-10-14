@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { readBoulderOrigin } from '@/lib/boulderNavigation';
+import { useRetainedBoulderOrigin } from '@/components/BoulderRouteContinuity';
 import { BadgeCheck, Play, Video } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -40,6 +42,9 @@ function getThumbnailUrl(boulder: Boulder) {
 
 export default function BoulderDetail() {
   const { id } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const hasRetainedOrigin = useRetainedBoulderOrigin();
   const { user, loading: authLoading } = useAuth();
   const { data: colors } = useColors();
   const { data: boulders, isLoading } = useBouldersWithSectors(!authLoading);
@@ -98,7 +103,7 @@ export default function BoulderDetail() {
     const naturalTop = currentScrollTop + tabBar.getBoundingClientRect().top;
     const targetTop = naturalTop - stickyTop;
 
-    scrollPageTo(targetTop, 'smooth');
+    scrollPageTo(targetTop, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
   }, [getScrollContainer, scrollPageTo]);
 
   useLayoutEffect(() => {
@@ -157,13 +162,17 @@ export default function BoulderDetail() {
     return <BoulderInfoTab boulder={boulder} />;
   };
 
-  const backDestination = user ? '/boulders' : '/guest';
+  const origin = readBoulderOrigin(location.state);
+  const backDestination = origin ? origin.pathname + origin.search + origin.hash : user ? '/boulders' : '/guest';
+  const backLabel = origin?.pathname === '/' || origin?.pathname === '/app' ? 'Zurück zur Startseite' : 'Zurück zur Boulderübersicht';
+  const goBack = () => hasRetainedOrigin ? navigate(-1) : navigate(backDestination, { replace: true });
 
   if (isLoading || authLoading) {
     return (
       <DashboardPageLayout
         headerBackTo={backDestination}
-        headerBackLabel="Zurück zur Boulderübersicht"
+        headerBackLabel={backLabel}
+        onHeaderBack={goBack}
         mainClassName="pt-4 md:pt-6"
       >
         <div className="mb-4 space-y-2">
@@ -185,7 +194,8 @@ export default function BoulderDetail() {
     return (
       <DashboardPageLayout
         headerBackTo={backDestination}
-        headerBackLabel="Zurück zur Boulderübersicht"
+        headerBackLabel={backLabel}
+        onHeaderBack={goBack}
         mainClassName="flex items-center justify-center"
       >
         <div className="w-full max-w-md rounded-kws-card bg-card p-6 text-center text-sm text-muted-foreground shadow-[0_3px_14px_rgba(19,17,43,0.07)]">
@@ -198,7 +208,8 @@ export default function BoulderDetail() {
   return (
     <DashboardPageLayout
       headerBackTo={backDestination}
-      headerBackLabel="Zurück zur Boulderübersicht"
+      headerBackLabel={backLabel}
+      onHeaderBack={goBack}
       mainClassName="pt-4 md:pt-6"
     >
       <section className="mb-4 min-w-0" aria-labelledby="boulder-detail-title">
@@ -236,6 +247,7 @@ export default function BoulderDetail() {
                 <ExternalBetaVideo key={videoUrl} src={getVimeoEmbedUrl(videoUrl)} provider="Vimeo" />
               ) : (
                 <BoulderVideoPlayer
+                  key={boulder.id}
                   betaVideoUrls={boulder.betaVideoUrls}
                   betaVideoUrl={boulder.betaVideoUrl}
                   poster={getThumbnailUrl(boulder)}

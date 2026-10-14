@@ -1,7 +1,7 @@
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { createBrowserRouter, RouterProvider, Outlet, useLocation, useNavigate, useNavigationType, Navigate } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, useLocation, useNavigate, useNavigationType, Navigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
@@ -35,6 +35,7 @@ import TvSchedule from "./pages/TvSchedule";
 import NotFound from "./pages/NotFound";
 import { Sidebar } from "@/components/Sidebar";
 import { SetterAreaLayout } from "@/components/setter/SetterAreaLayout";
+import { BoulderRouteContinuity } from '@/components/BoulderRouteContinuity';
 
 // Configure QueryClient for optimal caching and prefetching
 const queryClient = new QueryClient({
@@ -325,7 +326,7 @@ const Root = () => {
               <ConditionalSidebar />
               <UploadOverview />
               <EmergencyReset />
-              <Outlet />
+              <BoulderRouteContinuity key={user?.id ?? 'guest'} />
             </ErrorBoundaryWithAuth>
           </UploadProvider>
       </SidebarProvider>
