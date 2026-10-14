@@ -18,7 +18,7 @@ import { AdminMobileNavigation } from '@/components/admin/AdminMobileNavigation'
 import { ADMIN_TABS } from '@/lib/adminNavigation';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useHasRole } from '@/hooks/useHasRole';
@@ -118,8 +118,18 @@ export const Sidebar = ({ className }: SidebarProps) => {
   const { hasRole: isSetter, loading: setterLoading } = useHasRole('setter');
   const [isMobileNavCompact, setIsMobileNavCompact] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let animationFrame: number | null = null;
+
+    const syncMobileNav = () => {
+      const detailLayer = document.querySelector<HTMLElement>('[data-boulder-detail-scroll]');
+      const scrollOffset = detailLayer?.scrollTop ?? Math.max(
+        window.scrollY,
+        document.documentElement.scrollTop,
+        document.body.scrollTop
+      );
+      setIsMobileNavCompact(scrollOffset > 24);
+    };
 
     const updateMobileNav = () => {
       if (animationFrame !== null) {
@@ -127,18 +137,12 @@ export const Sidebar = ({ className }: SidebarProps) => {
       }
 
       animationFrame = window.requestAnimationFrame(() => {
-        const scrollOffset = Math.max(
-          window.scrollY,
-          document.documentElement.scrollTop,
-          document.body.scrollTop
-        );
-
-        setIsMobileNavCompact(scrollOffset > 24);
+        syncMobileNav();
         animationFrame = null;
       });
     };
 
-    updateMobileNav();
+    syncMobileNav();
     window.addEventListener('scroll', updateMobileNav, { passive: true });
     document.addEventListener('scroll', updateMobileNav, { passive: true, capture: true });
 

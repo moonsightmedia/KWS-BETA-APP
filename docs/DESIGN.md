@@ -834,6 +834,15 @@ dieselbe visuelle Struktur.
   Bilder, Filter, Ansicht, Gruppen und Scrollposition bleiben erhalten. Andere
   Navigation und Kontowechsel geben sie frei. Direktlinks haben einen sicheren
   Rückweg zur Übersicht. Ein kurzer 180-ms-Übergang entfällt bei Reduced Motion.
+- Beim Detailbesuch bleibt die Ausgangsseite auch gezeichnet und an derselben
+  Dokumentposition. Die Detailseite besitzt eine eigene bildschirmfüllende
+  Scrollebene. Der Hintergrund ist dabei `inert` und für Screenreader verborgen.
+  Schließen entfernt nur die Vordergrundebene; kein `display:none`-Wechsel,
+  erneuter Seitenaufbau oder nachträglicher Scrollsprung. Klassische Scrollleisten
+  werden beim Sperren des Hintergrunds ausgeglichen. Detailtabs und Pull-to-Refresh
+  beziehen sich ausschließlich auf die aktive Scrollebene.
+  Die Vordergrundfläche ist ab dem ersten Frame deckend; nur ihr Inhalt bewegt
+  sich beim Eintritt leicht. Die Ausgangsseite darf dabei nicht durchscheinen.
 - Videos wählen ihre Netzwerkqualität vor der ersten Medienanfrage. Gleiche
   URLs oder Änderungen anderer Detaildaten dürfen Wiedergabe nicht neu starten.
   Sichtbare Bilder haben Vorrang vor einem Vorladen des gesamten Katalogs.

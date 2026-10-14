@@ -61,6 +61,8 @@ export default function BoulderDetail() {
   const availableTabs = useMemo(() => (user ? tabs : (['Info', 'Beta'] as const)), [user]);
 
   const getScrollContainer = useCallback(() => {
+    const detailLayer = document.querySelector<HTMLElement>('[data-boulder-detail-scroll]');
+    if (detailLayer) return detailLayer;
     const candidates = [
       document.body,
       document.scrollingElement,
@@ -82,6 +84,8 @@ export default function BoulderDetail() {
       top: targetTop,
       behavior,
     });
+
+    if (scrollContainer.hasAttribute('data-boulder-detail-scroll')) return;
 
     document.documentElement.scrollTo({
       top: targetTop,

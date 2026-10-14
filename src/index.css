@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 @keyframes kws-detail-enter {
-  from { opacity: 0.6; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { transform: translateY(6px); }
+  to { transform: translateY(0); }
 }
 .kws-detail-enter { animation: kws-detail-enter 180ms ease-out; }
 @media (prefers-reduced-motion: reduce) {

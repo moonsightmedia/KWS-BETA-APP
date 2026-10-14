@@ -79,6 +79,8 @@ test('direct detail has safe overview fallback; reduced motion removes transitio
   await page.emulateMedia({reducedMotion:'reduce'});
   await open(page,'/boulders/b-1');
   await expect(page.getByRole('button',{name:'Zurück zur Boulderübersicht'})).toBeVisible();
+  await expect(page.locator('[data-boulder-detail-scroll]')).toHaveCSS('opacity','1');
+  await expect(page.locator('[data-boulder-detail-scroll]')).toHaveCSS('transform','none');
   await expect(page.locator('.kws-detail-enter')).toHaveCSS('animation-name','none');
   await page.getByRole('button',{name:'Zurück zur Boulderübersicht'}).click();
   await expect(page.getByTestId('route')).toHaveText('/boulders');
@@ -109,3 +111,47 @@ test('Forward reopens detail; leaving the source releases its retained DOM',asyn
   await expect(page.getByTestId('route')).toHaveText('/statistics');
   expect(await page.evaluate(()=>(window as any).sourceImg.isConnected)).toBe(false);
 });
+
+for (const width of [375,768,1280,1920]) {
+test(`scrolled overview keeps its painted geometry throughout detail and return (${width})`,async({page})=>{
+  await page.setViewportSize({width,height:width>=1280?450:700});
+  await open(page,'/boulders');
+  await page.getByRole('button',{name:'Listenansicht',exact:true}).click();
+  const card=page.locator('#boulder-results button').filter({has:page.locator('img')}).last();
+  await card.scrollIntoViewIfNeeded();
+  const handle=await card.elementHandle();
+  const top=await page.evaluate(()=>scrollY);
+  expect(top).toBeGreaterThan(100);
+  const box=await handle!.boundingBox();
+  await card.click();
+  await expect(page.getByRole('button',{name:'Zurück zur Boulderübersicht'})).toBeVisible();
+  // A retained but display:none page cannot keep a painted frame ready underneath.
+  expect(await handle!.boundingBox()).toEqual(box);
+  expect(await page.evaluate(()=>scrollY)).toBe(top);
+  await expect(page.locator('[aria-hidden="true"].isolate')).toHaveJSProperty('inert',true);
+  await expect(page.locator('html')).toHaveCSS('overflow','hidden');
+  if(width<768) await expect(page.getByRole('navigation',{name:'Hauptnavigation'})).toHaveAttribute('data-compact','false');
+  await page.getByRole('button',{name:'Track',exact:true}).click();
+  expect(await page.evaluate(()=>scrollY)).toBe(top);
+  const samples=await page.evaluateHandle(()=>{
+    const values:Array<{top:number;height:number}>=[];
+    let frames=0;
+    const sample=()=>{values.push({top:scrollY,height:document.documentElement.scrollHeight});if(++frames<25)requestAnimationFrame(sample);};
+    requestAnimationFrame(sample);
+    return values;
+  });
+  await page.getByRole('button',{name:'Zurück zur Boulderübersicht'}).click();
+  await expect(page.getByTestId('route')).toHaveText('/boulders');
+  await expect.poll(async()=> (await samples.jsonValue()).length).toBe(25);
+  const values=await samples.jsonValue();
+  expect(values.every(value=>value.top===top)).toBe(true);
+  expect(new Set(values.map(value=>value.height)).size).toBe(1);
+  expect(await handle!.boundingBox()).toEqual(box);
+  await expect(page.locator('html')).not.toHaveCSS('overflow','hidden');
+  await expect(page.locator('.isolate').first()).toHaveJSProperty('inert',false);
+  if(width<768) await expect(page.getByRole('navigation',{name:'Hauptnavigation'})).toHaveAttribute('data-compact','true');
+  await page.keyboard.press('Escape');
+  await page.mouse.move(width-5,400);
+  await page.screenshot({path:`${output}/overview-return-${width}.png`,animations:'disabled'});
+});
+}

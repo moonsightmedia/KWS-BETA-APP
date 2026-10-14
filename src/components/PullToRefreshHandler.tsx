@@ -24,6 +24,8 @@ const MIN_REFRESH_VISIBILITY_MS = 650;
 const DISABLED_ROUTES = ['/auth', '/auth/callback', '/competition'];
 
 const isDocumentAtTop = () => {
+  const detailLayer = document.querySelector<HTMLElement>('[data-boulder-detail-scroll]');
+  if (detailLayer) return detailLayer.scrollTop <= TOP_TOLERANCE;
   const scrollingElement = document.scrollingElement;
   return Math.max(
     window.scrollY || 0,

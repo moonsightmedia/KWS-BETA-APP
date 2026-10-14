@@ -2,7 +2,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { createBrowserRouter, RouterProvider, useLocation, useNavigate, useNavigationType, Navigate } from "react-router-dom";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -147,11 +147,14 @@ const RouteScrollReset = () => {
   const navigationType = useNavigationType();
   const previousLocationRef = useRef({ pathname: location.pathname, hash: location.hash });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const previousLocation = previousLocationRef.current;
     const pathnameChanged = previousLocation.pathname !== location.pathname;
     const hashChanged = previousLocation.hash !== location.hash;
     previousLocationRef.current = { pathname: location.pathname, hash: location.hash };
+
+    // Boulder detail owns a fixed scroll layer; never move its source document.
+    if (/^\/boulders\/[^/]+$/.test(location.pathname)) return;
 
     if (location.hash && (pathnameChanged || hashChanged)) {
       requestAnimationFrame(() => {
