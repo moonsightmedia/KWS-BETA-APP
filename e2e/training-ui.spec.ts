@@ -436,3 +436,38 @@ test('failed preference persistence is visible while the current choice stays us
   await expect(page.getByRole('switch', { name: 'Training anzeigen', exact: true })).not.toBeChecked();
   expect(await page.evaluate(() => localStorage.getItem('kws-training-preferences-v1:training-demo'))).toBeNull();
 });
+
+test('short instructions are reachable directly while explanations stay expandable', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 900 });
+  await open(page, '/training/exercises/edge-choice');
+  await page.getByRole('link', { name: 'Zur Anleitung', exact: true }).click();
+  await expect(page.locator('#exercise-instructions')).toBeInViewport();
+  await expect(page.locator('#exercise-instructions')).toContainText('Großzehenseite');
+  await expect(page.locator('#exercise-instructions')).toContainText('Kleinzehenseite');
+  const background = page.locator('details').filter({ has: page.locator('summary').filter({ hasText: 'Hintergrund & Quellen' }) });
+  await expect(background).not.toHaveAttribute('open', '');
+  await background.locator('summary').click();
+  await expect(background).toContainText('noch nicht fachlich freigegeben');
+  await open(page, '/training/exercises/kids-colour-post');
+  await page.getByRole('link', { name: 'Zum Spielablauf', exact: true }).click();
+  await expect(page.locator('#exercise-instructions')).toBeInViewport();
+  const group = page.locator('details').filter({ has: page.locator('summary').filter({ hasText: 'Alter, Gruppe & Spielzeit' }) });
+  await expect(group).not.toHaveAttribute('open', '');
+  await group.locator('summary').click();
+  await expect(group.getByRole('heading', { name: 'Gruppe', exact: true })).toBeVisible();
+  await open(page, '/training/exercises/kids-colour-post?age=kita');
+  await page.getByRole('link', { name: 'Zur Kita-Idee', exact: true }).click();
+  await expect(page.locator('#exercise-kita')).toBeInViewport();
+});
+
+test('specific grip techniques use their own appropriate illustration cells', async ({ page }) => {
+  const positions: string[] = [];
+  for (const id of ['sidepull-lab', 'undercling-lab', 'hand-match-order', 'flagging-basics']) {
+    await open(page, `/training/exercises/${id}`);
+    const art = page.getByRole('img', { name: /Schematische Illustration/ });
+    await expect(art).toHaveCSS('background-image', /boulder-grip-atlas/);
+    await expect(art).toHaveCSS('background-size', '200% 200%');
+    positions.push(await art.evaluate(node => getComputedStyle(node).backgroundPosition));
+  }
+  expect(new Set(positions).size).toBe(4);
+});

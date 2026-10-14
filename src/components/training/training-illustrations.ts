@@ -3,6 +3,7 @@ export const TRAINING_ILLUSTRATION_ATLASES = {
   boulder: '/training/boulder-atlas.png?v=kws-green-2',
   equipment: '/training/equipment-atlas-v2.png',
   kids: '/training/kids-atlas.png',
+  grips: '/training/boulder-grip-atlas.png',
 };
 // The original 3x3 atlases are 1254px square; equipment/kids have inspected crops below.
 // Their arrangement is verified separately from coaching approval of technique.
@@ -29,6 +30,7 @@ export const KIDS_ILLUSTRATION_IDS = [
   'kids-friendly-mirror', 'kids-route-builders', 'kids-move-memory',
   'kids-choice-lab', 'kids-helper-interview', 'kids-homeward-mission',
 ] as const;
+export const GRIP_ILLUSTRATION_IDS = ['sidepull-lab', 'undercling-lab', 'hand-match-order', 'flagging-basics'] as const;
 /** Inspected square regions in the 1086x1448 v2 atlas; generated rows are uneven. */
 export function equipmentIllustrationCrop(index: number) {
   const column = index % 3, row = Math.floor(index / 3);

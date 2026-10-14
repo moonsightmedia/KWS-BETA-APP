@@ -1,5 +1,7 @@
 # Trainingsillustrationen – Herkunft und Zuordnung
 
+Aktuelle Ergänzung14.10.2026: `boulder-grip-atlas.png` ersetzt die unpassende Wiederholung des Hüftbildes bei Seitgriff, Untergriff, Hände-Matchen und Flagging. Vier eigene passende Grundpositionen, 2×2gleiches Raster. Bild-/Dateinachweis und vollständiger Imagegen-Prompt: [boulder-grip-atlas.prompt.md](boulder-grip-atlas.prompt.md). Zwei-Lösungen-Spiel verwendet die Körperpositionsgrafik statt des zu engen Schuhkantenmotivs. Vorhandene übrige Bilder bleiben; Spielbilder zeigen eine Situation, keine vollständige Gruppen-/Bewegungsfolge.
+
 Erstellt am12.10.2026 mit dem eingebauten imagegen-Werkzeug. Lokale projektspezifische Originale, keine Stockbilder, keine externen Bildaufrufe. Die ursprünglichen drei Assets1254×1254px, deckende PNGs; schematische Orientierung, Coachabnahme ausstehend.
 
 Dateien:
