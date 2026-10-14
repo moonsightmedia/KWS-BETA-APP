@@ -18,8 +18,10 @@ FILES = {
 
 def sql(query):
     result = subprocess.run(['docker','exec','-i','supabase-db','psql','-X','-U','postgres','-d','postgres',
-                             '-At','-v','ON_ERROR_STOP=1','-1','-f','-'], input=query, capture_output=True, text=True, timeout=30)
-    if result.returncode: raise RuntimeError('Production SQL failed; no raw output emitted')
+                             '-qAt','-v','ON_ERROR_STOP=1','-1','-f','-'], input=query, capture_output=True, text=True, timeout=30)
+    if result.returncode:
+        Path('/opt/kws/production/boulder-notification-install-error.log').write_text(result.stderr)
+        raise RuntimeError('Production SQL failed; protected diagnostics retained')
     return result.stdout.strip()
 
 
@@ -31,7 +33,9 @@ def main(directory):
         assert hashlib.sha256((directory/name).read_bytes()).hexdigest()==digest, 'Unreviewed installation input'
     assert sql("SELECT to_regclass('public.boulder_notification_queue') IS NULL;")=='t', 'Already installed; inspect rather than overwrite'
     for name in ('kws-boulder-notifications.service','kws-boulder-notifications.timer'):
-        assert not (Path('/etc/systemd/system')/name).exists(), 'Existing worker unit requires inspection'
+        target=Path('/etc/systemd/system')/name
+        if target.exists():
+            assert not target.is_symlink() and hashlib.sha256(target.read_bytes()).hexdigest()==FILES[name], 'Existing worker unit differs'
     stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     backup=Path('/opt/kws/production')/('boulder-notifications-before-'+stamp)
     backup.mkdir(mode=0o700)
@@ -39,7 +43,8 @@ def main(directory):
     (backup/'rollback-notify.sql').write_text(previous+'\n')
     assert 'notify_new_boulder' in previous and '10 seconds' in previous
     worker=Path('/opt/kws/tools/flush-boulder-notifications.py')
-    assert not worker.exists(), 'Existing worker requires inspection'
+    if worker.exists():
+        assert not worker.is_symlink() and hashlib.sha256(worker.read_bytes()).hexdigest()==FILES[worker.name], 'Existing worker differs'
     worker.write_bytes((directory/worker.name).read_bytes()); worker.chmod(0o700)
     for name in ('kws-boulder-notifications.service','kws-boulder-notifications.timer'):
         target=Path('/etc/systemd/system')/name
