@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 const areas = [
   { id: 'strength', title: 'Krafttraining', short: 'Kraft', position: '0%' },
   { id: 'boulder', title: 'Boulderübungen', short: 'Bouldern', position: '50%' },
-  { id: 'rehab', title: 'Wiedereinstieg', short: 'Wiedereinstieg', position: '100%' },
+  { id: 'mobility', title: 'Mobilität', short: 'Mobilität', position: '100%' },
   { id: 'kids', title: 'Kinderbouldern', short: 'Kinderbouldern', position: '0%' },
 ];
 const completionDate = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -37,7 +37,7 @@ export default function TrainingHome({ onOpenAssistant }: { onOpenAssistant: () 
       <div className={cn('grid grid-cols-2 gap-3', kidsEnabled ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
         {visibleAreas.map(area => <Link key={area.id} to={`/training/library/${area.id}`} aria-label={area.title} className="group overflow-hidden rounded-kws-card bg-card shadow-soft transition-shadow hover:shadow-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {area.id === 'kids' ? <span aria-hidden="true" className="grid aspect-square w-full place-items-center bg-secondary">{kidsArtAvailable ? <img src="/training/kids-area-v2.png" alt="" decoding="async" className="aspect-square h-full w-full object-cover" onError={() => setKidsArtAvailable(false)} /> : <TrainingTopicIcon topic="Kinderbouldern" className="h-16 w-16 text-primary-ink" />}</span> : <span aria-hidden="true" className="block aspect-square w-full bg-secondary" style={{ backgroundImage: 'url(/training/areas.png?v=isolated-3)', backgroundSize: '300% 100%', backgroundPosition: `${area.position} center` }} />}
-          <span className="block px-3 pb-3 pt-2 sm:px-4 sm:py-3"><span className="flex items-center justify-between gap-1"><span className="text-sm font-semibold sm:hidden">{area.short}</span><span className="hidden text-sm font-semibold sm:block">{area.title}</span><ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" /></span><span className="mt-1 block text-xs text-muted-foreground">{availableCounts[area.id]} {area.id === 'rehab' ? 'Regionen' : area.id === 'boulder' ? 'Aufgaben' : area.id === 'kids' ? 'Spiele' : 'Karten'}</span>{area.id === 'kids' && <span className="mt-1 block text-xs leading-4 text-muted-foreground">Spiele im Kinderboulderbereich · mit Betreuung</span>}</span>
+          <span className="block px-3 pb-3 pt-2 sm:px-4 sm:py-3"><span className="flex items-center justify-between gap-1"><span className="text-sm font-semibold sm:hidden">{area.short}</span><span className="hidden text-sm font-semibold sm:block">{area.title}</span><ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" /></span><span className="mt-1 block text-xs text-muted-foreground">{availableCounts[area.id]} {area.id === 'mobility' ? 'Übungen · Bewegen & Dehnen' : area.id === 'boulder' ? 'Aufgaben' : area.id === 'kids' ? 'Spiele' : 'Karten'}</span>{area.id === 'kids' && <span className="mt-1 block text-xs leading-4 text-muted-foreground">Spiele im Kinderboulderbereich · mit Betreuung</span>}</span>
         </Link>)}
       </div>
     </section>

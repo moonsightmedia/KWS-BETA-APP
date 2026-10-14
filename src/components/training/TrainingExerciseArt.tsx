@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 import { getExercise } from '@/features/training/data';
-import { equipmentIllustrationCrop, kidsIllustrationCrop, GRIP_ILLUSTRATION_IDS, KIDS_ILLUSTRATION_IDS, KWS_EQUIPMENT_ILLUSTRATION_IDS, TRAINING_ILLUSTRATION_ATLASES, TRAINING_ILLUSTRATION_IDS, TRAINING_ILLUSTRATION_OVERRIDES } from './training-illustrations';
+import { equipmentIllustrationCrop, kidsIllustrationCrop, GRIP_ILLUSTRATION_IDS, MOBILITY_ILLUSTRATION_IDS, KIDS_ILLUSTRATION_IDS, KWS_EQUIPMENT_ILLUSTRATION_IDS, TRAINING_ILLUSTRATION_ATLASES, TRAINING_ILLUSTRATION_IDS, TRAINING_ILLUSTRATION_OVERRIDES } from './training-illustrations';
 
 interface TrainingExerciseArtProps {
   exerciseId: string;
@@ -11,6 +11,8 @@ interface TrainingExerciseArtProps {
 export default function TrainingExerciseArt({ exerciseId, title, className }: TrainingExerciseArtProps) {
   const exercise = getExercise(exerciseId);
   const illustrationId = exercise?.illustrationId ?? exerciseId;
+  const mobilityIndex = MOBILITY_ILLUSTRATION_IDS.findIndex(id => id === illustrationId);
+  if (mobilityIndex >= 0) return <div role="img" aria-label={`Schematische Illustration: ${title}. Zur Orientierung, kein Nachweis einer korrekten Ausführung.`} className={cn('aspect-square shrink-0 rounded-kws-control bg-secondary bg-no-repeat', className)} style={{ backgroundImage: `url('${TRAINING_ILLUSTRATION_ATLASES.mobility}')`, backgroundSize: '300% 300%', backgroundPosition: `${mobilityIndex % 3 / 2 * 100}% ${Math.floor(mobilityIndex / 3) / 2 * 100}%` }} />;
   const index = TRAINING_ILLUSTRATION_IDS.findIndex(id => id === illustrationId);
   const equipmentIndex = KWS_EQUIPMENT_ILLUSTRATION_IDS.findIndex(id => id === illustrationId);
   const kidsIndex = KIDS_ILLUSTRATION_IDS.findIndex(id => id === illustrationId);

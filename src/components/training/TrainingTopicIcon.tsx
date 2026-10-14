@@ -1,7 +1,9 @@
 import { cn } from '@/lib/utils';
 import { TOPIC_GLYPH_IDS, TRAINING_GLYPHS } from './training-glyphs';
+import TrainingBodyRegionIcon from './TrainingBodyRegionIcon';
 
 export default function TrainingTopicIcon({ exerciseId, topic, className }: { exerciseId?: string; topic: string; className?: string }) {
+  if (['Schulter', 'Finger und Hand', 'Ellenbogen', 'Knie', 'Hüfte', 'Wade'].includes(topic)) return <TrainingBodyRegionIcon topic={topic} className={className} />;
   const glyphId = exerciseId && TRAINING_GLYPHS[exerciseId] ? exerciseId : TOPIC_GLYPH_IDS[topic];
   const glyph = glyphId ? TRAINING_GLYPHS[glyphId] : undefined;
   if (!glyph) return null;

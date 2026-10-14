@@ -1457,3 +1457,9 @@ Prüfbelege: `docs/qa/2026-09-15-personal-progress-design.md`,
 
 Prüfbelege: `docs/qa/2026-09-15-notifications.md`, `e2e/notifications.spec.ts`,
 `test/notifications.test.mjs`, `test/pushRegistration.test.mjs`.
+
+### Nutzerpräzisierung 14.10.2026: Mobilität und Kartenbedienung
+
+Die Hauptbereiche heißen Kraft, Bouldern, Mobilität und Kinder. Mobilität bietet allgemeines Bewegen und Dehnen als freiwillige Ergänzung, mit den Filtern Alle / Bewegen / Dehnen. Beschwerden sind ein nachgeordneter Zugang für Orientierung; alte Reha-Links bleiben gültig. Dehnen wird nicht als Pflicht nach jedem Krafttraining dargestellt.
+
+Bibliothekskarten öffnen ihre Anleitung über die gesamte Fläche durch einen nativen Link. Merken und Hinzufügen sind unabhängig bedienbare Geschwister-Buttons, keine verschachtelten Link-Inhalte. Touchziele mindestens44px; Tastaturfokus weiter sichtbar. Kartenbilder bleiben Rasterillustrationen; Körpersymbole nur dort, wo sie eine Region benennen. Schulter, Hand, Ellbogen und Knie verwenden die gemeinsame Region-Komponente. Explizite Grid-Spalten und umbrechende Titel verhindern abgeschnittene Tasten bei375px. Alltagssprache gilt auch für aufklappbare Begründungen: z.B. Hände auf einer Bank machen Liegestütze leichter.

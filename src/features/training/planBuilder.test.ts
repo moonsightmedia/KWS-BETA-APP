@@ -118,7 +118,7 @@ test('goal changes selected strength volume; input is unchanged and output deter
 });
 
 test('all active cards have coherent defaults; rehab has useful orientation and stays unplannable', () => {
-  assert.equal(TRAINING_EXERCISES.filter(exercise => exercise.defaultDose).length, 52);
+  assert.equal(TRAINING_EXERCISES.filter(exercise => exercise.defaultDose).length, 58);
   for (const exercise of TRAINING_EXERCISES) {
     assert.ok(exercise.steps.length >= 3);
     assert.ok(exercise.cues?.length);
@@ -136,9 +136,9 @@ test('all active cards have coherent defaults; rehab has useful orientation and 
   }
 });
 
-test('each of the 69 cards has a distinct authored icon; kids guides cannot become adult prescriptions', () => {
-  assert.equal(TRAINING_EXERCISES.length, 69);
-  const motifs = TRAINING_EXERCISES.map(exercise => { const glyph = TRAINING_GLYPHS[exercise.id]; assert.ok(glyph, exercise.id); return JSON.stringify(glyph); });
+test('authored icons remain distinct where used; kids guides cannot become adult prescriptions', () => {
+  assert.equal(TRAINING_EXERCISES.length, 75);
+  const motifs = Object.values(TRAINING_GLYPHS).map(glyph => JSON.stringify(glyph));
   assert.equal(new Set(motifs).size, motifs.length);
   const children = TRAINING_EXERCISES.filter(exercise => exercise.area === 'kids');
   assert.equal(children.length, 12);
@@ -260,4 +260,24 @@ test('time estimate responds to repetitions and rest, counts sides, and leaves f
   assert.equal(getSessionMinutes({ ...session('pushup'), preparationMinutes: -2, cooldownMinutes: 5 }), null);
   for (const value of ['', '0', '-3', '10–2', '101', '1 minute']) assert.equal(repetitionUpperBound(value), null);
   assert.equal(repetitionUpperBound('4–6'), 6);
+});
+
+
+test('optional mobility cards have manual doses, correct side timing and never enter the automatic week', () => {
+  const mobility = TRAINING_EXERCISES.filter(exercise => exercise.area === 'mobility');
+  assert.equal(mobility.length, 6);
+  assert.equal(mobility.filter(exercise => exercise.mobilityKind === 'stretch').length, 4);
+  assert.equal(mobility.filter(exercise => exercise.mobilityKind === 'movement').length, 2);
+  for (const exercise of mobility) {
+    assert.equal(exercise.planEligible, false);
+    assert.equal(exercise.defaultDose?.sideMultiplier, 2);
+    const item = makeSessionItem(exercise.id);
+    const session: TrainingSession = { id: 'mobility-test', title: 'Mobilität', focus: 'Selbst gewählt', minutes: null, exercises: [item] };
+    assert.equal(getSessionMinutes(session), exercise.mobilityKind === 'stretch' ? 3 : 2);
+    assert.equal(item.restSeconds, exercise.mobilityKind === 'stretch' ? 20 : 0);
+  }
+  for (const minutes of [30, 60, 90]) {
+    const planned = ids(profile({ minutes }));
+    assert.ok(planned.every(id => getExercise(id)?.area !== 'mobility'));
+  }
 });

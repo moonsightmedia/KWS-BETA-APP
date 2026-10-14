@@ -73,3 +73,7 @@ Generations-/Editvorgaben, inhaltlich zusammengefasst:
 **Aktive Zuschnitte:** Die generierten 1086×1448px-Atlanten haben trotz Rasterprompt ungleich hohe Bildreihen. Deshalb keine angenommene 300%×400%-Gleichaufteilung. `training-illustrations.ts` dokumentiert geprüfte quadratische Pixelregionen; Renderer berechnet Größe/Position anhand tatsächlicher Bildmaße ohne Seitenverhältnisverzerrung. Geräte: Top0/362/724/1054, Größe362/362/330/362. Kinder: Top0/350/700/1043, Größe350/350/345/362. Alle elf Geräte- und zwölf Kinderdetails erneut auf echte CSS-Zuschnitte geprüft. Bestehende 3×3-Atlanten bleiben gleich geteilt. Einzelbilder überschreiben Dead Bug, Bandpress, Knie-Seitstütz und Zwei-Kurzhantel-Bankdrücken.
 
 Auditbeleg: `docs/qa/2026-10-13-training-graphics-preferences.md` und lokale Screenshots unter `test-results/training-raster-audit-20261013/`. Keine weiteren eindeutigen Bildfehler im Endstand erkannt. Dies ist keine fachliche Ausführungs-/Kinderbereichsfreigabe; schematische Illustrationen und tatsächliche Betreuung/Technik müssen vor Veröffentlichung gemeinsam geprüft werden.
+
+## Mobilität · 14.10.2026
+
+`mobility-atlas.png`: sechs eigene Bewegungs-/Dehnbilder im 3×3-Raster; erste zwei Reihen belegt. Vollständiger Prompt, Originalpfad und Sichtprüfung: [mobility-atlas.prompt.md](mobility-atlas.prompt.md). Der bisherige rechte Bereich in `areas.png` wird passend als Mobilität verwendet. Beschwerden bleiben ein separater Zugang mit Körperregion-Symbolen.

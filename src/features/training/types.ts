@@ -1,4 +1,4 @@
-export type TrainingArea = 'strength' | 'boulder' | 'rehab' | 'kids';
+export type TrainingArea = 'strength' | 'boulder' | 'mobility' | 'rehab' | 'kids';
 export type TrainingEquipment = 'Körpergewicht' | 'Kurzhanteln' | 'Widerstandsband' | 'Klimmzugstange' | 'Boulderwand' | 'Ohne Gerät' | 'Kettlebell' | 'Trainingsbank' | 'EZ-Stange' | 'Fingerboard' | 'Spraywall';
 
 /** Editorial starting dose; not a clinically validated individual prescription. */
@@ -40,6 +40,7 @@ export interface TrainingExercise {
   alternativeEquipment?: TrainingEquipment[];
   contentKind?: 'exercise' | 'orientation';
   format?: 'drill' | 'game';
+  mobilityKind?: 'movement' | 'stretch';
   /** Reusable illustration of the movement, not a separate execution tutorial. */
   illustrationId?: string;
   kidsGuide?: { ages: string; players: string; duration: string; supervision: string; ageLabel?: string; playersLabel?: string; durationLabel?: string; audience?: 'both' | 'school'; preschoolVariant?: string };
