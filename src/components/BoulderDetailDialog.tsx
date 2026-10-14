@@ -16,6 +16,7 @@ import {
 
 import { BoulderBetaPreview, BoulderStatsPanel, BoulderTrackingPanel } from '@/components/BoulderCommunityPanel';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
+import { BoulderTypeBadge } from '@/components/boulder/BoulderTypeBadge';
 import { ExternalBetaVideo } from '@/components/boulder/ExternalBetaVideo';
 import {
   BoulderVideoPlayer,
@@ -219,6 +220,7 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
               <DialogTitle className="mt-0.5 truncate font-heading text-lg font-bold leading-tight text-foreground sm:text-xl">
                 {boulder.name}
               </DialogTitle>
+              <BoulderTypeBadge volumeOnly={boulder.volumeOnly} className="mt-1" />
               <div className="mt-1 flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground sm:text-xs">
                 <span className="flex min-w-0 items-center gap-1">
                   <MapPin className="h-3 w-3 shrink-0 text-primary" />

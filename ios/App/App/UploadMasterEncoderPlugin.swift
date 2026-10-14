@@ -2,18 +2,19 @@ import AVFoundation
 import Capacitor
 import VideoToolbox
 
-/** KWS Upload Master Encoder v1.2.3. App-local and registered by KWSBridgeViewController. */
+/** KWS Upload Master Encoder v1.2.4. App-local and registered by KWSBridgeViewController. */
 @objc(UploadMasterEncoderPlugin)
 public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "UploadMasterEncoderPlugin"
     public let jsName = "UploadMasterEncoder"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "encode", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "stripAudio", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cancel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "deleteFile", returnType: CAPPluginReturnPromise)
     ]
 
-    private let encoderVersion = "1.2.3"
+    private let encoderVersion = "1.2.4"
     // Matches the server HD contract. The validation headroom permits normal
     // encoder variance without allowing an unexpectedly expensive upload.
     private let targetVideoBitrate = 4_000_000
@@ -71,6 +72,83 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
             self?.registryLock.unlock()
         }
         call.resolve()
+    }
+
+    /** Lossless fallback: copy only video, retaining orientation and source quality. */
+    @objc public func stripAudio(_ call: CAPPluginCall) {
+        guard let path = call.getString("inputPath"), !path.isEmpty,
+              let operationId = call.getString("operationId"), !operationId.isEmpty else {
+            call.reject("inputPath and operationId are required"); return
+        }
+        let sourceURL = fileURL(for: path)
+        let job = EncodingJob(id: operationId, outputURL: FileManager.default.temporaryDirectory
+            .appendingPathComponent("kws-upload-master-\(UUID().uuidString).mp4"))
+        guard register(job) else { rejectCancelled(call); return }
+        let asset = AVURLAsset(url: sourceURL)
+        asset.loadValuesAsynchronously(forKeys: ["playable", "duration", "tracks"]) { [weak self] in
+            guard let self else { return }
+            self.workQueue.async {
+                if job.isCancelled { self.finish(job); self.rejectCancelled(call); return }
+                let videos = asset.tracks(withMediaType: .video)
+                guard asset.isPlayable, videos.count == 1, let video = videos.first,
+                      CMTimeGetSeconds(video.timeRange.duration) > 0 else {
+                    self.finish(job); call.reject("Source video is not playable"); return
+                }
+                if asset.tracks(withMediaType: .audio).isEmpty {
+                    self.finish(job)
+                    call.resolve(["path": sourceURL.path, "fileSize": self.fileSize(sourceURL),
+                                  "audioTrackCount": 0, "skipped": true]); return
+                }
+                do {
+                    let composition = AVMutableComposition()
+                    guard let track = composition.addMutableTrack(withMediaType: .video,
+                        preferredTrackID: kCMPersistentTrackID_Invalid) else { throw EncoderError.invalidTracks }
+                    try track.insertTimeRange(video.timeRange, of: video, at: .zero)
+                    track.preferredTransform = video.preferredTransform
+                    guard let export = AVAssetExportSession(asset: composition,
+                        presetName: AVAssetExportPresetPassthrough) else { throw EncoderError.startFailed }
+                    export.outputURL = job.outputURL
+                    export.outputFileType = .mp4
+                    export.shouldOptimizeForNetworkUse = true
+                    job.onCancel { export.cancelExport() }
+                    export.exportAsynchronously {
+                        self.workQueue.async {
+                            if job.isCancelled {
+                                try? FileManager.default.removeItem(at: job.outputURL)
+                                self.finish(job); self.rejectCancelled(call); return
+                            }
+                            guard export.status == .completed else {
+                                try? FileManager.default.removeItem(at: job.outputURL)
+                                self.finish(job); call.reject("Could not remove audio", nil, export.error); return
+                            }
+                            let output = AVURLAsset(url: job.outputURL)
+                            output.loadValuesAsynchronously(forKeys: ["playable", "duration", "tracks"]) {
+                                self.workQueue.async {
+                                    let duration = CMTimeGetSeconds(output.duration)
+                                    let sourceDuration = CMTimeGetSeconds(video.timeRange.duration)
+                                    guard !job.isCancelled, output.isPlayable,
+                                          output.tracks(withMediaType: .video).count == 1,
+                                          output.tracks(withMediaType: .audio).isEmpty,
+                                          duration.isFinite, duration > 0,
+                                          abs(duration - sourceDuration) <= max(0.5, sourceDuration * 0.03),
+                                          self.fileSize(job.outputURL) > 0 else {
+                                        try? FileManager.default.removeItem(at: job.outputURL)
+                                        self.finish(job)
+                                        if job.isCancelled { self.rejectCancelled(call) }
+                                        else { call.reject("Silent video validation failed") }; return
+                                    }
+                                    let result: [String: Any] = ["path": job.outputURL.path,
+                                        "fileSize": self.fileSize(job.outputURL), "audioTrackCount": 0, "skipped": false]
+                                    self.finish(job); call.resolve(result)
+                                }
+                            }
+                        }
+                    }
+                } catch {
+                    self.finish(job); call.reject("Could not prepare silent video", nil, error)
+                }
+            }
+        }
     }
 
     @objc public func deleteFile(_ call: CAPPluginCall) {
@@ -181,7 +259,7 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         let sourceVideoBitrate = sourceStats.videoBitrate
         let sourceFrameCount = sourceStats.frameCount
-        if max(sourceDisplaySize.width, sourceDisplaySize.height) <= 1920,
+        if sourceAudios.isEmpty, max(sourceDisplaySize.width, sourceDisplaySize.height) <= 1920,
            sourceFrameRate > 0, sourceFrameRate <= maxFrameRate + 0.25,
            sourceVideoBitrate > 0, sourceVideoBitrate <= maximumVideoBitrate,
            sourceTotalBitrate > 0, sourceTotalBitrate <= maximumTotalBitrate {
@@ -229,32 +307,12 @@ public final class UploadMasterEncoderPlugin: CAPPlugin, CAPBridgedPlugin {
                 assetWriterInput: videoInput, sourcePixelBufferAttributes: nil
             )
 
-            var audioOutput: AVAssetReaderTrackOutput?
-            var audioInput: AVAssetWriterInput?
-            var expectedAudioChannels: Int?
-            var expectedAudioSampleRate: Double?
-            var expectedAudioDuration: Double?
-            if let audioTrack = sourceAudios.first {
-                let format = try sourceAudioFormat(audioTrack)
-                expectedAudioChannels = format.channels
-                expectedAudioSampleRate = format.sampleRate
-                expectedAudioDuration = CMTimeGetSeconds(audioTrack.timeRange.duration)
-                let output = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: [
-                    AVFormatIDKey: kAudioFormatLinearPCM
-                ])
-                output.alwaysCopiesSampleData = false
-                let input = AVAssetWriterInput(mediaType: .audio, outputSettings: [
-                    AVFormatIDKey: kAudioFormatMPEG4AAC,
-                    AVEncoderBitRateKey: targetAudioBitrate,
-                    AVNumberOfChannelsKey: format.channels,
-                    AVSampleRateKey: format.sampleRate
-                ])
-                guard reader.canAdd(output), writer.canAdd(input) else {
-                    throw EncoderError.cannotAdd("audio reader/writer path")
-                }
-                reader.add(output); writer.add(input)
-                audioOutput = output; audioInput = input
-            }
+            // The writer only receives video. No audio decoder or writer exists.
+            let audioOutput: AVAssetReaderTrackOutput? = nil
+            let audioInput: AVAssetWriterInput? = nil
+            let expectedAudioChannels: Int? = nil
+            let expectedAudioSampleRate: Double? = nil
+            let expectedAudioDuration: Double? = nil
 
             job.attach(reader: reader, writer: writer)
             guard !job.isCancelled else { throw EncoderError.cancelled }

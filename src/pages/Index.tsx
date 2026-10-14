@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { KwsMetricStrip } from '@/components/ui/kws-metric-strip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
+import { BoulderTypeBadge } from '@/components/boulder/BoulderTypeBadge';
 import { useSidebar } from '@/components/SidebarContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
@@ -122,6 +123,7 @@ const HomePreviewCard = ({
     <div className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2.5">
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold tracking-[-0.02em] text-foreground">{boulder.name}</p>
+        <BoulderTypeBadge volumeOnly={boulder.volumeOnly} />
         <p className="truncate pt-0.5 text-xs text-muted-foreground">{getSectorAreaLabel(boulder)}</p>
         <p className="truncate pt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">{meta}</p>
       </div>
@@ -498,6 +500,7 @@ const Index = () => {
                       {getSectorAreaLabel(boulder)}
                     </span>
                   </div>
+                  <BoulderTypeBadge volumeOnly={boulder.volumeOnly} compact className="absolute left-1.5 top-9 sm:left-2" />
                 </button>
               ))}
               {newestBoulders.length === 0 ? (
@@ -508,8 +511,8 @@ const Index = () => {
             </div>
           </section>
 
-          <div className="grid gap-5 lg:grid-cols-2">
-            <section>
+          <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-2">
+            <section className="min-w-0">
               <DashboardSectionHeader title="Nächste Umschraubung" />
               <div className="rounded-kws-card bg-card p-3.5 shadow-[0_3px_14px_rgba(19,17,43,0.07)]">
                 {upcomingSchedules.length > 0 ? (
@@ -536,7 +539,7 @@ const Index = () => {
               </div>
             </section>
 
-            <section>
+            <section className="min-w-0">
               <DashboardSectionHeader
                 title="Für deine Session"
                 actionLabel="Projekte"

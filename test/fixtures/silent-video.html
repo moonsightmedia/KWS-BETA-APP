@@ -1,0 +1,16 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Tonloser Upload · Test</title></head>
+<body><h1>Tonspur entfernen</h1><input aria-label="Video" type="file"><p role="status">Bereit</p><video controls></video>
+<script type="module">
+import { prepareSilentVideoFile } from '/src/utils/silentVideo.ts';
+window.prepareSilentVideoFile = prepareSilentVideoFile;
+const input = document.querySelector('input');
+input.onchange = async () => {
+  document.querySelector('[role=status]').textContent = 'Verarbeitung';
+  try {
+    const file = await prepareSilentVideoFile(input.files[0]);
+    window.silentResult = file;
+    document.querySelector('video').src = URL.createObjectURL(file);
+    document.querySelector('[role=status]').textContent = 'Ohne Ton';
+  } catch (e) { document.querySelector('[role=status]').textContent = e.message; }
+};
+</script></body></html>

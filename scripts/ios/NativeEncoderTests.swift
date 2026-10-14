@@ -35,6 +35,7 @@ final class NativeEncoderTests: XCTestCase {
         switch method {
         case "encode": plugin.encode(call)
         case "cancel": plugin.cancel(call)
+        case "stripAudio": plugin.stripAudio(call)
         case "deleteFile": plugin.deleteFile(call)
         default: throw NSError(domain: "UnknownTestMethod", code: 1)
         }
@@ -114,6 +115,7 @@ final class NativeEncoderTests: XCTestCase {
         let track = try XCTUnwrap(asset.tracks(withMediaType: .video).first)
         XCTAssertTrue(asset.isPlayable)
         XCTAssertEqual(asset.tracks(withMediaType: .video).count, 1)
+        XCTAssertEqual(asset.tracks(withMediaType: .audio).count, 0)
         XCTAssertLessThanOrEqual(max(track.naturalSize.width, track.naturalSize.height), 1920)
         XCTAssertGreaterThanOrEqual(max(track.naturalSize.width, track.naturalSize.height), 640)
         XCTAssertEqual(track.naturalSize.width / track.naturalSize.height, 16.0 / 9.0, accuracy: 0.01)
@@ -157,5 +159,56 @@ final class NativeEncoderTests: XCTestCase {
             XCTAssertEqual((error as NSError).domain, "ABORT_ERR")
         }
         XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
+    }
+
+    private func audioFixture() throws -> URL {
+        let videoURL = try fixture(width: 640, height: 360, fps: 30)
+        // A real PCM WAV sine wave; AVFoundation exports it as AAC in the fixture MP4.
+        let samples = 44100 * 3
+        var wav = Data()
+        func text(_ value: String) { wav.append(value.data(using: .ascii)!) }
+        func u32(_ value: UInt32) { var number = value.littleEndian; withUnsafeBytes(of: &number) { wav.append(contentsOf: $0) } }
+        func u16(_ value: UInt16) { var number = value.littleEndian; withUnsafeBytes(of: &number) { wav.append(contentsOf: $0) } }
+        text("RIFF"); u32(UInt32(36 + samples * 2)); text("WAVEfmt "); u32(16)
+        u16(1); u16(1); u32(44100); u32(88200); u16(2); u16(16); text("data"); u32(UInt32(samples * 2))
+        for sample in 0..<samples { u16(UInt16(bitPattern: Int16(sin(Double(sample) * 2 * .pi * 440 / 44100) * 8000))) }
+        let sound = directory.appendingPathComponent("sound.wav")
+        try wav.write(to: sound)
+        let video = AVURLAsset(url: videoURL)
+        let audio = AVURLAsset(url: sound)
+        let composition = AVMutableComposition()
+        let videoTrack = try XCTUnwrap(video.tracks(withMediaType: .video).first)
+        try XCTUnwrap(composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid))
+            .insertTimeRange(videoTrack.timeRange, of: videoTrack, at: .zero)
+        try XCTUnwrap(composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid))
+            .insertTimeRange(CMTimeRange(start: .zero, duration: video.duration),
+                             of: try XCTUnwrap(audio.tracks(withMediaType: .audio).first), at: .zero)
+        let output = directory.appendingPathComponent("source-with-audio.mp4")
+        let export = try XCTUnwrap(AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality))
+        export.outputURL = output; export.outputFileType = .mp4
+        let done = expectation(description: "audio fixture")
+        export.exportAsynchronously { done.fulfill() }
+        wait(for: [done], timeout: 60)
+        XCTAssertEqual(export.status, .completed)
+        XCTAssertEqual(AVURLAsset(url: output).tracks(withMediaType: .audio).count, 1)
+        return output
+    }
+
+    func testLosslessFallbackRemovesAudioAndKeepsSource() throws {
+        let source = try audioFixture()
+        let metadata = try invoke("stripAudio", options: ["inputPath": source.path, "operationId": UUID().uuidString])
+        let output = URL(fileURLWithPath: try XCTUnwrap(metadata["path"] as? String))
+        defer { try? FileManager.default.removeItem(at: output) }
+        let result = AVURLAsset(url: output)
+        XCTAssertTrue(result.isPlayable)
+        XCTAssertEqual(result.tracks(withMediaType: .video).count, 1)
+        XCTAssertTrue(result.tracks(withMediaType: .audio).isEmpty)
+        XCTAssertEqual(CMTimeGetSeconds(result.duration), CMTimeGetSeconds(AVURLAsset(url: source).duration), accuracy: 0.1)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
+        XCTAssertEqual(AVURLAsset(url: source).tracks(withMediaType: .audio).count, 1)
+        // Reusing a silent source must not generate another file.
+        let repeated = try invoke("stripAudio", options: ["inputPath": output.path, "operationId": UUID().uuidString])
+        XCTAssertEqual(repeated["skipped"] as? Bool, true)
+        XCTAssertEqual(repeated["path"] as? String, output.path)
     }
 }

@@ -1446,3 +1446,20 @@ Prüfbelege: `docs/qa/2026-09-15-personal-progress-design.md`,
 
 Prüfbelege: `docs/qa/2026-09-15-notifications.md`, `e2e/notifications.spec.ts`,
 `test/notifications.test.mjs`, `test/pushRegistration.test.mjs`.
+
+### 15.7 Volumen-Boulder und tonlose Uploads (2026-10-14)
+
+- „Nur Volumen“ ist eine unabhängige Setter-Angabe für Boulder ohne zusätzliche
+  Griffe. Eine oder zwei Farben bleiben frei wählbar; die Option ersetzt weder
+  Grad noch Farbe oder andere Merkmale.
+- Anlegen und Bearbeiten verwenden denselben Schalter im Farbbereich.
+  Boulderlisten, Home, Details, Upload-Stapel und Setterübersichten kennzeichnen
+  den Typ mit einem neutralen Badge aus Icon und Text. Gridkarten verwenden die
+  kompakte Beschriftung „Volumen“, Details „Nur Volumen“.
+- Neue Videos werden vor dem Upload ohne Tonspur vorbereitet. Der Editor
+  benennt dies ausdrücklich. Die Galerie-Datei bleibt unverändert. Eine fehlende
+  Tonentfernung ist ein sichtbarer Fehler und kein Anlass für einen Upload mit Ton.
+- Bestehende Videos und externe Video-Links werden nicht rückwirkend verändert.
+
+Prüfbelege: `docs/qa/2026-10-14-volume-silent.md`,
+`e2e/volume-silent.spec.ts`, `test/nativeSilentVideo.test.mjs`.

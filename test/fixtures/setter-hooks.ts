@@ -63,6 +63,7 @@ let boulders = Array.from(
     sectorId: sectors[i % 3].id,
     color: colors[i % 4].name,
     color2: i === 0 ? "Weiß" : null,
+    volumeOnly: i === 0 || (params.has('volumeQA') && i === 1),
     difficulty: (i % 8) + 1,
     status: i % 3 === 0 ? "abgeschraubt" : "haengt",
     note: "",
