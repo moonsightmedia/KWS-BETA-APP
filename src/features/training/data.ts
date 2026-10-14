@@ -22,7 +22,7 @@ const strengthSource = [{ label: 'ACSM Position Stand 2026', url: 'https://doi.o
 const techniqueSource = [{ label: 'Seifert et al. 2018: Lernen und Transfer', url: 'https://doi.org/10.3389/fpsyg.2018.00820', context: 'Kleine Lernstudie mit acht Kletternden an Seilrouten. Hintergrund für Lösungsvergleich und Transferbeobachtung; kein Nachweis dieses Boulderdrills oder seiner Dosierung.' }];
 const STRENGTH_DOSE: TrainingDose = { sets: 2, repetitions: '6–10', restSeconds: 120, restScope: 'sets', secondsPerRepetition: 4, setupMinutes: 2 };
 const TECHNIQUE_DOSE: TrainingDose = { sets: 1, repetitions: '2', restSeconds: 90, restScope: 'repetitions', secondsPerRepetition: 75, setupMinutes: 2 };
-const STOP = 'Bei neuem oder zunehmendem Schmerz, ungewöhnlichem Funktionsverlust oder Kontrollverlust aufhören.';
+const STOP = 'Bei neuem oder zunehmendem Schmerz, ungewohntem Kraft- oder Bewegungsverlust oder fehlender Kontrolle aufhören.';
 function strength(id: string, title: string, topic: string, equipment: TrainingEquipment, goal: string, steps: string[], easier: string, harder: string): TrainingExercise {
   return { id, title, topic, equipment, goal, steps, easier, harder, area: 'strength', level: 'Einstieg / Aufbau', minutes: 10, dose: 'Beispiel: 2 Sätze · 6–10 kontrollierte Wiederholungen', rest: 'Beispiel: 90 Sekunden zwischen den Sätzen', note: 'Bewegung kontrolliert ausführen. Die Beispieldosis ist noch nicht fachlich freigegeben.', keywords: [topic, 'kraft', title, equipment, topic === 'Brust' ? 'drücken liegestütz pushup' : ''], sources: strengthSource };
 }
@@ -31,37 +31,37 @@ function technique(id: string, title: string, topic: string, goal: string, steps
 }
 const REHAB_ORIENTATION: Record<string, { observation: string; discussion: string; category: string; source: TrainingExercise['sources'][number] }> = {
   'rehab-shoulder': {
-    observation: 'Notiere, wo und seit wann die Schulter schmerzt und bei welchen Bewegungen. Erwähne Verletzungen oder ungewohnte Schwäche.',
-    discussion: 'Mit deiner behandelnden Fachperson Ursache und passende Belastung klären: Was geht im Alltag und beim Bouldern?',
-    category: 'Bei diagnostizierter Rotatorenmanschetten-Tendinopathie können Bewegungs-/Motorikkontrolle und dosierte Widerstandsübungen Teil aktiver Rehabilitation sein. Daraus folgt keine passende Übung für jeden Schulterschmerz.',
+    observation: 'Notiere: Wo, seit wann und wobei schmerzt die Schulter? Verletzung oder ungewohnte Schwäche erwähnen.',
+    discussion: 'Mit behandelnder Fachperson klären: Was darfst du im Alltag und beim Bouldern tun?',
+    category: 'Bei einer festgestellten Erkrankung der Schultersehnen (Rotatorenmanschetten-Tendinopathie) können abgestimmte Bewegungs- und Kraftübungen zur Behandlung gehören. Sie passen nicht automatisch zu jedem Schulterschmerz.',
     source: { label: 'Schulter-Leitlinie 2025', url: 'https://doi.org/10.2519/jospt.2025.13182', context: 'Klinische Leitlinie für Erwachsene mit vermuteter Rotatorenmanschetten-Tendinopathie; unterstützt individuelle Aufklärung und aktive Rehabilitation, keine universelle Schulter- oder App-Dosis.' },
   },
   'rehab-fingers': {
-    observation: 'Notiere betroffenen Finger, Schmerzstelle, Beginn und Griffart. Erwähne ein plötzliches Schnappen, Schwellung oder Funktionsverlust.',
-    discussion: 'Mit einer behandelnden Fachperson Ursache, erlaubte Griffe und Rückkehr zum Bouldern klären. Taping allein ist keine Trainingsfreigabe.',
-    category: 'Bei Ringbandverletzungen hängt das Vorgehen von Art und Schwere ab; Schutz und stufenweise Wiederbelastung sind mögliche fachliche Kategorien. Taping ist keine automatische Freigabe für Hängen oder Bouldern.',
+    observation: 'Notiere Finger, Schmerzstelle, Beginn und Griffart. Schnappen, Schwellung oder fehlende Kraft und Beweglichkeit erwähnen.',
+    discussion: 'Mit behandelnder Fachperson Ursache, erlaubte Griffe und Rückkehr klären. Tape allein erlaubt kein Training.',
+    category: 'Bei Ringbandverletzungen entscheidet Art und Schwere über Schutz und langsamen Trainingsaufbau. Tape allein ist keine Freigabe zum Hängen oder Bouldern.',
     source: { label: 'Ringbandverletzungen: klinischer Überblick 2021', url: 'https://doi.org/10.1016/j.wem.2021.01.011', context: 'Klinischer Literaturüberblick zur Abklärung und Behandlung von Ringbandverletzungen beim Klettern; keine Leitlinie für alle Fingerschmerzen und kein belastbarer universeller Rehaplan.' },
   },
   'rehab-elbow': {
-    observation: 'Notiere Schmerzstelle innen oder außen, Beginn und auslösende Bewegungen. Hat sich dein Training zuletzt verändert?',
-    discussion: 'Mit deiner behandelnden Fachperson Ursache und erlaubte Hand- und Zugbelastung klären. Nicht jeder Ellenbogenschmerz ist ein Tennisellenbogen.',
-    category: 'Die Leitlinie für laterale Ellenbogen-Tendinopathie behandelt untersuchte Muskel-/Funktionsdefizite und individuell ausgewählte Interventionen. Konkrete Übungskategorie und Last bleiben diagnoseabhängig; ein pauschales Exzentrikrezept folgt daraus nicht.',
+    observation: 'Notiere: Schmerz innen oder außen, seit wann und wobei? Letzte Trainingsänderungen erwähnen.',
+    discussion: 'Mit behandelnder Fachperson Ursache sowie erlaubtes Greifen und Ziehen klären. Ellenbogenschmerz ist nicht immer Tennisellenbogen.',
+    category: 'Bei einer festgestellten Sehnenerkrankung am äußeren Ellenbogen werden Kraft und Bewegung untersucht. Übungen und Gewicht hängen vom Befund ab; langsam senkende Kraftübungen passen nicht automatisch zu allen.',
     source: { label: 'Lateraler Ellenbogenschmerz: Leitlinie 2022', url: 'https://doi.org/10.2519/jospt.2022.0302', context: 'Diagnosebezogene physiotherapeutische Leitlinie zu lateraler Ellenbogen-Tendinopathie. Der hier zugängliche Abstract bestätigt den Anwendungsbereich; genaue Übungsprotokolle wurden für diese Karte nicht extrahiert.' },
   },
   'rehab-knee': {
-    observation: 'Notiere Schmerzstelle, Beginn und auslösende Bewegungen. Erwähne eine Verletzung, Schwellung oder Wegknicken.',
-    discussion: 'Mit deiner behandelnden Fachperson Ursache und passende Belastung klären. Schmerzen nach einer Landung können eine andere Ursache haben als länger bestehende Beschwerden.',
-    category: 'Bei diagnostiziertem patellofemoralem Schmerz können individuell ausgewählte Kraftübungen für Hüfte und Knie Bestandteil der Behandlung sein. Diese Kategorie erklärt keinen akuten Landeschaden und gibt keine Landungsfreigabe.',
+    observation: 'Notiere: Wo, seit wann und wobei schmerzt das Knie? Verletzung, Schwellung oder Wegknicken erwähnen.',
+    discussion: 'Mit behandelnder Fachperson Ursache und erlaubtes Training klären. Schmerz nach einer Landung kann andere Ursachen haben als länger bestehender Schmerz.',
+    category: 'Bei festgestelltem Schmerz rund um die Kniescheibe (patellofemoraler Schmerz) können abgestimmte Hüft- und Knieübungen zur Behandlung gehören. Das erklärt keine akute Landungsverletzung und erlaubt kein Abspringen.',
     source: { label: 'Patellofemoraler Schmerz: Leitlinie 2019', url: 'https://doi.org/10.2519/jospt.2019.0302', context: 'Diagnosebezogene Leitlinie, unter anderem Hüft-/Knieübungen; optimale Dosierung nicht eindeutig. Kein allgemeines Knie-Rezept und keine Freigabe zum Abspringen.' },
   },
 };
 const rehab = (id: string, _title: string, topic: string): TrainingExercise => {
   const content = REHAB_ORIENTATION[id];
   return {
-    id, title: `${topic} · Orientierung zum Wiedereinstieg`, topic, area: 'rehab', goal: 'Beschwerden notieren und den Wiedereinstieg mit deiner behandelnden Fachperson besprechen.',
+    id, title: `${topic} · Beschwerden besprechen`, topic, area: 'rehab', goal: 'Beschwerden notieren und das weitere Vorgehen besprechen.',
     equipment: 'Ohne Gerät', level: 'Orientierung · kein Übungsrezept', minutes: 0, planEligible: false,
-    steps: [content.observation, content.discussion, 'Bei bereits vereinbartem Training: Reaktion währenddessen, danach und am nächsten Tag notieren. Änderungen mit deiner behandelnden Fachperson abstimmen.'],
-    dose: 'Kein selbstständig dosierbares Trainingsrezept; Umfang gehört zum individuell abgestimmten Behandlungsplan.', rest: 'Pausen und nächste Belastung individuell abstimmen.', easier: 'Verlauf und Fragen zuerst dokumentieren; keine ungeklärte Belastung zum Testen hinzufügen.', harder: 'Steigerung und Rückkehr zur Wand erst nach dem vereinbarten fachlichen Vorgehen.',
+    steps: [content.observation, content.discussion, 'Bei vereinbartem Training: Beschwerden währenddessen, danach und am Folgetag notieren. Änderungen fachlich abstimmen.'],
+    dose: 'Keine Trainingsvorgabe. Anzahl und Dauer gehören zum persönlichen Behandlungsplan.', rest: 'Pausen und nächstes Training fachlich abstimmen.', easier: 'Verlauf und Fragen notieren. Keine ungeklärte Übung zum Testen beginnen.', harder: 'Training erst wie fachlich vereinbart steigern.',
     cues: ['Wo, seit wann und bei welcher Bewegung?', 'Beobachtung ersetzt keine Diagnose.'], mistakes: ['Von der Schmerzstelle auf eine Diagnose schließen.', 'Allgemeine Kraftübungen als Behandlung übernehmen.'], setupRequirements: ['Beschwerden und weiteres Vorgehen fachlich klären'], selectionReason: content.category,
     note: `Kein Übungsplan zur Selbstbehandlung. Plötzlichen deutlichen Funktionsverlust, sichtbare Fehlstellung oder schwere akute Beschwerden zeitnah medizinisch abklären. ${STOP}`, keywords: [topic, 'wiedereinstieg', 'reha', 'beschwerden'], sources: [content.source],
   };
@@ -94,95 +94,109 @@ const RAW_EXERCISES: TrainingExercise[] = [
 // choices; source links support only the explicitly described evidence context.
 const GUIDANCE: Record<string, Partial<TrainingExercise>> = {
   'incline-pushup': {
-    goal: 'Ein leichterer Liegestütz mit den Händen auf einer Bank.',
-    steps: ['Hände auf eine feste, rutschfreie Bank setzen. Füße zurückstellen und den Körper lang halten.', 'Brust zur Bank senken. Hüfte und Schultern bewegen sich gemeinsam.', 'Ruhig wegdrücken und weiteratmen.', 'Bei durchhängender Hüfte eine höhere Auflage wählen.'],
-    cues: ['Körper in einer Linie halten.', 'Höhere Auflage = leichter.'], mistakes: ['Hüfte durchhängen lassen.', 'Schmerzhafte Schulter- oder Handgelenkstellung.'],
-    easier: 'Eine höhere, stabile Auflage wählen.', harder: 'Bei guter Kontrolle eine etwas niedrigere Auflage wählen.', setupRequirements: ['Stabile Bank, die beim Abstützen nicht rutscht'], selectionReason: 'Mit den Händen auf einer Bank ist der Liegestütz leichter als am Boden. Je höher die Auflage, desto leichter die Übung.',
+    goal: 'Liegestütze leichter machen: Hände auf die Bank.',
+    steps: ['Hände auf eine feste, rutschfreie Bank setzen. Füße zurückstellen; Körper gerade halten.', 'Brust langsam zur Bank senken. Hüfte und Schultern bewegen sich gemeinsam.', 'Ruhig wegdrücken und weiteratmen.', 'Hängt die Hüfte durch? Höhere Auflage wählen.'],
+    cues: ['Körper gerade halten.', 'Höhere Auflage = leichter.'], mistakes: ['Hüfte durchhängen lassen.', 'Schmerzhafte Schulter- oder Handgelenkstellung.'],
+    easier: 'Eine höhere, stabile Auflage wählen.', harder: 'Bei guter Kontrolle eine etwas niedrigere Auflage wählen.', setupRequirements: ['Stabile Bank, die beim Abstützen nicht rutscht'], selectionReason: 'Auf einer Bank sind Liegestütze leichter als am Boden. Je höher die Auflage, desto leichter.',
   },
   pushup: {
-    steps: ['Hände etwa schulterbreit aufsetzen. Beine strecken und Rumpf anspannen.', 'Brust zum Boden senken. Hüfte und Schultern bewegen sich gemeinsam.', 'Ruhig hochdrücken und weiteratmen. Nur so tief gehen, wie du die Haltung halten kannst.', 'Vor Schwung oder durchhängender Hüfte den Satz beenden.'],
+    steps: ['Hände etwa schulterbreit aufsetzen. Beine strecken; Bauch anspannen.', 'Brust zum Boden senken. Hüfte und Schultern bewegen sich gemeinsam.', 'Ruhig hochdrücken und weiteratmen. Nur so tief gehen, wie du stabil bleibst.', 'Satz beenden, bevor die Hüfte durchhängt oder du Schwung brauchst.'],
     cues: ['Hüfte und Schultern gemeinsam bewegen.', 'Ruhig weiteratmen.'], mistakes: ['Nur Kopf oder Hüfte senken.', 'Bis zum Kontrollverlust weitermachen.'],
     easier: 'Hände auf eine feste erhöhte Auflage setzen.', harder: 'Nach Einweisung eine schwierigere Variante wählen.', setupRequirements: ['Rutschfester Boden und vertrauter kontrollierter Stütz'], selectionReason: 'Wenn du Liegestütze am Boden schon kontrolliert kannst. Sonst beginnt der Plan mit den Händen auf einer Bank.',
+    goal: 'Brust und Arme mit Liegestützen trainieren.',
   },
   'dumbbell-bench': {
-    steps: ['Auf die Bank legen und Füße aufsetzen. Aufnehmen und Ablegen der Hanteln vorher zeigen lassen.', 'Je eine Hantel über der Brust halten.', 'Hanteln ruhig neben die Brust senken und wieder hochdrücken. Keine schmerzhafte Tiefe erzwingen.', 'Die Hanteln mit dem eingeübten Rückweg ablegen.'],
+    steps: ['Aufnehmen und Ablegen zeigen lassen. Auf die Bank legen; Füße aufsetzen.', 'Je eine Hantel über der Brust halten.', 'Hanteln neben die Brust senken und hochdrücken. Nur so tief gehen, wie es schmerzfrei geht.', 'Hanteln so ablegen, wie es dir gezeigt wurde.'],
     cues: ['Beide Hanteln kontrollieren.', 'Füße bleiben stabil.'], mistakes: ['Zu schwere Hanteln wählen.', 'Gewichte beim Ablegen nicht kontrollieren.'],
-    setupRequirements: ['Geprüfte Trainingsbank und stabile Fußauflage', 'Einweisung in Aufnehmen, Ausführen und Ablegen'], requiredEquipment: ['Kurzhanteln', 'Trainingsbank'], planEligible: true, selectionReason: 'Du brauchst eine Bank und Kurzhanteln. Kurzhanteln gehören bisher nicht zur KWS-Ausstattung.',
+    setupRequirements: ['Stabile Bank und feste Fußauflage', 'Aufnehmen, Drücken und Ablegen zeigen lassen'], requiredEquipment: ['Kurzhanteln', 'Trainingsbank'], planEligible: true, selectionReason: 'Du brauchst eine Bank und Kurzhanteln. Kurzhanteln gehören bisher nicht zur KWS-Ausstattung.',
+    goal: 'Zwei Hanteln auf der Bank hochdrücken.',
   },
   'dumbbell-floor': {
-    steps: ['Auf den Rücken legen, Knie beugen und Füße aufsetzen. Aufnehmen und Ablegen vorher zeigen lassen.', 'Je eine Hantel über der Brust halten.', 'Langsam senken, bis die Oberarme den Boden sanft berühren. Dann wieder hochdrücken.', 'Hanteln mit dem eingeübten Rückweg ablegen.'],
+    steps: ['Aufnehmen und Ablegen zeigen lassen. Auf den Rücken legen; Füße aufstellen.', 'Je eine Hantel über der Brust halten.', 'Senken, bis die Oberarme sanft den Boden berühren. Wieder hochdrücken.', 'Hanteln so ablegen, wie es dir gezeigt wurde.'],
     cues: ['Oberarme sanft aufsetzen.', 'Beim Drücken weiteratmen.'], mistakes: ['Oberarme auf den Boden schlagen.', 'Last beim Ablegen nicht mehr kontrollieren.'],
-    setupRequirements: ['Freie Bodenfläche', 'Einweisung in sichere Lastaufnahme und Ablage'], selectionReason: 'Eine Druckübung am Boden, für die du Kurzhanteln brauchst. Lass dir die Bewegung und das passende Gewicht zeigen.',
+    setupRequirements: ['Freie Bodenfläche', 'Aufnehmen und Ablegen zeigen lassen'], selectionReason: 'Hanteldrücken ohne Bank. Du brauchst passende Kurzhanteln und eine Einweisung.',
+    goal: 'Zwei Hanteln vom Boden aus hochdrücken.',
   },
   'band-press': {
-    steps: ['Band und zugelassenen Anker prüfen. Der Anker liegt hinter dir.', 'Stabil stehen und beide Griffe auf Brusthöhe halten.', 'Griffe nach vorn drücken, ohne ins Hohlkreuz auszuweichen.', 'Langsam zur Brust zurückführen. Band nicht zurückschnellen lassen.'],
-    cues: ['Band und Anker zuerst prüfen.', 'Hin- und Rückweg kontrollieren.'], mistakes: ['Band an einem ungeprüften Türgriff befestigen.', 'Band zurückschnellen lassen.'],
-    setupRequirements: ['Geeigneter geprüfter Bandanker', 'Unbeschädigtes Band und Geräteeinweisung'], selectionReason: 'Für diese Druckübung brauchst du ein Band und eine geprüfte Befestigung. Beides vorher vor Ort klären.',
+    steps: ['Band und dafür zugelassene Befestigung prüfen. Befestigung liegt hinter dir.', 'Stabil stehen; Griffe auf Brusthöhe halten.', 'Griffe nach vorn drücken. Rücken gerade halten.', 'Langsam zur Brust zurückführen. Band nicht zurückschnellen lassen.'],
+    cues: ['Band und Befestigung prüfen.', 'Langsam drücken und zurückführen.'], mistakes: ['Band an einem ungeprüften Türgriff befestigen.', 'Band zurückschnellen lassen.'],
+    setupRequirements: ['Geprüfte, geeignete Befestigung', 'Unbeschädigtes Band; Benutzung zeigen lassen'], selectionReason: 'Für diese Druckübung brauchst du ein Band und eine geprüfte Befestigung. Beides vorher vor Ort klären.',
+    goal: 'Ein Band vor der Brust nach vorn drücken.',
   },
   'band-row': {
-    steps: ['Band und zugelassenen Anker prüfen. Zum Anker schauen und stabil stehen.', 'Griffe zum Körper ziehen, Ellbogen nach hinten führen.', 'Oberkörper ruhig halten und weiteratmen.', 'Arme langsam wieder strecken. Band kontrolliert entlasten.'],
+    steps: ['Band und dafür zugelassene Befestigung prüfen. Dorthin schauen und stabil stehen.', 'Griffe zum Körper ziehen; Ellbogen nach hinten führen.', 'Oberkörper ruhig halten und weiteratmen.', 'Arme langsam strecken, bis das Band locker ist.'],
     cues: ['Ellbogen nach hinten, Oberkörper ruhig.', 'Kein Ruck am Band.'], mistakes: ['Oberkörper ruckartig zurückwerfen.', 'Nach anstrengendem Bouldern weitere schwere Zugübungen anhängen.'],
-    setupRequirements: ['Geprüfter Bandanker und unbeschädigtes Band', 'Einweisung in Stand, Griff und Entlasten'], selectionReason: 'Eine Zugübung mit Band. Sie kann eine andere Zugübung ersetzen; du musst nicht alle Varianten machen.',
+    setupRequirements: ['Geprüfte Befestigung und unbeschädigtes Band', 'Stand, Griff und Loslassen zeigen lassen'], selectionReason: 'Eine Zugübung mit Band. Sie kann eine andere Zugübung ersetzen; du musst nicht alle Varianten machen.',
+    goal: 'Ein Band zum Körper ziehen.',
   },
   pullup: {
     defaultDose: { ...STRENGTH_DOSE, repetitions: '4–6', restSeconds: 150 }, level: 'Vertraute Zug- und Gerätepraxis',
-    steps: ['Stange greifen. Einstieg und Rückweg vorher klären; nur bei vertrautem Hang beginnen.', 'Ohne Schwung hochziehen, so weit du die Bewegung kontrollieren kannst.', 'Langsam absenken und weiteratmen.', 'Vor Schwung oder Griffverlust aufhören und mit dem eingeübten Rückweg absteigen.'],
+    steps: ['Einstieg und Rückweg klären. Stange greifen; nur bei vertrautem Hang beginnen.', 'Ohne Schwung hochziehen, so weit du es kontrollieren kannst.', 'Langsam absenken und weiteratmen.', 'Vor Schwung oder Griffverlust aufhören. Über den geübten Rückweg absteigen.'],
     cues: ['Ohne Schwung ziehen.', 'Vor Kontrollverlust aufhören.'], mistakes: ['Mit Beinschwung nachhelfen.', 'Unbekannte Fähigkeit durch einen Maximaltest ausprobieren.'],
-    easier: 'Mit Coach eine unterstützte Variante kennenlernen.', harder: 'Zusatzlast nur nach Einweisung; keine automatische Steigerung.', setupRequirements: ['Geprüfte Stange, kontrollierter Einstieg und Rückweg', 'Vertraute Geräte-/Zugpraxis'], selectionReason: 'Der Plan wählt freie Klimmzüge nur, wenn du bereits regelmäßig Kraft trainierst und Klimmzüge kannst. Der Bouldergrad bestimmt kein Zusatzgewicht.',
+    easier: 'Mit Coach eine unterstützte Variante kennenlernen.', harder: 'Zusatzlast nur nach Einweisung; keine automatische Steigerung.', setupRequirements: ['Geprüfte Stange; sicherer Einstieg und Rückweg', 'Hängen und Hochziehen sind bereits vertraut'], selectionReason: 'Freie Klimmzüge erscheinen im Plan nur bei regelmäßiger Kraftpraxis und bekannten Klimmzügen. Der Bouldergrad bestimmt kein Zusatzgewicht.',
+    goal: 'Dich ohne Schwung an der Stange hochziehen.',
   },
   'split-squat': {
     defaultDose: { ...STRENGTH_DOSE, sideMultiplier: 2 },
-    steps: ['Einen Fuß nach vorn, den anderen nach hinten stellen. Bei Bedarf stabil festhalten.', 'Beide Knie beugen und den Körper ruhig absenken.', 'Über die stabilen Füße wieder aufrichten. Nur eine gut kontrollierbare Tiefe wählen.', 'Nach dem Satz die Seite wechseln. Die Wiederholungszahl gilt je Seite.'],
+    steps: ['Einen Fuß nach vorn, einen nach hinten stellen. Bei Bedarf festhalten.', 'Beide Knie beugen und den Körper ruhig senken.', 'Wieder aufrichten. Nur so tief gehen, wie du stabil bleibst.', 'Nach dem Satz Seite wechseln. Die Anzahl gilt je Seite.'],
     cues: ['Erst Gleichgewicht, dann Tiefe.', 'Festhalten ist erlaubt.'], mistakes: ['Zu tief gehen und das Gleichgewicht verlieren.', 'Knie oder Fuß in eine schmerzhafte Richtung zwingen.'],
-    easier: 'Kürzerer Weg und stabile Haltemöglichkeit.', harder: 'Kontrolle oder Unterstützung anpassen; Zusatzlast erst nach Einweisung.', setupRequirements: ['Rutschfester Boden; bei Bedarf stabile Haltemöglichkeit'], selectionReason: 'Trainiert die Beine. Dass die Übung hohe Tritte beim Bouldern verbessert, ist nicht nachgewiesen.',
+    easier: 'Weniger tief gehen und stabil festhalten.', harder: 'Weniger Unterstützung nur bei sicherem Stand. Zusatzgewicht erst nach Einweisung.', setupRequirements: ['Rutschfester Boden; bei Bedarf stabile Haltemöglichkeit'], selectionReason: 'Trainiert die Beine. Dass die Übung hohe Tritte beim Bouldern verbessert, ist nicht nachgewiesen.',
+    goal: 'Beine im versetzten Stand trainieren.',
   },
   'dead-bug': {
     defaultDose: { ...STRENGTH_DOSE, repetitions: '4–6', restSeconds: 60, secondsPerRepetition: 6, sideMultiplier: 2 },
-    steps: ['Auf den Rücken legen. Arme nach oben, Hüfte und Knie etwa rechtwinklig beugen.', 'Ein Bein langsam Richtung Boden strecken und wieder zurücknehmen. Nur so weit, wie der Rücken ruhig bleibt.', 'Wenn das gut klappt, den gegenüberliegenden Arm über Kopf mitstrecken.', 'Zur Ausgangsposition zurückkehren und die Seite wechseln. Ruhig weiteratmen.'],
+    steps: ['Auf den Rücken legen. Arme nach oben; Hüfte und Knie rechtwinklig beugen.', 'Ein Bein Richtung Boden strecken und zurücknehmen. Rücken bleibt ruhig.', 'Klappt das gut? Den gegenüberliegenden Arm über Kopf mitstrecken.', 'Zurückkommen und Seite wechseln. Weiteratmen.'],
     cues: ['Gegenüberliegenden Arm und Bein bewegen.', 'Kleine Bewegung genügt.'], mistakes: ['Zu weit strecken und die Rückenposition verlieren.', 'Die Luft anhalten.'],
-    easier: 'Nur ein Bein bewegen oder den Fuß gleiten lassen.', harder: 'Einen etwas längeren Hebel kontrollieren; nicht gleichzeitig mehr Wiederholungen.', setupRequirements: ['Freie angenehme Bodenfläche'], selectionReason: 'Du übst, den Rumpf ruhig zu halten, ohne dich auf die Hände zu stützen. Ein Vorteil im Überhang ist nicht nachgewiesen.',
+    easier: 'Nur ein Bein bewegen oder den Fuß gleiten lassen.', harder: 'Arm und Bein etwas weiter strecken; nicht zugleich mehr Wiederholungen.', setupRequirements: ['Freie angenehme Bodenfläche'], selectionReason: 'Du hältst den Rumpf ruhig, ohne Handstütz. Ein Vorteil im Überhang ist nicht nachgewiesen.',
+    goal: 'Arme und Beine bewegen, den Rücken ruhig halten.',
   },
   'quiet-feet': {
-    goal: 'Tritte gezielt treffen und erst danach belasten.',
-    steps: ['Eine kurze, leichte Passage mit guten Griffen und kontrolliertem Rückweg wählen.', 'Den Zieltritt anschauen und die Schuhspitze gezielt aufsetzen.', 'Erst dann Gewicht auf den Fuß bringen. Wenn nötig, nachsetzen.', 'Am Boden kurz vergleichen: Welcher Schritt war genau? Diesen Punkt erneut üben.'],
+    goal: 'Tritt anschauen, Fuß setzen, dann belasten.',
+    steps: ['Kurze, leichte Passage mit guten Griffen und bekanntem Rückweg wählen.', 'Zieltritt anschauen und die Schuhspitze genau aufsetzen.', 'Gewicht auf den Fuß bringen. Nachsetzen ist erlaubt.', 'Am Boden vergleichen: Welcher Schritt war genau? Diesen Punkt erneut üben.'],
     cues: ['Ansehen → setzen → belasten.', 'Nachsetzen ist erlaubt.'], mistakes: ['Vor dem Aufsetzen schon wegschauen.', 'Trotz unsicherem Fuß sofort weiterziehen.'],
     harder: 'Denselben Punkt an einer anderen passenden, leichten Passage üben.', selectionReason: 'Übe, einen Tritt genau zu treffen. Dafür musst du den Boulder nicht bis oben schaffen.',
   },
   'foot-swap': {
-    steps: ['Einen großen Tritt und gute Handgriffe wählen. Coach zeigt den Wechsel.', 'Über Hände und Standfuß stabil bleiben. Den zweiten Fuß an den Tritt bringen.', 'Gewicht auf den neuen Fuß übertragen und den alten Fuß ruhig lösen.', 'Stabilisieren und kontrolliert zurückkehren.'],
-    cues: ['Erst neuen Kontakt aufbauen, dann alten lösen.', 'Kein Sprungwechsel nötig.'], mistakes: ['Beide Füße gleichzeitig ohne Halt lösen.', 'Wechsel trotz instabiler Position erzwingen.'], harder: 'An einem anderen geeigneten Tritt üben; kein Sprungwechsel nötig.', selectionReason: 'Nach vertrauter Fußplatzierung, wenn die nächste Hand-/Hüftposition einen Wechsel sinnvoll macht.',
+    steps: ['Großen Tritt und gute Handgriffe wählen. Coach zeigt den Wechsel.', 'Über Hände und Standfuß stabil bleiben. Zweiten Fuß an den Tritt bringen.', 'Gewicht auf den neuen Fuß bringen; alten Fuß ruhig lösen.', 'Stabil stehen und kontrolliert zurückkehren.'],
+    cues: ['Erst neuen Kontakt aufbauen, dann alten lösen.', 'Kein Sprungwechsel nötig.'], mistakes: ['Beide Füße gleichzeitig ohne Halt lösen.', 'Wechsel trotz instabiler Position erzwingen.'], harder: 'An einem anderen geeigneten Tritt üben; kein Sprungwechsel nötig.', selectionReason: 'Hilft, wenn du für den nächsten Zug den Standfuß wechseln möchtest. Fußplatzierung sollte schon vertraut sein.',
+    goal: 'Auf einem Tritt den Standfuß wechseln.',
   },
   'edge-choice': {
-    steps: ['Eine leichte seitliche Bewegung mit großem Tritt wählen.', 'Mit der Schuhkante auf der Großzehenseite auftreten und die Bewegung probieren.', 'Fuß umsetzen. Mit der Kante auf der Kleinzehenseite dieselbe Bewegung probieren. Knie nicht gegen den festen Schuh drehen.', 'Vergleichen: Welche Fußstellung erleichtert den nächsten Zug?'],
-    cues: ['Innenkante: Großzehenseite. Außenkante: Kleinzehenseite.', 'Fuß zum Drehen umsetzen.'], mistakes: ['Knie drehen, während der Schuh festklemmt.', 'Eine Kante unabhängig von der nächsten Bewegung bevorzugen.'], selectionReason: 'Vergleiche an derselben Stelle, wie Fußkante und Körperposition zusammenpassen.',
+    steps: ['Leichten seitlichen Zug mit großem Tritt wählen.', 'Mit der Schuhkante auf der Großzehenseite auftreten und den Zug probieren.', 'Fuß umsetzen und mit der Kleinzehenseite probieren. Knie nicht gegen den festen Schuh drehen.', 'Vergleichen: Welche Fußstellung macht den nächsten Zug leichter?'],
+    cues: ['Innen = Großzehenseite. Außen = Kleinzehenseite.', 'Zum Drehen den Fuß umsetzen.'], mistakes: ['Knie drehen, während der Schuh festklemmt.', 'Eine Kante unabhängig von der nächsten Bewegung bevorzugen.'], selectionReason: 'Vergleiche an derselben Stelle, wie Fußkante und Körperposition zusammenpassen.',
+    goal: 'Innen- und Außenkante am selben Tritt vergleichen.',
   },
   smearing: {
-    steps: ['Mit dem Hallenteam eine passende leichte Platte mit guten Handgriffen wählen.', 'Schuhsohle auf die geeignete Wandfläche setzen.', 'Gewicht langsam auf den Fuß bringen. Nicht absichtlich abrutschen.', 'Kontrolliert zurückkehren und merken, bei welcher Körperposition der Fuß hielt.'],
+    steps: ['Hallenteam wählt passende leichte Platte mit guten Handgriffen.', 'Schuhsohle auf die geeignete Wandfläche setzen.', 'Gewicht langsam auf den Fuß bringen. Nicht absichtlich abrutschen.', 'Kontrolliert zurückkehren: In welcher Körperposition hielt der Fuß?'],
     cues: ['Langsam belasten.', 'Wandfläche vorher prüfen.'], mistakes: ['Abrutschen absichtlich testen.', 'Eine ungeeignete Wandfläche als Tritt nutzen.'], harder: 'Mit Hallenpersonal eine andere geeignete Fläche wählen.', selectionReason: 'Für das Bouldern an der Platte. Du brauchst eine Wandfläche, die sich zum Antreten eignet.',
+    goal: 'Die Schuhsohle auf einer passenden Wandfläche belasten.',
   },
   'high-step': {
     sources: [{ label: 'Blagus et al.: Videoergänzung', url: 'https://doi.org/10.1177/17479541231152548', context: 'Kleine betreute Anfänger-Lernstudie, Zusatznutzen beim High Step, nicht jeder Bewegung. Statischer Aufbau und Dosis dieser Karte sind redaktionelle Varianten.' }],
-    steps: ['Eine leichte Bewegung mit guten Handgriffen und erreichbarem hohen Tritt wählen.', 'Fuß aufsetzen und die Hüfte kontrolliert zum Tritt verlagern.', 'Über das Bein aufrichten. Die Hände dürfen unterstützen.', 'Kontrolliert zurückkehren. Bei starker Verdrehung einen niedrigeren Tritt wählen; bei Schmerzen abbrechen.'],
-    cues: ['Gewicht zum Fuß verlagern.', 'Hoch bedeutet erreichbar, nicht maximal.'], mistakes: ['Einen unerreichbaren Tritt erzwingen.', 'Knie gegen den feststehenden Fuß verdrehen.'], harder: 'Eine andere erreichbare Trittposition ausprobieren.', selectionReason: 'Du vergleichst, wie du dein Gewicht auf einen höheren Tritt bringst. Eine betreute Videoaufnahme kann beim Beobachten helfen. Der konkrete Ablauf wurde für die App zusammengestellt.',
+    steps: ['Leichten Zug mit guten Händen und erreichbarem hohen Tritt wählen.', 'Fuß setzen und die Hüfte zum Tritt bewegen.', 'Über das Bein aufrichten. Hände dürfen unterstützen.', 'Kontrolliert zurückkehren. Bei Verdrehung niedrigeren Tritt wählen; bei Schmerz abbrechen.'],
+    cues: ['Gewicht zum Fuß verlagern.', 'Hoch bedeutet erreichbar, nicht maximal.'], mistakes: ['Einen unerreichbaren Tritt erzwingen.', 'Knie gegen den feststehenden Fuß verdrehen.'], harder: 'Eine andere erreichbare Trittposition ausprobieren.', selectionReason: 'Du übst, dein Gewicht auf einen höheren Tritt zu bringen. Ein betreutes Video kann beim Beobachten helfen. Der Ablauf ist für die App zusammengestellt.',
+    goal: 'Dein Gewicht auf einen höheren Tritt bringen.',
   },
   'hip-position': {
-    steps: ['Einen kurzen seitlichen Zug mit guten Händen und Tritten wählen.', 'Den Zug mit dem Körper frontal zur Wand probieren.', 'Fuß umsetzen, eine Hüftseite zur Wand drehen und denselben Zug probieren.', 'Vergleichen: In welcher Stellung erreichst du den Griff leichter und bleibst stabil?'],
-    cues: ['Frontal und seitlich vergleichen.', 'Fuß vor dem Drehen umsetzen.'], mistakes: ['Hüfte mit Gewalt an die Wand pressen.', 'Eine schmerzhafte Knieposition erzwingen.'], harder: 'Denselben Vergleich an einem anderen leichten Zug üben.', selectionReason: 'Vergleiche eine frontale und eine seitliche Position an einem leichten Zug. Daraus allein lässt sich deine Technik im Überhang nicht beurteilen.',
+    steps: ['Kurzen seitlichen Zug mit guten Griffen und Tritten wählen.', 'Den Zug frontal zur Wand probieren.', 'Fuß umsetzen, eine Hüftseite zur Wand drehen und den Zug erneut probieren.', 'Vergleichen: Wo erreichst du den Griff leichter und bleibst stabil?'],
+    cues: ['Frontal und seitlich vergleichen.', 'Fuß vor dem Drehen umsetzen.'], mistakes: ['Hüfte mit Gewalt an die Wand pressen.', 'Eine schmerzhafte Knieposition erzwingen.'], harder: 'Denselben Vergleich an einem anderen leichten Zug üben.', selectionReason: 'Du vergleichst zwei Körperpositionen an einem leichten Zug. Daraus folgt keine Bewertung deiner Technik im Überhang.',
+    goal: 'Zwei Standpositionen zur Wand vergleichen.',
   },
   'heel-hook': {
-    goal: 'Die Ferse als Unterstützung nutzen und den Hook kontrolliert lösen.',
+    goal: 'Die Ferse als Halt nutzen und sicher wieder lösen.',
     requiresCoach: true, level: 'Coachbegleitete Einführung',
-    steps: ['Coach wählt passenden Griff, Handkontakte und Rückweg.', 'Ferse auf die geeignete Fläche setzen, während andere Kontakte dich halten.', 'Zug über die Ferse langsam aufnehmen und die Hüfte nachführen. Knie nicht verdrehen.', 'Andere tragende Kontakte herstellen, dann Ferse lösen und zurückkehren.'],
+    steps: ['Coach wählt passende Fläche, Handgriffe und Rückweg.', 'Ferse aufsetzen. Andere Griffe und Tritte halten dich dabei.', 'Langsam über die Ferse ziehen und die Hüfte nachführen. Knie nicht verdrehen.', 'Erst andere Griffe und Tritte belasten, dann Ferse lösen und zurückkehren.'],
     cues: ['Ferse setzen → belasten → unterstützt lösen.', 'Bei rutschendem Kontakt nicht stärker ziehen.'], mistakes: ['Ferse lösen, bevor andere Kontakte tragen.', 'Bein verklemmen oder Knie verdrehen.'], harder: 'Mit Coach eine andere passende Heelhook-Bewegung üben.', selectionReason: 'Der Plan schlägt diesen Heelhook nur mit Coachbegleitung vor. Als Einstieg ins Bouldern ist er nicht erforderlich.',
   },
   'read-boulder': {
     sources: [{ label: 'Morenas et al. 2021: Modellpreview', url: 'https://doi.org/10.3390/ijerph182312594', context: 'Akuter Previewvergleich bei 21 fortgeschrittenen Kletternden, kein Langzeit-Apptraining. Die Lernfolge und Dosierung dieser Karte sind redaktionell.' }, ...techniqueSource],
-    steps: ['Vom Boden Griffe, Tritte, Fallbereich und Rückweg anschauen.', 'Eine Hand- und Fußfolge überlegen. Unklare Sicherheitsfragen vor dem Start klären.', 'Die kurze, leichte Passage ausprobieren. Deinen Plan bei Bedarf ändern.', 'Am Boden vergleichen: Was hat gepasst? Für den nächsten Versuch eine Idee ändern.'],
-    cues: ['Hände und Füße mitdenken.', 'Deinen Plan anpassen ist erlaubt.'], mistakes: ['Nur die Handgriffe anschauen.', 'Dem Plan trotz unsicherer Position folgen.'], harder: 'Zwei Lösungen vergleichen und eine Idee an neuer Aufgabe prüfen.', selectionReason: 'Übe, Griffe, Tritte und einen möglichen Weg vom Boden aus zu erkennen. Deine Technik wird dadurch nicht automatisch bewertet.',
+    steps: ['Griffe, Tritte, Fallbereich und Rückweg vom Boden anschauen.', 'Hand- und Fußfolge überlegen. Sicherheitsfragen vor dem Start klären.', 'Kurze, leichte Passage ausprobieren. Deinen Weg bei Bedarf ändern.', 'Am Boden vergleichen: Was passte? Für den nächsten Versuch eine Idee ändern.'],
+    cues: ['Hände und Füße mitdenken.', 'Deinen Plan anpassen ist erlaubt.'], mistakes: ['Nur die Handgriffe anschauen.', 'Dem Plan trotz unsicherer Position folgen.'], harder: 'Zwei Wege vergleichen; eine Idee an einem anderen leichten Boulder testen.', selectionReason: 'Übe, Griffe, Tritte und einen möglichen Weg vom Boden aus zu erkennen. Deine Technik wird dadurch nicht automatisch bewertet.',
+    goal: 'Vor dem Start einen Weg mit Händen und Füßen überlegen.',
   },
   'controlled-move': {
-    goal: 'Fußbelastung und Handbewegung ruhig aufeinander abstimmen.',
-    steps: ['Eine bekannte leichte Passage wählen. Keine Sprünge oder Bewegungen ohne Füße.', 'Den Fuß belasten, bevor du die nächste Hand bewegst.', 'Die Bewegungen ruhig verbinden. Bei Bedarf stoppen oder den Fuß nachsetzen.', 'Am Boden eine unklare Bewegung auswählen und nur diese erneut üben.'],
+    goal: 'Erst den Fuß belasten, dann die Hand bewegen.',
+    steps: ['Bekannte leichte Passage ohne Sprünge wählen. Füße bleiben an der Wand.', 'Fuß belasten, dann die nächste Hand bewegen.', 'Bewegungen ruhig verbinden. Stoppen und Nachsetzen sind erlaubt.', 'Am Boden eine unklare Bewegung auswählen und nur diese erneut üben.'],
     cues: ['Erst Fuß belasten, dann Hand bewegen.', 'Ruhig ist wichtiger als schnell.'], mistakes: ['Jede Pause verbieten.', 'Für einen flüssigen Ablauf die Kontrolle verlieren.'], harder: 'Den Ablauf an einer anderen leichten Passage ausprobieren.', selectionReason: 'Übe einen ruhigen Bewegungsablauf. Diese Übung trainiert keine schnellen Sprünge.',
   },
 };
@@ -220,7 +234,7 @@ export const TRAINING_EXERCISES: TrainingExercise[] = [...RAW_EXERCISES, ...addi
     dose: raw.format || raw.id === 'side-plank' ? raw.dose : raw.area === 'boulder' ? `Beispiel: ${defaultDose.repetitions} kurze Versuche an einer passenden Passage. Pro Versuch nur einen Punkt üben.`
       : `Beispiel: ${defaultDose.sets} Sätze · ${defaultDose.repetitions} Wiederholungen${perSide}.${raw.id === 'dead-bug' ? ' Nur so weit strecken, wie du die Haltung halten kannst.' : ' Bei vertrauter Variante aufhören, während noch etwa 2–3 saubere Wiederholungen möglich wären.'}`,
     rest: raw.area === 'mobility' ? raw.rest : `Etwa ${defaultDose.restSeconds} Sekunden Pause zwischen ${defaultDose.restScope === 'repetitions' ? defaultDose.repetitionUnit === 'Haltephasen' ? 'Haltephasen' : 'Versuchen' : 'Sätzen'}. Bei Bedarf länger erholen.`,
-    note: raw.format ? raw.note : `${raw.area === 'boulder' ? 'Passage und Rückweg prüfen, Fallbereich frei halten. Auch Technikübungen können die Finger stark belasten.' : 'Gewicht und Variante so wählen, dass du die Bewegung kontrollieren kannst.'} ${STOP}`,
+    note: raw.format ? raw.note : `${raw.area === 'boulder' ? 'Rückweg prüfen; Fallbereich frei halten. Auch leichte Übungen belasten die Finger.' : 'Gewicht und Variante müssen gut kontrollierbar sein.'} ${STOP}`,
     setupRequirements: guidance.setupRequirements ?? raw.setupRequirements ?? (raw.area === 'boulder' ? ['Passende Passage, freier Mattenbereich und kontrollierbarer Abstieg', 'Geeignete Hallen-/Bewegungseinweisung'] : []),
   };
   exercise.kwsAvailable = isKwsExerciseAvailable(exercise);

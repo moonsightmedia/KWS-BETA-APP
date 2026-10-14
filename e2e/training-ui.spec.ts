@@ -253,7 +253,7 @@ test('expanded boulder library shows all 33 cards and ten games with stable sear
   await expect(list.getByRole('img', { name: /Schematische Illustration/ })).toHaveCount(10);
   const gameTitle = await list.getByRole('heading').first().innerText();
   await list.getByRole('link', { name: `${gameTitle}: Anleitung öffnen`, exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'So läuft das Spiel', exact: true })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Übungsschritte' })).toBeVisible();
   await page.getByRole('button', { name: 'Zur Bibliothek', exact: true }).click();
   await expect(page).toHaveURL(/format=game/);
   await expect(list.getByRole('listitem')).toHaveCount(10);
@@ -334,7 +334,7 @@ test('kids games support nursery and school browsing, sources and favorites with
   await expect(list.getByRole('listitem')).toHaveCount(6);
   await list.getByRole('link', { name: 'Farbenpost: Spiel ansehen', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Kinderspiel', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Für Kitakinder vereinfachen', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Für Kitakinder', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Betreuung', exact: true })).toBeVisible();
   await expect(page.getByText('Umfang & Pausen', { exact: true })).toHaveCount(0);
   await page.getByText('Hintergrund & Quellen', { exact: true }).click();
@@ -437,27 +437,41 @@ test('failed preference persistence is visible while the current choice stays us
   expect(await page.evaluate(() => localStorage.getItem('kws-training-preferences-v1:training-demo'))).toBeNull();
 });
 
-test('short instructions are reachable directly while explanations stay expandable', async ({ page }) => {
+test('detail tabs separate instructions from volume and keep accessible steps', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 900 });
   await open(page, '/training/exercises/edge-choice');
-  await page.getByRole('link', { name: 'Zur Anleitung', exact: true }).click();
-  await expect(page.locator('#exercise-instructions')).toBeInViewport();
+  await expect(page.getByRole('tab', { name: 'Anleitung', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#exercise-instructions')).toContainText('Großzehenseite');
   await expect(page.locator('#exercise-instructions')).toContainText('Kleinzehenseite');
+  await expect(page.getByRole('heading', { name: 'Umfang & Pausen', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Schrittweise', exact: true }).click();
+  const step = page.getByRole('region', { name: 'Einzelner Übungsschritt' });
+  await expect(step).toContainText('Schritt 1 von 4');
+  await expect(step.getByRole('button', { name: 'Zurück', exact: true })).toBeDisabled();
+  await step.getByRole('button', { name: 'Nächster Schritt', exact: true }).click();
+  await expect(step).toContainText('Großzehenseite');
+  for (let i = 0; i < 2; i++) await step.getByRole('button', { name: 'Nächster Schritt', exact: true }).click();
+  await expect(step.getByRole('button', { name: 'Nächster Schritt', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Alle Schritte', exact: true }).click();
+  await expect(page.getByRole('list', { name: 'Übungsschritte' }).getByRole('listitem')).toHaveCount(4);
+  await page.getByRole('tab', { name: 'Umfang', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Umfang & Pausen', exact: true })).toBeVisible();
+  await expect(page.getByRole('tabpanel')).toContainText('90 Sek.');
+  await expect(page.getByRole('tabpanel')).toContainText('Versuche');
+  await page.getByRole('tab', { name: 'Varianten', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Einfacher', exact: true })).toBeVisible();
   const background = page.locator('details').filter({ has: page.locator('summary').filter({ hasText: 'Hintergrund & Quellen' }) });
   await expect(background).not.toHaveAttribute('open', '');
   await background.locator('summary').click();
-  await expect(background).toContainText('noch nicht fachlich freigegeben');
+  await expect(background).toContainText(/noch nicht fachlich freigegeben/i);
   await open(page, '/training/exercises/kids-colour-post');
-  await page.getByRole('link', { name: 'Zum Spielablauf', exact: true }).click();
-  await expect(page.locator('#exercise-instructions')).toBeInViewport();
-  const group = page.locator('details').filter({ has: page.locator('summary').filter({ hasText: 'Alter, Gruppe & Spielzeit' }) });
-  await expect(group).not.toHaveAttribute('open', '');
-  await group.locator('summary').click();
-  await expect(group.getByRole('heading', { name: 'Gruppe', exact: true })).toBeVisible();
-  await open(page, '/training/exercises/kids-colour-post?age=kita');
-  await page.getByRole('link', { name: 'Zur Kita-Idee', exact: true }).click();
-  await expect(page.locator('#exercise-kita')).toBeInViewport();
+  await page.getByRole('button', { name: 'Kita', exact: true }).click();
+  await expect(page.locator('#exercise-kita')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Zur Einheit hinzufügen', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Schule', exact: true }).click();
+  await expect(page.getByRole('list', { name: 'Übungsschritte' }).getByRole('listitem')).toHaveCount(4);
+  await page.getByRole('tab', { name: 'Aufbau', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Vor dem Spiel', exact: true })).toBeVisible();
 });
 
 test('specific grip techniques use their own appropriate illustration cells', async ({ page }) => {
@@ -487,7 +501,7 @@ for (const width of [375, 768, 1280, 1920]) test('whole cards and independent co
   await first.getByRole('button', { name: /Zur Einheit hinzufügen/ }).click();
   await expect(page).toHaveURL(/\/training\/library\/mobility$/);
   await expect(first.getByRole('button', { name: /Im Einheitsentwurf/ })).toBeVisible();
-  const goal = first.getByText('Die Rückseite der Schulter sanft dehnen.', { exact: true });
+  const goal = first.locator('.mt-3 p').first();
   await goal.scrollIntoViewIfNeeded();
   const box = await goal.boundingBox();
   await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
@@ -526,10 +540,28 @@ test('movement and stretch filters, manual mobility session and reload keep thei
   await expect(page.getByRole('list', { name: 'Übungen im Wochenplan' })).toContainText('Pause bei Bedarf');
 });
 
-test('incline pushup uses plain language in both instruction and background', async ({ page }) => {
+test('plain incline pushup description, sources and adjustable volume stay accessible', async ({ page }) => {
   await open(page, '/training/exercises/incline-pushup');
-  await expect(page.getByText('Ein leichterer Liegestütz mit den Händen auf einer Bank.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Liegestütze leichter machen: Hände auf die Bank.', { exact: true })).toBeVisible();
   await page.locator('summary').filter({ hasText: 'Hintergrund' }).click();
-  await expect(page.getByText('Mit den Händen auf einer Bank ist der Liegestütz leichter als am Boden. Je höher die Auflage, desto leichter die Übung.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: /ACSM/ })).toBeVisible();
   await expect(page.locator('main')).not.toContainText(/skalier/i);
+  await page.getByRole('tab', { name: 'Umfang', exact: true }).click();
+  await expect(page.getByRole('tabpanel')).toContainText('6–10');
+  await expect(page.getByRole('tabpanel')).toContainText('120 Sek.');
+});
+
+test('raster body graphics load with real transparency, and a failed graphic keeps the region label usable', async ({ page }) => {
+  await open(page, '/training/library/rehab');
+  const graphics = page.locator('img[data-body-region]');
+  await expect(graphics).toHaveCount(4);
+  expect(await graphics.evaluateAll(nodes => nodes.every(node => (node as HTMLImageElement).complete && (node as HTMLImageElement).naturalWidth > 0 && !node.closest('svg')))).toBeTruthy();
+  for (const region of ['shoulder', 'hand', 'elbow', 'knee']) {
+    await expect(page.locator('[data-body-region="'+region+'"]')).toHaveAttribute('src', '/training/regions/'+region+'.png');
+  }
+  await page.route('**/training/regions/knee.png', request => request.abort());
+  await open(page, '/training/exercises/rehab-knee');
+  await expect(page.getByRole('heading', { name: 'Knie', exact: true })).toBeVisible();
+  await expect(page.locator('span[data-body-region="knee"]')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Zur Einheit hinzufügen', exact: true })).toHaveCount(0);
 });
