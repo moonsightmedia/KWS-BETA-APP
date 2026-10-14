@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { useAccountProfile } from '@/hooks/useAccountProfile';
 
 type AccountAvatarProps = {
   user: { email?: string; user_metadata?: { avatar_url?: unknown } };
@@ -8,9 +9,11 @@ type AccountAvatarProps = {
 
 /** Keep the account identity identical in the sidebar and its menu. */
 export const AccountAvatar = ({ user, className }: AccountAvatarProps) => {
-  const avatarUrl = typeof user.user_metadata?.avatar_url === 'string'
+  const profile = useAccountProfile();
+  const metadataAvatar = typeof user.user_metadata?.avatar_url === 'string'
     ? user.user_metadata.avatar_url.trim()
     : '';
+  const avatarUrl = profile.data ? profile.data.avatar_url : metadataAvatar;
 
   return (
     <Avatar className={cn('h-10 w-10 shrink-0 rounded-kws-control', className)}>

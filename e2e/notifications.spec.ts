@@ -10,7 +10,7 @@ function records() {
     type: ['boulder_new','schedule_reminder','feedback_reply','admin_announcement'][i%4],
     title: ['12 neue Boulder warten auf dich','Morgen wird im Bug geschraubt','Eine Antwort auf dein Feedback','Neuigkeiten aus der Halle'][i%4],
     message: ['Von der leichten Platte bis zur nächsten Herausforderung: Entdecke die neuen Linien in Bug und Grotte.', 'Deine Projekte im Bug sind noch bis heute Abend an der Wand.', 'Danke für deinen Hinweis! Wir haben die fehlende Zuordnung geprüft und angepasst.', 'Am Samstag öffnet die Halle ab 10 Uhr. Alle weiteren Informationen findest du hier.'][i%4],
-    read: i%3===0, read_at: null, data: {}, created_at: new Date(Date.UTC(2026,8,15,10)-i*3600000).toISOString(), action_url: i%4===0?'/boulders?show=new':null,
+    read: i%3===0, read_at: null, dismissed_at: null, data: {}, created_at: new Date(Date.UTC(2026,8,15,10)-i*3600000).toISOString(), action_url: i%4===0?'/boulders?show=new':null,
   }));
 }
 async function open(page: Page, extra = '') {
@@ -33,6 +33,7 @@ async function open(page: Page, extra = '') {
     if(url.pathname.endsWith('get_unread_count'))return r.fulfill({json:rows.filter(n=>!n.read).length});
     let selected=rows.filter(n=>(q.get('user_id') === 'eq.' + n.user_id)&&(!q.get('read')||n.read===(q.get('read')==='eq.true'))&&(!q.get('type')||(q.get('type')!.startsWith('in.') ? q.get('type')!.slice(4,-1).split(',').includes(n.type) : n.type===q.get('type')!.slice(3)))&&(!q.get('id')||n.id===q.get('id')!.slice(3)));
     if(q.get('created_at')?.startsWith('lte.')) selected = selected.filter(n => n.created_at <= q.get('created_at')!.slice(4));
+    if(q.get('dismissed_at')==='is.null') selected = selected.filter(n=>!n.dismissed_at);
     if(q.get('or')) { const cursor=q.get('or')!.match(/created_at.lt.([^,]+)/)?.[1]; const id=q.get('or')!.match(/id.lt.([^)]*)/)?.[1];if(cursor)selected=selected.filter(n=>n.created_at<cursor || (n.created_at === cursor && n.id < (id || ''))); }
     if(extra.includes('empty'))selected=[];
     if(method==='PATCH'){ if(state.failWrite)return r.fulfill({status:403,json:{}});selected.forEach(n=>Object.assign(n,r.request().postDataJSON())); }
@@ -201,4 +202,70 @@ test('opening a linked unread message confirms read and routes without document 
   await expect(page.getByTestId('route')).toHaveText('/boulders?notification=' + ctx.rows[4].id);
   expect(ctx.rows[4].read).toBe(true); expect(page.url()).toBe(originalUrl);
   await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+async function swipe(page: Page, id: string, dx: number, dy = 0) {
+  const item = page.locator('[data-notification-id="' + id + '"]');
+  const box = (await item.boundingBox())!;
+  const x = dx < 0 ? box.x + box.width - 35 : box.x + 35;
+  const y = box.y + 30;
+  await page.mouse.move(x,y); await page.mouse.down();
+  await page.mouse.move(x+dx,y+dy,{steps:12}); await page.mouse.up();
+}
+test('swipe read/unread and undo, cancelled/vertical gestures never write', async ({page})=>{
+  await page.setViewportSize({width:375,height:900}); const ctx=await open(page); await inbox(page);
+  const id=ctx.rows[0].id;
+  await swipe(page,id,30); await swipe(page,id,12,65);
+  expect(ctx.requests.filter(r=>r.method==='PATCH')).toHaveLength(0);
+  await swipe(page,id,120);
+  await expect(page.getByText('Als ungelesen markiert.',{exact:true})).toBeVisible();
+  expect(ctx.rows[0].read).toBe(false);
+  await page.getByRole('button',{name:'Rückgängig',exact:true}).click();
+  await expect(page.getByText('Änderung rückgängig gemacht.')).toBeVisible();
+  expect(ctx.rows[0].read).toBe(true);
+  expect(ctx.requests.filter(r=>r.method==='PATCH').every(r=>r.path.includes('user_id=eq.'+owner))).toBe(true);
+});
+test('swipe removes reversibly, excludes hidden unread from count and restores original read state', async ({page})=>{
+  await page.setViewportSize({width:375,height:900});const ctx=await open(page);await inbox(page);
+  const n=ctx.rows[1];await swipe(page,n.id,-120);
+  await expect(page.locator('[data-notification-id="'+n.id+'"]')).toHaveCount(0);
+  await expect(page.getByText('43 ungelesen',{exact:true}).last()).toBeVisible();
+  expect(n.read).toBe(false);expect(n.dismissed_at).toBeTruthy();
+  await page.getByRole('button',{name:'Rückgängig',exact:true}).click();
+  await expect(page.locator('[data-notification-id="'+n.id+'"]').getByText('Ungelesen',{exact:true})).toHaveCount(1);
+  await expect(page.getByText('44 ungelesen',{exact:true}).last()).toBeVisible();
+  expect(n.dismissed_at).toBeNull();
+  expect(ctx.requests.some(r=>r.method==='DELETE'||r.method==='POST')).toBe(false);
+});
+test('failed swipe remains visible; accessible remove and undo work with keyboard', async ({page})=>{
+  await page.setViewportSize({width:375,height:900});const ctx=await open(page,'writeFail');await inbox(page);
+  const n=ctx.rows[0];await swipe(page,n.id,-120);
+  await expect(page.getByText('Änderung nicht gespeichert. Bitte erneut versuchen.')).toBeVisible();
+  await expect(page.locator('[data-notification-id="'+n.id+'"]').getByRole('button',{name:/Mitteilung entfernen:/})).toBeVisible();
+  expect(n.dismissed_at).toBeNull();ctx.state.failWrite=false;
+  const remove=page.locator('[data-notification-id="'+n.id+'"]').getByRole('button',{name:/Mitteilung entfernen:/});
+  await remove.focus();await page.keyboard.press('Enter');
+  await expect(page.getByText('Mitteilung entfernt.',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Rückgängig',exact:true}).click();
+  await expect(page.locator('[data-notification-id="'+n.id+'"]')).toBeVisible();
+});
+
+test.describe('touch gestures',()=>{
+  test.use({hasTouch:true,isMobile:true});
+  test('actual touch pans vertically without a write, horizontally changes read state',async({page})=>{
+    await page.setViewportSize({width:375,height:900});const ctx=await open(page);await inbox(page);
+    const cdp=await page.context().newCDPSession(page);
+    const drag=async(x:number,y:number,dx:number,dy:number)=>{
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+      for(let i=1;i<=12;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+dx*i/12,y:y+dy*i/12}]});
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    };
+    const first=page.locator('[data-notification-id="'+ctx.rows[0].id+'"]');const b=(await first.boundingBox())!;
+    await drag(60,b.y+30,130,0);
+    await expect(page.getByText('Als ungelesen markiert.',{exact:true})).toBeVisible();
+    const before=ctx.requests.filter(r=>r.method==='PATCH').length;
+    await drag(200,600,8,-220);
+    await expect.poll(()=>page.locator('[data-notification-scroll]').evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
+    expect(ctx.requests.filter(r=>r.method==='PATCH')).toHaveLength(before);
+  });
 });

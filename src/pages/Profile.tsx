@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -22,66 +22,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderCommunity';
 import { buildPersonalProgress } from '@/lib/personalProgress';
 import { PersonalDataState } from '@/components/PersonalDataState';
-import { fetchProfileRecord } from '@/lib/profileCompat';
+import { useAccountProfile } from '@/hooks/useAccountProfile';
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user, session, signOut, loading, authTransition } = useAuth();
+  const { user, signOut, loading, authTransition } = useAuth();
   const trackedQuery = useMyTrackedBoulders();
   const sessionsQuery = useMyTrackingSessions();
   const { data: trackedBoulders } = trackedQuery;
   const { data: trackingSessions } = sessionsQuery;
-  const [profileName, setProfileName] = useState<string | null>(null);
-  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
-  const [profileIdentityLoading, setProfileIdentityLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user) {
-      setProfileName(null);
-      setProfileAvatarUrl(null);
-      setProfileIdentityLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadProfileName = async () => {
-      setProfileIdentityLoading(true);
-
-      const metadataAvatarUrl =
-        typeof user.user_metadata?.avatar_url === 'string' && user.user_metadata.avatar_url.trim().length > 0
-          ? user.user_metadata.avatar_url
-          : null;
-
-      try {
-        const data = await fetchProfileRecord(user.id, session?.access_token);
-        if (cancelled) return;
-
-        const nextProfileName =
-          data?.full_name?.trim() ||
-          [data?.first_name, data?.last_name].filter(Boolean).join(' ').trim() ||
-          null;
-
-        setProfileName(nextProfileName);
-        setProfileAvatarUrl(data?.avatar_url?.trim() || metadataAvatarUrl || null);
-      } catch {
-        if (!cancelled) {
-          setProfileName(null);
-          setProfileAvatarUrl(metadataAvatarUrl);
-        }
-      } finally {
-        if (!cancelled) {
-          setProfileIdentityLoading(false);
-        }
-      }
-    };
-
-    loadProfileName();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [session?.access_token, user]);
+  const profile = useAccountProfile();
+  const profileName = profile.data?.full_name?.trim() ||
+    [profile.data?.first_name, profile.data?.last_name].filter(Boolean).join(' ').trim();
+  const profileIdentityLoading = profile.isLoading;
 
   const displayName = useMemo(() => {
     const meta = user?.user_metadata as Record<string, unknown> | undefined;
@@ -106,8 +59,8 @@ const Profile = () => {
       typeof meta?.avatar_url === 'string' && meta.avatar_url.trim().length > 0
         ? meta.avatar_url
         : null;
-    return profileAvatarUrl || metadataAvatar || null;
-  }, [profileAvatarUrl, user]);
+    return profile.data ? profile.data.avatar_url : metadataAvatar;
+  }, [profile.data, user]);
 
   const memberSinceLabel = useMemo(() => {
     if (!user?.created_at) return 'Mitglied';

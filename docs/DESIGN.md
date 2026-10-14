@@ -954,6 +954,16 @@ Bedienelemente auf wechselnden Wandfotos lesbar bleiben:
 
 ### 9.3 Profil und Unterseiten
 
+Profil, Sidebar und Kontomenü lesen das Profilbild aus demselben kontogebundenen
+Profil-Cache. Ein gespeichertes Entfernen (`avatar_url = null`) hat Vorrang vor
+alten Kontometadaten. Speichern aktualisiert alle sichtbaren Avatare sofort;
+eine verzögerte Metadatensynchronisierung darf kein altes Foto zurückbringen.
+Auswählen/Hochladen und Entfernen des Profilbilds speichern sofort ausschließlich
+das Bild. Name und E-Mail bleiben unabhängige Entwürfe bis „Speichern“; ein
+Profilbild-Upload speichert sie nicht mit. Auswahlvorschau, laufender Upload,
+bestätigter Erfolg und Fehler bleiben unterscheidbar. Währenddessen sind weitere
+Fotoaktionen gesperrt. Erfolg benötigt eine bestätigte eigene Profilzeile.
+
 Kontolöschung steht im bearbeitbaren Profil als eigene ruhige Fläche mit
 destruktiver Aktion. Eine zugängliche Rückfrage nennt den Umfang und die
 Bearbeitungsfrist (Marketing, spätestens sieben Tage). Erst eine bestätigte
@@ -1447,6 +1457,15 @@ Prüfbelege: `docs/qa/2026-09-15-personal-progress-design.md`,
 `test/personalProgress.test.mjs`, `e2e/personal-workspace.spec.ts`.
 
 ### 15.6 Benachrichtigungen (2026-09-15)
+
+- Meldungen unterstützen horizontales Wischen: rechts gelesen/ungelesen,
+  links entfernen. Entfernen blendet reversibel aus; es löscht keinen Datensatz.
+  Eine bestätigte Aktion bietet „Rückgängig“ im festen Panel-Fuß. Dieselben
+  Aktionen sind per beschrifteten Iconbuttons und Tastatur erreichbar.
+  Vertikales Scrollen, Pinch-Zoom und abgebrochene Gesten schreiben nichts;
+  Buttons starten keine Wischgeste. Unter etwa 88px springt die Meldung zurück.
+  Reduced Motion entfällt beim Zurückgleiten. Verborgene Meldungen zählen nicht
+  zum Ungelesen-Zähler. Wiederherstellen erzeugt keinen neuen Push.
 
 - Ein gemeinsamer Posteingang: mobil randbündiges Bottom-Sheet, Desktop als
   kompaktes Hover-/Klick-Popover. Hover übernimmt keinen Fokus; Klick/Interaktion

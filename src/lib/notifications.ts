@@ -2,6 +2,7 @@ export type NotificationType = 'boulder_new' | 'competition_update' | 'feedback_
 export interface AppNotification {
   id: string; user_id: string; type: NotificationType; title: string; message: string;
   data: Record<string, unknown>; read: boolean; read_at: string | null; created_at: string; action_url: string | null;
+  dismissed_at?: string | null;
 }
 export interface NotificationFilter { unreadOnly?: boolean; topic?: string }
 export type NotificationCursor = Pick<AppNotification, 'id' | 'created_at'>;
@@ -14,6 +15,7 @@ const validId = /^[a-zA-Z0-9-]+$/;
 export function notificationQuery(owner: string, filter: NotificationFilter = {}, cursor?: NotificationCursor) {
   if (!validId.test(owner)) throw new Error('Ungültiges Konto.');
   const query = new URLSearchParams({ user_id: `eq.${owner}`, select: '*', order: 'created_at.desc,id.desc', limit: '30' });
+  query.set('dismissed_at', 'is.null');
   if (filter.unreadOnly) query.set('read', 'eq.false');
   if (filter.topic === 'competition') query.set('type', 'in.(competition_update,competition_result,competition_leaderboard_change)');
   else if (filter.topic && filter.topic !== 'all') {
