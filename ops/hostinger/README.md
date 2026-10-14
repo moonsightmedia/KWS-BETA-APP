@@ -1,8 +1,41 @@
-# KWS Hostinger: vorbereitete Migration
+# KWS Hostinger: Betrieb und Migrationshistorie
+
+## Aktueller Betrieb – 12. Oktober 2026
+
+Die Migration ist live. Öffentliche Web-App: https://beta.kletterwelt-sauerland.de,
+API: https://beta-api.kletterwelt-sauerland.de, Videos:
+https://video.kletterwelt-sauerland.de. Die geschützte Verwaltung ist unter
+https://supabase.kletterwelt-sauerland.de erreichbar; native Studio-Ansicht
+unter `/project/default`. Login aus Bitwarden `KWS_HOSTINGER_SUPABASE_CONFIG`.
+Der alte lokale Studio-Tunnel ist für den regulären Zugriff nicht erforderlich.
+
+Produktionsdatenbank `postgres` im Container `supabase-db`; Konfiguration unter
+`/opt/kws/supabase/runtime`. Web unter `/opt/kws/web-production`, Videodienst
+`kws-video-production` mit Daten unter `/opt/kws/video-production/data`.
+**Port 9082 gehört zum internen Produktionsgateway. Port 9090 ist die isolierte
+Web-/API-Probe.** Konten in der Probe sind keine Produktionskonten.
+
+Community-Schutz und rechtliche Seiten aus Quellstand `5339600` sind live;
+Apple Build 85 enthält dieselben Funktionen. Verifikation und Store-Blocker:
+`docs/qa/2026-10-12-community-store-readiness.md` und
+`docs/APPLE_STORE_READINESS.md`. Moderation: `COMMUNITY_MODERATION.md`;
+Kontolöschung: `ACCOUNT_DELETION.md`.
+
+Tägliche verschlüsselte VPS-Sicherung ist aktiv. Produktionssatz
+`20261012T085928Z` liegt zusätzlich vollständig hashgeprüft auf dem Kunden-NAS.
+Regelmäßige unabhängige Sicherung und Restore mit aktuellen Löschvermerken
+bleiben eigene Betriebsaufgaben. Den alten privaten VPS nicht löschen:
+Andere unabhängige Anwendungen laufen darauf weiter. Altes KWS-Cloudprojekt
+kontrolliert erhalten, bis alte Clients und Rückfall-/Aufbewahrungsanforderungen
+geklärt sind.
+
+Die folgenden Abschnitte dokumentieren die historische Vorbereitung vom
+8. Oktober. Angaben wie „Hauptdatenbank leer“ beschreiben diesen früheren Stand.
+Einmalige Vorbereitungsskripte nicht erneut auf die produktive Datenbank anwenden.
 
 Diese Skripte sind für `srv2044594` (`187.7.70.230`) und den geprüften Geräteschlüssel dieses Laptops bestimmt. Sie sind kein automatisch wiederholbarer Produktions-Deploy. Aktueller Stand und Migrationsablauf: `docs/KWS_SELF_HOSTED_MIGRATION.md`.
 
-## Bestehender Zielstand
+## Historischer Zielstand vor der Migration
 
 - `/opt/kws/supabase/runtime`: offizielles Supabase, leere Datenbank, ausschließlich private Ports.
 - `/opt/kws/web`: privater Frontend-Build; API-/Video-URLs Loopback.

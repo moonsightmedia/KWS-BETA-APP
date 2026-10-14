@@ -2,7 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { readBoulderOrigin } from '@/lib/boulderNavigation';
 import { useRetainedBoulderOrigin } from '@/components/BoulderRouteContinuity';
-import { BadgeCheck, Play, Video } from 'lucide-react';
+import { BadgeCheck } from 'lucide-react';
+import { BetaPlaceholder } from '@/components/boulder/BetaPlaceholder';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -261,35 +262,16 @@ export default function BoulderDetail() {
                 />
               )
             ) : (
-              <>
-                <div
-                  className="absolute inset-0 opacity-20"
-                  style={{ background: `linear-gradient(135deg, ${boulder.colorHex || '#36B531'}44, transparent)` }}
-                />
-                <div className="relative flex flex-col items-center gap-2">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-kws-control bg-primary shadow-lg shadow-primary/30">
-                    <Play className="ml-0.5 h-6 w-6 text-primary-foreground" />
-                  </div>
-                  <span className="text-xs text-muted-foreground">Offizielle Beta</span>
-                </div>
-              </>
+              <BetaPlaceholder thumbnailUrl={boulder.thumbnailUrl ? getThumbnailUrl(boulder) : undefined} boulderName={boulder.name} />
             )}
 
-            {!isDirectVideo ? (
+            {videoUrl && !isDirectVideo ? (
               <div className="absolute left-2.5 top-2.5 z-20 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.94] px-2.5 text-[#192436] shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm">
                 <BadgeCheck className="h-3.5 w-3.5 text-primary" />
                 <span className="text-[10px] font-semibold">Offizielle Beta</span>
               </div>
             ) : null}
 
-            {!videoUrl && (
-              <div className="absolute inset-x-0 bottom-6 flex justify-center">
-                <div className="flex items-center gap-2 rounded-kws-control bg-white/[0.94] px-3 py-1.5 shadow-[0_3px_12px_rgba(19,17,43,0.12)] backdrop-blur-sm">
-                  <Video className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-[10px] font-semibold text-foreground">Noch kein Video vorhanden</span>
-                </div>
-              </div>
-            )}
           </div>
         </section>
 

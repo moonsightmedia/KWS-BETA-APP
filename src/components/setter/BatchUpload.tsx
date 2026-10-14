@@ -1,5 +1,6 @@
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   CloudUpload,
@@ -31,6 +32,7 @@ import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/hooks/useAuth";
 import { useSectorsTransformed } from "@/hooks/useSectors";
 import { cn } from "@/lib/utils";
+import { publishBoulderWithoutVideo } from "@/lib/boulderPublication";
 import {
   getBoulderColorBackgroundStyle,
   getBoulderColorLabel,
@@ -83,7 +85,7 @@ export function BatchUpload() {
   const readyCount = useMemo(
     () =>
       boulders.filter((boulder) =>
-        canSubmitSetterBoulderDraft(boulder, dualColorAttributeId),
+        !boulder.createdBoulderId && canSubmitSetterBoulderDraft(boulder, dualColorAttributeId),
       ).length,
     [boulders, dualColorAttributeId],
   );
@@ -128,7 +130,7 @@ export function BatchUpload() {
       !canSubmitSetterBoulderDraft(currentBoulder, dualColorAttributeId)
     ) {
       toast.error(
-        "Bitte zuerst Video, Thumbnail und alle Pflichtfelder ausfüllen.",
+        "Bitte Vorschaubild und Pflichtfelder ergänzen. Video wählen oder Beta später ergänzen.",
       );
       return;
     }
@@ -152,11 +154,11 @@ export function BatchUpload() {
 
     if (
       !boulders.every((boulder) =>
-        canSubmitSetterBoulderDraft(boulder, dualColorAttributeId),
+        !boulder.createdBoulderId && canSubmitSetterBoulderDraft(boulder, dualColorAttributeId),
       )
     ) {
       toast.error(
-        "Bitte für alle Boulder Video, Thumbnail und Pflichtfelder ergänzen.",
+        "Bitte bei allen Bouldern Vorschaubild und Pflichtfelder ergänzen.",
       );
       return;
     }
@@ -237,6 +239,10 @@ export function BatchUpload() {
           throw new Error("Boulder konnte nicht erstellt werden.");
         }
         createdBoulderId = created.id;
+        // A lost media/publication response must not create a second row on retry.
+        // Existing records are repaired in the setter editor, not recreated here.
+        setBoulders((current) => current.map(item => item.id === boulder.id
+          ? { ...item, createdBoulderId: created.id } : item));
 
         if (boulder.attributeIds.length) {
           try {
@@ -283,16 +289,28 @@ export function BatchUpload() {
           boulder.sectorId,
         );
         await waitForUploadSessions([thumbSessionId]);
-        setPhases((current) => ({
-          ...current,
-          [boulder.id]: "Video wird übertragen …",
-        }));
-        const videoSessionId = await startUpload(
-          created.id,
-          boulder.videoFile!,
-          "video",
-          boulder.sectorId,
-        );
+        if (boulder.videoFile) {
+          setPhases((current) => ({
+            ...current,
+            [boulder.id]: "Video wird übertragen …",
+          }));
+          const videoSessionId = await startUpload(
+            created.id, boulder.videoFile, "video", boulder.sectorId,
+          );
+          await waitForUploadSessions([videoSessionId]);
+        } else {
+          setPhases((current) => ({
+            ...current,
+            [boulder.id]: "Boulder wird veröffentlicht …",
+          }));
+          await publishBoulderWithoutVideo({
+            fetch: authenticatedFetch,
+            url: supabaseUrl,
+            publicKey: supabaseKey,
+            accessToken: session.access_token,
+            boulderId: created.id,
+          });
+        }
 
         setBoulders((prev) =>
           prev.map((item) =>
@@ -302,7 +320,6 @@ export function BatchUpload() {
           ),
         );
 
-        await waitForUploadSessions([videoSessionId]);
         successfulIds.push(boulder.id);
         setCompleted(successfulIds.length);
         setPhases((current) => ({ ...current, [boulder.id]: "Übertragen" }));
@@ -330,7 +347,9 @@ export function BatchUpload() {
         failures.push({ name: boulder.name, error: message });
         setPhases((current) => ({
           ...current,
-          [boulder.id]: "Fehlgeschlagen – Entwurf prüfen",
+          [boulder.id]: createdBoulderId
+            ? "Fehlgeschlagen – Entwurf prüfen · Boulder bereits angelegt"
+            : "Fehlgeschlagen – Entwurf prüfen",
         }));
         toast.error(`Fehler bei "${boulder.name}": ${message}`);
       }
@@ -341,6 +360,9 @@ export function BatchUpload() {
     );
 
     if (successfulIds.length) {
+      void queryClient.invalidateQueries({ queryKey: ["boulders"] });
+      void queryClient.invalidateQueries({ queryKey: ["boulders-with-sectors"] });
+      void queryClient.invalidateQueries({ queryKey: ["sectors"] });
       toast.success(`${successfulIds.length} Boulder hochgeladen.`, {
         duration: 3200,
       });
@@ -396,7 +418,7 @@ export function BatchUpload() {
           description={
             lastSuccess
               ? "Du kannst jetzt weitere Boulder hinzufügen."
-              : "Füge Boulder mit Video und Vorschaubild hinzu. Hochgeladen wird erst, wenn du den Stapel startest."
+              : "Füge Boulder mit Vorschaubild hinzu. Die Beta kannst du auch später ergänzen."
           }
         />
       ) : (
@@ -463,9 +485,14 @@ export function BatchUpload() {
                     >
                       {phase ??
                         (ready
-                          ? "Bereit zum Hochladen"
+                          ? (boulder.videoFile ? "Bereit zum Hochladen" : "Bereit · Beta folgt")
                           : "Medien oder Angaben ergänzen")}
                     </p>
+                    {boulder.createdBoulderId && !isProcessing && (
+                      <Link to="/setter/edit" className="mt-1 inline-flex min-h-11 items-center text-xs font-medium text-primary-ink underline underline-offset-4">
+                        Vorhandenen Boulder im Bereich Bearbeiten prüfen
+                      </Link>
+                    )}
                   </div>
                   <div className="ml-auto flex">
                     <Button

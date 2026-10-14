@@ -44,11 +44,32 @@ Store-Kontexte nicht pauschal in das öffentliche Repository aufgenommen.
 
 ## Betrieb und Abnahme
 
+Quellstand `533960035fa08afc88301e952f70e172e53af4f3` auf den öffentlichen
+Webdienst und den Videodienst übertragen. Community-Schema angewendet;
+45 Konten (44 Bestandskonten plus synthetischer Apple-Prüfnutzer), 104 Boulder
+und 2389 Storage-Objekte vor/nach der Migration identisch. Videodienst gesund,
+anonymer Upload verweigert, Medien unverändert. Öffentliche Datenschutzseite
+gerendert geprüft; öffentlicher Login des normalen Apple-Prüfnutzers bestätigt.
+
+Build 85 erfolgreich erstellt/hochgeladen und von Apple verarbeitet.
+Interne KWS-Gruppe mit einem Tester, Prüfliste gespeichert; Storeversion 1.0
+enthält Build 85 im Entwurf. 30 IPA-Assets gegen tatsächliche private
+Zugangsdaten geprüft, keine gefunden. Elf lokale Schriften und relative
+Fontpfade enthalten. IPA samt Berichten zusätzlich hashgeprüft im Kunden-NAS.
+
+Apple: Altersfreigabe 16+, Inhaltsrechte und privater Prüfkontakt gespeichert.
+App-Datenschutzlabel nach ausdrücklicher Freigabe veröffentlicht: zehn
+Kategorien, App-Funktionalität, Nutzerbezug und kein Tracking. Öffentliche
+App-Einreichung und Veröffentlichung sind dadurch nicht erfolgt.
+
 Der verschlüsselte vollständige Sicherungssatz `20261012T085928Z` liegt zusätzlich
 auf dem Kunden-NAS, mit verifizierten Dateiprüfsummen und Wiederherstellungsbeleg.
 Ein weiterer Produktionssatz `20261012T104355Z` wurde auf dem VPS isoliert
 wiederhergestellt: 4258 Dateien, 2389 Storage-Objekte, 448 Medienreferenzen,
-74 Tabellen und 17629 Zeilen. NAS-Kopie ist bislang ein einzelner Export;
+74 Tabellen und 17629 Zeilen. Auch dieser zweite Sicherungssatz ist vollständig
+auf dem Kunden-NAS hashgeprüft, einschließlich Wiederherstellungsnachweis;
+`nas-verified.json` bestätigt den Abschluss am 12. Oktober um 11:48:58 UTC.
+NAS-Kopien sind bislang manuelle Exporte;
 regelmäßige unabhängige NAS-Sicherung bleibt separat einzurichten.
 
 Der Apple-Prüfzugang ist ein normales synthetisches Konto ohne Mitarbeiterrechte.

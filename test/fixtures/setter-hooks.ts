@@ -68,8 +68,12 @@ let boulders = Array.from(
     note: "",
     thumbnailUrl: "/src/assets/boulderkarte-original.png",
     betaVideoUrl: "/fixture-video.mp4",
+    createdAt: new Date("2026-10-01T10:00:00Z"),
   }),
 );
+if (params.has("withoutVideo")) {
+  boulders[0] = { ...boulders[0], betaVideoUrl: undefined, betaVideoStatus: params.has("failedPublication") ? "failed" : "none" } as typeof boulders[number];
+}
 let schedules = params.has("empty")
   ? []
   : [1, 2, -2].map((days, i) => ({
@@ -112,7 +116,7 @@ const mutation = <T>(kind: string, update: (payload: T) => void = () => {}) => {
   });
 };
 export const useAuth = () => ({
-  user: { id: "fixture-setter" },
+  user: params.has("guest") ? null : { id: "fixture-setter" },
   session: { access_token: "fixture-only-not-a-credential" },
   loading: false,
 });

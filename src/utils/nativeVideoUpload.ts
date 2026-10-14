@@ -130,7 +130,7 @@ export async function prepareNativeVideoPathForUpload(
     };
   }
 
-  console.log('[nativeVideoUpload] Preparing controlled iOS upload master v1.2.0:', {
+  console.log('[nativeVideoUpload] Preparing controlled iOS upload master v1.2.3:', {
     fileSize: input.fileSize,
   });
 

@@ -5,7 +5,6 @@ import {
   BarChart3,
   BadgeCheck,
   CalendarDays,
-  Image as ImageIcon,
   MapPin,
   Maximize2,
   Minimize2,
@@ -16,6 +15,7 @@ import {
 
 import { BoulderBetaPreview, BoulderStatsPanel, BoulderTrackingPanel } from '@/components/BoulderCommunityPanel';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
+import { BetaPlaceholder } from '@/components/boulder/BetaPlaceholder';
 import { ExternalBetaVideo } from '@/components/boulder/ExternalBetaVideo';
 import {
   BoulderVideoPlayer,
@@ -127,41 +127,9 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
             />
           )}
 
-          {!hasVideo && thumbnailUrl && (
-            <img
-              src={thumbnailUrl}
-              alt={`Startgriffe von ${boulder.name}`}
-              className="h-full w-full object-cover"
-            />
-          )}
+          {!hasVideo && <BetaPlaceholder thumbnailUrl={thumbnailUrl} boulderName={boulder.name} />}
 
-          {!hasVideo && !thumbnailUrl && (
-            <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-              <span className="grid h-12 w-12 place-items-center rounded-kws-control bg-white text-primary shadow-[0_4px_16px_rgba(19,17,43,0.08)]">
-                <ImageIcon className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-foreground">Noch kein Bild vorhanden</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">Foto und Beta werden ergänzt, sobald sie verfügbar sind.</p>
-              </div>
-            </div>
-          )}
-
-          {!hasVideo && (
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/[0.92] to-transparent px-3 pb-3 pt-14">
-              <div className="flex items-center gap-2">
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-kws-badge bg-primary text-white">
-                  <Video className="h-3.5 w-3.5" />
-                </span>
-                <div>
-                  <p className="text-xs font-bold text-foreground">Noch kein Beta-Video</p>
-                  <p className="text-[10px] text-muted-foreground">Das Boulderfoto bleibt trotzdem sichtbar.</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!isDirectVideo ? (
+          {hasVideo && !isDirectVideo ? (
             <div className="absolute left-2.5 top-2.5 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.94] px-2.5 text-[10px] font-semibold text-[#192436] shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm">
               <BadgeCheck className="h-3.5 w-3.5 text-primary" />
               Offizielle Beta
