@@ -67,3 +67,22 @@ No database, media, notifications or user records were changed.
   every native transition frame. The additional native overview round trip was
   interrupted by device Dozing; all 25-frame regression claims refer to the
   browser tests, not an uncompleted physical-device frame audit.
+
+## Native follow-up after unlocking (13:36)
+
+The user reopened KWS. On the paired Galaxy S25, scrolled the real 87-Boulder
+overview, opened **Frecher Werwolf**, then used header Back. The real overview
+returned with its existing thumbnails. Comparing the stable overview video frame
+at 13.0 seconds with the returned screenshot over content x30–1020/y400–2000
+found the best vertical alignment at **0 pixels** (search −45…+45; mean absolute
+channel error 2.937/255, including video compression). The earlier standalone
+before screenshot was captured while swipe momentum was still settling and is
+not the stable comparison reference.
+
+Evidence lives locally under `output/boulder-navigation/`:
+`native-overview-proof56.mp4`, `native-stable-before56.png`,
+`native-overview-proof-detail56.png`, `native-overview-proof-return56.png`.
+The 25.027-second recording has 495 frames, covering stable overview and opening;
+it ended before Back, so a continuous physical-device frame audit of the close
+transition is still not claimed. The native round trip and unchanged return
+position are confirmed. No additional release or app/data change was needed.
