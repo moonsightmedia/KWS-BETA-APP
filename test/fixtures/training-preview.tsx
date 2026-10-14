@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigationType, Navigate } from 'react-router-dom';
 import { Sidebar } from '@/components/Sidebar';
 import { SidebarProvider } from '@/components/SidebarContext';
@@ -35,4 +35,8 @@ export function Preview() {
     <Route path="*" element={<DashboardPageLayout><div className="space-y-4"><h2 className="font-sans text-base font-semibold">Lokale Training-Vorschau</h2><p className="text-sm text-muted-foreground">Die übrigen Appbereiche werden in dieser isolierten Vorschau nicht geladen.</p><Button asChild><Link to="/training">Training öffnen</Link></Button></div></DashboardPageLayout>} />
   </Routes></TrainingProvider></SidebarProvider>;
 }
-createRoot(document.getElementById('root')!).render(<BrowserRouter><Preview /></BrowserRouter>);
+// Vite can reevaluate this entry after an invalidated refresh boundary. Reuse
+// its root so the previous tree also owns (and cleans up) its portal overlays.
+const container = document.getElementById('root')! as HTMLElement & { kwsTrainingPreviewRoot?: Root };
+const root = container.kwsTrainingPreviewRoot ??= createRoot(container);
+root.render(<BrowserRouter><Preview /></BrowserRouter>);

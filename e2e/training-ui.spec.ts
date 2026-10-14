@@ -114,6 +114,22 @@ test('training introduction keeps the area card visible on a short phone', async
   await page.setViewportSize({ width: 375, height: 560 }); await open(page, '/training');
   await expect.poll(async () => { const box = await page.locator('[data-training-coachmark="areas"]').boundingBox(); const mark = await page.locator('[data-tour-highlight="areas"]').boundingBox(); return Boolean(box && mark && box.y + box.height <= 561 && (box.y + box.height <= mark.y || mark.y + mark.height <= box.y)); }).toBeTruthy();
 });
+test('training introduction stays single when the preview entry is reevaluated', async ({ page }) => {
+  await open(page, '/training/library/strength');
+  await page.getByRole('button', { name: 'Weiter', exact: true }).click();
+  await expect(page.locator('[data-training-coachmark]')).toHaveAttribute('data-training-coachmark', 'filter');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.evaluate(async attempt => { await import(`/test/fixtures/training-preview.tsx?tour-entry-regression=${attempt}`); }, attempt);
+    await expect(page.locator('[data-training-coachmark]')).toHaveCount(1);
+    await expect(page.locator('[data-tour-highlight]')).toHaveCount(1);
+    await page.getByRole('button', { name: 'Weiter', exact: true }).click();
+    await expect(page.locator('[data-training-coachmark]')).toHaveCount(1);
+  }
+  await page.getByRole('button', { name: 'Einführung schließen' }).click();
+  await expect(page.locator('[data-training-coachmark]')).toHaveCount(0);
+  await expect(page.locator('[data-tour-highlight]')).toHaveCount(0);
+  await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+});
 async function intake(page: Page, options: { age?: string; fixed?: boolean; constraints?: string; dialog?: boolean } = {}) {
   if (options.dialog) { await open(page); await page.getByRole('button', { name: 'Trainingschat öffnen', exact: true }).click(); }
   else await open(page, '/training/plan');
