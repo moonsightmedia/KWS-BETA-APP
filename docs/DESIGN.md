@@ -1484,3 +1484,13 @@ Beim ersten Besuch einer aktivierten Trainingsroute erklärt eine überspringbar
 Die Einführung verwendet die gemeinsamen Dialogcontrols: mobil randbündig, aber mit `data-compact="true"` nur so hoch wie der Inhalt; Desktop zentriert und kompakt. Lange Infofenster scrollen innen bei festem Kopf. Tastaturfokus startet am Titel und kehrt beim Schließen zur Infoaktion zurück. Sichtbarer Tastaturfokus und mindestens44px große Bedienelemente bleiben erhalten. Keine neue Illustration oder eigenes Dekorationsicon für die Bedienhilfe.
 
 Prüfbeleg: `docs/qa/2026-10-14-training-help-onboarding.md`.
+
+### Nutzerkorrektur14.10.2026: Einführung am echten Bedienelement
+
+Die Einführung ist eine Tour mit hervorgehobenen echten Bedienelementen und kurzen, daran verankerten Hinweisen. Die zuvor beschriebene Einführung als Bottom-Sheet oder kompakter Dialog wird ersetzt. Die dauerhafte Infohilfe bleibt ein normaler Dialog.
+
+Die Tour stellt nur vorhandene Controls der aktuellen Ansicht vor: Bereiche/Einheiten/Plan-Assistent auf der Startseite; Suche/Filter/Hinzufügen/Merken in der Bibliothek; Anleitung/Umfang/Varianten auf Übungsseiten. Kinder- und Orientierungsansichten bekommen keine Erklärung für eine dort nicht vorhandene Hinzufügen-Taste. Der obere Infozugang ist der Abschluss. Bestehende Auswahl-, Ergänzungs- und Ersatzsituationen erhalten passende Texte. Keine Beispieltasten oder automatisch vorgenommenen Datenänderungen.
+
+Der Hintergrund wird zurückgenommen, das echte Element bleibt sichtbar mit grüner Kontur. Der kleine Hinweis liegt daneben bzw. ober- oder unterhalb, zeigt mit einem Pfeil auf das Element und bleibt vollständig im Viewport. Scrollen, Größenwechsel und Layoutänderungen aktualisieren den Anker; auf kurzen Displays wird bei Bedarf Platz durch Scrollen geschaffen. Weiter/Zurück, Überspringen/X/Escape und Fokusrückgabe sind vorhanden. Nach Abschluss kehrt die Seite an ihre Ausgangsposition zurück. Einmaligkeit je Konto/Gerät und Wiederholung über das „i“ bleiben erhalten.
+
+Prüfbeleg: `docs/qa/2026-10-14-training-coachmark-tour.md`.

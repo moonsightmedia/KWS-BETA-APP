@@ -22,10 +22,13 @@ test('training introduction explains collection, persists and replays from info'
   await page.setViewportSize({ width: 375, height: 900 });
   await open(page, '/training/library/strength');
   const intro = page.getByRole('dialog', { name: 'Dein Training, kurz erklärt' });
-  await expect(intro).toContainText('Schritt 1 von 2');
-  await expect(intro).toContainText('Zur Einheit hinzufügen');
-  await intro.getByRole('button', { name: 'Weiter', exact: true }).click();
-  await expect(intro).toContainText('Einheit öffnen');
+  await expect(intro).toContainText('Schritt 1 von 5');
+  for (const target of ['search', 'filter', 'add', 'favorite', 'info']) {
+    await expect(intro).toHaveAttribute('data-training-coachmark', target);
+    await expect(page.locator('[data-tour-highlight]')).toHaveAttribute('data-tour-highlight', target);
+    if (target === 'add') await expect(intro).toContainText('Einheit öffnen');
+    if (target !== 'info') await intro.getByRole('button', { name: 'Weiter', exact: true }).click();
+  }
   await intro.getByRole('button', { name: 'Los geht’s', exact: true }).click();
   await expect(intro).toHaveCount(0);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kws-training-onboarding-v1:training-demo')!))).toEqual({ version: 1, dismissed: true });
@@ -41,7 +44,7 @@ test('training introduction explains collection, persists and replays from info'
   await expect(page.getByRole('dialog', { name: 'Traininginformationen' })).toBeVisible();
   await page.getByText('Speicherung & Einführung', { exact: true }).click();
   await page.getByRole('button', { name: 'Einführung erneut ansehen' }).click();
-  await expect(intro).toContainText('Schritt 1 von 2');
+  await expect(intro).toContainText('Schritt 1 von 5');
   await page.keyboard.press('Escape');
   await expect(intro).toHaveCount(0); await expect(info).toBeFocused();
 });
@@ -80,6 +83,36 @@ test('training introduction waits until the training area is enabled', async ({ 
   await open(page, '/training/library/strength');
   await expect(page.getByRole('heading', { name: 'Training ist ausgeblendet' })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+test('training introduction stays anchored, supports back and does not change data', async ({ page }) => {
+  for (const width of [375, 768, 1280, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, '/training/library/strength');
+    const tour = page.locator('[data-training-coachmark]');
+    await expect(tour.getByRole('heading')).toBeFocused();
+    for (const id of ['search', 'filter', 'add', 'favorite', 'info']) {
+      await expect(tour).toHaveAttribute('data-training-coachmark', id);
+      await expect.poll(async () => {
+        const box = await tour.boundingBox(); const mark = await page.locator('[data-tour-highlight]').boundingBox();
+        return Boolean(box && mark && box.x >= 0 && box.y >= 0 && box.x + box.width <= width + 1 && box.y + box.height <= 901 && (box.y + box.height <= mark.y || mark.y + mark.height <= box.y));
+      }).toBeTruthy();
+      if (id === 'filter') {
+        await tour.getByRole('button', { name: 'Zurück', exact: true }).click();
+        await expect(tour).toHaveAttribute('data-training-coachmark', 'search');
+        await tour.getByRole('button', { name: 'Weiter', exact: true }).click();
+      }
+      if (id !== 'info') await tour.getByRole('button', { name: 'Weiter', exact: true }).click();
+    }
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kws-training-v2:training-demo')!).draft.exercises.length)).toBe(0);
+    await page.keyboard.press('Escape');
+    await expect(tour).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Traininginformationen' })).toBeFocused();
+    await page.evaluate(() => localStorage.removeItem('kws-training-onboarding-v1:training-demo'));
+  }
+});
+test('training introduction keeps the area card visible on a short phone', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 560 }); await open(page, '/training');
+  await expect.poll(async () => { const box = await page.locator('[data-training-coachmark="areas"]').boundingBox(); const mark = await page.locator('[data-tour-highlight="areas"]').boundingBox(); return Boolean(box && mark && box.y + box.height <= 561 && (box.y + box.height <= mark.y || mark.y + mark.height <= box.y)); }).toBeTruthy();
 });
 async function intake(page: Page, options: { age?: string; fixed?: boolean; constraints?: string; dialog?: boolean } = {}) {
   if (options.dialog) { await open(page); await page.getByRole('button', { name: 'Trainingschat öffnen', exact: true }).click(); }
