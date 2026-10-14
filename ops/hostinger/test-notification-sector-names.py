@@ -63,7 +63,7 @@ def main(directory, migration_sha, cases_sha):
         return result.stdout.strip()
 
     definitions = sql("SELECT pg_get_functiondef('public.format_boulder_notification_message(integer,text,text[])'::regprocedure);", 'postgres')
-    definitions += '\n' + sql("SELECT pg_get_functiondef('public.flush_pending_boulder_notifications()'::regprocedure);", 'postgres')
+    definitions += ';\n' + sql("SELECT pg_get_functiondef('public.flush_pending_boulder_notifications()'::regprocedure);", 'postgres') + ';\n'
     subprocess.run(['docker','exec','supabase-db','createdb','-U','supabase_admin','--template=template0',database],check=True)
     checks = 0
     try:
