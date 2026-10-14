@@ -508,27 +508,29 @@ const Index = () => {
             </div>
           </section>
 
-          <div className="grid gap-5 lg:grid-cols-2">
-            <section>
+          <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-2">
+            <section className="min-w-0" data-testid="home-next-reset">
               <DashboardSectionHeader title="Nächste Umschraubung" />
               <div className="rounded-kws-card bg-card p-3.5 shadow-[0_3px_14px_rgba(19,17,43,0.07)]">
                 {upcomingSchedules.length > 0 ? (
-                  <div className="flex items-center gap-3">
+                  <div className="grid min-w-0 grid-cols-[40px_minmax(0,1fr)] items-start gap-3">
                     <div className="grid h-10 w-10 shrink-0 place-items-center rounded-kws-control bg-primary/10 text-primary">
                       <CalendarDays className="h-4.5 w-4.5" strokeWidth={2} />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold tracking-[-0.02em] text-foreground">
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-semibold leading-relaxed tracking-[-0.02em] text-foreground [overflow-wrap:anywhere]">
                         {getScheduleTitle(upcomingSchedules[0].sectorNames)}
                       </p>
-                      <p className="truncate pt-0.5 text-xs text-muted-foreground">
+                      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+                      <p className="text-xs text-muted-foreground">
                         {formatDate(upcomingSchedules[0].when, 'EEE, dd. MMM', { locale: de })}
                         {upcomingSchedules.length > 1 ? ` · +${upcomingSchedules.length - 1} weitere` : ''}
                       </p>
-                    </div>
-                    <span className="shrink-0 rounded-kws-badge bg-primary/15 px-2 py-1 text-[10px] font-semibold text-primary">
+                    <span className="rounded-kws-badge bg-primary/15 px-2 py-1 text-[10px] font-semibold text-primary-ink">
                       {daysUntilLabel(upcomingSchedules[0].when)}
                     </span>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <p className="py-1 text-sm text-muted-foreground">Kein Schraubtermin geplant.</p>
@@ -536,7 +538,7 @@ const Index = () => {
               </div>
             </section>
 
-            <section>
+            <section className="min-w-0">
               <DashboardSectionHeader
                 title="Für deine Session"
                 actionLabel="Projekte"
