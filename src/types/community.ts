@@ -21,6 +21,7 @@ export interface BoulderComment {
   moderation_status?: 'pending' | 'approved' | 'rejected';
   author_name: string;
   author_email: string | null;
+  author_avatar_url?: string | null;
 }
 
 export interface BoulderTick {

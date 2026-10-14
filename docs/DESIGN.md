@@ -905,6 +905,12 @@ Bedienelemente auf wechselnden Wandfotos lesbar bleiben:
 
 ### 8.4 Kommentare und Track
 
+- Kommentarzeilen und Composer zeigen das Profilfoto in derselben 8-px-
+  Avatarfläche wie der Profilknopf. Ohne Foto oder bei Ladefehler bleiben
+  Namensinitialen sichtbar. Eigene Kommentare und Composer nutzen den gemeinsamen
+  Profilcache; fremde Fotos werden nur zu für den Betrachter sichtbaren Kommentaren
+  geladen. Moderierte/gesperrte Profile behalten den neutralen Fallback.
+
 - Der Kommentar-Composer bildet eine kompakte Zeile aus 40px-Absenderfläche,
   ruhiger Sekundärfläche, 40px-Input und 40px-Sendenbutton.
 - Input und Sendenbutton verwenden 8-px-Radien; die gemeinsame Composerfläche

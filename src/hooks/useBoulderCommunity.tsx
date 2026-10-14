@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 
 import { useAuth } from '@/hooks/useAuth';
 import { supabaseRestRequest } from '@/lib/supabaseRest';
-import { readDisplayProfiles } from '@/lib/displayProfiles';
+import { readDisplayProfiles, readCommentAvatars } from '@/lib/displayProfiles';
 import { readPersonalRows, readTrackedBoulders, type TrackedBoulderItem } from '@/lib/personalProgress';
 import type {
   BoulderAttributeOption,
@@ -522,7 +522,12 @@ export function useBoulderComments(boulderId: string | undefined) {
         { accessToken },
       );
 
-      const profileMap = await fetchProfiles(accessToken, [...new Set(comments.map((comment) => comment.user_id))]);
+      const ids = [...new Set(comments.map(comment => comment.user_id))];
+      const [profileMap, avatars] = await Promise.all([
+        fetchProfiles(accessToken, ids),
+        readCommentAvatars(boulderId!, ids, accessToken).catch(() => []),
+      ]);
+      const avatarMap = new Map(avatars.map(row => [row.id, row.avatar_url]));
 
       return comments.map((comment) => {
         const profile = profileMap.get(comment.user_id);
@@ -530,6 +535,7 @@ export function useBoulderComments(boulderId: string | undefined) {
           ...comment,
           author_name: profile?.full_name || 'Unbekannter Nutzer',
           author_email: null,
+          author_avatar_url: avatarMap.get(comment.user_id) ?? null,
         };
       });
     },

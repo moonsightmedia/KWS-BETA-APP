@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ContentSafetyActions } from '@/components/ContentSafetyActions';
+import { AccountAvatar, UserAvatar } from '@/components/AccountAvatar';
 
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
@@ -154,12 +155,12 @@ function CommentItem({
 }) {
   const isEditing = editingCommentId === comment.id;
   const isOwn = comment.user_id === currentUserId;
+  const { user } = useAuth();
 
   return (
     <div className="flex gap-2.5">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-kws-control bg-accent text-xs font-bold text-accent-foreground">
-        {comment.author_name.slice(0, 2).toUpperCase()}
-      </div>
+      {isOwn && user ? <AccountAvatar user={user} className="h-8 w-8" />
+        : <UserAvatar src={comment.author_avatar_url} name={comment.author_name} className="h-8 w-8" />}
       <div className="min-w-0 flex-1">
         <div className="mb-0.5 flex items-center gap-2">
           <span className="text-xs font-semibold text-foreground">{comment.author_name}</span>
@@ -598,7 +599,7 @@ export function BoulderInfoTab({ boulder }: { boulder: Boulder }) {
 
         <div className="mt-4 border-t border-border/80 pt-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kws-control bg-primary/[0.15] text-xs font-bold text-primary">Du</div>
+            <AccountAvatar user={user} />
             <form
               className="flex min-w-0 flex-1 items-center gap-1 rounded-kws-card bg-secondary p-1"
               onSubmit={(event) => {
