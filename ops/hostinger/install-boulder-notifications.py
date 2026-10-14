@@ -18,7 +18,7 @@ FILES = {
 
 def sql(query):
     result = subprocess.run(['docker','exec','-i','supabase-db','psql','-X','-U','postgres','-d','postgres',
-                             '-At','-v','ON_ERROR_STOP=1','-1'], input=query, capture_output=True, text=True, timeout=30)
+                             '-At','-v','ON_ERROR_STOP=1','-1','-f','-'], input=query, capture_output=True, text=True, timeout=30)
     if result.returncode: raise RuntimeError('Production SQL failed; no raw output emitted')
     return result.stdout.strip()
 
