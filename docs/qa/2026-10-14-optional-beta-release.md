@@ -42,4 +42,21 @@ No production write test, account creation, notification test delivery, APK or
 TestFlight build in this request. Existing ready-transition notification trigger
 is unchanged: no-video publication (none) does not claim immediate new-video
 push notification. Real video later follows the existing upload lifecycle.
-Deployment/live proof is recorded after successful publication, not assumed here.
+## Successful web publication
+
+- Published source: `f6144b81e10d87f35aebecc2791ae3cce5dcf6a6`, pushed to
+  `codex/beta-placeholder-release` before deployment.
+- Server deployment completed at `20261014T120507Z` (14:05 Berlin).
+- Exact archive SHA-256:
+  `411c4bc43acae06085256baf2f6c6e99c5abe25e19044c39ae707ea0e4cf0060`.
+- Web-only report confirms existing APK download preserved, media/database
+  unchanged, backup operator not updated. Previous source retained for rollback.
+- Public `/guest` returned HTTP 200 with `110 aktuelle Boulder`; mobile browser
+  reported no page errors. This was read-only; no live writes performed.
+- Public bundle `/assets/index-Bawi09Ol.js` contains the placeholder, its copy
+  and `Beta später ergänzen`, but no `beta-placeholder-replay` control.
+- Inspected live mobile capture and console deployment proof are stored locally
+  under `test-results/optional-beta-20261014/`. The reproducible read-only smoke
+  script is `scripts/check-live-optional-beta.mjs`.
+- Applied Janosch workflow, security/release checks and React review to isolate
+  this feature, preserve concurrent changes and verify the published outcome.
