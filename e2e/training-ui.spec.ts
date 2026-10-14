@@ -18,6 +18,29 @@ async function open(page: Page, route = '/training') {
   });
 }
 async function next(page: Page) { await page.getByRole('button', { name: 'Weiter', exact: true }).click(); }
+test('mixed units show concrete warmup in editor and week without an invented closing block', async ({ page }) => {
+  await open(page, '/training/exercises/incline-pushup');
+  await page.getByRole('button', { name: 'Zur Einheit hinzufügen', exact: true }).click();
+  await open(page, '/training/exercises/edge-choice');
+  await page.getByRole('button', { name: 'Zur Einheit hinzufügen', exact: true }).click();
+  await open(page, '/training/sessions/new');
+  const warmup = page.getByRole('region', { name: 'Aufwärmen', exact: true });
+  await expect(warmup.getByRole('listitem')).toHaveCount(4);
+  await expect(warmup).toContainText('Schultern 10-mal');
+  await expect(warmup).toContainText('2–3 kurze, sehr leichte Boulder');
+  await expect(warmup).toContainText('5 ruhige Liegestütze');
+  await expect(page.locator('main')).not.toContainText('Notiere, was gut geklappt hat');
+  await expect(page.getByRole('heading', { name: /Abschluss/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Einheit speichern', exact: true }).click();
+  await page.getByRole('group', { name: 'Wochentage auswählen' }).getByRole('button', { name: 'Montag', exact: true }).click();
+  await page.getByRole('button', { name: 'In Woche einplanen', exact: true }).click();
+  await expect(warmup.getByRole('listitem')).toHaveCount(4);
+  await expect(page.getByRole('heading', { name: /Abschluss/ })).toHaveCount(0);
+  await page.getByRole('link', { name: 'Einheit anpassen', exact: true }).click();
+  await page.getByRole('button', { name: 'Traininginformationen' }).click();
+  await page.getByText('Aufwärmen: Hinweise & Quellen', { exact: true }).click();
+  await expect(page.getByRole('link', { name: /DAV: Aufwärmen/ })).toBeVisible();
+});
 test('saved session names and multiple weekdays persist with independent completions', async ({ page }) => {
   await open(page, '/training/exercises/pushup');
   await page.getByRole('button', { name: 'Zur Einheit hinzufügen', exact: true }).click();

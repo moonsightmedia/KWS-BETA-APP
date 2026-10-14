@@ -10,6 +10,7 @@ import { useTraining } from '@/features/training/TrainingContext';
 import { completionOrigin } from '@/features/training/trainingHistory';
 import type { SessionExercise, TrainingSession } from '@/features/training/types';
 import TrainingExerciseArt from './TrainingExerciseArt';
+import TrainingWarmup from './TrainingWarmup';
 
 import { cn } from '@/lib/utils';
 
@@ -65,7 +66,7 @@ export default function TrainingSessions() {
       {session.budgetMinutes !== undefined && <p className="text-xs text-muted-foreground">Zeitbudget: {session.budgetMinutes} Min.</p>}
       {overBudget && <p role="alert" className="rounded-kws-control bg-destructive/10 p-3 text-sm text-destructive">Deine Änderungen überschreiten das Zeitbudget um {estimatedMinutes! - session.budgetMinutes!} Min. Reduziere einen Block oder plane mehr Zeit; kürze Pausen nicht automatisch.</p>}
     </section>
-    {session.exercises.length > 0 && <section className="flex items-start gap-3 border-l-2 border-primary pl-3"><span className="min-w-0"><h3 className="text-sm font-semibold">Vorbereitung{session.preparationMinutes !== undefined ? ` · ${session.preparationMinutes} Min.` : ''}</h3><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Wärme dich mit leichter Bewegung auf. Beginne mit einer leichten Variante der ersten Übung. Lass dir unbekannte Geräte zeigen.</p></span></section>}
+    <TrainingWarmup session={session} />
     {!session.exercises.length && <KwsSurface className="p-5"><h2 className="font-sans text-sm font-semibold">Noch keine Übungen ausgewählt</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">Wähle Kraft-, Boulder- oder Mobilitätsübungen für deine Einheit.</p></KwsSurface>}
     <ol className="space-y-3" aria-label="Übungen deiner Einheit">
       {session.exercises.map((item, index) => {
@@ -85,7 +86,6 @@ export default function TrainingSessions() {
         </KwsSurface></li>;
       })}
     </ol>
-    {session.exercises.length > 0 && <section className="border-l-2 border-border pl-3"><h3 className="text-sm font-semibold">Abschluss{session.cooldownMinutes !== undefined ? ` · ${session.cooldownMinutes} Min.` : ''}</h3><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Bewege dich kurz locker. Notiere, was gut geklappt hat und was du beim nächsten Mal ändern möchtest.</p></section>}
     <div className="grid grid-cols-2 gap-2"><Button asChild variant="outline" className="h-auto min-h-14 whitespace-normal px-3 py-3 text-xs"><Link to={`/training/library/strength${suffix}`}><Plus aria-hidden="true" />Kraftübung hinzufügen</Link></Button><Button asChild variant="outline" className="h-auto min-h-14 whitespace-normal px-3 py-3 text-xs"><Link to={`/training/library/boulder${suffix}`}><Plus aria-hidden="true" />Boulderübung hinzufügen</Link></Button><Button asChild variant="outline" className="h-auto min-h-14 whitespace-normal px-3 py-3 text-xs"><Link to={`/training/library/mobility${suffix}`}><Plus aria-hidden="true" />Mobilitätsübung hinzufügen</Link></Button></div>
     {isNew && <div className="space-y-2"><Button data-training-tour="save" className="w-full sm:w-auto" disabled={!session.exercises.length || !session.title.trim() || session.exercises.some(item => !item.repetitions.trim())} onClick={() => { const saved = saveDraft(); if (saved) { setEditingItem(null); navigate(`/training/sessions/${saved}`); } else setMessage('Wähle Übungen aus und gib deiner Einheit einen Namen.'); }}>Einheit speichern<Check aria-hidden="true" /></Button></div>}
     {message && <p role="alert" className="text-sm text-destructive">{message}</p>}

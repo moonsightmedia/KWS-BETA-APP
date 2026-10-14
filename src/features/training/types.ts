@@ -67,6 +67,7 @@ export interface TrainingSession {
   exercises: SessionExercise[];
   rationale?: string;
   preparationMinutes?: number;
+  /** Legacy field: generic closing blocks are no longer shown or counted. */
   cooldownMinutes?: number;
   budgetMinutes?: number;
 }

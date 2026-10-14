@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTrainingPlan } from './planBuilder';
-import { DEFAULT_ANSWERS, KWS_AVAILABLE_EQUIPMENT, TRAINING_EXERCISES, getExercise, getSessionMinutes, isKwsExerciseAvailable, makeSessionItem, repetitionUpperBound } from './data';
+import { DEFAULT_ANSWERS, KWS_AVAILABLE_EQUIPMENT, TRAINING_EXERCISES, getExercise, getSessionMinutes, getSessionWarmup, isKwsExerciseAvailable, makeSessionItem, repetitionUpperBound } from './data';
 import type { TrainingAnswers, TrainingSession } from './types';
 import { TRAINING_GLYPHS } from '../../components/training/training-glyphs';
 
@@ -33,7 +33,7 @@ test('all review paths retain fixed appointments and discard every generated pre
     { goal: 'Wettkampf vorbereiten', coachGuided: true }, { goal: 'Unbekannt' }, { experience: '' }, { weaknesses: ['Unbekanntes Lernfeld'] }, { minutes: 10 }, { days: [-1] },
     { weaknesses: ['Hooks'] }, { weaknesses: ['Ausdauer'] }, { equipment: ['Körpergewicht'] },
     { goal: 'Kraft aufbauen', equipment: ['Klimmzugstange'], pullUps: '0' },
-    { minutes: 20, days: [0], weaknesses: ['Fußtechnik', 'Körperposition'] },
+    { minutes: 20, days: [0], weaknesses: ['Fußtechnik', 'Körperposition', 'Boulder lesen'] },
   ];
   for (const overrides of cases) {
     const result = buildTrainingPlan(profile({ fixedDays: [5], ...overrides }));
@@ -247,19 +247,42 @@ test('time estimate responds to repetitions and rest, counts sides, and leaves f
   assert.equal(getSessionMinutes({ id: 'empty', title: 'Neue Einheit', focus: '', minutes: 0, exercises: [] }), null);
   const session = (id: string): TrainingSession => ({ id, title: '', focus: '', minutes: 0, preparationMinutes: 8, cooldownMinutes: 3, exercises: [makeSessionItem(id)] });
   const strength = session('pushup');
-  assert.equal(getSessionMinutes(strength), 17);
+  assert.equal(getSessionMinutes(strength), 14);
   strength.exercises[0].restSeconds = 300;
-  assert.equal(getSessionMinutes(strength), 20);
-  assert.equal(getSessionMinutes(session('split-squat')), 18);
+  assert.equal(getSessionMinutes(strength), 17);
+  assert.equal(getSessionMinutes(session('split-squat')), 15);
   const technique = session('quiet-feet');
-  assert.equal(getSessionMinutes(technique), 17);
+  assert.equal(getSessionMinutes(technique), 14);
   technique.exercises[0].repetitions = '4';
-  assert.equal(getSessionMinutes(technique), 23);
+  assert.equal(getSessionMinutes(technique), 20);
   technique.exercises[0].repetitions = '4 je Seite';
   assert.equal(getSessionMinutes(technique), null);
   assert.equal(getSessionMinutes({ ...session('pushup'), preparationMinutes: -2, cooldownMinutes: 5 }), null);
   for (const value of ['', '0', '-3', '10–2', '101', '1 minute']) assert.equal(repetitionUpperBound(value), null);
   assert.equal(repetitionUpperBound('4–6'), 6);
+});
+
+test('warmup gives concrete matching steps, adds their time once and ignores legacy reflection minutes', () => {
+  const session: TrainingSession = { id: 'warmup', title: 'Gemischt', focus: '', minutes: null, preparationMinutes: 10, cooldownMinutes: 3, exercises: [makeSessionItem('incline-pushup'), makeSessionItem('edge-choice')] };
+  const mixed = getSessionWarmup(session)!;
+  assert.deepEqual(mixed.steps.map(step => step.id), ['walk', 'move', 'easy-boulders', 'strength-start']);
+  assert.equal(mixed.steps.reduce((sum, step) => sum + step.minutes, 0), 10);
+  assert.ok(mixed.steps.at(-1)!.instruction.includes('5 ruhige Liegestütze'));
+  assert.equal(getSessionMinutes(session), getSessionMinutes({ ...session, cooldownMinutes: 90 }));
+  const withoutWarmup = getSessionMinutes({ ...session, preparationMinutes: 0 })!;
+  assert.equal(getSessionMinutes(session), withoutWarmup + 10);
+  const strength = getSessionWarmup({ ...session, exercises: [makeSessionItem('bodyweight-squat')] })!;
+  assert.ok(!strength.steps.some(step => step.id === 'easy-boulders'));
+  assert.ok(strength.steps.at(-1)!.instruction.includes('8 Kniebeugen ohne Gewicht'));
+  const mobility = getSessionWarmup({ ...session, exercises: [makeSessionItem('mobility-hip')] })!;
+  assert.equal(mobility.minutes, 5);
+  assert.equal(mobility.steps.reduce((sum, step) => sum + step.minutes, 0), 5);
+  assert.ok(mobility.steps.every(step => Number.isInteger(step.minutes)));
+  assert.equal(getSessionWarmup({ ...session, exercises: [] }), null);
+  assert.equal(getSessionWarmup({ ...session, preparationMinutes: 0 }), null);
+  const short = buildTrainingPlan(profile({ minutes: 20, days: [0], weaknesses: ['Fußtechnik', 'Körperposition'] }));
+  assert.equal(short.plan.status, 'draft');
+  assert.ok(short.sessions.every(item => item.minutes! <= 20 && !item.cooldownMinutes));
 });
 
 

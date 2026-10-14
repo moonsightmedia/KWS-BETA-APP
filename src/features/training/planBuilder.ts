@@ -8,7 +8,7 @@ const uniqueDays = (days: number[]) => [...new Set(days)].sort((a, b) => a - b);
 /** A deterministic editorial week draft, not a validated optimisation or medical plan. */
 export function buildTrainingPlan(answers: TrainingAnswers): TrainingPlanResult {
   const issues: TrainingPlanIssue[] = [];
-  const notes = ['Redaktioneller Wochenentwurf: Auswahl und Dosierung sind nicht als individuell optimales Programm validiert.', 'Zeit enthält Vorbereitung, Aufbau, obere Wiederholungszahl, Pausen und kurze Reflexion. Notwendige längere Pausen können den Entwurf verändern.'];
+  const notes = ['Redaktioneller Wochenentwurf: Auswahl und Dosierung sind nicht als individuell optimales Programm validiert.', 'Zeit enthält Vorbereitung, Aufbau, obere Wiederholungszahl, Pausen und konkretes Aufwärmen. Notwendige längere Pausen können den Entwurf verändern.'];
   const issue = (code: string, severity: TrainingPlanIssue['severity'], message: string) => {
     if (!issues.some(value => value.code === code)) issues.push({ code, severity, message });
   };
@@ -113,7 +113,7 @@ export function buildTrainingPlan(answers: TrainingAnswers): TrainingPlanResult 
   };
   const covered = new Set<string>();
   for (const [dayIndex, day] of newDays.entries()) {
-    const session: TrainingSession = { id: `preview-${day}`, title: 'Lernen & Aufbau', focus: answers.goal, minutes: null, exercises: [], preparationMinutes: novice ? 10 : 8, cooldownMinutes: 3, budgetMinutes: answers.minutes, rationale: 'Leichte bekannte Bewegung und Aufbau vorbereiten, dann Lernblöcke vor ermüdender Kraftarbeit. Kein Finger-Maximaltraining, kein automatischer Reha- oder Wettkampfplan.' };
+    const session: TrainingSession = { id: `preview-${day}`, title: 'Lernen & Aufbau', focus: answers.goal, minutes: null, exercises: [], preparationMinutes: novice ? 10 : 8, budgetMinutes: answers.minutes, rationale: 'Leichte bekannte Bewegung und Aufbau vorbereiten, dann Lernblöcke vor ermüdender Kraftarbeit. Kein Finger-Maximaltraining, kein automatischer Reha- oder Wettkampfplan.' };
     const skills = wall ? [...skillCandidates].sort((a, b) => Number(covered.has(a.id)) - Number(covered.has(b.id))) : [];
     // Both selected learning fields are considered before optional third strength blocks.
     const primary = strengthCandidates.filter(candidate => {

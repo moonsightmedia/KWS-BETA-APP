@@ -1,4 +1,5 @@
 import type { SessionExercise, TrainingAnswers, TrainingArea, TrainingDose, TrainingEquipment, TrainingExercise, TrainingSession } from './types';
+import { createSessionWarmup } from './warmup';
 import { additionalTrainingContent } from './trainingContent';
 import { additionalBoulderContent } from './boulderContent';
 import { additionalKidsContent } from './kidsContent';
@@ -247,17 +248,18 @@ export function makeSessionItem(exerciseId: string, index = 0): SessionExercise 
   if (!exercise || !dose || exercise.area === 'kids' || exercise.area === 'rehab' || exercise.contentKind === 'orientation') throw new Error('Diese Karte hat keine einplanbare Trainingsdosis.');
   return { id: `${exerciseId}-${index}`, exerciseId, sets: dose.sets, repetitions: dose.repetitions, restSeconds: dose.restSeconds, restScope: dose.restScope };
 }
-export const EMPTY_SESSION: TrainingSession = { id: 'new', title: 'Meine Einheit', focus: 'Selbst zusammengestellt', minutes: null, preparationMinutes: 10, cooldownMinutes: 3, exercises: [] };
+export const EMPTY_SESSION: TrainingSession = { id: 'new', title: 'Meine Einheit', focus: 'Selbst zusammengestellt', minutes: null, preparationMinutes: 10, exercises: [] };
+export const getSessionWarmup = (session: TrainingSession) => createSessionWarmup(session, session.exercises.flatMap(item => { const exercise = getExercise(item.exerciseId); return exercise ? [exercise] : []; }));
 export function getSessionEstimate(session: TrainingSession): { minutes: number | null; notes: string[] } {
   if (!session.exercises.length) return { minutes: null, notes: ['Noch kein konkreter Übungsumfang.'] };
-  if ([session.preparationMinutes ?? 0, session.cooldownMinutes ?? 0].some(value => !Number.isFinite(value) || value < 0)) return { minutes: null, notes: ['Vorbereitungs-/Abschlusszeit offen.'] };
-  let total = (session.preparationMinutes ?? 0) + (session.cooldownMinutes ?? 0);
-  if (!Number.isFinite(total) || total < 0) return { minutes: null, notes: ['Vorbereitungs-/Abschlusszeit offen.'] };
+  if ([session.preparationMinutes ?? 0].some(value => !Number.isFinite(value) || value < 0)) return { minutes: null, notes: ['Aufwärmzeit offen.'] };
+  let total = getSessionWarmup(session)?.minutes ?? 0;
+  if (!Number.isFinite(total) || total < 0) return { minutes: null, notes: ['Aufwärmzeit offen.'] };
   for (const item of session.exercises) {
     const exercise = getExercise(item.exerciseId), estimate = exercise ? estimateItemMinutes(exercise, item) : null;
     if (estimate === null) return { minutes: null, notes: ['Dauer offen: Übung oder Umfang nicht numerisch schätzbar.'] };
     total += estimate;
   }
-  return { minutes: Math.ceil(total), notes: ['Planungsschätzung aus Aufbau, Bewegung, Pausen und Reflexion; kein gemessener Zeit-/Belastungswert. Längere notwendige Pausen verändern das Budget.'] };
+  return { minutes: Math.ceil(total), notes: ['Planungsschätzung aus Aufwärmen, Aufbau, Bewegung und Pausen; kein gemessener Zeit-/Belastungswert. Längere notwendige Pausen verändern das Budget.'] };
 }
 export const getSessionMinutes = (session: TrainingSession): number | null => getSessionEstimate(session).minutes;

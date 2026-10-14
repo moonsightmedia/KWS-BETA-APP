@@ -1504,3 +1504,11 @@ Beim optionalen Einplanen eigener Einheiten sind mehrere freie Wochentage gleich
 Abschließen und Rückgängig gelten für einen konkreten Termin. Aus dem Wochenplan geöffnete Einheiten behalten den Termineintrag im Link. Beim Öffnen über die Sammlung wird bei mehreren Terminen zuerst der Trainingstag gewählt; keine stillschweigende Zuordnung zum ersten Termin. Ungültige Terminlinks zeigen einen Fehler und markieren keinen anderen Tag. Planungen zur fachlichen Besprechung bleiben gesperrt. Ein Termin pro Wochentag bleibt der aktuelle Planvertrag.
 
 Prüfbeleg: `docs/qa/2026-10-14-training-session-names-days.md`.
+
+### Nutzerkorrektur14.10.2026: konkretes Aufwärmen statt Platzhalter
+
+Einheiten und Wochenplan zeigen denselben konkreten Aufwärmablauf: Bewegung am Boden, benannte Gelenkbewegungen und je nach Inhalt leichte Boulder bzw. eine einfache Variante der ersten Kraftübung mit Mengen/Pausen. Handlungen stehen direkt in der Einheit; Quellen, redaktionelle Herleitung und Einschränkungen bleiben im Infozugang. Kein Fingerboard-Maximaltest und kein automatisch hinzugefügtes Belastungsgerät. Die kurze Abfolge ist ein redaktioneller Einstieg, kein Nachweis individueller Bereitschaft nach einer festen Minutenzahl und keine Kopie eines längeren Verbandsprogramms.
+
+Der pauschale Abschluss mit „locker bewegen und reflektieren“ entfällt. Dafür werden auch keine drei zusätzlichen Minuten mehr gerechnet. Der Zeitansatz zählt genau die dargestellten Aufwärmphasen und Übungen/Pausen. Ältere cooldownMinutes-Felder dürfen lesbar bleiben, werden aber nicht dargestellt oder mitgerechnet. Anfänger- und Erwachsenengrenzen sowie feste Termine bleiben erhalten. Leere und reine Orientierungs-/Kinderinhalte erhalten keine allgemeine Erwachsenenvorgabe.
+
+Prüfbeleg: `docs/qa/2026-10-14-training-concrete-warmup.md`.
