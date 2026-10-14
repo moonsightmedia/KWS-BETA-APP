@@ -198,7 +198,7 @@ test('opening a linked unread message confirms read and routes without document 
   const ctx = await open(page); await inbox(page);
   const originalUrl = page.url();
   await page.locator(`[data-notification-id="${ctx.rows[4].id}"]`).getByRole('button',{name:'Ansehen'}).click();
-  await expect(page.getByTestId('route')).toHaveText('/boulders?show=new');
+  await expect(page.getByTestId('route')).toHaveText('/boulders?notification=' + ctx.rows[4].id);
   expect(ctx.rows[4].read).toBe(true); expect(page.url()).toBe(originalUrl);
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });

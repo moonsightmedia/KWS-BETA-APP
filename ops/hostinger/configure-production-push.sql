@@ -38,8 +38,15 @@ BEGIN
       'payload', jsonb_build_object(
         'title', left(NEW.title, 200),
         'body', left(NEW.message, 3000),
-        'data', COALESCE(NEW.data, '{}'::jsonb),
-        'action_url', CASE WHEN NEW.action_url ~ '^/[^/]' THEN NEW.action_url ELSE '/' END
+        -- Keep large upload batches below FCM's payload limit. The complete
+        -- selection stays in the owner's notification record.
+        'data', (CASE WHEN NEW.type = 'boulder_new'
+          THEN jsonb_build_object('boulder_count', NEW.data->'boulder_count')
+          ELSE COALESCE(NEW.data, '{}'::jsonb) END)
+          || jsonb_build_object('notification_id', NEW.id, 'notification_type', NEW.type),
+        'action_url', CASE WHEN NEW.type = 'boulder_new'
+          THEN '/boulders?notification=' || NEW.id::text
+          WHEN NEW.action_url ~ '^/[^/]' THEN NEW.action_url ELSE '/' END
       )
     ),
     timeout_milliseconds := 10000

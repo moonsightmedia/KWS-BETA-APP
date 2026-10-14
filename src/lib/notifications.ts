@@ -40,6 +40,31 @@ export function notificationDestination(url: unknown): string | null {
     return parsed.pathname + parsed.search + parsed.hash;
   } catch { return null; }
 }
+/** Keep batch links short: resolve the owned notification rather than putting
+ * hundreds of Boulder IDs into a URL or a native push payload. */
+export function notificationTarget(notification: { id?: unknown; type?: unknown; action_url?: unknown }): string | null {
+  if (notification.type === 'boulder_new' && typeof notification.id === 'string' && validId.test(notification.id)) {
+    return '/boulders?' + new URLSearchParams({ notification: notification.id });
+  }
+  return notificationDestination(notification.action_url);
+}
+
+export function boulderNotificationQuery(owner: string, id: string) {
+  if (!validId.test(owner) || !validId.test(id)) throw new Error('Ungültige Mitteilung.');
+  return '/rest/v1/notifications?' + new URLSearchParams({ user_id: 'eq.' + owner, id: 'eq.' + id, select: '*', limit: '1' });
+}
+
+export function boulderNotificationSelection(value: unknown) {
+  const data = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const ids = (many: unknown, single: unknown) => [...new Set([
+    ...(Array.isArray(many) ? many : []), single,
+  ].filter((id): id is string => typeof id === 'string' && validId.test(id)))];
+  const boulderIds = ids(data.boulder_ids, data.boulder_id);
+  const sectorIds = ids(data.sector_ids, data.sector_id);
+  // latest_* is a sample from a batch, never a replacement for its full list.
+  if (!boulderIds.length && !sectorIds.length) throw new Error('Die Boulder dieser Mitteilung sind nicht mehr zugeordnet.');
+  return { boulderIds, sectorIds };
+}
 export function notificationDay(value: string, now = new Date()) {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return 'Ältere Mitteilungen';

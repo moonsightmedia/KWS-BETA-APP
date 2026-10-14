@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, CalendarDays, Check, ArrowUpRight, MessageSquare, Megaphone, Trophy, Loader2 } from 'lucide-react';
 import { BoulderIcon } from '@/components/icons/BoulderIcon';
 import { useMarkAsRead, type Notification } from '@/hooks/useNotifications';
-import { notificationDestination } from '@/lib/notifications';
+import { notificationTarget } from '@/lib/notifications';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -11,7 +11,7 @@ const icons = { boulder_new: BoulderIcon, schedule_reminder: CalendarDays, feedb
 export function NotificationItem({ notification, onClick, disabled = false }: { notification: Notification; onClick?: () => void; disabled?: boolean }) {
   const navigate = useNavigate(); const mark = useMarkAsRead(); const [error, setError] = useState('');
   const Icon = icons[notification.type] || Bell;
-  const target = notificationDestination(notification.action_url);
+  const target = notificationTarget(notification);
   const act = async (open: boolean) => {
     if (disabled || mark.isPending) return;
     setError('');

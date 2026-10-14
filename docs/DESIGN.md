@@ -1462,6 +1462,14 @@ Prüfbelege: `docs/qa/2026-09-15-personal-progress-design.md`,
   unabhängig davon verfügbar; eine Registrierung ist weiterhin kein Zustellnachweis.
 - Native Aktionen und In-App-Links verwenden validierte interne Ziele. Queries und
   Änderungen sind kontogebunden. Markengrün, gemeinsame Controls und Radien bleiben.
+- „Ansehen“, Echtzeit-Toasts und Push öffnen bei neuen Bouldern die Auswahl der
+  jeweiligen Mitteilung. Ein oder mehrere betroffene Bereiche sind aufgeklappt;
+  andere neue Boulder gehören nicht ungefragt zur Auswahl. Die Auswahl bleibt
+  beim Detailbesuch und Rückweg erhalten und ist über „Aus Mitteilung“ entfernbar.
+  Alte Mitteilungen behalten ihre konkreten Boulder auch nach sieben Tagen.
+  Nicht mehr verfügbare Zuordnungen zeigen Fehler/Leerzustand mit Rückweg zum
+  gesamten Bestand. Große Sammlungen verwenden eine kurze kontogebundene
+  Mitteilungsreferenz statt langer URLs oder vollständiger ID-Listen im Push.
 
 Prüfbelege: `docs/qa/2026-09-15-notifications.md`, `e2e/notifications.spec.ts`,
 `test/notifications.test.mjs`, `test/pushRegistration.test.mjs`.

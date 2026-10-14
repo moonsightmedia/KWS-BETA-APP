@@ -4,7 +4,7 @@ import test from 'node:test';
 import ts from 'typescript';
 const source = await readFile(new URL('../src/lib/notifications.ts', import.meta.url), 'utf8');
 const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { notificationQuery, notificationDestination, notificationDay, validateNotifications, exactNotificationCount } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+const { notificationQuery, notificationDestination, notificationTarget, boulderNotificationQuery, boulderNotificationSelection, notificationDay, validateNotifications, exactNotificationCount } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 const params = path => new URL(path, 'https://example.invalid').searchParams;
 test('queries are owner scoped and cursor uses stable timestamp + ID ordering', () => {
   const q = params(notificationQuery('owner-a', { unreadOnly: true, topic: 'competition' }, { id: 'id-b', created_at: '2026-09-15T10:00:00.000Z' }));
@@ -36,4 +36,20 @@ test('day headings use local calendar days, including DST boundaries', () => {
   assert.equal(notificationDay(new Date(2026, 9, 25, 0, 1).toISOString(), now), 'Heute');
   assert.equal(notificationDay(new Date(2026, 9, 24, 0, 1).toISOString(), now), 'Gestern');
   assert.equal(notificationDay('invalid', now), 'Ältere Mitteilungen');
+});
+test('Boulder inbox and toast targets resolve one owned notification, even for 800 IDs', () => {
+  const target = notificationTarget({id:'note-800',type:'boulder_new',action_url:'/boulders',data:{boulder_ids:Array.from({length:800},(_,i)=>'b-'+i)}});
+  assert.equal(target,'/boulders?notification=note-800');
+  assert.equal(notificationTarget({id:'note-1',type:'feedback_reply',action_url:'/profile'}),'/profile');
+  assert.equal(notificationTarget({id:'unsafe,eq.x',type:'boulder_new',action_url:'https://outside.invalid'}),null);
+  const q=params(boulderNotificationQuery('me','note-800'));
+  assert.equal(q.get('user_id'),'eq.me');assert.equal(q.get('id'),'eq.note-800');assert.equal(q.get('limit'),'1');
+  assert.throws(()=>boulderNotificationQuery('me','x&user_id=other'));
+});
+test('selection keeps complete batch, deduplicates legacy IDs and never uses latest sample alone', () => {
+  assert.deepEqual(boulderNotificationSelection({boulder_ids:['b-1','b-1','b-2',{},'x&evil'],boulder_id:'b-1',sector_ids:['s-1']}),{boulderIds:['b-1','b-2'],sectorIds:['s-1']});
+  assert.deepEqual(boulderNotificationSelection({boulder_id:'old-one',sector_id:'old-sector'}),{boulderIds:['old-one'],sectorIds:['old-sector']});
+  assert.equal(boulderNotificationSelection({boulder_ids:Array.from({length:800},(_,i)=>'b-'+i)}).boulderIds.length,800);
+  assert.throws(()=>boulderNotificationSelection({latest_boulder_id:'only-a-sample'}));
+  assert.throws(()=>boulderNotificationSelection(null));
 });
