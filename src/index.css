@@ -2,6 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes beta-placeholder-attempt {
+  0%, 10% { transform: translate(-8px, 15px); }
+  25% { transform: translate(2px, 1px); }
+  47%, 55% { transform: translate(20px, -22px); }
+  65% { transform: translate(14px, -8px); }
+  78% { transform: translate(-8px, 16px); }
+  85% { transform: translate(-8px, 12px); }
+  100% { transform: translate(-8px, 15px); }
+}
+.beta-placeholder {
+  /* Illustration-only material colors, not additional UI/brand accents. */
+  --beta-skin: 32 48% 77%;
+  --beta-skin-shadow: 28 36% 65%;
+}
+.beta-placeholder-climber {
+  transform: translate(-8px, 15px);
+  animation: beta-placeholder-attempt 3s cubic-bezier(.4, 0, .2, 1) infinite;
+}
+@keyframes beta-placeholder-reach {
+  0%, 10% { transform: rotate(58deg); }
+  30% { transform: rotate(8deg); }
+  47%, 55% { transform: rotate(-5deg); }
+  67% { transform: rotate(16deg); }
+  80%, 100% { transform: rotate(58deg); }
+}
+.beta-placeholder-reaching-arm {
+  transform-origin: 159px 130px;
+  transform: rotate(58deg);
+  animation: beta-placeholder-reach 3s cubic-bezier(.4, 0, .2, 1) infinite;
+}
+@keyframes beta-placeholder-look {
+  0%, 15% { transform: rotate(-8deg); }
+  40%, 57% { transform: rotate(-12deg); }
+  77% { transform: rotate(8deg); }
+  90%, 100% { transform: rotate(-8deg); }
+}
+.beta-placeholder-head {
+  transform-origin: 154px 120px;
+  transform: rotate(-8deg);
+  animation: beta-placeholder-look 3s ease-in-out infinite;
+}
+@keyframes beta-placeholder-step {
+  0%, 12% { transform: rotate(0); }
+  35%, 57% { transform: rotate(20deg); }
+  80%, 100% { transform: rotate(0); }
+}
+.beta-placeholder-back-leg {
+  transform-origin: 145px 158px;
+  animation: beta-placeholder-step 3s ease-in-out infinite;
+}
+@keyframes beta-placeholder-miss {
+  0%, 43%, 72%, 100% { opacity: 0; }
+  52%, 61% { opacity: 1; }
+}
+.beta-placeholder-miss {
+  opacity: 0;
+  animation: beta-placeholder-miss 3s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .beta-placeholder-climber,
+  .beta-placeholder-reaching-arm,
+  .beta-placeholder-head,
+  .beta-placeholder-back-leg,
+  .beta-placeholder-miss { animation: none; }
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */

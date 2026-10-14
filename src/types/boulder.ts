@@ -37,6 +37,7 @@ export interface Boulder {
   color2?: BoulderColor;
   betaVideoUrl?: string; // Legacy field, maps to hd in betaVideoUrls
   betaVideoUrls?: VideoQualities; // New structure with multiple quality levels
+  betaVideoStatus?: 'none' | 'uploading' | 'queued' | 'processing' | 'ready' | 'failed';
   thumbnailUrl?: string; // URL to manually uploaded thumbnail image showing starting holds
   note?: string;
   createdAt: Date;
