@@ -32,8 +32,6 @@ def main(directory):
     assert sql("SELECT to_regclass('public.boulder_notification_queue') IS NULL;")=='t', 'Already installed; inspect rather than overwrite'
     for name in ('kws-boulder-notifications.service','kws-boulder-notifications.timer'):
         assert not (Path('/etc/systemd/system')/name).exists(), 'Existing worker unit requires inspection'
-    subprocess.run(['systemd-analyze','verify',str(directory/'kws-boulder-notifications.service'),
-                    str(directory/'kws-boulder-notifications.timer')], check=True, capture_output=True)
     stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     backup=Path('/opt/kws/production')/('boulder-notifications-before-'+stamp)
     backup.mkdir(mode=0o700)
@@ -46,6 +44,8 @@ def main(directory):
     for name in ('kws-boulder-notifications.service','kws-boulder-notifications.timer'):
         target=Path('/etc/systemd/system')/name
         target.write_bytes((directory/name).read_bytes()); target.chmod(0o644)
+    subprocess.run(['systemd-analyze','verify',str(directory/'kws-boulder-notifications.service'),
+                    str(directory/'kws-boulder-notifications.timer')], check=True, capture_output=True)
     sql((directory/'20261013163000_batch_ready_boulder_notifications.sql').read_text())
     assert json.loads(sql('SELECT public.flush_pending_boulder_notifications();'))=={'boulders':0,'notifications':0}
     subprocess.run(['systemctl','daemon-reload'], check=True, capture_output=True)
