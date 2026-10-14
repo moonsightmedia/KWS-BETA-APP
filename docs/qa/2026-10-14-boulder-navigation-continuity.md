@@ -64,3 +64,24 @@ Transformed Boulder data is memoized, and a valid empty response stays empty.
   `live-return-home-375.png`, local artifacts. PR #7 records the source changes.
 
 Fixture timing is not a prediction of real mobile network startup time.
+
+## Final refinement and installed version
+
+The final audit found another catalog-preload call inside `useAuth`, in addition
+to Home. That call and import are now removed too; repository search confirms no
+active caller remains. The final Hostinger/native build and Android assembleDebug
+pass. This refinement removes startup work without changing navigation behavior.
+
+Final live revision: `f22c072de1c1cea17751fa61d21a392c7c6302e4`, web 1.0.232.
+SOURCE/BUILD witness and public version.json confirm rollout; one existing Android
+download is preserved. Final Android 1.0.55 replaces the intermediate 1.0.54.
+Installation succeeded; pulling back the installed package confirms SHA256
+`b20c4ac44fadc92ab9943d5bd58546ec05464113bbddcc13d20dd905580a7509`.
+
+After unlocking, the original signed-in phone session was visible. The real
+"Alter Uranus" detail opened. WebView media inspection confirmed readyState 4,
+currentTime 24.211667 equal to its duration, muted true and no media error.
+Full native return-flow automation did not complete: inspector access stalled,
+then the phone display went to sleep. Header/source retention is verified in the
+22 browser regressions and real live-browser flow; do not claim an additional
+completed phone return/thumbnail-identity test. Temporary ADB forwarding removed.
