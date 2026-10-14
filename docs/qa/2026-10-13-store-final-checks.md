@@ -52,8 +52,12 @@ Nach dem Absturzfix bleibt die Bitratenvalidierung des großen Videos zunächst 
 | `38379326881` | `4c16699`, nur Encoder | Beide: zwei bestanden, ein Fehler; weiterhin 30 fps und etwa 20,4 Mbit/s. |
 | `38381447990` | `ab271bb`, nur Encoder | Beide: zwei bestanden, ein Fehler; 45 Frames, 1,5 s und etwa 20,4 Mbit/s. |
 | `38386196089` | `e747da9`, nur Encoder | Abgeschlossen: beide zwei bestanden, ein Fehler; 45 Frames, 1,5 s, 30 fps und etwa 20,4 Mbit/s, daher weiterhin abgewiesen. Keine Gastansichten in diesem Lauf. |
+| `38393540171` | `fdcabe8`, Encoder-Diagnose | Beide zwei bestanden, ein Fehler; drei Versuche nachgewiesen, zuletzt Zielwert 250 kbit/s, trotzdem unverändert etwa 20,4 Mbit/s. |
+| `38395495906` | `ca7da94`, Datenratenlimit + Gastansichten | Beide drei bestanden, ein Fehler; beide Gastreisen bestanden, zusätzliche feste Begrenzung allein ohne messbare Wirkung auf das große Video. |
+| `38397671645` | `bb5b399`, adaptive Auflösung + Gastansichten | Beide Encoder zwei bestanden, ein Fehler; bei 640×360 / 30 fps noch 4,803 Mbit/s Video, daher abgewiesen. iPhone-Gasttest zusätzlich erster Weiter-Schritt fehlgeschlagen; iPad-Gastreise bestanden. |
+| `38399820535` | `293d7e2`, Encoder 1.2.3 + Gastansichten | **Beide vier bestanden, null Fehler/Skip**; große Ausgabe 640×360 / 24 fps / 1,5 s, 4,302 Mbit/s Video und 4,309 Mbit/s Gesamt, spielbar und tatsächlich decodiert. |
 
-Eine reine Simulatorbeschränkung oder eine erfolgreiche Reparatur ist noch nicht belegt. Build 86 enthält die Korrekturen nicht und muss vor öffentlicher Einreichung ersetzt werden. Physische Kamera, tatsächlicher Foto-Picker und reale TestFlight-Installation bleiben unbestätigt; der Routenbauer wird entsprechend dem Auftrag nicht zum Testen aufgefordert.
+Die begrenzte Rückfallstrategie aus Encoder 1.2.3 ist auf beiden Simulatoren erfolgreich geprüft, ohne die Bitraten- oder Dateiintegritätsgrenzen anzuheben. Große Quellen bleiben beim Rückfall mindestens 640 Pixel lange Kante; bei weiterhin zu hoher Bitrate wird eine höhere Bildrate auf 24 fps begrenzt. Erster Versuch bis 1920 Pixel / 30 fps, Original und Seitenverhältnis erhalten. Ursache der unwirksamen reinen Bitratenanforderung noch nicht als reine Simulatorbeschränkung belegt. Build 86 enthält die Korrekturen nicht und muss vor öffentlicher Einreichung ersetzt werden. Physische Kamera, tatsächlicher Foto-Picker und reale TestFlight-Installation bleiben unbestätigt; der Routenbauer wird entsprechend dem Auftrag nicht zum Testen aufgefordert. Details: `2026-10-13-ios-encoder.md`.
 
 ## Sicherung
 
