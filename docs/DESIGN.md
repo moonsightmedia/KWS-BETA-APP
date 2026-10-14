@@ -767,6 +767,17 @@ Bisherige farbige Darstellung (historisch, weiterhin Referenz für Zeicheneditor
 
 ## 8. Gastansicht und Boulder-Detail
 
+### Optionales Beta-Video (14.10.2026)
+
+- Neue Boulder brauchen ein Vorschaubild und gültige Pflichtangaben. Ohne Video
+  ist die ausdrückliche Auswahl „Beta später ergänzen“ erforderlich.
+- Veröffentlichung erfolgt erst nach bestätigtem Vorschaubild-Upload. Kein
+  echtes Video, Upload-Auftrag oder „Offizielle Beta“-Badge wird vorgetäuscht.
+- Der gemeinsame Platzhalter läuft in einem 3-Sekunden-Loop. Kein Wiederholen-
+  oder Aktualisieren-Icon; bei reduzierter Bewegung bleibt er statisch.
+- Ein echtes Beta-Video lässt sich später ergänzen. Nach unklarer Veröffentlichung
+  wird der bereits angelegte Boulder repariert, nicht erneut angelegt.
+
 ### 8.0 Login und Registrierung
 
 Produktentscheidung 12.10.2026: Neue eigene Konten zum Start ab 16 Jahren.

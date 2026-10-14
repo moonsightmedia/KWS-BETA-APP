@@ -39,10 +39,15 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--revision', required=True)
     parser.add_argument('--archive-sha256', required=True)
+    parser.add_argument('--expected-revision')
+    parser.add_argument('--web-only', action='store_true')
     args = parser.parse_args()
     assert re.fullmatch('[0-9a-f]{40}', args.revision)
     assert re.fullmatch('[0-9a-f]{64}', args.archive_sha256)
     root = Path('/opt/kws/web-production')
+    if args.expected_revision:
+        assert re.fullmatch('[0-9a-f]{40}', args.expected_revision)
+        assert json.loads((root / 'SOURCE.json').read_text())['revision'] == args.expected_revision, 'Live release changed; integrate before publishing'
     old = root / 'source'
     assert old.is_dir() and not old.is_symlink() and (old / 'dist/index.html').is_file()
     assert (root / 'docker-compose.yml').is_file()
@@ -104,6 +109,8 @@ def main():
     metadata = {name:(root / name).read_bytes() for name in ('SOURCE.json','BUILD-VERIFIED.json')}
     with log_path.open('ab') as log:
         def start(): subprocess.run(['docker','compose','-f',str(root / 'docker-compose.yml'),'up','-d','--force-recreate','web'], stdout=log, stderr=log, check=True)
+        if args.expected_revision:
+            assert json.loads((root / 'SOURCE.json').read_text())['revision'] == args.expected_revision, 'Concurrent live release changed; do not overwrite'
         old.rename(previous); source.rename(old)
         try:
             start()
@@ -128,13 +135,14 @@ def main():
             raise
     # Install reviewed operator and backup updates without executing erasure.
     for origin,target in [('ops/hostinger/account-deletion.py','/opt/kws/release-readiness/account-deletion.py'),('ops/hostinger/backup-production.py','/opt/kws/tools/backup-production.py')]:
+        if args.web_only: continue
         destination = Path(target)
         shutil.copyfile(destination, stage / (destination.name + '.previous'))
         shutil.copyfile(old / origin, destination); destination.chmod(0o700)
     report = {'revision':args.revision,'archive_sha256':args.archive_sha256,'deployed_at':stamp,'public_api_configured':True,'base':'/',
         'secret_in_bundle':False,'minimum_account_age':16,'account_deletion_request':True,'deadline_days':7,
         'downloads_preserved':download_count,
-        'previous_source':str(previous),'media_unchanged':True,'database_unchanged':True,'backup_operator_updated':True}
+        'previous_source':str(previous),'media_unchanged':True,'database_unchanged':True,'backup_operator_updated':not args.web_only}
     (root / 'SOURCE.json').write_text(json.dumps({'revision':args.revision})+'\n')
     (root / 'BUILD-VERIFIED.json').write_text(json.dumps(report)+'\n')
     (stage / 'DEPLOYED.json').write_text(json.dumps(report)+'\n')
