@@ -61,4 +61,33 @@ them. Already delivered old OS pushes retain their original payload.
   normalized f6144b8 live baseline. None added by notification links. Focused
   ESLint and Hostinger/Gradle builds pass.
 
-Final rollout and device artifact evidence will be appended after publication.
+## Final rollout and live proof
+
+- Web **1.0.234**, exact source
+  `6cc470b08ce7282e257424de800db3df8c1319af`, verified using public version.json,
+  VPS SOURCE.json and successful rollout report. Exact archive SHA256
+  `6daab9d700df04770ce4d293d78472b8d1121cf18df903166ab3283bf172ef44`.
+  The operator checks expected revision f6144b8 both before build and source swap;
+  web-only mode preserves unrelated operators, old assets and distributed APK53.
+- Production push function replaced only after matching the original function
+  SHA256 `6c6184c2cc6992bffec448b124dbd0f8f99871f7ae0dcdf87f9af208b35a5dfe`.
+  New definition SHA256
+  `aef0cfede924cf926c2ca4bc81ca880420867c5e8cd12c17a709876ec67c5bad`.
+  Private rollback/report under `/opt/kws/tools/notification-links-c6b35e3/`.
+  Historical notifications are not rewritten or resent; grouping worker and
+  sector text formatter are unchanged. No real test push was sent.
+- Live signed-in browser: opened an already-read real **“8 neue Boulder in den
+  Sektoren Buckbord und Bug”** message. “Ansehen” resolved its exact 8 Boulders;
+  canonical parent Bug was expanded, with Bug C/D card labels. Opened Wilder Satz
+  and returned to the same notification URL and same eight visible cards.
+  Proof: `output/boulder-navigation/live-notification-selection57.png`.
+- Android **1.0.57**, frontend 1.0.234: Hostinger build, Capacitor, Gradle and
+  protected asset inspection pass. Final APK installed in place on the paired
+  Galaxy S25; pulling the installed APK confirms **12,041,013 bytes** and SHA256
+  `5c54bcdc34f545036243deb7e2a757a6e706197fe61816460bab3f7f8b879400`.
+  Wireless debugging reconnected using fresh mDNS discovery after the device
+  disconnected. User data was preserved. Physical inbox/push-tap flow was not
+  claimed: the phone remained at keyguard after installation. Browser flow,
+  native-open event and isolated server payload tests provide the stated proof.
+- Existing public APK53 remains HTTP200, correct APK MIME, 12,230,063 bytes.
+  APK57 is installed locally, not published as a new public download.
