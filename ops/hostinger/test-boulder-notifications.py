@@ -12,6 +12,9 @@ import uuid
 
 FIXTURE = """
 CREATE TABLE public.profiles(id uuid PRIMARY KEY);
+CREATE TABLE public.sectors(id uuid PRIMARY KEY, name text);
+INSERT INTO public.sectors VALUES ('11111111-1111-1111-1111-111111111111','Zwergenwand'),
+ ('22222222-2222-2222-2222-222222222222','Bug A');
 CREATE TABLE public.boulders(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text,
   sector_id uuid, sector_id_2 uuid, status text DEFAULT 'haengt',
   beta_video_status text DEFAULT 'processing', beta_video_job_id uuid DEFAULT gen_random_uuid(),
@@ -101,12 +104,39 @@ def run(database, query):
     return result.stdout.strip()
 
 
-def test(migration):
+SECTOR_TESTS = """
+SELECT public.check_result(public.format_boulder_notification_message(1,'Test',ARRAY['Zwergenwand'])
+ = 'Ein neuer Boulder im Sektor Zwergenwand · Test', 'single sector text');
+SELECT public.check_result(public.format_boulder_notification_message(8,NULL,ARRAY['Zwergenwand','Bug A'])
+ = '8 neue Boulder in den Sektoren Bug A und Zwergenwand', 'two sector text');
+SELECT public.check_result(public.format_boulder_notification_message(8,NULL,ARRAY['C','A','B'])
+ = '8 neue Boulder in den Sektoren A, B und C', 'three sector text');
+SELECT public.check_result(public.format_boulder_notification_message(12,NULL,ARRAY['E','D','C','B','A'])
+ = '12 neue Boulder in 5 Sektoren: A, B, C und 2 weitere', 'many sector text');
+SELECT public.check_result(public.format_boulder_notification_message(8,NULL,ARRAY[' Zwergenwand ','Zwergenwand',''])
+ = '8 neue Boulder im Sektor Zwergenwand', 'deduplicate sector labels');
+SELECT public.check_result(public.format_boulder_notification_message(8,NULL,NULL)
+ = '8 neue Boulder wurden hinzugefügt', 'missing sector fallback');
+SELECT public.check_result(char_length(public.format_boulder_notification_message(1,repeat('X',500),
+ ARRAY[repeat('A',150),repeat('B',150),repeat('C',150),repeat('D',150)]))<=240, 'long push text bounded');
+SELECT public.check_result((SELECT bool_and(data->'sector_names'='["Bug A","Zwergenwand"]'::jsonb)
+ FROM public.notifications WHERE data->>'boulder_count'='8'), 'all named sectors in actual grouped payload');
+SELECT public.check_result(NOT has_function_privilege('authenticated',
+ 'public.format_boulder_notification_message(integer,text,text[])','EXECUTE'), 'formatter stays private');
+"""
+
+
+def test(migration, sector_migration=''):
     assert os.geteuid() == 0 and socket.gethostname().split('.')[0] == 'srv2044594'
     database = 'kws_push_test_' + uuid.uuid4().hex[:12]
     subprocess.run(['docker','exec','supabase-db','createdb','-U','supabase_admin','--template=template0',database], check=True)
     try:
-        run(database, FIXTURE + migration + TESTS)
+        expectations=TESTS
+        if sector_migration:
+            expectations=TESTS.replace("message='8 neue Boulder wurden hinzugefügt'",
+                                      "message='8 neue Boulder in den Sektoren Bug A und Zwergenwand'")
+        run(database, FIXTURE + migration + sector_migration + expectations)
+        if sector_migration: run(database, SECTOR_TESTS)
         # Two simultaneous workers must produce only one set of notifications.
         workers = [subprocess.Popen(command(database), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE, text=True) for _ in range(2)]
@@ -128,7 +158,7 @@ def test(migration):
         assert run(database,'SELECT count(*) FROM public.recorded_pushes;')=='4'
         local_worker=subprocess.run(command(database,'postgres'),input='SELECT public.flush_pending_boulder_notifications();',capture_output=True,text=True,timeout=30)
         assert local_worker.returncode==0 and json.loads(local_worker.stdout.strip())['notifications']==0
-        print(json.dumps({'passed':19,'concurrent_workers_once':True,'rollback_retry_once':True,'local_worker_role':True,'real_pushes_sent':0}))
+        print(json.dumps({'passed':28 if sector_migration else 19,'concurrent_workers_once':True,'rollback_retry_once':True,'local_worker_role':True,'sector_texts':bool(sector_migration),'real_pushes_sent':0}))
     finally:
         subprocess.run(['docker','exec','supabase-db','dropdb','-U','supabase_admin',database], check=True)
 
@@ -137,7 +167,13 @@ if __name__ == '__main__':
     parser=argparse.ArgumentParser()
     parser.add_argument('--migration', required=True)
     parser.add_argument('--sha256', required=True)
+    parser.add_argument('--sector-migration')
+    parser.add_argument('--sector-sha256')
     args=parser.parse_args()
     raw=Path(args.migration).read_bytes()
     assert hashlib.sha256(raw).hexdigest()==args.sha256
-    test(raw.decode())
+    sectors=b''
+    if args.sector_migration:
+        sectors=Path(args.sector_migration).read_bytes()
+        assert hashlib.sha256(sectors).hexdigest()==args.sector_sha256
+    test(raw.decode(), sectors.decode())
