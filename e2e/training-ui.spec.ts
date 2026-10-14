@@ -2,7 +2,10 @@ import { expect, test, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 
 const screenshots = 'test-results/training-ui';
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page }, testInfo) => {
+  if (!testInfo.title.startsWith('training introduction')) await page.addInitScript(() => {
+    for (const account of ['training-demo', 'training-demo-2']) localStorage.setItem(`kws-training-onboarding-v1:${account}`, JSON.stringify({ version: 1, dismissed: true }));
+  });
   await page.route('**/*', request => new URL(request.request().url()).hostname === '127.0.0.1' ? request.continue() : request.abort());
 });
 async function open(page: Page, route = '/training') {
@@ -15,6 +18,69 @@ async function open(page: Page, route = '/training') {
   });
 }
 async function next(page: Page) { await page.getByRole('button', { name: 'Weiter', exact: true }).click(); }
+test('training introduction explains collection, persists and replays from info', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 900 });
+  await open(page, '/training/library/strength');
+  const intro = page.getByRole('dialog', { name: 'Dein Training, kurz erklärt' });
+  await expect(intro).toContainText('Schritt 1 von 2');
+  await expect(intro).toContainText('Zur Einheit hinzufügen');
+  await intro.getByRole('button', { name: 'Weiter', exact: true }).click();
+  await expect(intro).toContainText('Einheit öffnen');
+  await intro.getByRole('button', { name: 'Los geht’s', exact: true }).click();
+  await expect(intro).toHaveCount(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('kws-training-onboarding-v1:training-demo')!))).toEqual({ version: 1, dismissed: true });
+  await expect(page.getByText(/Mit „Zur Einheit hinzufügen“ sammelst/)).toHaveCount(0);
+  await page.getByRole('button', { name: /^Erhöhter Liegestütz: Zur Einheit hinzufügen/ }).click();
+  await page.getByRole('complementary', { name: 'Deine Übungsauswahl' }).getByRole('link', { name: 'Einheit öffnen' }).click();
+  await page.getByRole('button', { name: 'Einheit speichern' }).click();
+  await expect(page.getByText('In deiner Sammlung', { exact: true })).toBeVisible();
+  await open(page, '/training/library/boulder'); await page.reload();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  const info = page.getByRole('button', { name: 'Traininginformationen' });
+  await info.focus(); await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog', { name: 'Traininginformationen' })).toBeVisible();
+  await page.getByText('Speicherung & Einführung', { exact: true }).click();
+  await page.getByRole('button', { name: 'Einführung erneut ansehen' }).click();
+  await expect(intro).toContainText('Schritt 1 von 2');
+  await page.keyboard.press('Escape');
+  await expect(intro).toHaveCount(0); await expect(info).toBeFocused();
+});
+test('training introduction can be skipped and stays separate for another account', async ({ page }) => {
+  await open(page, '/training/exercises/incline-pushup');
+  await page.getByRole('button', { name: 'Überspringen' }).click();
+  await page.evaluate(async () => { const hooks = await import('/test/fixtures/training-preview-hooks.ts'); hooks.switchPreviewAccount(); });
+  await expect(page.getByRole('dialog', { name: 'Dein Training, kurz erklärt' })).toBeVisible();
+  await page.getByRole('button', { name: 'Einführung schließen' }).click();
+  await page.evaluate(async () => { const hooks = await import('/test/fixtures/training-preview-hooks.ts'); hooks.switchPreviewAccount(); });
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+test('training introduction acknowledges completion across open tabs', async ({ page, context }) => {
+  await open(page, '/training/library/strength');
+  const other = await context.newPage();
+  await open(other, '/training/library/boulder');
+  await expect(other.getByRole('dialog', { name: 'Dein Training, kurz erklärt' })).toBeVisible();
+  await page.getByRole('button', { name: 'Überspringen' }).click();
+  await expect(other.getByRole('dialog')).toHaveCount(0);
+  await other.close();
+});
+test('training introduction stays usable without browser storage', async ({ page }) => {
+  await page.addInitScript(() => { Storage.prototype.getItem = () => { throw new Error('blocked'); }; Storage.prototype.setItem = () => { throw new Error('blocked'); }; });
+  await open(page, '/training/library/strength');
+  await page.getByRole('button', { name: 'Überspringen' }).click();
+  await page.getByRole('link', { name: 'Erhöhter Liegestütz: Anleitung öffnen', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Zur Einheit hinzufügen', exact: true }).click();
+  await expect(page.getByRole('complementary', { name: 'Deine Übungsauswahl' })).toBeVisible();
+  await page.getByRole('button', { name: 'Traininginformationen' }).click();
+  await page.getByText('Speicherung & Einführung', { exact: true }).click();
+  await expect(page.getByText(/Einführung konnte nicht dauerhaft gespeichert/)).toBeVisible();
+});
+test('training introduction waits until the training area is enabled', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('kws-training-preferences-v1:training-demo', JSON.stringify({ version: 1, trainingEnabled: false, kidsEnabled: true })));
+  await open(page, '/training/library/strength');
+  await expect(page.getByRole('heading', { name: 'Training ist ausgeblendet' })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
 async function intake(page: Page, options: { age?: string; fixed?: boolean; constraints?: string; dialog?: boolean } = {}) {
   if (options.dialog) { await open(page); await page.getByRole('button', { name: 'Trainingschat öffnen', exact: true }).click(); }
   else await open(page, '/training/plan');
@@ -42,7 +108,7 @@ for (const width of [375, 768, 1280, 1920]) test(`layout and illustrated states 
   await page.setViewportSize({ width, height: 900 }); await mkdir(screenshots, { recursive: true });
   for (const [name, route] of [['home', '/training'], ['strength', '/training/library/strength?q=Brust'], ['feet', '/training/library/boulder?q=Fußtechnik'], ['mobility', '/training/library/mobility'], ['mobility-detail', '/training/exercises/mobility-hip'], ['rehab', '/training/library/rehab'], ['kids', '/training/library/kids'], ['kids-detail', '/training/exercises/kids-colour-post'], ['detail', '/training/exercises/quiet-feet'], ['planner', '/training/plan'], ['empty', '/training/favorites']] as const) {
     await open(page, route);
-    await expect(page.getByRole('button', { name: 'Informationen zur UI-Vorschau' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Traininginformationen' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
     await page.screenshot({ path: `${screenshots}/${name}-${width}.png`, fullPage: true, animations: 'disabled' });
   }
@@ -157,6 +223,7 @@ test('rehab orientation, lasting favorites, sources and unknown exercise', async
   await open(page, '/training/favorites'); await page.reload();
   await expect(page.getByRole('list', { name: 'Gemerkte Inhalte' }).getByRole('listitem')).toHaveCount(1);
   await open(page, '/training/exercises/incline-pushup');
+  await page.getByRole('button', { name: 'Traininginformationen' }).click();
   await page.getByText('Hintergrund & Quellen', { exact:true }).click();
   await expect(page.getByRole('link', { name: /ACSM/ })).toBeVisible();
   await open(page, '/training/exercises/missing'); await expect(page.getByText('Übung nicht gefunden')).toBeVisible();
@@ -169,7 +236,8 @@ test('storage failure and corrupted stored plan recover gracefully', async ({ pa
   await open(page, '/training/exercises/pushup');
   await page.evaluate(() => { Storage.prototype.setItem = () => { throw new Error('unavailable'); }; });
   await page.getByRole('button', { name: 'Als Favorit merken' }).click();
-  await page.getByRole('button', { name: 'Informationen zur UI-Vorschau' }).click();
+  await page.getByRole('button', { name: 'Traininginformationen' }).click();
+  await page.getByText('Speicherung & Einführung', { exact: true }).click();
   await expect(page.getByText(/Speichern ist in diesem Browser nicht möglich/)).toBeVisible();
 });
 
@@ -228,6 +296,7 @@ test('fingerboard orientation has a graphic, source and no plannable prescriptio
   await expect(page.getByRole('button', {name:'Zur Einheit hinzufügen',exact:true})).toHaveCount(0);
   await expect(page.getByText('Umfang & Pausen', {exact:true})).toHaveCount(0);
   await expect(page.getByText('Vor dem Fingertraining', {exact:true})).toBeVisible();
+  await page.getByRole('button', { name: 'Traininginformationen' }).click();
   await page.getByText('Hintergrund & Quellen', {exact:true}).click();
   await expect(page.getByRole('link', {name:/Devise/})).toBeVisible();
 });
@@ -335,10 +404,12 @@ test('kids games support nursery and school browsing, sources and favorites with
   await list.getByRole('link', { name: 'Farbenpost: Spiel ansehen', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Kinderspiel', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Für Kitakinder', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Betreuung', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Betreuung', exact: true })).toHaveCount(0);
   await expect(page.getByText('Umfang & Pausen', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Traininginformationen' }).click();
   await page.getByText('Hintergrund & Quellen', { exact: true }).click();
   await expect(page.getByRole('link', { name: /DGUV/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Informationen schließen' }).click();
   await page.getByRole('button', { name: 'Farbenpost: als Favorit merken', exact: true }).click();
   await page.getByRole('button', { name: 'Zur Bibliothek', exact: true }).click();
   await expect(page).toHaveURL(/age=kita/);
@@ -460,6 +531,7 @@ test('detail tabs separate instructions from volume and keep accessible steps', 
   await expect(page.getByRole('tabpanel')).toContainText('Versuche');
   await page.getByRole('tab', { name: 'Varianten', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Einfacher', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Traininginformationen' }).click();
   const background = page.locator('details').filter({ has: page.locator('summary').filter({ hasText: 'Hintergrund & Quellen' }) });
   await expect(background).not.toHaveAttribute('open', '');
   await background.locator('summary').click();
@@ -543,8 +615,12 @@ test('movement and stretch filters, manual mobility session and reload keep thei
 test('plain incline pushup description, sources and adjustable volume stay accessible', async ({ page }) => {
   await open(page, '/training/exercises/incline-pushup');
   await expect(page.getByText('Liegestütze leichter machen: Hände auf die Bank.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Darauf achten', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Traininginformationen' }).click();
+  await expect(page.getByText('Hinweise zu dieser Übung', { exact: true })).toBeVisible();
   await page.locator('summary').filter({ hasText: 'Hintergrund' }).click();
   await expect(page.getByRole('link', { name: /ACSM/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Informationen schließen' }).click();
   await expect(page.locator('main')).not.toContainText(/skalier/i);
   await page.getByRole('tab', { name: 'Umfang', exact: true }).click();
   await expect(page.getByRole('tabpanel')).toContainText('6–10');

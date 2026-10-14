@@ -6,6 +6,7 @@ import { completionOrigin, recordTrainingCompletion, repeatTrainingCompletion } 
 import type { TrainingAnswers, TrainingCompletion, TrainingPlanIssue, TrainingSession, TrainingWeekPlan } from './types';
 
 interface TrainingState {
+  accountId: string;
   favorites: string[];
   toggleFavorite: (id: string) => void;
   draft: TrainingSession;
@@ -130,7 +131,7 @@ export function TrainingProvider({ children, accountId = 'training-demo' }: { ch
     setSessions(previous => [...previous, session]);
     return session.id;
   };
-  return <Context.Provider value={{ favorites, toggleFavorite, draft, updateDraft, addToDraft, addToSession, saveDraft, sessions, updateSession, replaceExercise, answers, setAnswers, plan, createPlan, storageStatus, clearSavedTraining, scheduleSession, movePlanEntry, togglePlanEntry, history, completeSession, undoCompletion, repeatCompletion }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ accountId, favorites, toggleFavorite, draft, updateDraft, addToDraft, addToSession, saveDraft, sessions, updateSession, replaceExercise, answers, setAnswers, plan, createPlan, storageStatus, clearSavedTraining, scheduleSession, movePlanEntry, togglePlanEntry, history, completeSession, undoCompletion, repeatCompletion }}>{children}</Context.Provider>;
 }
 export function useTraining() {
   const value = useContext(Context);
