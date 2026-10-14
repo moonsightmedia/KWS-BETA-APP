@@ -42,5 +42,25 @@ Transformed Boulder data is memoized, and a valid empty response stays empty.
   its four Python tests pass. Deployment source is based on the exact live
   revision, preserving separately pending onboarding/iOS and volume work.
 
-Real-device installation and live-browser verification are recorded after rollout.
+## Rollout
+
+- Web revision `1e6dd7bbe56c6599a76021def9a86c7ddd7b041a` deployed on the existing
+  Hostinger production service. Server SOURCE/BUILD witness confirms the revision;
+  API, media and database remain unchanged. Previous release retained for rollback.
+- Live mobile browser: Home → two real Boulder details → header Back → Home
+  verified. After re-enabling DevTools network capture, opening "Großer Mars"
+  requested only its HD media URL (HTTP 206); no SD-then-HD swap. Header now
+  announces "Zurück zur Startseite". Return restores focus to the original card.
+- Android 1.0.54 installed over the existing package on Galaxy S25 (SM_S931B),
+  current Android user 0. ADB installation succeeded without clearing user data.
+  Pulling the installed APK confirms it is byte-identical to the reviewed artifact:
+  SHA256 `46499b8235a420b88b5e3797a2725a649865d90c3defe60fe48d7eb4d28662f7`.
+  Protected artifact scan: no private credentials, correct Hostinger API/video URLs.
+  Real-phone interaction check awaits the user unlocking the phone; do not infer
+  native login or playback success from installation. iPhone build not distributed.
+- Existing public 1.0.53 download remains intact (12,230,063 bytes). New 1.0.54
+  installer is local in `output/boulder-navigation/`; it is not yet a public download.
+- Live screenshots: `output/boulder-navigation/live-detail-375.png` and
+  `live-return-home-375.png`, local artifacts. PR #7 records the source changes.
+
 Fixture timing is not a prediction of real mobile network startup time.
