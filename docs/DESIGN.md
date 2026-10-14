@@ -1473,6 +1473,11 @@ Prüfbelege: `docs/qa/2026-09-15-personal-progress-design.md`,
   unabhängig davon verfügbar; eine Registrierung ist weiterhin kein Zustellnachweis.
 - Native Aktionen und In-App-Links verwenden validierte interne Ziele. Queries und
   Änderungen sind kontogebunden. Markengrün, gemeinsame Controls und Radien bleiben.
+- Sektornamen in Mitteilungen entsprechen der öffentlichen App-Hierarchie,
+  einschließlich Teilbereich (etwa „Bug D“, „Couch-Ecke B“). Technische Altnamen
+  dienen nur der Auflösung. Bereits vorhandene Posteingangstexte dürfen beim
+  Korrigieren der Zuordnung aktualisiert werden, ohne sie erneut zu versenden
+  oder ihren Gelesen-Status zu ändern.
 - „Ansehen“, Echtzeit-Toasts und Push öffnen bei neuen Bouldern die Auswahl der
   jeweiligen Mitteilung. Ein oder mehrere betroffene Bereiche sind aufgeklappt;
   andere neue Boulder gehören nicht ungefragt zur Auswahl. Die Auswahl bleibt
