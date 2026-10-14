@@ -139,3 +139,15 @@ test('delayed notification read never flashes the unfiltered catalog',async({pag
   await expect(page.locator('#boulder-results button').filter({has:page.locator('img')})).toHaveCount(0);
   await expect(page.getByText('2 Boulder aus dieser Mitteilung',{exact:true})).toBeVisible();
 });
+
+test('reopening a cached notification clears a previous search and opens all of its areas',async({page})=>{
+  await open(page,'/boulders?notification=note-batch');
+  await expect(page.getByText('2 Boulder aus dieser Mitteilung',{exact:true})).toBeVisible();
+  await page.locator('#boulder-results').getByRole('button',{name:/^Grotte/}).click();
+  await page.getByRole('button',{name:'Boulder suchen'}).click();
+  await page.getByPlaceholder('Boulder oder Bereich suchen…').fill('Kleine Kante 6');
+  await expect(page.locator('#boulder-results button').filter({has:page.locator('img')})).toHaveCount(1);
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kws:notification-open',{detail:{target:'/boulders?notification=note-batch'}})));
+  await expect(page.locator('#boulder-results button').filter({has:page.locator('img')})).toHaveCount(2);
+  await expect(page.locator('#boulder-results').getByRole('button',{name:/^Grotte/})).toHaveAttribute('aria-expanded','true');
+});

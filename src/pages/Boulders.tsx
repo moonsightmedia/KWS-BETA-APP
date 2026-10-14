@@ -166,6 +166,10 @@ const Boulders = () => {
     setSearchQuery('');
     setDifficultyFilters([]);
     setColorFilters([]);
+    setSectorFilters([]);
+    setShowNew(false);
+    setShowSaved(false);
+    setShowOnlyHanging(true);
     setSortBy('date');
     setSortOrder('desc');
     setShowMap(false);
@@ -352,10 +356,14 @@ const Boulders = () => {
     expandedNotificationVisit.current = notificationVisit;
     setCollapsedAreaNames(current => {
       const next = new Set(current);
-      groupedBoulders.forEach(group => next.delete(group.areaName));
+      // A cached notification can reopen while a previous search still filters
+      // the first render. Expand its complete selection, not that transient view.
+      (boulders ?? []).filter(matchesNotification).forEach(boulder => {
+        next.delete(boulder.sectorArea?.name || getSectorAreaName(boulder.sector) || 'Ohne Bereich');
+      });
       return next;
     });
-  }, [groupedBoulders, isLoading, notificationSelection, notificationVisit]);
+  }, [boulders, isLoading, matchesNotification, notificationSelection, notificationVisit]);
 
   const toggleAreaGroup = (areaName: string) => {
     setCollapsedAreaNames((current) => {
