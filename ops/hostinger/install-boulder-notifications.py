@@ -9,7 +9,7 @@ import socket
 import subprocess
 
 FILES = {
-    '20261013163000_batch_ready_boulder_notifications.sql': '4991ae14be882aeaad888c7e834e1eeef07eb5b41b2516d163140f3b03e8c679',
+    '20261013163000_batch_ready_boulder_notifications.sql': 'ad00ea0b923ef706d040a35b7d5e9d7a9a68f3af6fb9614072a235ad52895a40',
     'flush-boulder-notifications.py': '5860e27f09e3bbdfba480eaf128a1bde81a6a15c223391a5df4f863d1df6a270',
     'kws-boulder-notifications.service': 'ed9ec53dcd6d865c8d47e6f132eb43fe544b89e483a34407ea29243a7b7b3e05',
     'kws-boulder-notifications.timer': '1e153cd649c539079de10eb26e21af809c12f87bc2078e4fd95b508851892d11',
@@ -17,7 +17,7 @@ FILES = {
 
 
 def sql(query):
-    result = subprocess.run(['docker','exec','-i','supabase-db','psql','-X','-U','postgres','-d','postgres',
+    result = subprocess.run(['docker','exec','-i','supabase-db','psql','-X','-U','supabase_admin','-d','postgres',
                              '-qAt','-v','ON_ERROR_STOP=1','-1','-f','-'], input=query, capture_output=True, text=True, timeout=30)
     if result.returncode:
         Path('/opt/kws/production/boulder-notification-install-error.log').write_text(result.stderr)

@@ -25,6 +25,7 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END;
 $$;
+ALTER FUNCTION public.notify_new_boulder() OWNER TO supabase_admin;
 REVOKE ALL ON FUNCTION public.notify_new_boulder() FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE FUNCTION public.flush_pending_boulder_notifications()
@@ -102,3 +103,4 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION public.flush_pending_boulder_notifications() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.flush_pending_boulder_notifications() TO postgres;

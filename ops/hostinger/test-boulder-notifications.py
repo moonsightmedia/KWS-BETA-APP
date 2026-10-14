@@ -88,9 +88,9 @@ UPDATE public.boulder_notification_queue SET enqueued_at=clock_timestamp()-inter
 """
 
 
-def command(database):
+def command(database, user='supabase_admin'):
     assert re.fullmatch('kws_push_test_[0-9a-f]{12}', database)
-    return ['docker', 'exec', '-i', 'supabase-db', 'psql', '-X', '-U', 'postgres', '-d', database,
+    return ['docker', 'exec', '-i', 'supabase-db', 'psql', '-X', '-U', user, '-d', database,
             '-At', '-v', 'ON_ERROR_STOP=1']
 
 
@@ -104,7 +104,7 @@ def run(database, query):
 def test(migration):
     assert os.geteuid() == 0 and socket.gethostname().split('.')[0] == 'srv2044594'
     database = 'kws_push_test_' + uuid.uuid4().hex[:12]
-    subprocess.run(['docker','exec','supabase-db','createdb','-U','postgres','--template=template0',database], check=True)
+    subprocess.run(['docker','exec','supabase-db','createdb','-U','supabase_admin','--template=template0',database], check=True)
     try:
         run(database, FIXTURE + migration + TESTS)
         # Two simultaneous workers must produce only one set of notifications.
@@ -126,9 +126,11 @@ def test(migration):
         assert run(database,'SELECT count(*) FROM public.recorded_pushes;')=='3'
         assert json.loads(run(database,'SELECT public.flush_pending_boulder_notifications();'))['boulders']==1
         assert run(database,'SELECT count(*) FROM public.recorded_pushes;')=='4'
-        print(json.dumps({'passed':18,'concurrent_workers_once':True,'rollback_retry_once':True,'real_pushes_sent':0}))
+        local_worker=subprocess.run(command(database,'postgres'),input='SELECT public.flush_pending_boulder_notifications();',capture_output=True,text=True,timeout=30)
+        assert local_worker.returncode==0 and json.loads(local_worker.stdout.strip())['notifications']==0
+        print(json.dumps({'passed':19,'concurrent_workers_once':True,'rollback_retry_once':True,'local_worker_role':True,'real_pushes_sent':0}))
     finally:
-        subprocess.run(['docker','exec','supabase-db','dropdb','-U','postgres',database], check=True)
+        subprocess.run(['docker','exec','supabase-db','dropdb','-U','supabase_admin',database], check=True)
 
 
 if __name__ == '__main__':
