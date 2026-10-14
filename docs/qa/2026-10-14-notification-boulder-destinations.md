@@ -39,4 +39,26 @@ them. Already delivered old OS pushes retain their original payload.
   All real external requests are blocked. No production test notifications or
   uploads are created by these tests.
 
-Release and isolated PostgreSQL evidence will be appended after verification.
+## Integration and server verification
+
+- Isolated PostgreSQL push-trigger suite: **10 passed**, disposable database
+  removed, **zero real pushes**. Covers preference/device gates, one batch → one
+  push, exact URL/ID/topic, bounded payload for 800 IDs, full ID list retained in
+  the inbox, other notification data, and private execution permissions.
+- Git-normalized migration SHA256:
+  `931f1057fed39a6eede64dc335381612b44dc0c4c79e10df70e4311304f4bca5`.
+  CRLF working-copy bytes differ from the Git blob; server downloads were checked
+  against the Git blob. The initial mismatch stopped before any production change.
+- Concurrent live release `f6144b81e10d87f35aebecc2791ae3cce5dcf6a6` superseded
+  3976e20 during work. The old-revision guard blocked rollout. Merged that actual
+  live source, preserving optional Beta publication/placeholder and its release
+  safeguards. No earlier web release was overwritten.
+- After integration: **31 browser tests passed** (13 selection, 14 continuity,
+  4 placeholder loops). Together with the 18 inbox tests, **49 unique browser
+  scenarios** are covered. Cached notification re-entry also clears old searches
+  and expands all selected areas, independent of the transient filtered render.
+- Integrated TypeScript has **75 existing diagnostics**, exactly matching the
+  normalized f6144b8 live baseline. None added by notification links. Focused
+  ESLint and Hostinger/Gradle builds pass.
+
+Final rollout and device artifact evidence will be appended after publication.

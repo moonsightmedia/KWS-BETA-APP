@@ -128,6 +128,7 @@ test('a failed selection read stays separate from the catalog and retries safely
   await page.getByRole('button',{name:'Erneut versuchen'}).click();
   await expect(page.getByText('2 Boulder aus dieser Mitteilung',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Gridansicht'}).click();
+  await expect(page.locator('#boulder-results img').first()).toHaveCSS('opacity','1');
   await page.screenshot({path:`${output}/loop2-grid-375.png`,animations:'disabled'});
 });
 
