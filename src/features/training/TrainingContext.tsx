@@ -23,11 +23,11 @@ interface TrainingState {
   createPlan: () => { status: 'draft' | 'needs-review'; issues: TrainingPlanIssue[] };
   storageStatus: 'saved' | 'unavailable';
   clearSavedTraining: () => void;
-  scheduleSession: (sessionId: string, day: number) => boolean;
+  scheduleSession: (sessionId: string, days: number[]) => boolean;
   movePlanEntry: (id: string, day: number) => void;
   togglePlanEntry: (id: string) => void;
   history: TrainingCompletion[];
-  completeSession: (sessionId: string) => boolean;
+  completeSession: (sessionId: string, entryId?: string) => boolean;
   undoCompletion: (id: string) => void;
   repeatCompletion: (id: string) => string | null;
 }
@@ -52,9 +52,12 @@ export function TrainingProvider({ children, accountId = 'training-demo' }: { ch
     return () => window.removeEventListener('storage', restore);
   }, [accountId]);
   const clearSavedTraining = () => { const cleared = emptyTraining(); setFavorites(cleared.favorites); updateDraft(cleared.draft); setSessions(cleared.sessions); setPlan(null); setHistory([]); setAnswers(DEFAULT_ANSWERS); };
-  const scheduleSession = (sessionId: string, day: number) => {
-    if (!sessions.some(session => session.id === sessionId) || !Number.isInteger(day) || day < 0 || day > 6 || plan?.entries.some(entry => entry.day === day || entry.sessionId === sessionId) || plan?.status === 'needs-review') return false;
-    setPlan(previous => ({ ...(previous ?? { id: crypto.randomUUID(), summary: 'Deine selbst zusammengestellte Woche', status: 'draft' }), entries: [...(previous?.entries ?? []), { id: crypto.randomUUID(), day, sessionId, fixed: false, completed: false }] }));
+  const scheduleSession = (sessionId: string, days: number[]) => {
+    const session = sessions.find(item => item.id === sessionId);
+    const uniqueDays = [...new Set(days)].sort((a, b) => a - b);
+    if (!session?.exercises.length || getSessionMinutes(session) === null || !uniqueDays.length || uniqueDays.some(day => !Number.isInteger(day) || day < 0 || day > 6 || plan?.entries.some(entry => entry.day === day)) || plan?.status === 'needs-review') return false;
+    const entries = uniqueDays.map(day => ({ id: crypto.randomUUID(), day, sessionId, fixed: false, completed: false }));
+    setPlan(previous => previous?.status === 'needs-review' || previous?.entries.some(entry => uniqueDays.includes(entry.day)) ? previous : ({ ...(previous ?? { id: crypto.randomUUID(), summary: 'Deine selbst zusammengestellte Woche', status: 'draft' }), entries: [...(previous?.entries ?? []), ...entries] }));
     return true;
   };
   const toggleFavorite = (id: string) => setFavorites(previous => previous.includes(id) ? previous.filter(value => value !== id) : [...previous, id]);
@@ -81,7 +84,8 @@ export function TrainingProvider({ children, accountId = 'training-demo' }: { ch
   };
   const updateSession = (id: string, update: Partial<TrainingSession>) => {
     if (plan?.entries.some(entry => entry.sessionId === id && entry.fixed)) return;
-    setSessions(previous => previous.map(session => { const updated = { ...session, ...update }; return session.id === id ? { ...updated, minutes: getSessionMinutes(updated) } : session; }));
+    if (update.title !== undefined && (!update.title.trim() || update.title.trim().length > 80)) return;
+    setSessions(previous => previous.map(session => { const updated = { ...session, ...update, ...(update.title !== undefined ? { title: update.title.trim() } : {}) }; return session.id === id ? { ...updated, minutes: getSessionMinutes(updated) } : session; }));
   };
   const replaceExercise = (sessionId: string, itemId: string, exerciseId: string) => {
     const exercise = getExercise(exerciseId);
@@ -109,9 +113,11 @@ export function TrainingProvider({ children, accountId = 'training-demo' }: { ch
     else if (!entry.fixed && session) setHistory(previous => recordTrainingCompletion(previous, session, originKey));
     setPlan({ ...plan, entries: plan.entries.map(item => item.id === id ? { ...item, completed: !item.completed } : item) });
   };
-  const completeSession = (sessionId: string) => {
+  const completeSession = (sessionId: string, entryId?: string) => {
     const session = sessions.find(item => item.id === sessionId);
-    const entry = plan?.entries.find(item => item.sessionId === sessionId);
+    const entries = plan?.entries.filter(item => item.sessionId === sessionId) ?? [];
+    const entry = entryId ? entries.find(item => item.id === entryId) : entries.length === 1 ? entries[0] : undefined;
+    if ((entryId && !entry) || (!entryId && entries.length > 1)) return false;
     if (!session?.exercises.length || entry?.fixed || entry?.completed) return false;
     if (entry) { togglePlanEntry(entry.id); return true; }
     const next = recordTrainingCompletion(history, session);

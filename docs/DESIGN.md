@@ -1494,3 +1494,13 @@ Die Tour stellt nur vorhandene Controls der aktuellen Ansicht vor: Bereiche/Einh
 Der Hintergrund wird zurückgenommen, das echte Element bleibt sichtbar mit grüner Kontur. Der kleine Hinweis liegt daneben bzw. ober- oder unterhalb, zeigt mit einem Pfeil auf das Element und bleibt vollständig im Viewport. Scrollen, Größenwechsel und Layoutänderungen aktualisieren den Anker; auf kurzen Displays wird bei Bedarf Platz durch Scrollen geschaffen. Weiter/Zurück, Überspringen/X/Escape und Fokusrückgabe sind vorhanden. Nach Abschluss kehrt die Seite an ihre Ausgangsposition zurück. Einmaligkeit je Konto/Gerät und Wiederholung über das „i“ bleiben erhalten.
 
 Prüfbeleg: `docs/qa/2026-10-14-training-coachmark-tour.md`.
+
+### Nutzerpräzisierung14.10.2026: Einheiten benennen und mehrfach einplanen
+
+Gespeicherte Einheiten lassen sich über den Stift neben dem Namen umbenennen. Der Name wird mit Speichern bestätigt; Abbrechen lässt ihn unverändert. Leere Namen werden verhindert, Rand-Leerzeichen entfernt und Namen auf80Zeichen begrenzt. Auch lange Wörter umbrechen in Sammlung, Wochenplan, Startseite und Infohilfe.
+
+Beim optionalen Einplanen eigener Einheiten sind mehrere freie Wochentage gleichzeitig auswählbar. Bereits eingeplante Tage bleiben sichtbar; weitere freie Tage können später ergänzt werden. Belegte Tage und feste Termine werden nicht überschrieben. Je ausgewähltem Tag entsteht ein eigener Termineintrag mit eigener ID; alle verweisen auf dieselbe gespeicherte Einheit. Änderungen an deren Namen und Übungen gelten für diese Einheit an allen geplanten Tagen; abgeschlossene Verlaufssnapshots bleiben unverändert.
+
+Abschließen und Rückgängig gelten für einen konkreten Termin. Aus dem Wochenplan geöffnete Einheiten behalten den Termineintrag im Link. Beim Öffnen über die Sammlung wird bei mehreren Terminen zuerst der Trainingstag gewählt; keine stillschweigende Zuordnung zum ersten Termin. Ungültige Terminlinks zeigen einen Fehler und markieren keinen anderen Tag. Planungen zur fachlichen Besprechung bleiben gesperrt. Ein Termin pro Wochentag bleibt der aktuelle Planvertrag.
+
+Prüfbeleg: `docs/qa/2026-10-14-training-session-names-days.md`.
