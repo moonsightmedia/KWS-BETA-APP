@@ -48,3 +48,22 @@ scroller. The entry animation moves content only: its opaque shell never fades.
   device evidence is appended after rollout.
 
 No database, media, notifications or user records were changed.
+
+## Rollout evidence
+
+- Web 1.0.233 is live from `3976e20ad7f185765c2d82f9f89a753c57889ae3`.
+  Verified VPS SOURCE.json and successful operator output, public version.json,
+  protected bundle scan, and preserved public APK 1.0.53 (HTTP 200, correct MIME,
+  12,230,063 bytes). Previous release is retained for rollback.
+- Real live web round trip with Frecher Werwolf: document top **516**, document
+  height **9597**, original card bounds **x16 y402.800 width343.200 height94**
+  during detail and after Back. Foreground opacity 1, video readyState 4;
+  foreground removed and source inert cleared on return. Clean proof:
+  `output/boulder-navigation/live-overview-return56.png`.
+- Final Android APK pulled from the installed Galaxy S25 matches the inspected
+  final hash above (12,039,271 bytes). Existing signed-in data remained present.
+- Real detail → Home return was observed with the existing cards and position.
+  A recording started too late to capture its transition; it is not evidence of
+  every native transition frame. The additional native overview round trip was
+  interrupted by device Dozing; all 25-frame regression claims refer to the
+  browser tests, not an uncompleted physical-device frame audit.
