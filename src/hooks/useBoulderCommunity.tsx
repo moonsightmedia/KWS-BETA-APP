@@ -527,7 +527,7 @@ export function useBoulderComments(boulderId: string | undefined) {
         fetchProfiles(accessToken, ids),
         readCommentAvatars(boulderId!, ids, accessToken).catch(() => []),
       ]);
-      const avatarMap = new Map(avatars.map(row => [row.id, row.avatar_url]));
+      const avatarMap = new Map<string, string | null>(avatars.map(row => [row.id, row.avatar_url] as const));
 
       return comments.map((comment) => {
         const profile = profileMap.get(comment.user_id);
