@@ -7,7 +7,7 @@ Ready callbacks now enqueue a private, deduplicated Boulder event. A local
 worker publishes one final notification per eligible recipient when no Boulder
 has become ready for two minutes and recent uploads or video jobs are no longer
 active. The existing push trigger sends the final message, for example
-`8 neue Boulder wurden hinzugefügt`. Single uploads retain the singular text.
+`8 neue Boulder im Sektor Zwergenwand`. Single uploads retain singular text.
 In-app notifications are grouped at the same point; they no longer appear once
 for every intermediate callback.
 
@@ -59,3 +59,30 @@ The self-hosted database has no Supabase migration-history table. The migration
 is therefore tracked by Git and the protected installation report, rather than
 an invented cloud migration entry. Deploying this source does not require a new
 web bundle or mobile build.
+
+## Sector labels added on 14 October 2026
+
+Migration `20261014103000_boulder_notification_sector_labels.sql` is now also
+active. The final text names one sector, lists two or three with German
+conjunctions, and summarizes four or more with the first three alphabetical
+names plus the remaining count:
+
+- `8 neue Boulder im Sektor Zwergenwand`
+- `8 neue Boulder in den Sektoren Bug A und Zwergenwand`
+- `12 neue Boulder in 5 Sektoren: Bug A, Bug B, Platte A und 2 weitere`
+
+Both primary and secondary sector assignments are included while each Boulder
+is counted once. Full sector names are retained in `data.sector_names`; the
+message alone shortens names exceeding fifty characters and stays within 240
+characters. Blank/missing labels use the previous generic message. The private
+formatter removes duplicate/blank names and sorts them deterministically.
+
+The expanded isolated PostgreSQL suite passed 28 checks, including actual
+eight-Boulder notification payloads with both sector names, singular/plural
+wording, long labels, missing labels, deduplication and private function access.
+No test pushes were sent to production users. The live timer remains active
+and the worker result is `success`. Device receipt still awaits an ordinary
+upload. The verification report now records the sector migration digest,
+revision, limits and rollback function path.
+
+![Live sector message examples](2026-10-14-boulder-sector-texts-live.png)
