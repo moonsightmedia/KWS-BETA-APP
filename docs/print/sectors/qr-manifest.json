@@ -1,0 +1,444 @@
+{
+  "capturedAt": "2026-10-13T11:19:27.068Z",
+  "mapId": "09edc012-45ac-4938-a267-d13fc3acf220",
+  "orientation": "clockwise-portrait",
+  "entries": [
+    {
+      "area": "Bug",
+      "areaNumber": "01",
+      "number": "01",
+      "code": "A",
+      "name": "Bug A",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Bug%20A",
+      "sectorIds": [
+        "21b1248b-5cf4-4492-aecd-e5ba2c139121"
+      ],
+      "polygonIds": [
+        "c8073d17-83bf-41f8-a757-1c5d279e7465"
+      ],
+      "mapAnchors": [
+        {
+          "x": 92.6874,
+          "y": 327.2955
+        }
+      ],
+      "moduleCount": 33,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Bug",
+      "areaNumber": "01",
+      "number": "02",
+      "code": "B",
+      "name": "Bug B",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Bug%20B",
+      "sectorIds": [
+        "8efd4220-10b6-49a4-a112-7763698a5487"
+      ],
+      "polygonIds": [
+        "171a411a-ea86-471e-92bf-baee0644d2c7"
+      ],
+      "mapAnchors": [
+        {
+          "x": 185.0486,
+          "y": 384.7725
+        }
+      ],
+      "moduleCount": 33,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Bug",
+      "areaNumber": "01",
+      "number": "03",
+      "code": "C",
+      "name": "Bug C",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Bug%20C",
+      "sectorIds": [
+        "2cee2c2c-3660-4c67-b3ab-77772f3cfabb"
+      ],
+      "polygonIds": [
+        "a748ffa5-9a94-45a3-90f4-13254dd3a07b"
+      ],
+      "mapAnchors": [
+        {
+          "x": 184.0234,
+          "y": 493.47900000000004
+        }
+      ],
+      "moduleCount": 33,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Bug",
+      "areaNumber": "01",
+      "number": "04",
+      "code": "D",
+      "name": "Bug D",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Bug%20D",
+      "sectorIds": [
+        "1ee4e756-b46c-41a3-86be-3095cc426678"
+      ],
+      "polygonIds": [
+        "32032aae-f789-41ec-8860-2f999de47ce3"
+      ],
+      "mapAnchors": [
+        {
+          "x": 249.6828,
+          "y": 493.9935
+        }
+      ],
+      "moduleCount": 33,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Couch-Ecke",
+      "areaNumber": "02",
+      "number": "05",
+      "code": "A",
+      "name": "Couch-Ecke A",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Couch-Ecke%20A",
+      "sectorIds": [
+        "e75eedf0-d94a-470a-a65e-a0b7f80d66cb"
+      ],
+      "polygonIds": [
+        "71edfbeb-4b27-4172-8657-f46470673f87"
+      ],
+      "mapAnchors": [
+        {
+          "x": 294.6984,
+          "y": 675.3915
+        }
+      ],
+      "moduleCount": 37,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Couch-Ecke",
+      "areaNumber": "02",
+      "number": "06",
+      "code": "B",
+      "name": "Couch-Ecke B",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Couch-Ecke%20B",
+      "sectorIds": [
+        "b8c7c7bf-02ce-41b1-bfb4-fa00196f6927"
+      ],
+      "polygonIds": [
+        "45e124f5-230f-44a3-ac2d-e649e324e5d4"
+      ],
+      "mapAnchors": [
+        {
+          "x": 32.85299999999999,
+          "y": 674.6565
+        }
+      ],
+      "moduleCount": 37,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Top-Out",
+      "areaNumber": "03",
+      "number": "07",
+      "code": "A",
+      "name": "Top-Out A",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Top-Out%20A",
+      "sectorIds": [
+        "6a74ab06-f4a3-4154-b1ed-8ac30f910066"
+      ],
+      "polygonIds": [
+        "5a6a051c-58be-45ad-a15a-6330609566ae"
+      ],
+      "mapAnchors": [
+        {
+          "x": 380.0696,
+          "y": 22.4175
+        }
+      ],
+      "moduleCount": 33,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Top-Out",
+      "areaNumber": "03",
+      "number": "08",
+      "code": "B",
+      "name": "Top-Out B",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Top-Out%20B",
+      "sectorIds": [
+        "e459eb28-4cd4-4352-86f1-8deffd0ac22b"
+      ],
+      "polygonIds": [
+        "b528555e-2163-4af5-a757-9d5f2e7159f9"
+      ],
+      "mapAnchors": [
+        {
+          "x": 446.0086,
+          "y": 127.81649999999999
+        }
+      ],
+      "moduleCount": 33,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Top-Out",
+      "areaNumber": "03",
+      "number": "09",
+      "code": "C",
+      "name": "Top-Out C",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Top-Out%20C",
+      "sectorIds": [
+        "0f4fb580-6393-4223-b7d5-eedead183648"
+      ],
+      "polygonIds": [
+        "f4014ffe-b477-442f-aa33-606ddad41f30"
+      ],
+      "mapAnchors": [
+        {
+          "x": 435.57019999999994,
+          "y": 312.81600000000003
+        }
+      ],
+      "moduleCount": 33,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Top-Out",
+      "areaNumber": "03",
+      "number": "10",
+      "code": "D",
+      "name": "Top-Out D",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Top-Out%20D",
+      "sectorIds": [
+        "1c972172-705d-44fe-a019-42e44b131b42"
+      ],
+      "polygonIds": [
+        "1176d184-3fee-4e3b-a221-b79af7bc6681"
+      ],
+      "mapAnchors": [
+        {
+          "x": 425.5978,
+          "y": 531.846
+        }
+      ],
+      "moduleCount": 33,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Lange Platte",
+      "areaNumber": "04",
+      "number": "11",
+      "code": "A",
+      "name": "Lange Platte A",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Lange%20Platte%20A",
+      "sectorIds": [
+        "63baa26f-094b-490e-a75f-e1a6d7c8bcf5"
+      ],
+      "polygonIds": [
+        "edc360ca-653d-441d-b38a-fb2e3f958842"
+      ],
+      "mapAnchors": [
+        {
+          "x": 255.55440000000002,
+          "y": 424.1685
+        }
+      ],
+      "moduleCount": 37,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Lange Platte",
+      "areaNumber": "04",
+      "number": "12",
+      "code": "B",
+      "name": "Lange Platte B",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Lange%20Platte%20B",
+      "sectorIds": [
+        "c3c434f5-5a2e-488c-b2f9-bf00735c2cac"
+      ],
+      "polygonIds": [
+        "2e67e027-c7cd-4ce9-8e2d-370d74afd695"
+      ],
+      "mapAnchors": [
+        {
+          "x": 243.485,
+          "y": 328.9125
+        }
+      ],
+      "moduleCount": 37,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Lange Platte",
+      "areaNumber": "04",
+      "number": "13",
+      "code": "C",
+      "name": "Lange Platte C",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Lange%20Platte%20C",
+      "sectorIds": [
+        "efba2368-1dc9-46d2-a19a-b0f8a3aa591b"
+      ],
+      "polygonIds": [
+        "ee67d89a-d192-43a6-b3c4-ab4602e15eec"
+      ],
+      "mapAnchors": [
+        {
+          "x": 256.0204,
+          "y": 214.62
+        }
+      ],
+      "moduleCount": 37,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Lange Platte",
+      "areaNumber": "04",
+      "number": "14",
+      "code": "D",
+      "name": "Lange Platte D",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Lange%20Platte%20D",
+      "sectorIds": [
+        "73457f90-a895-447f-b772-bad5c4e5c74d"
+      ],
+      "polygonIds": [
+        "5528cc57-a516-40e1-8c21-6dfbbc9fc036"
+      ],
+      "mapAnchors": [
+        {
+          "x": 266.8316,
+          "y": 82.2465
+        }
+      ],
+      "moduleCount": 37,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Grotte",
+      "areaNumber": "05",
+      "number": "15",
+      "code": "A",
+      "name": "Grotte A",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Grotte%20A",
+      "sectorIds": [
+        "8331e543-d86d-4bbb-b63b-6ec6acbc9809"
+      ],
+      "polygonIds": [
+        "55d4be5e-7c1b-4558-a478-3927d62e936d"
+      ],
+      "mapAnchors": [
+        {
+          "x": 53.59,
+          "y": 46.158
+        }
+      ],
+      "moduleCount": 33,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Grotte",
+      "areaNumber": "05",
+      "number": "16",
+      "code": "B",
+      "name": "Grotte B",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Grotte%20B",
+      "sectorIds": [
+        "7f92ef94-36a0-4705-a091-ab2d4027c0a0"
+      ],
+      "polygonIds": [
+        "b2465c6d-033e-4121-a11b-5f7b2e368591"
+      ],
+      "mapAnchors": [
+        {
+          "x": 195.02100000000002,
+          "y": 42.70349999999999
+        }
+      ],
+      "moduleCount": 33,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Grotte",
+      "areaNumber": "05",
+      "number": "17",
+      "code": "C",
+      "name": "Grotte C",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Grotte%20C",
+      "sectorIds": [
+        "d06a9e07-ec24-4815-b057-d8f19c63a14b"
+      ],
+      "polygonIds": [
+        "60c95e09-b2af-45fd-9547-0c357efc8126"
+      ],
+      "mapAnchors": [
+        {
+          "x": 200.38,
+          "y": 179.19299999999998
+        }
+      ],
+      "moduleCount": 33,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Grotte",
+      "areaNumber": "05",
+      "number": "18",
+      "code": "D",
+      "name": "Grotte D",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Grotte%20D",
+      "sectorIds": [
+        "52c04e6e-eb84-4431-9169-dbd23311b8a4"
+      ],
+      "polygonIds": [
+        "6b316b31-30c4-43ea-8e9f-6a1afacc6b9d"
+      ],
+      "mapAnchors": [
+        {
+          "x": 113.79720000000002,
+          "y": 273.567
+        }
+      ],
+      "moduleCount": 33,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    },
+    {
+      "area": "Kurze Platte",
+      "areaNumber": "06",
+      "number": "19",
+      "code": "A",
+      "name": "Kurze Platte",
+      "url": "https://beta.kletterwelt-sauerland.de/guest?sector=Kurze%20Platte",
+      "sectorIds": [
+        "4cafe185-391d-415c-8914-6c68799deff1"
+      ],
+      "polygonIds": [
+        "a8c342c6-92f2-4a0b-9a0f-102684197a11"
+      ],
+      "mapAnchors": [
+        {
+          "x": 10.950999999999974,
+          "y": 421.449
+        }
+      ],
+      "moduleCount": 37,
+      "quietZoneModules": 4,
+      "sizeMm": 24
+    }
+  ]
+}

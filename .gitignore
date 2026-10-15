@@ -33,6 +33,8 @@ video-server/data/
 *-*.json
 !google-services.json
 !test/fixtures/hall-hierarchy-snapshot.json
+!docs/print/sectors/sectors-source.json
+!docs/print/sectors/qr-manifest.json
 service-account*.json
 
 # Temporary video processing files
