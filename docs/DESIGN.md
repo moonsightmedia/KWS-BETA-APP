@@ -1618,6 +1618,10 @@ Kalender-Bedienelemente haben mindestens 44px; die Setter-Planung behält ihre
 größere Bearbeitungsansicht. Lesen, Leerzustand, Ladefehler und Wiederholen sind
 getrennte Zustände. Route und Kalender sind auch für Gäste lesbar.
 
-Die aktivierte Trainingsoberfläche bleibt ein lokales Werkzeug pro Konto und
-Gerät, ohne Cloud-Synchronisierung oder behauptete Trainerfreigabe. Der
-gemeinsame Root behält den Live-Navigationszustand und Profilfoto-Cache bei.
+Nutzerkorrektur 15.10.2026: Training ist noch nicht zur Veröffentlichung
+freigegeben. Ausschließlich die lokale Entwicklungsvorschau darf den Bereich
+aktivieren. Web- und native Produktionsbuilds zeigen weder Training in der
+Navigation noch Trainingseinstellungen; direkte Trainings- und Einstellungslinks
+sind gesperrt. Ein altes Vorschau-Flag darf diese Releasesperre nicht umgehen.
+Entwicklungscode und lokal gespeicherte Inhalte bleiben erhalten. Der gemeinsame
+Root behält den Live-Navigationszustand und Profilfoto-Cache bei.

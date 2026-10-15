@@ -16,7 +16,8 @@ const env={...process.env,VITE_SUPABASE_URL:'https://beta-api.kletterwelt-sauerl
   VITE_SUPABASE_PUBLISHABLE_KEY:key,VITE_VIDEO_API_URL:'https://video.kletterwelt-sauerland.de',
   VITE_NATIVE_VIDEO_API_URL:'https://video.kletterwelt-sauerland.de',
   VITE_ALLINKL_API_URL:'https://video.kletterwelt-sauerland.de',
-  VITE_AUTH_SITE_URL:site,VITE_USE_ALLINKL_STORAGE:'false',VITE_TELEMETRY_ENABLED:'false',VITE_SENTRY_DSN:''};
+  VITE_AUTH_SITE_URL:site,VITE_USE_ALLINKL_STORAGE:'false',VITE_TELEMETRY_ENABLED:'false',VITE_SENTRY_DSN:'',
+  VITE_TRAINING_UI_PREVIEW:'false'};
 const run=(args)=>new Promise((res,rej)=>{
   const child=spawn(process.execPath,args,{cwd:root,env,stdio:'inherit',windowsHide:true});
   child.on('error',rej);child.on('exit',code=>code===0?res():rej(new Error(`Build step failed (${code})`)));
