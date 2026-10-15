@@ -438,7 +438,7 @@ const router = createBrowserRouter([
         </RequireAuth>
       ) },
       { path: 'training/*', element: TRAINING_UI_ENABLED ? <RequireAuth><Training /></RequireAuth> : <NotFound /> },
-      { path: 'profile/training', element: <RequireAuth><TrainingSettings /></RequireAuth> },
+      { path: 'profile/training', element: TRAINING_UI_ENABLED ? <RequireAuth><TrainingSettings /></RequireAuth> : <NotFound /> },
       { path: "admin", element: <Admin /> },
       {
         path: "setter",

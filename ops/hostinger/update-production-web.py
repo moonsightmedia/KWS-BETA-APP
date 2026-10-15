@@ -77,7 +77,7 @@ def main():
         'VITE_VIDEO_API_URL':'https://video.kletterwelt-sauerland.de','VITE_NATIVE_VIDEO_API_URL':'https://video.kletterwelt-sauerland.de',
         'VITE_ALLINKL_API_URL':'https://video.kletterwelt-sauerland.de','VITE_USE_ALLINKL_STORAGE':'false',
         'VITE_AUTH_SITE_URL':'https://beta.kletterwelt-sauerland.de','VITE_TELEMETRY_ENABLED':'false','VITE_SENTRY_DSN':'',
-        'VITE_TRAINING_UI_PREVIEW':'true'}
+        'VITE_TRAINING_UI_PREVIEW':'false'}
     (source / '.env.hostinger.local').write_text('\n'.join(key+'='+value for key,value in values.items())+'\n')
     log_path = stage / 'build.log'
     with log_path.open('ab') as log:
