@@ -128,6 +128,7 @@ export interface Boulder {
   difficulty: number;
   color: string;
   color_2?: string | null;
+  volume_only?: boolean;
   beta_video_url: string | null;
   beta_video_urls: VideoQualities | null;
   beta_video_status?: 'none' | 'uploading' | 'queued' | 'processing' | 'ready' | 'failed' | null;
@@ -395,6 +396,7 @@ export const useBouldersWithSectors = (enabled: boolean = true) => {
             difficulty: b.difficulty as any,
             color: b.color as any,
             color2: b.color_2 as FrontendBoulder['color2'] || undefined,
+            volumeOnly: b.volume_only === true,
             betaVideoUrl: b.beta_video_url || undefined,
             note: b.note || undefined,
             createdAt: new Date(b.created_at),

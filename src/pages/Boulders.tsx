@@ -24,6 +24,7 @@ import { APP_USER_ROUTES } from '@/features/training/flags';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { cn } from '@/lib/utils';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
+import { BoulderTypeBadge } from '@/components/boulder/BoulderTypeBadge';
 import { Boulder } from '@/types/boulder';
 import { matchesBoulderColorFilter } from '@/utils/colorUtils';
 const STORAGE_KEY_BOULDER_VIEW = 'boulder_view_mode';
@@ -988,6 +989,7 @@ const Boulders = () => {
                         NEU
                       </span>
                     )}
+                    <BoulderTypeBadge volumeOnly={boulder.volumeOnly} compact className="absolute left-1.5 top-9 sm:left-2" />
 
                     <div className="absolute inset-x-0 bottom-0 flex h-[46%] flex-col justify-end bg-gradient-to-t from-white via-white/90 to-transparent px-1.5 pb-1.5 pt-7 text-[#192436] sm:h-[48%] sm:px-2 sm:pb-2 md:h-[40%] md:px-4 md:pb-4">
                       <span className="block truncate text-[9px] font-bold leading-tight tracking-[-0.02em] sm:text-[10px] md:text-sm">
@@ -1046,6 +1048,7 @@ const Boulders = () => {
                               <span className="shrink-0 rounded-kws-badge bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">NEU</span>
                             )}
                           </div>
+                          <BoulderTypeBadge volumeOnly={boulder.volumeOnly} className="mb-1" />
                           <div className="truncate text-xs text-muted-foreground">
                             {boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}
                           </div>

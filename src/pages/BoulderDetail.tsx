@@ -9,6 +9,7 @@ import { de } from 'date-fns/locale';
 
 import { BoulderBetaTab, BoulderInfoTab, BoulderTrackTab } from '@/components/boulder/BoulderDetailSections';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
+import { BoulderTypeBadge } from '@/components/boulder/BoulderTypeBadge';
 import {
   BoulderVideoPlayer,
   getVimeoEmbedUrl,
@@ -224,6 +225,7 @@ export default function BoulderDetail() {
         >
           {boulder.name}
         </h2>
+        <BoulderTypeBadge volumeOnly={boulder.volumeOnly} />
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
           <DifficultyBadge
             color={boulder.color}

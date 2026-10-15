@@ -21,7 +21,7 @@ test('eligible MP4 H.264 source is remuxed as staged HD while SD and Low encode'
     const finalDir = path.join(root, 'final'); await fs.mkdir(finalDir); const queue = new JobQueue({ jobsDir: path.join(root, 'jobs'), stagingDir: path.join(root, 'staging'), finalDir, maxQueue: 1 }); await queue.initialize();
     const input = await fixture(root, 'eligible.mov', true, 30); assert.ok(await probeHdPassthroughSource(input), 'fixture must meet source policy despite its extension');
     const submitted = await enqueueFixture(queue, root, input, 'eligible'); const job = await waitForJob(queue, submitted.job_id); assert.equal(job.status, 'completed', job.error); assert.equal(job.hd_passthrough, true);
-    const hd = await probeRendition(path.join(finalDir, 'sector', 'eligible_hd.mp4'), QUALITIES[0]); assert.equal(hd.audio, 'aac');
+    const hd = await probeRendition(path.join(finalDir, 'sector', 'eligible_hd.mp4'), QUALITIES[0]); assert.equal(hd.audio, null);
     for (const quality of QUALITIES) assert.equal(await fs.stat(path.join(finalDir, 'sector', `eligible_${quality.suffix}.mp4`)).then((stat) => stat.size > 0), true);
   } finally { await fs.rm(root, { recursive: true, force: true }); }
 });
@@ -65,14 +65,14 @@ test('a second durable commit-write failure retains and resumes its reserved slo
   } finally { console.error = originalError; await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 }); }
 });
 
-test('real FFmpeg produces validated audio and video-only whole sets', { timeout: 60_000 }, async () => {
+test('real FFmpeg removes audio from all qualities for audio-bearing and silent sources', { timeout: 60_000 }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'kws-ffmpeg-'));
   try {
     const finalDir = path.join(root, 'final'); await fs.mkdir(finalDir); const queue = new JobQueue({ jobsDir: path.join(root, 'jobs'), stagingDir: path.join(root, 'staging'), finalDir, maxQueue: 2 }); await queue.initialize();
     for (const [name, hasAudio] of [['audio', true], ['silent', false]]) {
       const input = await fixture(root, `${name}.mp4`, hasAudio); const submitted = await enqueueFixture(queue, root, input, name); const job = await waitForJob(queue, submitted.job_id); assert.equal(job.status, 'completed', job.error);
       const marker = JSON.parse(await fs.readFile(path.join(finalDir, 'sector', `.${name}.ready.json`), 'utf8')); assert.equal(marker.job_id, job.job_id);
-      for (const quality of QUALITIES) { const output = path.join(finalDir, 'sector', `${name}_${quality.suffix}.mp4`); const info = await probeRendition(output, quality); assert.ok(info.fps <= 30.01); assert.ok(Math.max(info.width, info.height) <= quality.box); assert.ok(info.video_bitrate <= ({ hd: 4_000_000, sd: 2_000_000, low: 600_000 }[quality.suffix] * 1.15)); assert.equal(info.audio, hasAudio ? 'aac' : null); if (hasAudio) assert.ok(info.audio_bitrate <= ({ hd: 128_000, sd: 96_000, low: 64_000 }[quality.suffix] * 1.15)); assert.equal([info.width, info.height].sort((a, b) => b - a)[0], 320, 'small sources must not be upscaled'); const metadata = JSON.parse(await capture('ffprobe', ['-v', 'error', '-show_entries', 'format_tags:stream_tags', '-of', 'json', output])); assert.equal(metadata.format?.tags?.title, undefined); assert.ok(!(metadata.streams || []).some((stream) => stream.tags?.title)); }
+      for (const quality of QUALITIES) { const output = path.join(finalDir, 'sector', `${name}_${quality.suffix}.mp4`); const info = await probeRendition(output, quality); assert.ok(info.fps <= 30.01); assert.ok(Math.max(info.width, info.height) <= quality.box); assert.ok(info.video_bitrate <= ({ hd: 4_000_000, sd: 2_000_000, low: 600_000 }[quality.suffix] * 1.15)); assert.equal(info.audio, null); assert.equal(info.audio_bitrate, null); assert.equal([info.width, info.height].sort((a, b) => b - a)[0], 320, 'small sources must not be upscaled'); const metadata = JSON.parse(await capture('ffprobe', ['-v', 'error', '-show_entries', 'format_tags:stream_tags', '-of', 'json', output])); assert.equal(metadata.format?.tags?.title, undefined); assert.ok(!(metadata.streams || []).some((stream) => stream.tags?.title)); }
     }
   } finally { await fs.rm(root, { recursive: true, force: true }); }
 });

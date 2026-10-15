@@ -22,6 +22,7 @@ import { SetterConfirm, SetterState } from "@/components/setter/SetterControls";
 import { SetterSurface } from "@/components/setter/SetterWorkspaceShell";
 import { UploadOverview } from "@/components/UploadOverview";
 import { Button } from "@/components/ui/button";
+import { BoulderTypeBadge } from "@/components/boulder/BoulderTypeBadge";
 import { useUpload } from "@/contexts/UploadContext";
 import {
   useBoulderAttributeCatalog,
@@ -205,6 +206,7 @@ export function BatchUpload() {
           sector_id: boulder.sectorId,
           color: colorName,
           color_2: colorName2,
+          volume_only: boulder.volumeOnly === true,
           difficulty: boulder.difficulty,
           note: boulder.note.trim() || null,
           status: "haengt",
@@ -456,6 +458,7 @@ export function BatchUpload() {
                     <p className="break-words text-sm font-semibold">
                       {boulder.name}
                     </p>
+                    <BoulderTypeBadge volumeOnly={boulder.volumeOnly} className="mt-1" />
                     <p className="mt-1 text-xs text-muted-foreground">
                       {sectors.find((s) => s.id === boulder.sectorId)?.name}
                       {boulder.sectorId2

@@ -1,6 +1,6 @@
 import { registerPlugin } from '@capacitor/core';
 
-/** Native contract for KWS Upload Master Encoder v1.1.0 (iOS only). */
+/** Native contract for KWS Upload Master Encoder v1.2.4 (iOS only). */
 export interface UploadMasterEncodeResult {
   path: string; fileSize: number; durationSeconds: number; width: number; height: number;
   videoTrackCount: number; audioTrackCount: number; averageBitrate: number;
@@ -16,6 +16,9 @@ export interface UploadMasterEncoderPlugin {
     sourceHeight?: number;
   }): Promise<UploadMasterEncodeResult>;
   cancel(options: { operationId: string }): Promise<void>;
+  stripAudio(options: { inputPath: string; operationId: string }): Promise<{
+    path: string; fileSize: number; audioTrackCount: number; skipped: boolean;
+  }>;
   deleteFile(options: { path: string }): Promise<void>;
 }
 export const UploadMasterEncoder = registerPlugin<UploadMasterEncoderPlugin>('UploadMasterEncoder');

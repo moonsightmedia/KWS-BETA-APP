@@ -46,7 +46,7 @@ export async function probeRendition(file, quality, ffprobe = 'ffprobe') {
   if (video?.codec_name !== 'h264' || video?.pix_fmt !== 'yuv420p' || !video.width || !video.height || Math.max(video.width, video.height) > quality.box || !Number.isFinite(duration) || duration <= 0 || !fps || fps > 30.01) throw new Error(`ffprobe rejected ${quality.suffix} video`);
   const videoBitrate = Number(video?.bit_rate); const audioBitrate = Number(audio?.bit_rate);
   if (!Number.isFinite(videoBitrate) || videoBitrate <= 0 || videoBitrate > bitrateLimit(quality.maxrate) * 1.15) throw new Error(`ffprobe rejected ${quality.suffix} video bitrate`);
-  if (audio && (audio.codec_name !== 'aac' || !Number.isFinite(audioBitrate) || audioBitrate <= 0 || audioBitrate > bitrateLimit(quality.audioBitrate) * 1.15)) throw new Error(`ffprobe rejected ${quality.suffix} audio`);
+  if (audio) throw new Error(`ffprobe rejected ${quality.suffix}: audio tracks are forbidden`);
   const stat = await fs.stat(file); if (stat.size <= 0) throw new Error('encoder produced an empty file');
   return { bytes: stat.size, duration, width: video.width, height: video.height, fps, video_bitrate: videoBitrate, audio: audio?.codec_name || null, audio_bitrate: audio ? audioBitrate : null };
 }
@@ -206,7 +206,7 @@ export class JobQueue {
     // is valid, so no partial family becomes public.
     if (await probeHdPassthroughSource(input, this.ffprobe)) {
       await fs.unlink(hdTmp).catch(() => {});
-      await run(this.ffmpeg, ['-y', '-i', input, '-map', '0:v:0', '-map', '0:a:0?', '-map_metadata', '-1', '-map_chapters', '-1', '-c:v', 'copy', '-c:a', 'copy', '-movflags', '+faststart', '-f', 'mp4', hdTmp]);
+      await run(this.ffmpeg, ['-y', '-i', input, '-map', '0:v:0', '-an', '-map_metadata', '-1', '-map_chapters', '-1', '-c:v', 'copy', '-movflags', '+faststart', '-f', 'mp4', hdTmp]);
       outputs[hd.suffix] = await probeRendition(hdTmp, hd, this.ffprobe); await fs.rename(hdTmp, hdStaged);
       job.hd_passthrough = true; await this.save(job);
     } else {
@@ -217,7 +217,7 @@ export class JobQueue {
       const staged = inside(stage, `${quality.suffix}.mp4`); const tmp = inside(stage, `${quality.suffix}.tmp.mp4`);
       await fs.unlink(tmp).catch(() => {});
       const scale = `scale=w='min(iw,${quality.box})':h='min(ih,${quality.box})':force_original_aspect_ratio=decrease:force_divisible_by=2`;
-      await run(this.ffmpeg, ['-y', '-i', input, '-map', '0:v:0', '-map', '0:a:0?', '-map_metadata', '-1', '-map_chapters', '-1', '-vf', scale, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-fpsmax', '30', '-preset', 'veryfast', '-crf', String(quality.crf), '-maxrate', quality.maxrate, '-bufsize', quality.bufsize, '-c:a', 'aac', '-b:a', quality.audioBitrate, '-movflags', '+faststart', '-f', 'mp4', tmp]);
+      await run(this.ffmpeg, ['-y', '-i', input, '-map', '0:v:0', '-an', '-map_metadata', '-1', '-map_chapters', '-1', '-vf', scale, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-fpsmax', '30', '-preset', 'veryfast', '-crf', String(quality.crf), '-maxrate', quality.maxrate, '-bufsize', quality.bufsize, '-movflags', '+faststart', '-f', 'mp4', tmp]);
       outputs[quality.suffix] = await probeRendition(tmp, quality, this.ffprobe); await fs.rename(tmp, staged);
     }
     await fs.unlink(marker).catch(() => {});

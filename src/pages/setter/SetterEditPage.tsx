@@ -9,6 +9,7 @@ import {
 } from "@/components/setter/SetterBoulderEditorDialog";
 import { SetterSurface } from "@/components/setter/SetterWorkspaceShell";
 import { Button } from "@/components/ui/button";
+import { BoulderTypeBadge } from "@/components/boulder/BoulderTypeBadge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ActiveFilterChip, BoulderFilterControls, BoulderFilterPanel, BoulderFilterTrigger } from "@/components/boulder/BoulderFilterControls";
 import { SectorFilterOptions } from "@/components/boulder/SectorFilterOptions";
@@ -74,6 +75,7 @@ function mapBoulderToDraft(
     spansMultipleSectors: Boolean(sectorId2),
     colorId,
     colorId2,
+    volumeOnly: boulder.volumeOnly === true,
     difficulty: boulder.difficulty,
     note: boulder.note ?? "",
     attributeIds: [],
@@ -260,6 +262,7 @@ export default function SetterEditPage() {
         difficulty: editorDraft.difficulty,
         color: colorName,
         color_2: colorName2,
+        volume_only: editorDraft.volumeOnly === true,
         note: editorDraft.note.trim() || null,
       };
 
@@ -496,6 +499,7 @@ export default function SetterEditPage() {
                           <p className="break-words text-sm font-semibold">
                             {b.name}
                           </p>
+                          <BoulderTypeBadge volumeOnly={b.volumeOnly} className="mt-1" />
                           <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                             <span
                               aria-hidden="true"

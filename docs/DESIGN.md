@@ -1580,3 +1580,19 @@ Einheiten und Wochenplan zeigen denselben konkreten Aufwärmablauf: Bewegung am 
 Der pauschale Abschluss mit „locker bewegen und reflektieren“ entfällt. Dafür werden auch keine drei zusätzlichen Minuten mehr gerechnet. Der Zeitansatz zählt genau die dargestellten Aufwärmphasen und Übungen/Pausen. Ältere cooldownMinutes-Felder dürfen lesbar bleiben, werden aber nicht dargestellt oder mitgerechnet. Anfänger- und Erwachsenengrenzen sowie feste Termine bleiben erhalten. Leere und reine Orientierungs-/Kinderinhalte erhalten keine allgemeine Erwachsenenvorgabe.
 
 Prüfbeleg: `docs/qa/2026-10-14-training-concrete-warmup.md`.
+### 15.7 Volumen-Boulder und tonlose Uploads (2026-10-14)
+
+- „Nur Volumen“ ist eine unabhängige Setter-Angabe für Boulder ohne zusätzliche
+  Griffe. Eine oder zwei Farben bleiben frei wählbar; die Option ersetzt weder
+  Grad noch Farbe oder andere Merkmale.
+- Anlegen und Bearbeiten verwenden denselben Schalter im Farbbereich.
+  Boulderlisten, Home, Details, Upload-Stapel und Setterübersichten kennzeichnen
+  den Typ mit einem neutralen Badge aus Icon und Text. Gridkarten verwenden die
+  kompakte Beschriftung „Volumen“, Details „Nur Volumen“.
+- Neue Videos werden vor dem Upload ohne Tonspur vorbereitet. Der Editor
+  benennt dies ausdrücklich. Die Galerie-Datei bleibt unverändert. Eine fehlende
+  Tonentfernung ist ein sichtbarer Fehler und kein Anlass für einen Upload mit Ton.
+- Bestehende Videos und externe Video-Links werden nicht rückwirkend verändert.
+
+Prüfbelege: `docs/qa/2026-10-14-volume-silent.md`,
+`e2e/volume-silent.spec.ts`, `test/nativeSilentVideo.test.mjs`.

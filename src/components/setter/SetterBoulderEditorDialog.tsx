@@ -42,6 +42,7 @@ export interface SetterBoulderDraft {
   spansMultipleSectors: boolean;
   colorId: string;
   colorId2?: string;
+  volumeOnly?: boolean;
   difficulty: number | null;
   note: string;
   attributeIds: string[];
@@ -89,6 +90,7 @@ export const createEmptySetterBoulderDraft = (
     spansMultipleSectors: false,
     colorId: defaultColor?.id ?? "",
     colorId2: undefined,
+    volumeOnly: false,
     difficulty: defaultDifficulty,
     note: "",
     attributeIds: [],
@@ -513,6 +515,7 @@ export function SetterBoulderEditorDialog({
                   !draft.videoFile && !draft.existingVideoUrl && !draft.withoutVideo,
                   "Bitte ein Video wählen oder „Beta später ergänzen“ aktivieren.",
                 )}
+                <p className="text-xs text-muted-foreground">Neue Videos werden ohne Ton hochgeladen.</p>
                 {missing(
                   !draft.thumbFile && !draft.existingThumbnailUrl,
                   "Bitte ein Vorschaubild wählen.",
@@ -573,6 +576,14 @@ export function SetterBoulderEditorDialog({
               </section>
               <section className="space-y-2">
                 <h3 className="text-sm font-medium">Farbe</h3>
+                <label className="flex min-h-11 items-center gap-3 rounded-kws-control bg-secondary p-3 text-sm">
+                  <Checkbox checked={draft.volumeOnly === true}
+                    onCheckedChange={(checked) => update({ volumeOnly: checked === true })} />
+                  <span>
+                    <span className="block font-semibold">Nur Volumen</span>
+                    <span className="block text-xs text-muted-foreground">Ohne zusätzliche Griffe · Farbe frei wählbar</span>
+                  </span>
+                </label>
                 {renderColor(false)}
                 {missing(!draft.colorId, "Bitte eine Farbe wählen.")}
                 {dual && (
