@@ -36,6 +36,7 @@ import SetterStatusPage from "./pages/setter/SetterStatusPage";
 import Guest from "./pages/Guest";
 import Competition from "./pages/Competition";
 import TvSchedule from "./pages/TvSchedule";
+import ResetSchedule from "./pages/ResetSchedule";
 import NotFound from "./pages/NotFound";
 import { Sidebar } from "@/components/Sidebar";
 import { SetterAreaLayout } from "@/components/setter/SetterAreaLayout";
@@ -315,6 +316,7 @@ const Root = () => {
     location.pathname === '/auth' ||
     location.pathname === '/auth/callback' ||
     location.pathname === '/reset-password' ||
+    location.pathname === '/schedule' ||
     location.pathname === '/competition';
   
   if ((authLoading || isInitialLoad) && !isPublicRoute) {
@@ -396,6 +398,7 @@ const router = createBrowserRouter([
         </RequireAuth>
       ) },
       { path: "sectors", element: <Sectors /> },
+      { path: "schedule", element: <ResetSchedule /> },
       { path: "boulders", element: <BouldersOverviewRoute /> },
       { path: "boulders/:id", element: <BoulderDetail /> },
       { path: "auth", element: <Auth /> },

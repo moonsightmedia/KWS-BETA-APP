@@ -1,0 +1,10 @@
+export * from './personal-hooks';
+import { useAuth as useFixtureAuth } from './personal-hooks';
+export const useAuth = () => new URLSearchParams(location.search).has('guest') ? { user: null, session: null, loading: false, signOut: async () => {} } : useFixtureAuth();
+export const fetchProfileRecord = async () => ({ first_name: 'Alex', full_name: 'Alex Beispiel' });
+export const useUnreadCount = () => ({ data: 0 });
+export const useNotifications = () => ({ data: [], isLoading: false });
+export const useMarkAsRead = () => ({ mutate() {} });
+export const useMarkAllAsRead = useMarkAsRead;
+export const useChangeNotification = () => ({ mutate() {}, mutateAsync: async () => {} });
+export const usePreloadBoulderThumbnails = () => {};

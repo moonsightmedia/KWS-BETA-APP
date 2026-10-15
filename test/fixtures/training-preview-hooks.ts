@@ -9,3 +9,4 @@ export const useAuth = () => {
 };
 export const useIsAdmin = () => ({ isAdmin: false, loading: false });
 export const useHasRole = () => ({ hasRole: false, loading: false });
+export const fetchProfileRecord = async () => ({ first_name: 'Demo', avatar_url: null });

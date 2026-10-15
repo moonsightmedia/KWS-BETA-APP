@@ -1600,3 +1600,24 @@ Prüfbeleg: `docs/qa/2026-10-14-training-concrete-warmup.md`.
 
 Prüfbelege: `docs/qa/2026-10-14-volume-silent.md`,
 `e2e/volume-silent.spec.ts`, `test/nativeSilentVideo.test.mjs`.
+
+### Gemeinsamer Web-Release 15.10.2026: öffentlicher Schraubplan
+
+Home und Profil führen auf `/schedule`. Termine und ein kompakter Kalender
+verwenden dieselben öffentlich lesbaren Hallendaten, ohne Erstellerdaten zu laden.
+Gleiche Zeitpunkte werden zusammengefasst, unterschiedliche Uhrzeiten bleiben
+getrennt. Heute/Morgen und Tagesgruppen richten sich nach Europe/Berlin.
+Ansicht, Monat und gewählter Tag werden als versionierte, öffentliche
+UI-Präferenzen gespeichert; fehlender Speicher blockiert die Bedienung nicht.
+Der nächste Termin erhält ein Badge statt einer zusätzlichen grünen Seitenlinie.
+
+Die Home-Vorschau hat keinen festen rechten Termin-Badge mehr. Lange
+Teilbereichsnamen umbrechen innerhalb der Karte, auch ungetrennte Wörter.
+Der Abschnittstitel und die Aktion dürfen bei großer Schrift umbrechen.
+Kalender-Bedienelemente haben mindestens 44px; die Setter-Planung behält ihre
+größere Bearbeitungsansicht. Lesen, Leerzustand, Ladefehler und Wiederholen sind
+getrennte Zustände. Route und Kalender sind auch für Gäste lesbar.
+
+Die aktivierte Trainingsoberfläche bleibt ein lokales Werkzeug pro Konto und
+Gerät, ohne Cloud-Synchronisierung oder behauptete Trainerfreigabe. Der
+gemeinsame Root behält den Live-Navigationszustand und Profilfoto-Cache bei.

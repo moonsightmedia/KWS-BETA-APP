@@ -14,12 +14,13 @@ import {
   type DayContentProps,
   type DayProps,
 } from "react-day-picker";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SetterSurface } from "./SetterWorkspaceShell";
 import { scheduleDayKey, type SetterAppointment } from "@/lib/setterSchedule";
 
 const CalendarEntries = createContext(new Map<string, SetterAppointment[]>());
+const CompactCalendar = createContext(false);
 function ScheduleDay({ date, displayMonth }: DayProps) {
   const ref = useRef<HTMLButtonElement>(null);
   const { labels, locale } = useDayPicker();
@@ -33,12 +34,20 @@ function ScheduleDay({ date, displayMonth }: DayProps) {
       name="day"
       ref={ref}
       {...day.buttonProps}
+      data-reset-day={day.activeModifiers.scheduled ? 'true' : undefined}
       aria-label={labels.labelDay(date, day.activeModifiers, { locale })}
     />
   );
 }
 function ScheduleDayContent({ date }: DayContentProps) {
   const entries = useContext(CalendarEntries).get(scheduleDayKey(date)) ?? [];
+  const compact = useContext(CompactCalendar);
+  if (compact) return <>
+    <span className="font-semibold tabular-nums leading-5">{date.getDate()}</span>
+    <span aria-hidden="true" className="flex h-3 items-center justify-center gap-0.5 text-[10px] leading-3">
+      {entries.length > 0 && <><CalendarDays className="h-3 w-3" />{entries.length > 1 && entries.length}</>}
+    </span>
+  </>;
   return (
     <>
       <span className="font-semibold tabular-nums">{date.getDate()}</span>
@@ -79,6 +88,11 @@ export function SetterScheduleCalendar({
   onSelectDay,
   onCreate,
   canCreate,
+  readOnly = false,
+  todayDate,
+  compact = false,
+  selectedDayLabel,
+  selectedDaySubtitle,
   children,
 }: {
   appointments: SetterAppointment[];
@@ -88,9 +102,14 @@ export function SetterScheduleCalendar({
   onSelectDay: (date: Date) => void;
   onCreate: (date: Date) => void;
   canCreate: boolean;
+  readOnly?: boolean;
+  todayDate?: Date;
+  compact?: boolean;
+  selectedDayLabel?: string;
+  selectedDaySubtitle?: string;
   children: ReactNode;
 }) {
-  const today = new Date();
+  const today = todayDate ? new Date(todayDate) : new Date();
   today.setHours(0, 0, 0, 0);
   const byDay = useMemo(() => {
     const index = new Map<string, SetterAppointment[]>();
@@ -104,7 +123,7 @@ export function SetterScheduleCalendar({
     isSameMonth(item.date, month),
   ).length;
   return (
-    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+    <div className={`grid items-start ${compact ? 'gap-4' : 'gap-5'} xl:grid-cols-[minmax(0,1fr)_300px]`}>
       <div data-schedule-calendar data-swipe-ignore>
         <SetterSurface className="min-w-0 p-3 sm:p-4">
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -150,7 +169,7 @@ export function SetterScheduleCalendar({
               </Button>
             </div>
           </div>
-          <CalendarEntries.Provider value={byDay}>
+          <CalendarEntries.Provider value={byDay}><CompactCalendar.Provider value={compact}>
             <DayPicker
               mode="single"
               locale={de}
@@ -159,7 +178,10 @@ export function SetterScheduleCalendar({
               onMonthChange={onMonthChange}
               selected={selectedDay}
               showOutsideDays
-              fixedWeeks
+              fixedWeeks={!compact}
+              today={today}
+              modifiers={compact ? { scheduled: day => byDay.has(scheduleDayKey(day)) } : undefined}
+              modifiersClassNames={compact ? { scheduled: 'bg-primary/10 ring-1 ring-inset ring-primary/30' } : undefined}
               onDayClick={(day) => {
                 onSelectDay(day);
                 if (!isSameMonth(day, month)) onMonthChange(day);
@@ -184,41 +206,48 @@ export function SetterScheduleCalendar({
                 nav: "hidden",
                 table: "w-full table-fixed border-collapse",
                 head_row: "grid grid-cols-7",
-                head_cell:
-                  "py-2 text-center text-xs font-normal text-muted-foreground",
+                head_cell: `${compact ? 'py-1' : 'py-2'} text-center text-xs font-normal text-muted-foreground`,
                 tbody: "block",
                 row: "grid grid-cols-7 gap-y-1",
                 cell: "min-w-0 p-0 text-center",
-                day: "flex h-14 min-h-11 w-full min-w-0 flex-col justify-start rounded-kws-control px-1 pt-2 text-center text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:h-20",
-                day_today:
-                  "underline decoration-primary decoration-2 underline-offset-4",
-                day_selected:
-                  "!bg-primary/15 ring-1 ring-inset ring-primary-ink text-foreground",
+                day: compact
+                  ? "flex h-11 min-h-11 w-full min-w-0 flex-col items-center justify-center rounded-kws-control px-1 text-center text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring xl:h-16"
+                  : "flex h-14 min-h-11 w-full min-w-0 flex-col justify-start rounded-kws-control px-1 pt-2 text-center text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:h-20",
+                day_today: compact
+                  ? "underline decoration-foreground decoration-2 underline-offset-4"
+                  : "underline decoration-primary decoration-2 underline-offset-4",
+                day_selected: compact
+                  ? "!bg-primary-strong text-primary-foreground ring-2 ring-inset ring-foreground/70"
+                  : "!bg-primary/15 ring-1 ring-inset ring-primary-ink text-foreground",
                 day_outside: "text-muted-foreground",
                 day_hidden: "invisible",
               }}
             />
-          </CalendarEntries.Provider>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Tag wählen · Termine ansehen oder hinzufügen
-          </p>
+          </CompactCalendar.Provider></CalendarEntries.Provider>
+          {compact ? <div aria-label="Kalenderlegende" className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1"><span aria-hidden="true" className="h-3 w-3 border-b-2 border-foreground" />Heute</span>
+            <span className="flex items-center gap-1"><CalendarDays aria-hidden="true" className="h-3 w-3 text-primary-ink" />Schraubtag</span>
+            <span className="flex items-center gap-1"><span aria-hidden="true" className="h-3 w-3 rounded-kws-badge bg-primary-strong ring-1 ring-inset ring-foreground/70" />Ausgewählt</span>
+          </div> : <p className="mt-3 text-xs text-muted-foreground">
+            {readOnly ? 'Tag wählen · Schraubtermine ansehen' : 'Tag wählen · Termine ansehen oder hinzufügen'}
+          </p>}
         </SetterSurface>
       </div>
-      <section aria-label="Tagesplanung" className="min-w-0 space-y-3">
+      <section aria-label={readOnly ? 'Schraubtermine am ausgewählten Tag' : 'Tagesplanung'} className={compact ? 'min-w-0 space-y-2' : 'min-w-0 space-y-3'}>
         <div>
           <h2 className="text-base font-semibold">
-            {selectedDay.toLocaleDateString("de-DE", {
+            {selectedDayLabel ?? selectedDay.toLocaleDateString("de-DE", {
               weekday: "long",
               day: "numeric",
               month: "long",
             })}
           </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {selectedDay < today ? "Vergangene Termine" : "Schraubtermine"}
-          </p>
+          {selectedDaySubtitle ? <p className="mt-1 text-xs text-muted-foreground">{selectedDaySubtitle}</p> : !compact && <p className="mt-1 text-xs text-muted-foreground">
+            {!readOnly && selectedDay < today ? "Vergangene Termine" : "Schraubtermine"}
+          </p>}
         </div>
         {children}
-        {selectedDay >= today && (
+        {!readOnly && selectedDay >= today && (
           <Button
             disabled={!canCreate}
             variant="secondary"
@@ -229,7 +258,7 @@ export function SetterScheduleCalendar({
             Termin hinzufügen
           </Button>
         )}
-        {!canCreate && (
+        {!readOnly && !canCreate && (
           <p className="text-xs text-muted-foreground">
             Zum Planen muss zuerst ein Teilbereich angelegt werden.
           </p>

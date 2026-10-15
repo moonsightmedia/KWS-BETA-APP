@@ -10,8 +10,6 @@ import {
   Trophy,
   Zap,
 } from 'lucide-react';
-import { formatDate } from 'date-fns';
-import { de } from 'date-fns/locale';
 
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -27,7 +25,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderCommunity';
 import { buildPersonalProgress, homeFocusBoulders } from '@/lib/personalProgress';
-import { useSectorSchedule } from '@/hooks/useSectorSchedule';
+import { NextResetCard } from '@/components/schedule/NextResetCard';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -57,12 +55,6 @@ const getSectorAreaLabel = ({ sector, sector2 }: Pick<Boulder, 'sector' | 'secto
   return primaryArea === secondaryArea ? primaryArea : `${primaryArea} · ${secondaryArea}`;
 };
 
-const getScheduleTitle = (sectorNames: string[]) => {
-  if (sectorNames.length === 1) return `${sectorNames[0]} bekommt neue Boulder`;
-  if (sectorNames.length === 2) return `${sectorNames[0]} & ${sectorNames[1]} bekommen neue Boulder`;
-  return `${sectorNames.length} Sektoren bekommen neue Boulder`;
-};
-
 const DashboardSectionHeader = ({
   title,
   description,
@@ -74,9 +66,9 @@ const DashboardSectionHeader = ({
   actionLabel?: string;
   onActionClick?: () => void;
 }) => (
-  <div className="mb-2.5 flex items-center justify-between gap-3 px-0.5">
+  <div className="mb-2.5 flex flex-wrap items-center justify-between gap-3 px-0.5 sm:flex-nowrap">
     <div className="min-w-0">
-      <h2 className="font-sans text-sm font-semibold tracking-[-0.01em] text-[#192436]">{title}</h2>
+      <h2 className="break-words font-sans text-sm font-semibold tracking-[-0.01em] text-[#192436]">{title}</h2>
       {description ? <p className="pt-0.5 text-xs text-muted-foreground">{description}</p> : null}
     </div>
     {actionLabel && onActionClick ? (
@@ -146,7 +138,6 @@ const Index = () => {
   const queriesEnabled = !authLoading && !!user;
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(queriesEnabled);
   const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed(queriesEnabled);
-  const { data: schedule } = useSectorSchedule();
   const personalTicks = useMyTrackedBoulders();
   const personalSessions = useMyTrackingSessions();
   const myTrackedBoulders = personalTicks.data;
@@ -239,38 +230,6 @@ const Index = () => {
     };
   }, [user, authLoading, greetingName]);
 
-  const upcomingSchedules = useMemo(() => {
-    const now = new Date();
-    const grouped = new Map<string, { when: Date; sectorNames: string[] }>();
-
-    (schedule || [])
-      .filter((item) => new Date(item.scheduled_at) > now)
-      .forEach((item) => {
-        const when = new Date(item.scheduled_at);
-        const dayKey = when.toISOString().slice(0, 10);
-        const sectorName = sectors?.find((sector) => sector.id === item.sector_id)?.name || 'Unbekannter Sektor';
-        const existing = grouped.get(dayKey);
-
-        if (existing) {
-          existing.sectorNames.push(sectorName);
-          return;
-        }
-
-        grouped.set(dayKey, {
-          when,
-          sectorNames: [sectorName],
-        });
-      });
-
-    return [...grouped.values()]
-      .map((entry) => ({
-        when: entry.when,
-        sectorNames: Array.from(new Set(entry.sectorNames)),
-      }))
-      .sort((a, b) => a.when.getTime() - b.when.getTime())
-      .slice(0, 3);
-  }, [schedule, sectors]);
-
   const sevenDaysAgo = useMemo(() => {
     const date = new Date();
     date.setDate(date.getDate() - 7);
@@ -294,18 +253,6 @@ const Index = () => {
   const weeklyStats = useMemo(() => buildPersonalProgress(myTrackedBoulders ?? [], personalSessions.data ?? [], { days: 7 }), [myTrackedBoulders, personalSessions.data]);
   const progressStats = useMemo(() => buildPersonalProgress(myTrackedBoulders ?? [], personalSessions.data ?? []), [myTrackedBoulders, personalSessions.data]);
   const nextFocusBoulders = useMemo(() => homeFocusBoulders(myTrackedBoulders ?? [], boulders ?? [], progressStats.successIds).slice(0, 2), [myTrackedBoulders, boulders, progressStats.successIds]);
-
-  const daysUntilLabel = (date: Date) => {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const startOfTarget = new Date(date);
-    startOfTarget.setHours(0, 0, 0, 0);
-    const diffDays = Math.round((startOfTarget.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (diffDays <= 0) return 'Heute';
-    if (diffDays === 1) return 'in 1 Tag';
-    return `in ${diffDays} Tagen`;
-  };
 
   const layoutClassName = cn(
     'kws-sidebar-content flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]',
@@ -514,32 +461,8 @@ const Index = () => {
 
           <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-2">
             <section className="min-w-0" data-testid="home-next-reset">
-              <DashboardSectionHeader title="Nächste Umschraubung" />
-              <div className="rounded-kws-card bg-card p-3.5 shadow-[0_3px_14px_rgba(19,17,43,0.07)]">
-                {upcomingSchedules.length > 0 ? (
-                  <div className="grid min-w-0 grid-cols-[40px_minmax(0,1fr)] items-start gap-3">
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-kws-control bg-primary/10 text-primary">
-                      <CalendarDays className="h-4.5 w-4.5" strokeWidth={2} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="break-words text-sm font-semibold leading-relaxed tracking-[-0.02em] text-foreground [overflow-wrap:anywhere]">
-                        {getScheduleTitle(upcomingSchedules[0].sectorNames)}
-                      </p>
-                      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(upcomingSchedules[0].when, 'EEE, dd. MMM', { locale: de })}
-                        {upcomingSchedules.length > 1 ? ` · +${upcomingSchedules.length - 1} weitere` : ''}
-                      </p>
-                    <span className="rounded-kws-badge bg-primary/15 px-2 py-1 text-[10px] font-semibold text-primary-ink">
-                      {daysUntilLabel(upcomingSchedules[0].when)}
-                    </span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="py-1 text-sm text-muted-foreground">Kein Schraubtermin geplant.</p>
-                )}
-              </div>
+              <DashboardSectionHeader title="Nächste Umschraubung" actionLabel="Alle Termine" onActionClick={() => navigate('/schedule')} />
+              <NextResetCard />
             </section>
 
             <section className="min-w-0">

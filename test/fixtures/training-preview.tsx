@@ -12,6 +12,7 @@ import { APP_USER_ROUTES } from '@/features/training/flags';
 import { useTrainingPreferences } from '@/features/training/trainingPreferences';
 import { useHorizontalRouteSwipe } from '@/hooks/useHorizontalRouteSwipe';
 import { useAuth } from './training-preview-hooks';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@/index.css';
 
 export function PreviewMainPage() {
@@ -39,4 +40,4 @@ export function Preview() {
 // its root so the previous tree also owns (and cleans up) its portal overlays.
 const container = document.getElementById('root')! as HTMLElement & { kwsTrainingPreviewRoot?: Root };
 const root = container.kwsTrainingPreviewRoot ??= createRoot(container);
-root.render(<BrowserRouter><Preview /></BrowserRouter>);
+root.render(<QueryClientProvider client={new QueryClient()}><BrowserRouter><Preview /></BrowserRouter></QueryClientProvider>);

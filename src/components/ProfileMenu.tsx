@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Check, ChevronRight, LogOut, Settings, Shield, Wrench } from 'lucide-react';
+import { CalendarDays, Check, ChevronRight, LogOut, Settings, Shield, Wrench } from 'lucide-react';
 import { HomeIcon as LayoutDashboard, AccountIcon as User } from '@/lib/appIcons';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -146,6 +146,12 @@ export const ProfileMenu = ({
               <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             </DropdownMenuItem>}
 
+            <DropdownMenuItem className={menuItemClassName} onSelect={() => navigate('/schedule', { state: { from: 'profile' } })}>
+              <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span className="min-w-0 flex-1">Schraubplan</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            </DropdownMenuItem>
+
             <p className="px-3 pb-1 pt-3 font-sans text-xs font-medium text-muted-foreground">Bereich wechseln</p>
             {profileAreas.map((area) => {
               const AreaIcon = area.icon;
@@ -179,10 +185,12 @@ export const ProfileMenu = ({
             </DropdownMenuItem>
           </>
         ) : (
-          <DropdownMenuItem className={menuItemClassName} onSelect={() => navigate('/auth')}>
+          <><DropdownMenuItem className={menuItemClassName} onSelect={() => navigate('/schedule')}>
+            <CalendarDays className="h-4 w-4" aria-hidden="true" />Schraubplan
+          </DropdownMenuItem><DropdownMenuItem className={menuItemClassName} onSelect={() => navigate('/auth')}>
             <User className="h-4 w-4" aria-hidden="true" />
             Anmelden
-          </DropdownMenuItem>
+          </DropdownMenuItem></>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

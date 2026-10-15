@@ -14,6 +14,7 @@ export default defineConfig(({ command }) => {
     plugins: [{
       name: 'isolated-training-preview', enforce: 'pre' as const, apply: 'serve' as const,
       resolveId(source: string) {
+        if (source === '@/lib/profileCompat') return path.resolve(__dirname, 'test/fixtures/training-preview-hooks.ts');
         if (/(?:@\/|\/src\/)hooks\/(useAuth|useHasRole|useIsAdmin)(?:\.tsx?)?$/.test(source.replace(/\\/g, '/'))) return path.resolve(__dirname, 'test/fixtures/training-preview-hooks.ts');
       },
       transformIndexHtml() {

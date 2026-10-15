@@ -89,6 +89,7 @@ const Profile = () => {
       title: 'App',
       items: [
         { icon: Map, label: 'Sektoren', description: 'Hallenbereiche und aktuelle Boulder', path: '/sectors' },
+        { icon: CalendarDays, label: 'Schraubplan', description: 'Alle kommenden Umschraubungen', path: '/schedule' },
         { icon: Info, label: 'Über die App', description: 'Version und Informationen', path: '/profile/about' },
       ],
     },
@@ -156,7 +157,7 @@ const Profile = () => {
                     <button
                       key={item.label}
                       type="button"
-                      onClick={() => navigate(item.path)}
+                      onClick={() => navigate(item.path, item.path === '/schedule' ? { state: { from: 'profile' } } : undefined)}
                       className="flex min-h-[66px] w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-secondary/45 active:bg-secondary focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/45"
                     >
                       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-kws-control bg-secondary text-[#192436]/65">

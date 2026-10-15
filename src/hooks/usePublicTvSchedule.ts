@@ -66,7 +66,7 @@ function requirePublicEnv() {
   }
 }
 
-async function publicRestRequest<T>(path: string): Promise<T> {
+export async function publicRestRequest<T>(path: string): Promise<T> {
   requirePublicEnv();
 
   const controller = new AbortController();
@@ -90,7 +90,7 @@ async function publicRestRequest<T>(path: string): Promise<T> {
     return response.json() as Promise<T>;
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('Zeitüberschreitung beim Laden der TV-Daten.');
+      throw new Error('Zeitüberschreitung beim Laden der Hallendaten.');
     }
     throw error;
   } finally {
