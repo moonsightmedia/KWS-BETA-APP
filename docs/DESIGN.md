@@ -956,6 +956,10 @@ Bedienelemente auf wechselnden Wandfotos lesbar bleiben:
 - `Neu an der Wand` verwendet dieselbe kanonische Gridkarte wie die
   Boulderübersicht.
 - Schraubtermine und Rückblicke bleiben kompakte, scannbare Flächen.
+- Home-Terminkarten begrenzen Gridspalten mit `minmax(0,1fr)` und Gridkinder
+  mit `min-w-0`. Lange Sektornamen dürfen umbrechen; Datum und Zeitbadge teilen
+  eine umbruchfähige Metazeile unter dem Titel, nicht dessen knappen Restplatz.
+  Karte und Nachbarsektion bleiben auch bei vergrößerter Schrift im Seitenrand.
 - Wenig Text; jede Sektion beantwortet eine konkrete Nutzerfrage.
 
 ### 9.2 Statistiken
