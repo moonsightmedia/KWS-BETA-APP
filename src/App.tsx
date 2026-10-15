@@ -19,10 +19,14 @@ import AuthCallback from "./pages/AuthCallback";
 import ResetPassword from "./pages/ResetPassword";
 import Profile from "./pages/Profile";
 import ProfileEdit from "./pages/ProfileEdit";
+import TrainingSettings from './pages/TrainingSettings';
 import NotificationSettings from "./pages/NotificationSettings";
 import AboutApp from "./pages/AboutApp";
 import AppLegal from "./pages/AppLegal";
 import Statistics from "./pages/Statistics";
+import Training from './pages/Training';
+import { TrainingProvider } from '@/features/training/TrainingContext';
+import { TRAINING_UI_ENABLED } from '@/features/training/flags';
 import Admin from "./pages/Admin";
 import Setter from "./pages/Setter";
 import SetterCreatePage from "./pages/setter/SetterCreatePage";
@@ -329,7 +333,9 @@ const Root = () => {
               <ConditionalSidebar />
               <UploadOverview />
               <EmergencyReset />
-              <BoulderRouteContinuity key={user?.id ?? 'guest'} />
+              <TrainingProvider key={user?.id ?? 'guest'} accountId={user?.id ?? 'guest'}>
+                <BoulderRouteContinuity key={user?.id ?? 'guest'} />
+              </TrainingProvider>
             </ErrorBoundaryWithAuth>
           </UploadProvider>
       </SidebarProvider>
@@ -428,6 +434,8 @@ const router = createBrowserRouter([
           <Statistics />
         </RequireAuth>
       ) },
+      { path: 'training/*', element: TRAINING_UI_ENABLED ? <RequireAuth><Training /></RequireAuth> : <NotFound /> },
+      { path: 'profile/training', element: <RequireAuth><TrainingSettings /></RequireAuth> },
       { path: "admin", element: <Admin /> },
       {
         path: "setter",

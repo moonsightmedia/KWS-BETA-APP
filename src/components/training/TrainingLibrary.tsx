@@ -1,0 +1,302 @@
+import { useId, useMemo, useState, type KeyboardEvent } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Check, ChevronRight, Plus, Search, SlidersHorizontal, X, Star } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { TrainingInput } from './TrainingInput';
+import TrainingEquipmentFilter from './TrainingEquipmentFilter';
+import { KwsSurface, kwsPopoverClassName } from '@/components/ui/kws-surface';
+import { KwsSegmentedControl } from '@/components/ui/kws-segmented-control';
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useIsMobile } from '@/hooks/use-mobile';
+import TrainingExerciseArt from './TrainingExerciseArt';
+import TrainingTopicIcon from './TrainingTopicIcon';
+import { TRAINING_AREAS, TRAINING_EXERCISES, isKwsExerciseAvailable } from '@/features/training/data';
+import { useTraining } from '@/features/training/TrainingContext';
+import { useTrainingPreferences } from '@/features/training/trainingPreferences';
+import type { TrainingArea, TrainingExercise } from '@/features/training/types';
+import { cn } from '@/lib/utils';
+
+interface TrainingLibraryProps {
+  favoritesOnly?: boolean;
+}
+
+const normalize = (value: string) => value.toLocaleLowerCase('de-DE').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ß/g, 'ss');
+const validAreas: TrainingArea[] = [...TRAINING_AREAS.map(area => area.id), 'rehab'];
+
+function matchScore(exercise: TrainingExercise, terms: string[]) {
+  const title = normalize(exercise.title);
+  const topic = normalize(exercise.topic);
+  const keywords = normalize(exercise.keywords.join(' '));
+  return terms.reduce((score, term) => score + (title.startsWith(term) ? 6 : title.includes(term) ? 4 : topic.includes(term) ? 3 : keywords.includes(term) ? 2 : 1), 0);
+}
+
+export default function TrainingLibrary({ favoritesOnly = false }: TrainingLibraryProps) {
+  const { area: areaParam } = useParams<{ area: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { favorites, toggleFavorite, draft, addToDraft, addToSession, replaceExercise, sessions } = useTraining();
+  const { kidsEnabled } = useTrainingPreferences();
+  const searchId = useId();
+  const resultsId = useId();
+  const filtersId = useId();
+  const topicRadioName = useId();
+  const mobile = useIsMobile();
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [draftTopic, setDraftTopic] = useState('all');
+  const [draftEquipment, setDraftEquipment] = useState('all');
+  const [draftKwsOnly, setDraftKwsOnly] = useState(true);
+  const [resetSearchOnApply, setResetSearchOnApply] = useState(false);
+  const [notice, setNotice] = useState('');
+  const area = validAreas.includes(areaParam as TrainingArea) ? areaParam as TrainingArea : undefined;
+  const areaInfo = area === 'rehab' ? { id: 'rehab', title: 'Beschwerden', description: 'Beobachtungen und Fragen für ein fachliches Gespräch.' } : TRAINING_AREAS.find(item => item.id === area);
+  const kidsArea = area === 'kids';
+  const showEquipment = area !== 'rehab' && area !== 'mobility' && !kidsArea && (!favoritesOnly || TRAINING_EXERCISES.some(exercise => favorites.includes(exercise.id) && Boolean(exercise.defaultDose)));
+  const areaOrder: Record<TrainingArea, number> = { strength: 0, boulder: 1, mobility: 2, rehab: 4, kids: 3 };
+  const areaOptions = [...TRAINING_AREAS].filter(item => item.id !== 'kids' || kidsEnabled).sort((a, b) => areaOrder[a.id] - areaOrder[b.id]).map(item => ({ value: item.id, label: item.id === 'strength' ? 'Kraft' : item.id === 'boulder' ? 'Bouldern' : item.id === 'mobility' ? 'Mobilität' : 'Kinder' }));
+  const query = searchParams.get('q') ?? '';
+  const topic = searchParams.get('topic') ?? 'all';
+  const equipment = showEquipment ? searchParams.get('equipment') ?? 'all' : 'all';
+  const requestedFormat = searchParams.get('format');
+  const format = area === 'boulder' && (requestedFormat === 'exercise' || requestedFormat === 'game') ? requestedFormat : 'all';
+  const requestedKind = searchParams.get('kind');
+  const mobilityKind = area === 'mobility' && (requestedKind === 'movement' || requestedKind === 'stretch') ? requestedKind : 'all';
+  const requestedAge = searchParams.get('age');
+  const audience = kidsArea && (requestedAge === 'kita' || requestedAge === 'school') ? requestedAge : 'all';
+  const kwsOnly = searchParams.get('allEquipment') !== '1';
+  const sessionId = searchParams.get('session');
+  const itemId = searchParams.get('item');
+  const appendId = searchParams.get('append');
+  const appendSession = appendId ? sessions.find(session => session.id === appendId) : undefined;
+  const replacementRequested = Boolean(sessionId || itemId);
+  const replacementValid = Boolean(sessionId && itemId && sessions.some(session => session.id === sessionId && session.exercises.some(item => item.id === itemId)));
+
+  const baseExercises = useMemo(() => TRAINING_EXERCISES.filter(exercise => (
+    (kidsEnabled || exercise.area !== 'kids') && (favoritesOnly ? favorites.includes(exercise.id) : exercise.area === area)
+  )), [area, favorites, favoritesOnly, kidsEnabled]);
+  const hasAdultExercises = baseExercises.some(exercise => exercise.area !== 'kids' && Boolean(exercise.defaultDose));
+  const formatExercises = useMemo(() => baseExercises.filter(exercise => (audience !== 'kita' || exercise.kidsGuide?.audience === 'both') && (mobilityKind === 'all' || exercise.mobilityKind === mobilityKind) && (format === 'all' || (format === 'game' ? exercise.format === 'game' : exercise.format !== 'game'))), [baseExercises, format, audience, mobilityKind]);
+  const topics = useMemo(() => [...new Set(formatExercises.map(exercise => exercise.topic))].sort((a, b) => Number(['Brust', 'Fußtechnik'].includes(b)) - Number(['Brust', 'Fußtechnik'].includes(a)) || a.localeCompare(b, 'de')), [formatExercises]);
+  const equipmentOptions = useMemo(() => [...new Set(formatExercises.filter(exercise => !draftKwsOnly || isKwsExerciseAvailable(exercise)).flatMap(exercise => [exercise.equipment, ...(exercise.requiredEquipment ?? []), ...(exercise.alternativeEquipment ?? [])]))].sort((a, b) => a.localeCompare(b, 'de')), [formatExercises, draftKwsOnly]);
+  const inferredTopic = topics.find(value => normalize(query).trim().includes(normalize(value))) ?? (topics.includes('Fußtechnik') && /\b(fuss|fusse)\b/.test(normalize(query)) ? 'Fußtechnik' : undefined);
+  const activeTopic = topic !== 'all' ? topic : inferredTopic ?? 'all';
+  const matchingExercises = useMemo(() => {
+    const terms = normalize(query).trim().split(/\s+/).filter(Boolean);
+    return formatExercises.filter(exercise => {
+      const text = normalize([exercise.title, exercise.topic, exercise.goal, exercise.equipment, ...(exercise.requiredEquipment ?? []), ...(exercise.alternativeEquipment ?? []), exercise.kidsGuide?.ages ?? '', exercise.kidsGuide?.players ?? '', ...exercise.keywords].join(' '));
+      return (activeTopic === 'all' || exercise.topic === activeTopic)
+        && (equipment === 'all' || exercise.equipment === equipment || exercise.requiredEquipment?.some(item => item === equipment) || exercise.alternativeEquipment?.some(item => item === equipment))
+        && terms.every(term => text.includes(term));
+    }).sort((a, b) => matchScore(b, terms) - matchScore(a, terms));
+  }, [formatExercises, equipment, query, activeTopic]);
+  const results = useMemo(() => matchingExercises.filter(exercise => !kwsOnly || isKwsExerciseAvailable(exercise)), [matchingExercises, kwsOnly]);
+  const matchesNeedOtherEquipment = !results.length && matchingExercises.length > 0 && kwsOnly;
+
+  const updateFilter = (key: string, value: string) => {
+    setSearchParams(current => {
+      const next = new URLSearchParams(current);
+      if (!value || value === 'all') next.delete(key);
+      else next.set(key, value);
+      return next;
+    }, { replace: true });
+  };
+  const resetFilters = () => {
+    setSearchParams(current => {
+      const next = new URLSearchParams(current);
+      ['q', 'topic', 'equipment', 'allEquipment', 'format', 'age', 'kind'].forEach(key => next.delete(key));
+      return next;
+    }, { replace: true });
+  };
+  const exerciseTarget = (id: string) => {
+    const replacement = new URLSearchParams();
+    ['q', 'topic', 'equipment', 'allEquipment', 'format', 'age', 'kind', 'session', 'item', 'append'].forEach(key => {
+      const value = searchParams.get(key);
+      if (value) replacement.set(key, value);
+    });
+    if (favoritesOnly) replacement.set('from', 'favorites');
+    const suffix = replacement.toString();
+    return `/training/exercises/${encodeURIComponent(id)}${suffix ? `?${suffix}` : ''}`;
+  };
+  const hasFilters = Boolean(query || topic !== 'all' || equipment !== 'all' || !kwsOnly || format !== 'all' || audience !== 'all' || mobilityKind !== 'all');
+  const activeFilterCount = Number(topic !== 'all') + Number(showEquipment && equipment !== 'all') + Number(showEquipment && !kwsOnly);
+  const openFilters = (open: boolean) => {
+    if (open) { setDraftTopic(activeTopic); setDraftEquipment(equipment); setDraftKwsOnly(kwsOnly); setResetSearchOnApply(false); }
+    setFiltersOpen(open);
+  };
+  const onFilterKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape' || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setFiltersOpen(false);
+  };
+  const applyFilters = () => {
+    setSearchParams(current => {
+      const next = new URLSearchParams(current);
+      if (resetSearchOnApply || (inferredTopic && draftTopic !== inferredTopic)) next.delete('q');
+      if (resetSearchOnApply) next.delete('format');
+      if (resetSearchOnApply) next.delete('age');
+      if (draftKwsOnly) next.delete('allEquipment'); else next.set('allEquipment', '1');
+      if (draftTopic === 'all') next.delete('topic'); else next.set('topic', draftTopic);
+      if (!showEquipment || draftEquipment === 'all') next.delete('equipment'); else next.set('equipment', draftEquipment);
+      return next;
+    }, { replace: true });
+    setFiltersOpen(false);
+  };
+  const chooseTopic = (value: string) => {
+    setSearchParams(current => {
+      const next = new URLSearchParams(current);
+      if (value === 'all') next.delete('topic'); else next.set('topic', value);
+      if (inferredTopic) next.delete('q');
+      return next;
+    }, { replace: true });
+  };
+  const chooseFormat = (value: string) => {
+    setSearchParams(current => {
+      const next = new URLSearchParams(current);
+      if (value === 'all') next.delete('format'); else next.set('format', value);
+      next.delete('topic');
+      if (inferredTopic) next.delete('q');
+      return next;
+    }, { replace: true });
+  };
+  const chooseAudience = (value: string) => {
+    setSearchParams(current => {
+      const next = new URLSearchParams(current);
+      if (value === 'all') next.delete('age'); else next.set('age', value);
+      next.delete('topic');
+      if (inferredTopic) next.delete('q');
+      return next;
+    }, { replace: true });
+  };
+  const filterControls = <>
+    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
+      <div>{mobile ? <DialogTitle>{area === 'rehab' ? 'Körperregion filtern' : kidsArea ? 'Kinderspiele filtern' : 'Übungen filtern'}</DialogTitle> : <h2 id={filtersId} className="font-sans text-base font-semibold">{area === 'rehab' ? 'Körperregion filtern' : kidsArea ? 'Kinderspiele filtern' : 'Übungen filtern'}</h2>}{mobile ? <DialogDescription className="mt-1 text-xs">{area === 'rehab' ? 'Wähle eine Körperregion.' : kidsArea ? 'Wähle ein Spielthema.' : 'Wähle Thema und verfügbares Equipment.'}</DialogDescription> : <p className="mt-1 text-xs text-muted-foreground">{area === 'rehab' ? 'Wähle eine Körperregion.' : kidsArea ? 'Wähle ein Spielthema.' : 'Wähle Thema und verfügbares Equipment.'}</p>}</div>
+      <Button type="button" variant="ghost" size="icon" aria-label="Filter schließen" onClick={() => setFiltersOpen(false)}><X aria-hidden="true" /></Button>
+    </div>
+    <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-4">
+      {showEquipment && <label className="relative flex min-h-11 cursor-pointer items-center gap-3 rounded-kws-control px-3 py-2 text-sm hover:bg-secondary has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-[-2px] has-[:focus-visible]:outline-ring">
+        <input type="checkbox" className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0" checked={draftKwsOnly} onChange={event => setDraftKwsOnly(event.target.checked)} />
+        <span aria-hidden="true" className={cn('grid h-4 w-4 shrink-0 place-items-center rounded-kws-badge border', draftKwsOnly ? 'border-primary-ink bg-primary/10 text-primary-ink' : 'border-input')}>{draftKwsOnly && <Check className="h-3 w-3" />}</span>
+        <span><span className="block font-medium">In der KWS verfügbar</span><span className="block text-xs text-muted-foreground">Ausgeschaltet: weitere Geräte einbeziehen</span></span>
+      </label>}
+      {showEquipment && <div className="border-t border-border pt-4"><TrainingEquipmentFilter options={equipmentOptions} value={draftEquipment} onValueChange={setDraftEquipment} /></div>}
+      <fieldset className="border-t border-border pt-4"><legend className="px-1 text-sm font-semibold">{area === 'rehab' ? 'Körperregion' : 'Thema'}</legend><div className="space-y-1">{['all', ...topics].map(value => <label key={value} className={cn('relative flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-kws-control px-3 py-2 text-sm transition-colors hover:bg-secondary has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-[-2px] has-[:focus-visible]:outline-ring', draftTopic === value && 'bg-primary/5')}><input type="radio" className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0" name={topicRadioName} value={value} checked={draftTopic === value} onChange={() => setDraftTopic(value)} /><span>{value === 'all' ? area === 'rehab' ? 'Alle Regionen' : 'Alle Themen' : value}</span><span aria-hidden="true" className={cn('grid h-4 w-4 shrink-0 place-items-center rounded-full border', draftTopic === value ? 'border-primary-ink bg-primary/10 text-primary-ink' : 'border-input')}>{draftTopic === value && <Check className="h-3 w-3" />}</span></label>)}</div></fieldset>
+
+    </div>
+    <div className="flex shrink-0 gap-2 border-t border-border p-4"><Button type="button" variant="secondary" className="flex-1" onClick={() => { setDraftTopic('all'); setDraftEquipment('all'); setDraftKwsOnly(true); setResetSearchOnApply(true); }}>Zurücksetzen</Button><Button type="button" className="flex-1" onClick={applyFilters}>Übernehmen</Button></div>
+  </>;
+  const filterTrigger = <Button data-training-tour="filter" type="button" variant={activeFilterCount ? 'secondary' : 'outline'} className="shrink-0 px-3" aria-label={activeFilterCount ? `Filter, ${activeFilterCount} aktiv` : 'Filter'}><SlidersHorizontal aria-hidden="true" /><span>Filter</span>{activeFilterCount > 0 && <span className="rounded-kws-badge bg-foreground px-1.5 text-xs text-background">{activeFilterCount}</span>}</Button>;
+  const addExercise = (exerciseId: string) => {
+    const exercise = TRAINING_EXERCISES.find(item => item.id === exerciseId);
+    if (!exercise || exercise.area === 'kids' || exercise.contentKind === 'orientation' || !exercise.defaultDose) return;
+    const selectedItems = appendId ? appendSession?.exercises : draft.exercises;
+    if (!replacementRequested && selectedItems?.some(item => item.exerciseId === exerciseId)) return;
+    if (replacementRequested) {
+      if (!replacementValid || !sessionId || !itemId) return;
+      replaceExercise(sessionId, itemId, exerciseId);
+      navigate(`/training/sessions/${encodeURIComponent(sessionId)}`);
+    } else if (appendId) {
+      if (appendSession) { addToSession(appendId, exerciseId); setNotice(`${TRAINING_EXERCISES.find(item => item.id === exerciseId)?.title}: zu ${appendSession.title} hinzugefügt.`); }
+    } else { addToDraft(exerciseId); setNotice(`${TRAINING_EXERCISES.find(item => item.id === exerciseId)?.title}: zum Einheitsentwurf hinzugefügt. Du kannst die Einheit anschließend speichern.`); }
+  };
+  const changeArea = (nextArea: TrainingArea) => {
+    const params = new URLSearchParams();
+    ['append', 'session', 'item'].forEach(key => {
+      const value = searchParams.get(key);
+      if (value) params.set(key, value);
+    });
+    navigate(`/training/library/${nextArea}${params.size ? `?${params.toString()}` : ''}`);
+  };
+
+  if (!favoritesOnly && !areaInfo) {
+    return <KwsSurface className="space-y-3 p-4">
+      <h2 className="font-sans text-base font-semibold">Bibliothek nicht gefunden</h2>
+      <p className="text-sm text-muted-foreground">Wähle eine der Trainingsbibliotheken.</p>
+      <Button asChild><Link to="/training">Zum Training</Link></Button>
+    </KwsSurface>;
+  }
+
+  return (
+    <div className="space-y-3" data-swipe-ignore>
+      <KwsSegmentedControl<TrainingArea | 'favorites'> value={favoritesOnly ? 'favorites' : area === 'rehab' ? 'mobility' : area!} options={areaOptions} onValueChange={value => { if (value !== 'favorites') changeArea(value); }} ariaLabel="Trainingsbereich" className="grid grid-cols-2 lg:flex" />
+      {area === 'mobility' && <div className="flex flex-wrap items-center justify-between gap-x-3"><Link to="/training/library/rehab" className="inline-flex min-h-11 items-center gap-1 rounded-kws-control text-xs text-primary-ink underline underline-offset-4">Bei Beschwerden<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link></div>}
+      {area === 'rehab' && <Button asChild variant="secondary"><Link to="/training/library/mobility">Zu Mobilität & Dehnen</Link></Button>}
+
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <label htmlFor={searchId} className="sr-only">{area === 'rehab' ? 'Körperregion suchen' : kidsArea ? 'Kinderspiel suchen' : 'Übung suchen'}</label>
+          <div className="relative min-w-0 flex-1">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <TrainingInput data-training-tour="search" id={searchId} type="search" value={query} onChange={event => updateFilter('q', event.target.value)} placeholder={area === 'rehab' ? 'Region suchen' : kidsArea ? 'Spiel suchen' : 'Übung suchen'} className="pl-10 pr-12 [&::-webkit-search-cancel-button]:appearance-none" />
+            {query && <Button type="button" variant="ghost" size="icon" aria-label="Suche leeren" className="absolute right-0 top-0" onClick={() => updateFilter('q', '')}><X aria-hidden="true" /></Button>}
+          </div>
+          {mobile ? <Dialog open={filtersOpen} onOpenChange={openFilters}><DialogTrigger asChild>{filterTrigger}</DialogTrigger><DialogContent onKeyDown={onFilterKeyDown} scrollLayout="contained" className="flex flex-col overflow-hidden bg-card p-0" data-swipe-ignore>{filterControls}</DialogContent></Dialog> : <Popover open={filtersOpen} onOpenChange={openFilters}><PopoverTrigger asChild>{filterTrigger}</PopoverTrigger><PopoverContent onKeyDown={onFilterKeyDown} align="end" collisionPadding={16} aria-labelledby={filtersId} className={cn(kwsPopoverClassName, 'z-[120] flex max-h-[var(--radix-popover-content-available-height)] w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden p-0')} data-swipe-ignore>{filterControls}</PopoverContent></Popover>}
+        </div>
+      </div>
+      {kidsArea && <div className="flex gap-5 overflow-x-auto" role="group" aria-label="Altersbereich wählen">
+        {[{ value: 'all', label: 'Alle' }, { value: 'kita', label: 'Kita' }, { value: 'school', label: 'Schule' }].map(option => <button key={option.value} type="button" className={cn('min-h-11 shrink-0 border-b-2 px-1 text-sm transition-colors outline-none hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring', audience === option.value ? 'border-primary-ink font-semibold text-foreground' : 'border-transparent text-muted-foreground')} aria-pressed={audience === option.value} onClick={() => chooseAudience(option.value)}>{option.label}</button>)}
+      </div>}
+      {area === 'boulder' && <div className="flex gap-5 overflow-x-auto" role="group" aria-label="Übungen oder Spiele wählen">
+        {[{ value: 'all', label: 'Alle' }, { value: 'exercise', label: 'Übungen' }, { value: 'game', label: 'Spiele' }].map(option => <button key={option.value} type="button" className={cn('min-h-11 shrink-0 border-b-2 px-1 text-sm transition-colors outline-none hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring', format === option.value ? 'border-primary-ink font-semibold text-foreground' : 'border-transparent text-muted-foreground')} aria-pressed={format === option.value} onClick={() => chooseFormat(option.value)}>{option.label}</button>)}
+      </div>}
+      {area === 'mobility' && <div className="flex gap-5 border-b border-border" role="group" aria-label="Bewegen oder Dehnen wählen">{[{ value: 'all', label: 'Alle' }, { value: 'movement', label: 'Bewegen' }, { value: 'stretch', label: 'Dehnen' }].map(option => <button key={option.value} type="button" className={cn('min-h-11 border-b-2 px-1 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring', mobilityKind === option.value ? 'border-primary-ink font-semibold text-foreground' : 'border-transparent text-muted-foreground')} aria-pressed={mobilityKind === option.value} onClick={() => setSearchParams(current => { const next = new URLSearchParams(current); next.delete('q'); next.delete('topic'); if (option.value === 'all') next.delete('kind'); else next.set('kind', option.value); return next; }, { replace: true })}>{option.label}</button>)}</div>}
+      {area !== 'rehab' && area !== 'mobility' && topics.length > 1 && <div className="flex gap-5 overflow-x-auto border-b border-border" role="group" aria-label="Thema schnell wählen">
+        {['all', ...topics].map(value => <button key={value} type="button" className={cn('min-h-11 shrink-0 border-b-2 px-1 text-sm transition-colors outline-none hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring', activeTopic === value ? 'border-primary-ink font-semibold text-foreground' : 'border-transparent text-muted-foreground')} aria-pressed={activeTopic === value} onClick={() => chooseTopic(value)}>{value === 'all' ? 'Alle' : value}</button>)}
+      </div>}
+      {Boolean(query || topic !== 'all' || (showEquipment && equipment !== 'all')) && <div className="flex flex-wrap gap-2" aria-label="Aktive Suchfilter">{query && <Button type="button" variant="ghost" className="max-w-full gap-2 bg-secondary px-3 text-xs" aria-label={`Suche ${query} entfernen`} onClick={() => updateFilter('q', '')}><span className="truncate">Suche: {query}</span><X aria-hidden="true" /></Button>}{topic !== 'all' && <Button type="button" variant="ghost" className="gap-2 bg-secondary px-3 text-xs" aria-label={`Thema ${topic} entfernen`} onClick={() => updateFilter('topic', 'all')}>{topic}<X aria-hidden="true" /></Button>}{showEquipment && equipment !== 'all' && <Button type="button" variant="ghost" className="gap-2 bg-secondary px-3 text-xs" aria-label={`Equipment ${equipment} entfernen`} onClick={() => updateFilter('equipment', 'all')}>{equipment}<X aria-hidden="true" /></Button>}</div>}
+      {hasAdultExercises && replacementRequested && <p role={replacementValid ? 'status' : 'alert'} className={cn('text-xs leading-relaxed', replacementValid ? 'text-muted-foreground' : 'text-destructive')}>{replacementValid ? 'Wähle eine Übung als Ersatz für deine Einheit.' : 'Die ursprüngliche Übung ist nicht mehr verfügbar. Öffne deine Einheit erneut.'}</p>}
+      {hasAdultExercises && !replacementRequested && appendId && <div className="flex items-center justify-between gap-3"><p role={appendSession ? 'status' : 'alert'} className={cn('min-w-0 text-xs leading-relaxed', appendSession ? 'text-muted-foreground' : 'text-destructive')}>{appendSession ? `Einheit: ${appendSession.title}` : 'Diese Einheit ist nicht mehr verfügbar. Öffne deine Einheiten erneut.'}</p>{appendSession && <Button asChild variant="secondary" className="shrink-0 px-3"><Link to={`/training/sessions/${encodeURIComponent(appendId)}`}>Einheit ansehen</Link></Button>}</div>}
+      <div className="flex min-h-11 items-center justify-between gap-3"><p role="status" className="text-xs text-muted-foreground">{results.length} {favoritesOnly ? results.length === 1 ? 'Eintrag' : 'Einträge' : area === 'rehab' ? results.length === 1 ? 'Region' : 'Regionen' : (kidsArea || area === 'boulder' && format === 'game') ? results.length === 1 ? 'Spiel' : 'Spiele' : area === 'boulder' && format === 'all' ? results.length === 1 ? 'Eintrag' : 'Einträge' : results.length === 1 ? 'Übung' : 'Übungen'}{showEquipment && equipment !== 'all' ? ` · ${equipment}` : ''}</p>{showEquipment && <label className="relative flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-kws-control px-1 text-xs has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-[-2px] has-[:focus-visible]:outline-ring"><input type="checkbox" className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0" checked={kwsOnly} onChange={event => updateFilter('allEquipment', event.target.checked ? '' : '1')} /><span aria-hidden="true" className={cn('grid h-4 w-4 place-items-center rounded-kws-badge border', kwsOnly ? 'border-primary-ink bg-primary/10 text-primary-ink' : 'border-input')}>{kwsOnly && <Check className="h-3 w-3" />}</span><span>In der KWS verfügbar</span></label>}</div>
+
+      {results.length ? (
+        <ul id={resultsId} className={cn('grid min-w-0 gap-3', area === 'rehab' ? 'grid-cols-2' : 'grid-cols-1 lg:grid-cols-2')} aria-label={favoritesOnly ? 'Gemerkte Inhalte' : area === 'rehab' ? 'Körperregionen' : 'Übungen'}>
+          {results.map(exercise => {
+            const favorite = favorites.includes(exercise.id);
+            const rehab = exercise.area === 'rehab';
+            const kids = exercise.area === 'kids';
+            const orientation = exercise.contentKind === 'orientation';
+            const title = rehab ? exercise.topic : exercise.title;
+            const cardLink = <Link to={exerciseTarget(exercise.id)} aria-label={`${title}: ${kids ? 'Spiel ansehen' : rehab ? 'Orientierung öffnen' : 'Anleitung öffnen'}`} className="absolute inset-0 z-0 rounded-kws-card outline-none focus-visible:ring-2 focus-visible:ring-ring"><span className="sr-only">{title}</span></Link>;
+            const selected = !kids && !replacementRequested && (appendId ? appendSession?.exercises : draft.exercises)?.some(item => item.exerciseId === exercise.id);
+            if (kids) return <li key={exercise.id}>
+              <KwsSurface className="group relative isolate h-full p-3">{cardLink}<div className="pointer-events-none relative z-10">
+                <div className="flex items-start gap-3">
+                  <TrainingExerciseArt exerciseId={exercise.id} title={title} className="w-20 sm:w-24" />
+                  <div className="min-w-0 flex-1"><p className="flex items-center gap-1.5 text-xs text-muted-foreground">{exercise.topic}</p><div className="block min-h-11 py-1"><h3 className="break-words text-sm font-semibold leading-snug group-hover:text-primary-ink">{title}</h3></div></div>
+                  <Button type="button" variant="ghost" size="icon" className={cn('pointer-events-auto shrink-0', favorite && 'text-primary-ink')} aria-pressed={favorite} data-training-tour="favorite" aria-label={`${title}: ${favorite ? 'aus Favoriten entfernen' : 'als Favorit merken'}`} onClick={() => toggleFavorite(exercise.id)}><Star aria-hidden="true" className={cn(favorite && 'fill-current')} /></Button>
+                </div>
+                {exercise.kidsGuide && <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"><p>Alter: {exercise.kidsGuide.ageLabel ?? exercise.kidsGuide.ages}</p><p>Spielzeit: {exercise.kidsGuide.durationLabel ?? exercise.kidsGuide.duration}</p></div>}
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{exercise.goal}</p>
+                <div className="mt-2 flex items-center justify-between gap-3">{exercise.kidsGuide && <p className="min-w-0 text-xs text-muted-foreground">{exercise.kidsGuide.playersLabel ?? exercise.kidsGuide.players}</p>}<span className="ml-auto flex min-h-11 shrink-0 items-center gap-2 rounded-kws-control bg-secondary px-3 text-sm">Spiel ansehen<ChevronRight aria-hidden="true" className="h-4 w-4" /></span></div>
+              </div>
+              </KwsSurface>
+            </li>;
+            if (rehab) return <li key={exercise.id}><KwsSurface className="group relative isolate h-full p-3">{cardLink}<div className="pointer-events-none relative z-10"><div className="flex items-center justify-between gap-2"><TrainingTopicIcon topic={exercise.topic} exerciseId={exercise.id} className="h-14 w-14" /><Button type="button" variant="ghost" size="icon" className={cn('pointer-events-auto shrink-0', favorite && 'text-primary-ink')} aria-pressed={favorite} data-training-tour="favorite" aria-label={`${title}: ${favorite ? 'aus Favoriten entfernen' : 'als Favorit merken'}`} onClick={() => toggleFavorite(exercise.id)}><Star aria-hidden="true" className={cn(favorite && 'fill-current')} /></Button></div><div className="mt-1 min-h-11"><h3 className="break-words text-sm font-semibold leading-snug group-hover:text-primary-ink">{title}</h3><div className="mt-2 flex items-center justify-between gap-2"><span className="text-xs text-muted-foreground">Orientierung</span><ChevronRight aria-hidden="true" className="h-4 w-4 text-muted-foreground" /></div></div></div></KwsSurface></li>;
+            return <li key={exercise.id}>
+              <KwsSurface className={cn('group relative isolate h-full p-3 transition-shadow', selected && 'ring-1 ring-primary-strong')}>{cardLink}<div className="pointer-events-none relative z-10">
+                <div className="flex items-start gap-3">
+                  <TrainingExerciseArt exerciseId={exercise.id} title={title} className="w-24 sm:w-28" />
+                  <div className="min-w-0 flex-1"><div className="block min-h-11 py-1"><p className="flex items-center gap-1.5 text-xs text-muted-foreground">{exercise.mobilityKind === 'stretch' ? 'Dehnen' : exercise.mobilityKind === 'movement' ? 'Bewegen' : exercise.format === 'game' && exercise.topic === 'Spiele' ? 'Boulderspiel' : exercise.topic}{exercise.format === 'game' && exercise.topic !== 'Spiele' && ' · Spiel'}</p><h3 className="mt-1 break-words text-sm font-semibold leading-snug group-hover:text-primary-ink">{title}</h3></div><p className="mt-1 text-xs text-muted-foreground">{[exercise.equipment, ...(exercise.alternativeEquipment ?? [])].join(' / ')} · {exercise.contentKind === 'orientation' ? 'Einführung' : `${exercise.minutes} Min.`}</p></div>
+                  <Button type="button" variant="ghost" size="icon" className={cn('pointer-events-auto shrink-0', favorite && 'text-primary-ink')} aria-pressed={favorite} data-training-tour="favorite" aria-label={`${title}: ${favorite ? 'aus Favoriten entfernen' : 'als Favorit merken'}`} onClick={() => toggleFavorite(exercise.id)}><Star aria-hidden="true" className={cn(favorite && 'fill-current')} /></Button>
+                </div>
+                <>
+                  <div className="mt-3 space-y-3">
+                    <p className="text-xs leading-relaxed text-muted-foreground">{exercise.goal}</p>
+                    {orientation ? <span className="shrink-0 text-xs text-muted-foreground">Orientierung</span> : <Button type="button" variant="secondary" className={cn('pointer-events-auto ml-auto flex h-auto min-h-11 max-w-full whitespace-normal px-3 py-2 text-left', selected && 'text-primary-ink')} data-training-tour="add" aria-disabled={selected || undefined} aria-label={`${title}: ${selected ? appendSession ? 'In dieser Einheit' : 'Im Einheitsentwurf' : replacementRequested ? 'Übung ersetzen' : 'Zur Einheit hinzufügen'}${!selected && !replacementRequested ? appendSession ? ` · ${appendSession.title}` : ' · Einheitsentwurf' : ''}`} disabled={(replacementRequested && !replacementValid) || (!replacementRequested && Boolean(appendId) && !appendSession)} onClick={() => addExercise(exercise.id)}>{selected ? <Check aria-hidden="true" /> : <Plus aria-hidden="true" />}{selected ? appendSession ? 'In dieser Einheit' : 'Im Einheitsentwurf' : replacementRequested ? 'Übung ersetzen' : 'Zur Einheit hinzufügen'}</Button>}
+                  </div>
+                </>
+              </div>
+              </KwsSurface>
+            </li>;
+          })}
+        </ul>
+      ) : <KwsSurface className="space-y-3 p-5">
+        <h3 className="text-sm font-semibold">{favoritesOnly && !baseExercises.length ? 'Noch keine Favoriten' : area === 'rehab' ? 'Keine passende Körperregion' : kidsArea ? 'Keine passenden Kinderspiele' : 'Keine passenden Übungen'}</h3>
+        <p className="text-sm leading-relaxed text-muted-foreground">{favoritesOnly && !baseExercises.length ? 'Merke dir Übungen über das Sternsymbol in einer Bibliothek.' : matchesNeedOtherEquipment ? 'Passende Übungen benötigen weitere Geräte. Du kannst den vollständigen Katalog einbeziehen.' : 'Passe deine Suche an oder setze die Filter zurück.'}</p>
+        {matchesNeedOtherEquipment ? <Button type="button" variant="secondary" onClick={() => updateFilter('allEquipment', '1')}>Alle Geräte einbeziehen</Button> : hasFilters ? <Button type="button" variant="secondary" onClick={resetFilters}>Filter zurücksetzen</Button> : favoritesOnly ? <Button asChild variant="secondary"><Link to="/training">Bibliotheken öffnen</Link></Button> : null}
+      </KwsSurface>}
+
+      <p className="sr-only" role="status" aria-live="polite">{notice}</p>
+    </div>
+  );
+}

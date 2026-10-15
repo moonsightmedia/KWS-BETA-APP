@@ -558,7 +558,8 @@ All colors MUST be HSL.
     overflow-y: auto;
     animation: kws-sheet-enter 180ms ease-out;
   }
-  body .kws-confirmation-surface {
+  body .kws-confirmation-surface,
+  body .kws-dialog-surface[data-compact="true"] {
     padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
     height: auto !important;
   }

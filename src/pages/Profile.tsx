@@ -23,6 +23,8 @@ import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderC
 import { buildPersonalProgress } from '@/lib/personalProgress';
 import { PersonalDataState } from '@/components/PersonalDataState';
 import { useAccountProfile } from '@/hooks/useAccountProfile';
+import { TrainingIcon } from '@/lib/appIcons';
+import { TRAINING_UI_ENABLED } from '@/features/training/flags';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -80,6 +82,7 @@ const Profile = () => {
       title: 'Einstellungen',
       items: [
         { icon: Bell, label: 'Benachrichtigungen', description: 'Hinweise und Push-Einstellungen', path: '/profile/notifications' },
+        ...(TRAINING_UI_ENABLED ? [{ icon: TrainingIcon, label: 'Training', description: 'Training und Kinderbouldern einblenden', path: '/profile/training' }] : []),
       ],
     },
     {

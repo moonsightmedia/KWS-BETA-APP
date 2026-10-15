@@ -13,6 +13,9 @@ import {
 import { HomeIcon as LayoutDashboard, BouldersIcon as List, StatisticsIcon as BarChart3, EditIcon as Edit3, UsersIcon as Users, AccountIcon as User } from '@/lib/appIcons';
 import { ProfileMenu } from '@/components/ProfileMenu';
 import { cn } from '@/lib/utils';
+import { TrainingIcon } from '@/lib/appIcons';
+import { TRAINING_UI_ENABLED } from '@/features/training/flags';
+import { useTrainingPreferences } from '@/features/training/trainingPreferences';
 import { AccountAvatar } from '@/components/AccountAvatar';
 import { AdminMobileNavigation } from '@/components/admin/AdminMobileNavigation';
 import { ADMIN_TABS } from '@/lib/adminNavigation';
@@ -114,6 +117,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { trainingEnabled } = useTrainingPreferences();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   const { hasRole: isSetter, loading: setterLoading } = useHasRole('setter');
   const [isMobileNavCompact, setIsMobileNavCompact] = useState(false);
@@ -311,10 +315,11 @@ export const Sidebar = ({ className }: SidebarProps) => {
         { icon: LayoutDashboard, label: 'Home', path: '/' },
         { icon: List, label: 'Boulder', path: '/boulders' },
         { icon: BarChart3, label: 'Statistiken', path: '/statistics' },
+        ...(TRAINING_UI_ENABLED && trainingEnabled && user ? [{ icon: TrainingIcon, label: 'Training', path: '/training' }] : []),
       ],
       visible: true,
     },
-  ], [location.pathname, stableIsAdmin, isSetterArea, stableIsSetter]);
+  ], [location.pathname, stableIsAdmin, isSetterArea, stableIsSetter, user, trainingEnabled]);
 
   const homePath = user ? '/' : '/guest';
   const isAdminArea = location.pathname === '/admin';
@@ -340,8 +345,9 @@ export const Sidebar = ({ className }: SidebarProps) => {
       { icon: LayoutDashboard, label: 'Home', path: homePath },
       { icon: List, label: 'Boulder', path: '/boulders' },
       { icon: BarChart3, label: 'Statistiken', path: '/statistics' },
+      ...(TRAINING_UI_ENABLED && trainingEnabled ? [{ icon: TrainingIcon, label: 'Training', path: '/training' }] : []),
     ];
-  }, [homePath, isSetterArea, stableIsSetter, user]);
+  }, [homePath, isSetterArea, stableIsSetter, user, trainingEnabled]);
 
   const accountLabel = stableIsAdmin ? 'Administrator' : stableIsSetter ? 'Setter' : 'Mitglied';
 
@@ -395,7 +401,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                         const currentTab = searchParams.get('tab') || 'users';
                         isActive = location.pathname === '/admin' && itemTab === currentTab;
                       } else {
-                        isActive = location.pathname === item.path;
+                        isActive = item.path === '/training' ? location.pathname === '/training' || location.pathname.startsWith('/training/') : location.pathname === item.path;
                       }
                       
                       return (
@@ -503,6 +509,8 @@ export const Sidebar = ({ className }: SidebarProps) => {
                     ? location.pathname.startsWith('/boulders')
                     : item.path === '/statistics'
                       ? location.pathname.startsWith('/statistics')
+                      : item.path === '/training'
+                        ? location.pathname === '/training' || location.pathname.startsWith('/training/')
                       : item.path === '/auth'
                         ? location.pathname === '/auth'
                         : item.path.startsWith('/setter')

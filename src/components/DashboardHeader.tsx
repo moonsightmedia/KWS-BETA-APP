@@ -17,6 +17,19 @@ export const AdminTabTitleProvider = ({ children, tabTitle }: { children: React.
 );
 
 const getPageTitle = (pathname: string, setterTabTitle?: string, adminTabTitle?: string): string => {
+  if (pathname === '/training') return 'Training';
+  if (pathname === '/training/library/strength') return 'Krafttraining';
+  if (pathname === '/training/library/boulder') return 'Boulderübungen';
+  if (pathname === '/training/library/mobility') return 'Mobilität';
+  if (pathname === '/training/library/rehab') return 'Beschwerden';
+  if (pathname === '/training/library/kids') return 'Kinderbouldern';
+  if (pathname === '/training/favorites') return 'Favoriten';
+  if (pathname === '/training/plan') return 'Plan erstellen';
+  if (pathname === '/training/week') return 'Mein Wochenplan';
+  if (pathname.startsWith('/training/exercises/kids-')) return 'Kinderspiel';
+  if (pathname.startsWith('/training/exercises/')) return 'Übung';
+  if (pathname === '/training/sessions') return 'Eigene Einheiten';
+  if (pathname.startsWith('/training/sessions/')) return 'Meine Einheit';
   if (pathname.startsWith('/boulders/')) return 'Boulder';
   if (pathname === '/setter/create') return 'Erstellen';
   if (pathname === '/setter/edit') return 'Bearbeiten';
@@ -38,6 +51,7 @@ const getPageTitle = (pathname: string, setterTabTitle?: string, adminTabTitle?:
     '/app/profile': 'Profil',
     '/profile/edit': 'Profil bearbeiten',
     '/profile/notifications': 'Benachrichtigungen',
+    '/profile/training': 'Trainingseinstellungen',
     '/profile/about': 'Über die App',
   };
 
