@@ -62,6 +62,13 @@ Archivprüfsumme. Compare-and-swap schützt vor Überschreiben paralleler Releas
 Altstand, veröffentlichte Downloads und alte gehashte Assets bleiben erhalten.
 Release gilt erst nach bestätigtem SOURCE/Build und öffentlicher Laufzeitprüfung.
 
+Die erste Server-Vorabprüfung stoppte beim abgeleiteten Image: Docker deutet
+eine nackte lokale sha256-ID in FROM als Registrynamen. Es fand noch keine
+DB-Migration oder Dienstumschaltung statt. Der Operator bindet nun einen
+eindeutigen lokalen Sicherungstag an das inspizierte Image, prüft dessen ID
+und verwendet ihn ohne Pull. Der fehlgeschlagene geschützte Stagingordner
+bleibt als Diagnosebeleg erhalten; der nächste Gitstand bekommt einen neuen.
+
 ## Grenzen
 
 Kein neuer iPhone-/Android-Build. Installierte native Apps erhalten die neuen

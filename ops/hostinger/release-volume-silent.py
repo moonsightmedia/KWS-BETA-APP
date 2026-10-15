@@ -61,7 +61,14 @@ def main():
     tests = stage / 'test'; tests.mkdir(mode=0o700)
     # The reviewed test uses only disposable OS temp paths, not /data.
     (tests / 'transcode.test.js').write_bytes(fetch('test/transcode.test.js'))
-    (stage / 'Dockerfile').write_text('FROM ' + image + '\nCOPY transcode.js /app/src/transcode.js\n')
+    # Docker FROM does not accept a bare local image ID as a repository name.
+    # Bind a unique local tag to the inspected image, never pull a replacement.
+    base_tag = 'kws-video-production:before-silent-' + args.revision[:12]
+    probe = subprocess.run(['docker', 'image', 'inspect', base_tag], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    assert probe.returncode != 0, 'Backup image tag already exists'
+    run(['docker', 'tag', image, base_tag])
+    assert json.loads(output(['docker', 'image', 'inspect', base_tag]))[0]['Id'] == image
+    (stage / 'Dockerfile').write_text('FROM ' + base_tag + '\nCOPY transcode.js /app/src/transcode.js\n')
     tag = 'kws-video-production:silent-' + args.revision[:12]
     with (stage / 'build.log').open('wb') as log:
         run(['docker', 'build', '--pull=false', '-t', tag, str(stage)], stdout=log, stderr=log)
