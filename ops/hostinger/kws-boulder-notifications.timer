@@ -1,0 +1,11 @@
+[Unit]
+Description=Check settled Boulder uploads every 15 seconds
+
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=15s
+AccuracySec=1s
+Unit=kws-boulder-notifications.service
+
+[Install]
+WantedBy=timers.target

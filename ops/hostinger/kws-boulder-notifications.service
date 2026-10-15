@@ -1,0 +1,12 @@
+[Unit]
+Description=Publish settled Boulder upload notifications
+After=docker.service
+Requires=docker.service
+ConditionPathExists=/opt/kws/production/CUTOVER-COMPLETE.json
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/bin/python3 /opt/kws/tools/flush-boulder-notifications.py
+TimeoutStartSec=25s
