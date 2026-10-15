@@ -1,0 +1,646 @@
+[
+  {
+    "source": {
+      "name": "Atta-Höhle"
+    },
+    "expected": "Bug A"
+  },
+  {
+    "source": {
+      "name": "Atta-Höhle",
+      "area": {
+        "name": "Bug",
+        "slug": "bug",
+        "sortOrder": 1
+      },
+      "subarea_code": "A"
+    },
+    "expected": "Bug A"
+  },
+  {
+    "source": {
+      "name": "Atta-Höhle",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Felsenmeer"
+    },
+    "expected": "Kurze Platte"
+  },
+  {
+    "source": {
+      "name": "Felsenmeer",
+      "area": {
+        "name": "Kurze Platte",
+        "slug": "kurze-platte",
+        "sortOrder": 6
+      },
+      "subarea_code": "A"
+    },
+    "expected": "Kurze Platte"
+  },
+  {
+    "source": {
+      "name": "Felsenmeer",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Steuerbord"
+    },
+    "expected": "Bug B"
+  },
+  {
+    "source": {
+      "name": "Steuerbord",
+      "area": {
+        "name": "Bug",
+        "slug": "bug",
+        "sortOrder": 1
+      },
+      "subarea_code": "B"
+    },
+    "expected": "Bug B"
+  },
+  {
+    "source": {
+      "name": "Steuerbord",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Bug"
+    },
+    "expected": "Bug C"
+  },
+  {
+    "source": {
+      "name": "Bug",
+      "area": {
+        "name": "Bug",
+        "slug": "bug",
+        "sortOrder": 1
+      },
+      "subarea_code": "C"
+    },
+    "expected": "Bug C"
+  },
+  {
+    "source": {
+      "name": "Bug",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Buckbord"
+    },
+    "expected": "Bug D"
+  },
+  {
+    "source": {
+      "name": "Buckbord",
+      "area": {
+        "name": "Bug",
+        "slug": "bug",
+        "sortOrder": 1
+      },
+      "subarea_code": "D"
+    },
+    "expected": "Bug D"
+  },
+  {
+    "source": {
+      "name": "Buckbord",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Zwergenwand"
+    },
+    "expected": "Couch-Ecke A"
+  },
+  {
+    "source": {
+      "name": "Zwergenwand",
+      "area": {
+        "name": "Couch-Ecke",
+        "slug": "couch-ecke",
+        "sortOrder": 2
+      },
+      "subarea_code": "A"
+    },
+    "expected": "Couch-Ecke A"
+  },
+  {
+    "source": {
+      "name": "Zwergenwand",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Kahlwinkel"
+    },
+    "expected": "Couch-Ecke B"
+  },
+  {
+    "source": {
+      "name": "Kahlwinkel",
+      "area": {
+        "name": "Couch-Ecke",
+        "slug": "couch-ecke",
+        "sortOrder": 2
+      },
+      "subarea_code": "B"
+    },
+    "expected": "Couch-Ecke B"
+  },
+  {
+    "source": {
+      "name": "Kahlwinkel",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Hönneportal"
+    },
+    "expected": "Top-Out A"
+  },
+  {
+    "source": {
+      "name": "Hönneportal",
+      "area": {
+        "name": "Top-Out",
+        "slug": "top-out",
+        "sortOrder": 3
+      },
+      "subarea_code": "A"
+    },
+    "expected": "Top-Out A"
+  },
+  {
+    "source": {
+      "name": "Hönneportal",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Hintere Burgmauer"
+    },
+    "expected": "Top-Out B"
+  },
+  {
+    "source": {
+      "name": "Hintere Burgmauer",
+      "area": {
+        "name": "Top-Out",
+        "slug": "top-out",
+        "sortOrder": 3
+      },
+      "subarea_code": "B"
+    },
+    "expected": "Top-Out B"
+  },
+  {
+    "source": {
+      "name": "Hintere Burgmauer",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Vollmond-klippe"
+    },
+    "expected": "Top-Out C"
+  },
+  {
+    "source": {
+      "name": "Vollmond-klippe",
+      "area": {
+        "name": "Top-Out",
+        "slug": "top-out",
+        "sortOrder": 3
+      },
+      "subarea_code": "C"
+    },
+    "expected": "Top-Out C"
+  },
+  {
+    "source": {
+      "name": "Vollmond-klippe",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Vordere Burgmauer"
+    },
+    "expected": "Top-Out D"
+  },
+  {
+    "source": {
+      "name": "Vordere Burgmauer",
+      "area": {
+        "name": "Top-Out",
+        "slug": "top-out",
+        "sortOrder": 3
+      },
+      "subarea_code": "D"
+    },
+    "expected": "Top-Out D"
+  },
+  {
+    "source": {
+      "name": "Vordere Burgmauer",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Phänomenturm"
+    },
+    "expected": "Lange Platte A"
+  },
+  {
+    "source": {
+      "name": "Phänomenturm",
+      "area": {
+        "name": "Lange Platte",
+        "slug": "lange-platte",
+        "sortOrder": 4
+      },
+      "subarea_code": "A"
+    },
+    "expected": "Lange Platte A"
+  },
+  {
+    "source": {
+      "name": "Phänomenturm",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Übergang"
+    },
+    "expected": "Lange Platte B"
+  },
+  {
+    "source": {
+      "name": "Übergang",
+      "area": {
+        "name": "Lange Platte",
+        "slug": "lange-platte",
+        "sortOrder": 4
+      },
+      "subarea_code": "B"
+    },
+    "expected": "Lange Platte B"
+  },
+  {
+    "source": {
+      "name": "Übergang",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Albsteg"
+    },
+    "expected": "Lange Platte C"
+  },
+  {
+    "source": {
+      "name": "Albsteg",
+      "area": {
+        "name": "Lange Platte",
+        "slug": "lange-platte",
+        "sortOrder": 4
+      },
+      "subarea_code": "C"
+    },
+    "expected": "Lange Platte C"
+  },
+  {
+    "source": {
+      "name": "Albsteg",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Deckenhöhle"
+    },
+    "expected": "Lange Platte D"
+  },
+  {
+    "source": {
+      "name": "Deckenhöhle",
+      "area": {
+        "name": "Lange Platte",
+        "slug": "lange-platte",
+        "sortOrder": 4
+      },
+      "subarea_code": "D"
+    },
+    "expected": "Lange Platte D"
+  },
+  {
+    "source": {
+      "name": "Deckenhöhle",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Avalonia"
+    },
+    "expected": "Grotte A"
+  },
+  {
+    "source": {
+      "name": "Avalonia",
+      "area": {
+        "name": "Grotte",
+        "slug": "grotte",
+        "sortOrder": 5
+      },
+      "subarea_code": "A"
+    },
+    "expected": "Grotte A"
+  },
+  {
+    "source": {
+      "name": "Avalonia",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Durchbruch"
+    },
+    "expected": "Grotte B"
+  },
+  {
+    "source": {
+      "name": "Durchbruch",
+      "area": {
+        "name": "Grotte",
+        "slug": "grotte",
+        "sortOrder": 5
+      },
+      "subarea_code": "B"
+    },
+    "expected": "Grotte B"
+  },
+  {
+    "source": {
+      "name": "Durchbruch",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Wandelwand"
+    },
+    "expected": "Grotte C"
+  },
+  {
+    "source": {
+      "name": "Wandelwand",
+      "area": {
+        "name": "Grotte",
+        "slug": "grotte",
+        "sortOrder": 5
+      },
+      "subarea_code": "C"
+    },
+    "expected": "Grotte C"
+  },
+  {
+    "source": {
+      "name": "Wandelwand",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Bilstein"
+    },
+    "expected": "Grotte D"
+  },
+  {
+    "source": {
+      "name": "Bilstein",
+      "area": {
+        "name": "Grotte",
+        "slug": "grotte",
+        "sortOrder": 5
+      },
+      "subarea_code": "D"
+    },
+    "expected": "Grotte D"
+  },
+  {
+    "source": {
+      "name": "Bilstein",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "Z2"
+    },
+    "expected": "Neue Wand Z2"
+  },
+  {
+    "source": {
+      "name": "Felsenmeer",
+      "area": {
+        "name": "Bug",
+        "slug": "bug"
+      },
+      "subarea_code": "A"
+    },
+    "expected": "Kurze Platte"
+  },
+  {
+    "source": {
+      "name": "Felsenmeer",
+      "area": {
+        "name": "Bug",
+        "slug": "bug"
+      },
+      "subarea_code": "B"
+    },
+    "expected": "Bug B"
+  },
+  {
+    "source": {
+      "name": "Felsenmeer",
+      "area": {
+        "name": "Grotte",
+        "slug": "grotte"
+      },
+      "subarea_code": "A"
+    },
+    "expected": "Grotte A"
+  },
+  {
+    "source": {
+      "name": "Unbekannt"
+    },
+    "expected": "Unbekannt"
+  },
+  {
+    "source": {
+      "name": "Neue Fläche",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": " a2 "
+    },
+    "expected": "Neue Wand A2"
+  },
+  {
+    "source": {
+      "name": "Neue Fläche",
+      "area": {
+        "name": "Neue Wand",
+        "slug": "neue-wand"
+      },
+      "subarea_code": "invalid"
+    },
+    "expected": "Neue Fläche"
+  },
+  {
+    "source": {
+      "name": "Neue Fläche",
+      "area": {
+        "slug": "grotte"
+      },
+      "subarea_code": "B"
+    },
+    "expected": "Grotte B"
+  },
+  {
+    "source": {
+      "name": "Neue Fläche",
+      "area": {
+        "name": "Kurze Platte",
+        "slug": "kurze-platte"
+      },
+      "subarea_code": "A"
+    },
+    "expected": "Kurze Platte"
+  },
+  {
+    "source": {
+      "name": "Buckbord",
+      "area": {
+        "name": "Bug",
+        "slug": "bug"
+      },
+      "subarea_code": "toolong"
+    },
+    "expected": "Bug D"
+  }
+]

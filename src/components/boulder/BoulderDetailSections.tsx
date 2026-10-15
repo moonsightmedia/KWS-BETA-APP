@@ -22,6 +22,8 @@ import {
   Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ContentSafetyActions } from '@/components/ContentSafetyActions';
+import { AccountAvatar, UserAvatar } from '@/components/AccountAvatar';
 
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
@@ -153,12 +155,12 @@ function CommentItem({
 }) {
   const isEditing = editingCommentId === comment.id;
   const isOwn = comment.user_id === currentUserId;
+  const { user } = useAuth();
 
   return (
     <div className="flex gap-2.5">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-kws-control bg-accent text-xs font-bold text-accent-foreground">
-        {comment.author_name.slice(0, 2).toUpperCase()}
-      </div>
+      {isOwn && user ? <AccountAvatar user={user} className="h-8 w-8" />
+        : <UserAvatar src={comment.author_avatar_url} name={comment.author_name} className="h-8 w-8" />}
       <div className="min-w-0 flex-1">
         <div className="mb-0.5 flex items-center gap-2">
           <span className="text-xs font-semibold text-foreground">{comment.author_name}</span>
@@ -213,6 +215,8 @@ function CommentItem({
           <p className="text-sm leading-relaxed text-foreground/90">{comment.comment}</p>
         )}
 
+        {!isEditing && comment.moderation_status !== 'approved' && comment.moderation_status && <p className="mt-1 text-xs text-muted-foreground">{comment.moderation_status === 'pending' ? 'Wartet auf Freigabe durch Marketing' : 'Von der Moderation abgelehnt'}</p>}
+        {!isEditing && !isOwn && <ContentSafetyActions kind="comment" targetId={comment.id} authorId={comment.user_id} />}
         {!isEditing && isOwn && (
           <div className="mt-1.5 flex items-center gap-3">
             <button
@@ -575,7 +579,7 @@ export function BoulderInfoTab({ boulder }: { boulder: Boulder }) {
         <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Kommentare ({comments.length})</h4>
 
         <div className="space-y-4">
-          {comments.length === 0 ? (
+          {commentsQuery.isLoading ? <p role="status" className="text-sm text-muted-foreground">Kommentare werden geladen …</p> : commentsQuery.isError ? <div role="alert" className="text-sm text-destructive">Kommentare konnten nicht geladen werden. <Button variant="outline" onClick={() => commentsQuery.refetch()}>Erneut versuchen</Button></div> : comments.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">Noch keine Kommentare. Sei der Erste.</p>
           ) : (
             comments.map((comment) => (
@@ -595,7 +599,7 @@ export function BoulderInfoTab({ boulder }: { boulder: Boulder }) {
 
         <div className="mt-4 border-t border-border/80 pt-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kws-control bg-primary/[0.15] text-xs font-bold text-primary">Du</div>
+            <AccountAvatar user={user} />
             <form
               className="flex min-w-0 flex-1 items-center gap-1 rounded-kws-card bg-secondary p-1"
               onSubmit={(event) => {
@@ -609,6 +613,7 @@ export function BoulderInfoTab({ boulder }: { boulder: Boulder }) {
                 onChange={(event) => setCommentDraft(event.target.value)}
                 placeholder="Kommentar schreiben …"
                 aria-label="Kommentar schreiben"
+                maxLength={1000}
                 className="h-10 min-w-0 rounded-kws-control border-0 bg-transparent px-2.5 text-sm shadow-none focus-visible:ring-2 focus-visible:ring-[#192436]/20 focus-visible:ring-offset-0"
               />
               <button
@@ -621,6 +626,7 @@ export function BoulderInfoTab({ boulder }: { boulder: Boulder }) {
               </button>
             </form>
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">Neue und bearbeitete Kommentare werden vor der Veröffentlichung geprüft. <a href="/community-rules" className="text-primary-ink underline">Community-Regeln</a></p>
         </div>
       </section>
     </div>

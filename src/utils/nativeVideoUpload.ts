@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { VideoCompressor } from '@honem/native-video-compressor';
 import { UploadMasterEncoder } from '@/plugins/uploadMasterEncoder';
+import { SilentVideo } from '@/plugins/silentVideo';
 
 import type { NativeVideoUploadFile, UploadFileInput } from '@/types/upload';
 import { isNativeVideoUploadFile } from '@/types/upload';
@@ -75,8 +76,7 @@ function isPlausibleUploadMaster(originalSize: number, output: Awaited<ReturnTyp
     output.videoTrackCount === 1 && Number.isFinite(output.averageBitrate) &&
     output.averageBitrate > 100_000 && output.averageBitrate <= 4_800_000 &&
     Number.isFinite(output.videoBitrate) && output.videoBitrate > 100_000 && output.videoBitrate <= 4_600_000 &&
-    Number.isFinite(output.audioBitrate) && (output.audioTrackCount === 0 ||
-      (output.audioTrackCount === 1 && output.audioBitrate >= 32_000 && output.audioBitrate <= 147_200)) &&
+    output.audioTrackCount === 0 && output.audioBitrate === 0 &&
     Number.isFinite(output.frameRate) && output.frameRate > 0 && output.frameRate <= 30.25 &&
     Number.isFinite(output.sourceDurationSeconds) &&
     Math.abs(output.durationSeconds - output.sourceDurationSeconds) <= Math.max(0.5, output.sourceDurationSeconds * 0.03);
@@ -130,7 +130,7 @@ export async function prepareNativeVideoPathForUpload(
     };
   }
 
-  console.log('[nativeVideoUpload] Preparing controlled iOS upload master v1.2.0:', {
+  console.log('[nativeVideoUpload] Preparing controlled iOS upload master v1.2.4:', {
     fileSize: input.fileSize,
   });
 
@@ -158,6 +158,7 @@ export async function prepareNativeVideoPathForUpload(
   }
 
   if (encoded.skipped) {
+    if (encoded.audioTrackCount !== 0) throw new Error('Source still contains audio');
     onProgress?.(100);
     return {
       filePath: input.path,
@@ -169,7 +170,7 @@ export async function prepareNativeVideoPathForUpload(
     };
   }
   if (!isPlausibleUploadMaster(input.fileSize, encoded)) {
-    console.warn('[nativeVideoUpload] Upload master rejected; falling back to original', {
+    console.warn('[nativeVideoUpload] Upload master rejected; using lossless silent fallback', {
       originalSize: input.fileSize,
       output: encoded,
     });
@@ -211,7 +212,7 @@ export type PreparedChunkedVideo =
 /**
  * Prepare video for chunked upload.
  * Native: compress on device, return filesystem path (never load whole file into JS).
- * Web File: return as-is for existing File chunked path.
+ * All platforms remove audio before any video chunk is sent.
  */
 export async function prepareVideoFileForChunkedUpload(
   input: UploadFileInput,
@@ -224,12 +225,18 @@ export async function prepareVideoFileForChunkedUpload(
     if (isNativeVideoUploadFile(input)) {
       throw new Error('Native video is only supported in the Capacitor app');
     }
-    return { kind: 'file', file: input, cleanup: noopCleanup, compressed: false };
+    const { prepareSilentVideoFile } = await import('./silentVideo');
+    onProgress?.(5);
+    const file = await prepareSilentVideoFile(input, abortSignal);
+    onProgress?.(40);
+    return { kind: 'file', file, cleanup: noopCleanup, compressed: false };
   }
 
   if (!isNativeVideoUploadFile(input)) {
-    console.log('[nativeVideoUpload] Skipping compress for web File (no native path)');
-    return { kind: 'file', file: input, cleanup: noopCleanup, compressed: false };
+    const { prepareSilentVideoFile } = await import('./silentVideo');
+    const file = await prepareSilentVideoFile(input, abortSignal);
+    onProgress?.(40);
+    return { kind: 'file', file, cleanup: noopCleanup, compressed: false };
   }
 
   const source: NativeVideoUploadFile = input;
@@ -258,36 +265,64 @@ export async function prepareVideoFileForChunkedUpload(
       abortSignal,
     );
 
+    const silent = await stripNativeAudio(prepared.filePath, abortSignal);
+    const encodedPath = prepared.filePath;
+    const encodedCleanup = prepared.cleanup;
+    if (!silent.skipped && silent.path !== encodedPath) await encodedCleanup().catch(() => undefined);
     return {
       kind: 'native-path',
-      path: prepared.filePath,
+      path: silent.path,
       fileName: prepared.fileName,
-      fileSize: prepared.fileSize,
+      fileSize: silent.fileSize,
       mimeType: prepared.mimeType,
       compressed: prepared.compressed,
-      cleanup: withSourceCleanup(prepared.cleanup),
+      cleanup: withSourceCleanup(silent.skipped ? encodedCleanup : () => deleteNativeVideoFile(silent.path)),
     };
   } catch (error) {
     if (abortSignal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
+      if (prepared) await prepared.cleanup().catch(() => undefined);
       if (sourcePath) await deleteNativeVideoFile(sourcePath).catch(() => undefined);
       throw createAbortError();
     }
-    console.warn('[nativeVideoUpload] Compress failed, fail-open to original native path:', error);
+    console.warn('[nativeVideoUpload] Compress failed; preparing video-only original instead:', error);
     if (prepared) {
       await prepared.cleanup().catch(() => undefined);
     }
 
-    // Fail-open: upload original path in chunks (still no full JS File load).
+    // Lossless fallback, never fail-open to an audio-bearing original.
+    const silent = await stripNativeAudio(source.path, abortSignal);
     return {
       kind: 'native-path',
-      path: source.path,
-      fileName: source.name,
-      fileSize: source.size,
-      mimeType: source.mimeType || 'video/quicktime',
+      path: silent.path,
+      fileName: silent.skipped ? source.name : toMp4FileName(source.name),
+      fileSize: silent.fileSize,
+      mimeType: silent.skipped ? source.mimeType || 'video/quicktime' : 'video/mp4',
       compressed: false,
-      cleanup: withSourceCleanup(noopCleanup),
+      cleanup: withSourceCleanup(silent.skipped ? noopCleanup : () => deleteNativeVideoFile(silent.path)),
     };
   }
+}
+
+async function stripNativeAudio(inputPath: string, signal?: AbortSignal) {
+  if (signal?.aborted) throw createAbortError();
+  const operationId = globalThis.crypto.randomUUID();
+  const ios = Capacitor.getPlatform() === 'ios';
+  const cancel = () => { if (ios) void UploadMasterEncoder.cancel({ operationId }).catch(() => undefined); };
+  signal?.addEventListener('abort', cancel, { once: true });
+  try {
+    const result = ios
+      ? await UploadMasterEncoder.stripAudio({ inputPath, operationId })
+      : await SilentVideo.stripAudio({ inputPath });
+    if (signal?.aborted) {
+      if (!result.skipped) await deleteNativeVideoFile(result.path);
+      throw createAbortError();
+    }
+    if (result.audioTrackCount !== 0 || !Number.isFinite(result.fileSize) || result.fileSize <= 0) {
+      if (!result.skipped) await deleteNativeVideoFile(result.path);
+      throw new Error('Silent video validation failed');
+    }
+    return result;
+  } finally { signal?.removeEventListener('abort', cancel); }
 }
 
 /**

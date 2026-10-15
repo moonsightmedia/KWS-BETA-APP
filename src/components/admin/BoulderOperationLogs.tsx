@@ -1,7 +1,9 @@
 import { useState, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { readAdminRows } from '@/lib/adminRead';
+import { readDisplayProfiles } from '@/lib/displayProfiles';
 import { AdminViewBar } from './AdminViewBar';
 import { AdminSearchField } from './AdminSearchField';
 import { KwsSegmentedControl } from '@/components/ui/kws-segmented-control';
@@ -46,6 +48,7 @@ interface LogBatch {
 
 export const BoulderOperationLogs = () => {
   const { user, session, loading: authLoading } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const [operationFilter, setOperationFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [period, setPeriod] = useState('all');
@@ -57,7 +60,7 @@ export const BoulderOperationLogs = () => {
   const detailTrigger = useRef<HTMLElement | null>(null);
   const filterTrigger = useRef<HTMLButtonElement | null>(null);
   const { data, isLoading, isFetching, error, refetch } = useQuery({
-    queryKey: ['boulder-operation-logs', user?.id, operationFilter, period],
+    queryKey: ['boulder-operation-logs', user?.id, isAdmin, operationFilter, period],
     enabled: !authLoading && !!session?.access_token,
     retry: false,
     queryFn: async ({ signal }) => {
@@ -66,13 +69,17 @@ export const BoulderOperationLogs = () => {
       if (period !== 'all') params.set('created_at', 'gte.' + new Date(Date.now() - Number(period) * 86_400_000).toISOString());
       const rows = await readAdminRows<BoulderOperationLog>('boulder_operation_logs?' + params, session!.access_token, signal);
       const ids = [...new Set(rows.flatMap(row => row.user_id ? [row.user_id] : []))];
-      type Profile = { id: string; email: string; first_name: string; full_name: string };
+      type Profile = { id: string; email?: string; first_name?: string; full_name: string | null };
       let profiles: Profile[] = [];
       let profilesUnavailable = false;
       if (ids.length) {
         try {
-          const query = new URLSearchParams({ select: 'id,email,first_name,full_name', id: 'in.(' + ids.map(id => JSON.stringify(id)).join(',') + ')' });
-          profiles = await readAdminRows<Profile>('profiles?' + query, session!.access_token, signal);
+          if (isAdmin) {
+            const query = new URLSearchParams({ select: 'id,email,first_name,full_name', id: 'in.(' + ids.map(id => JSON.stringify(id)).join(',') + ')' });
+            profiles = await readAdminRows<Profile>('profiles?' + query, session!.access_token, signal);
+          } else {
+            profiles = await readDisplayProfiles(ids, session!.access_token, signal);
+          }
         } catch { profilesUnavailable = true; }
       }
       const byId = new Map(profiles.map(profile => [profile.id, profile]));

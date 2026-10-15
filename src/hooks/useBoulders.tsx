@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { useMemo } from 'react';
 
 // Get Supabase API key from environment
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -127,6 +128,7 @@ export interface Boulder {
   difficulty: number;
   color: string;
   color_2?: string | null;
+  volume_only?: boolean;
   beta_video_url: string | null;
   beta_video_urls: VideoQualities | null;
   beta_video_status?: 'none' | 'uploading' | 'queued' | 'processing' | 'ready' | 'failed' | null;
@@ -361,8 +363,8 @@ export const useBoulders = (enabled: boolean = true) => {
     },
     retry: 1, // Only retry once
     retryDelay: 1000, // Wait 1 second before retry
-    // CRITICAL: Set staleTime to 0 to ensure data is always refetched after reload
-    staleTime: 0,
+    // Route changes share recent data; writes and pull-to-refresh still invalidate it.
+    staleTime: 30_000,
     // Use default query options from QueryClient (refetchOnMount: true)
   });
 };
@@ -376,15 +378,15 @@ export const useBouldersWithSectors = (enabled: boolean = true) => {
 
   // Keep the last successful result visible when a background refetch fails.
   // Pull-to-refresh must never replace already loaded boulders with an empty view.
-  const effectiveBoulders = boulders || [];
-  const effectiveSectors = sectors || [];
+  const effectiveBoulders = boulders;
+  const effectiveSectors = sectors;
 
   // Only transform if we have both boulders and sectors (or at least boulders)
   // If we have errors, return empty array instead of undefined to prevent infinite loading
-  const transformedBoulders: FrontendBoulder[] | undefined = effectiveBoulders && effectiveBoulders.length > 0
+  const transformedBoulders = useMemo<FrontendBoulder[] | undefined>(() => effectiveBoulders && effectiveBoulders.length > 0
     ? effectiveBoulders.map(b => {
         try {
-          return transformBoulder(b, effectiveSectors);
+          return transformBoulder(b, effectiveSectors ?? []);
         } catch (error) {
           // Return a fallback boulder
           return {
@@ -394,6 +396,7 @@ export const useBouldersWithSectors = (enabled: boolean = true) => {
             difficulty: b.difficulty as any,
             color: b.color as any,
             color2: b.color_2 as FrontendBoulder['color2'] || undefined,
+            volumeOnly: b.volume_only === true,
             betaVideoUrl: b.beta_video_url || undefined,
             note: b.note || undefined,
             createdAt: new Date(b.created_at),
@@ -401,7 +404,8 @@ export const useBouldersWithSectors = (enabled: boolean = true) => {
           };
         }
       })
-    : (bouldersError || sectorsError ? [] : undefined); // Return empty array only if no usable data exists
+    : (boulders ? [] : bouldersError || sectorsError ? [] : undefined),
+    [effectiveBoulders, effectiveSectors, bouldersError, sectorsError]);
 
   // If there are errors, don't show loading state forever
   const hasError = bouldersError || sectorsError;
@@ -411,8 +415,8 @@ export const useBouldersWithSectors = (enabled: boolean = true) => {
     data: transformedBoulders,
     isLoading: isLoading,
     error: bouldersError || sectorsError,
-    rawBoulders: effectiveBoulders,
-    rawSectors: effectiveSectors,
+    rawBoulders: effectiveBoulders ?? [],
+    rawSectors: effectiveSectors ?? [],
   };
 };
 

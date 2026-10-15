@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { boulderNavigationState } from '@/lib/boulderNavigation';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
@@ -9,8 +10,6 @@ import {
   Trophy,
   Zap,
 } from 'lucide-react';
-import { formatDate } from 'date-fns';
-import { de } from 'date-fns/locale';
 
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -20,17 +19,18 @@ import { Button } from '@/components/ui/button';
 import { KwsMetricStrip } from '@/components/ui/kws-metric-strip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
+import { BoulderTypeBadge } from '@/components/boulder/BoulderTypeBadge';
 import { useSidebar } from '@/components/SidebarContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderCommunity';
 import { buildPersonalProgress, homeFocusBoulders } from '@/lib/personalProgress';
-import { usePreloadBoulderThumbnails } from '@/hooks/usePreloadBoulderThumbnails';
-import { useSectorSchedule } from '@/hooks/useSectorSchedule';
+import { NextResetCard } from '@/components/schedule/NextResetCard';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { useHorizontalRouteSwipe } from '@/hooks/useHorizontalRouteSwipe';
+import { APP_USER_ROUTES } from '@/features/training/flags';
 import type { Boulder } from '@/types/boulder';
 
 const getThumbnailUrl = (thumbnailUrl?: string | null) => {
@@ -55,12 +55,6 @@ const getSectorAreaLabel = ({ sector, sector2 }: Pick<Boulder, 'sector' | 'secto
   return primaryArea === secondaryArea ? primaryArea : `${primaryArea} · ${secondaryArea}`;
 };
 
-const getScheduleTitle = (sectorNames: string[]) => {
-  if (sectorNames.length === 1) return `${sectorNames[0]} bekommt neue Boulder`;
-  if (sectorNames.length === 2) return `${sectorNames[0]} & ${sectorNames[1]} bekommen neue Boulder`;
-  return `${sectorNames.length} Sektoren bekommen neue Boulder`;
-};
-
 const DashboardSectionHeader = ({
   title,
   description,
@@ -72,9 +66,9 @@ const DashboardSectionHeader = ({
   actionLabel?: string;
   onActionClick?: () => void;
 }) => (
-  <div className="mb-2.5 flex items-center justify-between gap-3 px-0.5">
+  <div className="mb-2.5 flex flex-wrap items-center justify-between gap-3 px-0.5 sm:flex-nowrap">
     <div className="min-w-0">
-      <h2 className="font-sans text-sm font-semibold tracking-[-0.01em] text-[#192436]">{title}</h2>
+      <h2 className="break-words font-sans text-sm font-semibold tracking-[-0.01em] text-[#192436]">{title}</h2>
       {description ? <p className="pt-0.5 text-xs text-muted-foreground">{description}</p> : null}
     </div>
     {actionLabel && onActionClick ? (
@@ -122,6 +116,7 @@ const HomePreviewCard = ({
     <div className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2.5">
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold tracking-[-0.02em] text-foreground">{boulder.name}</p>
+        <BoulderTypeBadge volumeOnly={boulder.volumeOnly} />
         <p className="truncate pt-0.5 text-xs text-muted-foreground">{getSectorAreaLabel(boulder)}</p>
         <p className="truncate pt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">{meta}</p>
       </div>
@@ -134,15 +129,15 @@ const HomePreviewCard = ({
 
 const Index = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { isExpanded } = useSidebar();
   const { user, loading: authLoading } = useAuth();
-  const swipeRef = useHorizontalRouteSwipe({ routes: ['/', '/boulders', '/statistics'] });
+  const swipeRef = useHorizontalRouteSwipe({ routes: APP_USER_ROUTES });
 
   const queriesEnabled = !authLoading && !!user;
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(queriesEnabled);
   const { data: sectors, isLoading: isLoadingSectors, error: sectorsError } = useSectorsTransformed(queriesEnabled);
-  const { data: schedule } = useSectorSchedule();
   const personalTicks = useMyTrackedBoulders();
   const personalSessions = useMyTrackingSessions();
   const myTrackedBoulders = personalTicks.data;
@@ -153,7 +148,6 @@ const Index = () => {
   const isLoading = isLoadingBoulders || isLoadingSectors;
   const error = bouldersError || sectorsError;
 
-  usePreloadBoulderThumbnails(!!user && !authLoading);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -236,38 +230,6 @@ const Index = () => {
     };
   }, [user, authLoading, greetingName]);
 
-  const upcomingSchedules = useMemo(() => {
-    const now = new Date();
-    const grouped = new Map<string, { when: Date; sectorNames: string[] }>();
-
-    (schedule || [])
-      .filter((item) => new Date(item.scheduled_at) > now)
-      .forEach((item) => {
-        const when = new Date(item.scheduled_at);
-        const dayKey = when.toISOString().slice(0, 10);
-        const sectorName = sectors?.find((sector) => sector.id === item.sector_id)?.name || 'Unbekannter Sektor';
-        const existing = grouped.get(dayKey);
-
-        if (existing) {
-          existing.sectorNames.push(sectorName);
-          return;
-        }
-
-        grouped.set(dayKey, {
-          when,
-          sectorNames: [sectorName],
-        });
-      });
-
-    return [...grouped.values()]
-      .map((entry) => ({
-        when: entry.when,
-        sectorNames: Array.from(new Set(entry.sectorNames)),
-      }))
-      .sort((a, b) => a.when.getTime() - b.when.getTime())
-      .slice(0, 3);
-  }, [schedule, sectors]);
-
   const sevenDaysAgo = useMemo(() => {
     const date = new Date();
     date.setDate(date.getDate() - 7);
@@ -291,18 +253,6 @@ const Index = () => {
   const weeklyStats = useMemo(() => buildPersonalProgress(myTrackedBoulders ?? [], personalSessions.data ?? [], { days: 7 }), [myTrackedBoulders, personalSessions.data]);
   const progressStats = useMemo(() => buildPersonalProgress(myTrackedBoulders ?? [], personalSessions.data ?? []), [myTrackedBoulders, personalSessions.data]);
   const nextFocusBoulders = useMemo(() => homeFocusBoulders(myTrackedBoulders ?? [], boulders ?? [], progressStats.successIds).slice(0, 2), [myTrackedBoulders, boulders, progressStats.successIds]);
-
-  const daysUntilLabel = (date: Date) => {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const startOfTarget = new Date(date);
-    startOfTarget.setHours(0, 0, 0, 0);
-    const diffDays = Math.round((startOfTarget.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (diffDays <= 0) return 'Heute';
-    if (diffDays === 1) return 'in 1 Tag';
-    return `in ${diffDays} Tagen`;
-  };
 
   const layoutClassName = cn(
     'kws-sidebar-content flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]',
@@ -455,7 +405,7 @@ const Index = () => {
                 <button
                   key={boulder.id}
                   type="button"
-                  onClick={() => navigate(`/boulders/${boulder.id}`)}
+                  onClick={() => navigate(`/boulders/${boulder.id}`, { state: boulderNavigationState(location) })}
                   aria-label={`${boulder.name}, Grad ${boulder.difficulty ?? '?'}, ${getSectorAreaLabel(boulder)}`}
                   className="group relative aspect-[4/5] w-full overflow-hidden rounded-kws-card bg-[#EEF2EE] p-0 text-left shadow-[0_3px_14px_rgba(19,17,43,0.10)] transition-[transform,box-shadow] hover:shadow-[0_7px_22px_rgba(19,17,43,0.16)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55 focus-visible:ring-offset-2"
                 >
@@ -498,6 +448,7 @@ const Index = () => {
                       {getSectorAreaLabel(boulder)}
                     </span>
                   </div>
+                  <BoulderTypeBadge volumeOnly={boulder.volumeOnly} compact className="absolute left-1.5 top-9 sm:left-2" />
                 </button>
               ))}
               {newestBoulders.length === 0 ? (
@@ -508,35 +459,13 @@ const Index = () => {
             </div>
           </section>
 
-          <div className="grid gap-5 lg:grid-cols-2">
-            <section>
-              <DashboardSectionHeader title="Nächste Umschraubung" />
-              <div className="rounded-kws-card bg-card p-3.5 shadow-[0_3px_14px_rgba(19,17,43,0.07)]">
-                {upcomingSchedules.length > 0 ? (
-                  <div className="flex items-center gap-3">
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-kws-control bg-primary/10 text-primary">
-                      <CalendarDays className="h-4.5 w-4.5" strokeWidth={2} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold tracking-[-0.02em] text-foreground">
-                        {getScheduleTitle(upcomingSchedules[0].sectorNames)}
-                      </p>
-                      <p className="truncate pt-0.5 text-xs text-muted-foreground">
-                        {formatDate(upcomingSchedules[0].when, 'EEE, dd. MMM', { locale: de })}
-                        {upcomingSchedules.length > 1 ? ` · +${upcomingSchedules.length - 1} weitere` : ''}
-                      </p>
-                    </div>
-                    <span className="shrink-0 rounded-kws-badge bg-primary/15 px-2 py-1 text-[10px] font-semibold text-primary">
-                      {daysUntilLabel(upcomingSchedules[0].when)}
-                    </span>
-                  </div>
-                ) : (
-                  <p className="py-1 text-sm text-muted-foreground">Kein Schraubtermin geplant.</p>
-                )}
-              </div>
+          <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-2">
+            <section className="min-w-0" data-testid="home-next-reset">
+              <DashboardSectionHeader title="Nächste Umschraubung" actionLabel="Alle Termine" onActionClick={() => navigate('/schedule')} />
+              <NextResetCard />
             </section>
 
-            <section>
+            <section className="min-w-0">
               <DashboardSectionHeader
                 title="Für deine Session"
                 actionLabel="Projekte"
@@ -550,7 +479,7 @@ const Index = () => {
                         key={item.tick.id}
                         boulder={item.boulder}
                         meta={`${item.tick.is_project ? 'Projekt' : item.tick.is_favorite ? 'Gespeichert' : 'In Arbeit'} · ${item.tick.attempt_count ?? 0} ${(item.tick.attempt_count ?? 0) === 1 ? 'Versuch' : 'Versuche'}`}
-                        onClick={() => navigate(`/boulders/${item.tick.boulder_id}`)}
+                        onClick={() => navigate(`/boulders/${item.tick.boulder_id}`, { state: boulderNavigationState(location) })}
                       />
                     ) : null,
                   )}

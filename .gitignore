@@ -44,6 +44,18 @@ temp-video-processing/
 .codex-screenshots/
 .playwright-cli/
 output/
+/test-results/training-ui/
+/test-results/training-artifacts/
+/test-results/training-library-art-subagent-*/
+/test-results/training-calm-filters-subagent-*/
+/test-results/training-all-results-subagent-*/
+/test-results/training-history-qa/
+/test-results/training-kids-ui-subagent-*/
+/test-results/training-raster-audit-*/
+/test-results/training-help-loop*/
+/test-results/oct15-*/
+/test-results/training-intro-*
+/test-results/header-stability-20261006/
 
 # Local design/reference material
 references/

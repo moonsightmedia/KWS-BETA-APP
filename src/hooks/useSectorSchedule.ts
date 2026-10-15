@@ -102,6 +102,8 @@ export const useCreateSectorSchedule = () => {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sector_schedule'] });
+      qc.invalidateQueries({ queryKey: ['public', 'sector_schedule'] });
+      qc.invalidateQueries({ queryKey: ['tv', 'sector_schedule'] });
       qc.refetchQueries({ queryKey: ['sector_schedule'] });
     },
     onError: (error) => {
@@ -148,6 +150,8 @@ export const useDeleteSectorSchedule = () => {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sector_schedule'] });
+      qc.invalidateQueries({ queryKey: ['public', 'sector_schedule'] });
+      qc.invalidateQueries({ queryKey: ['tv', 'sector_schedule'] });
     }
   });
 };
@@ -210,6 +214,8 @@ export const useCreateSectorScheduleGroup = () => {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sector_schedule'] });
+      qc.invalidateQueries({ queryKey: ['public', 'sector_schedule'] });
+      qc.invalidateQueries({ queryKey: ['tv', 'sector_schedule'] });
     },
     onError: (error) => {
       console.error('[useCreateSectorScheduleGroup] Mutation error:', error);
@@ -264,6 +270,8 @@ export const useDeleteSectorScheduleGroup = () => {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sector_schedule'] });
+      qc.invalidateQueries({ queryKey: ['public', 'sector_schedule'] });
+      qc.invalidateQueries({ queryKey: ['tv', 'sector_schedule'] });
     },
   });
 };

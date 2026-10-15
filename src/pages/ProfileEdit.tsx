@@ -2,8 +2,12 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
+import { accountProfileKey } from '@/hooks/useAccountProfile';
 
 import { DashboardPageLayout } from '@/components/DashboardPageLayout';
+import { AccountDeletion } from '@/components/AccountDeletion';
+import { BlockedUsers } from '@/components/BlockedUsers';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -82,7 +86,9 @@ async function cleanupAvatarBestEffort(imageUrl: string | null) {
 const ProfileEdit = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const loadedProfile = useRef<string | null>(null);
   const { user, session, resetPassword } = useAuth();
+  const queryClient = useQueryClient();
 
   const [form, setForm] = useState({
     name: 'Kletterer',
@@ -93,12 +99,15 @@ const ProfileEdit = () => {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [avatarSaving, setAvatarSaving] = useState(false);
 
   useEffect(() => {
     if (!user) {
+      loadedProfile.current = null;
       setLoadingProfile(false);
       return;
     }
+    if (loadedProfile.current === user.id) return;
 
     let cancelled = false;
 
@@ -126,17 +135,17 @@ const ProfileEdit = () => {
         avatarUrl: current.avatarUrl ?? metadataAvatarUrl,
       }));
       setInitialAvatarUrl((current) => current ?? metadataAvatarUrl);
-      setLoadingProfile(false);
-
       try {
         if (cancelled) return;
-        const data = await fetchProfileRecord(user.id, session?.access_token);
+        const data = await queryClient.fetchQuery({ queryKey: accountProfileKey(user.id),
+          queryFn: () => fetchProfileRecord(user.id, session?.access_token), staleTime: 60_000 });
+        if (cancelled) return;
 
         const profileName =
           data?.full_name?.trim() ||
           [data?.first_name, data?.last_name].filter(Boolean).join(' ').trim() ||
           fallbackName;
-        const nextAvatarUrl = metadataAvatarUrl || data?.avatar_url || null;
+        const nextAvatarUrl = data ? data.avatar_url : metadataAvatarUrl;
 
         setForm({
           name: profileName,
@@ -150,6 +159,7 @@ const ProfileEdit = () => {
         });
       } finally {
         if (!cancelled) {
+          loadedProfile.current = user.id;
           setLoadingProfile(false);
         }
       }
@@ -160,7 +170,7 @@ const ProfileEdit = () => {
     return () => {
       cancelled = true;
     };
-  }, [session?.access_token, user]);
+  }, [session?.access_token, user, queryClient]);
 
   const avatarPreviewUrl = useMemo(() => {
     if (!avatarFile) return null;
@@ -185,21 +195,53 @@ const ProfileEdit = () => {
     return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
   }, [form.name]);
 
-  const handleAvatarPick = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setAvatarFile(file);
+  const persistAvatar = async (url: string | null) => {
+    if (!user) throw new Error('Bitte melde dich erneut an.');
+    await withTimeout(updateProfileRecord(user.id, { avatar_url: url }, session?.access_token),
+      PROFILE_SAVE_TIMEOUT_MS, 'Das Profilbild konnte nicht rechtzeitig gespeichert werden.');
+    await queryClient.cancelQueries({ queryKey: accountProfileKey(user.id) });
+    queryClient.setQueryData(accountProfileKey(user.id), (current: Awaited<ReturnType<typeof fetchProfileRecord>> | undefined) =>
+      current ? { ...current, avatar_url: url } : current);
+    setForm(current => ({ ...current, avatarUrl: url }));
+    setInitialAvatarUrl(url);
+    // Old account metadata is compatibility-only; photo visibility uses profiles.
+    void updateAuthUserWithTimeout({ data: { avatar_url: url } }, 'Profilbild-Synchronisierung verzögert.').catch(() => {});
   };
 
-  const handleRemoveAvatar = () => {
-    setAvatarFile(null);
-    setForm((current) => ({ ...current, avatarUrl: null }));
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+  const handleAvatarPick = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || avatarSaving || saving || loadingProfile) return;
+    setAvatarSaving(true);
+    setAvatarFile(file);
+    let uploaded: string | null = null;
+    const previous = initialAvatarUrl;
+    try {
+      uploaded = await withTimeout(uploadProfileAvatar(file, user!.id), AVATAR_UPLOAD_TIMEOUT_MS,
+        'Das Profilbild konnte nicht rechtzeitig hochgeladen werden.');
+      await persistAvatar(uploaded);
+      if (previous && previous !== uploaded) void cleanupAvatarBestEffort(previous);
+      toast.success('Profilbild gespeichert');
+    } catch (error) {
+      if (uploaded) void cleanupAvatarBestEffort(uploaded);
+      toast.error('Profilbild nicht gespeichert', { description: error instanceof Error ? error.message : 'Bitte versuche es erneut.' });
+    } finally { setAvatarFile(null); setAvatarSaving(false); }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (avatarSaving || saving || loadingProfile) return;
+    setAvatarSaving(true);
+    try {
+      await persistAvatar(null);
+      if (initialAvatarUrl) void cleanupAvatarBestEffort(initialAvatarUrl);
+      toast.success('Profilbild entfernt');
+    } catch (error) {
+      toast.error('Profilbild nicht entfernt', { description: error instanceof Error ? error.message : 'Bitte versuche es erneut.' });
+    } finally { setAvatarSaving(false); }
   };
 
   const handleSave = async () => {
+    if (avatarSaving || saving) return;
     if (!user) {
       toast.error('Du bist nicht angemeldet.');
       return;
@@ -220,26 +262,14 @@ const ProfileEdit = () => {
 
     setSaving(true);
 
-    let uploadedAvatarUrl: string | null = null;
     let saveStage = 'initialisieren';
 
     try {
       const nameParts = trimmedName.split(' ').filter(Boolean);
       const firstName = nameParts[0] || null;
       const lastName = nameParts.slice(1).join(' ').trim() || null;
-      let nextAvatarUrl = form.avatarUrl;
+      const nextAvatarUrl = form.avatarUrl;
       const emailChanged = trimmedEmail !== (user.email || '');
-      const avatarChanged = nextAvatarUrl !== initialAvatarUrl || Boolean(avatarFile);
-
-      if (avatarFile) {
-        saveStage = 'Profilbild hochladen';
-        uploadedAvatarUrl = await withTimeout(
-          uploadProfileAvatar(avatarFile, user.id, session?.access_token),
-          AVATAR_UPLOAD_TIMEOUT_MS,
-          'Das Profilbild konnte nicht rechtzeitig hochgeladen werden. Bitte versuche es erneut.',
-        );
-        nextAvatarUrl = uploadedAvatarUrl;
-      }
 
       const metadata = {
         ...user.user_metadata,
@@ -266,7 +296,6 @@ const ProfileEdit = () => {
             last_name: lastName,
             full_name: trimmedName,
             email: trimmedEmail,
-            avatar_url: nextAvatarUrl,
           },
           session?.access_token,
         ),
@@ -274,20 +303,19 @@ const ProfileEdit = () => {
         'Das Profil konnte nicht rechtzeitig gespeichert werden. Bitte versuche es erneut.',
       );
 
+      await queryClient.cancelQueries({ queryKey: accountProfileKey(user.id) });
+      queryClient.setQueryData(accountProfileKey(user.id), {
+        first_name: firstName, last_name: lastName, full_name: trimmedName,
+        email: trimmedEmail, avatar_url: nextAvatarUrl,
+      });
+
       if (!emailChanged) {
         void updateAuthUserWithTimeout(
           { data: { ...metadata, email: trimmedEmail } },
-          avatarChanged
-            ? 'Das Profilbild konnte nicht rechtzeitig synchronisiert werden.'
-            : 'Die Kontodaten konnten nicht rechtzeitig synchronisiert werden.',
+          'Die Kontodaten konnten nicht rechtzeitig synchronisiert werden.',
         ).catch(() => {
           // Das sichtbare Profil kommt aus `profiles`; ein hängender Metadaten-Sync darf den Flow nicht blockieren.
         });
-      }
-
-      if (initialAvatarUrl && initialAvatarUrl !== nextAvatarUrl) {
-        saveStage = 'Altes Profilbild bereinigen';
-        void cleanupAvatarBestEffort(initialAvatarUrl);
       }
 
       saveStage = 'Abschließen';
@@ -305,16 +333,8 @@ const ProfileEdit = () => {
     } catch (error: unknown) {
       console.error('[Profile Edit] Save failed:', {
         stage: saveStage,
-        userId: user.id,
-        hasAvatarFile: Boolean(avatarFile),
-        initialAvatarUrl,
-        uploadedAvatarUrl,
         error,
       });
-
-      if (uploadedAvatarUrl && uploadedAvatarUrl !== initialAvatarUrl) {
-        void cleanupAvatarBestEffort(uploadedAvatarUrl);
-      }
 
       toast.error('Speichern fehlgeschlagen', {
         description: error instanceof Error ? error.message : 'Bitte versuche es erneut.',
@@ -358,7 +378,7 @@ const ProfileEdit = () => {
             <div className="min-w-0 flex-1">
               <p className="text-base font-semibold text-foreground">Profilbild</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Optional. Wird im Profil und in der Sidebar angezeigt.
+                Wird nach der Auswahl automatisch gespeichert.
               </p>
             </div>
           </div>
@@ -368,7 +388,7 @@ const ProfileEdit = () => {
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={handleAvatarPick}
+            onChange={event => void handleAvatarPick(event)}
           />
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -376,11 +396,11 @@ const ProfileEdit = () => {
               type="button"
               variant="outline"
               className="h-11 border-border"
-              disabled={loadingProfile || saving}
+              disabled={loadingProfile || saving || avatarSaving}
               onClick={() => fileInputRef.current?.click()}
             >
-              <Camera className="mr-2 h-4 w-4" />
-              {displayAvatarUrl ? 'Bild ersetzen' : 'Bild auswählen'}
+              {avatarSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Camera className="mr-2 h-4 w-4" />}
+              {avatarSaving ? 'Bild wird gespeichert …' : displayAvatarUrl ? 'Bild ersetzen' : 'Bild auswählen'}
             </Button>
 
             {displayAvatarUrl ? (
@@ -388,8 +408,8 @@ const ProfileEdit = () => {
                 type="button"
                 variant="outline"
                 className="h-11 border-[#F1D7D2] text-[#B64332] hover:bg-[#FFF4F2] hover:text-[#B64332]"
-                disabled={loadingProfile || saving}
-                onClick={handleRemoveAvatar}
+                disabled={loadingProfile || saving || avatarSaving}
+                onClick={() => void handleRemoveAvatar()}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Bild entfernen
@@ -432,7 +452,7 @@ const ProfileEdit = () => {
         <div className="space-y-3">
           <Button
             onClick={handleSave}
-            disabled={saving || loadingProfile}
+            disabled={saving || loadingProfile || avatarSaving}
             className="h-12 w-full bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
           >
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -443,12 +463,13 @@ const ProfileEdit = () => {
             type="button"
             variant="outline"
             onClick={handlePasswordChange}
-            disabled={loadingProfile || saving}
+            disabled={loadingProfile || saving || avatarSaving}
             className="h-12 w-full font-medium"
           >
             Passwort ändern
           </Button>
         </div>
+        {user && <><BlockedUsers /><AccountDeletion userId={user.id} /></>}
       </div>
     </DashboardPageLayout>
   );

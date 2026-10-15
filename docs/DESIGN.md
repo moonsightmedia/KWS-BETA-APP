@@ -276,7 +276,14 @@ anderes Design ersetzt.
 - Scrollbars sind schmal, abgerundet und neutralgrau; derselbe Token gilt für
   Browser- und Radix-Scrollbars. Grün bleibt fachlichen Aktivzuständen vorbehalten.
 
-- Hauptreihenfolge: `Home → Boulder → Statistiken`.
+- Hauptreihenfolge: `Home → Boulder → Statistiken`, mit aktivierter Training-Vorschau ergänzt um `→ Training` (Nutzerentscheidung 12.10.2026).
+- Training enthält die vier direkt zugänglichen Bereiche Krafttraining, Boulderübungen, Wiedereinstieg und Kinderbouldern sowie eine optionale Wochenplanung. Thematische Übungs-/Spielsuche ist hier dauerhaft sichtbar. Die Vorschau verwendet ausdrücklich gekennzeichnete Beispieldaten; Quellen liegen unter „Hintergrund“. Training-Unterseiten halten den Haupttab aktiv, eigene Formulare und Wochenansichten erhalten keinen globalen Route-Swipe.
+- Training-Weiterentwicklung nach Nutzerauftrag vom 12.10.2026: Übungsillustrationen unterstützen Bibliothek, Detail und konkrete Einheiten. Auf schmaler Contentbreite bleibt der Detailkopf einspaltig (die Desktop-Seitenleiste zählt bei der Breite mit). Filter verwenden ein mobiles Sheet bzw. Desktop-Popover mit explizitem Übernehmen, verwerfbarer Auswahl und entfernbaren aktiven Filtern. Ein kompakter Plan-Assistent liegt mobil oberhalb der Hauptnavigation; er zeigt eine Frage je Gesprächsschritt und eine bearbeitbare Zusammenfassung vor der Erstellung. Vorhandene Pläne stehen ganz oben im Training-Einstieg und sind aus Unterseiten erreichbar. Die Wochenansicht zeigt konkrete Übungen und Pausen direkt, vertiefende Auswahlbegründungen aufklappbar. Lokale Speicherung wird von Cloud-Synchronisierung und verbundenen KI-Diensten klar unterschieden.
+- Präzisierung 12.–13.10.2026: Filterthemen sind ruhige Textreiter mit Unterlinie; das Filterfenster zeigt native Auswahlzeilen statt großer grüner Buttonflächen. Trainingseingaben verwenden genau einen Fokusborder ohne äußeren Ring oder Ring-Offset. Eigene Einheiten sind ein kompakter Zusatzlink. Der Plan-Einstieg ist eine einzelne 56px-Chatblase (bewusste Ausnahme vom üblichen Controlradius), mobil über der Navigation; auf Desktop öffnet sie ein nichtmodales Fenster rechts unten. Im Gesprächskopf steht die bestehende KWS-Marke; wiederholte dekorative Chat-Avatare und generische Ziel-Icons entfallen. Die Katalogauswahl startet mit dem vom Nutzer genannten Hallenmaterial; weitere Geräte sind ausdrücklich zuschaltbar.
+- Nutzerpräzisierung 13.10.2026: „Zuletzt trainiert“ ersetzt die festen Fußtechnik-/Brustlinks. Nur ausdrücklich als trainiert markierte Einheiten erzeugen datierte, unveränderliche Verlaufs-Snapshots; Speichern, Suchen und Merken erzeugen keinen Abschluss. Wiederholen öffnet eine unabhängige bearbeitbare Sammlungskopie und erhält den offenen Entwurf. „Rückgängig“ entfernt nur den jeweiligen Abschluss. Bibliotheken zeigen alle Treffer und ihre Zahl ohne wiederholtes Fünfer-Nachladen. Im Boulderbereich sind Format (Übung/Spiel) und motorisches Lernfeld getrennte Filterachsen. Hinzufügen sammelt im Einheitsentwurf; Öffnen → Anpassen → Speichern → optional in Woche einplanen wird sichtbar erklärt. „Wiedereinstieg“ bleibt fachliche Orientierung und hat keine pauschale Therapiedosis.
+- Weitere Nutzerpräzisierung 13.10.2026: Kinderbouldern ist ein eigener vierter Bereich für Kita- und Schulkinder. Vier Bereichskacheln und Bibliothekssegmente sind mobil/Tablet 2×2, bei ausreichender Desktopbreite vier nebeneinander. Kinderspiele sind Betreuungsanleitungen mit eigenen Aufbau-/Gruppen-/Alters-/Zeithinweisen und Kita-Vereinfachungen; Kita/Schule und Thema sind getrennte Suchachsen. Kinderspiele bekommen keine Erwachsenen-Trainingsdosis und keine Einheiten-Add-/Replace-Aktion. „Gemerkte Inhalte“ fasst Übungs-, Wiedereinstiegs- und Spielkarten zusammen. Favoriten speichern kein Kinderprofil.
+- Korrektur des Auftraggebers 13.10.2026: Illustrationen bleiben die großen Übungs-/Spielbilder. Kleine individuelle Symbole unterstützen nur passende Themenfilter, Funktions- oder Orientierungsstellen; kein zusätzlicher Iconzwang neben jedem Kartentitel. Profil → Trainingseinstellungen bietet getrennte Schalter für Training und Kinderbouldern. Ausblenden verändert keine gespeicherten Inhalte. Training verschwindet aus Hauptnavigation und Route-Swipe; direkte Links zeigen einen Rückweg zu den weiterhin erreichbaren Einstellungen. Ohne Kinderbereich erscheinen drei Bereichskacheln, mobil zwei Spalten. Kinderkarten und ihre Favoriten werden verborgen, beim Reaktivieren wieder sichtbar. Die Auswahl ist lokal, kontogebunden und zwischen Browser-Tabs abgestimmt; keine Cloud-/Gerätesynchronisation behaupten.
+- Verständlichkeit nach Nutzerauftrag 14.10.2026: Übungs-/Spielkarten nennen ein kurzes Ziel und einen konkreten Ablauf in Alltagssprache. Ausgangsposition, Bewegung und Rückkehr sind nachvollziehbar; Begriffe beim ersten Auftreten erklären. Praktische Aufbau-/Betreuungs-/Stophinweise bleiben direkt sichtbar. Keine wiederholten Methoden-/Freigabetexte in jedem Schritt. Quellen, Auswahlbegründung und fachlicher Entwurfsstatus sind unter „Hintergrund & Quellen“ nachgeordnet. Kinderseiten zeigen ausführliche Alters-/Gruppen-/Zeitangaben erst nach dem Ablauf aufklappbar; kurze Angaben und Betreuung bleiben im Kopf. „Zur Anleitung“/„Zum Spielablauf“/„Zur Kita-Idee“ springen mit Headerabstand zur passenden Stelle. Bilder müssen die dargestellte Grundbewegung/Spielsituation unterstützen und dürfen keine falsche Griff-/Fußtechnik als Vorbild ausgeben.
 - Die Bottom-Navigation und Desktop-Navigation verwenden dieselben Labels,
   Icons und Aktivzustände.
 - Bei normalem Wechsel auf eine andere Route beginnt die neue Seite oben.
@@ -362,6 +369,9 @@ Inhaltswechsel wie `Info / Track / Beta` oder Statistikzeiträume.
   Text und Schließen-Aktion.
 - Fokus erzeugt keinen grünen Rahmen um das ganze Feld. Verwendet wird ein
   zurückhaltender, nicht layoutverändernder dunkelblauer Fokusindikator.
+- Auswahlfelder (`SelectTrigger`) zeigen diesen äußeren Indikator nur bei
+  Tastaturbedienung (`focus-visible`). Nach Maus- oder Touch-Auswahl bleibt
+  die normale Feldkontur erhalten; Fokus allein erzeugt keinen zweiten Rahmen.
 - Löschen/Schließen darf die Höhe des Feldes nicht verändern.
 
 ### 5.7 Menüs, Popover, Dialoge und Filterpanels
@@ -421,6 +431,7 @@ Inhaltswechsel wie `Info / Track / Beta` oder Statistikzeiträume.
   Iconbibliothek. Label „Boulder“, Linkziel und Aktivzustand bleiben unverändert.
 - Icons erklären eine Funktion und werden nicht als beliebige Dekoration
   eingesetzt.
+- Trainingsillustrationen bleiben nach Nutzerkorrektur vom 13.10.2026 die primären Karten-/Detail-/Einheitenbilder. `training-glyphs.ts` stellt eigene kleine Themen-/Orientierungssymbole bereit; sie ersetzen keine vorhandenen Rasterbilder und wiederholen nicht unnötig die Bildinformation als Metadatenicon. Boulder-Lernaufgaben dürfen eine passende Grundbewegungsillustration über `illustrationId` teilen. Kinderspiele verwenden zwölf eigene Szenen. Gemeinsame Funktionsicons wie Merken, Zurück oder Schließen behalten ihre einheitliche Zuordnung. Die eigene KWS-Kontur beträgt 1,75px; kleine grüne Motive verwenden `primary-ink`, Rasterillustrationen das Markengrün mit Schattierungen. Bilder vor Nutzung auf Anatomie, Kontaktpunkte, Geräte, Motivpassung und echte CSS-Zuschnitte prüfen; eine Bildprüfung ersetzt keine fachliche Ausführungsfreigabe.
 - Icons sitzen häufig auf 32–40-px-Flächen mit 8-px-Radius.
 - Berg- oder Klettericons werden nur für eine passende fachliche Aussage
   verwendet, nicht als generisches Symbol für eine Boulderanzahl.
@@ -767,7 +778,25 @@ Bisherige farbige Darstellung (historisch, weiterhin Referenz für Zeicheneditor
 
 ## 8. Gastansicht und Boulder-Detail
 
+### Optionales Beta-Video (14.10.2026)
+
+- Neue Boulder brauchen ein Vorschaubild und gültige Pflichtangaben. Ohne Video
+  ist die ausdrückliche Auswahl „Beta später ergänzen“ erforderlich.
+- Veröffentlichung erfolgt erst nach bestätigtem Vorschaubild-Upload. Kein
+  echtes Video, Upload-Auftrag oder „Offizielle Beta“-Badge wird vorgetäuscht.
+- Der gemeinsame Platzhalter läuft in einem 3-Sekunden-Loop. Kein Wiederholen-
+  oder Aktualisieren-Icon; bei reduzierter Bewegung bleibt er statisch.
+- Ein echtes Beta-Video lässt sich später ergänzen. Nach unklarer Veröffentlichung
+  wird der bereits angelegte Boulder repariert, nicht erneut angelegt.
+
 ### 8.0 Login und Registrierung
+
+Produktentscheidung 12.10.2026: Neue eigene Konten zum Start ab 16 Jahren.
+Die Registrierung verlangt ein vollständiges, gültiges Geburtsdatum und erklärt
+die Altersgrenze direkt am Feld. Ein Fehler bleibt dort sichtbar und erhält alle
+anderen Eingaben. Die Kontoerstellung benötigt dieselbe Prüfung auf dem Server;
+ein UI-Hinweis allein gilt nicht als Durchsetzung. Konten unter 16 werden später
+mit geeignetem Elternablauf vorbereitet. Apples Inhaltsaltersfreigabe bleibt separat.
 
 Login und Registrierung bilden einen gemeinsamen Auth-Flow und verwenden die
 gleiche Marken-, Typografie- und Komponentenlogik wie Gast- und Nutzerbereich.
@@ -821,6 +850,25 @@ dieselbe visuelle Struktur.
 
 ### 8.2 Detailansicht
 
+- Rücknavigation führt zum tatsächlichen Einstieg: Home („Neu an der Wand“)
+  zurück zu Home, Boulder-/Gastübersicht zurück zur jeweiligen Übersicht.
+  Während eines Detailbesuchs bleibt genau diese Ausgangsseite im Speicher:
+  Bilder, Filter, Ansicht, Gruppen und Scrollposition bleiben erhalten. Andere
+  Navigation und Kontowechsel geben sie frei. Direktlinks haben einen sicheren
+  Rückweg zur Übersicht. Ein kurzer 180-ms-Übergang entfällt bei Reduced Motion.
+- Beim Detailbesuch bleibt die Ausgangsseite auch gezeichnet und an derselben
+  Dokumentposition. Die Detailseite besitzt eine eigene bildschirmfüllende
+  Scrollebene. Der Hintergrund ist dabei `inert` und für Screenreader verborgen.
+  Schließen entfernt nur die Vordergrundebene; kein `display:none`-Wechsel,
+  erneuter Seitenaufbau oder nachträglicher Scrollsprung. Klassische Scrollleisten
+  werden beim Sperren des Hintergrunds ausgeglichen. Detailtabs und Pull-to-Refresh
+  beziehen sich ausschließlich auf die aktive Scrollebene.
+  Die Vordergrundfläche ist ab dem ersten Frame deckend; nur ihr Inhalt bewegt
+  sich beim Eintritt leicht. Die Ausgangsseite darf dabei nicht durchscheinen.
+- Videos wählen ihre Netzwerkqualität vor der ersten Medienanfrage. Gleiche
+  URLs oder Änderungen anderer Detaildaten dürfen Wiedergabe nicht neu starten.
+  Sichtbare Bilder haben Vorrang vor einem Vorladen des gesamten Katalogs.
+
 - Die Seite verwendet `DashboardHeader`/`DashboardPageLayout`; es gibt keinen
   eigenen fixierten Header und keinen pauschalen mobilen Top-Abstand.
 - Im gemeinsamen Header steht der Seitentitel `Boulder`; Bouldername, Grad,
@@ -868,6 +916,12 @@ Bedienelemente auf wechselnden Wandfotos lesbar bleiben:
 
 ### 8.4 Kommentare und Track
 
+- Kommentarzeilen und Composer zeigen das Profilfoto in derselben 8-px-
+  Avatarfläche wie der Profilknopf. Ohne Foto oder bei Ladefehler bleiben
+  Namensinitialen sichtbar. Eigene Kommentare und Composer nutzen den gemeinsamen
+  Profilcache; fremde Fotos werden nur zu für den Betrachter sichtbaren Kommentaren
+  geladen. Moderierte/gesperrte Profile behalten den neutralen Fallback.
+
 - Der Kommentar-Composer bildet eine kompakte Zeile aus 40px-Absenderfläche,
   ruhiger Sekundärfläche, 40px-Input und 40px-Sendenbutton.
 - Input und Sendenbutton verwenden 8-px-Radien; die gemeinsame Composerfläche
@@ -902,6 +956,10 @@ Bedienelemente auf wechselnden Wandfotos lesbar bleiben:
 - `Neu an der Wand` verwendet dieselbe kanonische Gridkarte wie die
   Boulderübersicht.
 - Schraubtermine und Rückblicke bleiben kompakte, scannbare Flächen.
+- Home-Terminkarten begrenzen Gridspalten mit `minmax(0,1fr)` und Gridkinder
+  mit `min-w-0`. Lange Sektornamen dürfen umbrechen; Datum und Zeitbadge teilen
+  eine umbruchfähige Metazeile unter dem Titel, nicht dessen knappen Restplatz.
+  Karte und Nachbarsektion bleiben auch bei vergrößerter Schrift im Seitenrand.
 - Wenig Text; jede Sektion beantwortet eine konkrete Nutzerfrage.
 
 ### 9.2 Statistiken
@@ -916,6 +974,25 @@ Bedienelemente auf wechselnden Wandfotos lesbar bleiben:
 - Farben sind semantisch, nicht dekorativ; Haupttext bleibt dunkelblau.
 
 ### 9.3 Profil und Unterseiten
+
+Profil, Sidebar und Kontomenü lesen das Profilbild aus demselben kontogebundenen
+Profil-Cache. Ein gespeichertes Entfernen (`avatar_url = null`) hat Vorrang vor
+alten Kontometadaten. Speichern aktualisiert alle sichtbaren Avatare sofort;
+eine verzögerte Metadatensynchronisierung darf kein altes Foto zurückbringen.
+Auswählen/Hochladen und Entfernen des Profilbilds speichern sofort ausschließlich
+das Bild. Name und E-Mail bleiben unabhängige Entwürfe bis „Speichern“; ein
+Profilbild-Upload speichert sie nicht mit. Auswahlvorschau, laufender Upload,
+bestätigter Erfolg und Fehler bleiben unterscheidbar. Währenddessen sind weitere
+Fotoaktionen gesperrt. Erfolg benötigt eine bestätigte eigene Profilzeile.
+
+Kontolöschung steht im bearbeitbaren Profil als eigene ruhige Fläche mit
+destruktiver Aktion. Eine zugängliche Rückfrage nennt den Umfang und die
+Bearbeitungsfrist (Marketing, spätestens sieben Tage). Erst eine bestätigte
+Serverantwort ersetzt die Aktion durch den eingegangenen Antrag mit genauer
+Frist. Fehler bleiben im geöffneten Dialog sichtbar; wiederholtes Absenden
+erzeugt keinen zweiten Vorgang. Mobile Rückfragen verwenden das gemeinsame
+Confirmation-Surface-Verhalten. In der Administration stehen offene Anträge
+bei den Benutzern; ein Ladefehler darf nicht als leere Warteschlange erscheinen.
 
 - Dasselbe `ProfileMenu` muss aus Home, Boulder und Statistiken erscheinen.
 - Profilübersicht, Bearbeiten, Benachrichtigungen, Sektoren und „Über die App“
@@ -1402,6 +1479,15 @@ Prüfbelege: `docs/qa/2026-09-15-personal-progress-design.md`,
 
 ### 15.6 Benachrichtigungen (2026-09-15)
 
+- Meldungen unterstützen horizontales Wischen: rechts gelesen/ungelesen,
+  links entfernen. Entfernen blendet reversibel aus; es löscht keinen Datensatz.
+  Eine bestätigte Aktion bietet „Rückgängig“ im festen Panel-Fuß. Dieselben
+  Aktionen sind per beschrifteten Iconbuttons und Tastatur erreichbar.
+  Vertikales Scrollen, Pinch-Zoom und abgebrochene Gesten schreiben nichts;
+  Buttons starten keine Wischgeste. Unter etwa 88px springt die Meldung zurück.
+  Reduced Motion entfällt beim Zurückgleiten. Verborgene Meldungen zählen nicht
+  zum Ungelesen-Zähler. Wiederherstellen erzeugt keinen neuen Push.
+
 - Ein gemeinsamer Posteingang: mobil randbündiges Bottom-Sheet, Desktop als
   kompaktes Hover-/Klick-Popover. Hover übernimmt keinen Fokus; Klick/Interaktion
   hält die Ansicht offen. Ein Scrollbereich, feste Kopf- und Fußaktionen.
@@ -1420,8 +1506,118 @@ Prüfbelege: `docs/qa/2026-09-15-personal-progress-design.md`,
 - Browser-Push bleibt deaktiviert. Die native Anmeldung gilt erst nach Geräteevent
   und bestätigter Speicherung als erfolgreich. Registrierung ist kein Zustellnachweis.
   Empfang aktualisiert nur den Posteingang und löst keinen zweiten Push aus.
+- Für die erste öffentliche iPhone-Version bleiben Mitteilungen innerhalb der
+  App aktiv. iPhone-Push folgt nach Einrichtung und Gerätetest der APNs-Anbindung;
+  bis dahin gibt es keinen Push-Schalter und keinen Registrierungsversuch auf iOS.
+  Die Einstellungen benennen diese Einschränkung ausdrücklich. Android bleibt
+  unabhängig davon verfügbar; eine Registrierung ist weiterhin kein Zustellnachweis.
 - Native Aktionen und In-App-Links verwenden validierte interne Ziele. Queries und
   Änderungen sind kontogebunden. Markengrün, gemeinsame Controls und Radien bleiben.
+- Sektornamen in Mitteilungen entsprechen der öffentlichen App-Hierarchie,
+  einschließlich Teilbereich (etwa „Bug D“, „Couch-Ecke B“). Technische Altnamen
+  dienen nur der Auflösung. Bereits vorhandene Posteingangstexte dürfen beim
+  Korrigieren der Zuordnung aktualisiert werden, ohne sie erneut zu versenden
+  oder ihren Gelesen-Status zu ändern.
+- „Ansehen“, Echtzeit-Toasts und Push öffnen bei neuen Bouldern die Auswahl der
+  jeweiligen Mitteilung. Ein oder mehrere betroffene Bereiche sind aufgeklappt;
+  andere neue Boulder gehören nicht ungefragt zur Auswahl. Die Auswahl bleibt
+  beim Detailbesuch und Rückweg erhalten und ist über „Aus Mitteilung“ entfernbar.
+  Alte Mitteilungen behalten ihre konkreten Boulder auch nach sieben Tagen.
+  Nicht mehr verfügbare Zuordnungen zeigen Fehler/Leerzustand mit Rückweg zum
+  gesamten Bestand. Große Sammlungen verwenden eine kurze kontogebundene
+  Mitteilungsreferenz statt langer URLs oder vollständiger ID-Listen im Push.
 
 Prüfbelege: `docs/qa/2026-09-15-notifications.md`, `e2e/notifications.spec.ts`,
 `test/notifications.test.mjs`, `test/pushRegistration.test.mjs`.
+
+### Nutzerpräzisierung 14.10.2026: Mobilität und Kartenbedienung
+
+Die Hauptbereiche heißen Kraft, Bouldern, Mobilität und Kinder. Mobilität bietet allgemeines Bewegen und Dehnen als freiwillige Ergänzung, mit den Filtern Alle / Bewegen / Dehnen. Beschwerden sind ein nachgeordneter Zugang für Orientierung; alte Reha-Links bleiben gültig. Dehnen wird nicht als Pflicht nach jedem Krafttraining dargestellt.
+
+Bibliothekskarten öffnen ihre Anleitung über die gesamte Fläche durch einen nativen Link. Merken und Hinzufügen sind unabhängig bedienbare Geschwister-Buttons, keine verschachtelten Link-Inhalte. Touchziele mindestens44px; Tastaturfokus weiter sichtbar. Kartenbilder bleiben Rasterillustrationen; Körpersymbole nur dort, wo sie eine Region benennen. Schulter, Hand, Ellbogen und Knie verwenden die gemeinsame Region-Komponente. Explizite Grid-Spalten und umbrechende Titel verhindern abgeschnittene Tasten bei375px. Alltagssprache gilt auch für aufklappbare Begründungen: z.B. Hände auf einer Bank machen Liegestütze leichter.
+
+Korrektur der Körpersymbole 14.10.2026: Ellenbogen und Knie brauchen eine erkennbare vollständige Arm- bzw. Beinsilhouette mit Hand bzw. Fuß und einem markierten Gelenk. Zwei abstrakte Winkellinien genügen nicht. Konturstärke wird auf die gemeinsame Icongröße normalisiert; keine abweichenden Farben oder größeren Iconflächen. Immer in tatsächlicher Kartengröße prüfen, nicht nur vergrößert.
+
+
+### Nutzerkorrektur14.10.2026: Rastergrafiken und nutzbare Übungsdetails
+
+Für Körperregionen werden generierte Rastergrafiken mit KWS-grüner Markierung verwendet. Die zuvor formulierte SVG-Silhouettenregel wird damit ersetzt. Eigene anatomische SVG-Pfade entfallen; auch kleine Themenreiter erhalten keine dekorativen Miniatur-SVGs. Funktionssymbole für Navigation/Merken/Hinzufügen bleiben gemeinsame Appcontrols. Die Bitmapfarbe wird nicht über currentColor abgedunkelt. Originale, Bildprompts und Sichtprüfung müssen nachvollziehbar bleiben.
+
+Übungsdetails folgen der Reihenfolge kurzer Titel/Zweck → Bewegungsbild → Anleitung. Anleitung, Umfang und Varianten sind getrennte Textreiter. Die Anleitung zeigt kurze nummerierte Handlungen, optional einen Schritt mit Zurück/Weiter. Vorbereitung und Zusatzhinweise werden gezielt geöffnet; Stopgrenzen bleiben sichtbar. Zahlen für Blöcke/Sätze, Wiederholungen/Versuche/Haltephasen und Pause bleiben bei ihrem korrekten Seiten-/Zeitbezug. Ein zentraler Add-Einstieg behält Entwurf, Ersetzen und Rückwege; Quellen am Ende aufklappbar. Kinder verwenden Spielablauf/Aufbau/Varianten und sichtbar umschaltbare Kita-/Schulideen. Beschwerden und Fingerboard bleiben Orientierung ohne Add/Dosis. Mobil einspaltig, ab ausreichender Desktopbreite Bild neben Inhalt.
+
+Materialangaben müssen wirklich benötigte Geräte nennen, z.B. Bank beim erhöhten Liegestütz. Bildbeschriftungen behaupten keine einzelne Position, wenn ein Vergleich dargestellt ist. Ein aus der Suche erkanntes und als aktiv dargestelltes Thema muss die Ergebnisse auch tatsächlich einschränken. Konzept/Referenzableitung: docs/design/training-exercise-detail-concept.md.
+
+### Nutzerpräzisierung14.10.2026: Trainingshilfe und kurze Einführung
+
+Wiederkehrende Bedienerklärungen stehen im Training oben hinter einem funktionalen Info-Icon. Es ersetzt die bisherige Textaktion „Vorschau“. Auf Übungsseiten stehen dort zuerst die Hinweise zur jeweiligen Übung, einschließlich Betreuung, Ausführung und Grenzen; danach aufklappbare Bedienhilfe, Hintergrund/Quellen und Speicherung. Das ersetzt die zuvor beschriebene Darstellung von Hinweisen und Quellen am Seitenende. Bild, kurze Aufgabe, Anleitung, Vorbereitung, Umfang und Varianten bleiben direkt nutzbarer Übungsinhalt. Aktuelle Fehler und Speicherprobleme beim Bearbeiten bleiben sichtbar; kein Fehler wird nur in der Hilfe gemeldet.
+
+Beim ersten Besuch einer aktivierten Trainingsroute erklärt eine überspringbare Einführung in zwei Schritten „Zur Einheit hinzufügen“ → Entwurf → „Einheit öffnen“ → Anpassen/Speichern. Sie erscheint auch bei direkten Bibliotheks- oder Übungslinks. Abschluss oder Schließen merkt sich die App pro Konto auf diesem Gerät, getrennt von Trainingsdaten. Ein Datenreset wiederholt die Einführung nicht. „Einführung erneut ansehen“ bleibt im Infofenster erreichbar. Kinder und Beschwerdeorientierung werden als getrennte, merkbare Inhalte erklärt. Bei ausgeblendetem Training erscheint keine Einführung.
+
+Die Einführung verwendet die gemeinsamen Dialogcontrols: mobil randbündig, aber mit `data-compact="true"` nur so hoch wie der Inhalt; Desktop zentriert und kompakt. Lange Infofenster scrollen innen bei festem Kopf. Tastaturfokus startet am Titel und kehrt beim Schließen zur Infoaktion zurück. Sichtbarer Tastaturfokus und mindestens44px große Bedienelemente bleiben erhalten. Keine neue Illustration oder eigenes Dekorationsicon für die Bedienhilfe.
+
+Prüfbeleg: `docs/qa/2026-10-14-training-help-onboarding.md`.
+
+### Nutzerkorrektur14.10.2026: Einführung am echten Bedienelement
+
+Die Einführung ist eine Tour mit hervorgehobenen echten Bedienelementen und kurzen, daran verankerten Hinweisen. Die zuvor beschriebene Einführung als Bottom-Sheet oder kompakter Dialog wird ersetzt. Die dauerhafte Infohilfe bleibt ein normaler Dialog.
+
+Die Tour stellt nur vorhandene Controls der aktuellen Ansicht vor: Bereiche/Einheiten/Plan-Assistent auf der Startseite; Suche/Filter/Hinzufügen/Merken in der Bibliothek; Anleitung/Umfang/Varianten auf Übungsseiten. Kinder- und Orientierungsansichten bekommen keine Erklärung für eine dort nicht vorhandene Hinzufügen-Taste. Der obere Infozugang ist der Abschluss. Bestehende Auswahl-, Ergänzungs- und Ersatzsituationen erhalten passende Texte. Keine Beispieltasten oder automatisch vorgenommenen Datenänderungen.
+
+Der Hintergrund wird zurückgenommen, das echte Element bleibt sichtbar mit grüner Kontur. Der kleine Hinweis liegt daneben bzw. ober- oder unterhalb, zeigt mit einem Pfeil auf das Element und bleibt vollständig im Viewport. Scrollen, Größenwechsel und Layoutänderungen aktualisieren den Anker; auf kurzen Displays wird bei Bedarf Platz durch Scrollen geschaffen. Weiter/Zurück, Überspringen/X/Escape und Fokusrückgabe sind vorhanden. Nach Abschluss kehrt die Seite an ihre Ausgangsposition zurück. Einmaligkeit je Konto/Gerät und Wiederholung über das „i“ bleiben erhalten.
+
+Prüfbeleg: `docs/qa/2026-10-14-training-coachmark-tour.md`.
+
+### Nutzerpräzisierung14.10.2026: Einheiten benennen und mehrfach einplanen
+
+Gespeicherte Einheiten lassen sich über den Stift neben dem Namen umbenennen. Der Name wird mit Speichern bestätigt; Abbrechen lässt ihn unverändert. Leere Namen werden verhindert, Rand-Leerzeichen entfernt und Namen auf80Zeichen begrenzt. Auch lange Wörter umbrechen in Sammlung, Wochenplan, Startseite und Infohilfe.
+
+Beim optionalen Einplanen eigener Einheiten sind mehrere freie Wochentage gleichzeitig auswählbar. Bereits eingeplante Tage bleiben sichtbar; weitere freie Tage können später ergänzt werden. Belegte Tage und feste Termine werden nicht überschrieben. Je ausgewähltem Tag entsteht ein eigener Termineintrag mit eigener ID; alle verweisen auf dieselbe gespeicherte Einheit. Änderungen an deren Namen und Übungen gelten für diese Einheit an allen geplanten Tagen; abgeschlossene Verlaufssnapshots bleiben unverändert.
+
+Abschließen und Rückgängig gelten für einen konkreten Termin. Aus dem Wochenplan geöffnete Einheiten behalten den Termineintrag im Link. Beim Öffnen über die Sammlung wird bei mehreren Terminen zuerst der Trainingstag gewählt; keine stillschweigende Zuordnung zum ersten Termin. Ungültige Terminlinks zeigen einen Fehler und markieren keinen anderen Tag. Planungen zur fachlichen Besprechung bleiben gesperrt. Ein Termin pro Wochentag bleibt der aktuelle Planvertrag.
+
+Prüfbeleg: `docs/qa/2026-10-14-training-session-names-days.md`.
+
+### Nutzerkorrektur14.10.2026: konkretes Aufwärmen statt Platzhalter
+
+Einheiten und Wochenplan zeigen denselben konkreten Aufwärmablauf: Bewegung am Boden, benannte Gelenkbewegungen und je nach Inhalt leichte Boulder bzw. eine einfache Variante der ersten Kraftübung mit Mengen/Pausen. Handlungen stehen direkt in der Einheit; Quellen, redaktionelle Herleitung und Einschränkungen bleiben im Infozugang. Kein Fingerboard-Maximaltest und kein automatisch hinzugefügtes Belastungsgerät. Die kurze Abfolge ist ein redaktioneller Einstieg, kein Nachweis individueller Bereitschaft nach einer festen Minutenzahl und keine Kopie eines längeren Verbandsprogramms.
+
+Der pauschale Abschluss mit „locker bewegen und reflektieren“ entfällt. Dafür werden auch keine drei zusätzlichen Minuten mehr gerechnet. Der Zeitansatz zählt genau die dargestellten Aufwärmphasen und Übungen/Pausen. Ältere cooldownMinutes-Felder dürfen lesbar bleiben, werden aber nicht dargestellt oder mitgerechnet. Anfänger- und Erwachsenengrenzen sowie feste Termine bleiben erhalten. Leere und reine Orientierungs-/Kinderinhalte erhalten keine allgemeine Erwachsenenvorgabe.
+
+Prüfbeleg: `docs/qa/2026-10-14-training-concrete-warmup.md`.
+### 15.7 Volumen-Boulder und tonlose Uploads (2026-10-14)
+
+- „Nur Volumen“ ist eine unabhängige Setter-Angabe für Boulder ohne zusätzliche
+  Griffe. Eine oder zwei Farben bleiben frei wählbar; die Option ersetzt weder
+  Grad noch Farbe oder andere Merkmale.
+- Anlegen und Bearbeiten verwenden denselben Schalter im Farbbereich.
+  Boulderlisten, Home, Details, Upload-Stapel und Setterübersichten kennzeichnen
+  den Typ mit einem neutralen Badge aus Icon und Text. Gridkarten verwenden die
+  kompakte Beschriftung „Volumen“, Details „Nur Volumen“.
+- Neue Videos werden vor dem Upload ohne Tonspur vorbereitet. Der Editor
+  benennt dies ausdrücklich. Die Galerie-Datei bleibt unverändert. Eine fehlende
+  Tonentfernung ist ein sichtbarer Fehler und kein Anlass für einen Upload mit Ton.
+- Bestehende Videos und externe Video-Links werden nicht rückwirkend verändert.
+
+Prüfbelege: `docs/qa/2026-10-14-volume-silent.md`,
+`e2e/volume-silent.spec.ts`, `test/nativeSilentVideo.test.mjs`.
+
+### Gemeinsamer Web-Release 15.10.2026: öffentlicher Schraubplan
+
+Home und Profil führen auf `/schedule`. Termine und ein kompakter Kalender
+verwenden dieselben öffentlich lesbaren Hallendaten, ohne Erstellerdaten zu laden.
+Gleiche Zeitpunkte werden zusammengefasst, unterschiedliche Uhrzeiten bleiben
+getrennt. Heute/Morgen und Tagesgruppen richten sich nach Europe/Berlin.
+Ansicht, Monat und gewählter Tag werden als versionierte, öffentliche
+UI-Präferenzen gespeichert; fehlender Speicher blockiert die Bedienung nicht.
+Der nächste Termin erhält ein Badge statt einer zusätzlichen grünen Seitenlinie.
+
+Die Home-Vorschau hat keinen festen rechten Termin-Badge mehr. Lange
+Teilbereichsnamen umbrechen innerhalb der Karte, auch ungetrennte Wörter.
+Der Abschnittstitel und die Aktion dürfen bei großer Schrift umbrechen.
+Kalender-Bedienelemente haben mindestens 44px; die Setter-Planung behält ihre
+größere Bearbeitungsansicht. Lesen, Leerzustand, Ladefehler und Wiederholen sind
+getrennte Zustände. Route und Kalender sind auch für Gäste lesbar.
+
+Die aktivierte Trainingsoberfläche bleibt ein lokales Werkzeug pro Konto und
+Gerät, ohne Cloud-Synchronisierung oder behauptete Trainerfreigabe. Der
+gemeinsame Root behält den Live-Navigationszustand und Profilfoto-Cache bei.

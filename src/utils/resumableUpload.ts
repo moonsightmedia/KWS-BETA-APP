@@ -2,6 +2,7 @@ import { Filesystem } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 
 import type { ResumableUploadSource, UploadResult } from '@/types/upload';
+import { SessionAccountChangedError, SessionRequiredError } from '@/lib/sessionRecovery';
 
 // Configuration
 export const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB chunks
@@ -41,14 +42,14 @@ interface UploadOptions {
   sectorId?: string;
   /** Enables the asynchronous Boulder contract on the Hostinger video server. */
   boulderId?: string;
-  authToken: string;
+  /** Owner-bound transport resolves fresh credentials before every request. */
+  fetch: typeof fetch;
   onProgress?: (progress: number) => void;
   abortSignal?: AbortSignal;
 }
 
-function uploadAuthHeaders(authToken: string, boulderId?: string): Record<string, string> {
+function uploadHeaders(boulderId?: string): Record<string, string> {
   return {
-    'X-Upload-Auth': `Bearer ${authToken}`,
     ...(boulderId ? { 'X-Boulder-Id': boulderId } : {}),
   };
 }
@@ -68,6 +69,12 @@ interface UploadResponse {
   urls: { hd?: string; sd?: string; low?: string };
   jobId?: string;
   status?: string;
+}
+
+class UploadPermissionError extends Error {}
+
+function isAuthenticationFailure(error: unknown): boolean {
+  return error instanceof SessionRequiredError || error instanceof SessionAccountChangedError || error instanceof UploadPermissionError;
 }
 
 function parseUploadResponse(payload: unknown): UploadResponse | null {
@@ -322,12 +329,12 @@ async function uploadChunkBlob(
   apiUrl: string,
   options: UploadOptions,
 ): Promise<UploadResponse | null> {
-  const { sessionId, sectorId, authToken, abortSignal } = options;
+  const { sessionId, sectorId, abortSignal } = options;
 
   await waitForNetwork(abortSignal);
 
   const headers: Record<string, string> = {
-    ...uploadAuthHeaders(authToken, options.boulderId),
+    ...uploadHeaders(options.boulderId),
     'X-Upload-Session-Id': sessionId,
     'X-Chunk-Number': chunkIndex.toString(),
     'X-Total-Chunks': totalChunks.toString(),
@@ -361,7 +368,7 @@ async function uploadChunkBlob(
   }, CHUNK_UPLOAD_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${apiUrl}/upload.php`, {
+    const response = await options.fetch(`${apiUrl}/upload.php`, {
       method: 'POST',
       headers,
       body: formData,
@@ -370,6 +377,9 @@ async function uploadChunkBlob(
 
     if (!response.ok) {
       const errorText = await response.text();
+      if (response.status === 401 || response.status === 403) {
+        throw new UploadPermissionError('Upload nicht erlaubt. Bitte prüfe deine Anmeldung und Berechtigung.');
+      }
       throw new Error(`Upload failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
@@ -390,7 +400,7 @@ async function waitForProcessedUpload(
   apiUrl: string,
   options: UploadOptions,
 ): Promise<UploadResult> {
-  const { sessionId, authToken, abortSignal } = options;
+  const { sessionId, abortSignal } = options;
   const statusUrl = `${apiUrl}/upload-status.php?session_id=${sessionId}`;
   const deadline = Date.now() + PROCESSING_TIMEOUT_MS;
   let attempt = 0;
@@ -406,12 +416,13 @@ async function waitForProcessedUpload(
     await waitForNetwork(abortSignal);
     let response: Response;
     try {
-      response = await fetch(statusUrl, {
+      response = await options.fetch(statusUrl, {
         signal: abortSignal,
-        headers: uploadAuthHeaders(authToken, options.boulderId),
+        headers: uploadHeaders(options.boulderId),
       });
     } catch (error) {
       if (abortSignal?.aborted) throw createAbortError();
+      if (isAuthenticationFailure(error)) throw error;
       console.warn('[Upload] Processing status request failed; retrying', error);
       attempt++;
       continue;
@@ -451,7 +462,7 @@ export async function resumableUpload(
 ): Promise<UploadResult> {
   const source = normalizeSource(sourceInput);
   const meta = getSourceMeta(source);
-  const { sessionId, authToken, onProgress, abortSignal } = options;
+  const { sessionId, onProgress, abortSignal } = options;
 
   console.log('[resumableUpload] Starting resumable upload:', {
     kind: source.kind,
@@ -462,7 +473,7 @@ export async function resumableUpload(
     apiUrl,
   });
 
-  if (!authToken) {
+  if (!options.fetch) {
     throw new Error('Upload-Authentifizierung fehlt. Bitte erneut anmelden.');
   }
 
@@ -495,16 +506,19 @@ export async function resumableUpload(
 
     let statusData: UploadStatus | null = null;
     try {
-      const statusRes = await fetch(statusUrl, {
+      const statusRes = await options.fetch(statusUrl, {
         signal: abortSignal,
-        headers: uploadAuthHeaders(authToken, options.boulderId),
+        headers: uploadHeaders(options.boulderId),
       });
       if (statusRes.ok) {
         statusData = await statusRes.json();
+      } else if (statusRes.status === 401 || statusRes.status === 403) {
+        throw new UploadPermissionError('Upload-Status nicht erlaubt. Bitte prüfe deine Anmeldung und Berechtigung.');
       } else {
         console.warn('[Upload] Could not check status, starting fresh', statusRes.status);
       }
     } catch (e) {
+      if (isAuthenticationFailure(e)) throw e;
       if (e instanceof DOMException && e.name === 'AbortError') {
         throw e;
       }
@@ -570,6 +584,7 @@ export async function resumableUpload(
             }
             break;
           } catch (error) {
+            if (isAuthenticationFailure(error)) throw error;
             if (error instanceof DOMException && error.name === 'AbortError') throw error;
             attempts++;
             console.error(`[Upload] Chunk ${chunkIndex} failed (attempt ${attempts}/${MAX_RETRIES}):`, error);
@@ -628,6 +643,7 @@ export async function resumableUpload(
             }
             break;
           } catch (error) {
+            if (isAuthenticationFailure(error)) throw error;
             if (error instanceof DOMException && error.name === 'AbortError') throw error;
             attempts++;
             console.error(`[Upload] Chunk ${currentIndex} failed (attempt ${attempts}/${MAX_RETRIES}):`, error);

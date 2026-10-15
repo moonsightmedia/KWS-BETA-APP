@@ -10,7 +10,7 @@ import { BoulderIcon } from '@/components/icons/BoulderIcon';
 import { useAuth } from '@/hooks/useAuth';
 import { defaultNotificationPreferences, useNotificationPreferences, useUpdateNotificationPreferences, type PreferenceKey } from '@/hooks/useNotificationPreferences';
 import { notificationRequest } from '@/lib/notificationRequest';
-import { getPushDeviceId, getPushPermissionStatus, initializePushNotifications, requestPermission, unregisterPushOnDevice } from '@/utils/pushNotifications';
+import { getPushDeviceId, getPushPermissionStatus, initializePushNotifications, isNativePushSupported, requestPermission, unregisterPushOnDevice } from '@/utils/pushNotifications';
 
 function SettingRow({ icon, title, description, checked, disabled, onChange }: { icon: ReactNode; title: string; description: string; checked: boolean; disabled: boolean; onChange: (value: boolean) => void }) {
   return <label className="flex min-h-20 items-center gap-3 px-4 py-4 hover:bg-secondary/30">
@@ -29,7 +29,8 @@ const topics: Array<{ key: PreferenceKey; title: string; description: string; ic
 export default function NotificationSettings() {
   const { user, session, loading } = useAuth(); const client = useQueryClient();
   const preferences = useNotificationPreferences(); const update = useUpdateNotificationPreferences();
-  const native = Capacitor.isNativePlatform();
+  const native = isNativePushSupported();
+  const ios = Capacitor.getPlatform() === 'ios';
   const [busy, setBusy] = useState(false); const lock = useRef(false);
   const [message, setMessage] = useState(''); const [error, setError] = useState('');
   const device = useQuery({
@@ -92,7 +93,7 @@ export default function NotificationSettings() {
         <KwsSurface className="divide-y divide-border/60 overflow-hidden">
           <SettingRow icon={<Bell className="h-5 w-5" />} title="Mitteilungen empfangen" description="Neue Mitteilungen in der App – und optional als Push." checked={prefs.in_app_enabled} disabled={busy} onChange={v => void save('in_app_enabled', v)} />
           {native ? <SettingRow icon={<BellRing className="h-5 w-5" />} title="Push im Konto" description="Auch bei geschlossener App. Gilt für deine registrierten Geräte." checked={prefs.push_enabled} disabled={busy || !prefs.in_app_enabled} onChange={v => void save('push_enabled', v)} />
-          : <div className="flex items-start gap-3 px-4 py-4"><Smartphone className="h-5 w-5 shrink-0 text-muted-foreground" /><div><p className="text-sm font-semibold">Push in der iPhone- & Android-App</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Im Browser ist Push deaktiviert. Mitteilungen findest du hier über die Glocke.</p></div></div>}
+          : <div className="flex items-start gap-3 px-4 py-4"><Smartphone className="h-5 w-5 shrink-0 text-muted-foreground" /><div><p className="text-sm font-semibold">{ios ? 'iPhone-Push folgt später' : 'Push in der Android-App'}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{ios ? 'Mitteilungen findest du auf deinem iPhone innerhalb der App über die Glocke.' : 'Im Browser ist Push deaktiviert. Mitteilungen findest du hier über die Glocke.'}</p></div></div>}
         </KwsSurface>
         <section><h2 className="mb-3 px-1 text-sm font-semibold">Deine Themen</h2>{!prefs.in_app_enabled && <p className="mb-3 px-1 text-xs text-muted-foreground">Mitteilungen sind pausiert. Deine Themenauswahl bleibt gespeichert.</p>}<KwsSurface className="divide-y divide-border/60 overflow-hidden">{topics.map(item => <SettingRow key={item.key} icon={item.icon} title={item.title} description={item.description} checked={prefs[item.key]} disabled={busy || !prefs.in_app_enabled} onChange={v => void save(item.key, v)} />)}</KwsSurface></section>
       </>}

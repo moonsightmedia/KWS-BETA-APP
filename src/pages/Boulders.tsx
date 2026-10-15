@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { boulderNavigationState } from '@/lib/boulderNavigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Grid3X3, List, Map as MapIcon, RotateCcw, Search, SlidersHorizontal, Sparkles, Star, X } from 'lucide-react';
 import { BoulderFilterControls, BoulderFilterPanel, BoulderSortPanel, FilterSection, FilterToggle } from '@/components/boulder/BoulderFilterControls';
@@ -16,11 +17,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { useBoulderRatingSummaries, useMyTrackedBoulders } from '@/hooks/useBoulderCommunity';
 import { PersonalDataState } from '@/components/PersonalDataState';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
+import { useBoulderNotification } from '@/hooks/useBoulderNotification';
 import { useColors } from '@/hooks/useColors';
 import { useHorizontalRouteSwipe } from '@/hooks/useHorizontalRouteSwipe';
+import { APP_USER_ROUTES } from '@/features/training/flags';
 import { useSectorsTransformed } from '@/hooks/useSectors';
 import { cn } from '@/lib/utils';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
+import { BoulderTypeBadge } from '@/components/boulder/BoulderTypeBadge';
 import { Boulder } from '@/types/boulder';
 import { matchesBoulderColorFilter } from '@/utils/colorUtils';
 const STORAGE_KEY_BOULDER_VIEW = 'boulder_view_mode';
@@ -93,9 +97,25 @@ const sortOptions = [
 const Boulders = () => {
   const { isExpanded } = useSidebar();
   const navigate = useNavigate();
-  const swipeRef = useHorizontalRouteSwipe({ routes: ['/', '/boulders', '/statistics'] });
+  const location = useLocation();
+  const swipeRef = useHorizontalRouteSwipe({ routes: APP_USER_ROUTES });
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const notificationId = searchParams.get('notification');
+  const notificationVisit = notificationId === null ? null : location.key + ':' + notificationId;
+  const notificationQuery = useBoulderNotification(notificationId);
+  const notificationSelection = useMemo(() => notificationQuery.data ? {
+    boulders: new Set(notificationQuery.data.boulderIds),
+    sectors: new Set(notificationQuery.data.sectorIds),
+  } : null, [notificationQuery.data]);
+  const matchesNotification = useCallback((boulder: Boulder) => {
+    if (notificationId === null) return true;
+    if (!notificationSelection) return false;
+    return notificationSelection.boulders.size > 0
+      ? notificationSelection.boulders.has(boulder.id)
+      : Boolean((boulder.sectorId && notificationSelection.sectors.has(boulder.sectorId))
+        || (boulder.sector2Id && notificationSelection.sectors.has(boulder.sector2Id)));
+  }, [notificationId, notificationSelection]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sectorFilters, setSectorFilters] = useState<string[]>([]);
   const [difficultyFilters, setDifficultyFilters] = useState<string[]>([]);
@@ -115,6 +135,7 @@ const Boulders = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mapSearchInputRef = useRef<HTMLInputElement>(null);
   const openPanelsRef = useRef({ filters: false, map: false, search: false });
+  const expandedNotificationVisit = useRef<string | null>(null);
 
   const colorsQuery = useColors();
   const { data: colors } = colorsQuery;
@@ -126,7 +147,7 @@ const Boulders = () => {
   const { data: myTrackedBoulders } = personalQuery;
   const boulderIds = useMemo(() => (boulders ?? []).map((boulder) => boulder.id), [boulders]);
   const { data: boulderRatingSummaries } = useBoulderRatingSummaries(boulderIds);
-  const isLoading = isLoadingBoulders || isLoadingSectors;
+  const isLoading = isLoadingBoulders || isLoadingSectors || (notificationId !== null && notificationQuery.isPending);
   const shouldShowPageSkeleton = authLoading && !user;
 
   useEffect(() => {
@@ -141,6 +162,20 @@ const Boulders = () => {
     setShowSaved(showParam === 'saved');
     setShowOnlyHanging(statusParam !== 'all');
   }, [searchParams, sectors]);
+
+  useLayoutEffect(() => {
+    if (notificationVisit === null) return;
+    setSearchQuery('');
+    setDifficultyFilters([]);
+    setColorFilters([]);
+    setSectorFilters([]);
+    setShowNew(false);
+    setShowSaved(false);
+    setShowOnlyHanging(true);
+    setSortBy('date');
+    setSortOrder('desc');
+    setShowMap(false);
+  }, [notificationVisit]);
 
   useEffect(() => {
     if (searchParams.has('view')) {
@@ -256,7 +291,7 @@ const Boulders = () => {
       const matchesStatus = showOnlyHanging ? boulder.status === 'haengt' : true;
       const matchesNew = !showNew || boulder.createdAt >= sevenDaysAgo;
       const matchesSaved = !showSaved || favoriteBoulderIds.has(boulder.id);
-      return matchesSearch && matchesSector && matchesDifficulty && matchesColor && matchesStatus && matchesNew && matchesSaved;
+      return matchesNotification(boulder) && matchesSearch && matchesSector && matchesDifficulty && matchesColor && matchesStatus && matchesNew && matchesSaved;
     });
 
     filtered.sort((a, b) => {
@@ -281,7 +316,7 @@ const Boulders = () => {
     });
 
     return filtered;
-  }, [boulders, colorFilters, difficultyFilters, myTrackedBoulders, searchQuery, sectorFilters, showNew, showOnlyHanging, showSaved, sortBy, sortOrder]);
+  }, [boulders, colorFilters, difficultyFilters, matchesNotification, myTrackedBoulders, searchQuery, sectorFilters, showNew, showOnlyHanging, showSaved, sortBy, sortOrder]);
 
   const groupedBoulders = useMemo(() => {
     const groups = new Map<string, Boulder[]>();
@@ -316,6 +351,21 @@ const Boulders = () => {
 
   const allGroupsExpanded = groupedBoulders.length > 0
     && groupedBoulders.every((group) => !collapsedAreaNames.has(group.areaName));
+
+  useLayoutEffect(() => {
+    if (notificationVisit === null) { expandedNotificationVisit.current = null; return; }
+    if (isLoading || !notificationSelection || expandedNotificationVisit.current === notificationVisit) return;
+    expandedNotificationVisit.current = notificationVisit;
+    setCollapsedAreaNames(current => {
+      const next = new Set(current);
+      // A cached notification can reopen while a previous search still filters
+      // the first render. Expand its complete selection, not that transient view.
+      (boulders ?? []).filter(matchesNotification).forEach(boulder => {
+        next.delete(boulder.sectorArea?.name || getSectorAreaName(boulder.sector) || 'Ohne Bereich');
+      });
+      return next;
+    });
+  }, [boulders, isLoading, matchesNotification, notificationSelection, notificationVisit]);
 
   const toggleAreaGroup = (areaName: string) => {
     setCollapsedAreaNames((current) => {
@@ -352,9 +402,9 @@ const Boulders = () => {
         const matchesColor = colorFilters.length === 0
           || colorFilters.some((colorName) => matchesBoulderColorFilter(boulder.color, boulder.color2, colorName));
         const matchesStatus = showOnlyHanging ? boulder.status === 'haengt' : true;
-        return matchesSearch && matchesDifficulty && matchesColor && matchesStatus;
+        return matchesNotification(boulder) && matchesSearch && matchesDifficulty && matchesColor && matchesStatus;
       });
-  }, [boulders, colorFilters, difficultyFilters, searchQuery, showOnlyHanging]);
+  }, [boulders, colorFilters, difficultyFilters, matchesNotification, searchQuery, showOnlyHanging]);
 
   const hallMapCounts = useMemo(() => {
     return hallMapBoulders.reduce<Record<string, number>>((accumulator, boulder) => {
@@ -373,10 +423,17 @@ const Boulders = () => {
       ? sectorFilters[0]
       : `${sectorFilters.length} Sektoren`;
   const activeFilterCount = sectorFilters.length + difficultyFilters.length + colorFilters.length
-    + [showNew, showSaved, !showOnlyHanging].filter(Boolean).length;
+    + [showNew, showSaved, !showOnlyHanging, notificationId !== null].filter(Boolean).length;
   const hasCustomSorting = sortBy !== 'date' || sortOrder !== 'desc';
 
+  const clearNotification = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('notification');
+    setSearchParams(next, { replace: true });
+  };
+
   const clearFilters = () => {
+    if (notificationId !== null) clearNotification();
     setSectorFilters([]);
     setDifficultyFilters([]);
     setColorFilters([]);
@@ -417,7 +474,7 @@ const Boulders = () => {
   };
 
   const handleBoulderClick = (boulderId: string) => {
-    navigate(`/boulders/${boulderId}`);
+    navigate(`/boulders/${boulderId}`, { state: boulderNavigationState(location) });
   };
 
   const handleMapSectorSelect = (sectorName: string) => {
@@ -544,6 +601,11 @@ const Boulders = () => {
 
       {(searchQuery.trim() || activeFilterCount > 0) && (
         <div className='-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 hide-scrollbar'>
+        {notificationId !== null && (
+          <button type="button" onClick={clearNotification} aria-label="Mitteilungsfilter entfernen" className="flex shrink-0 items-center gap-1.5 rounded-kws-control bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">
+            Aus Mitteilung<X className="h-3 w-3" />
+          </button>
+        )}
         {searchQuery.trim() && (
           <button type='button' onClick={() => setSearchQuery('')} className='flex shrink-0 items-center gap-1.5 rounded-kws-control bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground'>
             Suche: {searchQuery.trim()}
@@ -662,6 +724,20 @@ const Boulders = () => {
     </div>;
   }
 
+  if (notificationId !== null && notificationQuery.isError) {
+    return <div className="flex min-h-screen bg-background">
+      <div className={cn('kws-sidebar-content min-w-0 flex-1', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+        {pageHeader}
+        <main className="mx-auto w-full max-w-[1180px] space-y-4 p-4 md:p-8">
+          <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Verknüpfte Boulder nicht verfügbar</AlertTitle>
+            <AlertDescription>{notificationQuery.error instanceof Error ? notificationQuery.error.message : 'Bitte versuche es erneut.'}</AlertDescription>
+          </Alert>
+          <div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => void notificationQuery.refetch()}>Erneut versuchen</Button><Button variant="ghost" onClick={clearNotification}>Alle Boulder anzeigen</Button></div>
+        </main>
+      </div>
+    </div>;
+  }
+
   if (bouldersError) {
     return (
       <div className="flex min-h-screen bg-[#F9FAF9]">
@@ -716,6 +792,7 @@ const Boulders = () => {
           <div className="mb-2 flex items-center justify-between gap-3 px-1">
             <span className="text-xs font-medium text-muted-foreground">
               {filteredAndSortedBoulders.length} Boulder
+              {notificationId !== null ? ' aus dieser Mitteilung' : ''}
               {sectorFilters.length > 0 ? ` in ${activeSectorLabel}` : ''}
             </span>
 
@@ -912,6 +989,7 @@ const Boulders = () => {
                         NEU
                       </span>
                     )}
+                    <BoulderTypeBadge volumeOnly={boulder.volumeOnly} compact className="absolute left-1.5 top-9 sm:left-2" />
 
                     <div className="absolute inset-x-0 bottom-0 flex h-[46%] flex-col justify-end bg-gradient-to-t from-white via-white/90 to-transparent px-1.5 pb-1.5 pt-7 text-[#192436] sm:h-[48%] sm:px-2 sm:pb-2 md:h-[40%] md:px-4 md:pb-4">
                       <span className="block truncate text-[9px] font-bold leading-tight tracking-[-0.02em] sm:text-[10px] md:text-sm">
@@ -970,6 +1048,7 @@ const Boulders = () => {
                               <span className="shrink-0 rounded-kws-badge bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">NEU</span>
                             )}
                           </div>
+                          <BoulderTypeBadge volumeOnly={boulder.volumeOnly} className="mb-1" />
                           <div className="truncate text-xs text-muted-foreground">
                             {boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}
                           </div>
@@ -995,7 +1074,10 @@ const Boulders = () => {
           </div>
 
           {!isLoading && filteredAndSortedBoulders.length === 0 && (
-            <div className="py-12 text-center text-sm text-muted-foreground">Keine Boulder gefunden.</div>
+            <div className="space-y-3 py-12 text-center text-sm text-muted-foreground">
+              <p>{notificationId !== null ? 'Keine passenden Boulder mehr an der Wand. Sie wurden möglicherweise inzwischen abgeschraubt.' : 'Keine Boulder gefunden.'}</p>
+              {notificationId !== null && <Button variant="secondary" onClick={clearNotification}>Alle Boulder anzeigen</Button>}
+            </div>
           )}
         </main>
 

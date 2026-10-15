@@ -7,7 +7,7 @@ const source = await readFile(new URL('../src/utils/pushNotifications.ts', impor
 const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const session = { user: { id: 'owner-a' }, access_token: 'synthetic-session' };
 const flush = () => new Promise(resolve => setImmediate(resolve));
-function harness({ native = true, permission = 'granted', failSave = false } = {}) {
+function harness({ native = true, platform = 'android', permission = 'granted', failSave = false } = {}) {
   const listeners = new Map(), timers = new Set(), requests = [], events = [], logs = [], storage = new Map();
   let calls = 0;
   const plugin = {
@@ -19,7 +19,7 @@ function harness({ native = true, permission = 'granted', failSave = false } = {
   vm.runInNewContext(code, {
     exports,
     require: name => name === '@capacitor/push-notifications' ? { PushNotifications: plugin }
-      : name === '@capacitor/core' ? { Capacitor: { isNativePlatform: () => native, getPlatform: () => 'ios' } }
+      : name === '@capacitor/core' ? { Capacitor: { isNativePlatform: () => native, getPlatform: () => platform } }
       : name.endsWith('authenticatedFetch') ? { getCurrentSession: async () => session }
       : name.endsWith('notifications') ? { notificationDestination: url => url === '/boulders' ? url : null }
       : { notificationRequest: async (path, token, options) => { requests.push({ path, token, options }); if (failSave) throw new Error('offline'); return { data: [JSON.parse(options.body)] }; } },
@@ -39,7 +39,7 @@ test('register() is not success: wait for native event and confirmed token persi
   h.listeners.get('registration')({ value: 'synthetic-device-token' });
   assert.equal(await first, true); assert.equal(await second, true); assert.equal(h.requests.length, 1);
   const body = JSON.parse(h.requests[0].options.body);
-  assert.equal(body.user_id, 'owner-a'); assert.equal(body.device_id, 'ios_synthetic-device');
+  assert.equal(body.user_id, 'owner-a'); assert.equal(body.device_id, 'android_synthetic-device');
   assert.equal(h.logs.length, 0); assert.equal(h.timers.size, 0);
 });
 test('persistence failure rejects and later registration events do not write after failure', async () => {
@@ -76,4 +76,13 @@ test('browser and denied permission do not register or persist tokens', async ()
     const h = harness(options); assert.equal(await h.api.initializePushNotifications(session), false);
     assert.equal(h.calls(), 0); assert.equal(h.requests.length, 0);
   }
+});
+test('iOS stays on in-app notifications and cannot persist APNs tokens through the Android service', async () => {
+  const h = harness({ platform: 'ios' });
+  assert.equal(h.api.isNativePushSupported(), false);
+  assert.equal(await h.api.initializePushNotifications(session), false);
+  assert.equal(await h.api.requestPermission(), false);
+  assert.equal(await h.api.getPushPermissionStatus(), null);
+  await assert.rejects(h.api.registerPushToken('synthetic-apns-token', session), /noch nicht verfügbar/);
+  assert.equal(h.calls(), 0); assert.equal(h.requests.length, 0); assert.equal(h.listeners.size, 0); assert.equal(h.timers.size, 0);
 });

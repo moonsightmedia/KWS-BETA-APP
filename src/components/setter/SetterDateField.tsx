@@ -43,7 +43,7 @@ export function SetterDateField({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="z-[130] w-auto rounded-kws-card border-0 p-2 shadow-medium"
+        className="pointer-events-auto z-[130] w-auto rounded-kws-card border-0 p-2 shadow-medium"
       >
         <DayPicker
           mode="single"

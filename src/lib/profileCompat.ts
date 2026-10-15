@@ -67,18 +67,18 @@ export async function updateProfileRecord(
   const { avatar_url, ...body } = payload;
 
   const request = (body: Record<string, unknown>) =>
-    supabaseRestRequest(
-      `/rest/v1/profiles?id=eq.${userId}`,
+    supabaseRestRequest<Array<{ id: string; avatar_url?: string | null }>>(
+      `/rest/v1/profiles?id=eq.${userId}&select=id${'avatar_url' in body ? ',avatar_url' : ''}`,
       {
         accessToken,
         method: 'PATCH',
-        prefer: 'return=minimal',
+        prefer: 'return=representation',
         body,
       },
     );
 
   try {
-    await request(
+    const rows = await request(
       avatar_url === undefined
         ? body
         : {
@@ -86,11 +86,14 @@ export async function updateProfileRecord(
             avatar_url,
           },
     );
+    if (!rows || rows.length !== 1 || rows[0].id !== userId || (avatar_url !== undefined && rows[0].avatar_url !== avatar_url)) {
+      throw new Error('Die Profiländerung konnte nicht bestätigt werden. Bitte versuche es erneut.');
+    }
   } catch (error) {
     if (avatar_url === undefined || !isAvatarUrlCompatibilityError(error)) {
       throw error;
     }
 
-    await request(body);
+    throw new Error('Profilbilder sind auf dem Server derzeit nicht verfügbar. Bitte versuche es später erneut.');
   }
 }

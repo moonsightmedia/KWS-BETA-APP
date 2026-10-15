@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Check, ChevronRight, LogOut, Settings, Shield, Wrench } from 'lucide-react';
+import { CalendarDays, Check, ChevronRight, LogOut, Settings, Shield, Wrench } from 'lucide-react';
 import { HomeIcon as LayoutDashboard, AccountIcon as User } from '@/lib/appIcons';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { AccountAvatar } from '@/components/AccountAvatar';
 import { kwsPopoverClassName } from '@/components/ui/kws-surface';
 import { useHoverMenu } from '@/hooks/useHoverMenu';
+import { TRAINING_UI_ENABLED } from '@/features/training/flags';
 
 const STORAGE_KEY_ADMIN = 'nav_isAdmin';
 const STORAGE_KEY_SETTER = 'nav_isSetter';
@@ -108,7 +109,7 @@ export const ProfileMenu = ({
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kws-control bg-secondary text-muted-foreground transition-colors hover:text-foreground data-[state=open]:bg-primary/10 data-[state=open]:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Profil"
           >
-            <User className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
+            {user ? <AccountAvatar user={user} /> : <User className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />}
           </button>
         )}
       </DropdownMenuTrigger>
@@ -136,6 +137,18 @@ export const ProfileMenu = ({
             <DropdownMenuItem className={menuItemClassName} onSelect={() => navigate('/profile')}>
               <Settings className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
               <span className="min-w-0 flex-1">Profil & Einstellungen</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            </DropdownMenuItem>
+
+            {TRAINING_UI_ENABLED && <DropdownMenuItem className={menuItemClassName} onSelect={() => navigate('/profile/training')}>
+              <Settings className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span className="min-w-0 flex-1">Trainingseinstellungen</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            </DropdownMenuItem>}
+
+            <DropdownMenuItem className={menuItemClassName} onSelect={() => navigate('/schedule', { state: { from: 'profile' } })}>
+              <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span className="min-w-0 flex-1">Schraubplan</span>
               <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             </DropdownMenuItem>
 
@@ -172,10 +185,12 @@ export const ProfileMenu = ({
             </DropdownMenuItem>
           </>
         ) : (
-          <DropdownMenuItem className={menuItemClassName} onSelect={() => navigate('/auth')}>
+          <><DropdownMenuItem className={menuItemClassName} onSelect={() => navigate('/schedule')}>
+            <CalendarDays className="h-4 w-4" aria-hidden="true" />Schraubplan
+          </DropdownMenuItem><DropdownMenuItem className={menuItemClassName} onSelect={() => navigate('/auth')}>
             <User className="h-4 w-4" aria-hidden="true" />
             Anmelden
-          </DropdownMenuItem>
+          </DropdownMenuItem></>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

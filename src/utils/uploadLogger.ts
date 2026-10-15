@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import { uploadLogTransitionFilter } from '@/lib/uploadRecovery';
+import { createAuthenticatedUploadFetch } from '@/lib/authenticatedFetch';
 
 type UploadLogStatus =
   | 'pending'
@@ -13,7 +14,7 @@ type UploadLogStatus =
 function getRestConfig(session: Session | null): {
   url: string;
   key: string;
-  accessToken: string;
+  ownerId: string;
 } {
   const url = import.meta.env.VITE_SUPABASE_URL;
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -25,12 +26,12 @@ function getRestConfig(session: Session | null): {
     throw new Error('Keine aktive Session. Bitte melde dich an.');
   }
 
-  return { url, key, accessToken: session.access_token };
+  return { url, key, ownerId: session.user.id };
 }
 
 async function patchUploadLog(
   sessionId: string,
-  accessToken: string,
+  ownerId: string,
   updates: Record<string, unknown>,
 ): Promise<boolean> {
   const url = import.meta.env.VITE_SUPABASE_URL;
@@ -38,13 +39,12 @@ async function patchUploadLog(
   if (!url || !key) return false;
 
   try {
-    const response = await window.fetch(
+    const response = await createAuthenticatedUploadFetch(ownerId)(
       `${url}/rest/v1/upload_logs?session_id=eq.${encodeURIComponent(sessionId)}${uploadLogTransitionFilter(updates.status as string | undefined)}`,
       {
         method: 'PATCH',
         headers: {
           apikey: key,
-          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
           Prefer: 'return=minimal',
         },
@@ -67,11 +67,11 @@ async function patchUploadLog(
 export class UploadLogger {
   private sessionId: string;
   private retryCount = 0;
-  private accessToken: string | null = null;
+  private ownerId: string;
 
-  constructor(sessionId: string, accessToken?: string | null) {
+  constructor(sessionId: string, ownerId: string) {
     this.sessionId = sessionId;
-    this.accessToken = accessToken ?? null;
+    this.ownerId = ownerId;
   }
 
   static async create(
@@ -93,7 +93,7 @@ export class UploadLogger {
       hasSession: !!session,
     });
 
-    const { url, key, accessToken } = getRestConfig(session);
+    const { url, key, ownerId } = getRestConfig(session);
 
     const logData = {
       session_id: sessionId,
@@ -108,11 +108,10 @@ export class UploadLogger {
       user_id: session?.user?.id ?? null,
     };
 
-    const response = await window.fetch(`${url}/rest/v1/upload_logs`, {
+    const response = await createAuthenticatedUploadFetch(ownerId)(`${url}/rest/v1/upload_logs`, {
       method: 'POST',
       headers: {
         apikey: key,
-        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         Prefer: 'return=minimal',
       },
@@ -126,19 +125,10 @@ export class UploadLogger {
     }
 
     console.log('[UploadLogger] Upload log created successfully');
-    return new UploadLogger(sessionId, accessToken);
-  }
-
-  setAccessToken(accessToken: string | null) {
-    this.accessToken = accessToken;
+    return new UploadLogger(sessionId, ownerId);
   }
 
   async updateProgress(progress: number, uploadedChunksCount?: number) {
-    if (!this.accessToken) {
-      console.warn('[UploadLogger] No access token for progress update');
-      return;
-    }
-
     const updates: Record<string, unknown> = {
       progress,
       status: 'uploading',
@@ -149,7 +139,7 @@ export class UploadLogger {
       updates.uploaded_chunks = uploadedChunksCount;
     }
 
-    await patchUploadLog(this.sessionId, this.accessToken, updates);
+    await patchUploadLog(this.sessionId, this.ownerId, updates);
   }
 
   async updateStatus(
@@ -157,11 +147,6 @@ export class UploadLogger {
     progress?: number,
     errorMsg?: unknown,
   ) {
-    if (!this.accessToken) {
-      console.warn('[UploadLogger] No access token for status update');
-      return;
-    }
-
     const updates: Record<string, unknown> = {
       status,
       updated_at: new Date().toISOString(),
@@ -175,7 +160,7 @@ export class UploadLogger {
       updates.error = errorMsg instanceof Error ? errorMsg.message : String(errorMsg);
     }
 
-    await patchUploadLog(this.sessionId, this.accessToken, updates);
+    await patchUploadLog(this.sessionId, this.ownerId, updates);
   }
 
   async incrementRetry() {
@@ -192,13 +177,12 @@ export async function getActiveUploads(session: Session | null) {
   if (!url || !key) return [];
 
   try {
-    const response = await window.fetch(
+    const response = await createAuthenticatedUploadFetch(session.user.id)(
       `${url}/rest/v1/upload_logs?status=in.(pending,compressing,uploading)&order=created_at.desc`,
       {
         method: 'GET',
         headers: {
           apikey: key,
-          Authorization: `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
       },
@@ -232,13 +216,13 @@ export async function markStaleUploadsAsSuspectedOom(
       ? `session_id=in.(${sessionIds.map(encodeURIComponent).join(',')})`
       : 'status=in.(pending,compressing,uploading)';
 
-    const response = await window.fetch(
+    const uploadFetch = createAuthenticatedUploadFetch(session.user.id);
+    const response = await uploadFetch(
       `${url}/rest/v1/upload_logs?${filter}`,
       {
         method: 'PATCH',
         headers: {
           apikey: key,
-          Authorization: `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
           Prefer: 'return=representation',
         },
@@ -252,13 +236,12 @@ export async function markStaleUploadsAsSuspectedOom(
 
     if (!response.ok) {
       // Fallback if constraint rejects new status
-      const fallback = await window.fetch(
+      const fallback = await uploadFetch(
         `${url}/rest/v1/upload_logs?${filter}`,
         {
           method: 'PATCH',
           headers: {
             apikey: key,
-            Authorization: `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
             Prefer: 'return=representation',
           },

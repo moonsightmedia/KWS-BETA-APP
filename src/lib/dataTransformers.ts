@@ -55,8 +55,10 @@ export const transformBoulder = (
     difficulty: boulder.difficulty as Boulder['difficulty'],
     color: boulder.color as Boulder['color'],
     color2: boulder.color_2 as Boulder['color2'] || undefined,
+    volumeOnly: boulder.volume_only === true,
     betaVideoUrl: boulder.beta_video_url || undefined, // Legacy field
     betaVideoUrls: betaVideoUrls, // New structure with multiple qualities
+    betaVideoStatus: boulder.beta_video_status || undefined,
     thumbnailUrl: boulder.thumbnail_url || undefined,
     note: boulder.note || undefined,
     createdAt: new Date(boulder.created_at),

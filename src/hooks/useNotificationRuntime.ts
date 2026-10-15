@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
 import { useMarkAsRead } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
-import { notificationDestination } from '@/lib/notifications';
+import { notificationDestination, notificationTarget } from '@/lib/notifications';
 import { initializePushNotifications, stopPushListeners } from '@/utils/pushNotifications';
 
 /** Mount once in Root, not once per inbox/query consumer. Receiving never sends. */
@@ -38,7 +38,7 @@ export function useNotificationRuntime() {
         const topic = n.type?.startsWith('competition_') ? 'competition_update' : n.type;
         if (payload.eventType !== 'INSERT' || n.user_id !== owner || !n.id || seen.has(n.id) || !prefs?.in_app_enabled || (topic && topic in prefs && !prefs[topic as keyof typeof prefs])) return;
         seen.add(n.id); if (seen.size > 200) seen.delete(seen.values().next().value!);
-        const target = notificationDestination(n.action_url);
+        const target = notificationTarget(n);
         toast.info(n.title || 'Neue Mitteilung', { id: 'notification-' + n.id, description: n.message, action: target ? { label: 'Ansehen', onClick: () => openTarget(target, n.id) } : undefined });
       }).subscribe(status => { if (status === 'SUBSCRIBED' && active) refresh(); });
     const open = (event: Event) => { refresh(); const detail = (event as CustomEvent<{ target?: string; id?: string }>).detail; const target = notificationDestination(detail?.target); openTarget(target || '/', detail?.id); };

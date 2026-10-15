@@ -12,7 +12,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, MoreVertical, Search, ArrowUpDown, ArrowUp, ArrowDown, Palette, Map, BarChart3, X, Edit2, Eye, Filter } from "lucide-react";
+import { Trash2, Plus, MoreVertical, Search, ArrowUpDown, ArrowUp, ArrowDown, Palette, Map as MapIcon, BarChart3, X, Edit2, Eye, Filter } from "lucide-react";
 import { useColors } from "@/hooks/useColors";
 import { getColorBackgroundStyle } from "@/utils/colorUtils";
 import { cn } from "@/lib/utils";
@@ -1115,7 +1115,7 @@ export const BoulderManagement = () => {
               className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
               aria-label="Sektionen filtern"
             >
-              <Map className="w-5 h-5" strokeWidth={1.5} />
+              <MapIcon className="w-5 h-5" strokeWidth={1.5} />
             </button>
             <button
               onClick={() => setQuickFilter(prev => prev === 'difficulty' ? null : 'difficulty')}

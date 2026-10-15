@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 
 import { useAuth } from '@/hooks/useAuth';
 import { supabaseRestRequest } from '@/lib/supabaseRest';
+import { readDisplayProfiles, readCommentAvatars } from '@/lib/displayProfiles';
 import { readPersonalRows, readTrackedBoulders, type TrackedBoulderItem } from '@/lib/personalProgress';
 import type {
   BoulderAttributeOption,
@@ -36,7 +37,6 @@ interface AttributeAssignmentRow {
 interface ProfileRow {
   id: string;
   full_name: string | null;
-  email: string | null;
 }
 
 interface BoulderListItem {
@@ -74,10 +74,7 @@ async function fetchProfiles(accessToken: string | null | undefined, userIds: st
     return new Map<string, ProfileRow>();
   }
 
-  const profiles = await supabaseRestRequest<ProfileRow[]>(
-    `/rest/v1/profiles?id=in.(${buildInFilter(userIds)})&select=id,full_name,email`,
-    { accessToken },
-  );
+  const profiles = await readDisplayProfiles(userIds, accessToken);
 
   return new Map(profiles.map((profile) => [profile.id, profile]));
 }
@@ -504,7 +501,8 @@ export function useBoulderComments(boulderId: string | undefined) {
   const queryClient = useQueryClient();
 
   const commentsQuery = useQuery({
-    queryKey: ['boulder-comments', boulderId],
+    queryKey: ['boulder-comments', boulderId, user?.id],
+    // Never reuse another account's view of pending or personally blocked content.
     enabled: !loading && !!session && !!user && !!boulderId,
     queryFn: async (): Promise<BoulderComment[]> => {
       const accessToken = session?.access_token;
@@ -517,20 +515,27 @@ export function useBoulderComments(boulderId: string | undefined) {
           created_at: string;
           updated_at: string;
           edited: boolean;
+          moderation_status: 'pending' | 'approved' | 'rejected';
         }[]
       >(
-        `/rest/v1/boulder_comments?boulder_id=eq.${boulderId}&select=id,boulder_id,user_id,comment,created_at,updated_at,edited&order=created_at.asc`,
+        `/rest/v1/boulder_comments?boulder_id=eq.${boulderId}&select=id,boulder_id,user_id,comment,created_at,updated_at,edited,moderation_status&order=created_at.asc`,
         { accessToken },
       );
 
-      const profileMap = await fetchProfiles(accessToken, [...new Set(comments.map((comment) => comment.user_id))]);
+      const ids = [...new Set(comments.map(comment => comment.user_id))];
+      const [profileMap, avatars] = await Promise.all([
+        fetchProfiles(accessToken, ids),
+        readCommentAvatars(boulderId!, ids, accessToken).catch(() => []),
+      ]);
+      const avatarMap = new Map<string, string | null>(avatars.map(row => [row.id, row.avatar_url] as const));
 
       return comments.map((comment) => {
         const profile = profileMap.get(comment.user_id);
         return {
           ...comment,
-          author_name: profile?.full_name || profile?.email || 'Unbekannter Nutzer',
-          author_email: profile?.email || null,
+          author_name: profile?.full_name || 'Unbekannter Nutzer',
+          author_email: null,
+          author_avatar_url: avatarMap.get(comment.user_id) ?? null,
         };
       });
     },
@@ -556,6 +561,7 @@ export function useBoulderComments(boulderId: string | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['boulder-comments', boulderId] });
       queryClient.invalidateQueries({ queryKey: ['admin-boulder-comments'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-comments'] });
     },
     onError: (error: Error) => {
       toast.error(`Kommentar konnte nicht gespeichert werden: ${error.message}`);
@@ -568,16 +574,18 @@ export function useBoulderComments(boulderId: string | undefined) {
         throw new Error('Bitte melde dich an.');
       }
 
-      await supabaseRestRequest(`/rest/v1/boulder_comments?id=eq.${id}`, {
+      const rows = await supabaseRestRequest<Array<{ id: string }>>(`/rest/v1/boulder_comments?id=eq.${id}`, {
         accessToken: session.access_token,
         method: 'PATCH',
-        prefer: 'return=minimal',
+        prefer: 'return=representation',
         body: { comment: comment.trim() },
       });
+      if (rows.length !== 1) throw new Error('Die Änderung wurde nicht bestätigt. Bitte aktualisiere die Kommentare.');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['boulder-comments', boulderId] });
       queryClient.invalidateQueries({ queryKey: ['admin-boulder-comments'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-comments'] });
     },
     onError: (error: Error) => {
       toast.error(`Kommentar konnte nicht aktualisiert werden: ${error.message}`);
@@ -709,8 +717,8 @@ export function useAdminBoulderComments() {
         return {
           ...comment,
           boulder_name: boulderMap.get(comment.boulder_id)?.name || 'Unbekannter Boulder',
-          author_name: profile?.full_name || profile?.email || 'Unbekannter Nutzer',
-          author_email: profile?.email || null,
+          author_name: profile?.full_name || 'Unbekannter Nutzer',
+          author_email: null,
         };
       });
     },

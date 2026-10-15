@@ -1,8 +1,8 @@
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { createBrowserRouter, RouterProvider, Outlet, useLocation, useNavigate, useNavigationType, Navigate } from "react-router-dom";
-import { useEffect, useState, useRef } from "react";
+import { createBrowserRouter, RouterProvider, useLocation, useNavigate, useNavigationType, Navigate } from "react-router-dom";
+import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -16,11 +16,17 @@ import Boulders from "./pages/Boulders";
 import BoulderDetail from "./pages/BoulderDetail";
 import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
+import ResetPassword from "./pages/ResetPassword";
 import Profile from "./pages/Profile";
 import ProfileEdit from "./pages/ProfileEdit";
+import TrainingSettings from './pages/TrainingSettings';
 import NotificationSettings from "./pages/NotificationSettings";
 import AboutApp from "./pages/AboutApp";
+import AppLegal from "./pages/AppLegal";
 import Statistics from "./pages/Statistics";
+import Training from './pages/Training';
+import { TrainingProvider } from '@/features/training/TrainingContext';
+import { TRAINING_UI_ENABLED } from '@/features/training/flags';
 import Admin from "./pages/Admin";
 import Setter from "./pages/Setter";
 import SetterCreatePage from "./pages/setter/SetterCreatePage";
@@ -30,9 +36,11 @@ import SetterStatusPage from "./pages/setter/SetterStatusPage";
 import Guest from "./pages/Guest";
 import Competition from "./pages/Competition";
 import TvSchedule from "./pages/TvSchedule";
+import ResetSchedule from "./pages/ResetSchedule";
 import NotFound from "./pages/NotFound";
 import { Sidebar } from "@/components/Sidebar";
 import { SetterAreaLayout } from "@/components/setter/SetterAreaLayout";
+import { BoulderRouteContinuity } from '@/components/BoulderRouteContinuity';
 
 // Configure QueryClient for optimal caching and prefetching
 const queryClient = new QueryClient({
@@ -127,7 +135,9 @@ const ConditionalSidebar = () => {
   if (
     location.pathname === '/auth' ||
     location.pathname === '/auth/callback' ||
-    location.pathname === '/competition'
+    location.pathname === '/reset-password' ||
+    location.pathname === '/competition' ||
+    ['/privacy','/imprint','/community-rules'].includes(location.pathname)
   ) {
     return null;
   }
@@ -142,11 +152,14 @@ const RouteScrollReset = () => {
   const navigationType = useNavigationType();
   const previousLocationRef = useRef({ pathname: location.pathname, hash: location.hash });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const previousLocation = previousLocationRef.current;
     const pathnameChanged = previousLocation.pathname !== location.pathname;
     const hashChanged = previousLocation.hash !== location.hash;
     previousLocationRef.current = { pathname: location.pathname, hash: location.hash };
+
+    // Boulder detail owns a fixed scroll layer; never move its source document.
+    if (/^\/boulders\/[^/]+$/.test(location.pathname)) return;
 
     if (location.hash && (pathnameChanged || hashChanged)) {
       requestAnimationFrame(() => {
@@ -302,6 +315,8 @@ const Root = () => {
   const isPublicRoute =
     location.pathname === '/auth' ||
     location.pathname === '/auth/callback' ||
+    location.pathname === '/reset-password' ||
+    location.pathname === '/schedule' ||
     location.pathname === '/competition';
   
   if ((authLoading || isInitialLoad) && !isPublicRoute) {
@@ -320,7 +335,9 @@ const Root = () => {
               <ConditionalSidebar />
               <UploadOverview />
               <EmergencyReset />
-              <Outlet />
+              <TrainingProvider key={user?.id ?? 'guest'} accountId={user?.id ?? 'guest'}>
+                <BoulderRouteContinuity key={user?.id ?? 'guest'} />
+              </TrainingProvider>
             </ErrorBoundaryWithAuth>
           </UploadProvider>
       </SidebarProvider>
@@ -337,7 +354,7 @@ const restoreRouteOnInit = () => {
     const currentPath = window.location.pathname;
     
     // Don't restore route if we're on /auth - user might be trying to log in
-    if (currentPath.startsWith('/auth')) {
+    if (currentPath.startsWith('/auth') || currentPath === '/reset-password') {
       if (preserveRoute) {
         console.log(`[RouterInit] On /auth page, clearing preserved route: ${preserveRoute}`);
         sessionStorage.removeItem('preserveRoute');
@@ -381,10 +398,15 @@ const router = createBrowserRouter([
         </RequireAuth>
       ) },
       { path: "sectors", element: <Sectors /> },
+      { path: "schedule", element: <ResetSchedule /> },
       { path: "boulders", element: <BouldersOverviewRoute /> },
       { path: "boulders/:id", element: <BoulderDetail /> },
       { path: "auth", element: <Auth /> },
       { path: "auth/callback", element: <AuthCallback /> },
+      { path: "reset-password", element: <ResetPassword /> },
+      { path: "privacy", element: <AppLegal /> },
+      { path: "imprint", element: <AppLegal /> },
+      { path: "community-rules", element: <AppLegal /> },
       { path: "profile", element: (
         <RequireAuth>
           <Profile />
@@ -415,6 +437,8 @@ const router = createBrowserRouter([
           <Statistics />
         </RequireAuth>
       ) },
+      { path: 'training/*', element: TRAINING_UI_ENABLED ? <RequireAuth><Training /></RequireAuth> : <NotFound /> },
+      { path: 'profile/training', element: <RequireAuth><TrainingSettings /></RequireAuth> },
       { path: "admin", element: <Admin /> },
       {
         path: "setter",

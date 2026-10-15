@@ -10,12 +10,14 @@ export const DashboardPageLayout = ({
   rightSlot,
   mainClassName,
   headerBackTo,
+  onHeaderBack,
   headerBackLabel,
 }: {
   children: ReactNode;
   rightSlot?: ReactNode;
   mainClassName?: string;
   headerBackTo?: string;
+  onHeaderBack?: () => void;
   headerBackLabel?: string;
 }) => {
   const { isExpanded } = useSidebar();
@@ -29,7 +31,7 @@ export const DashboardPageLayout = ({
           user && (isExpanded ? 'md:ml-64' : 'md:ml-20'),
         )}
       >
-        <DashboardHeader rightSlot={rightSlot} backTo={headerBackTo} backLabel={headerBackLabel} />
+        <DashboardHeader rightSlot={rightSlot} backTo={headerBackTo} onBack={onHeaderBack} backLabel={headerBackLabel} />
         <main
           className={cn(
             'mx-auto w-full max-w-[1180px] flex-1 px-4 pb-28 pt-4 md:px-8 md:pb-10 md:pt-6',

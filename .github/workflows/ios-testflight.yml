@@ -8,6 +8,14 @@ on:
         required: false
         default: main
         type: string
+      backend:
+        description: Backend for this TestFlight build
+        required: true
+        default: current
+        type: choice
+        options:
+          - current
+          - hostinger
 
 concurrency:
   group: ios-testflight
@@ -63,9 +71,54 @@ jobs:
         run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
       - name: Build web app and sync Capacitor iOS
+        env:
+          BUILD_BACKEND: ${{ inputs.backend || 'current' }}
+          KWS_HOSTINGER_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.KWS_HOSTINGER_SUPABASE_PUBLISHABLE_KEY }}
         run: |
-          npm run build
+          set -eo pipefail
+          if [ "$BUILD_BACKEND" = "hostinger" ]; then
+            if [ -z "$KWS_HOSTINGER_SUPABASE_PUBLISHABLE_KEY" ]; then
+              echo "::error::Missing Hostinger publishable client key"
+              exit 1
+            fi
+            export VITE_SUPABASE_URL="https://beta-api.kletterwelt-sauerland.de"
+            export VITE_SUPABASE_PUBLISHABLE_KEY="$KWS_HOSTINGER_SUPABASE_PUBLISHABLE_KEY"
+            export VITE_VIDEO_API_URL="https://video.kletterwelt-sauerland.de"
+            export VITE_NATIVE_VIDEO_API_URL="$VITE_VIDEO_API_URL"
+            export VITE_ALLINKL_API_URL="$VITE_VIDEO_API_URL"
+            export VITE_AUTH_SITE_URL="https://beta.kletterwelt-sauerland.de"
+            export VITE_USE_ALLINKL_STORAGE="false"
+            export VITE_TELEMETRY_ENABLED="false"
+            export VITE_SENTRY_DSN=""
+            ./node_modules/.bin/vite build --mode hostinger --base=./
+          else
+            npm run build
+          fi
           npx cap sync ios
+
+      - name: Verify Hostinger client assets
+        if: inputs.backend == 'hostinger'
+        run: |
+          node --input-type=module <<'JS'
+          import { readdir, readFile } from 'node:fs/promises';
+          import { join } from 'node:path';
+          const text = [];
+          async function walk(dir) {
+            for (const entry of await readdir(dir, { withFileTypes: true })) {
+              const path = join(dir, entry.name);
+              if (entry.isDirectory()) await walk(path);
+              else {
+                const value = await readFile(path, 'utf8');
+                if (value.includes('-----BEGIN PRIVATE KEY-----')) throw new Error('Private key in client assets');
+                text.push(value);
+              }
+            }
+          }
+          await walk('ios/App/App/public');
+          const bundle = text.join('\n');
+          if (!bundle.includes('https://beta-api.kletterwelt-sauerland.de') || !bundle.includes('Neues Passwort festlegen')) throw new Error('Hostinger endpoint or recovery form missing');
+          console.log('Hostinger endpoint and recovery form verified; no private key marker in client assets');
+          JS
 
       - name: Install CocoaPods
         run: pod install --project-directory=ios/App

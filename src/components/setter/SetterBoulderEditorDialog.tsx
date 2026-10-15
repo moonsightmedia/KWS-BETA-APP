@@ -42,13 +42,17 @@ export interface SetterBoulderDraft {
   spansMultipleSectors: boolean;
   colorId: string;
   colorId2?: string;
+  volumeOnly?: boolean;
   difficulty: number | null;
   note: string;
   attributeIds: string[];
   videoFile: UploadFileInput | null;
+  withoutVideo?: boolean;
+  createdBoulderId?: string;
   thumbFile: File | null;
   existingThumbnailUrl?: string | null;
   existingVideoUrl?: string | null;
+  existingVideoStatus?: string;
   mapX?: number;
   mapY?: number;
 }
@@ -86,10 +90,12 @@ export const createEmptySetterBoulderDraft = (
     spansMultipleSectors: false,
     colorId: defaultColor?.id ?? "",
     colorId2: undefined,
+    volumeOnly: false,
     difficulty: defaultDifficulty,
     note: "",
     attributeIds: [],
     videoFile: null,
+    withoutVideo: false,
     thumbFile: null,
     existingThumbnailUrl: null,
     existingVideoUrl: null,
@@ -114,7 +120,7 @@ export const canSubmitSetterBoulderDraft = (
     Boolean(draft.colorId2 && draft.colorId2 !== draft.colorId);
 
   return Boolean(
-    hasVideo &&
+    (hasVideo || draft.withoutVideo) &&
       hasThumbnail &&
       draft.name.trim() &&
       draft.sectorId &&
@@ -279,7 +285,7 @@ export function SetterBoulderEditorDialog({
       const file = await pickNativeVideoForUpload();
       if (file) {
         setDirty(true);
-        onDraftChange({ ...draft, videoFile: file });
+        onDraftChange({ ...draft, videoFile: file, withoutVideo: false });
       }
     } catch (reason) {
       setError(
@@ -473,7 +479,7 @@ export function SetterBoulderEditorDialog({
                         : null
                     }
                     existing={!!draft.existingVideoUrl}
-                    onChange={(file) => update({ videoFile: file })}
+                    onChange={(file) => update({ videoFile: file, withoutVideo: false })}
                     onPick={
                       isNativeVideoPipelineAvailable()
                         ? () => void pickNative()
@@ -492,10 +498,24 @@ export function SetterBoulderEditorDialog({
                     disabled={busy}
                   />
                 </div>
-                {missing(
-                  !draft.videoFile && !draft.existingVideoUrl,
-                  "Bitte ein Video wählen.",
+                {!draft.videoFile && !draft.existingVideoUrl && (
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-kws-control bg-secondary px-3 py-2">
+                    <Checkbox
+                      checked={Boolean(draft.withoutVideo)}
+                      disabled={busy}
+                      onCheckedChange={(checked) => update({ withoutVideo: checked === true })}
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium">Beta später ergänzen</span>
+                      <span className="block text-xs text-muted-foreground">Boulder mit Vorschaubild veröffentlichen, ohne Video.</span>
+                    </span>
+                  </label>
                 )}
+                {missing(
+                  !draft.videoFile && !draft.existingVideoUrl && !draft.withoutVideo,
+                  "Bitte ein Video wählen oder „Beta später ergänzen“ aktivieren.",
+                )}
+                <p className="text-xs text-muted-foreground">Neue Videos werden ohne Ton hochgeladen.</p>
                 {missing(
                   !draft.thumbFile && !draft.existingThumbnailUrl,
                   "Bitte ein Vorschaubild wählen.",
@@ -556,6 +576,14 @@ export function SetterBoulderEditorDialog({
               </section>
               <section className="space-y-2">
                 <h3 className="text-sm font-medium">Farbe</h3>
+                <label className="flex min-h-11 items-center gap-3 rounded-kws-control bg-secondary p-3 text-sm">
+                  <Checkbox checked={draft.volumeOnly === true}
+                    onCheckedChange={(checked) => update({ volumeOnly: checked === true })} />
+                  <span>
+                    <span className="block font-semibold">Nur Volumen</span>
+                    <span className="block text-xs text-muted-foreground">Ohne zusätzliche Griffe · Farbe frei wählbar</span>
+                  </span>
+                </label>
                 {renderColor(false)}
                 {missing(!draft.colorId, "Bitte eine Farbe wählen.")}
                 {dual && (

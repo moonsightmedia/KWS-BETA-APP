@@ -112,36 +112,21 @@ export const useCompetitionLeaderboard = (gender?: 'male' | 'female' | null) => 
         competition_results: resultsByParticipant.get(participant.id) || [],
       }));
 
-      // Fetch display names for participants: use RPC for guests (no session), profiles table for authenticated
+      // Both guests and signed-in users receive only public participant names.
       const userIds = (participantsData || [])
         .filter((p: any) => p.user_id)
         .map((p: any) => p.user_id);
       
-      let profilesMap = new Map<string, { id: string; first_name: string | null; last_name: string | null; full_name: string | null; email?: string | null }>();
+      const profilesMap = new Map<string, { id: string; first_name: string | null; last_name: string | null; full_name: string | null }>();
       
       if (userIds.length > 0) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          // Authenticated: use profiles table (RLS allows read for leaderboard)
-          const { data: profilesData } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name, full_name, email')
-            .in('id', userIds);
-          if (profilesData) {
-            profilesData.forEach((profile: any) => profilesMap.set(profile.id, profile));
-          }
-        } else {
-          // Guest: use safe RPC that returns only id, first_name, last_name, full_name for competition participants
-          const { data: rpcData, error: rpcError } = await supabase.rpc('get_leaderboard_display_names', {
-            p_user_ids: userIds,
-          });
-          if (rpcError) {
-            console.warn('[Leaderboard] get_leaderboard_display_names RPC error:', rpcError);
-          } else if (rpcData && Array.isArray(rpcData)) {
-            rpcData.forEach((row: { id: string; first_name: string | null; last_name: string | null; full_name: string | null }) => {
-              profilesMap.set(row.id, { ...row, email: null });
-            });
-          }
+        const { data: rpcData, error: rpcError } = await supabase.rpc('get_leaderboard_display_names', {
+          p_user_ids: userIds,
+        });
+        if (rpcError) {
+          console.warn('[Leaderboard] get_leaderboard_display_names RPC error:', rpcError);
+        } else if (rpcData && Array.isArray(rpcData)) {
+          rpcData.forEach((row) => profilesMap.set(row.id, row));
         }
         const missingUserIds = userIds.filter((id: string) => !profilesMap.has(id));
         if (missingUserIds.length > 0 && import.meta.env.DEV) {
@@ -177,7 +162,6 @@ export const useCompetitionLeaderboard = (gender?: 'male' | 'female' | null) => 
           // Get name from user profile or guest_name
           // Format: "Vorname + erster Buchstabe des Nachnamens" (e.g., "Janosch J.")
           // Always show names in leaderboard regardless of authentication status
-          // Fallback to email if no profile name is available
           const profile = participant.user_id ? profilesMap.get(participant.user_id) : null;
           let name = 'Unbekannt';
           
@@ -195,18 +179,11 @@ export const useCompetitionLeaderboard = (gender?: 'male' | 'female' | null) => 
                 // Nur Vorname, wenn kein Nachname vorhanden
                 name = firstName;
               }
-            } else if (profile.email) {
-              // Fallback to email if no first name
-              const emailName = profile.email.split('@')[0];
-              // Capitalize first letter
-              name = emailName.charAt(0).toUpperCase() + emailName.slice(1);
             } else {
-              // Profile exists but has no name or email - this shouldn't happen, but log it
-              console.warn('[Leaderboard] Profile exists but has no name or email:', {
+              console.warn('[Leaderboard] Profile exists but has no display name:', {
                 participant_id: participant.id,
                 user_id: participant.user_id,
                 profile_id: profile.id,
-                profile_data: profile
               });
             }
           } else if (participant.user_id) {

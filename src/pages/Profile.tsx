@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -22,66 +22,21 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderCommunity';
 import { buildPersonalProgress } from '@/lib/personalProgress';
 import { PersonalDataState } from '@/components/PersonalDataState';
-import { fetchProfileRecord } from '@/lib/profileCompat';
+import { useAccountProfile } from '@/hooks/useAccountProfile';
+import { TrainingIcon } from '@/lib/appIcons';
+import { TRAINING_UI_ENABLED } from '@/features/training/flags';
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user, session, signOut, loading, authTransition } = useAuth();
+  const { user, signOut, loading, authTransition } = useAuth();
   const trackedQuery = useMyTrackedBoulders();
   const sessionsQuery = useMyTrackingSessions();
   const { data: trackedBoulders } = trackedQuery;
   const { data: trackingSessions } = sessionsQuery;
-  const [profileName, setProfileName] = useState<string | null>(null);
-  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
-  const [profileIdentityLoading, setProfileIdentityLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user) {
-      setProfileName(null);
-      setProfileAvatarUrl(null);
-      setProfileIdentityLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadProfileName = async () => {
-      setProfileIdentityLoading(true);
-
-      const metadataAvatarUrl =
-        typeof user.user_metadata?.avatar_url === 'string' && user.user_metadata.avatar_url.trim().length > 0
-          ? user.user_metadata.avatar_url
-          : null;
-
-      try {
-        const data = await fetchProfileRecord(user.id, session?.access_token);
-        if (cancelled) return;
-
-        const nextProfileName =
-          data?.full_name?.trim() ||
-          [data?.first_name, data?.last_name].filter(Boolean).join(' ').trim() ||
-          null;
-
-        setProfileName(nextProfileName);
-        setProfileAvatarUrl(data?.avatar_url?.trim() || metadataAvatarUrl || null);
-      } catch {
-        if (!cancelled) {
-          setProfileName(null);
-          setProfileAvatarUrl(metadataAvatarUrl);
-        }
-      } finally {
-        if (!cancelled) {
-          setProfileIdentityLoading(false);
-        }
-      }
-    };
-
-    loadProfileName();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [session?.access_token, user]);
+  const profile = useAccountProfile();
+  const profileName = profile.data?.full_name?.trim() ||
+    [profile.data?.first_name, profile.data?.last_name].filter(Boolean).join(' ').trim();
+  const profileIdentityLoading = profile.isLoading;
 
   const displayName = useMemo(() => {
     const meta = user?.user_metadata as Record<string, unknown> | undefined;
@@ -106,8 +61,8 @@ const Profile = () => {
       typeof meta?.avatar_url === 'string' && meta.avatar_url.trim().length > 0
         ? meta.avatar_url
         : null;
-    return profileAvatarUrl || metadataAvatar || null;
-  }, [profileAvatarUrl, user]);
+    return profile.data ? profile.data.avatar_url : metadataAvatar;
+  }, [profile.data, user]);
 
   const memberSinceLabel = useMemo(() => {
     if (!user?.created_at) return 'Mitglied';
@@ -127,12 +82,14 @@ const Profile = () => {
       title: 'Einstellungen',
       items: [
         { icon: Bell, label: 'Benachrichtigungen', description: 'Hinweise und Push-Einstellungen', path: '/profile/notifications' },
+        ...(TRAINING_UI_ENABLED ? [{ icon: TrainingIcon, label: 'Training', description: 'Training und Kinderbouldern einblenden', path: '/profile/training' }] : []),
       ],
     },
     {
       title: 'App',
       items: [
         { icon: Map, label: 'Sektoren', description: 'Hallenbereiche und aktuelle Boulder', path: '/sectors' },
+        { icon: CalendarDays, label: 'Schraubplan', description: 'Alle kommenden Umschraubungen', path: '/schedule' },
         { icon: Info, label: 'Über die App', description: 'Version und Informationen', path: '/profile/about' },
       ],
     },
@@ -200,7 +157,7 @@ const Profile = () => {
                     <button
                       key={item.label}
                       type="button"
-                      onClick={() => navigate(item.path)}
+                      onClick={() => navigate(item.path, item.path === '/schedule' ? { state: { from: 'profile' } } : undefined)}
                       className="flex min-h-[66px] w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-secondary/45 active:bg-secondary focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/45"
                     >
                       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-kws-control bg-secondary text-[#192436]/65">

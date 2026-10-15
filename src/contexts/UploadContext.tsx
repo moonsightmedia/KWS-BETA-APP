@@ -5,7 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { reportError } from '@/utils/feedbackUtils';
 import { useAuth } from '@/hooks/useAuth';
-import { authenticatedFetch, getCurrentSession } from '@/lib/authenticatedFetch';
+import { authenticatedFetch, createAuthenticatedUploadFetch, getCurrentSession, SESSION_REQUIRED_EVENT } from '@/lib/authenticatedFetch';
+import { SessionAccountChangedError, SessionRequiredError } from '@/lib/sessionRecovery';
 import { classifyRecoveredUpload, mergeRecoveredUploads, readUploadRecovery, uploadLogTransitionFilter, type RecoverableUploadLog, type UploadBoulderEvidence } from '@/lib/uploadRecovery';
 import { compressThumbnail } from '@/integrations/supabase/storage';
 import {
@@ -41,6 +42,8 @@ import {
 export interface ActiveUpload {
   sessionId: string;
   boulderId: string;
+  /** Fixed when queued, independent of render-time auth closures. */
+  ownerId?: string;
   file: File | null;
   nativeFile?: NativeVideoUploadFile;
   fileName: string;
@@ -274,13 +277,12 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (updates.progress !== undefined) updateData.progress = updates.progress;
 
     const attempt = async () => {
-      const response = await authenticatedFetch(
+      const response = await createAuthenticatedUploadFetch(session.user.id)(
         `${SUPABASE_URL}/rest/v1/upload_logs?session_id=eq.${sessionId}${uploadLogTransitionFilter(updates.status)}`,
         {
           method: 'PATCH',
           headers: {
             'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
             'Prefer': 'return=minimal',
           },
@@ -357,42 +359,20 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     console.log('[UploadContext] 📝 Updating upload status to "uploading"...');
     updateUpload(upload.sessionId, { status: 'uploading', progress: 0, error: undefined });
     let currentSession = session;
+    // The owner stays fixed even if the SDK rotates the access token.
+    const ownerId = upload.ownerId ?? upload.recoveryLog?.user_id ?? session?.user.id ?? '';
+    const uploadFetch = createAuthenticatedUploadFetch(ownerId);
     let videoQueuedOnServer = false;
     console.log('[UploadContext] ✅ Upload status updated');
 
     try {
-        // CRITICAL: Get session at runtime (not from render-time) to avoid stale session
-        // This session will be used throughout the entire upload process
-        console.log('[UploadContext] 🔍 Getting session for upload process...');
-        
-        // If session is not available, try to get it with timeout
-        if (!currentSession?.access_token) {
-            console.log('[UploadContext] ⚠️ Session not available from useAuth, fetching...');
-            const sessionPromise = supabase.auth.getSession();
-            const timeoutPromise = new Promise<never>((_, reject) => 
-                setTimeout(() => reject(new Error('Session timeout after 5s')), 5000)
-            );
-            
-            try {
-                const sessionResult = await Promise.race([sessionPromise, timeoutPromise]);
-                const { data: { session: fetchedSession }, error: sessionError } = sessionResult as any;
-                
-                if (sessionError) {
-                    console.error('[UploadContext] ❌ Error getting session:', sessionError);
-                    throw new Error(`Session error: ${sessionError.message}`);
-                }
-                
-                if (!fetchedSession?.access_token) {
-                    console.error('[UploadContext] ❌ No session available after fetch');
-                    throw new Error('Keine aktive Session. Bitte melde dich an.');
-                }
-                
-                currentSession = fetchedSession;
-                console.log('[UploadContext] ✅ Session fetched successfully');
-            } catch (timeoutError: any) {
-                console.error('[UploadContext] ❌ Session timeout or error:', timeoutError);
-                throw new Error('Keine aktive Session. Bitte melde dich an.');
-            }
+        currentSession = await getCurrentSession(abortSignal);
+        if (!currentSession) {
+            window.dispatchEvent(new Event(SESSION_REQUIRED_EVENT));
+            throw new SessionRequiredError();
+        }
+        if (currentSession.user.id !== ownerId) {
+            throw new SessionAccountChangedError();
         }
         
         console.log('[UploadContext] ✅ Session available for upload process');
@@ -418,13 +398,12 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
              if (progress !== undefined) updateData.progress = progress;
 
              const attempt = async () => {
-                 const response = await authenticatedFetch(
+                 const response = await uploadFetch(
                      `${SUPABASE_URL}/rest/v1/upload_logs?session_id=eq.${upload.sessionId}${uploadLogTransitionFilter(status)}`,
                      {
                          method: 'PATCH',
                          headers: {
                              'apikey': SUPABASE_KEY,
-                             'Authorization': `Bearer ${currentSession.access_token}`,
                              'Content-Type': 'application/json',
                              'Prefer': 'return=minimal',
                          },
@@ -532,13 +511,12 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             if (!SUPABASE_URL || !SUPABASE_KEY) {
                 throw new Error('Supabase-Konfiguration fehlt');
             }
-            const beginResponse = await window.fetch(
+            const beginResponse = await uploadFetch(
               `${SUPABASE_URL}/rest/v1/rpc/begin_boulder_video_upload`,
               {
                 method: 'POST',
                 headers: {
                   apikey: SUPABASE_KEY,
-                  'Authorization': `Bearer ${currentSession.access_token}`,
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ p_boulder_id: upload.boulderId, p_upload_session_id: upload.sessionId }),
@@ -620,7 +598,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     sessionId: upload.sessionId,
                     sectorId: upload.sectorId,
                     boulderId: upload.boulderId,
-                    authToken: currentSession.access_token,
+                    fetch: uploadFetch,
                     onProgress: (p) => {
                         const overall = 40 + Math.floor(p * 0.6);
                         setUploads(prev => {
@@ -667,6 +645,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 });
             } catch (uploadError: any) {
                 console.error('[UploadContext] ❌ Video upload failed:', uploadError);
+                if (uploadError instanceof SessionRequiredError || uploadError instanceof SessionAccountChangedError) throw uploadError;
                 if ((abortSignal || controller?.signal)?.aborted || uploadError?.name === 'AbortError') {
                     throw new DOMException('Video-Upload abgebrochen', 'AbortError');
                 }
@@ -707,7 +686,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 {
                     sessionId: upload.sessionId,
                     sectorId: upload.sectorId,
-                    authToken: currentSession.access_token,
+                    fetch: uploadFetch,
                     onProgress: uploadProgressCallback,
                     abortSignal: abortSignal || controller?.signal
                 }
@@ -730,7 +709,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             throw new Error('Supabase-Konfiguration fehlt');
         }
 
-        // Use currentSession (already fetched at the start of processUpload)
+        // uploadFetch resolves current credentials again after media transfer.
         if (!currentSession?.access_token) {
             console.error('[UploadContext] ❌ No session available for boulder update');
             throw new Error('Keine aktive Session. Bitte melde dich an.');
@@ -744,13 +723,12 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           : { thumbnail_url: url };
         console.log('[UploadContext] 📝 Updating boulder:', upload.boulderId, 'with:', updateData);
         if (updateData) {
-        const updateResponse = await window.fetch(
+        const updateResponse = await uploadFetch(
             `${SUPABASE_URL}/rest/v1/boulders?id=eq.${upload.boulderId}`,
             {
                 method: 'PATCH',
                 headers: {
                     'apikey': SUPABASE_KEY,
-                    'Authorization': `Bearer ${currentSession.access_token}`,
                     'Content-Type': 'application/json',
                     'Prefer': 'return=minimal',
                 },
@@ -814,15 +792,24 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             uploadType: upload.type
         });
         
+        if (error instanceof SessionRequiredError || error instanceof SessionAccountChangedError) {
+            // Keep the original file and upload ID in memory. The existing
+            // session recovery dialog reconnects without navigating or wiping
+            // the editor. The user can then explicitly resume the same job.
+            updateUpload(upload.sessionId, { status: 'error', error: error.message });
+            delete abortControllersRef.current[upload.sessionId];
+            processingRef.current.delete(upload.sessionId);
+            return;
+        }
+
         if (upload.type === 'video' && !videoQueuedOnServer) {
             const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
             const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
             if (SUPABASE_URL && SUPABASE_KEY && currentSession?.access_token) {
-                await window.fetch(`${SUPABASE_URL}/rest/v1/rpc/fail_boulder_video_upload`, {
+                await uploadFetch(`${SUPABASE_URL}/rest/v1/rpc/fail_boulder_video_upload`, {
                     method: 'POST',
                     headers: {
                         apikey: SUPABASE_KEY,
-                        Authorization: `Bearer ${currentSession.access_token}`,
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
@@ -835,7 +822,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         // Check if it was cancelled
-        if (error.name === 'AbortError' || upload.status === 'cancelled') {
+        if (error.name === 'AbortError' || uploadsRef.current.find(item => item.sessionId === upload.sessionId)?.status === 'cancelled') {
             console.log('[UploadContext] ⏸️ Upload was explicitly cancelled:', upload.sessionId);
             updateUpload(upload.sessionId, { status: 'cancelled' });
             await updateUploadLog(upload.sessionId, { 
@@ -927,6 +914,12 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (type === 'thumbnail' && isNativeVideoUploadFile(file)) {
       throw new Error('Thumbnail muss eine Bilddatei sein');
     }
+
+    const activeSession = await getCurrentSession();
+    if (!activeSession) {
+      window.dispatchEvent(new Event(SESSION_REQUIRED_EVENT));
+      throw new SessionRequiredError();
+    }
     
     const sessionId = type === 'video' 
         ? globalThis.crypto.randomUUID()
@@ -938,6 +931,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const newUpload: ActiveUpload = {
         sessionId,
         boulderId,
+        ownerId: activeSession.user.id,
         file: webFile,
         nativeFile,
         fileName: getUploadInputName(file),
@@ -1023,6 +1017,13 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
      if (['server_processing', 'recovery_review'].includes(existingUpload.status)) {
        throw new Error('Bitte zuerst den Serverstatus prüfen. Dieser Upload darf nicht erneut gestartet werden.');
      }
+     const activeSession = await getCurrentSession();
+     if (!activeSession) {
+       window.dispatchEvent(new Event(SESSION_REQUIRED_EVENT));
+       throw new SessionRequiredError();
+     }
+     const ownerId = existingUpload.ownerId ?? existingUpload.recoveryLog?.user_id ?? activeSession.user.id;
+     if (activeSession.user.id !== ownerId) throw new SessionAccountChangedError();
      if (existingUpload.recoveryLog) {
        // The server may have finished since the overview was opened.
        const controller = new AbortController();
@@ -1044,6 +1045,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
      const nativeFile = isNativeVideoUploadFile(file) ? file : undefined;
       const targetUpload: ActiveUpload = {
         ...existingUpload,
+       ownerId,
        file: nativeFile ? null : (file as File),
        nativeFile,
        fileName: getUploadInputName(file),
@@ -1120,10 +1122,10 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     if (!SUPABASE_URL || !SUPABASE_KEY) return;
 
-    const { data: { session: activeSession } } = await supabase.auth.getSession();
-    if (!activeSession?.access_token) return;
+    const activeSession = await getCurrentSession();
+    if (!activeSession?.access_token || activeSession.user.id !== session?.user.id) return;
 
-    await window.fetch(`${SUPABASE_URL}/rest/v1/rpc/fail_pending_boulder_video_upload`, {
+    await authenticatedFetch(`${SUPABASE_URL}/rest/v1/rpc/fail_pending_boulder_video_upload`, {
       method: 'POST',
       headers: {
         apikey: SUPABASE_KEY,
@@ -1135,7 +1137,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         p_error: error.slice(0, 500),
       }),
     }).catch(() => undefined);
-  }, []);
+  }, [session]);
 
   const cancelUpload = useCallback(async (sessionId: string) => {
     const targetUpload = uploadsRef.current.find((upload) => upload.sessionId === sessionId);

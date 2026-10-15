@@ -29,6 +29,7 @@ export function useUnreadCount() {
     queryKey: ['unread_count', user?.id], enabled: !loading && !!user && !!session,
     queryFn: async ({ signal }) => {
       const q = new URLSearchParams({ user_id: 'eq.' + user!.id, read: 'eq.false', select: 'id', limit: '1' });
+      q.set('dismissed_at', 'is.null');
       const { response } = await notificationRequest('/rest/v1/notifications?' + q, session?.access_token, { signal, headers: { Prefer: 'count=exact' } });
       return exactNotificationCount(response);
     }, staleTime: 15000, refetchInterval: 30000, retry: 1,
@@ -59,6 +60,7 @@ export function useMarkAllAsRead() {
       if (!user) throw new Error('Bitte melde dich erneut an.');
       const cutoff = new Date().toISOString();
       const q = new URLSearchParams({ user_id: 'eq.' + user.id, read: 'eq.false', created_at: 'lte.' + cutoff });
+      q.set('dismissed_at', 'is.null');
       await notificationRequest('/rest/v1/notifications?' + q, session?.access_token, {
         method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ read: true, read_at: cutoff }),
       });
@@ -67,6 +69,36 @@ export function useMarkAllAsRead() {
       if (!Array.isArray(data) || data.length) throw new Error('Nicht alle Mitteilungen wurden bestätigt. Bitte aktualisieren.');
     },
     onSettled: () => Promise.all([client.invalidateQueries({ queryKey: ['notifications', user?.id] }), client.invalidateQueries({ queryKey: ['unread_count', user?.id] })]),
+  });
+}
+
+export type NotificationChange = Pick<AppNotification, 'read' | 'read_at'> | Pick<AppNotification, 'dismissed_at'>;
+
+export function useChangeNotification() {
+  const { user, session } = useAuth();
+  const client = useQueryClient();
+  return useMutation({
+    mutationKey: ['notification-read', user?.id],
+    mutationFn: async ({ id, change }: { id: string; change: NotificationChange }) => {
+      if (!user || !id) throw new Error('Bitte melde dich erneut an.');
+      const q = new URLSearchParams({ id: 'eq.' + id, user_id: 'eq.' + user.id });
+      const { data } = await notificationRequest('/rest/v1/notifications?' + q, session?.access_token, {
+        method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(change),
+      });
+      const rows = validateNotifications(data, user.id);
+      if (rows.length !== 1 || rows[0].id !== id || Object.entries(change).some(([key, value]) => {
+        const actual = rows[0][key as keyof AppNotification];
+        return key.endsWith('_at') && value !== null && typeof actual === 'string'
+          ? Date.parse(actual) !== Date.parse(value as string) : actual !== value;
+      })) {
+        throw new Error('Änderung konnte nicht bestätigt werden.');
+      }
+      return rows[0];
+    },
+    onSettled: () => Promise.all([
+      client.invalidateQueries({ queryKey: ['notifications', user?.id] }),
+      client.invalidateQueries({ queryKey: ['unread_count', user?.id] }),
+    ]),
   });
 }
 

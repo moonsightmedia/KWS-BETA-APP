@@ -16,6 +16,7 @@ import { PushNotificationTest } from '@/components/admin/PushNotificationTest';
 import { useSidebar } from '@/components/SidebarContext';
 import { ADMIN_TABS, resolveAdminTab } from '@/lib/adminNavigation';
 import { cn } from '@/lib/utils';
+import { ContentModeration } from '@/components/admin/ContentModeration';
 
 const SETTINGS_TABS = [
   { value: 'sectors', label: 'Sektoren' },
@@ -66,7 +67,7 @@ const Admin = () => {
                   <TabsContent value="colors" className="mt-0"><ColorManagement /></TabsContent>
                 </Tabs>
               </TabsContent>
-              <TabsContent value="feedback" className="mt-0"><FeedbackManagement /></TabsContent>
+              <TabsContent value="feedback" className="mt-0"><div className="space-y-6"><ContentModeration /><FeedbackManagement /></div></TabsContent>
               <TabsContent value="monitoring" className="mt-0"><MonitoringDashboard /></TabsContent>
               <TabsContent value="logs" className="mt-0"><BoulderOperationLogs /></TabsContent>
               <TabsContent value="tests" className="mt-0"><PushNotificationTest /></TabsContent>

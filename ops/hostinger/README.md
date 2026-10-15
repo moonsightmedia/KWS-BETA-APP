@@ -1,0 +1,102 @@
+# KWS Hostinger: Betrieb und Migrationshistorie
+
+## Aktueller Betrieb – 12. Oktober 2026
+
+Die Migration ist live. Öffentliche Web-App: https://beta.kletterwelt-sauerland.de,
+API: https://beta-api.kletterwelt-sauerland.de, Videos:
+https://video.kletterwelt-sauerland.de. Die geschützte Verwaltung ist unter
+https://supabase.kletterwelt-sauerland.de erreichbar; native Studio-Ansicht
+unter `/project/default`. Login aus Bitwarden `KWS_HOSTINGER_SUPABASE_CONFIG`.
+Der alte lokale Studio-Tunnel ist für den regulären Zugriff nicht erforderlich.
+
+Produktionsdatenbank `postgres` im Container `supabase-db`; Konfiguration unter
+`/opt/kws/supabase/runtime`. Web unter `/opt/kws/web-production`, Videodienst
+`kws-video-production` mit Daten unter `/opt/kws/video-production/data`.
+**Port 9082 gehört zum internen Produktionsgateway. Port 9090 ist die isolierte
+Web-/API-Probe.** Konten in der Probe sind keine Produktionskonten.
+
+Community-Schutz und rechtliche Seiten aus Quellstand `5339600` sind live;
+Apple Build 85 enthält dieselben Funktionen. Verifikation und Store-Blocker:
+`docs/qa/2026-10-12-community-store-readiness.md` und
+`docs/APPLE_STORE_READINESS.md`. Moderation: `COMMUNITY_MODERATION.md`;
+Kontolöschung: `ACCOUNT_DELETION.md`.
+
+Tägliche verschlüsselte VPS-Sicherung ist aktiv. Produktionssatz
+`20261012T085928Z` liegt zusätzlich vollständig hashgeprüft auf dem Kunden-NAS.
+Regelmäßige unabhängige Sicherung und Restore mit aktuellen Löschvermerken
+bleiben eigene Betriebsaufgaben. Den alten privaten VPS nicht löschen:
+Andere unabhängige Anwendungen laufen darauf weiter. Altes KWS-Cloudprojekt
+kontrolliert erhalten, bis alte Clients und Rückfall-/Aufbewahrungsanforderungen
+geklärt sind.
+
+Die folgenden Abschnitte dokumentieren die historische Vorbereitung vom
+8. Oktober. Angaben wie „Hauptdatenbank leer“ beschreiben diesen früheren Stand.
+Einmalige Vorbereitungsskripte nicht erneut auf die produktive Datenbank anwenden.
+
+Diese Skripte sind für `srv2044594` (`187.7.70.230`) und den geprüften Geräteschlüssel dieses Laptops bestimmt. Sie sind kein automatisch wiederholbarer Produktions-Deploy. Aktueller Stand und Migrationsablauf: `docs/KWS_SELF_HOSTED_MIGRATION.md`.
+
+## Historischer Zielstand vor der Migration
+
+- `/opt/kws/supabase/runtime`: offizielles Supabase, leere Datenbank, ausschließlich private Ports.
+- `/opt/kws/web`: privater Frontend-Build; API-/Video-URLs Loopback.
+- `/opt/kws/edge`: Caddy, `127.0.0.1:9080`, keine öffentliche HTTPS-Konfiguration.
+- `/opt/kws/video-private`: privater Testdienst, `127.0.0.1:9000`; keine kopierten Jobs, Publisher deaktiviert.
+- `/var/backups/kws/migration`: vollständige verschlüsselte Datenbankvorsicherung, Medienarchive und geprüfte Restore-Nachweise.
+- `kws_restore_probe_20261008_121055`: separate wiederhergestellte Probe-Datenbank; Hauptdatenbank weiterhin leer. Private Auth/REST/Storage-Dienste auf 9998/9996/9997. Probe inzwischen bewusst durch Sicherheitspatches und Tests verändert; nicht für Cutover verwenden.
+- `/opt/kws/probe-web`: aktualisiertes privates Frontend mit API/Storage auf Probe und Medien auf verifiziertem Zielbestand, Port 9090 Loopback. Realtime/Functions/Legacy-Uploads noch 503. Gast-Browserrunde bestanden; SMTP und angemeldete/native Abnahme offen.
+
+## Lesende Prüfungen
+
+### Zugang zur bestehenden Supabase-Verwaltung
+
+`pwsh -NoProfile -File ops/hostinger/open-supabase-dashboard.ps1` öffnet beziehungsweise prüft den gerätespezifischen SSH-Tunnel zum bestehenden privaten Studio. Adresse auf diesem Laptop: `http://127.0.0.1:18000/`. Bestehende Dashboard-Anmeldung steht in Bitwarden `AI Shared/KWS_HOSTINGER_SUPABASE_CONFIG`, Felder `DASHBOARD_USERNAME` und `DASHBOARD_PASSWORD`. Keine Passwörter in Chat oder Logs ausgeben. Ohne Anmeldung HTTP 401, mit bestehender Anmeldung HTML 200 geprüft; gespeichertes Passwort gegen den Server verifiziert.
+
+Studio zeigt das vorbereitete Hauptziel `postgres`, das weiterhin leer ist. Die restaurierte Testdatenbank bleibt davon getrennt. Keine neue öffentliche Bindung, DNS- oder Rollenänderung. Tunnel gilt nur für dieses Gerät, solange der SSH-Prozess läuft; bei belegtem Port durch anderen Prozess verweigert das Skript jede Änderung.
+
+```powershell
+node ops/hostinger/run-remote.mjs ops/hostinger/check-private-runtime.sh
+node ops/hostinger/run-remote.mjs ops/hostinger/verify-media-backups.sh
+pwsh -NoProfile -File ops/hostinger/export-source-media.ps1 -Tool inventory-source-rest.py
+pwsh -NoProfile -File ops/hostinger/export-source-media.ps1 -Tool inventory-storage-counts.py
+```
+
+API-Inventare speichern neue geschützte Momentaufnahmen auf dem VPS; sie sind kein konsistenter DB-Export. Der Restore-Prüfer erzeugt beim ersten Lauf eine neue isolierte Dateikopie. Bereits geprüfte Kopien werden als vorhanden gemeldet, nicht erneut geprüft. Unvollständige frühere Restore-Verzeichnisse führen zum Abbruch und müssen zunächst untersucht werden.
+
+## Einmalige Einrichtung und Vorsicherungen
+
+`bootstrap.sh`, `prepare-supabase.sh`, `initialize-runtime.sh`, `start-private-supabase.sh`, `transfer-source.mjs`, `build-private-web.sh`, `start-private-web.sh` und `start-private-video.sh` wurden in dieser Reihenfolge verwendet. Nicht blind erneut ausführen: Konfigurationen und Testbuilds werden teilweise neu geschrieben. `repair-private-bootstrap.sh` ist ausschließlich für den dokumentierten fehlgeschlagenen Erststart einer **leeren** Datenbank; er wurde einmal ausgeführt, bewahrt das alte Datenverzeichnis und verweigert eine Wiederholung.
+
+`copy-video-preliminary.mjs` streamt das Quellverzeichnis verschlüsselt auf den neuen VPS. `export-source-media.ps1` mit Standardtool kopiert tatsächliche Storage-Objekte und verschlüsselt das Archiv. Beide Vorsicherungen lesen eine laufende Quelle und ersetzen nicht die abschließende Sicherung nach kontrollierter Schreibsperre.
+
+Zugangsdaten ausschließlich aus Bitwarden beziehungsweise geschützten Serverdateien beziehen. `save-server-secret.ps1` hat die neue Supabase-Konfiguration und den age-Wiederherstellungsschlüssel in Bitwarden gesichert; bestehende Referenzen werden nicht überschrieben. Keine `.env`, Dumps, Manifeste oder privaten Schlüssel einchecken.
+
+Vorläufig sind Sicherungen nur auf dem neuen VPS beauftragt. Das schützt nicht vor vollständigem Verlust des VPS. Langfristige Intervalle, Aufbewahrung und ein unabhängiges Sicherungsziel bleiben offen.
+
+## Nächster Ausführungsschritt
+
+Quell-Dashboard und Postgres 17.6 sind bestätigt. `source-preflight.sql` wurde im Dashboard rein lesend ausgeführt; keine Inhalte von Auth-Hashes oder Tokens ausgeben. `prepare-database-export.sh` installiert die geprüfte CLI 2.120.0 separat auf dem Ziel; `check-source-tls.sh` verifiziert den Session-Pooler mit der aus dem angemeldeten Dashboard bezogenen öffentlichen Supabase-CA. Diese Vorbereitung stellt keine authentifizierte DB-Verbindung her und erzeugt keinen Dump.
+
+DB- und DNS-Zugang sind bestätigt und vollständiger Export/Probe-Restore geprüft; siehe `docs/qa/2026-10-08-migration-restore.md`. Benutzer wählt app@ als Absender und marketing@ für Antworten. Zuständige Microsoft-365-Administration liegt bei anderer Person; vorbereitete Anforderung in `docs/KWS_MAIL_ADMIN_REQUEST.md`, nicht gesendet. Nächste Phase: kompatiblen Versandzugang, API-Domain/TLS, Realtime/Functions/Push und angemeldete Web/native Clients prüfen. Erst danach finale Schreibsperre, neuen ruhenden Gesamtbestand sichern, sauberes finales Ziel wiederherstellen und Umschaltung koordinieren. Quelle und vorbereitende Sicherungen erhalten.
+
+`capture-source-db-secret.ps1` ist die manuelle, verborgene Eingabe für die neue Bitwarden-Referenz `AI Shared/KWS_SUPABASE_DB_PASSWORD`. Es verändert kein Passwort bei Supabase. Offengelegte Werte gemäß Zugangsablauf zuerst manuell erneuern. Das Skript verweigert das Ersetzen einer vorhandenen Referenz und zeigt nur den Referenznamen, niemals den Wert.
+
+## Erprobter Datenbankablauf
+
+Diese Befehle dokumentieren die ausgeführten Schritte; nicht blind als wiederholbaren Deploy behandeln. Neue Probes dürfen nicht mit bereits laufenden, anders gebundenen Probe-Containern verwechselt werden. Drei gefilterte Dateien allein reichen nicht: Anwendungstrigger auf Auth, Storage-Policies, originale Funktionstexte und exakte Grants gesondert übernehmen.
+
+1. `run-source-database.ps1` führt `export-source-database.py` aus. Passwort kommt aus Bitwarden über SSH-stdin und libpq-Umgebung, nicht aus argv. Alle tatsächlichen Dumps in PG17-Client mit `verify-full`; gemeinsame exportierte Snapshot-ID für Schema, Daten und vollständiges Archiv. Der echte Schlüssel fließt niemals in CLI-Dry-run-Ausgaben. Schema-/Rollen-Dumps mit `--keep-comments`; CLI 2.120.0 erlaubt dieses Flag nicht zusammen mit `--data-only`.
+2. `verify-media-backups.sh` entschlüsselt auch das DB-Archiv und prüft sämtliche Dump-/Inventardateien gegen den geschützten Manifest. Ein erfolgreicher Dateirestore ersetzt nicht den Datenbank-Restore.
+3. `upgrade-private-auth-compatibility.sh` aktualisiert ausschließlich das **leere** Hauptziel auf stabiles Auth 2.197.0. `check-database-restore-compatibility.sh` vergleicht Quell-/Zielspalten.
+4. `restore-database-probe.sh` erstellt einen isolierten Clone des leeren Hauptziels mit verschlüsseltem Rollback-Dump. Hauptdienste kurz zum Clone anhalten und danach wieder healthy starten. Restore der App-/Auth-/Storage-Daten in einer einzigen Transaktion; Abbruch rollt sie zurück. Fehler-/Leerprobes bleiben erhalten.
+5. `verify-database-probe.sh` vergleicht alle COPY-Spaltenwerte, Tabellenmengen/Zahlen und Sequenzen mit dem gesicherten Snapshot.
+6. `restore-probe-schema-supplements.sh` übernimmt Storage-Policies und unveränderte Funktionstexte aus dem vollständigen Archiv. `compare-source-database-metadata.py` über `run-source-database.ps1 -Tool ...` vergleicht RLS, Policies, Funktionen/ACLs, Constraints, Indizes, Trigger und Realtime. `restore-probe-function-grants.sh` entfernt die nachgewiesenen zusätzlichen Zielgrants; `restore-probe-auth-triggers.sh` übernimmt beide Registrierungstrigger. Danach erneut Struktur-/Rechtevergleich.
+7. `start-probe-services.sh` startet private Auth/REST/Storage-Container auf der Probe. Kein SMTP-Versand konfiguriert, Selbstregistrierung gesperrt. `import-probe-storage.sh` nutzt die Storage-API statt Rohkopie des Volumes, verifiziert sämtliche Downloads und bewahrt Quell-IDs/Besitzrechte/Datumsfelder neben neuen Dateiversionen.
+8. `test-probe-api.sh` verändert ausschließlich die Probe: neue getrennte Testkonten, Testfarbe/-bilder und zwei ausgehende Push-Trigger als Stubs. Frühere fehlgeschlagene Ergebnisse bleiben erhalten. `apply-probe-security.sh` hat die separat versionierte Sicherheitsmigration nur in dieser Probe angewandt. Danach alle 39 Prüfungen bestanden.
+
+Bei der finalen Migration: neuen Dump und Dateidelta nach nachgewiesener Schreibsperre, sauberes Ziel ohne Testkonten/Stubs, identischen vollständigen Vergleich **vor** bewussten Sicherheits-/URL-Anpassungen, diese Änderungen gesondert prüfen. Der vorhandene Probe-Stand ist kein finales Deployment.
+
+## Ergänzende CDN-Kopie und Web-Probe
+
+`inspect-probe-urls.sh` hat weitere Bilder auf dem All-Inkl-CDN identifiziert. `copy-referenced-cdn.sh` liest ausschließlich diese HTTPS-Herkunft mit begrenzten gleichzeitigen GETs, speichert geschützte Referenzen/Manifest und verschlüsselt sowie entschlüsselt/verifiziert den Bestand auf dem VPS. 136 Dateien kopiert, elf ältere Log-URLs bereits 404; aktuelle Vorschaubilder und Sektorbilder vollständig vorhanden. Es ist keine vollständige Inventur aller unreferenzierten All-Inkl-Dateien.
+
+`prepare-probe-web-urls.sh` ist einmalig für die benannte Probe und bewahrt Originalwerte. Es prüft Storage-Zuordnungen und veröffentlichte Videodateien, verwendet manifestgeprüfte CDN-Bilder und schreibt nur das Testziel um. `transfer-probe-web.mjs`, `build-probe-web.sh` und `start-probe-web.sh` haben den aktualisierten separaten Frontend-Build bereitgestellt. `verify-probe-web-assets.sh` hat sämtliche 136 CDN-Dateien über den neuen Webdienst per Hash/MIME/Größe geprüft. Hauptdienste und Quellbestand bleiben unverändert. Diese Werkzeuge nicht ungeprüft auf das spätere Produktionsziel anwenden.

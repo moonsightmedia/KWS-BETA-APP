@@ -3,10 +3,12 @@
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string;
   readonly VITE_SUPABASE_PUBLISHABLE_KEY: string;
+  readonly VITE_AUTH_SITE_URL?: string;
   readonly VITE_SENTRY_DSN?: string;
   readonly VITE_SENTRY_ENVIRONMENT?: string;
   readonly VITE_SENTRY_ORG_URL?: string;
   readonly VITE_TELEMETRY_ENABLED?: string;
+  readonly VITE_TRAINING_UI_PREVIEW?: string;
   readonly VITE_NATIVE_BACKGROUND_UPLOAD?: string;
   readonly VITE_ALLINKL_API_URL?: string;
   readonly VITE_VIDEO_API_URL?: string;

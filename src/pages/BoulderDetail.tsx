@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { BadgeCheck, Play, Video } from 'lucide-react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { readBoulderOrigin } from '@/lib/boulderNavigation';
+import { useRetainedBoulderOrigin } from '@/components/BoulderRouteContinuity';
+import { BadgeCheck } from 'lucide-react';
+import { BetaPlaceholder } from '@/components/boulder/BetaPlaceholder';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 import { BoulderBetaTab, BoulderInfoTab, BoulderTrackTab } from '@/components/boulder/BoulderDetailSections';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
+import { BoulderTypeBadge } from '@/components/boulder/BoulderTypeBadge';
 import {
   BoulderVideoPlayer,
   getVimeoEmbedUrl,
@@ -19,6 +23,8 @@ import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useColors } from '@/hooks/useColors';
 import type { Boulder } from '@/types/boulder';
 import { KwsSegmentedControl } from '@/components/ui/kws-segmented-control';
+import { ContentSafetyActions } from '@/components/ContentSafetyActions';
+import { ExternalBetaVideo } from '@/components/boulder/ExternalBetaVideo';
 
 const tabs = ['Info', 'Track', 'Beta'] as const;
 type DetailTab = (typeof tabs)[number];
@@ -38,6 +44,9 @@ function getThumbnailUrl(boulder: Boulder) {
 
 export default function BoulderDetail() {
   const { id } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const hasRetainedOrigin = useRetainedBoulderOrigin();
   const { user, loading: authLoading } = useAuth();
   const { data: colors } = useColors();
   const { data: boulders, isLoading } = useBouldersWithSectors(!authLoading);
@@ -54,6 +63,8 @@ export default function BoulderDetail() {
   const availableTabs = useMemo(() => (user ? tabs : (['Info', 'Beta'] as const)), [user]);
 
   const getScrollContainer = useCallback(() => {
+    const detailLayer = document.querySelector<HTMLElement>('[data-boulder-detail-scroll]');
+    if (detailLayer) return detailLayer;
     const candidates = [
       document.body,
       document.scrollingElement,
@@ -76,6 +87,8 @@ export default function BoulderDetail() {
       behavior,
     });
 
+    if (scrollContainer.hasAttribute('data-boulder-detail-scroll')) return;
+
     document.documentElement.scrollTo({
       top: targetTop,
       behavior,
@@ -96,7 +109,7 @@ export default function BoulderDetail() {
     const naturalTop = currentScrollTop + tabBar.getBoundingClientRect().top;
     const targetTop = naturalTop - stickyTop;
 
-    scrollPageTo(targetTop, 'smooth');
+    scrollPageTo(targetTop, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
   }, [getScrollContainer, scrollPageTo]);
 
   useLayoutEffect(() => {
@@ -155,13 +168,17 @@ export default function BoulderDetail() {
     return <BoulderInfoTab boulder={boulder} />;
   };
 
-  const backDestination = user ? '/boulders' : '/guest';
+  const origin = readBoulderOrigin(location.state);
+  const backDestination = origin ? origin.pathname + origin.search + origin.hash : user ? '/boulders' : '/guest';
+  const backLabel = origin?.pathname === '/' || origin?.pathname === '/app' ? 'Zurück zur Startseite' : 'Zurück zur Boulderübersicht';
+  const goBack = () => hasRetainedOrigin ? navigate(-1) : navigate(backDestination, { replace: true });
 
   if (isLoading || authLoading) {
     return (
       <DashboardPageLayout
         headerBackTo={backDestination}
-        headerBackLabel="Zurück zur Boulderübersicht"
+        headerBackLabel={backLabel}
+        onHeaderBack={goBack}
         mainClassName="pt-4 md:pt-6"
       >
         <div className="mb-4 space-y-2">
@@ -183,7 +200,8 @@ export default function BoulderDetail() {
     return (
       <DashboardPageLayout
         headerBackTo={backDestination}
-        headerBackLabel="Zurück zur Boulderübersicht"
+        headerBackLabel={backLabel}
+        onHeaderBack={goBack}
         mainClassName="flex items-center justify-center"
       >
         <div className="w-full max-w-md rounded-kws-card bg-card p-6 text-center text-sm text-muted-foreground shadow-[0_3px_14px_rgba(19,17,43,0.07)]">
@@ -196,7 +214,8 @@ export default function BoulderDetail() {
   return (
     <DashboardPageLayout
       headerBackTo={backDestination}
-      headerBackLabel="Zurück zur Boulderübersicht"
+      headerBackLabel={backLabel}
+      onHeaderBack={goBack}
       mainClassName="pt-4 md:pt-6"
     >
       <section className="mb-4 min-w-0" aria-labelledby="boulder-detail-title">
@@ -206,6 +225,7 @@ export default function BoulderDetail() {
         >
           {boulder.name}
         </h2>
+        <BoulderTypeBadge volumeOnly={boulder.volumeOnly} />
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
           <DifficultyBadge
             color={boulder.color}
@@ -229,25 +249,12 @@ export default function BoulderDetail() {
           <div className="relative mx-auto flex aspect-[9/16] max-h-[min(60vh,720px)] w-full max-w-md items-center justify-center overflow-hidden rounded-kws-card bg-secondary shadow-[0_3px_14px_rgba(19,17,43,0.08)] lg:mx-0 lg:max-h-[calc(100vh-8rem)] lg:max-w-none">
             {videoUrl ? (
               isYouTube ? (
-                <iframe
-                  src={getYouTubeEmbedUrl(videoUrl)}
-                  className="h-full w-full"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                  allowFullScreen
-                  title="YouTube video player"
-                />
+                <ExternalBetaVideo key={videoUrl} src={getYouTubeEmbedUrl(videoUrl)} provider="YouTube" />
               ) : isVimeo ? (
-                <iframe
-                  src={getVimeoEmbedUrl(videoUrl)}
-                  className="h-full w-full"
-                  frameBorder="0"
-                  allow="autoplay; fullscreen; picture-in-picture"
-                  allowFullScreen
-                  title="Vimeo video player"
-                />
+                <ExternalBetaVideo key={videoUrl} src={getVimeoEmbedUrl(videoUrl)} provider="Vimeo" />
               ) : (
                 <BoulderVideoPlayer
+                  key={boulder.id}
                   betaVideoUrls={boulder.betaVideoUrls}
                   betaVideoUrl={boulder.betaVideoUrl}
                   poster={getThumbnailUrl(boulder)}
@@ -257,35 +264,16 @@ export default function BoulderDetail() {
                 />
               )
             ) : (
-              <>
-                <div
-                  className="absolute inset-0 opacity-20"
-                  style={{ background: `linear-gradient(135deg, ${boulder.colorHex || '#36B531'}44, transparent)` }}
-                />
-                <div className="relative flex flex-col items-center gap-2">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-kws-control bg-primary shadow-lg shadow-primary/30">
-                    <Play className="ml-0.5 h-6 w-6 text-primary-foreground" />
-                  </div>
-                  <span className="text-xs text-muted-foreground">Offizielle Beta</span>
-                </div>
-              </>
+              <BetaPlaceholder thumbnailUrl={boulder.thumbnailUrl ? getThumbnailUrl(boulder) : undefined} boulderName={boulder.name} />
             )}
 
-            {!isDirectVideo ? (
+            {videoUrl && !isDirectVideo ? (
               <div className="absolute left-2.5 top-2.5 z-20 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.94] px-2.5 text-[#192436] shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm">
                 <BadgeCheck className="h-3.5 w-3.5 text-primary" />
                 <span className="text-[10px] font-semibold">Offizielle Beta</span>
               </div>
             ) : null}
 
-            {!videoUrl && (
-              <div className="absolute inset-x-0 bottom-6 flex justify-center">
-                <div className="flex items-center gap-2 rounded-kws-control bg-white/[0.94] px-3 py-1.5 shadow-[0_3px_12px_rgba(19,17,43,0.12)] backdrop-blur-sm">
-                  <Video className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-[10px] font-semibold text-foreground">Noch kein Video vorhanden</span>
-                </div>
-              </div>
-            )}
           </div>
         </section>
 
@@ -319,6 +307,7 @@ export default function BoulderDetail() {
           </div>
         </section>
       </div>
+      <ContentSafetyActions kind="boulder" targetId={boulder.id} />
     </DashboardPageLayout>
   );
 }

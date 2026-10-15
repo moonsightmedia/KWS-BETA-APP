@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useIsMutating } from '@tanstack/react-query';
-import { Bell, CheckCheck, Loader2, RefreshCw } from 'lucide-react';
-import { useNotifications, useMarkAllAsRead, useUnreadCount } from '@/hooks/useNotifications';
+import { Bell, CheckCheck, Loader2, RefreshCw, Undo2 } from 'lucide-react';
+import { useNotifications, useMarkAllAsRead, useUnreadCount, useChangeNotification, type Notification, type NotificationChange } from '@/hooks/useNotifications';
 import { notificationDay, notificationTopics } from '@/lib/notifications';
 import { NotificationItem } from './NotificationItem';
 import { Button } from '@/components/ui/button';
@@ -12,11 +12,29 @@ export function NotificationList({ onNotificationClick }: { onNotificationClick?
   const [view, setView] = useState('all'); const [topic, setTopic] = useState('all');
   const query = useNotifications({ unreadOnly: view === 'unread', topic });
   const count = useUnreadCount(); const markAll = useMarkAllAsRead();
+  const update = useChangeNotification();
+  const [undo, setUndo] = useState<{ id: string; change: NotificationChange; label: string } | null>(null);
   const writing = useIsMutating({ mutationKey: ['notification-read'] }) > 0;
   const [message, setMessage] = useState(''); const [writeError, setWriteError] = useState('');
   const scroll = useRef<HTMLDivElement>(null);
   const change = (fn: () => void) => { fn(); setMessage(''); setWriteError(''); scroll.current?.scrollTo({ top: 0 }); };
   const refresh = () => { void query.refetch(); void count.refetch(); };
+  const changeNotification = async (n: Notification, action: 'read' | 'dismiss') => {
+    setWriteError(''); setMessage('');
+    const change = action === 'dismiss' ? { dismissed_at: new Date().toISOString() }
+      : { read: !n.read, read_at: n.read ? null : new Date().toISOString() };
+    try {
+      await update.mutateAsync({ id: n.id, change });
+      setUndo({ id: n.id, change: action === 'dismiss' ? { dismissed_at: n.dismissed_at ?? null } : { read: n.read, read_at: n.read_at },
+        label: action === 'dismiss' ? 'Mitteilung entfernt.' : n.read ? 'Als ungelesen markiert.' : 'Als gelesen markiert.' });
+    } catch { setWriteError('Änderung nicht gespeichert. Bitte erneut versuchen.'); }
+  };
+  const restore = async () => {
+    if (!undo) return;
+    setWriteError('');
+    try { await update.mutateAsync(undo); setUndo(null); setMessage('Änderung rückgängig gemacht.'); }
+    catch { setWriteError('Rückgängig nicht gespeichert. Bitte erneut versuchen.'); }
+  };
   const mark = async () => {
     setWriteError(''); setMessage('');
     try { await markAll.mutateAsync(); setMessage('Alle bisherigen Mitteilungen sind gelesen.'); }
@@ -39,12 +57,13 @@ export function NotificationList({ onNotificationClick }: { onNotificationClick?
       {query.isLoading ? <div role="status" className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />Mitteilungen werden geladen …</div>
       : query.isError && !query.isFetchNextPageError ? <div role="alert" className="px-6 py-8 text-center"><p className="text-sm font-semibold">Mitteilungen nicht verfügbar</p><p className="mt-2 text-xs text-muted-foreground">Deine Mitteilungen bleiben erhalten. Versuche es erneut.</p><Button variant="secondary" className="mt-4" disabled={query.isFetching} onClick={refresh}>Erneut versuchen</Button></div>
       : !rows.length ? <div className="px-6 py-10 text-center"><Bell className="mx-auto h-7 w-7 text-muted-foreground" aria-hidden="true" /><p className="mt-4 text-sm font-semibold">{view === 'unread' ? topic !== 'all' ? 'Zu diesem Thema ist alles gelesen' : 'Alles gelesen' : topic !== 'all' ? 'Keine Mitteilungen zu diesem Thema' : 'Noch keine Mitteilungen'}</p><p className="mt-2 text-xs leading-relaxed text-muted-foreground">{view === 'unread' ? 'Bereits gelesene Mitteilungen findest du unter Alle.' : 'Neuigkeiten aus der Halle erscheinen hier.'}</p>{(view !== 'all' || topic !== 'all') && <Button variant="secondary" className="mt-4" onClick={() => change(() => { setView('all'); setTopic('all'); })}>Alle Mitteilungen anzeigen</Button>}</div>
-      : <>{groups.map(g => <section key={g.label}><h2 className="bg-card px-4 py-2 text-xs font-semibold text-muted-foreground">{g.label}</h2><div className="divide-y divide-border/50">{g.rows.map(n => <NotificationItem key={n.id} notification={n} onClick={onNotificationClick} disabled={writing} />)}</div></section>)}
+      : <>{groups.map(g => <section key={g.label}><h2 className="bg-card px-4 py-2 text-xs font-semibold text-muted-foreground">{g.label}</h2><div className="divide-y divide-border/50">{g.rows.map(n => <NotificationItem key={n.id} notification={n} onClick={onNotificationClick} disabled={writing} onAction={action => changeNotification(n, action)} />)}</div></section>)}
         {query.isFetchNextPageError && <p role="alert" className="px-4 pt-3 text-xs text-destructive">Ältere Mitteilungen konnten nicht geladen werden.</p>}
         {query.hasNextPage && <div className="p-4"><Button variant="secondary" className="w-full" disabled={query.isFetching} onClick={() => void query.fetchNextPage()}>{query.isFetchingNextPage ? 'Wird geladen …' : 'Ältere Mitteilungen laden'}</Button></div>}
       </>}
     </div>
     <div className="shrink-0 border-t border-border/60 px-4 py-2">
+      {undo && <div className="flex items-center justify-between gap-2 text-xs"><p role="status">{undo.label}</p><Button variant="ghost" size="sm" className="min-h-11 gap-1 text-xs" disabled={writing} onClick={() => void restore()}><Undo2 className="h-4 w-4" />Rückgängig</Button></div>}
       {count.isError && <p role="status" className="py-2 text-xs text-muted-foreground">Ungelesen-Zähler derzeit nicht verfügbar.</p>}
       {writeError && <p role="alert" className="py-2 text-xs text-destructive">{writeError}</p>}
       {message && <p role="status" className="py-2 text-xs text-primary-ink">{message}</p>}

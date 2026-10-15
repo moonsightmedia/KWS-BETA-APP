@@ -9,6 +9,7 @@ import {
 } from "@/components/setter/SetterBoulderEditorDialog";
 import { SetterSurface } from "@/components/setter/SetterWorkspaceShell";
 import { Button } from "@/components/ui/button";
+import { BoulderTypeBadge } from "@/components/boulder/BoulderTypeBadge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ActiveFilterChip, BoulderFilterControls, BoulderFilterPanel, BoulderFilterTrigger } from "@/components/boulder/BoulderFilterControls";
 import { SectorFilterOptions } from "@/components/boulder/SectorFilterOptions";
@@ -33,6 +34,8 @@ import {
 import { useColors } from "@/hooks/useColors";
 import { useSectorsTransformed } from "@/hooks/useSectors";
 import { cn } from "@/lib/utils";
+import { authenticatedFetch, getCurrentSession } from "@/lib/authenticatedFetch";
+import { publishBoulderWithoutVideo } from "@/lib/boulderPublication";
 import type { Boulder } from "@/types/boulder";
 import {
   getBoulderColorBackgroundStyle,
@@ -72,13 +75,16 @@ function mapBoulderToDraft(
     spansMultipleSectors: Boolean(sectorId2),
     colorId,
     colorId2,
+    volumeOnly: boulder.volumeOnly === true,
     difficulty: boulder.difficulty,
     note: boulder.note ?? "",
     attributeIds: [],
     videoFile: null,
+    withoutVideo: !boulder.betaVideoUrl && !Object.values(boulder.betaVideoUrls ?? {}).some(Boolean),
     thumbFile: null,
     existingThumbnailUrl: getThumbnailUrl(boulder),
-    existingVideoUrl: boulder.betaVideoUrl ?? null,
+    existingVideoUrl: boulder.betaVideoUrl || boulder.betaVideoUrls?.hd || boulder.betaVideoUrls?.sd || boulder.betaVideoUrls?.low || null,
+    existingVideoStatus: boulder.betaVideoStatus,
     mapX: boulder.mapX,
     mapY: boulder.mapY,
   };
@@ -256,6 +262,7 @@ export default function SetterEditPage() {
         difficulty: editorDraft.difficulty,
         color: colorName,
         color_2: colorName2,
+        volume_only: editorDraft.volumeOnly === true,
         note: editorDraft.note.trim() || null,
       };
 
@@ -298,6 +305,20 @@ export default function SetterEditPage() {
 
       if (uploadSessionIds.length > 0) {
         await waitForUploadSessions(uploadSessionIds);
+      }
+
+      if (editorDraft.withoutVideo && !editorDraft.videoFile && !editorDraft.existingVideoUrl
+        && ["uploading", "failed"].includes(editorDraft.existingVideoStatus ?? "")) {
+        const currentSession = await getCurrentSession();
+        if (!currentSession?.access_token) throw new Error("Bitte erneut anmelden. Deine Eingaben bleiben erhalten.");
+        await publishBoulderWithoutVideo({
+          fetch: authenticatedFetch,
+          url: import.meta.env.VITE_SUPABASE_URL,
+          publicKey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          accessToken: currentSession.access_token,
+          boulderId: editorDraft.id,
+        });
+        void queryClient.invalidateQueries({ queryKey: ["boulders"] });
       }
 
       setEditorDraft(null);
@@ -478,6 +499,7 @@ export default function SetterEditPage() {
                           <p className="break-words text-sm font-semibold">
                             {b.name}
                           </p>
+                          <BoulderTypeBadge volumeOnly={b.volumeOnly} className="mt-1" />
                           <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                             <span
                               aria-hidden="true"

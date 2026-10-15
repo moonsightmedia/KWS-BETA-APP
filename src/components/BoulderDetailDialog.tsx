@@ -5,7 +5,6 @@ import {
   BarChart3,
   BadgeCheck,
   CalendarDays,
-  Image as ImageIcon,
   MapPin,
   Maximize2,
   Minimize2,
@@ -16,6 +15,9 @@ import {
 
 import { BoulderBetaPreview, BoulderStatsPanel, BoulderTrackingPanel } from '@/components/BoulderCommunityPanel';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
+import { BetaPlaceholder } from '@/components/boulder/BetaPlaceholder';
+import { BoulderTypeBadge } from '@/components/boulder/BoulderTypeBadge';
+import { ExternalBetaVideo } from '@/components/boulder/ExternalBetaVideo';
 import {
   BoulderVideoPlayer,
   getVimeoEmbedUrl,
@@ -108,27 +110,11 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
           className="relative mx-auto aspect-[4/5] w-full max-w-[22rem] overflow-hidden rounded-kws-card bg-[#EAF1EB] shadow-[0_10px_28px_rgba(19,17,43,0.11)] lg:max-w-none"
         >
           {videoUrl && isYouTube && (
-            <iframe
-              src={open && activeTab === 'beta' ? getYouTubeEmbedUrl(videoUrl) : undefined}
-              className="h-full w-full"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-              allowFullScreen
-              loading="lazy"
-              title={`Beta-Video für ${boulder.name}`}
-            />
+            <ExternalBetaVideo key={videoUrl} src={getYouTubeEmbedUrl(videoUrl)} provider="YouTube" visible={open && activeTab === 'beta'} />
           )}
 
           {videoUrl && isVimeo && (
-            <iframe
-              src={open && activeTab === 'beta' ? getVimeoEmbedUrl(videoUrl) : undefined}
-              className="h-full w-full"
-              frameBorder="0"
-              allow="autoplay; fullscreen; picture-in-picture"
-              allowFullScreen
-              loading="lazy"
-              title={`Beta-Video für ${boulder.name}`}
-            />
+            <ExternalBetaVideo key={videoUrl} src={getVimeoEmbedUrl(videoUrl)} provider="Vimeo" visible={open && activeTab === 'beta'} />
           )}
 
           {isDirectVideo && (
@@ -142,41 +128,9 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
             />
           )}
 
-          {!hasVideo && thumbnailUrl && (
-            <img
-              src={thumbnailUrl}
-              alt={`Startgriffe von ${boulder.name}`}
-              className="h-full w-full object-cover"
-            />
-          )}
+          {!hasVideo && <BetaPlaceholder thumbnailUrl={thumbnailUrl} boulderName={boulder.name} />}
 
-          {!hasVideo && !thumbnailUrl && (
-            <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-              <span className="grid h-12 w-12 place-items-center rounded-kws-control bg-white text-primary shadow-[0_4px_16px_rgba(19,17,43,0.08)]">
-                <ImageIcon className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-foreground">Noch kein Bild vorhanden</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">Foto und Beta werden ergänzt, sobald sie verfügbar sind.</p>
-              </div>
-            </div>
-          )}
-
-          {!hasVideo && (
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white via-white/[0.92] to-transparent px-3 pb-3 pt-14">
-              <div className="flex items-center gap-2">
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-kws-badge bg-primary text-white">
-                  <Video className="h-3.5 w-3.5" />
-                </span>
-                <div>
-                  <p className="text-xs font-bold text-foreground">Noch kein Beta-Video</p>
-                  <p className="text-[10px] text-muted-foreground">Das Boulderfoto bleibt trotzdem sichtbar.</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!isDirectVideo ? (
+          {hasVideo && !isDirectVideo ? (
             <div className="absolute left-2.5 top-2.5 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.94] px-2.5 text-[10px] font-semibold text-[#192436] shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm">
               <BadgeCheck className="h-3.5 w-3.5 text-primary" />
               Offizielle Beta
@@ -234,6 +188,7 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
               <DialogTitle className="mt-0.5 truncate font-heading text-lg font-bold leading-tight text-foreground sm:text-xl">
                 {boulder.name}
               </DialogTitle>
+              <BoulderTypeBadge volumeOnly={boulder.volumeOnly} className="mt-1" />
               <div className="mt-1 flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground sm:text-xs">
                 <span className="flex min-w-0 items-center gap-1">
                   <MapPin className="h-3 w-3 shrink-0 text-primary" />
