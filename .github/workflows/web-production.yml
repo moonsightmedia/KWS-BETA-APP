@@ -1,0 +1,94 @@
+name: Web production
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-production-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify web release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VITE_SUPABASE_URL: https://api.fixture.invalid
+      VITE_SUPABASE_PUBLISHABLE_KEY: fixture-key-not-a-secret
+      VITE_TRAINING_UI_PREVIEW: 'false'
+      VITE_TELEMETRY_ENABLED: 'false'
+      VITE_SENTRY_DSN: ''
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: Functional regression tests
+        run: node --test test/*.test.mjs
+      - name: Deployment safety tests
+        run: |
+          python3 ops/hostinger/test-update-production-web.py
+          python3 ops/hostinger/test-github-web-autodeploy.py
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser regression tests
+        run: npx playwright test e2e/header-stability.spec.ts e2e/auth-layout.spec.ts e2e/guest-loading.spec.ts e2e/training-release-gate.spec.ts --workers=1
+      - name: Production build without changing the source version
+        run: ./node_modules/.bin/vite build --mode hostinger
+      - name: Failure evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-test-failure
+          path: test-results/playwright-artifacts
+          retention-days: 7
+          if-no-files-found: ignore
+
+  deploy:
+    name: Confirm Hostinger deployment
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production-web
+      url: https://beta.kletterwelt-sauerland.de
+    steps:
+      # The VPS checks this run's successful verify job and pulls the exact SHA.
+      # No SSH credential or publicly exposed deployment endpoint is required.
+      - name: Wait for the exact revision to be served over HTTPS
+        env:
+          EXPECTED_REVISION: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import json, os, time, urllib.request
+          revision = os.environ['EXPECTED_REVISION']
+          url = 'https://beta.kletterwelt-sauerland.de/release.json?revision=' + revision
+          for attempt in range(90):
+              try:
+                  request = urllib.request.Request(url, headers={'Cache-Control': 'no-cache'})
+                  with urllib.request.urlopen(request, timeout=15) as response:
+                      data = json.load(response)
+                  if data.get('revision') == revision:
+                      with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+                          summary.write('Published `' + revision + '` to [the Beta app](https://beta.kletterwelt-sauerland.de).\n')
+                      print('HOSTINGER_REVISION_VERIFIED ' + revision)
+                      break
+              except (OSError, ValueError):
+                  pass
+              time.sleep(10)
+          else:
+              raise SystemExit('Hostinger did not confirm this revision. Inspect kws-web-autodeploy.service on srv2044594.')
+          PY
