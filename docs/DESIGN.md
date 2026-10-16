@@ -173,7 +173,7 @@ Für die freigegebene Web-Integration gilt: vollständige farbige Marke auf Auth
   Ab 768px ist es 184px breit. Der bisherige Kletterwelt-Sauerland-Absender
   wird an dieser Stelle ersetzt.
 - Boulder und andere Fachseiten behalten ihre Seitentitel und Werkzeuge.
-- Nutzerkorrektur 16.10.2026: Hinter der Boulderliste steht das Zeichen horizontal und vertikal mittig im Listenbereich
+- Nutzerkorrektur 16.10.2026: Hinter der Boulderliste steht das Zeichen horizontal mittig im Inhaltsbereich und vertikal in der sichtbaren Bildschirmmitte; es bleibt beim Scrollen sichtbar
   im Hallenakzent mit 8% Deckkraft als separate dekorative Ebene. Weiße
   Karten, Textkontrast und Bedienelemente bleiben deckend. Die Ebene ist für
   Screenreader verborgen, fängt keine Eingaben ab und entfällt in der Hallenkarte.

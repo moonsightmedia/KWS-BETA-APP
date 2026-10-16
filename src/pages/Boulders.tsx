@@ -771,13 +771,15 @@ const Boulders = () => {
             <div
               aria-hidden="true"
               data-brand-watermark
-              className="pointer-events-none absolute inset-0 -z-10 grid place-items-center overflow-hidden"
+              className="pointer-events-none absolute inset-0 -z-10 overflow-clip"
             >
-              <BetaLogo
-                variant="symbol"
-                decorative
-                className="h-auto w-[22rem] max-w-[90%] opacity-[0.08] md:w-[30rem]"
-              />
+              <div className="sticky top-[50dvh] flex h-0 items-center justify-center">
+                <BetaLogo
+                  variant="symbol"
+                  decorative
+                  className="h-auto w-[22rem] max-w-[90%] opacity-[0.08] md:w-[30rem]"
+                />
+              </div>
             </div>
           ) : null}
 

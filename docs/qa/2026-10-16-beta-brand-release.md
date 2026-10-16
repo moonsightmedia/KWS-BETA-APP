@@ -7,7 +7,7 @@ Nutzerfreigabe am 16.10.2026: „ja, bring das mal live“ nach V10.
 - Vollständige Variante 03 mit Teko-Vektorkonturen auf Anmeldung/Registrierung: 128px mobil, 184px ab 768px, mobil mittig auf Weiß.
 - Vollständige Marke in der Desktop-Seitenleiste; eingeklappt bleibt das Zeichen an derselben Stelle.
 - Header behalten Seitentitel und Werkzeuge ohne Produktlogo.
-- Angemeldete Boulderliste/Grid: Zeichen horizontal und vertikal mittig im Inhaltsbereich, 352/480px breit (maximal 90%), 8% Hallenakzent. Karten bleiben weiß/deckend. Dekorativ, keine Pointer-Eingaben, in Hallenkarte ausgeblendet.
+- Angemeldete Boulderliste/Grid: Zeichen horizontal mittig im Inhaltsbereich und vertikal mittig im sichtbaren Bildschirm; bleibt beim Scrollen sichtbar, 352/480px breit (maximal 90%), 8% Hallenakzent. Karten bleiben weiß/deckend. Dekorativ, keine Pointer-Eingaben, in Hallenkarte ausgeblendet.
 - Zeichen folgt primary (#36B531), Wortmarke brand-ink (#192436). Keine geänderten Datenabfragen, Rollen, Anmeldeaktionen oder Abhängigkeiten.
 
 Lokale Vorschau-Fixtures, Fotos, generierte Screenshot-Boards und deren Konfiguration bleiben außerhalb des Release-Commits. Der Gastscreen und native App-Icons bleiben unverändert.
@@ -27,3 +27,4 @@ Lokale Vorschau-Fixtures, Fotos, generierte Screenshot-Boards und deren Konfigur
 PR gegen main; unverändertes GitHub-Gate „Web production“. Erst nach erfolgreicher Verify-Stufe baut der bestehende Hostinger-Operator die genaue Main-Revision und bestätigt release.json. Vorheriger Web-Release und bestehende Downloads/Assets bleiben für Rückfall und offene Clients erhalten. Keine Datenbankmigration und kein natives Store-Release.
 
 Produktionsrevision, CI-Lauf und Live-Prüfung werden nach Veröffentlichung hier ergänzt.
+Release-Abnahme ergänzt: Die echte lange Liste braucht eine am sichtbaren Bildschirm orientierte Hintergrundebene. Das Zeichen bleibt nun über eine Sticky-Ebene auch beim Scrollen mittig. 14 Header-/Palettenfälle inklusive langer Listen und Scrollprüfung sowie fünf Auth-Fälle bestanden; Gast-/Trainingsprüfungen ebenfalls unverändert erfolgreich. Die 12 Designansichten und Interaktionen wurden nach dieser Korrektur erneut geprüft.

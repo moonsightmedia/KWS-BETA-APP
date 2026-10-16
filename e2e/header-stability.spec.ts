@@ -73,7 +73,7 @@ for (const width of [375, 768, 1280, 1920]) {
           const area = layer.getBoundingClientRect();
           const mark = layer.querySelector('svg')!.getBoundingClientRect();
           return Math.abs(area.x + area.width / 2 - mark.x - mark.width / 2) < 0.5
-            && Math.abs(area.y + area.height / 2 - mark.y - mark.height / 2) < 0.5;
+            && Math.abs(window.innerHeight / 2 - mark.y - mark.height / 2) < 0.5;
         });
         expect(centered).toBe(true);
       }
@@ -108,6 +108,14 @@ for (const width of [375, 768, 1280, 1920]) test(`loop 2: safe area, scroll, men
     await page.getByRole('link', { name: label, exact: true }).locator('visible=true').first().click();
     expect(await geometry(page)).toEqual(initial);
     if (label === 'Boulder') {
+        const visibleBackgroundCenter = () => page.locator('[data-brand-watermark] svg').evaluate(mark => {
+          const box = mark.getBoundingClientRect();
+          return Math.abs(box.y + box.height / 2 - window.innerHeight / 2);
+        });
+        await expect.poll(visibleBackgroundCenter).toBeLessThan(0.5);
+        await page.evaluate(() => window.scrollTo({ top: 240, behavior: 'instant' }));
+        await expect.poll(visibleBackgroundCenter).toBeLessThan(0.5);
+        await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
       await page.getByRole('button', { name: 'Boulder suchen', exact: true }).click();
       const expanded = await geometry(page);
       expect(expanded.titleTop).toBe(initial.titleTop);
