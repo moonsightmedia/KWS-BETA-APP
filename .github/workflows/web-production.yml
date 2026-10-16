@@ -17,7 +17,7 @@ concurrency:
 jobs:
   verify:
     name: Verify web release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       VITE_SUPABASE_URL: https://api.fixture.invalid
@@ -60,7 +60,7 @@ jobs:
     name: Confirm Hostinger deployment
     needs: verify
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment:
       name: production-web
