@@ -37,11 +37,11 @@ const AboutApp = () => {
                 <div className="space-y-3 font-sans text-sm text-muted-foreground">
                   <div className="flex items-center justify-between">
                     <span>Version</span>
-                    <span className="font-semibold text-[#192436]">{versionInfo.version}</span>
+                    <span className="font-semibold text-brand-ink">{versionInfo.version}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Build</span>
-                    <span className="font-semibold text-[#192436]">{versionInfo.buildDate}</span>
+                    <span className="font-semibold text-brand-ink">{versionInfo.buildDate}</span>
                   </div>
                   {versionInfo.isDevelopment ? (
                     <div className="flex items-center justify-between">

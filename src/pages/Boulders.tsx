@@ -582,7 +582,7 @@ const Boulders = () => {
             placeholder='Boulder oder Bereich suchen…'
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            className='h-10 !rounded-kws-control border-none bg-secondary pl-10 pr-10 text-sm text-foreground shadow-none placeholder:text-muted-foreground focus-visible:!ring-2 focus-visible:!ring-[#192436]/15 focus-visible:!ring-offset-0'
+            className='h-10 !rounded-kws-control border-none bg-secondary pl-10 pr-10 text-sm text-foreground shadow-none placeholder:text-muted-foreground focus-visible:!ring-2 focus-visible:!ring-brand-ink/15 focus-visible:!ring-offset-0'
             disabled={isLoading}
           />
           <button
@@ -684,8 +684,8 @@ const Boulders = () => {
 
   if (shouldShowPageSkeleton) {
     return (
-      <div className="flex min-h-screen bg-[#F9FAF9]">
-        <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+      <div className="flex min-h-screen bg-brand-canvas">
+        <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-brand-canvas md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
           {pageHeader}
           <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
             <div className="mb-6 flex gap-3">
@@ -740,8 +740,8 @@ const Boulders = () => {
 
   if (bouldersError) {
     return (
-      <div className="flex min-h-screen bg-[#F9FAF9]">
-        <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+      <div className="flex min-h-screen bg-brand-canvas">
+        <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-brand-canvas md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
           {pageHeader}
           <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
             <Alert variant="destructive">
@@ -758,8 +758,8 @@ const Boulders = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F9FAF9]">
-      <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+    <div className="flex min-h-screen bg-brand-canvas">
+      <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-brand-canvas md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
         {pageHeader}
 
         <main
@@ -809,7 +809,7 @@ const Boulders = () => {
               >
                 <ArrowUpDown className="h-4 w-4" strokeWidth={1.9} />
                 {hasCustomSorting ? (
-                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-kws-badge bg-primary px-0.5 text-[9px] font-bold text-primary-foreground ring-2 ring-[#F9FAF9]">
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-kws-badge bg-primary px-0.5 text-[9px] font-bold text-primary-foreground ring-2 ring-brand-canvas">
                     1
                   </span>
                 ) : null}
@@ -991,11 +991,11 @@ const Boulders = () => {
                     )}
                     <BoulderTypeBadge volumeOnly={boulder.volumeOnly} compact className="absolute left-1.5 top-9 sm:left-2" />
 
-                    <div className="absolute inset-x-0 bottom-0 flex h-[46%] flex-col justify-end bg-gradient-to-t from-white via-white/90 to-transparent px-1.5 pb-1.5 pt-7 text-[#192436] sm:h-[48%] sm:px-2 sm:pb-2 md:h-[40%] md:px-4 md:pb-4">
+                    <div className="absolute inset-x-0 bottom-0 flex h-[46%] flex-col justify-end bg-gradient-to-t from-white via-white/90 to-transparent px-1.5 pb-1.5 pt-7 text-brand-ink sm:h-[48%] sm:px-2 sm:pb-2 md:h-[40%] md:px-4 md:pb-4">
                       <span className="block truncate text-[9px] font-bold leading-tight tracking-[-0.02em] sm:text-[10px] md:text-sm">
                         {boulder.name}
                       </span>
-                      <span className="mt-0.5 truncate text-[8px] font-semibold leading-tight text-[#192436]/70 sm:text-[9px] md:mt-1 md:text-xs">
+                      <span className="mt-0.5 truncate text-[8px] font-semibold leading-tight text-brand-ink/70 sm:text-[9px] md:mt-1 md:text-xs">
                         {getSectorAreaLabel(boulder)}
                       </span>
                     </div>

@@ -221,7 +221,7 @@ export default function BoulderDetail() {
       <section className="mb-4 min-w-0" aria-labelledby="boulder-detail-title">
         <h2
           id="boulder-detail-title"
-          className="truncate font-sans text-xl font-semibold tracking-[-0.03em] text-[#192436] md:text-2xl"
+          className="truncate font-sans text-xl font-semibold tracking-[-0.03em] text-brand-ink md:text-2xl"
         >
           {boulder.name}
         </h2>
@@ -268,7 +268,7 @@ export default function BoulderDetail() {
             )}
 
             {videoUrl && !isDirectVideo ? (
-              <div className="absolute left-2.5 top-2.5 z-20 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.94] px-2.5 text-[#192436] shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm">
+              <div className="absolute left-2.5 top-2.5 z-20 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.94] px-2.5 text-brand-ink shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm">
                 <BadgeCheck className="h-3.5 w-3.5 text-primary" />
                 <span className="text-[10px] font-semibold">Offizielle Beta</span>
               </div>
@@ -281,7 +281,7 @@ export default function BoulderDetail() {
           <div
             ref={tabBarRef}
             data-detail-tab-bar
-            className="sticky top-[calc(4.25rem+var(--app-safe-area-top))] z-20 bg-[#F9FAF9] pb-2 pt-2 md:top-[calc(4.5rem+var(--app-safe-area-top))]"
+            className="sticky top-[calc(4.25rem+var(--app-safe-area-top))] z-20 bg-brand-canvas pb-2 pt-2 md:top-[calc(4.5rem+var(--app-safe-area-top))]"
           >
             <KwsSegmentedControl
               value={activeTab}

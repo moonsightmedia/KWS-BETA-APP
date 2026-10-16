@@ -117,7 +117,7 @@ export const RoleTabs = () => {
   return (
     <div className="border-b border-[#E7F7E9] bg-white md:hidden">
       <div className="px-4 py-2 md:pl-0 md:pr-8 w-full">
-        <div className="flex bg-[#F9FAF9] p-1 rounded-xl w-full max-w-md mx-auto md:mx-0 border border-[#E7F7E9]">
+        <div className="flex bg-brand-canvas p-1 rounded-xl w-full max-w-md mx-auto md:mx-0 border border-[#E7F7E9]">
           {tabs.map((tab) => {
             const isActive = activeRole === tab.key;
 
@@ -127,7 +127,7 @@ export const RoleTabs = () => {
                 to={tab.to}
                 className={cn(
                   'flex-1 py-2 px-3 rounded-xl text-xs font-semibold active:scale-95 transition-all focus:outline-none touch-manipulation text-center no-underline',
-                  isActive ? 'bg-[#36B531] text-white shadow-sm' : 'text-[#13112B]/60 hover:text-[#13112B]'
+                  isActive ? 'bg-brand text-primary-foreground shadow-sm' : 'text-brand-ink/60 hover:text-brand-ink'
                 )}
                 style={isActive ? { color: 'white' } : undefined}
               >

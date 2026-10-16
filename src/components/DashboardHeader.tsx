@@ -96,7 +96,7 @@ export const DashboardHeader = forwardRef<HTMLDivElement, DashboardHeaderProps>(
               <button
                 type="button"
                 onClick={onBack ?? (() => navigate(backTo))}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kws-control bg-secondary text-[#192436]/65 transition-[background-color,color,transform] hover:bg-[#E8EEE8] hover:text-[#192436] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kws-control bg-secondary text-brand-ink/65 transition-[background-color,color,transform] hover:bg-[#E8EEE8] hover:text-brand-ink active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
                 aria-label={backLabel}
               >
                 <ArrowLeft className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
@@ -110,13 +110,13 @@ export const DashboardHeader = forwardRef<HTMLDivElement, DashboardHeaderProps>(
             <div className="min-w-0 md:flex md:h-14 md:flex-col md:justify-center">
               {/* Teko's visible glyphs sit above the line-box center. Align their
                   optical center with the controls without changing row height. */}
-              <h1 className="translate-y-1 truncate text-[2.15rem] font-semibold leading-none tracking-[-0.03em] text-[#192436] md:translate-y-2">
+              <h1 className="translate-y-1 truncate text-[2.15rem] font-semibold leading-none tracking-[-0.03em] text-brand-ink md:translate-y-2">
                 <span className={desktopTitle ? 'md:hidden' : undefined}>{pageTitle}</span>
                 {desktopTitle ? <span className="hidden md:inline">{desktopTitle}</span> : null}
               </h1>
               {/* Reserve the subtitle line on desktop so titles and actions never
                   move when navigating between one- and two-line headers. */}
-              <p aria-hidden={!desktopSubtitle || undefined} className="mt-1 hidden h-4 shrink-0 truncate font-sans text-xs font-medium text-[#646C71] md:block">
+              <p aria-hidden={!desktopSubtitle || undefined} className="mt-1 hidden h-4 shrink-0 truncate font-sans text-xs font-medium text-brand-muted md:block">
                 {desktopSubtitle}
               </p>
             </div>

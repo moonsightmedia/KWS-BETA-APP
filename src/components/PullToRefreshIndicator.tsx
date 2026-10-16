@@ -32,7 +32,7 @@ export const PullToRefreshIndicator = ({
       aria-live="polite"
       aria-label={isRefreshing ? 'Daten werden aktualisiert' : isReady ? 'Zum Aktualisieren loslassen' : 'Weiter nach unten ziehen'}
     >
-      <div className="flex min-h-[3.75rem] w-full max-w-[22rem] items-center gap-3 rounded-kws-card bg-white p-3 pr-4 text-[#192436] shadow-[0_8px_30px_rgba(25,36,54,0.14)]">
+      <div className="flex min-h-[3.75rem] w-full max-w-[22rem] items-center gap-3 rounded-kws-card bg-white p-3 pr-4 text-brand-ink shadow-[0_8px_30px_rgba(25,36,54,0.14)]">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-kws-control bg-[#E7F7E9] text-[#287E2B]">
           {isRefreshing ? (
             <RefreshCw className="h-4 w-4 animate-spin motion-reduce:animate-none" strokeWidth={2.2} aria-hidden="true" />

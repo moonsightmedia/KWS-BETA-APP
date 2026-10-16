@@ -46,7 +46,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           </ToastIcon>
         ),
         info: (
-          <ToastIcon className="bg-[#F1F5F1] text-[#192436]">
+          <ToastIcon className="bg-brand-secondary text-brand-ink">
             <Info className="h-4 w-4" strokeWidth={2.1} aria-hidden="true" />
           </ToastIcon>
         ),
@@ -60,17 +60,17 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast:
-            'group toast !min-h-[3.75rem] !w-[min(22rem,calc(100vw-2rem))] !items-center !gap-3 !rounded-kws-card !border-0 !bg-white !p-3 !pr-12 !font-sans !text-[#192436] !shadow-[0_8px_30px_rgba(25,36,54,0.14)] focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-[#36B531]/35 focus-visible:!ring-offset-0',
+            'group toast !min-h-[3.75rem] !w-[min(22rem,calc(100vw-2rem))] !items-center !gap-3 !rounded-kws-card !border-0 !bg-white !p-3 !pr-12 !font-sans !text-brand-ink !shadow-[0_8px_30px_rgba(25,36,54,0.14)] focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-brand/35 focus-visible:!ring-offset-0',
           content: '!flex !min-w-0 !flex-1 !flex-col !justify-center !gap-0.5',
-          title: '!text-[13px] !font-semibold !leading-5 !text-[#192436]',
+          title: '!text-[13px] !font-semibold !leading-5 !text-brand-ink',
           description: '!text-xs !leading-[1.55] !text-muted-foreground',
           icon: '!m-0 !h-9 !w-9 !shrink-0 !self-center',
           closeButton:
-            '!left-auto !right-2.5 !top-1/2 !h-8 !w-8 !translate-x-0 !-translate-y-1/2 !rounded-kws-control !border-0 !bg-[#F1F5F1] !text-[#192436]/55 hover:!bg-[#E5EBE6] hover:!text-[#192436] focus-visible:!outline-none focus-visible:!shadow-[0_0_0_2px_rgba(54,181,49,0.35)]',
+            '!left-auto !right-2.5 !top-1/2 !h-8 !w-8 !translate-x-0 !-translate-y-1/2 !rounded-kws-control !border-0 !bg-brand-secondary !text-brand-ink/55 hover:!bg-[#E5EBE6] hover:!text-brand-ink focus-visible:!outline-none focus-visible:!shadow-[0_0_0_2px_rgba(54,181,49,0.35)]',
           actionButton:
-            '!h-9 !rounded-kws-control !bg-[#36B531] !px-3 !text-xs !font-semibold !text-white hover:!bg-[#2DA029] focus-visible:!outline-none focus-visible:!shadow-[0_0_0_2px_rgba(54,181,49,0.35)]',
+            '!h-9 !rounded-kws-control !bg-brand !px-3 !text-xs !font-semibold !text-primary-foreground hover:!bg-brand/95 focus-visible:!outline-none focus-visible:!shadow-[0_0_0_2px_rgba(54,181,49,0.35)]',
           cancelButton:
-            '!h-9 !rounded-kws-control !bg-[#F1F5F1] !px-3 !text-xs !font-semibold !text-[#192436] hover:!bg-[#E5EBE6] focus-visible:!outline-none focus-visible:!shadow-[0_0_0_2px_rgba(54,181,49,0.35)]',
+            '!h-9 !rounded-kws-control !bg-brand-secondary !px-3 !text-xs !font-semibold !text-brand-ink hover:!bg-[#E5EBE6] focus-visible:!outline-none focus-visible:!shadow-[0_0_0_2px_rgba(54,181,49,0.35)]',
         },
       }}
       {...props}

@@ -874,7 +874,7 @@ export const BoulderManagement = () => {
                         }}
                         className="h-8 w-8 rounded-lg hover:bg-[#E7F7E9]"
                       >
-                        <Edit2 className="w-4 h-4 text-[#13112B]" />
+                        <Edit2 className="w-4 h-4 text-brand-ink" />
                       </Button>
                       <Button 
                         variant="ghost" 
@@ -885,7 +885,7 @@ export const BoulderManagement = () => {
                         }}
                         className="h-8 w-8 rounded-lg hover:bg-[#E7F7E9]"
                       >
-                        <Eye className="w-4 h-4 text-[#13112B]" />
+                        <Eye className="w-4 h-4 text-brand-ink" />
                       </Button>
                       <Button 
                         variant="ghost" 
@@ -923,7 +923,7 @@ export const BoulderManagement = () => {
             maxWidth: '100%'
           }}
         >
-          <div className="pointer-events-auto rounded-2xl bg-[#13112B] text-white shadow-2xl border border-white/10 overflow-hidden w-full">
+          <div className="pointer-events-auto rounded-2xl bg-brand-ink text-white shadow-2xl border border-white/10 overflow-hidden w-full">
             <div className="flex items-center px-3 py-2">
               <span className="px-3 py-1 bg-white/10 rounded-xl text-xs font-semibold">
                 {quickFilter === 'color' ? 'Farbe' : quickFilter === 'sector' ? 'Sektor' : quickFilter === 'difficulty' ? 'Schwierigkeit' : 'Sortierung'}
@@ -937,7 +937,7 @@ export const BoulderManagement = () => {
                     className={cn(
                       "px-3 py-1.5 rounded-xl text-xs font-semibold shadow transition",
                       colorFilter === 'all' 
-                        ? "bg-[#36B531] text-white" 
+                        ? "bg-brand text-primary-foreground"
                         : "bg-white/10 text-white/70 hover:text-white"
                     )}
                     onClick={() => setColorFilter('all')}
@@ -972,7 +972,7 @@ export const BoulderManagement = () => {
                   className={cn(
                     "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
                     sectorFilter === 'all' 
-                      ? "bg-[#36B531] text-white" 
+                      ? "bg-brand text-primary-foreground"
                       : "bg-white/10 text-white/70 hover:text-white"
                   )}
                   onClick={() => setSectorFilter('all')}
@@ -985,7 +985,7 @@ export const BoulderManagement = () => {
                     className={cn(
                       "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
                       sectorFilter === sectorName
-                        ? "bg-[#36B531] text-white" 
+                        ? "bg-brand text-primary-foreground"
                         : "bg-white/10 text-white/70 hover:text-white"
                     )}
                     onClick={() => setSectorFilter(sectorName)}
@@ -1001,7 +1001,7 @@ export const BoulderManagement = () => {
                   className={cn(
                     "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center flex-shrink-0",
                     difficultyFilter === 'all' 
-                      ? "bg-[#36B531] text-white" 
+                      ? "bg-brand text-primary-foreground"
                       : "bg-white/10 text-white/70 hover:text-white"
                   )}
                   onClick={() => setDifficultyFilter('all')}
@@ -1016,7 +1016,7 @@ export const BoulderManagement = () => {
                       className={cn(
                         "w-10 h-10 rounded-xl text-xs font-semibold shadow transition flex items-center justify-center flex-shrink-0",
                         difficultyFilter === dStr 
-                          ? "bg-[#36B531] text-white" 
+                          ? "bg-brand text-primary-foreground"
                           : "bg-white/10 text-white/70 hover:text-white"
                       )}
                       onClick={() => setDifficultyFilter(dStr)}
@@ -1033,7 +1033,7 @@ export const BoulderManagement = () => {
                   className={cn(
                     "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
                     sortBy === 'created_at' || sortBy === 'date'
-                      ? "bg-[#36B531] text-white" 
+                      ? "bg-brand text-primary-foreground"
                       : "bg-white/10 text-white/70 hover:text-white"
                   )}
                   onClick={() => setSortBy('created_at')}
@@ -1044,7 +1044,7 @@ export const BoulderManagement = () => {
                   className={cn(
                     "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
                     sortBy === 'name' 
-                      ? "bg-[#36B531] text-white" 
+                      ? "bg-brand text-primary-foreground"
                       : "bg-white/10 text-white/70 hover:text-white"
                   )}
                   onClick={() => setSortBy('name')}
@@ -1055,7 +1055,7 @@ export const BoulderManagement = () => {
                   className={cn(
                     "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
                     sortBy === 'difficulty' 
-                      ? "bg-[#36B531] text-white" 
+                      ? "bg-brand text-primary-foreground"
                       : "bg-white/10 text-white/70 hover:text-white"
                   )}
                   onClick={() => setSortBy('difficulty')}
@@ -1066,7 +1066,7 @@ export const BoulderManagement = () => {
                   className={cn(
                     "h-10 px-3 rounded-xl text-xs font-semibold shadow transition whitespace-nowrap flex items-center",
                     sortBy === 'sector' 
-                      ? "bg-[#36B531] text-white" 
+                      ? "bg-brand text-primary-foreground"
                       : "bg-white/10 text-white/70 hover:text-white"
                   )}
                   onClick={() => setSortBy('sector')}
@@ -1096,37 +1096,37 @@ export const BoulderManagement = () => {
         className="md:hidden fixed left-4 right-4 z-[100]"
         style={{ bottom: 'calc(7rem + env(safe-area-inset-bottom, 0px))' }}
       >
-        <div className="bg-[#13112B] text-white rounded-2xl shadow-2xl border border-white/10 px-2 py-2 flex items-center justify-between">
+        <div className="bg-brand-ink text-white rounded-2xl shadow-2xl border border-white/10 px-2 py-2 flex items-center justify-between">
           <div>
-            <button className="h-10 px-3 bg-white text-[#13112B] rounded-xl text-xs font-semibold shadow-sm active:scale-95 transition flex items-center">
+            <button className="h-10 px-3 bg-white text-brand-ink rounded-xl text-xs font-semibold shadow-sm active:scale-95 transition flex items-center">
               {filteredAndSortedBoulders.length} Treffer
             </button>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setQuickFilter(prev => prev === 'color' ? null : 'color')}
-              className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
+              className="w-10 h-10 rounded-xl bg-white text-brand-ink flex items-center justify-center shadow-sm active:scale-95"
               aria-label="Farbe filtern"
             >
               <Palette className="w-5 h-5" strokeWidth={1.5} />
             </button>
             <button
               onClick={() => setQuickFilter(prev => prev === 'sector' ? null : 'sector')}
-              className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
+              className="w-10 h-10 rounded-xl bg-white text-brand-ink flex items-center justify-center shadow-sm active:scale-95"
               aria-label="Sektionen filtern"
             >
               <MapIcon className="w-5 h-5" strokeWidth={1.5} />
             </button>
             <button
               onClick={() => setQuickFilter(prev => prev === 'difficulty' ? null : 'difficulty')}
-              className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
+              className="w-10 h-10 rounded-xl bg-white text-brand-ink flex items-center justify-center shadow-sm active:scale-95"
               aria-label="Schwierigkeit filtern"
             >
               <BarChart3 className="w-5 h-5" strokeWidth={1.5} />
             </button>
             <button
               onClick={() => setQuickFilter(prev => prev === 'sort' ? null : 'sort')}
-              className="w-10 h-10 rounded-xl bg-white text-[#13112B] flex items-center justify-center shadow-sm active:scale-95"
+              className="w-10 h-10 rounded-xl bg-white text-brand-ink flex items-center justify-center shadow-sm active:scale-95"
               aria-label="Sortieren"
             >
               <ArrowUpDown className="w-5 h-5" strokeWidth={1.5} />

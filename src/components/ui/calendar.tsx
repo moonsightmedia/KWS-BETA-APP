@@ -94,7 +94,7 @@ function CustomCaptionDropdowns(props: CaptionProps) {
       <select
         value={displayMonth.getDate()}
         onChange={handleDayChange}
-        className="h-11 px-3 rounded-xl border border-[#E7F7E9] bg-white text-sm text-[#13112B] focus:outline-none focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] hover:bg-[#F9FAF9] transition-colors appearance-none cursor-pointer flex-1 sm:flex-none sm:min-w-[70px] shadow-sm"
+        className="h-11 px-3 rounded-xl border border-[#E7F7E9] bg-white text-sm text-brand-ink focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand hover:bg-brand-canvas transition-colors appearance-none cursor-pointer flex-1 sm:flex-none sm:min-w-[70px] shadow-sm"
       >
         {days.map((day) => (
           <option key={day} value={day}>
@@ -107,7 +107,7 @@ function CustomCaptionDropdowns(props: CaptionProps) {
       <select
         value={displayMonth.getMonth()}
         onChange={handleMonthChange}
-        className="h-11 px-3 rounded-xl border border-[#E7F7E9] bg-white text-sm text-[#13112B] focus:outline-none focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] hover:bg-[#F9FAF9] transition-colors appearance-none cursor-pointer flex-1 sm:flex-none sm:min-w-[120px] shadow-sm"
+        className="h-11 px-3 rounded-xl border border-[#E7F7E9] bg-white text-sm text-brand-ink focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand hover:bg-brand-canvas transition-colors appearance-none cursor-pointer flex-1 sm:flex-none sm:min-w-[120px] shadow-sm"
       >
         {months.map((month) => (
           <option key={month.value} value={month.value}>
@@ -120,7 +120,7 @@ function CustomCaptionDropdowns(props: CaptionProps) {
       <select
         value={displayMonth.getFullYear()}
         onChange={handleYearChange}
-        className="h-11 px-3 rounded-xl border border-[#E7F7E9] bg-white text-sm text-[#13112B] focus:outline-none focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] hover:bg-[#F9FAF9] transition-colors appearance-none cursor-pointer flex-1 sm:flex-none sm:min-w-[80px] shadow-sm"
+        className="h-11 px-3 rounded-xl border border-[#E7F7E9] bg-white text-sm text-brand-ink focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand hover:bg-brand-canvas transition-colors appearance-none cursor-pointer flex-1 sm:flex-none sm:min-w-[80px] shadow-sm"
       >
         {years.map((year) => (
           <option key={year} value={year}>

@@ -57,7 +57,7 @@ export function BoulderRouteContinuity() {
       </UNSAFE_LocationContext.Provider>
     </div>
     {isDetail ? <div key={location.pathname} data-boulder-detail-scroll
-      className="fixed inset-0 z-20 overflow-y-auto overscroll-y-contain bg-[#F9FAF9]">
+      className="fixed inset-0 z-20 overflow-y-auto overscroll-y-contain bg-brand-canvas">
       <div className="kws-detail-enter">{outlet}</div>
     </div> : null}
   </ReturnContext.Provider>;

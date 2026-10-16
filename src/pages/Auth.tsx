@@ -49,10 +49,10 @@ const MONTHS = [
 ] as const;
 
 const fieldClassName =
-  'h-12 rounded-kws-control border-border bg-[#F9FAF9] text-[#192436] shadow-none placeholder:text-muted-foreground/75 focus-visible:border-primary focus-visible:ring-primary/20 focus-visible:ring-offset-0';
+  'h-12 rounded-kws-control border-border bg-brand-canvas text-brand-ink shadow-none placeholder:text-muted-foreground/75 focus-visible:border-primary focus-visible:ring-primary/20 focus-visible:ring-offset-0';
 
 const selectClassName =
-  'h-12 min-w-0 rounded-kws-control border-border bg-[#F9FAF9] px-2.5 text-[#192436] shadow-none focus:ring-primary/20 focus:ring-offset-0 [&>span]:line-clamp-none [&>span]:text-left';
+  'h-12 min-w-0 rounded-kws-control border-border bg-brand-canvas px-2.5 text-brand-ink shadow-none focus:ring-primary/20 focus:ring-offset-0 [&>span]:line-clamp-none [&>span]:text-left';
 
 const getDaysInMonth = (month: number, year: number): number =>
   new Date(year, month, 0).getDate();
@@ -243,7 +243,7 @@ const Auth = () => {
     : 'Ein Konto verbindet deine Boulder, Sessions und persönlichen Statistiken.';
 
   return (
-    <main className="min-h-[100svh] min-h-[100dvh] overflow-x-clip bg-[#F9FAF9] text-[#192436]">
+    <main className="min-h-[100svh] min-h-[100dvh] overflow-x-clip bg-brand-canvas text-brand-ink">
       <div className="mx-auto grid min-h-[100svh] min-h-[100dvh] w-full max-w-[1180px] content-start lg:grid-cols-[minmax(0,0.9fr)_minmax(440px,0.72fr)] lg:content-stretch">
         <section className="relative px-4 pb-5 pt-[calc(1rem+var(--app-safe-area-top))] sm:px-8 sm:pb-7 sm:pt-[calc(1.5rem+var(--app-safe-area-top))] lg:flex lg:min-h-[100dvh] lg:flex-col lg:px-12 lg:pb-12 lg:pt-[calc(3rem+var(--app-safe-area-top))]">
           <div className="flex items-center gap-3">
@@ -259,7 +259,7 @@ const Auth = () => {
               <p className="truncate text-[0.68rem] font-semibold uppercase tracking-[0.13em] text-muted-foreground">
                 Kletterwelt Sauerland
               </p>
-              <p className="text-sm font-semibold text-[#192436]">Beta App</p>
+              <p className="text-sm font-semibold text-brand-ink">Beta App</p>
             </div>
           </div>
 
@@ -268,7 +268,7 @@ const Auth = () => {
               <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-primary">
                 Dein Boulderbegleiter
               </p>
-              <h1 className="font-heading text-[2.7rem] font-semibold leading-[0.92] text-[#192436] sm:text-[3.25rem] lg:text-[4.5rem]">
+              <h1 className="font-heading text-[2.7rem] font-semibold leading-[0.92] text-brand-ink sm:text-[3.25rem] lg:text-[4.5rem]">
                 {headline}
               </h1>
               <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground sm:text-[0.95rem]">
@@ -277,7 +277,7 @@ const Auth = () => {
             </div>
 
             <div className="mt-8 hidden max-w-md border-l-2 border-primary pl-4 lg:block">
-              <p className="text-sm font-semibold text-[#192436]">Weniger suchen. Mehr klettern.</p>
+              <p className="text-sm font-semibold text-brand-ink">Weniger suchen. Mehr klettern.</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 Aktuelle Boulder, hilfreiche Betas und dein Fortschritt an einem Ort.
               </p>
@@ -299,7 +299,7 @@ const Auth = () => {
               !showResetPassword ? (
                 <form onSubmit={handleSignIn} className="space-y-5">
                   <div className="space-y-2">
-                    <Label htmlFor="login-email" className="text-sm font-semibold text-[#192436]">E-Mail</Label>
+                    <Label htmlFor="login-email" className="text-sm font-semibold text-brand-ink">E-Mail</Label>
                     <div className="relative">
                       <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                       <Input id="login-email" type="email" inputMode="email" autoComplete="email" placeholder="deine@email.de" value={email} onChange={(event) => setEmail(event.target.value)} required className={`${fieldClassName} pl-10`} />
@@ -308,7 +308,7 @@ const Auth = () => {
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-3">
-                      <Label htmlFor="login-password" className="text-sm font-semibold text-[#192436]">Passwort</Label>
+                      <Label htmlFor="login-password" className="text-sm font-semibold text-brand-ink">Passwort</Label>
                       <button type="button" onClick={() => { setResetEmail(email); setShowResetPassword(true); }} className="rounded-kws-badge text-xs font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
                         Vergessen?
                       </button>
@@ -316,7 +316,7 @@ const Auth = () => {
                     <div className="relative">
                       <LockKeyhole className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                       <Input id="login-password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="Dein Passwort" value={password} onChange={(event) => setPassword(event.target.value)} required className={`${fieldClassName} px-10`} />
-                      <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-kws-control text-muted-foreground transition-colors hover:bg-secondary hover:text-[#192436] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={showPassword ? 'Passwort ausblenden' : 'Passwort anzeigen'}>
+                      <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-kws-control text-muted-foreground transition-colors hover:bg-secondary hover:text-brand-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={showPassword ? 'Passwort ausblenden' : 'Passwort anzeigen'}>
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
@@ -330,11 +330,11 @@ const Auth = () => {
               ) : (
                 <form onSubmit={handleResetPassword} className="space-y-5">
                   <div>
-                    <p className="text-base font-semibold text-[#192436]">Passwort zurücksetzen</p>
+                    <p className="text-base font-semibold text-brand-ink">Passwort zurücksetzen</p>
                     <p className="mt-1 text-xs leading-5 text-muted-foreground">Wir senden dir einen sicheren Link an deine E-Mail-Adresse.</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="reset-email" className="text-sm font-semibold text-[#192436]">E-Mail</Label>
+                    <Label htmlFor="reset-email" className="text-sm font-semibold text-brand-ink">E-Mail</Label>
                     <div className="relative">
                       <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                       <Input id="reset-email" type="email" inputMode="email" autoComplete="email" placeholder="deine@email.de" value={resetEmail} onChange={(event) => setResetEmail(event.target.value)} required className={`${fieldClassName} pl-10`} />
@@ -354,38 +354,38 @@ const Auth = () => {
               <form onSubmit={handleSignUp} className="space-y-5">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-firstname" className="text-sm font-semibold text-[#192436]">Vorname</Label>
+                    <Label htmlFor="signup-firstname" className="text-sm font-semibold text-brand-ink">Vorname</Label>
                     <div className="relative">
                       <UserRound className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                       <Input id="signup-firstname" type="text" autoComplete="given-name" placeholder="Max" value={firstName} onChange={(event) => setFirstName(event.target.value)} className={`${fieldClassName} pl-10`} />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-lastname" className="text-sm font-semibold text-[#192436]">Nachname</Label>
+                    <Label htmlFor="signup-lastname" className="text-sm font-semibold text-brand-ink">Nachname</Label>
                     <Input id="signup-lastname" type="text" autoComplete="family-name" placeholder="Mustermann" value={lastName} onChange={(event) => setLastName(event.target.value)} className={fieldClassName} />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="flex items-center gap-2 text-sm font-semibold text-[#192436]" id="signup-birth-label">
+                  <Label className="flex items-center gap-2 text-sm font-semibold text-brand-ink" id="signup-birth-label">
                     <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Geburtsdatum
                   </Label>
                   <div className="grid grid-cols-[0.8fr_1.25fr_1fr] gap-2" role="group" aria-labelledby="signup-birth-label" aria-describedby="signup-birth-help">
                     <Select value={birthDay} onValueChange={value => { setBirthDay(value); setBirthDateError(null); }}>
                       <SelectTrigger ref={birthDateTrigger} className={selectClassName} aria-label="Geburtstag" aria-required="true" aria-invalid={!!birthDateError}><SelectValue placeholder="Tag" /></SelectTrigger>
-                      <SelectContent className="rounded-kws-control border-border text-[#192436]">
+                      <SelectContent className="rounded-kws-control border-border text-brand-ink">
                         {Array.from({ length: validDays }, (_, index) => index + 1).map((day) => <SelectItem key={day} value={String(day)} className="rounded-kws-badge">{day}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     <Select value={birthMonth} onValueChange={handleMonthChange}>
                       <SelectTrigger className={selectClassName} aria-label="Geburtsmonat" aria-required="true" aria-invalid={!!birthDateError}><SelectValue placeholder="Monat" /></SelectTrigger>
-                      <SelectContent className="rounded-kws-control border-border text-[#192436]">
+                      <SelectContent className="rounded-kws-control border-border text-brand-ink">
                         {MONTHS.map((month) => <SelectItem key={month.value} value={month.value} className="rounded-kws-badge">{month.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     <Select value={birthYear} onValueChange={handleYearChange}>
                       <SelectTrigger className={selectClassName} aria-label="Geburtsjahr" aria-required="true" aria-invalid={!!birthDateError}><SelectValue placeholder="Jahr" /></SelectTrigger>
-                      <SelectContent className="rounded-kws-control border-border text-[#192436]">
+                      <SelectContent className="rounded-kws-control border-border text-brand-ink">
                         {Array.from({ length: new Date().getFullYear() - 1899 }, (_, index) => new Date().getFullYear() - index).map((year) => <SelectItem key={year} value={String(year)} className="rounded-kws-badge">{year}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -395,7 +395,7 @@ const Auth = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email" className="text-sm font-semibold text-[#192436]">E-Mail</Label>
+                  <Label htmlFor="signup-email" className="text-sm font-semibold text-brand-ink">E-Mail</Label>
                   <div className="relative">
                     <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                     <Input id="signup-email" type="email" inputMode="email" autoComplete="email" placeholder="deine@email.de" value={email} onChange={(event) => setEmail(event.target.value)} required className={`${fieldClassName} pl-10`} />
@@ -403,11 +403,11 @@ const Auth = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password" className="text-sm font-semibold text-[#192436]">Passwort</Label>
+                  <Label htmlFor="signup-password" className="text-sm font-semibold text-brand-ink">Passwort</Label>
                   <div className="relative">
                     <LockKeyhole className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                     <Input id="signup-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" placeholder="Mindestens 6 Zeichen" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} className={`${fieldClassName} px-10`} />
-                    <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-kws-control text-muted-foreground transition-colors hover:bg-secondary hover:text-[#192436] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={showPassword ? 'Passwort ausblenden' : 'Passwort anzeigen'}>
+                    <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-kws-control text-muted-foreground transition-colors hover:bg-secondary hover:text-brand-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={showPassword ? 'Passwort ausblenden' : 'Passwort anzeigen'}>
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
@@ -427,7 +427,7 @@ const Auth = () => {
                 </button>
               ) : (
                 <form onSubmit={handleResendConfirmation} className="space-y-3 rounded-kws-control bg-secondary p-3">
-                  <Label htmlFor="resend-email" className="text-xs font-semibold text-[#192436]">Bestätigungslink erneut senden</Label>
+                  <Label htmlFor="resend-email" className="text-xs font-semibold text-brand-ink">Bestätigungslink erneut senden</Label>
                   <Input id="resend-email" type="email" inputMode="email" autoComplete="email" placeholder="deine@email.de" value={resendEmail} onChange={(event) => setResendEmail(event.target.value)} required className={`${fieldClassName} h-11 bg-white text-sm`} />
                   <div className="grid grid-cols-2 gap-2">
                     <Button type="button" variant="outline" onClick={() => { setShowResendConfirmation(false); setResendEmail(''); }} className="h-10 bg-white text-xs">Abbrechen</Button>
@@ -436,7 +436,7 @@ const Auth = () => {
                 </form>
               )}
 
-              <Button type="button" variant="secondary" size="lg" onClick={() => navigate('/guest')} className="mt-4 h-12 w-full text-[#192436]">
+              <Button type="button" variant="secondary" size="lg" onClick={() => navigate('/guest')} className="mt-4 h-12 w-full text-brand-ink">
                 Als Gast fortfahren <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Button>
               <nav aria-label="Rechtliche Informationen" className="mt-4 flex flex-wrap justify-center gap-4 text-xs"><a className="text-primary-ink underline" href="/privacy">Datenschutz</a><a className="text-primary-ink underline" href="/imprint">Impressum</a><a className="text-primary-ink underline" href="/community-rules">Community-Regeln</a></nav>

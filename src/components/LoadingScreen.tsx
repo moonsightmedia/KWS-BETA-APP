@@ -51,7 +51,7 @@ export const LoadingScreen = ({ state = 'app', className }: LoadingScreenProps) 
   return (
     <main
       className={cn(
-        'fixed inset-0 z-[10000] flex min-h-[100svh] min-h-[100dvh] items-center justify-center overflow-hidden bg-[#F9FAF9] px-5 pb-[calc(1.5rem+var(--app-safe-area-bottom))] pt-[calc(1.5rem+var(--app-safe-area-top))] text-[#192436]',
+        'fixed inset-0 z-[10000] flex min-h-[100svh] min-h-[100dvh] items-center justify-center overflow-hidden bg-brand-canvas px-5 pb-[calc(1.5rem+var(--app-safe-area-bottom))] pt-[calc(1.5rem+var(--app-safe-area-top))] text-brand-ink',
         className,
       )}
       role="status"
@@ -62,7 +62,7 @@ export const LoadingScreen = ({ state = 'app', className }: LoadingScreenProps) 
 
       <div className="relative w-full max-w-[22rem] rounded-kws-card bg-white px-5 py-6 shadow-[0_8px_30px_rgba(25,36,54,0.09)] sm:px-6 sm:py-7">
         <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-kws-control bg-[#F1F5F1]">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-kws-control bg-brand-secondary">
             <img
               src="/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png"
               alt=""
@@ -74,12 +74,12 @@ export const LoadingScreen = ({ state = 'app', className }: LoadingScreenProps) 
             <span className="block font-sans text-[10px] font-semibold uppercase tracking-[0.13em] text-primary">
               {copy.eyebrow}
             </span>
-            <span className="mt-0.5 block font-sans text-sm font-semibold text-[#192436]">Beta App</span>
+            <span className="mt-0.5 block font-sans text-sm font-semibold text-brand-ink">Beta App</span>
           </span>
         </div>
 
         <div className="mt-8">
-          <h1 className="font-heading text-[2.35rem] font-semibold leading-[0.95] text-[#192436]">
+          <h1 className="font-heading text-[2.35rem] font-semibold leading-[0.95] text-brand-ink">
             {copy.title}
           </h1>
           <p className="mt-2 max-w-[17rem] font-sans text-xs leading-5 text-muted-foreground">

@@ -248,13 +248,13 @@ const Guest = () => {
   // No blocking preloading - page shows immediately
 
   return (
-    <div className="min-h-screen bg-[#F9FAF9]">
+    <div className="min-h-screen bg-brand-canvas">
         <header className="sticky top-0 z-30 border-b border-[#E7F0E8] bg-white/95 px-4 pb-3 pt-[calc(1rem+var(--app-safe-area-top))] backdrop-blur-xl md:pt-[calc(1.25rem+var(--app-safe-area-top))]">
           <div className="mx-auto max-w-4xl">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <h1 className="truncate text-[2.15rem] font-semibold leading-none tracking-[-0.03em] text-[#192436]">Boulder</h1>
-                <p className="mt-1 text-[11px] font-medium text-[#646C71]" aria-live="polite">
+                <h1 className="truncate text-[2.15rem] font-semibold leading-none tracking-[-0.03em] text-brand-ink">Boulder</h1>
+                <p className="mt-1 text-[11px] font-medium text-brand-muted" aria-live="polite">
                   Gastansicht · {isRetrying || (!dataError && isLoading)
                     ? 'Wird geladen …'
                     : dataError ? 'Daten nicht verfügbar' : `${filtered.length} aktuelle Boulder`}
@@ -266,8 +266,8 @@ const Guest = () => {
                   type="button"
                   onClick={() => toggleToolbarPanel('search')}
                   className={cn(
-                    'relative flex h-10 w-10 items-center justify-center rounded-kws-control transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36B531]/45',
-                    showSearch || searchQuery.trim() ? 'bg-[#36B531] text-white' : 'bg-[#F1F5F1] text-[#13112B]/65'
+                    'relative flex h-10 w-10 items-center justify-center rounded-kws-control transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45',
+                    showSearch || searchQuery.trim() ? 'bg-brand text-primary-foreground' : 'bg-brand-secondary text-brand-ink/65'
                   )}
                   aria-label="Boulder suchen"
                   aria-expanded={showSearch}
@@ -280,15 +280,15 @@ const Guest = () => {
                   onClick={() => toggleToolbarPanel('filters')}
                   disabled={showDataError || isLoading}
                   className={cn(
-                    'relative flex h-10 w-10 items-center justify-center rounded-kws-control transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36B531]/45 disabled:opacity-50',
-                    showFilters ? 'bg-[#36B531] text-white' : 'bg-[#F1F5F1] text-[#13112B]/65'
+                    'relative flex h-10 w-10 items-center justify-center rounded-kws-control transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 disabled:opacity-50',
+                    showFilters ? 'bg-brand text-primary-foreground' : 'bg-brand-secondary text-brand-ink/65'
                   )}
                   aria-label="Filter"
                   aria-expanded={showFilters}
                 >
                   <SlidersHorizontal className="h-4 w-4" strokeWidth={1.9} />
                   {activeFilterCount > 0 ? (
-                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#13112B] px-1 text-[9px] font-bold text-white">
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-ink px-1 text-[9px] font-bold text-white">
                       {activeFilterCount}
                     </span>
                   ) : null}
@@ -298,8 +298,8 @@ const Guest = () => {
                   onClick={() => toggleToolbarPanel('sort')}
                   disabled={showDataError || isLoading}
                   className={cn(
-                    'flex h-10 w-10 items-center justify-center rounded-kws-control transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36B531]/45 disabled:opacity-50',
-                    showSort ? 'bg-[#36B531] text-white' : 'bg-[#F1F5F1] text-[#13112B]/65'
+                    'flex h-10 w-10 items-center justify-center rounded-kws-control transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 disabled:opacity-50',
+                    showSort ? 'bg-brand text-primary-foreground' : 'bg-brand-secondary text-brand-ink/65'
                   )}
                   aria-label="Sortierung"
                   aria-expanded={showSort}
@@ -309,7 +309,7 @@ const Guest = () => {
                 <Button
                   type="button"
                   size="sm"
-                  className="hidden h-10 rounded-kws-control bg-[#13112B] px-3 text-white hover:bg-[#24213f] focus-visible:ring-[#36B531]/45 sm:inline-flex"
+                  className="hidden h-10 rounded-kws-control bg-brand-ink px-3 text-white hover:bg-[#24213f] focus-visible:ring-brand/45 sm:inline-flex"
                   onClick={() => {
                     window.location.href = '/auth';
                   }}
@@ -322,10 +322,10 @@ const Guest = () => {
 
             {showSearch && (
               <div className="relative mt-3 animate-in slide-in-from-top-2 duration-200">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#13112B]/45" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-ink/45" />
                 <Input
                   ref={searchInputRef}
-                  className="h-10 !rounded-kws-control border-none bg-[#F1F5F1] pl-10 pr-10 text-sm text-[#13112B] shadow-none placeholder:text-[#13112B]/45 focus-visible:!ring-2 focus-visible:!ring-[#13112B]/15 focus-visible:!ring-offset-0"
+                  className="h-10 !rounded-kws-control border-none bg-brand-secondary pl-10 pr-10 text-sm text-brand-ink shadow-none placeholder:text-brand-ink/45 focus-visible:!ring-2 focus-visible:!ring-brand-ink/15 focus-visible:!ring-offset-0"
                   placeholder="Boulder oder Sektor suchen…"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
@@ -336,7 +336,7 @@ const Guest = () => {
                     setSearchQuery('');
                     setShowSearch(false);
                   }}
-                  className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center rounded-kws-control text-[#13112B]/50 transition-colors hover:text-[#13112B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36B531]/45"
+                  className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center rounded-kws-control text-brand-ink/50 transition-colors hover:text-brand-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45"
                   aria-label="Suche schließen"
                 >
                   <X className="h-4 w-4" />
@@ -392,13 +392,13 @@ const Guest = () => {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="flex items-start gap-4 flex-1">
                     <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-kws-control bg-[#E7F7E9] sm:h-16 sm:w-16">
-                      <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-[#36B531]" />
+                      <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-brand" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h2 className="text-lg sm:text-xl font-heading font-bold text-[#13112B] mb-1 tracking-wide">
+                      <h2 className="text-lg sm:text-xl font-heading font-bold text-brand-ink mb-1 tracking-wide">
                         Nikolaus Wettkampf
                       </h2>
-                      <p className="text-sm text-[#13112B]/60">
+                      <p className="text-sm text-brand-ink/60">
                         Nimm am Wettkampf teil, trage deine Ergebnisse ein und verfolge die Live-Rangliste!
                       </p>
                     </div>
@@ -406,7 +406,7 @@ const Guest = () => {
                   <Button
                     onClick={() => navigate('/competition')}
                     size="lg"
-                    className="h-11 w-full min-w-[140px] rounded-kws-control bg-[#36B531] font-semibold text-white shadow-sm transition-shadow hover:bg-[#2DA029] hover:shadow-md sm:w-auto"
+                    className="h-11 w-full min-w-[140px] rounded-kws-control bg-brand font-semibold text-primary-foreground shadow-sm transition-shadow hover:bg-brand/95 hover:shadow-md sm:w-auto"
                   >
                     <Trophy className="w-5 h-5 mr-2" />
                     Zum Wettkampf
@@ -458,7 +458,7 @@ const Guest = () => {
             key={b.id}
             type="button"
             onClick={() => navigate(`/boulders/${b.id}`, { state: boulderNavigationState(location) })}
-            className="w-full overflow-hidden rounded-kws-card bg-white p-0 text-left shadow-[0_3px_14px_rgba(19,17,43,0.07)] transition-[transform,box-shadow] hover:shadow-[0_6px_20px_rgba(19,17,43,0.11)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36B531]/45 focus-visible:ring-offset-2"
+            className="w-full overflow-hidden rounded-kws-card bg-white p-0 text-left shadow-[0_3px_14px_rgba(19,17,43,0.07)] transition-[transform,box-shadow] hover:shadow-[0_6px_20px_rgba(19,17,43,0.11)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 focus-visible:ring-offset-2"
           >
             <div className="flex min-h-[94px] items-stretch">
               <div className="relative w-[5.75rem] shrink-0 overflow-hidden bg-muted">
@@ -505,20 +505,20 @@ const Guest = () => {
               <div className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3.5">
                 <div className="min-w-0 flex-1">
                   <div className="mb-0.5 flex items-center gap-2">
-                    <span className="truncate text-sm font-semibold text-[#13112B]">{b.name}</span>
+                    <span className="truncate text-sm font-semibold text-brand-ink">{b.name}</span>
                     {isNewBoulder(b) && (
-                      <span className="shrink-0 rounded-kws-badge bg-[#36B531]/15 px-2 py-0.5 text-[10px] font-bold text-[#217a28]">
+                      <span className="shrink-0 rounded-kws-badge bg-brand/15 px-2 py-0.5 text-[10px] font-bold text-[#217a28]">
                         NEU
                       </span>
                     )}
                   </div>
                   <BoulderTypeBadge volumeOnly={b.volumeOnly} className="mb-1" />
-                  <div className="truncate text-xs text-[#13112B]/60">
+                  <div className="truncate text-xs text-brand-ink/60">
                     {b.sector2 ? `${b.sector} → ${b.sector2}` : b.sector}
                   </div>
                 </div>
 
-                <ChevronRight className="h-4 w-4 shrink-0 text-[#13112B]/40" />
+                <ChevronRight className="h-4 w-4 shrink-0 text-brand-ink/40" />
               </div>
             </div>
           </button>
