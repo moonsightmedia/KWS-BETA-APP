@@ -293,6 +293,14 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  @media (min-width: 768px) {
+    html {
+      /* Keep centered headers/content still when routes need different
+         amounts of vertical scrolling. Overlay scrollbars reserve no space. */
+      scrollbar-gutter: stable;
+    }
+  }
+
   html, body {
     @apply bg-background text-foreground;
     overflow-x: clip;
