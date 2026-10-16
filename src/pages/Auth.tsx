@@ -1,3 +1,4 @@
+import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
@@ -244,7 +245,8 @@ const Auth = () => {
     : 'Ein Konto verbindet deine Boulder, Sessions und persönlichen Statistiken.';
 
   return (
-    <main className="min-h-[100svh] min-h-[100dvh] overflow-x-clip bg-white text-brand-ink">
+    <main className="relative isolate min-h-[100svh] min-h-[100dvh] overflow-x-clip bg-white text-brand-ink">
+      <BrandWatermark />
       <div className="mx-auto grid min-h-[100svh] min-h-[100dvh] w-full max-w-[1180px] content-start lg:grid-cols-[minmax(0,0.9fr)_minmax(440px,0.72fr)] lg:content-stretch">
         <section className="relative px-4 pb-5 pt-[calc(1rem+var(--app-safe-area-top))] sm:px-8 sm:pb-7 sm:pt-[calc(1.5rem+var(--app-safe-area-top))] lg:flex lg:min-h-[100dvh] lg:flex-col lg:px-12 lg:pb-12 lg:pt-[calc(3rem+var(--app-safe-area-top))]">
           <div className="flex justify-center lg:justify-start">

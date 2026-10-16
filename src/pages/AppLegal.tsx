@@ -1,3 +1,4 @@
+import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { Link, useLocation } from 'react-router-dom';
 import { KwsSurface } from '@/components/ui/kws-surface';
 
@@ -5,7 +6,8 @@ const contact = <a className="break-words text-primary-ink underline" href="mail
 export default function AppLegal() {
   const { pathname } = useLocation();
   const rules = pathname === '/community-rules'; const imprint = pathname === '/imprint';
-  return <main className="min-h-screen bg-canvas px-4 pb-24 pt-[calc(24px+env(safe-area-inset-top))] md:px-8">
+  return <main className="relative isolate min-h-screen bg-canvas px-4 pb-24 pt-[calc(24px+env(safe-area-inset-top))] md:px-8">
+      <BrandWatermark />
     <div className="mx-auto max-w-3xl space-y-5">
       <Link to="/guest" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-ink">Zur App</Link>
       <KwsSurface className="space-y-5 p-5 sm:p-7">

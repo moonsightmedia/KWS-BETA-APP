@@ -1,3 +1,4 @@
+import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { boulderNavigationState } from '@/lib/boulderNavigation';
@@ -278,7 +279,8 @@ const Index = () => {
             desktopSubtitle={desktopGreetingSubtitle}
             rightSlot={<NotificationCenter variant="header" />}
           />
-          <main className="mx-auto w-full max-w-[1180px] flex-1 px-4 pb-28 pt-6 md:px-8 md:pb-10">
+          <main className="relative isolate mx-auto w-full max-w-[1180px] flex-1 px-4 pb-28 pt-6 md:px-8 md:pb-10">
+            <BrandWatermark />
             <div className="space-y-4">
               <Skeleton className="h-20 rounded-kws-card" />
               <div className="grid grid-cols-3 gap-3">
@@ -304,7 +306,8 @@ const Index = () => {
             desktopSubtitle={desktopGreetingSubtitle}
             rightSlot={<NotificationCenter variant="header" />}
           />
-          <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
+          <main className="relative isolate mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
+            <BrandWatermark />
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
@@ -340,7 +343,8 @@ const Index = () => {
             desktopSubtitle={desktopGreetingSubtitle}
             rightSlot={<NotificationCenter variant="header" />}
           />
-          <main className="mx-auto flex w-full max-w-[1180px] flex-1 items-center justify-center p-4 md:p-8">
+          <main className="relative isolate mx-auto flex w-full max-w-[1180px] flex-1 items-center justify-center p-4 md:p-8">
+            <BrandWatermark />
             <div className="space-y-4 text-center">
               <p className="text-brand-ink/60">Keine Daten geladen</p>
               <Button
@@ -370,7 +374,8 @@ const Index = () => {
           rightSlot={<NotificationCenter variant="header" />}
         />
 
-        <main className="mx-auto w-full max-w-[1180px] flex-1 overflow-x-hidden px-4 pb-28 pt-4 md:px-8 md:pb-10 md:pt-6">
+        <main className="relative isolate mx-auto w-full max-w-[1180px] flex-1 overflow-x-clip px-4 pb-28 pt-4 md:px-8 md:pb-10 md:pt-6">
+          <BrandWatermark />
           <section className="mb-5 md:hidden">
             <h1 className="font-sans text-[1.75rem] font-semibold leading-tight tracking-[-0.04em] text-brand-ink md:text-[2rem]">
               {authLoading ? 'Willkommen' : greetingName ? `Hallo ${greetingName}` : 'Willkommen zurück'}

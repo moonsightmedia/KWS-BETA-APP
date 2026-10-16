@@ -1,3 +1,4 @@
+import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -58,7 +59,8 @@ export default function ResetPassword() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-5 py-10">
+    <main className="relative isolate flex min-h-screen items-center justify-center bg-background px-5 py-10">
+      <BrandWatermark />
       <section className="w-full max-w-md rounded-kws-card border border-border bg-card p-6 shadow-sm">
         <p className="mb-2 text-sm font-semibold text-primary">Kletterwelt Sauerland</p>
         <h1 className="text-2xl font-bold">Neues Passwort festlegen</h1>
