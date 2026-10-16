@@ -12,6 +12,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
+import { BetaLogo } from '@/components/brand/BetaLogo';
 import { Input } from '@/components/ui/input';
 import { KwsSegmentedControl } from '@/components/ui/kws-segmented-control';
 import { Label } from '@/components/ui/label';
@@ -243,35 +244,19 @@ const Auth = () => {
     : 'Ein Konto verbindet deine Boulder, Sessions und persönlichen Statistiken.';
 
   return (
-    <main className="min-h-[100svh] min-h-[100dvh] overflow-x-clip bg-brand-canvas text-brand-ink">
+    <main className="min-h-[100svh] min-h-[100dvh] overflow-x-clip bg-white text-brand-ink">
       <div className="mx-auto grid min-h-[100svh] min-h-[100dvh] w-full max-w-[1180px] content-start lg:grid-cols-[minmax(0,0.9fr)_minmax(440px,0.72fr)] lg:content-stretch">
         <section className="relative px-4 pb-5 pt-[calc(1rem+var(--app-safe-area-top))] sm:px-8 sm:pb-7 sm:pt-[calc(1.5rem+var(--app-safe-area-top))] lg:flex lg:min-h-[100dvh] lg:flex-col lg:px-12 lg:pb-12 lg:pt-[calc(3rem+var(--app-safe-area-top))]">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-kws-control bg-white shadow-[0_3px_14px_rgba(19,17,43,0.10)]">
-              <img
-                src="/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png"
-                alt=""
-                aria-hidden="true"
-                className="h-8 w-8 object-contain"
-              />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-[0.68rem] font-semibold uppercase tracking-[0.13em] text-muted-foreground">
-                Kletterwelt Sauerland
-              </p>
-              <p className="text-sm font-semibold text-brand-ink">Beta App</p>
-            </div>
+          <div className="flex justify-center lg:justify-start">
+            <BetaLogo className="h-auto w-[128px] md:w-[184px]" />
           </div>
 
           <div className="lg:flex lg:flex-1 lg:flex-col lg:justify-center lg:py-10">
-            <div className="mt-5 max-w-xl lg:mt-0">
-              <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-primary">
-                Dein Boulderbegleiter
-              </p>
+            <div className="mt-7 max-w-xl text-center lg:mt-0 lg:text-left">
               <h1 className="font-heading text-[2.7rem] font-semibold leading-[0.92] text-brand-ink sm:text-[3.25rem] lg:text-[4.5rem]">
                 {headline}
               </h1>
-              <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground sm:text-[0.95rem]">
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground sm:text-[0.95rem] lg:mx-0">
                 {intro}
               </p>
             </div>
@@ -309,7 +294,7 @@ const Auth = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-3">
                       <Label htmlFor="login-password" className="text-sm font-semibold text-brand-ink">Passwort</Label>
-                      <button type="button" onClick={() => { setResetEmail(email); setShowResetPassword(true); }} className="rounded-kws-badge text-xs font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                      <button type="button" onClick={() => { setResetEmail(email); setShowResetPassword(true); }} className="rounded-kws-badge text-xs font-semibold text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
                         Vergessen?
                       </button>
                     </div>
@@ -422,7 +407,7 @@ const Auth = () => {
 
             <div className="mt-6 border-t border-border pt-5">
               {!showResendConfirmation ? (
-                <button type="button" onClick={() => setShowResendConfirmation(true)} className="w-full rounded-kws-badge text-center text-xs font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                <button type="button" onClick={() => setShowResendConfirmation(true)} className="w-full rounded-kws-badge text-center text-xs font-semibold text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
                   Keine Bestätigungsmail erhalten?
                 </button>
               ) : (
