@@ -1,3 +1,4 @@
+import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
 import { boulderNavigationState } from '@/lib/boulderNavigation';
@@ -248,7 +249,7 @@ const Guest = () => {
   // No blocking preloading - page shows immediately
 
   return (
-    <div className="min-h-screen bg-brand-canvas">
+    <div className="flex min-h-screen flex-col bg-brand-canvas">
         <header className="sticky top-0 z-30 border-b border-[#E7F0E8] bg-white/95 px-4 pb-3 pt-[calc(1rem+var(--app-safe-area-top))] backdrop-blur-xl md:pt-[calc(1.25rem+var(--app-safe-area-top))]">
           <div className="mx-auto max-w-4xl">
             <div className="flex items-center justify-between gap-3">
@@ -384,7 +385,8 @@ const Guest = () => {
 
 
 
-        <main className="mx-auto max-w-4xl p-4 md:p-8">
+        <main className="relative isolate mx-auto w-full max-w-4xl flex-1 p-4 md:p-8">
+          <BrandWatermark />
           {/* Nikolaus Wettkampf Navigation Card - Temporarily hidden */}
           {isCompetitionEnabled && (
             <Card className="mb-6 rounded-kws-card border border-[#E7F7E9] bg-white shadow-sm transition-shadow hover:shadow-md">

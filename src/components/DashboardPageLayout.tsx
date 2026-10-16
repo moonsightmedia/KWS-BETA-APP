@@ -1,3 +1,4 @@
+import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import type { ReactNode } from 'react';
 
 import { DashboardHeader } from '@/components/DashboardHeader';
@@ -34,10 +35,11 @@ export const DashboardPageLayout = ({
         <DashboardHeader rightSlot={rightSlot} backTo={headerBackTo} onBack={onHeaderBack} backLabel={headerBackLabel} />
         <main
           className={cn(
-            'mx-auto w-full max-w-[1180px] flex-1 px-4 pb-28 pt-4 md:px-8 md:pb-10 md:pt-6',
+            'relative isolate mx-auto w-full max-w-[1180px] flex-1 px-4 pb-28 pt-4 md:px-8 md:pb-10 md:pt-6',
             mainClassName,
           )}
         >
+          <BrandWatermark />
           {children}
         </main>
       </div>

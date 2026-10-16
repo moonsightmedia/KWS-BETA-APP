@@ -1,3 +1,4 @@
+import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DashboardHeader, AdminTabTitleProvider } from '@/components/DashboardHeader';
@@ -50,7 +51,8 @@ const Admin = () => {
     <div className="flex min-h-screen overflow-x-clip bg-canvas">
       <div className={cn('kws-sidebar-content flex w-full min-w-0 flex-1 flex-col overflow-x-clip bg-canvas pb-[calc(var(--app-safe-area-bottom)+96px)] md:pb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
         <DashboardHeader />
-        <main className={cn('mx-auto w-full min-w-0 flex-1 p-4 md:p-6 xl:p-8', currentTab === 'settings' && settingsTab === 'hallMap' ? 'max-w-[1680px]' : 'max-w-[1244px]')}>
+        <main className={cn('relative isolate mx-auto w-full min-w-0 flex-1 p-4 md:p-6 xl:p-8', currentTab === 'settings' && settingsTab === 'hallMap' ? 'max-w-[1680px]' : 'max-w-[1244px]')}>
+          {!(currentTab === 'settings' && settingsTab === 'hallMap') && <BrandWatermark />}
           {authLoading || loading ? <div role="status" aria-label="Adminbereich wird geladen"><Skeleton className="mb-8 h-12 w-64" /><Skeleton className="h-96 w-full" /></div> :
             <Tabs value={currentTab} onValueChange={value => changeTab('tab', value)} className="w-full min-w-0">
               <TabsList aria-label="Adminbereiche" className="hidden">

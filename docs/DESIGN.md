@@ -2,7 +2,7 @@
 status: verbindlich
 scope: KWS Beta App
 owner: Janosch Althoff
-last_verified: 2026-10-16
+last_verified: 2026-10-17
 supersedes: docs/USER_AREA_DESIGN_GUIDE.md
 ---
 
@@ -173,10 +173,17 @@ Für die freigegebene Web-Integration gilt: vollständige farbige Marke auf Auth
   Ab 768px ist es 184px breit. Der bisherige Kletterwelt-Sauerland-Absender
   wird an dieser Stelle ersetzt.
 - Boulder und andere Fachseiten behalten ihre Seitentitel und Werkzeuge.
-- Nutzerkorrektur 16.10.2026: Hinter der Boulderliste steht das Zeichen horizontal mittig im Inhaltsbereich und vertikal in der sichtbaren Bildschirmmitte; es bleibt beim Scrollen sichtbar
-  im Hallenakzent mit 8% Deckkraft als separate dekorative Ebene. Weiße
-  Karten, Textkontrast und Bedienelemente bleiben deckend. Die Ebene ist für
-  Screenreader verborgen, fängt keine Eingaben ab und entfällt in der Hallenkarte.
+- Nutzererweiterung 17.10.2026: Das Zeichen dient auf den App-Seiten als
+  gemeinsamer Hintergrund: Home, Boulder, Statistiken, Profil und Unterseiten,
+  Gastübersicht, Auth, Passwort-Neuvergabe, Rechtstexte sowie Setter/Admin.
+  `BrandWatermark` übernimmt die freigegebene Geometrie: horizontal mittig im
+  Inhaltsbereich, vertikal in der sichtbaren Bildschirmmitte, beim Scrollen
+  dort gehalten. Mobil 22rem (maximal 90% der Fläche), ab md 30rem; Hallenakzent
+  mit 8% Deckkraft. Die Elternfläche verwendet `relative isolate`.
+  Weiße Karten, Formularflächen, Fotos, Textkontrast und Controls bleiben deckend.
+  Die separate Ebene ist für Screenreader verborgen und fängt keine Eingaben ab.
+  Hallenkarten/Zeicheneditor, Dialoge, Medienvollbild und TV-Aushang erhalten
+  kein eigenes Wasserzeichen. Header bleiben frei vom Produktlogo.
 
 Die lokale Designvorschau verwendet separate Beispieldaten. Der freigegebene
 Web-Release bindet nur die regulären App-Komponenten und die bestehende

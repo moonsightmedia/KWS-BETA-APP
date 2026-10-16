@@ -1,3 +1,4 @@
+import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { boulderNavigationState } from '@/lib/boulderNavigation';
@@ -6,7 +7,6 @@ import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, ChevronDown, Ch
 import { BoulderFilterControls, BoulderFilterPanel, BoulderSortPanel, FilterSection, FilterToggle } from '@/components/boulder/BoulderFilterControls';
 import { SectorFilterOptions } from '@/components/boulder/SectorFilterOptions';
 import { DashboardHeader } from '@/components/DashboardHeader';
-import { BetaLogo } from '@/components/brand/BetaLogo';
 import { BoulderMapPanel } from '@/components/boulder/BoulderMapPanel';
 import { useSidebar } from '@/components/SidebarContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -688,7 +688,8 @@ const Boulders = () => {
       <div className="flex min-h-screen bg-brand-canvas">
         <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-brand-canvas md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
           {pageHeader}
-          <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
+          <main className="relative isolate mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
+            <BrandWatermark />
             <div className="mb-6 flex gap-3">
               <Skeleton className="h-10 flex-1" />
               <Skeleton className="h-10 w-10" />
@@ -715,11 +716,14 @@ const Boulders = () => {
 
   if (showSaved && (personalQuery.isLoading || personalQuery.error)) {
     return <div className="flex min-h-screen bg-background">
-      <div className={cn('kws-sidebar-content min-w-0 flex-1', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+      <div className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
         <DashboardHeader />
-        <main className="mx-auto w-full max-w-[1180px] space-y-4 p-4 md:p-8">
-          <PersonalDataState loading={personalQuery.isLoading} onRetry={() => personalQuery.refetch()} />
-          <Button variant="secondary" onClick={clearFilters}>Gespeichert-Filter entfernen</Button>
+        <main className="relative isolate mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
+          <BrandWatermark />
+          <div className="space-y-4">
+            <PersonalDataState loading={personalQuery.isLoading} onRetry={() => personalQuery.refetch()} />
+            <Button variant="secondary" onClick={clearFilters}>Gespeichert-Filter entfernen</Button>
+          </div>
         </main>
       </div>
     </div>;
@@ -727,13 +731,16 @@ const Boulders = () => {
 
   if (notificationId !== null && notificationQuery.isError) {
     return <div className="flex min-h-screen bg-background">
-      <div className={cn('kws-sidebar-content min-w-0 flex-1', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+      <div className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
         {pageHeader}
-        <main className="mx-auto w-full max-w-[1180px] space-y-4 p-4 md:p-8">
-          <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Verknüpfte Boulder nicht verfügbar</AlertTitle>
-            <AlertDescription>{notificationQuery.error instanceof Error ? notificationQuery.error.message : 'Bitte versuche es erneut.'}</AlertDescription>
-          </Alert>
-          <div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => void notificationQuery.refetch()}>Erneut versuchen</Button><Button variant="ghost" onClick={clearNotification}>Alle Boulder anzeigen</Button></div>
+        <main className="relative isolate mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
+          <BrandWatermark />
+          <div className="space-y-4">
+            <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Verknüpfte Boulder nicht verfügbar</AlertTitle>
+              <AlertDescription>{notificationQuery.error instanceof Error ? notificationQuery.error.message : 'Bitte versuche es erneut.'}</AlertDescription>
+            </Alert>
+            <div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => void notificationQuery.refetch()}>Erneut versuchen</Button><Button variant="ghost" onClick={clearNotification}>Alle Boulder anzeigen</Button></div>
+          </div>
         </main>
       </div>
     </div>;
@@ -744,7 +751,8 @@ const Boulders = () => {
       <div className="flex min-h-screen bg-brand-canvas">
         <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-brand-canvas md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
           {pageHeader}
-          <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
+          <main className="relative isolate mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
+            <BrandWatermark />
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
@@ -767,21 +775,7 @@ const Boulders = () => {
           className="relative isolate mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8"
           style={{ paddingTop: showMap ? '0' : '0.75rem' }}
         >
-          {!showMap ? (
-            <div
-              aria-hidden="true"
-              data-brand-watermark
-              className="pointer-events-none absolute inset-0 -z-10 overflow-clip"
-            >
-              <div className="sticky top-[50dvh] flex h-0 items-center justify-center">
-                <BetaLogo
-                  variant="symbol"
-                  decorative
-                  className="h-auto w-[22rem] max-w-[90%] opacity-[0.08] md:w-[30rem]"
-                />
-              </div>
-            </div>
-          ) : null}
+          {!showMap && <BrandWatermark />}
 
           {showMap && (
               <BoulderMapPanel
