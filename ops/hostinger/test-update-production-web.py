@@ -51,6 +51,15 @@ class PreserveDownloadsTests(unittest.TestCase):
     def test_release_without_previous_downloads(self):
         self.assertEqual(release.preserve_downloads(self.previous, self.next), 0)
 
+    def test_retry_retains_failed_stage_and_creates_fresh_directory(self):
+        root = Path(self.workspace.name)
+        first = release.new_release_stage(root, 'a' * 40)
+        (first / 'build.log').write_text('first attempt failed')
+        second = release.new_release_stage(root, 'a' * 40)
+        self.assertNotEqual(first, second)
+        self.assertTrue(second.is_dir())
+        self.assertEqual((first / 'build.log').read_text(), 'first attempt failed')
+
 
 if __name__ == '__main__':
     unittest.main()

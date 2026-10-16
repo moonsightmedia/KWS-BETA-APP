@@ -26,7 +26,8 @@ for (const width of [375, 768, 1280, 1920]) {
     await expect(page.locator('a[href="/training"], a[href="/profile/training"]')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Training/ })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Schraubplan/ })).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+    // A stable desktop scrollbar gutter can reduce the usable width.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     await page.screenshot({ path: `test-results/training-release-gate/profile-${width}.png` });
 
     // Loop 2: known deep links and settings cannot reopen the unfinished area.

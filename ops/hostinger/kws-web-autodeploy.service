@@ -1,0 +1,18 @@
+[Unit]
+Description=Deploy verified KWS GitHub main web releases
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+StateDirectory=kws-web-autodeploy
+StateDirectoryMode=0700
+ExecStart=/usr/bin/python3 /opt/kws/github-web-autodeploy/github-web-autodeploy.py
+TimeoutStartSec=30min
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
