@@ -144,15 +144,15 @@ export function FeedbackDialog({
         <DialogHeader className="sticky top-0 z-10 bg-white border-b border-[#E7F7E9] px-4 sm:px-6 py-4 rounded-t-2xl">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <DialogTitle className="text-xl font-heading font-bold text-[#13112B]">Feedback senden</DialogTitle>
-              <DialogDescription className="text-sm text-[#13112B]/60 mt-1">
+              <DialogTitle className="text-xl font-heading font-bold text-brand-ink">Feedback senden</DialogTitle>
+              <DialogDescription className="text-sm text-brand-ink/60 mt-1">
                 Teile uns dein Feedback, Probleme oder Verbesserungsvorschläge mit.
               </DialogDescription>
             </div>
             <button
               onClick={handleClose}
               disabled={isSubmitting}
-              className="w-8 h-8 rounded-full bg-[#F9FAF9] text-[#13112B]/70 hover:bg-[#E7F7E9] hover:text-[#13112B] transition-colors flex items-center justify-center disabled:opacity-50 ml-4"
+              className="w-8 h-8 rounded-full bg-brand-canvas text-brand-ink/70 hover:bg-[#E7F7E9] hover:text-brand-ink transition-colors flex items-center justify-center disabled:opacity-50 ml-4"
               aria-label="Schließen"
             >
               <X className="w-4 h-4" strokeWidth={1.5} />
@@ -166,13 +166,13 @@ export function FeedbackDialog({
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Feedback Type */}
             <div className="space-y-2">
-              <Label htmlFor="feedback-type" className="text-sm font-medium text-[#13112B]">
+              <Label htmlFor="feedback-type" className="text-sm font-medium text-brand-ink">
                 Art des Feedbacks *
               </Label>
               <Select value={type} onValueChange={(value) => setType(value as FeedbackType)}>
                 <SelectTrigger 
                   id="feedback-type" 
-                  className="h-11 border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]"
+                  className="h-11 border-[#E7F7E9] focus:ring-2 focus:ring-brand focus:border-brand"
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -188,7 +188,7 @@ export function FeedbackDialog({
 
             {/* Title */}
             <div className="space-y-2">
-              <Label htmlFor="feedback-title" className="text-sm font-medium text-[#13112B]">
+              <Label htmlFor="feedback-title" className="text-sm font-medium text-brand-ink">
                 Titel *
               </Label>
               <Input
@@ -198,13 +198,13 @@ export function FeedbackDialog({
                 onChange={(e) => setTitle(e.target.value)}
                 required
                 maxLength={200}
-                className="h-11 border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]"
+                className="h-11 border-[#E7F7E9] focus:ring-2 focus:ring-brand focus:border-brand"
               />
             </div>
 
             {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="feedback-description" className="text-sm font-medium text-[#13112B]">
+              <Label htmlFor="feedback-description" className="text-sm font-medium text-brand-ink">
                 Beschreibung *
               </Label>
               <Textarea
@@ -215,9 +215,9 @@ export function FeedbackDialog({
                 required
                 rows={6}
                 maxLength={2000}
-                className="border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531] resize-none"
+                className="border-[#E7F7E9] focus:ring-2 focus:ring-brand focus:border-brand resize-none"
               />
-              <p className="text-xs text-[#13112B]/60">
+              <p className="text-xs text-brand-ink/60">
                 {description.length} / 2000 Zeichen
               </p>
             </div>
@@ -225,13 +225,13 @@ export function FeedbackDialog({
             {/* Priority (only for bugs/errors) */}
             {(type === 'bug' || type === 'error') && (
               <div className="space-y-2">
-                <Label htmlFor="feedback-priority" className="text-sm font-medium text-[#13112B]">
+                <Label htmlFor="feedback-priority" className="text-sm font-medium text-brand-ink">
                   Priorität
                 </Label>
                 <Select value={priority} onValueChange={(value) => setPriority(value as FeedbackPriority)}>
                   <SelectTrigger 
                     id="feedback-priority"
-                    className="h-11 border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]"
+                    className="h-11 border-[#E7F7E9] focus:ring-2 focus:ring-brand focus:border-brand"
                   >
                     <SelectValue />
                   </SelectTrigger>
@@ -251,11 +251,11 @@ export function FeedbackDialog({
                 id="include-screenshot"
                 checked={includeScreenshot}
                 onCheckedChange={(checked) => setIncludeScreenshot(checked === true)}
-                className="h-5 w-5 border-[#E7F7E9] data-[state=checked]:bg-[#36B531] data-[state=checked]:border-[#36B531]"
+                className="h-5 w-5 border-[#E7F7E9] data-[state=checked]:bg-brand data-[state=checked]:border-brand"
               />
               <Label 
                 htmlFor="include-screenshot" 
-                className="text-sm text-[#13112B] cursor-pointer font-normal"
+                className="text-sm text-brand-ink cursor-pointer font-normal"
               >
                 Screenshot hinzufügen
               </Label>
@@ -263,7 +263,7 @@ export function FeedbackDialog({
 
             {/* Screenshot Loading State */}
             {includeScreenshot && isCapturingScreenshot && (
-              <div className="flex items-center gap-2 text-sm text-[#13112B]/60 bg-[#F9FAF9] px-3 py-2 rounded-md border border-[#E7F7E9]">
+              <div className="flex items-center gap-2 text-sm text-brand-ink/60 bg-brand-canvas px-3 py-2 rounded-md border border-[#E7F7E9]">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Screenshot wird erstellt...
               </div>
@@ -276,14 +276,14 @@ export function FeedbackDialog({
                 variant="outline" 
                 onClick={handleClose} 
                 disabled={isSubmitting}
-                className="h-11 rounded-xl border-[#E7F7E9] bg-white text-[#13112B] hover:bg-[#F9FAF9] disabled:opacity-50"
+                className="h-11 rounded-xl border-[#E7F7E9] bg-white text-brand-ink hover:bg-brand-canvas disabled:opacity-50"
               >
                 Abbrechen
               </Button>
               <Button 
                 type="submit" 
                 disabled={isSubmitting || isCapturingScreenshot}
-                className="h-11 rounded-xl bg-[#36B531] hover:bg-[#2da029] text-white flex-1 sm:flex-initial disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-11 rounded-xl bg-brand hover:bg-[#2da029] text-white flex-1 sm:flex-initial disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
                   <>

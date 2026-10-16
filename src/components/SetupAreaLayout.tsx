@@ -15,10 +15,10 @@ export const SetupAreaLayout = ({
   const { isExpanded } = useSidebar();
 
   return (
-    <div className={cn('flex min-h-screen bg-[#F9FAF9]', className)}>
+    <div className={cn('flex min-h-screen bg-brand-canvas', className)}>
       <div
         className={cn(
-          'kws-sidebar-content flex min-h-screen flex-1 flex-col bg-[#F9FAF9] pb-28 md:pb-0',
+          'kws-sidebar-content flex min-h-screen flex-1 flex-col bg-brand-canvas pb-28 md:pb-0',
           isExpanded ? 'md:ml-64' : 'md:ml-20',
           contentClassName,
         )}

@@ -421,7 +421,7 @@ export function BoulderVideoPlayer({
   if (hasError || !currentVideoUrl) {
     const fallbackUrl = getVideoUrl(betaVideoUrls, betaVideoUrl, 'low') || betaVideoUrl;
     return (
-      <div className={cn('relative flex h-full w-full items-center justify-center rounded-kws-card bg-[#192436]', className)}>
+      <div className={cn('relative flex h-full w-full items-center justify-center rounded-kws-card bg-brand-ink', className)}>
         <div className="space-y-4 p-4 text-center">
           <Video className="mx-auto h-12 w-12 text-white/60" />
           <div>
@@ -465,7 +465,7 @@ export function BoulderVideoPlayer({
     <div
       ref={containerRef}
       className={cn(
-        'relative h-full w-full overflow-hidden bg-[#192436]',
+        'relative h-full w-full overflow-hidden bg-brand-ink',
         className,
         isFullscreen && 'flex min-h-[100svh] min-h-[100dvh] items-center justify-center rounded-none bg-[#F7F9F7]',
       )}
@@ -495,7 +495,7 @@ export function BoulderVideoPlayer({
         playsInline
         controlsList="nodownload"
         className={cn(
-          'h-full w-full object-center bg-[#192436]',
+          'h-full w-full object-center bg-brand-ink',
           isFullscreen ? 'object-contain bg-[#F7F9F7]' : 'object-cover',
         )}
         poster={poster || undefined}
@@ -506,7 +506,7 @@ export function BoulderVideoPlayer({
 
       {showOfficialBadge ? (
         <div
-          className="absolute left-2.5 top-2.5 z-30 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.96] px-2.5 text-[#192436] shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm"
+          className="absolute left-2.5 top-2.5 z-30 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.96] px-2.5 text-brand-ink shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm"
           style={isFullscreen ? {
             left: 'max(env(safe-area-inset-left, 0px), 12px)',
             top: 'max(calc(var(--app-safe-area-top) + 12px), 28px)',
@@ -529,7 +529,7 @@ export function BoulderVideoPlayer({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex h-9 cursor-pointer items-center gap-1.5 rounded-kws-control border border-white/70 bg-white/[0.94] px-2.5 text-xs font-semibold text-[#192436] shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent"
+                className="flex h-9 cursor-pointer items-center gap-1.5 rounded-kws-control border border-white/70 bg-white/[0.94] px-2.5 text-xs font-semibold text-brand-ink shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent"
                 aria-label={`Videoqualität: ${videoQualityLabels[currentQuality].short}`}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -548,7 +548,7 @@ export function BoulderVideoPlayer({
               sideOffset={8}
               portalContainer={isFullscreen ? containerRef.current : undefined}
               collisionPadding={isFullscreen ? { top: 80, right: 12, bottom: 80, left: 12 } : 8}
-              className="z-[120] max-h-[min(18rem,calc(100dvh-10rem))] w-48 overflow-y-auto rounded-kws-control border border-border/80 bg-white p-1.5 text-[#192436] shadow-[0_5px_18px_rgba(19,17,43,0.12)]"
+              className="z-[120] max-h-[min(18rem,calc(100dvh-10rem))] w-48 overflow-y-auto rounded-kws-control border border-border/80 bg-white p-1.5 text-brand-ink shadow-[0_5px_18px_rgba(19,17,43,0.12)]"
               onPointerDownOutside={(event) => {
                 const target = event.target as HTMLElement;
                 if (target.closest('[role="dialog"]')) {
@@ -557,7 +557,7 @@ export function BoulderVideoPlayer({
               }}
             >
               <DropdownMenuLabel className="px-2.5 pb-2 pt-1.5">
-                <span className="block text-xs font-semibold text-[#192436]">Videoqualität</span>
+                <span className="block text-xs font-semibold text-brand-ink">Videoqualität</span>
                 <span className="mt-0.5 block text-[10px] font-medium text-muted-foreground">Auflösung auswählen</span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-border/80" />
@@ -579,12 +579,12 @@ export function BoulderVideoPlayer({
                     <DropdownMenuRadioItem
                       key={quality}
                       value={quality}
-                      className="group min-h-10 gap-2 rounded-kws-badge py-2 pl-2.5 pr-2.5 text-xs font-semibold text-[#192436] focus:bg-secondary focus:text-[#192436] data-[state=checked]:bg-primary data-[state=checked]:text-white data-[state=checked]:focus:bg-primary data-[state=checked]:focus:text-white [&>span:first-child]:hidden"
+                      className="group min-h-10 gap-2 rounded-kws-badge py-2 pl-2.5 pr-2.5 text-xs font-semibold text-brand-ink focus:bg-secondary focus:text-brand-ink data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=checked]:focus:bg-primary data-[state=checked]:focus:text-primary-foreground [&>span:first-child]:hidden"
                     >
                       <span aria-hidden="true" className="grid h-4 w-4 shrink-0 place-items-center text-white opacity-0 group-data-[state=checked]:opacity-100">
                         <Check className="h-3.5 w-3.5 stroke-[2.5]" />
                       </span>
-                      <span className="text-[#192436] group-data-[state=checked]:text-white">{videoQualityLabels[quality].short}</span>
+                      <span className="text-brand-ink group-data-[state=checked]:text-primary-foreground">{videoQualityLabels[quality].short}</span>
                       <span className="ml-auto text-[10px] font-medium text-muted-foreground group-data-[state=checked]:text-white/85">{videoQualityLabels[quality].detail}</span>
                     </DropdownMenuRadioItem>
                   ) : null
@@ -597,7 +597,7 @@ export function BoulderVideoPlayer({
         <button
           type="button"
           onClick={toggleFullscreen}
-          className="grid h-9 w-9 place-items-center rounded-kws-control border border-white/70 bg-white/[0.94] text-[#192436] shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent"
+          className="grid h-9 w-9 place-items-center rounded-kws-control border border-white/70 bg-white/[0.94] text-brand-ink shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent"
           aria-label={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
           title={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
         >
@@ -607,7 +607,7 @@ export function BoulderVideoPlayer({
 
       {isBuffering && (
         <div
-          className="pointer-events-none absolute bottom-4 left-1/2 flex min-h-9 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-kws-control bg-[#192436]/88 px-3 py-2 text-xs font-medium text-white shadow-[0_3px_12px_rgba(19,17,43,0.18)] backdrop-blur-sm"
+          className="pointer-events-none absolute bottom-4 left-1/2 flex min-h-9 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-kws-control bg-brand-ink/88 px-3 py-2 text-xs font-medium text-white shadow-[0_3px_12px_rgba(19,17,43,0.18)] backdrop-blur-sm"
           style={isFullscreen ? {
             bottom: 'max(calc(var(--app-safe-area-bottom) + 64px), 76px)',
           } : undefined}

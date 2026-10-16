@@ -103,10 +103,10 @@ export const CompetitionBoulderManagement = () => {
   return (
     <div className="space-y-4 w-full min-w-0">
       <div className="flex items-center justify-between flex-col sm:flex-row gap-4">
-        <h2 className="text-2xl font-heading font-bold text-[#13112B]">Wettkampf-Boulder verwalten</h2>
+        <h2 className="text-2xl font-heading font-bold text-brand-ink">Wettkampf-Boulder verwalten</h2>
         <Button 
           onClick={handleCreate} 
-          className="h-11 rounded-xl bg-[#36B531] hover:bg-[#2da029] text-white w-full sm:w-auto"
+          className="h-11 rounded-xl bg-brand hover:bg-[#2da029] text-white w-full sm:w-auto"
         >
           <Plus className="w-5 h-5 mr-2" />
           Boulder hinzufügen
@@ -121,7 +121,7 @@ export const CompetitionBoulderManagement = () => {
         </div>
       ) : !competitionBoulders || competitionBoulders.length === 0 ? (
         <Card className="bg-white border border-[#E7F7E9] rounded-2xl shadow-sm">
-          <CardContent className="p-8 text-center text-[#13112B]/60">
+          <CardContent className="p-8 text-center text-brand-ink/60">
             <p>Noch keine Wettkampf-Boulder vorhanden.</p>
           </CardContent>
         </Card>
@@ -142,10 +142,10 @@ export const CompetitionBoulderManagement = () => {
                         {cb.boulder_number}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-[#13112B]">Boulder {cb.boulder_number}</div>
-                        <div className="text-sm text-[#13112B]/60">{cb.color}</div>
+                        <div className="font-semibold text-brand-ink">Boulder {cb.boulder_number}</div>
+                        <div className="text-sm text-brand-ink/60">{cb.color}</div>
                         {boulder && (
-                          <div className="text-xs text-[#13112B]/60 truncate">
+                          <div className="text-xs text-brand-ink/60 truncate">
                             {boulder.name}
                           </div>
                         )}
@@ -180,14 +180,14 @@ export const CompetitionBoulderManagement = () => {
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="sm:max-w-[425px] p-0 gap-0">
           <DialogHeader className="px-6 pt-6 pb-4">
-            <DialogTitle className="text-xl font-heading font-bold text-[#13112B]">
+            <DialogTitle className="text-xl font-heading font-bold text-brand-ink">
               {editingBoulder ? 'Boulder bearbeiten' : 'Neuen Boulder hinzufügen'}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 px-6 pb-6">
             <div className="space-y-2">
-              <Label htmlFor="boulder-number" className="text-sm font-medium text-[#13112B]">
+              <Label htmlFor="boulder-number" className="text-sm font-medium text-brand-ink">
                 Boulder-Nummer (min. 1) *
               </Label>
               <Input
@@ -196,14 +196,14 @@ export const CompetitionBoulderManagement = () => {
                 min="1"
                 value={boulderNumber}
                 onChange={(e) => setBoulderNumber(e.target.value)}
-                className="h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-[#36B531] focus:border-[#36B531]"
+                className="h-11 rounded-xl border-[#E7F7E9] focus:ring-2 focus:ring-brand focus:border-brand"
                 inputMode="numeric"
                 placeholder="z.B. 1, 2, 3..."
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="boulder-select" className="text-sm font-medium text-[#13112B]">Boulder auswählen (optional)</Label>
+              <Label htmlFor="boulder-select" className="text-sm font-medium text-brand-ink">Boulder auswählen (optional)</Label>
               <Select value={selectedBoulderId || "none"} onValueChange={(value) => setSelectedBoulderId(value === "none" ? "" : value)}>
                 <SelectTrigger className="h-11 rounded-xl border-[#E7F7E9]">
                   <SelectValue placeholder="Boulder wählen" />
@@ -220,7 +220,7 @@ export const CompetitionBoulderManagement = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="color-select" className="text-sm font-medium text-[#13112B]">Farbe *</Label>
+              <Label htmlFor="color-select" className="text-sm font-medium text-brand-ink">Farbe *</Label>
               <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                 {colors?.map((c) => (
                   <button
@@ -230,8 +230,8 @@ export const CompetitionBoulderManagement = () => {
                     className={cn(
                       "h-11 rounded-xl border-2 transition-all flex items-center justify-center",
                       selectedColor === c.name
-                        ? "border-[#36B531] shadow-lg scale-110 ring-2 ring-[#36B531] ring-offset-2"
-                        : "border-[#E7F7E9] hover:border-[#36B531]/50 hover:scale-105"
+                        ? "border-brand shadow-lg scale-110 ring-2 ring-brand ring-offset-2"
+                        : "border-[#E7F7E9] hover:border-brand/50 hover:scale-105"
                     )}
                     style={getColorBackgroundStyle(c.name, colors)}
                     title={c.name}
@@ -249,14 +249,14 @@ export const CompetitionBoulderManagement = () => {
             <Button
               variant="outline"
               onClick={() => setShowDialog(false)}
-              className="flex-1 h-11 rounded-xl border-[#E7F7E9] text-[#13112B] hover:bg-[#E7F7E9]"
+              className="flex-1 h-11 rounded-xl border-[#E7F7E9] text-brand-ink hover:bg-[#E7F7E9]"
             >
               Abbrechen
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={createBoulder.isPending || updateBoulder.isPending}
-              className="flex-1 h-11 rounded-xl bg-[#36B531] hover:bg-[#2da029] text-white"
+              className="flex-1 h-11 rounded-xl bg-brand hover:bg-[#2da029] text-white"
             >
               {editingBoulder ? 'Aktualisieren' : 'Hinzufügen'}
             </Button>

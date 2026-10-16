@@ -141,3 +141,48 @@ for (const collapsed of [false, true]) test(`desktop navigation keeps short and 
   expect(typography[0].family).toContain('Teko');
   expect(await page.evaluate(() => document.fonts.check('600 34.4px Teko'))).toBe(true);
 });
+
+for (const width of [375, 768, 1280, 1920]) test(`brand colors agree across header and controls at ${width}`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await open(page);
+  await expect(page.locator('.sticky.top-0 h1')).toHaveCSS('color', 'rgb(25, 36, 54)');
+  await expect(page.getByRole('button', { name: 'Benachrichtigungen', exact: true })).toHaveCSS('background-color', 'rgb(241, 245, 241)');
+  if (width >= 768) await expect(page.locator('.sticky.top-0 p').first()).toHaveCSS('color', 'rgb(100, 108, 113)');
+  await page.getByRole('link', { name: 'Statistiken', exact: true }).locator('visible=true').first().click();
+  const selected = page.getByRole('button', { name: 'Fortschritt', exact: true });
+  await expect(selected).toHaveCSS('background-color', 'rgb(54, 181, 49)');
+  await expect(selected).toHaveCSS('color', 'rgb(25, 36, 54)');
+  await expect(page.locator('.sticky.top-0 h1')).toHaveCSS('color', 'rgb(25, 36, 54)');
+  // Check rendered utilities and semantic tokens, including fixed brand
+  // surfaces inside a dark context and the equivalent semantic light tokens.
+  const readPalette = () => page.evaluate(() => {
+    const styles: Record<string, string> = {};
+    for (const name of ['bg-primary', 'bg-accent', 'bg-success', 'bg-brand', 'text-foreground', 'text-brand-ink', 'text-muted-foreground', 'text-brand-muted', 'bg-secondary', 'bg-brand-secondary', 'border-border', 'border-brand-border']) {
+      const sample = document.createElement('span');
+      sample.className = name;
+      // Unused full-opacity utilities are intentionally absent from Tailwind's
+      // output; these two aliases currently appear only as tinted utilities.
+      if (name === 'bg-accent' || name === 'bg-success') sample.style.backgroundColor = `hsl(var(--${name.slice(3)}))`;
+      document.body.append(sample);
+      const computed = getComputedStyle(sample);
+      styles[name] = name.startsWith('bg-') ? computed.backgroundColor : name.startsWith('text-') ? computed.color : computed.borderColor;
+      sample.remove();
+    }
+    return styles;
+  });
+  const palette = await readPalette();
+  for (const name of ['bg-primary', 'bg-accent', 'bg-success', 'bg-brand']) expect(palette[name]).toBe('rgb(54, 181, 49)');
+  for (const [semantic, brand, color] of [
+    ['text-foreground', 'text-brand-ink', 'rgb(25, 36, 54)'],
+    ['text-muted-foreground', 'text-brand-muted', 'rgb(100, 108, 113)'],
+    ['bg-secondary', 'bg-brand-secondary', 'rgb(241, 245, 241)'],
+    ['border-border', 'border-brand-border', 'rgb(221, 231, 223)'],
+  ]) {
+    expect(palette[semantic]).toBe(color);
+    expect(palette[brand]).toBe(color);
+  }
+  await page.evaluate(() => document.documentElement.classList.add('dark'));
+  const dark = await readPalette();
+  for (const name of ['bg-primary', 'bg-accent', 'bg-success', 'bg-brand', 'text-brand-ink', 'text-brand-muted', 'bg-brand-secondary', 'border-brand-border']) expect(dark[name]).toBe(palette[name]);
+  expect(dark['text-foreground']).not.toBe(palette['text-foreground']);
+});

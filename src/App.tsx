@@ -282,10 +282,10 @@ const Root = () => {
   // Show fallback UI if auth is hanging
   if (authTimeout && authLoading) {
     return (
-      <main className="flex min-h-[100svh] min-h-[100dvh] items-center justify-center bg-[#F9FAF9] px-5 pb-[calc(1.5rem+var(--app-safe-area-bottom))] pt-[calc(1.5rem+var(--app-safe-area-top))]">
+      <main className="flex min-h-[100svh] min-h-[100dvh] items-center justify-center bg-brand-canvas px-5 pb-[calc(1.5rem+var(--app-safe-area-bottom))] pt-[calc(1.5rem+var(--app-safe-area-top))]">
         <div className="w-full max-w-sm rounded-kws-card bg-white p-5 shadow-[0_8px_30px_rgba(25,36,54,0.09)] sm:p-6">
           <p className="font-sans text-[10px] font-semibold uppercase tracking-[0.13em] text-[#C6453A]">Verbindung unterbrochen</p>
-          <h1 className="mt-2 font-heading text-[2.35rem] font-semibold leading-none text-[#192436]">App lädt zu lange</h1>
+          <h1 className="mt-2 font-heading text-[2.35rem] font-semibold leading-none text-brand-ink">App lädt zu lange</h1>
           <p className="mt-3 font-sans text-xs leading-5 text-muted-foreground">
             Die App scheint hängen zu bleiben. Du kannst versuchen, sie zurückzusetzen.
           </p>

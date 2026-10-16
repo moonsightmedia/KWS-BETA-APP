@@ -51,7 +51,7 @@ function getReadableDifficultyInkColor(colorName: string, colorHex: string | und
     }
   }
 
-  return '#13112B';
+  return '#192436';
 }
 
 type GripColor = { name: string; hex: string; secondary_hex?: string | null };

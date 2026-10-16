@@ -2,7 +2,7 @@
 status: verbindlich
 scope: KWS Beta App
 owner: Janosch Althoff
-last_verified: 2026-09-14
+last_verified: 2026-10-16
 supersedes: docs/USER_AREA_DESIGN_GUIDE.md
 ---
 
@@ -70,14 +70,25 @@ Nicht verwenden:
 | Starke Schrift | `#192436` | Seitenüberschriften, Abschnittstitel, Kartentitel, wichtige Zahlen |
 | Seitenfläche | `#F9FAF9` | angemeldete Hauptseiten und ruhige App-Hintergründe |
 | Kartenfläche | `#FFFFFF` / `card` | Karten, Popover, Listenflächen |
-| Sekundärfläche | `secondary`, visuell etwa `#F1F5F1` | inaktive Controls, Iconflächen, leichte Gruppierung |
+| Sekundärfläche | `#F1F5F1` / `secondary` | inaktive Controls, Iconflächen, leichte Gruppierung |
 | Bild-Platzhalter | `#EEF2EE` | Thumbnail-Hintergrund während Laden oder bei fehlendem Bild |
-| Sekundärtext | `muted-foreground` | Metadaten, Hilfetext, Zähler |
-| Border | `border`, visuell etwa `#DDE7DF` | subtile Trenner und notwendige Control-Konturen |
+| Sekundärtext | `#646C71` / `muted-foreground` | Metadaten, Hilfetext, Zähler |
+| Border | `#DDE7DF` / `border` | subtile Trenner und notwendige Control-Konturen |
 | Gefahr | `destructive`, `hsl(5 55% 45%)` | Gefahrenhinweise auf hellem Rottint; gefüllte Löschaktionen mit Weiß |
 
 Regeln:
 
+- Nutzerentscheidung 16.10.2026: Dokumentierte Markenwerte und CSS-Tokens
+  stimmen exakt überein. Die HSL-Werte behalten dafür ihre nötige Genauigkeit.
+  `--brand-*` in `src/index.css` ist die zentrale unveränderliche Markenpalette;
+  `primary`, `foreground`, `secondary`, `muted-foreground`, `border` und weitere
+  semantische Tokens verweisen darauf. `brand-*`-Utilities ersetzen bisherige
+  direkte Markenfarben auf bewusst festen Flächen, damit deren Verhalten auch
+  innerhalb thematisierter Ansichten erhalten bleibt. Normale thematisierbare
+  Controls verwenden weiterhin die semantischen Tokens.
+  Das alte Textviolett `#13112B` entfällt als UI-Farbe; transparente historische
+  Schattenrezepte bleiben davon unabhängig. Grifffarben, Kartenbereiche,
+  Illustrationsfarben und fachlich verschiedene Zustandsfarben bleiben getrennt.
 - `#192436` ist die einheitliche starke Schriftfarbe der neuen Nutzeroberfläche.
 - Primärgrün wird nicht als großflächiger Seitenhintergrund eingesetzt.
 - Normaler informativer Text erreicht mindestens 4,5:1 auf seiner tatsächlichen
@@ -94,9 +105,8 @@ Regeln:
 - Direkte Hexwerte sollen bei neuer Arbeit nur ergänzt werden, wenn eine neue
   semantische Rolle beschlossen wurde. Wiederkehrende Werte gehören in
   `src/index.css` und `tailwind.config.ts`.
-- Alte Textverwendungen von `#13112B` werden bei Berührung auf die aktuelle
-  Texthierarchie geprüft. Der Farbwert kann weiterhin als Ausgangswert für
-  transparente Schatten dienen.
+- `#13112B` wird nicht mehr als UI-Textfarbe verwendet. Historische transparente
+  Schatten dürfen weiterhin auf diesem Ausgangswert beruhen.
 
 ### 3.2 Hallenkartenpalette
 
@@ -1289,7 +1299,8 @@ Bekannte Migrationshinweise:
   notwendige Konturen; Inhaltskarten nutzen `kwsSurfaceClassName`/`shadow-soft`.
 - Historische, nicht eingebundene Screens und einzelne nicht-kompakte
   Hallenkartenvarianten können weiterhin ältere Rundungen enthalten.
-- Direkte Farben wie `#13112B` und alte `rounded-xl/2xl/full` kommen noch vor.
+- Alte `rounded-xl/2xl/full` kommen noch vor; wiederkehrende direkte Markenfarben
+  wurden am 16.10.2026 durch zentrale `brand-*`-Utilities ersetzt.
 - Diese Altstellen werden beim nächsten fachlichen Anfassen gegen diese Datei
   geprüft; sie sind keine Vorlage für neue Screens.
 

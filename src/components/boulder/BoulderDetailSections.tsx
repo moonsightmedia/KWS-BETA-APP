@@ -323,11 +323,11 @@ function SessionSheet({
         void persistAndClose();
       }}
     >
-      <DrawerContent className="mx-auto max-w-lg rounded-t-kws-card border-border/80 bg-[#F9FAF9] pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] shadow-[0_-10px_34px_rgba(19,17,43,0.16)] [&>div:first-child]:mt-3 [&>div:first-child]:h-1 [&>div:first-child]:w-10 [&>div:first-child]:rounded-kws-badge [&>div:first-child]:bg-muted-foreground/20">
+      <DrawerContent className="mx-auto max-w-lg rounded-t-kws-card border-border/80 bg-brand-canvas pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] shadow-[0_-10px_34px_rgba(19,17,43,0.16)] [&>div:first-child]:mt-3 [&>div:first-child]:h-1 [&>div:first-child]:w-10 [&>div:first-child]:rounded-kws-badge [&>div:first-child]:bg-muted-foreground/20">
         <DrawerHeader className="gap-3 border-b border-border/80 bg-white px-4 pb-4 pt-3 text-left">
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
-              <DrawerTitle className="font-sans text-lg font-semibold leading-tight tracking-[-0.02em] text-[#192436]">Heutige Session</DrawerTitle>
+              <DrawerTitle className="font-sans text-lg font-semibold leading-tight tracking-[-0.02em] text-brand-ink">Heutige Session</DrawerTitle>
               <DrawerDescription className="text-xs leading-5">Ergebnis, Versuche und Notiz für heute.</DrawerDescription>
             </div>
             <Button
@@ -350,14 +350,14 @@ function SessionSheet({
             </p>
           ) : null}
           <div className="grid gap-2">
-            <label className="text-xs font-semibold text-[#192436]">Datum</label>
-            <div className="rounded-kws-control bg-secondary px-3.5 py-3 text-sm font-medium text-[#192436]">
+            <label className="text-xs font-semibold text-brand-ink">Datum</label>
+            <div className="rounded-kws-control bg-secondary px-3.5 py-3 text-sm font-medium text-brand-ink">
               {format(new Date(), 'EEEE, dd. MMMM yyyy', { locale: de })}
             </div>
           </div>
 
           <div className="grid gap-2">
-            <label className="text-xs font-semibold text-[#192436]">Ergebnis</label>
+            <label className="text-xs font-semibold text-brand-ink">Ergebnis</label>
             <div className="grid grid-cols-3 gap-2">
               {(['attempted', 'top', 'flash'] as const).map((option) => (
                 <button
@@ -377,7 +377,7 @@ function SessionSheet({
                   }}
                   className={cn(
                     'min-h-11 rounded-kws-control px-2 py-2.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-50',
-                    draft.result === option ? 'bg-primary text-primary-foreground shadow-[0_3px_10px_rgba(54,181,49,0.18)]' : 'bg-secondary text-[#192436] hover:bg-secondary/75',
+                    draft.result === option ? 'bg-primary text-primary-foreground shadow-[0_3px_10px_rgba(54,181,49,0.18)]' : 'bg-secondary text-brand-ink hover:bg-secondary/75',
                   )}
                   aria-pressed={draft.result === option}
                 >
@@ -388,13 +388,13 @@ function SessionSheet({
           </div>
 
           <div className="grid gap-2">
-            <label className="text-xs font-semibold text-[#192436]">Versuche</label>
+            <label className="text-xs font-semibold text-brand-ink">Versuche</label>
             <div className="flex items-center justify-between rounded-kws-card bg-white p-2 shadow-[0_3px_14px_rgba(19,17,43,0.07)]">
                 <Button
                   type="button"
                   variant="secondary"
                   size="icon"
-                  className="h-11 w-11 rounded-kws-control text-[#192436]"
+                  className="h-11 w-11 rounded-kws-control text-brand-ink"
                   disabled={draft.result === 'flash'}
                   aria-label="Einen Versuch abziehen"
                   onClick={() => {
@@ -408,14 +408,14 @@ function SessionSheet({
                   <Minus className="h-4 w-4" />
                 </Button>
                 <div className="min-w-20 text-center">
-                  <p className="text-2xl font-semibold leading-none text-[#192436]">{draft.result === 'flash' ? 1 : draft.attemptCount}</p>
+                  <p className="text-2xl font-semibold leading-none text-brand-ink">{draft.result === 'flash' ? 1 : draft.attemptCount}</p>
                   <p className="mt-1 text-[10px] font-medium text-muted-foreground">{(draft.result === 'flash' ? 1 : draft.attemptCount) === 1 ? 'Versuch' : 'Versuche'}</p>
                 </div>
                 <Button
                   type="button"
                   variant="secondary"
                   size="icon"
-                  className="h-11 w-11 rounded-kws-control text-[#192436]"
+                  className="h-11 w-11 rounded-kws-control text-brand-ink"
                   disabled={draft.result === 'flash'}
                   aria-label="Einen Versuch hinzufügen"
                   onClick={() => {
@@ -432,7 +432,7 @@ function SessionSheet({
           </div>
 
           <div className="grid gap-2">
-            <label className="text-xs font-semibold text-[#192436]">Notiz</label>
+            <label className="text-xs font-semibold text-brand-ink">Notiz</label>
             <Textarea
               rows={3}
               value={draft.note}
@@ -441,7 +441,7 @@ function SessionSheet({
                 setErrorMessage(null);
               }}
               placeholder="Was möchtest du dir merken?"
-              className="resize-none rounded-kws-control border-border bg-white text-sm focus-visible:ring-[#192436]/25"
+              className="resize-none rounded-kws-control border-border bg-white text-sm focus-visible:ring-brand-ink/25"
             />
           </div>
 
@@ -614,7 +614,7 @@ export function BoulderInfoTab({ boulder }: { boulder: Boulder }) {
                 placeholder="Kommentar schreiben …"
                 aria-label="Kommentar schreiben"
                 maxLength={1000}
-                className="h-10 min-w-0 rounded-kws-control border-0 bg-transparent px-2.5 text-sm shadow-none focus-visible:ring-2 focus-visible:ring-[#192436]/20 focus-visible:ring-offset-0"
+                className="h-10 min-w-0 rounded-kws-control border-0 bg-transparent px-2.5 text-sm shadow-none focus-visible:ring-2 focus-visible:ring-brand-ink/20 focus-visible:ring-offset-0"
               />
               <button
                 type="submit"
@@ -738,7 +738,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
 
       <section className="rounded-kws-card bg-card p-4 shadow-[0_3px_14px_rgba(19,17,43,0.07)]">
         <div className="mb-3">
-          <h3 className="font-sans text-sm font-semibold text-[#192436]">Markierungen</h3>
+          <h3 className="font-sans text-sm font-semibold text-brand-ink">Markierungen</h3>
           <p className="mt-0.5 text-[11px] text-muted-foreground">Ordne den Boulder für später ein.</p>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -754,7 +754,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
             }}
             className={cn(
               'flex min-h-11 items-center justify-center gap-2 rounded-kws-control px-3 py-2 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-55',
-              isFavorite ? 'bg-primary text-primary-foreground' : 'bg-secondary text-[#192436] hover:bg-secondary/75',
+              isFavorite ? 'bg-primary text-primary-foreground' : 'bg-secondary text-brand-ink hover:bg-secondary/75',
               pendingAction === 'favorite' && 'ring-2 ring-primary/25',
             )}
             aria-pressed={isFavorite}
@@ -774,7 +774,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
             }}
             className={cn(
               'flex min-h-11 items-center justify-center gap-2 rounded-kws-control px-3 py-2 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-55',
-              isProject ? 'bg-primary text-primary-foreground' : 'bg-secondary text-[#192436] hover:bg-secondary/75',
+              isProject ? 'bg-primary text-primary-foreground' : 'bg-secondary text-brand-ink hover:bg-secondary/75',
               pendingAction === 'project' && 'ring-2 ring-primary/25',
             )}
             aria-pressed={isProject}
@@ -1060,7 +1060,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
       <section className="rounded-kws-card bg-card p-4 shadow-[0_3px_14px_rgba(19,17,43,0.07)]">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="font-sans text-sm font-semibold text-[#192436]">Heute</h3>
+            <h3 className="font-sans text-sm font-semibold text-brand-ink">Heute</h3>
             <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">
               {format(new Date(), 'EEEE, dd. MMMM', { locale: de })}
             </p>
@@ -1076,7 +1076,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
           <div className="min-w-0">
             {effectiveTodaySession ? (
               <>
-                <p className="text-sm font-semibold text-[#192436]">
+                <p className="text-sm font-semibold text-brand-ink">
                   {effectiveTodaySession.attempt_count} {effectiveTodaySession.attempt_count === 1 ? 'Versuch' : 'Versuche'}
                 </p>
                 <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
@@ -1085,7 +1085,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
               </>
             ) : (
               <>
-                <p className="text-sm font-semibold text-[#192436]">Noch kein Eintrag</p>
+                <p className="text-sm font-semibold text-brand-ink">Noch kein Eintrag</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">Starte deine Session für diesen Boulder.</p>
               </>
             )}
@@ -1095,7 +1095,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
             onClick={() => setShowSessionSheet(true)}
             className={cn(
               'flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-kws-control px-3 text-xs font-semibold transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
-              effectiveTodaySession ? 'bg-white text-[#192436] shadow-[0_2px_8px_rgba(19,17,43,0.08)]' : 'bg-primary text-primary-foreground shadow-[0_3px_10px_rgba(54,181,49,0.18)]',
+              effectiveTodaySession ? 'bg-white text-brand-ink shadow-[0_2px_8px_rgba(19,17,43,0.08)]' : 'bg-primary text-primary-foreground shadow-[0_3px_10px_rgba(54,181,49,0.18)]',
             )}
           >
             {effectiveTodaySession ? <Pencil className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
@@ -1104,7 +1104,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
         </div>
 
         <div className="mt-4 border-t border-border/80 pt-4">
-          <p className="mb-2.5 text-xs font-semibold text-[#192436]">Schnell erfassen</p>
+          <p className="mb-2.5 text-xs font-semibold text-brand-ink">Schnell erfassen</p>
           <div className="grid grid-cols-3 gap-2">
             {quickTrackActions.map((action) => {
             const Icon = action.icon;
@@ -1128,7 +1128,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
                 onClick={onClick}
                 className={cn(
                   'flex min-h-12 items-center justify-center gap-1.5 rounded-kws-control px-2 py-2 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-55',
-                  isActive ? 'bg-primary text-primary-foreground shadow-[0_3px_10px_rgba(54,181,49,0.18)]' : 'bg-secondary text-[#192436] hover:bg-secondary/75',
+                  isActive ? 'bg-primary text-primary-foreground shadow-[0_3px_10px_rgba(54,181,49,0.18)]' : 'bg-secondary text-brand-ink hover:bg-secondary/75',
                   pendingAction === action.key && 'ring-2 ring-primary/25',
                 )}
                 aria-pressed={isActive}
@@ -1148,7 +1148,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
 
       <section className="rounded-kws-card bg-card p-4 shadow-[0_3px_14px_rgba(19,17,43,0.07)]">
         <div className="mb-3">
-          <h3 className="font-sans text-sm font-semibold text-[#192436]">Markierungen</h3>
+          <h3 className="font-sans text-sm font-semibold text-brand-ink">Markierungen</h3>
           <p className="mt-0.5 text-[11px] text-muted-foreground">Ordne den Boulder für später ein.</p>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -1163,7 +1163,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
             }}
             className={cn(
               'flex min-h-11 items-center justify-center gap-2 rounded-kws-control px-3 py-2 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-55',
-              isFavorite ? 'bg-primary text-primary-foreground' : 'bg-secondary text-[#192436] hover:bg-secondary/75',
+              isFavorite ? 'bg-primary text-primary-foreground' : 'bg-secondary text-brand-ink hover:bg-secondary/75',
               pendingAction === 'favorite' && 'ring-2 ring-primary/25',
             )}
             aria-pressed={isFavorite}
@@ -1182,7 +1182,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
             }}
             className={cn(
               'flex min-h-11 items-center justify-center gap-2 rounded-kws-control px-3 py-2 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-55',
-              isProject ? 'bg-primary text-primary-foreground' : 'bg-secondary text-[#192436] hover:bg-secondary/75',
+              isProject ? 'bg-primary text-primary-foreground' : 'bg-secondary text-brand-ink hover:bg-secondary/75',
               pendingAction === 'project' && 'ring-2 ring-primary/25',
             )}
             aria-pressed={isProject}
@@ -1198,7 +1198,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
 
       <section className="rounded-kws-card bg-card p-4 shadow-[0_3px_14px_rgba(19,17,43,0.07)]">
         <div className="mb-3 flex items-center gap-2">
-          <h3 className="font-sans text-sm font-semibold text-[#192436]">Sessionverlauf</h3>
+          <h3 className="font-sans text-sm font-semibold text-brand-ink">Sessionverlauf</h3>
           <span className="rounded-kws-badge bg-secondary px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">{sessions.length}</span>
         </div>
 
@@ -1214,7 +1214,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="space-y-0.5">
-                    <p className="text-xs font-semibold text-[#192436]">{format(new Date(session.session_date), 'dd. MMMM yyyy', { locale: de })}</p>
+                    <p className="text-xs font-semibold text-brand-ink">{format(new Date(session.session_date), 'dd. MMMM yyyy', { locale: de })}</p>
                     <p className="text-[11px] text-muted-foreground">
                       {session.attempt_count} {session.attempt_count === 1 ? 'Versuch' : 'Versuche'}
                     </p>
@@ -1244,7 +1244,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
               <Clock className="h-4 w-4" />
             </span>
             <div>
-              <p className="text-xs font-semibold text-[#192436]">Noch keine Sessions</p>
+              <p className="text-xs font-semibold text-brand-ink">Noch keine Sessions</p>
               <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">Deine Einträge erscheinen hier chronologisch.</p>
             </div>
           </div>

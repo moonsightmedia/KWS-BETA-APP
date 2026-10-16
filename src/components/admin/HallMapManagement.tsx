@@ -1328,7 +1328,7 @@ export const HallMapManagement = () => {
                                       textAnchor="middle"
                                       fontSize={12}
                                       fontWeight={700}
-                                      fill="#13112B"
+                                      fill="#192436"
                                     >
                                       {index + 1}
                                     </text>
@@ -1360,7 +1360,7 @@ export const HallMapManagement = () => {
                                     cx={percentToAbsolute(normalizedDraftLabel, mapWidth, mapHeight).x}
                                     cy={percentToAbsolute(normalizedDraftLabel, mapWidth, mapHeight).y}
                                     r={7}
-                                    fill="#13112B"
+                                    fill="#192436"
                                     stroke="#ffffff"
                                     strokeWidth={3}
                                     data-map-handle

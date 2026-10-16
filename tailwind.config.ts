@@ -20,6 +20,14 @@ export default {
         heading: ['Teko', 'sans-serif'],
       },
       colors: {
+        brand: {
+          DEFAULT: "hsl(var(--brand-green))",
+          ink: "hsl(var(--brand-ink))",
+          canvas: "hsl(var(--brand-canvas))",
+          secondary: "hsl(var(--brand-secondary))",
+          muted: "hsl(var(--brand-muted))",
+          border: "hsl(var(--brand-border))",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

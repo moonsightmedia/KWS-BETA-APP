@@ -89,41 +89,50 @@ All colors MUST be HSL.
     --mobile-nav-floating-offset: calc(var(--mobile-nav-content-height) + var(--app-safe-area-bottom) + 16px);
     --mobile-page-bottom-padding: calc(var(--mobile-nav-content-height) + var(--app-safe-area-bottom) + 32px);
 
+    /* Exact brand palette; keep precision so HSL and documented HEX agree.
+       Fixed brand colors also serve light surfaces inside themed views. */
+    --brand-green: 117.72727273 57.39130435% 45.09803922%; /* #36B531 */
+    --brand-ink: 217.24137931 36.70886076% 15.49019608%; /* #192436 */
+    --brand-canvas: 120 9.09090909% 97.84313725%; /* #F9FAF9 */
+    --brand-secondary: 120 16.66666667% 95.29411765%; /* #F1F5F1 */
+    --brand-muted: 203.07692308 6.10328638% 41.76470588%; /* #646C71 */
+    --brand-border: 132 17.24137931% 88.62745098%; /* #DDE7DF */
+
     --background: 0 0% 100%;
-    --canvas: 120 9% 98%;
-    --foreground: 217 37% 15%;
+    --canvas: var(--brand-canvas);
+    --foreground: var(--brand-ink);
 
     --card: 0 0% 100%;
-    --card-foreground: 217 37% 15%;
+    --card-foreground: var(--brand-ink);
 
     --popover: 0 0% 100%;
-    --popover-foreground: 217 37% 15%;
+    --popover-foreground: var(--brand-ink);
 
-    --primary: 118 57% 45%;
+    --primary: var(--brand-green);
     /* Filled controls retain the original brand green; contrast comes from ink. */
     --primary-strong: var(--primary);
     --primary-ink: 118 57% 30%;
-    --primary-foreground: 217 37% 15%;
+    --primary-foreground: var(--brand-ink);
 
-    --secondary: 120 8% 94%;
-    --secondary-foreground: 217 37% 15%;
+    --secondary: var(--brand-secondary);
+    --secondary-foreground: var(--brand-ink);
     --switch-track: 129 10% 86%;
 
-    --muted: 120 8% 94%;
-    --muted-foreground: 203 6% 42%;
+    --muted: var(--brand-secondary);
+    --muted-foreground: var(--brand-muted);
 
-    --accent: 118 57% 45%;
-    --accent-foreground: 217 37% 15%;
+    --accent: var(--primary);
+    --accent-foreground: var(--brand-ink);
 
     --destructive: 5 55% 45%;
     --destructive-foreground: 0 0% 100%;
     
-    --success: 118 57% 45%;
-    --success-foreground: 217 37% 15%;
+    --success: var(--primary);
+    --success-foreground: var(--brand-ink);
 
-    --border: 120 8% 88%;
-    --input: 120 8% 88%;
-    --ring: 217 37% 15%;
+    --border: var(--brand-border);
+    --input: var(--brand-border);
+    --ring: var(--brand-ink);
 
     --radius: 0.75rem;
     --radius-kws-badge: 0.25rem;
@@ -140,8 +149,8 @@ All colors MUST be HSL.
 
     /* Dashboard specific colors */
     --sidebar-bg: 0 0% 100%;
-    --sidebar-icon: 203 6% 42%;
-    --sidebar-icon-active: 118 57% 45%;
+    --sidebar-icon: var(--brand-muted);
+    --sidebar-icon-active: var(--primary);
 
     /* Scroll indicators are navigation aids, not activity indicators. */
     --scrollbar-thumb: 210 8% 68%;
@@ -156,14 +165,14 @@ All colors MUST be HSL.
 
     /* Boulder difficulty colors */
     --difficulty-beginner: 118 57% 55%;
-    --difficulty-easy: 118 57% 45%;
+    --difficulty-easy: var(--primary);
     --difficulty-medium: 45 93% 47%;
     --difficulty-hard: 25 95% 53%;
     --difficulty-expert: 0 84% 60%;
     --difficulty-elite: 118 20% 22%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(118 57% 45%) 0%, hsl(118 57% 55%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(118 57% 55%) 100%);
     --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(120 11% 98%) 100%);
     
     /* Shadows */
@@ -189,9 +198,9 @@ All colors MUST be HSL.
     --popover: 118 15% 14%;
     --popover-foreground: 120 11% 96%;
 
-    --primary: 118 57% 45%;
+    --primary: var(--brand-green);
     --primary-strong: var(--primary);
-    --primary-foreground: 217 37% 15%;
+    --primary-foreground: var(--brand-ink);
 
     --primary-ink: 118 57% 65%;
     --ring: 120 11% 96%;
@@ -202,8 +211,8 @@ All colors MUST be HSL.
     --muted: 118 10% 18%;
     --muted-foreground: 118 8% 60%;
 
-    --accent: 118 57% 45%;
-    --accent-foreground: 217 37% 15%;
+    --accent: var(--primary);
+    --accent-foreground: var(--brand-ink);
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
@@ -525,7 +534,7 @@ All colors MUST be HSL.
   .rdp-caption_dropdowns select:focus {
     outline: none;
     box-shadow: 0 0 0 2px rgba(54, 181, 49, 0.2);
-    border-color: #36B531;
+    border-color: hsl(var(--brand-green));
   }
 
   .rdp-dropdown:hover,

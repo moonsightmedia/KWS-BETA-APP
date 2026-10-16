@@ -131,7 +131,7 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
           {!hasVideo && <BetaPlaceholder thumbnailUrl={thumbnailUrl} boulderName={boulder.name} />}
 
           {hasVideo && !isDirectVideo ? (
-            <div className="absolute left-2.5 top-2.5 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.94] px-2.5 text-[10px] font-semibold text-[#192436] shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm">
+            <div className="absolute left-2.5 top-2.5 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.94] px-2.5 text-[10px] font-semibold text-brand-ink shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm">
               <BadgeCheck className="h-3.5 w-3.5 text-primary" />
               Offizielle Beta
             </div>
@@ -141,7 +141,7 @@ export const BoulderDetailDialog = ({ boulder, open, onOpenChange }: BoulderDeta
             <button
               type="button"
               onClick={toggleFullscreen}
-              className="absolute right-2.5 top-2.5 grid h-9 w-9 place-items-center rounded-kws-control border border-white/70 bg-white/[0.94] text-[#192436] shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              className="absolute right-2.5 top-2.5 grid h-9 w-9 place-items-center rounded-kws-control border border-white/70 bg-white/[0.94] text-brand-ink shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               aria-label={isFullscreen ? 'Vollbild beenden' : 'Video im Vollbild anzeigen'}
               title={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
             >
