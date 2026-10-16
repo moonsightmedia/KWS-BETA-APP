@@ -6,6 +6,7 @@ import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, ChevronDown, Ch
 import { BoulderFilterControls, BoulderFilterPanel, BoulderSortPanel, FilterSection, FilterToggle } from '@/components/boulder/BoulderFilterControls';
 import { SectorFilterOptions } from '@/components/boulder/SectorFilterOptions';
 import { DashboardHeader } from '@/components/DashboardHeader';
+import { BetaLogo } from '@/components/brand/BetaLogo';
 import { BoulderMapPanel } from '@/components/boulder/BoulderMapPanel';
 import { useSidebar } from '@/components/SidebarContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -763,9 +764,23 @@ const Boulders = () => {
         {pageHeader}
 
         <main
-          className="mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8"
+          className="relative isolate mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8"
           style={{ paddingTop: showMap ? '0' : '0.75rem' }}
         >
+          {!showMap ? (
+            <div
+              aria-hidden="true"
+              data-brand-watermark
+              className="pointer-events-none absolute inset-0 -z-10 grid place-items-center overflow-hidden"
+            >
+              <BetaLogo
+                variant="symbol"
+                decorative
+                className="h-auto w-[22rem] max-w-[90%] opacity-[0.08] md:w-[30rem]"
+              />
+            </div>
+          ) : null}
+
           {showMap && (
               <BoulderMapPanel
                 headerRef={headerRef}

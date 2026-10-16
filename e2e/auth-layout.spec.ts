@@ -13,6 +13,17 @@ for (const width of [375, 768, 1111, 1280, 1920]) {
     }));
     await page.goto('/test/fixtures/auth-layout.html');
     await expect(page.getByRole('heading', { name: 'Willkommen zurück' })).toBeVisible();
+    const logo = page.getByRole('img', { name: 'beta', exact: true });
+    await expect(logo).toBeVisible();
+    await expect(page.getByText('Kletterwelt Sauerland', { exact: true })).toHaveCount(0);
+    const logoBox = (await logo.boundingBox())!;
+    expect(logoBox.width).toBeCloseTo(width < 768 ? 128 : 184, 0);
+    if (width < 1024) {
+      const contentBox = (await page.locator('main').boundingBox())!;
+      expect(logoBox.x + logoBox.width / 2).toBeCloseTo(contentBox.x + contentBox.width / 2, 0);
+    }
+    await expect(logo.locator('g').first()).toHaveCSS('fill', 'rgb(54, 181, 49)');
+    await expect(logo.locator('g').last()).toHaveCSS('fill', 'rgb(25, 36, 54)');
     const benefit = page.getByText('Weniger suchen. Mehr klettern.').locator('..');
     const intro = page.getByText('Melde dich an und finde deine Boulder, Betas und Fortschritte.');
     if (width >= 1024) {

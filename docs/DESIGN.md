@@ -155,6 +155,33 @@ Regeln:
   erlaubt. Bedienhandlungen und längere Texte bleiben größer.
 - Überschriften sind kurz. Zusätzliche Erklärung maximal ein kompakter Satz.
 
+### 3.3.1 Beta-Marke: Variante 03 mit Teko (16.10.2026)
+
+Die gewählte Produktmarke ist das kompakte Zeichen aus zwei Griffformen mit
+dem Schriftzug „beta“ in Teko SemiBold 600. `BetaLogo` verwendet festgelegte
+Vektorkonturen; Zeichen und Schriftzug werden weder nachgesetzt noch verändert.
+Das Zeichen nutzt `primary`, die Wortmarke `brand-ink`; die inverse Wortmarke
+ist weiß. Der Akzent kann damit später die Farbe einer anderen Halle übernehmen.
+
+Für die freigegebene Web-Integration gilt: vollständige farbige Marke auf Auth und in der Desktop-Seitenleiste; Header zeigen kein Produktlogo.
+
+- Header verwenden wieder die normalen Seitentitel und Bedienelemente.
+  Home zeigt mobil „Home“, auf Desktop die persönliche Begrüßung.
+- Die Desktop-Seitenleiste zeigt das vollständige Logo über der Navigation; eingeklappt bleibt das Zeichen sichtbar.
+- Anmeldung und Registrierung zeigen mobil ein mittiges, 128px breites Logo
+  über Begrüßung und Formular auf Weiß. Desktop behält die bestehende Zweispaltigkeit.
+  Ab 768px ist es 184px breit. Der bisherige Kletterwelt-Sauerland-Absender
+  wird an dieser Stelle ersetzt.
+- Boulder und andere Fachseiten behalten ihre Seitentitel und Werkzeuge.
+- Nutzerkorrektur 16.10.2026: Hinter der Boulderliste steht das Zeichen horizontal und vertikal mittig im Listenbereich
+  im Hallenakzent mit 8% Deckkraft als separate dekorative Ebene. Weiße
+  Karten, Textkontrast und Bedienelemente bleiben deckend. Die Ebene ist für
+  Screenreader verborgen, fängt keine Eingaben ab und entfällt in der Hallenkarte.
+
+Die lokale Designvorschau verwendet separate Beispieldaten. Der freigegebene
+Web-Release bindet nur die regulären App-Komponenten und die bestehende
+Produktionskonfiguration ein; Vorschau-Fixtures werden nicht veröffentlicht.
+
 ### 3.4 Radien
 
 Es gibt drei verbindliche KWS-Radiusstufen:

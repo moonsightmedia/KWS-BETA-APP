@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { HomeIcon as LayoutDashboard, BouldersIcon as List, StatisticsIcon as BarChart3, EditIcon as Edit3, UsersIcon as Users, AccountIcon as User } from '@/lib/appIcons';
 import { ProfileMenu } from '@/components/ProfileMenu';
+import { BetaLogo } from '@/components/brand/BetaLogo';
 import { cn } from '@/lib/utils';
 import { TrainingIcon } from '@/lib/appIcons';
 import { TRAINING_UI_ENABLED } from '@/features/training/flags';
@@ -360,24 +361,19 @@ export const Sidebar = ({ className }: SidebarProps) => {
         isExpanded ? "w-64" : "w-20",
         className
       )}>
-        {/* Brand */}
-        <div className="mb-8 flex h-14 w-full shrink-0 items-center gap-3 overflow-hidden px-4">
-          <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full bg-white">
-            <img
-              src="/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png"
-              alt={isExpanded ? '' : 'Kletterwelt Sauerland'}
-              className="h-full w-full object-cover"
-            />
-          </div>
-            <div className="kws-sidebar-label min-w-0" aria-hidden={!isExpanded}>
-              <p className="truncate font-heading text-[1.35rem] font-semibold leading-none tracking-[0.01em] text-foreground">
-                Kletterwelt
-              </p>
-              <p className="mt-1 truncate font-sans text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Sauerland · Beta App
-              </p>
-            </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => navigateToArea(homePath)}
+          aria-label="beta – zur Startseite"
+          className="mb-8 flex h-14 w-full shrink-0 items-center gap-2 overflow-hidden px-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        >
+          <span className="grid h-12 w-12 shrink-0 place-items-center">
+            <BetaLogo variant="symbol" decorative className="h-10 w-10" />
+          </span>
+          <span className="kws-sidebar-label min-w-0" aria-hidden={!isExpanded}>
+            <BetaLogo variant="wordmark" decorative className="h-9 w-auto" />
+          </span>
+        </button>
 
         {/* Navigation */}
         <TooltipProvider delayDuration={300}>

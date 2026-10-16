@@ -60,6 +60,23 @@ for (const width of [375, 768, 1280, 1920]) {
     for (const label of ['Home', 'Boulder', 'Statistiken', 'Home']) {
       await page.getByRole('link', { name: label, exact: true }).locator('visible=true').first().click();
       measurements.push(await geometry(page));
+      await expect(page.locator('.sticky.top-0').first().getByRole('img', { name: 'beta', exact: true })).toHaveCount(0);
+      const sidebarBrand = page.getByRole('button', { name: 'beta – zur Startseite', exact: true });
+      if (width >= 768) await expect(sidebarBrand).toBeVisible();
+      else await expect(sidebarBrand).toBeHidden();
+      if (label === 'Boulder') {
+        const background = page.locator('[data-brand-watermark]');
+        await expect(background).toHaveAttribute('aria-hidden', 'true');
+        await expect(background).toHaveCSS('pointer-events', 'none');
+        await expect(background.locator('svg')).toHaveCSS('opacity', '0.08');
+        const centered = await background.evaluate(layer => {
+          const area = layer.getBoundingClientRect();
+          const mark = layer.querySelector('svg')!.getBoundingClientRect();
+          return Math.abs(area.x + area.width / 2 - mark.x - mark.width / 2) < 0.5
+            && Math.abs(area.y + area.height / 2 - mark.y - mark.height / 2) < 0.5;
+        });
+        expect(centered).toBe(true);
+      }
       const alignment = await opticalAlignment(page);
       console.log(`${phase} ${width} ${label} optical: ${JSON.stringify(alignment)}`);
       if (phase !== 'before') expect(Math.abs(alignment.inkCenter - alignment.buttonCenter)).toBeLessThanOrEqual(1.5);
