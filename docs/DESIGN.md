@@ -185,6 +185,16 @@ Für die freigegebene Web-Integration gilt: vollständige farbige Marke auf Auth
   Hallenkarten/Zeicheneditor, Dialoge, Medienvollbild und TV-Aushang erhalten
   kein eigenes Wasserzeichen. Header bleiben frei vom Produktlogo.
 
+Natives Android-App-Icon (Nutzerkorrektur 17.10.2026): Das freigegebene
+Beta-Zeichen steht ohne Schrift weiß auf KWS-Grün (#36B531), entsprechend dem
+Android-Motiv im Logo-Paket. Adaptive Icons verwenden identische Vorder- und
+Hintergrundebenen für normale und runde Launcher. Ab API33 ist dieselbe Kontur
+als monochrome Ebene für System-Theming hinterlegt. Ältere Android-Versionen
+haben passende PNGs für alle fünf Dichten. Das System setzt die adaptive Maske;
+keine vorgerundete Fläche oder Schatten in den adaptiven Ebenen. Änderungen
+werden aus public/brand/beta-icon.svg mit scripts/generate-android-icons.cjs
+reproduzierbar exportiert. Das alte KWS-Homescreen-Icon wird nicht weiterverwendet.
+
 Die lokale Designvorschau verwendet separate Beispieldaten. Der freigegebene
 Web-Release bindet nur die regulären App-Komponenten und die bestehende
 Produktionskonfiguration ein; Vorschau-Fixtures werden nicht veröffentlicht.
