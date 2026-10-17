@@ -1,0 +1,88 @@
+{
+  "source": "https://beta.kletterwelt-sauerland.de",
+  "captured": "2026-10-17",
+  "pages": {
+    "privacy": [
+      {
+        "title": "1. Verantwortlicher und Kontakt",
+        "body": "<p>Verantwortlich ist die Boulder- und Kletterwelt GmbH, Rosmarter Allee 12, 58762 Altena. Bei Fragen zu personenbezogenen Daten und zur Wahrnehmung deiner Rechte erreichst du uns über <a href=\"mailto:marketing@kletterwelt-sauerland.de\">marketing@kletterwelt-sauerland.de</a>. Weitere Unternehmensangaben stehen im <a href=\"/imprint\">Impressum</a>.</p>"
+      },
+      {
+        "title": "2. Gastzugang und Verbindung zum Server",
+        "body": "<p>Du kannst Boulder und offizielle Beta-Videos ohne Konto ansehen. Für die Auslieferung werden insbesondere deine IP-Adresse, die aufgerufene Adresse und technische Verbindungsdaten verarbeitet. Die App benötigt eine Internetverbindung. Die Übertragung erfolgt verschlüsselt über HTTPS.</p>"
+      },
+      {
+        "title": "3. Konto und Anmeldung ab 16 Jahren",
+        "body": "<p>Bei der Registrierung verarbeiten wir Name, E-Mail-Adresse, Geburtsdatum, eine technische Benutzer-ID und die für die Anmeldung erforderlichen Daten. Das Geburtsdatum dient der Altersprüfung und ist nicht für andere Nutzer sichtbar. Passwörter werden durch den Authentifizierungsdienst als Hash gespeichert. Bestätigungs- und Passwort-Reset-Mails ermöglichen die sichere Kontonutzung. Eigene Konten stehen zunächst ab 16 Jahren zur Verfügung.</p>"
+      },
+      {
+        "title": "4. Boulderaktivitäten und Community",
+        "body": "<p>Gespeicherte Boulder, Projekte, Begehungen, Versuche, Trainingstage und private Notizen werden deinem Konto zugeordnet. Private Notizen und persönliche Verlaufsdaten sind in der App für dich bestimmt. Kommentare, Bewertungen und Schwierigkeitseinschätzungen gehören zu den Community-Funktionen; dein Anzeigename erscheint bei freigegebenen Kommentaren. Ein optionales Profilbild wird deinem Profil zugeordnet. Inhalte, die du selbst veröffentlichst, dürfen keine unzulässigen personenbezogenen Daten anderer enthalten.</p>"
+      },
+      {
+        "title": "5. Moderation, Support und Diagnosedaten",
+        "body": "<p>Inhaltsmeldungen und persönliche Nutzersperren werden kontobezogen gespeichert. Meldungen mit Grund, Beschreibung und Inhaltszuordnung können nur der meldende Nutzer und die berechtigte Administration einsehen. Für Support bearbeiten wir deine freiwilligen Angaben im Feedbackformular sowie gegebenenfalls beigefügte technische Fehlerinformationen. Die Betreiberadministration kann Daten soweit erforderlich zur Unterstützung, Sicherheit und Bearbeitung von Löschanträgen einsehen.</p>"
+      },
+      {
+        "title": "6. Mitteilungen und lokale Speicherung",
+        "body": "<p>Die App speichert Sitzungsdaten und Einstellungen auf deinem Gerät, damit du angemeldet bleibst und deine Anzeigeeinstellungen wiederfindest. In-App-Mitteilungen und ihre Lesestände können deinem Konto zugeordnet werden. Bei aktivierter nativer Push-Registrierung werden ein Geräte-Token und die Geräteplattform zur Zustellung verarbeitet. Die Registrierung verlangt deine Betriebssystemberechtigung; eine erfolgreiche Push-Zustellung ist nicht für jede Plattform zugesichert. Eigene Nutzungs-Telemetrie und Sentry-Übermittlung sind in der aktuellen Hostinger-Version deaktiviert. Wir verwenden keine appübergreifende Werbeverfolgung.</p>"
+      },
+      {
+        "title": "7. Zwecke und Rechtsgrundlagen",
+        "body": "<p>Die Verarbeitung für Konto, Anmeldung und von dir genutzte Funktionen beruht auf Art. 6 Abs. 1 lit. b DSGVO. Technische Sicherheit, Missbrauchsschutz, Moderation und notwendige Betriebsdiagnosen beruhen auf Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist ein sicherer und verlässlicher App-Betrieb. Soweit eine Verarbeitung deine Einwilligung erfordert, erfolgt sie auf Art. 6 Abs. 1 lit. a DSGVO und kann für die Zukunft widerrufen werden. Eine Betriebssystemberechtigung ersetzt nicht automatisch eine datenschutzrechtliche Einwilligung. Gesetzlich vorgeschriebene Aufbewahrung erfolgt auf Art. 6 Abs. 1 lit. c DSGVO.</p>"
+      },
+      {
+        "title": "8. Hosting, Dienstleister und externe Links",
+        "body": "<p>Datenbank, Authentifizierung, App-Dateien, Videos und Thumbnails werden auf dem Hostinger-Server der Kletterwelt in Deutschland betrieben. Berechtigte technische Betreuung kann durch Moonsight Media erfolgen. Dienstleister für Hosting und E-Mail-Verarbeitung erhalten die für ihren jeweiligen Zweck erforderlichen Daten. Bestätigungs- und Reset-Mails werden derzeit über den konfigurierten Maildienst mit dem Absender beta@kletterwelt-sauerland.de versendet. Betriebssystem- und Storeanbieter verarbeiten Daten nach ihren eigenen Datenschutzregeln. Externe Website-Links führen zu den jeweiligen Anbietern.</p><p>Wenn ein Boulder ein eingebettetes YouTube- oder Vimeo-Video enthält, wird es erst nach deiner ausdrücklichen Auswahl geladen. Dann wird eine Verbindung zum jeweiligen Anbieter hergestellt. Dabei können IP-Adresse und Geräteinformationen übermittelt und außerhalb der EU verarbeitet werden. Du kannst diese Verarbeitung vermeiden, indem du das Video nicht lädst. Für die regulären halleneigenen Videos wird der Kletterwelt-Videodienst verwendet.</p>"
+      },
+      {
+        "title": "9. Aufbewahrung, Löschung und Sicherungen",
+        "body": "<p>Kontodaten und gespeicherte Aktivitäten werden für die Dauer der Kontonutzung gespeichert. Du kannst unter Profil → Profil bearbeiten → Konto löschen einen Löschantrag stellen. Marketing bearbeitet ihn spätestens innerhalb von sieben Tagen; nach Abschluss erhältst du eine Bestätigung. Notwendige gesetzliche Aufbewahrungspflichten und berechtigte Ausnahmen werden im Einzelfall berücksichtigt.</p><p>Sicherungen sind verschlüsselt. Der laufende Sicherungsplan hält die letzten sieben täglichen Sicherungen sowie je eine aus vier Wochen vor. Daten können bis zum turnusmäßigen Ersetzen in Sicherungen verbleiben; diese werden nicht für die reguläre App-Nutzung verwendet. Vor einer Wiederherstellung müssen zwischenzeitliche Löschungen berücksichtigt werden. Frühere Migrationssicherungen und die schreibgesperrte Altdatenbank werden bis zur kontrollierten Stilllegung gesondert geschützt aufbewahrt. Support- und Moderationsdaten werden gelöscht, sobald ihr Zweck entfällt und keine Aufbewahrung erforderlich ist.</p>"
+      },
+      {
+        "title": "10. Deine Rechte",
+        "body": "<p>Du hast nach Maßgabe der DSGVO Rechte auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung und Datenübertragbarkeit. Bei einer Verarbeitung auf berechtigtem Interesse kannst du aus Gründen deiner besonderen Situation widersprechen. Einwilligungen kannst du mit Wirkung für die Zukunft widerrufen. Anfragen richtest du an <a href=\"mailto:marketing@kletterwelt-sauerland.de\">marketing@kletterwelt-sauerland.de</a>. Du kannst dich bei einer Datenschutzaufsichtsbehörde beschweren, insbesondere bei der Landesbeauftragten für Datenschutz und Informationsfreiheit Nordrhein-Westfalen.</p><a href=\"https://www.ldi.nrw.de/\" target=\"_blank\" rel=\"noreferrer\">Datenschutzaufsicht Nordrhein-Westfalen</a>"
+      }
+    ],
+    "imprint": [
+      {
+        "title": "Betreiber der App",
+        "body": "<p>Boulder- und Kletterwelt GmbH<br>Rosmarter Allee 12<br>58762 Altena, Deutschland</p><p>Geschäftsführer: René Brehm<br>Amtsgericht Iserlohn · HRB 9693<br>Umsatzsteuer-ID: DE333854208</p>"
+      },
+      {
+        "title": "Kontakt",
+        "body": "<p>Telefon: +49 (0) 2351 / 879 911 2<br><a href=\"mailto:info@kletterwelt-sauerland.de\">info@kletterwelt-sauerland.de</a></p><p>App-Support, Inhaltsmeldungen und Datenschutzanfragen: <a href=\"mailto:marketing@kletterwelt-sauerland.de\">marketing@kletterwelt-sauerland.de</a></p>"
+      },
+      {
+        "title": "Digitaler Partner",
+        "body": "<p>Moonsight Media unterstützt die technische Entwicklung und Betreuung der App.</p><a href=\"https://moonsight.media/imprint\" target=\"_blank\" rel=\"noreferrer\">Unternehmensangaben von Moonsight Media</a>"
+      },
+      {
+        "title": "Verbraucherstreitbeilegung",
+        "body": "<p>Wir sind zur Teilnahme an einem Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle weder verpflichtet noch bereit.</p>"
+      }
+    ],
+    "community-rules": [
+      {
+        "title": "Respektvoll miteinander bouldern",
+        "body": "<p>Teile hilfreiche Hinweise zu Bouldern. Beleidigungen, Belästigung, Diskriminierung, Drohungen, sexuelle Inhalte, Gewaltverherrlichung und rechtswidrige Inhalte sind untersagt. Veröffentliche keine privaten Daten anderer Personen.</p>"
+      },
+      {
+        "title": "Rechte und Sicherheit",
+        "body": "<p>Veröffentliche nur Inhalte, an denen du die nötigen Rechte hast. Erkennbare Personen müssen mit der Veröffentlichung einverstanden sein. Beachte die Hallenregeln; Videos und Kommentare ersetzen keine Einweisung und keine eigenständige Sicherheitsprüfung.</p>"
+      },
+      {
+        "title": "Prüfung vor Veröffentlichung",
+        "body": "<p>Neue und bearbeitete Kommentare werden zunächst nur dem Verfasser und der Administration angezeigt. Marketing prüft sie vor der Freigabe. Die Halle veröffentlicht offizielle Bilder und Beta-Videos über ihre berechtigten Mitarbeiter.</p>"
+      },
+      {
+        "title": "Inhalte melden und Nutzer blockieren",
+        "body": "<p>Mit „Melden“ am Kommentar oder Boulder übermittelst du eine private Meldung an die Administration. „Nutzer blockieren“ blendet dessen Kommentare für dich aus; unter Profil → Profil bearbeiten kannst du die Sperre aufheben. Ohne Anmeldung kannst du einen Inhalt mit Link oder Bouldername per E-Mail melden: <a href=\"mailto:marketing@kletterwelt-sauerland.de\">marketing@kletterwelt-sauerland.de</a>.</p>"
+      },
+      {
+        "title": "Moderation und Rückfragen",
+        "body": "<p>Marketing bearbeitet Meldungen und kann Inhalte ausblenden sowie Veröffentlichungen eines Kontos sperren. Rückfragen oder Einwände kannst du an <a href=\"mailto:marketing@kletterwelt-sauerland.de\">marketing@kletterwelt-sauerland.de</a> richten. Bei akuter Gefahr wende dich an die zuständigen Notfallstellen.</p>"
+      }
+    ]
+  }
+}

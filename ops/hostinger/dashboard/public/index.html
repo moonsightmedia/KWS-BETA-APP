@@ -5,6 +5,7 @@
   <meta name="robots" content="noindex,nofollow"><title>KWS Beta App · Betrieb</title>
   <link rel="stylesheet" href="/ops/dashboard.css">
   <script src="/ops/dashboard.js" type="module"></script>
+  <script src="/ops/landing-metrics.js" type="module"></script>
 </head>
 <body>
   <a class="skip" href="#main">Zum Inhalt</a>
@@ -19,6 +20,7 @@
       <a class="metric" href="/project/default/editor"><span>Sektoren</span><strong id="sectors">—</strong><small>Hallendaten öffnen <span aria-hidden="true">↗</span></small></a>
       <a class="metric" href="/project/default/storage/files"><span>Storage-Dateien</span><strong id="storage">—</strong><small id="storage-detail">Bestand wird geladen</small></a>
     </section>
+    <section class="panel landing-panel" aria-labelledby="landing-title"><div class="section-heading"><h2 id="landing-title">Landingpage · Seitenaufrufe</h2><span id="landing-state" class="badge">Wird geladen</span></div><div class="resources"><div><span>Heute</span><strong id="landing-today">—</strong></div><div><span>Letzte 7 Tage</span><strong id="landing-week">—</strong></div><div><span>Letzte 30 Tage</span><strong id="landing-month">—</strong></div></div><p id="landing-since" class="footnote">Die Zählung beginnt mit der Einrichtung.</p><details><summary>Die letzten sieben Tage</summary><dl id="landing-days" class="details"></dl></details><p class="footnote">Erfolgreiche HTTP-Aufrufe von /landingpage, keine eindeutigen Besucher. Wiederholte Aufrufe, Bots und Tests können mitzählen. Ohne IP-Adressen, Browserkennungen oder Cookies. Tagesgrenzen: Europe/Berlin. Frühere Besuche werden nicht nachträglich erfasst. Die Store-Links sind noch Platzhalter; Store-Klicks und die Herkunft von QR-Codes werden nicht ausgewiesen.</p></section>
     <div class="columns">
       <section class="panel"><div class="section-heading"><h2>Server & Dienste</h2><span class="badge" id="service-badge">Wird geprüft</span></div><div class="resources">
         <div><span>CPU</span><strong id="cpu">—</strong><progress id="cpu-bar" max="100" value="0" aria-label="CPU-Auslastung" hidden></progress><small id="cpu-detail">Messwert wird geladen</small></div>
