@@ -8,7 +8,9 @@ const links=html=>html.replace(/<a\b[^>]*>/g,tag=>tag.replace(/href="#([^"]*)"/g
 const header=links(landing.match(/<header class="header">[\s\S]*?<\/header>/)[0]);
 const footer=links(landing.match(/<footer[\s\S]*?<\/footer>/)[0]).replace(`class="back-top" href="${base}/landingpage#"`,'class="back-top" href="#"');
 for(const [path,title] of Object.entries(titles)){
- const description=`${title} für die Beta App und die Landingpage der Kletterwelt Sauerland.`;
+ const description=path==='community-rules'
+  ? 'Community-Regeln für die Nutzung der Beta App der Kletterwelt Sauerland.'
+  : `${title} für die Beta App und die Landingpage der Kletterwelt Sauerland.`;
  if(!source.pages[path]?.length)throw Error('Missing legal source: '+path);
  let sections=source.pages[path].map(s=>`<section><h2>${s.title}</h2>${s.body}</section>`).join('\n');
  if(path==='privacy')sections=sections.replace('Eigene Nutzungs-Telemetrie und Sentry-Übermittlung','Eigene Nutzungs-Telemetrie der App und Sentry-Übermittlung');
