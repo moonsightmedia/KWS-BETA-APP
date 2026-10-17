@@ -22,6 +22,7 @@ def verified_landing(source, revision):
         assert relative and not Path(relative).is_absolute() and relative not in names and relative != 'release.json'
         names.add(relative)
         path = directory / relative
+        assert path.resolve().is_relative_to(directory.resolve()), 'Landing asset escapes release'
         assert path.is_file() and not path.is_symlink()
         data = path.read_bytes()
         assert len(data) == file['bytes'] and hashlib.sha256(data).hexdigest() == file['sha256'], 'Landing asset differs'
