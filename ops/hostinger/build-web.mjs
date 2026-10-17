@@ -16,6 +16,7 @@ run(['ops/hostinger/landingpage/verify-bundle.mjs',release]);
 const manifest=JSON.parse(readFileSync(join(release,'manifest.json'),'utf8'));
 const destination=resolve(root,'dist/landing');
 cpSync(join(release,'public/landing'),destination,{recursive:true});
-writeFileSync(join(destination,'release.json'),JSON.stringify({...manifest,revision},null,2)+'\n');
+const {schema,release:landingRelease,canonical,routesSha256,files}=manifest;
+writeFileSync(join(destination,'release.json'),JSON.stringify({schema,revision,release:landingRelease,canonical,routesSha256,files},null,2)+'\n');
 writeFileSync(join(root,'dist/release.json'),JSON.stringify({revision,landing_release:manifest.release})+'\n');
 console.log(JSON.stringify({revision,landing_release:manifest.release,files:manifest.files.length,combined:true}));
