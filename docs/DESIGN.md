@@ -1124,9 +1124,19 @@ Verbindliche Regeln:
 - Kontrast für normalen Text mindestens `4.5:1`.
 - Loading-Skeletons verwenden dieselben Radien und Größen wie der spätere Inhalt.
 - Globale Lade- und Authentifizierungsübergänge verwenden denselben ruhigen
-  Vollbildstatus mit KWS-Logo, aktionsbezogener Kurzmeldung und eckiger
-  Fortschrittsanzeige. App-Start, Session-Prüfung, Anmeldung, Registrierung,
-  E-Mail-Bestätigung und Abmeldung erhalten jeweils eindeutige Texte.
+  Vollbildstatus mit dem freigegebenen Beta-Logo auf Weiß, einer aktionsbezogenen
+  Kurzmeldung und einer 96 × 2px großen unbestimmten Ladeanzeige. Keine Karte,
+  kein altes KWS-Zeichen, keine hüpfenden Balken. Das vollständige Logo ist mobil
+  152px und ab md 176px breit. Es blendet einmal in 180ms mit 3px Versatz ein;
+  nur der kleine Ladeindikator bewegt sich anschließend. App-Start, Session-Prüfung,
+  Anmeldung, Registrierung, E-Mail-Bestätigung und Abmeldung behalten eindeutige
+  Texte. Die Animation verlängert den bestehenden Ladeablauf nicht.
+  Native Launch-Screens zeigen das unveränderte grüne Beta-Zeichen auf Weiß.
+  Android verwendet eigene Splash-Ressourcen unabhängig vom weiß-grünen Launcher;
+  iOS eine mittige 288pt-Bildfläche mit 72pt-Zeichen, ohne Aspect-Fill-Zuschnitt.
+  Export: `scripts/generate-beta-splash.cjs`. Am 17.10.2026 zur Veröffentlichung
+  freigegeben (Web1.0.243 / Android1.0.66). iOS-Ressourcen vorbereitet;
+  ein neuer TestFlight-Build ist nicht Bestandteil dieses Releases.
 - Ein Ladezustand darf nicht kurz flackern: initiale Übergänge bleiben für eine
   kurze Mindestdauer stabil. `prefers-reduced-motion` reduziert alle dekorativen
   Ladeanimationen.
