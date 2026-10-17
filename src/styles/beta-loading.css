@@ -1,0 +1,19 @@
+/* Keep the approved logo intact. Only the status line loops; no fake progress. */
+.beta-loading-content {
+  padding-top: var(--app-safe-area-top, 0px);
+  padding-bottom: var(--app-safe-area-bottom, 0px);
+}
+.beta-loading-logo { animation: beta-loading-enter 180ms ease-out both; }
+.beta-loading-indicator { animation: beta-loading-travel 1100ms cubic-bezier(.45,0,.25,1) infinite alternate; }
+@keyframes beta-loading-enter {
+  from { opacity: .6; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes beta-loading-travel {
+  from { transform: translateX(0); }
+  to { transform: translateX(200%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .beta-loading-logo, .beta-loading-indicator { animation: none; }
+  .beta-loading-indicator { transform: translateX(100%); }
+}
