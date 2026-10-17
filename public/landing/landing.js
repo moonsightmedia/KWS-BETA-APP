@@ -200,7 +200,7 @@
       });
       details.forEach(detail => { detail.hidden = detail.dataset.contribution !== value; });
       toggle.setAttribute('aria-label', value === 'moonsight' ? 'Beitrag der Kletterwelt Sauerland anzeigen' : 'Beitrag von Moonsight Media anzeigen');
-      toggle.title = value === 'moonsight' ? 'Zur Kletterwelt Sauerland wechseln' : 'Zu Moonsight Media wechseln';
+      toggle.title = value === 'moonsight' ? 'Beitrag der Kletterwelt Sauerland anzeigen' : 'Beitrag von Moonsight Media anzeigen';
       if (!animate) { settleScreens(); return; }
       hintConsumed = true;
       status.textContent = value === 'moonsight' ? 'Moonsight Media: Gestaltung und Entwicklung der App.' : 'Kletterwelt Sauerland: Boulderdaten, offizielle Beta-Videos und Schraubtermine.';
