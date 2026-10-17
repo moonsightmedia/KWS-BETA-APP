@@ -1,3 +1,14 @@
+# Current release process
+
+App and landing are published together by the main GitHub web workflow. Source:
+`public/landing` on `main`. See `docs/GITHUB_WEB_AUTODEPLOY.md` for the combined
+build, tests, revision proofs and rollback. The compiled read-only mount is
+`/opt/kws/web-production/source/dist/landing:/landing:ro`.
+
+The independent upload commands and version notes below document earlier releases.
+After the unified migration, `publish.py` refuses a separate publication. Do not
+use an archived copy of the publisher to bypass the common release process.
+
 # Aktuell: V29 – Domain-Favicon, 17.10.2026
 
 Release `f1bc9f3fdb8f42ab`, live17.10.2026 um17:06:05Europe/Berlin.

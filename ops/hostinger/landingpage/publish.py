@@ -173,6 +173,8 @@ def apply():
 
 if __name__ == '__main__':
     assert os.geteuid()==0 and socket.gethostname().split('.')[0]=='srv2044594'
+    proof=ROOT/'LANDING-VERIFIED.json'
+    assert not proof.exists() or json.loads(proof.read_text()).get('mode')!='unified', 'Landing is managed by the main web release; publish through GitHub main'
     os.umask(0o077)
     if sys.argv[1]=='stage':
         assert len(sys.argv)==5, 'stage archive archive-sha256 expected-app-revision'

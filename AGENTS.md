@@ -20,3 +20,10 @@ Vor jeder materiellen Änderung an sichtbarer UI muss
 
 Bestehende globale Sicherheits-, Workflow-, Git- und Handoff-Regeln bleiben
 unverändert gültig.
+
+## Web-Veröffentlichung
+
+App und Landingpage werden gemeinsam über `main` veröffentlicht. Änderungen an
+`public/landing` durchlaufen denselben PR-/CI-Ablauf wie die App. Der gemeinsame
+Build und Rollback sind in `docs/GITHUB_WEB_AUTODEPLOY.md` beschrieben. Der frühere
+separate Landing-Upload ist nach der Umstellung kein regulärer Releaseweg mehr.
