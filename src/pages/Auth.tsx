@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { accountBirthDateError } from '@/lib/accountEligibility';
+import { AUTH_LOGIN_PATH, AUTH_REGISTER_PATH, isAuthPage } from '@/lib/authRoutes';
 
 type AuthMode = 'login' | 'signup';
 type PendingAction = 'login' | 'signup' | 'reset' | null;
@@ -62,9 +63,7 @@ const getDaysInMonth = (month: number, year: number): number =>
 const Auth = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const initialMode: AuthMode = location.pathname.endsWith('/register') ? 'signup' : 'login';
-
-  const [authMode, setAuthMode] = useState<AuthMode>(initialMode);
+  const authMode: AuthMode = location.pathname === AUTH_REGISTER_PATH ? 'signup' : 'login';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -92,16 +91,12 @@ const Auth = () => {
   } = useAuth();
 
   useEffect(() => {
-    setAuthMode(location.pathname.endsWith('/register') ? 'signup' : 'login');
-  }, [location.pathname]);
-
-  useEffect(() => {
     console.log('[Auth] mounted');
 
     if (user) {
       try {
         const preserveRoute = sessionStorage.getItem('preserveRoute');
-        if (preserveRoute && preserveRoute !== '/auth' && preserveRoute !== window.location.pathname) {
+        if (preserveRoute && !isAuthPage(preserveRoute.split(/[?#]/)[0]) && preserveRoute !== window.location.pathname) {
           console.log('[Auth] User logged in, restoring preserved route:', preserveRoute);
           sessionStorage.removeItem('preserveRoute');
           navigate(preserveRoute);
@@ -136,10 +131,9 @@ const Auth = () => {
   }, [birthDay, validDays]);
 
   const changeMode = (nextMode: AuthMode) => {
-    setAuthMode(nextMode);
     setShowResetPassword(false);
     setShowResendConfirmation(false);
-    navigate(nextMode === 'signup' ? '/app/register' : '/app/login', { replace: true });
+    navigate(nextMode === 'signup' ? AUTH_REGISTER_PATH : AUTH_LOGIN_PATH, { replace: true });
   };
 
   const handleSignIn = async (event: React.FormEvent) => {

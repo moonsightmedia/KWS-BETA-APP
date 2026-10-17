@@ -890,6 +890,11 @@ erhalten; bei wirklich leeren Suchtreffern gibt es einen expliziten Reset.
 - Filter bleiben Multi-Select,
 - keine Home-Funktion, die eine Anmeldung voraussetzt,
 - Hauptnavigation enthält für Gäste `Boulder` und `Anmelden`,
+- dieselbe mobile Leiste bleibt auf `/auth`, `/app/login` und `/app/register`
+  sichtbar. Anmeldung und Registrierung markieren gemeinsam `Anmelden` als
+  aktiven Bereich; neue Links verwenden `/app/login`. Die URL bestimmt das
+  Formular unmittelbar, auch bei Zurück/Vorwärts. Callback, Passwort-Neuvergabe
+  und Rechtstexte bleiben ohne Hauptnavigation,
 - die Gästeübersicht wird erst nach abgeschlossener Sessionprüfung gerendert;
   eine vorhandene Anmeldung leitet `/guest` ohne gemischte Gast-/Nutzeroberfläche
   nach `/boulders` weiter,

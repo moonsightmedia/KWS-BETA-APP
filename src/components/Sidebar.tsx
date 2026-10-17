@@ -21,12 +21,13 @@ import { AccountAvatar } from '@/components/AccountAvatar';
 import { AdminMobileNavigation } from '@/components/admin/AdminMobileNavigation';
 import { ADMIN_TABS } from '@/lib/adminNavigation';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useHasRole } from '@/hooks/useHasRole';
 import { useSidebar } from './SidebarContext';
+import { AUTH_LOGIN_PATH, isAuthPage } from '@/lib/authRoutes';
 
 interface SidebarProps {
   className?: string;
@@ -329,7 +330,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
     if (!user) {
       return [
         { icon: List, label: 'Boulder', path: '/guest' },
-        { icon: User, label: 'Anmelden', path: '/auth' },
+        { icon: User, label: 'Anmelden', path: AUTH_LOGIN_PATH },
       ];
     }
 
@@ -478,7 +479,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
       ) : null}
 
       {/* Mobile Bottom Navigation */}
-      {isAdminArea && stableIsAdmin ? <AdminMobileNavigation compact={isMobileNavCompact} /> : location.pathname !== '/auth' && location.pathname !== '/competition' && (
+      {isAdminArea && stableIsAdmin ? <AdminMobileNavigation compact={isMobileNavCompact} /> : location.pathname !== '/competition' && (
         <nav
           aria-label="Hauptnavigation"
           data-compact={isMobileNavCompact}
@@ -507,8 +508,8 @@ export const Sidebar = ({ className }: SidebarProps) => {
                       ? location.pathname.startsWith('/statistics')
                       : item.path === '/training'
                         ? location.pathname === '/training' || location.pathname.startsWith('/training/')
-                      : item.path === '/auth'
-                        ? location.pathname === '/auth'
+                      : item.path === AUTH_LOGIN_PATH
+                        ? isAuthPage(location.pathname)
                         : item.path.startsWith('/setter')
                           ? location.pathname === item.path
                           : item.path.startsWith('/admin')
@@ -520,7 +521,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                             : location.pathname === item.path;
               
               return (
-                <NavLink
+                <Link
                   key={item.label}
                   to={item.path}
                   aria-label={item.label}
@@ -553,7 +554,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                   >
                     {item.label}
                   </span>
-                </NavLink>
+                </Link>
               );
             })}
           </div>
