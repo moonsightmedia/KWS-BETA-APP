@@ -1,26 +1,29 @@
 {
-  "name": "Kletterwelt Sauerland Beta App",
-  "short_name": "KWS Beta",
+  "name": "Beta App · Kletterwelt Sauerland",
+  "short_name": "Beta App",
   "start_url": "/",
   "scope": "/",
   "display": "browser",
   "orientation": "portrait-primary",
   "background_color": "#F9FAF9",
   "theme_color": "#36B531",
-  "description": "Boulder-\u00DCbersicht mit Beta-Videos, Community, Statistik und Admin-Tools f\u00FCr die Kletterwelt Sauerland",
-  "categories": ["sports", "lifestyle"],
+  "description": "Boulder finden, Beta-Videos ansehen und deine Fortschritte festhalten. Die App für die Kletterwelt Sauerland.",
+  "categories": [
+    "sports",
+    "lifestyle"
+  ],
   "icons": [
     {
-      "src": "/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png",
+      "src": "/brand/web-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/080616_Kletterwelt-Sauerland_Logo_ohne_Hintergrund_ohne_Schrift.png",
+      "src": "/brand/web-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
   "screenshots": []
