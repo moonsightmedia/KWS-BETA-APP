@@ -57,8 +57,8 @@
     const buttons = [...story.querySelectorAll('[data-feature]')];
     const note = story.querySelector('.feature-image-note');
     const sceneWord = story.querySelector('.feature-scene-word');
-    const sceneLabels = ['Boulder entdecken', 'Beta ansehen', 'Fortschritt festhalten', 'Schraubplan ansehen'];
-    const labels = ['Boulder in der Beta App', 'Beta-Video direkt beim Boulder', 'Statistikansicht mit Beispieldaten', 'Der Schraubplan deiner Kletterwelt'];
+    const sceneLabels = ['Boulder finden', 'Beta-Videos ansehen', 'Klettertage festhalten', 'Schraubtermine nachsehen'];
+    const labels = ['Aktuelle Boulder in der Übersicht', 'Beta-Video in der Boulderansicht', 'Statistik mit Beispieldaten', 'Kommende Schraubtermine'];
     const transitions = new Set();
     let pinned = false;
     let compact = false;
@@ -199,11 +199,11 @@
         choice.setAttribute('aria-pressed', String(active));
       });
       details.forEach(detail => { detail.hidden = detail.dataset.contribution !== value; });
-      toggle.setAttribute('aria-label', value === 'moonsight' ? 'Kletterwelt Sauerland anzeigen' : 'Moonsight Media anzeigen');
+      toggle.setAttribute('aria-label', value === 'moonsight' ? 'Beitrag der Kletterwelt Sauerland anzeigen' : 'Beitrag von Moonsight Media anzeigen');
       toggle.title = value === 'moonsight' ? 'Zur Kletterwelt Sauerland wechseln' : 'Zu Moonsight Media wechseln';
       if (!animate) { settleScreens(); return; }
       hintConsumed = true;
-      status.textContent = value === 'moonsight' ? 'Moonsight Media: Design und Entwicklung.' : 'Kletterwelt Sauerland: Boulder und Hallenalltag.';
+      status.textContent = value === 'moonsight' ? 'Moonsight Media: Gestaltung und Entwicklung der App.' : 'Kletterwelt Sauerland: Boulderdaten, offizielle Beta-Videos und Schraubtermine.';
       if (preference.matches || !Element.prototype.animate) { settleScreens(); return; }
 
       // Screens stay on one fixed plane beneath the unchanged photographic frame.
