@@ -49,7 +49,7 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Browser regression tests
-        run: npx playwright test e2e/header-stability.spec.ts e2e/auth-layout.spec.ts e2e/guest-loading.spec.ts e2e/training-release-gate.spec.ts --workers=1
+        run: npx playwright test e2e/header-stability.spec.ts e2e/auth-layout.spec.ts e2e/guest-loading.spec.ts e2e/guest-navigation.spec.ts e2e/training-release-gate.spec.ts --workers=1
       - name: Build app and landing from the same revision
         run: node ops/hostinger/build-web.mjs "$GITHUB_SHA"
       - name: Verify built landing with production Caddy

@@ -38,7 +38,8 @@ import Competition from "./pages/Competition";
 import TvSchedule from "./pages/TvSchedule";
 import ResetSchedule from "./pages/ResetSchedule";
 import NotFound from "./pages/NotFound";
-import { Sidebar } from "@/components/Sidebar";
+import { AppNavigation } from "@/components/AppNavigation";
+import { isAuthPage } from '@/lib/authRoutes';
 import { SetterAreaLayout } from "@/components/setter/SetterAreaLayout";
 import { BoulderRouteContinuity } from '@/components/BoulderRouteContinuity';
 
@@ -120,29 +121,6 @@ const ErrorBoundaryWithAuth = ({ children }: { children: React.ReactNode }) => {
       {children}
     </ErrorBoundary>
   );
-};
-
-// Keep app navigation available on public content routes as well. The Sidebar
-// itself already limits guests to the public mobile navigation.
-const ConditionalSidebar = () => {
-  const location = useLocation();
-  const { loading } = useAuth();
-
-  // Never render guest navigation while the persisted session is unresolved.
-  if (loading) return null;
-  
-  // Hide app navigation on public/read-only routes.
-  if (
-    location.pathname === '/auth' ||
-    location.pathname === '/auth/callback' ||
-    location.pathname === '/reset-password' ||
-    location.pathname === '/competition' ||
-    ['/privacy','/imprint','/community-rules'].includes(location.pathname)
-  ) {
-    return null;
-  }
-  
-  return <Sidebar />;
 };
 
 // React Router does not reset the document scroll position on PUSH/REPLACE.
@@ -313,7 +291,7 @@ const Root = () => {
   // immediately. The guest overview must wait because an authenticated user is
   // canonicalized to /boulders and must never see a mixed guest/user shell.
   const isPublicRoute =
-    location.pathname === '/auth' ||
+    isAuthPage(location.pathname) ||
     location.pathname === '/auth/callback' ||
     location.pathname === '/reset-password' ||
     location.pathname === '/schedule' ||
@@ -332,7 +310,7 @@ const Root = () => {
               <RouteLogger />
               <RouteScrollReset />
               <PullToRefreshHandler />
-              <ConditionalSidebar />
+              <AppNavigation />
               <UploadOverview />
               <EmergencyReset />
               <TrainingProvider key={user?.id ?? 'guest'} accountId={user?.id ?? 'guest'}>
@@ -354,7 +332,7 @@ const restoreRouteOnInit = () => {
     const currentPath = window.location.pathname;
     
     // Don't restore route if we're on /auth - user might be trying to log in
-    if (currentPath.startsWith('/auth') || currentPath === '/reset-password') {
+    if (isAuthPage(currentPath) || currentPath.startsWith('/auth/') || currentPath === '/reset-password') {
       if (preserveRoute) {
         console.log(`[RouterInit] On /auth page, clearing preserved route: ${preserveRoute}`);
         sessionStorage.removeItem('preserveRoute');
@@ -364,7 +342,7 @@ const restoreRouteOnInit = () => {
     
     if (preserveRoute && preserveRoute !== currentPath) {
       // Also don't restore to /auth if we're not already there
-      if (preserveRoute === '/auth') {
+      if (isAuthPage(preserveRoute.split(/[?#]/)[0])) {
         console.log(`[RouterInit] Preserved route is /auth but we're on ${currentPath}, clearing it`);
         sessionStorage.removeItem('preserveRoute');
         return;
