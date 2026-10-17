@@ -2,14 +2,16 @@
 
 Pushes and merged pull requests on `main` run **Web production**. The workflow
 checks the locked dependency install, Node regression tests, deployment safety,
-desktop/mobile browser regressions and a production build. Pull requests run the
+desktop/mobile browser regressions and a combined app/landing production build. Pull requests run the
 same checks without deploying. Production configuration stays on the VPS.
 
 `srv2044594` checks `main` every minute. It accepts only a successful **Verify web
 release** job in the newest matching workflow run from this repository and branch.
 The workflow's deployment job waits for the exact SHA in the public
 [release proof](https://beta.kletterwelt-sauerland.de/release.json), then records
-success in GitHub's `production-web` environment. A failed test never qualifies.
+success in GitHub's `production-web` environment. Both `/release.json` and
+`/landing/release.json` must identify that SHA and the same landing artifact.
+A failed test never qualifies.
 
 The server pulls over HTTPS. No GitHub SSH key, inbound webhook, new public port or
 broader SSH firewall rule is needed. There is no personal token on the server.
@@ -26,12 +28,44 @@ Idle checks use Git transport rather than the REST API.
   preview. Database migrations, video-server and native releases remain separate.
 - A source revision check before building and swapping prevents overwriting a
   concurrent manual release. Deployment locks prevent overlapping automatic runs.
-- Failed builds retain the current app. A failed post-swap local smoke test restores
-  the previous source and restarts it. Previous downloads and hashed assets survive.
+- Failed builds retain both current sites. Before any live swap, an isolated copy
+  of the production Caddy serves the candidate app and compiled landing for HTTP
+  smoke tests. A failed post-swap test restores the previous source, landing mount,
+  Compose file and app/landing release proofs together. Previous downloads and
+  hashed assets survive. The original independent landing directory is retained
+  for rollback during the first migration.
 - Failed attempts stop until the workflow is rerun or a new commit qualifies.
   Retrying retains earlier diagnostics in a separate release directory.
 - Version comes from committed `package.json`; build time and `release.json` SHA
   identify each deploy even when a commit does not bump the app version.
+
+## Landing source and build
+
+The approved website lives in `public/landing` on `main`; the legal-page source
+and generator are tracked alongside it. Edit those files in a normal branch and
+open a pull request. There is no second upload or independent production release.
+
+`node ops/hostinger/build-web.mjs <exact-40-character-SHA>` builds the app in
+Hostinger mode, builds and verifies the landing package, copies its compiled fonts
+and assets into `dist/landing`, and writes a shared revision proof. The server's
+read-only `/landing` mount points at `source/dist/landing`, so recreating only the
+web container activates both sites from the same source directory.
+
+CI runs the built landing through the pinned production Caddy: canonical routes,
+aliases, 404 assets, legal noindex, responsive layout, roadmap/partner interaction,
+cookies/storage, third-party requests and the anonymous counter's privacy filter.
+Generated legal pages must match their committed sources. Store placeholders stay
+disabled until real links are supplied.
+
+Caddy routing/security changes require explicit operator review. The installed
+operator checks that `routes.caddy` still matches the current reviewed server
+configuration; normal content and asset changes do not require an operator update.
+The legacy `landingpage/publish.py` refuses independent publishing after migration.
+
+For rollback, pause the timer as described below, restore the retained source and
+the `.previous` Compose/release-proof files in the failed or deployed release
+directory, then recreate only `web`. Restore the matching pair together. The first
+migration's prior Compose file points to the retained independent landing mount.
 
 ## Operator commands on srv2044594
 

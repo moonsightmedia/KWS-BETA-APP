@@ -255,6 +255,47 @@ Regeln:
 
 ### 3.7 Bewegung
 
+Landingpage-Präzisierung 15.10.2026: Im Marketing-Hero dürfen die echten
+App-Mockups und dekorativen 3D-Griffe sichtbar gestaffelt eintreten und auf
+Desktop beim Scrollen räumlich auseinandergehen. Nutzerkorrektur V9: kein
+dauerhaftes Schweben oder Wackeln. Mobil nur ein kurzer Eintritt, anschließend
+auch beim Scrollen ruhige Geräte und Griffe. Nutzerkorrektur V24: Mobil bis600px
+werden die Hero-Geräte ungefähr auf halber Höhe an der Sektionskante abgeschnitten;
+zwei kleinere Ansichten bleiben dahinter, die Griffe seitlich am Rand.
+Text und Storeflächen bleiben ruhig. `prefers-reduced-motion` deaktiviert alle
+ergänzenden Effekte auch beim Livewechsel. Diese Ausnahme gilt für die öffentliche
+Landingpage, nicht für die produktiven App-Oberflächen.
+
+Landingpage-Präzisierung 15.10.2026 (V8): Die Featurepräsentation darf als native
+Scroll-Sequenz stehen bleiben: links wechselnde echte Appansichten, rechts der
+zugehörige Nutzen, danach normaler Übergang zum nächsten Abschnitt. Direkte
+Auswahl und Rückwärtsscrollen bleiben möglich. Keine Übernahme von Wheel/Touch.
+Mobil vertikal komponieren; bei reduzierter Bewegung, knapper Höhe oder ohne
+JavaScript alle Features als vollständige Liste anzeigen. Die Partnerschaft ist
+eine visuelle Auswahl beider Originalmarken mit zugeordneten Beiträgen und
+Appvorschau; Website-Links und eine statische Lesefassung bleiben erhalten.
+
+Partnerschaft-Präzisierung V11: Ein aktives Original-Logo bleibt farbig, das
+andere wird in der interaktiven Darstellung grau. Bei Auswahl tauscht die
+Darstellung. „Beitrag entdecken“ entfällt; Logos mit Hover/Fokus und ein kleiner
+Wechselschalter erklären die Bedienung. Ein einmaliger Hinweis beim Erscheinen
+darf den Schalter hervorheben, ohne die Auswahl automatisch zu ändern. Mockup,
+Bildwechsel und Erklärung bilden einen kurzen gesteuerten Übergang; danach Ruhe.
+Reduced Motion entfernt die Übergänge, erhält aber sämtliche Bedienwege.
+
+Landingpage-Nutzerkorrektur V12: Die Feature-Geräte stehen offen vor hellem,
+diffusem Farblicht statt in einem dunkelblauen Kasten. Direktauswahl kompakt
+beim Text mit mindestens44px Touchzielen; keine große Leiste unter beiden
+Spalten. Der Partnerwechselschalter sitzt exakt unter der Smartphone-Mitte,
+ohne zusätzliche „Die Beta App“-Beschriftung. Sachliche Überschriften und
+konkrete Partneraufgaben ersetzen Werbezweizeiler.
+
+Landingpage-Nutzerkorrektur V13: Die kompakte Featureauswahl verwendet passende
+Outline-Icons (Suche, Video, Fortschritt, Kalender) mit zugänglichen Namen statt
+Zahlen. Partnerwechsel als kurze Überblendung im festen Smartphone-Rahmen;
+keine Bildschirmverschiebung oder Gerätedrehung. Schnelle Gegenwahl setzt
+die aktuell gerenderte Deckkraft fort, statt die Animation zurückzusetzen.
+
 - Standarddauer für kleine Zustandswechsel: `150–200ms`.
 - Panels dürfen kurz von oben einblenden; keine große Show-Animation.
 - Pressed-Zustände dürfen auf `0.97–0.98` skalieren.
@@ -1695,3 +1736,119 @@ Navigation noch Trainingseinstellungen; direkte Trainings- und Einstellungslinks
 sind gesperrt. Ein altes Vorschau-Flag darf diese Releasesperre nicht umgehen.
 Entwicklungscode und lokal gespeicherte Inhalte bleiben erhalten. Der gemeinsame
 Root behält den Live-Navigationszustand und Profilfoto-Cache bei.
+
+### Landingpage-Marke16.10.2026
+
+Nutzerkorrektur V22: Der Partnerwechsler zeigt genau einen Richtungspfeil zum
+anderen Partner: bei aktivem Moonsight rechts zur KWS, bei aktiver KWS links zu
+Moonsight. Richtung und zugänglicher Zielname wechseln unmittelbar; keine
+Doppelpfeile oder animierten Zwischenrichtungen.
+Mobile Präzisierung V22 ersetzt die bisherige mobile Scrollfixierung: bis600px
+werden die vier Features mit sichtbaren Icon-/Textcontrols direkt gewählt.
+Größeres Smartphone, normaler Seitenfluss und keine Fixierung über mehrere
+Bildschirmhöhen. Reduced Motion entfernt Übergänge, erhält die Direktauswahl;
+ohne JavaScript bleiben alle vier Beiträge als Liste lesbar. Desktop behält
+die freigegebene Scroll-Tour. Mobile Schriftgrößen in Ausblick/Partnerbeiträgen
+und Platzreserven müssen auch bei320px lesbar und beim Wechsel stabil bleiben.
+Nutzerwahl V23: Navbar B (Floating Dock) wird übernommen. Desktop schwebende
+weiße Leiste; bis960px obere Markenleiste und unteres Dock mit drei beschrifteten
+Icons. Beide Originalmarken bleiben sichtbar. Aktiver Abschnitt,44px-Ziele,
+Safe-Area und ausreichend Footerraum bleiben Pflicht. Die reale Höhe beider
+Leisten bestimmt Ankersprünge und den Platz für die Desktop-Featuretour.
+Diese Wahl ersetzt die frühere V21-Menünavigation. Die Varianten A/C und der
+V22-Ausgangszustand bleiben als eingefrorene lokale Vorschläge erhalten.
+Mobile Korrektur V24 ersetzt das untere Dock: Beide Marken in einer kompakten
+oberen Zeile, darunter Funktionen/Ausblick/Über Beta als dauerhaft sichtbare
+Textlinks mit44px-Zielen. Kein belegter unterer Bildschirmrand. Aktive Sektion
+mit Textzustand und kurzer Unterlinie, gemessene Gesamthöhe für Anker/Tour.
+Die gewählte schwebende Navbar B bleibt auf Desktop erhalten.
+Präzisierung V26: Auch die kompakte obere mobile Navbar schwebt als weiße
+12px gerundete Fläche mit12px seitlichem Abstand und mindestens12px Abstand
+nach oben über dem Inhalt. Safe-Area und Schatten beachten; Sticky-Verhalten
+mit diesem Abstand erhalten. Keine bündige Leiste oder neues unteres Dock.
+Nutzerwahl V27: Mobile Navbar bis960px nur mit originalem grünem Beta-Symbol,
+ohne Wortmarke und KWS-Logo. Symbol und drei44px-Textlinks in einer schwebenden
+Zeile;66px Außenhöhe. KWS bleibt im Partnerbereich und im Desktopheader sichtbar.
+Desktop B und Footer unverändert. Diese Ausnahme ersetzt die ältere Forderung
+nach beiden Logos im mobilen Header.
+
+Nutzerwahl V21: Favicon-Variante3/C verwenden: unverändertes weißes Symbol auf
+grüner, weich gerundeter Kachel, mit größerer Symbolfläche als bisher. SVG plus
+16/32/48px-ICO und180px-Touchicon. Header-/Footer-Wortmarken bleiben unverändert.
+Landingpage-Navigation V21 bleibt beim Scrollen sichtbar und zeigt den aktuellen
+Abschnitt mit Textzustand und grüner Unterlinie. Beide Marken bleiben sichtbar.
+Unter961px ersetzt ein44px-Menüschalter die Desktopnavigation; Menülinks,
+Escape, Fokus und eine ohne JavaScript lesbare Fassung bleiben erhalten.
+Die Feature-Sequenz berücksichtigt die Höhe der Navbar beim Fixieren/Springen.
+
+Für die Beta-App wird seit Nutzerkorrektur V20 die ausgewählte originale
+DM-Sans-700-Wort-Bild-Marke aus beta-dm-sans-selected-2026-10-16 verwendet.
+Sie ersetzt die frühere V2. Auf hellen Flächen primary, auf dunklen die weiße
+Originalfassung; Farben, Formen und Proportionen
+bleiben unverändert. Hallenname und KWS-Logo stehen separat. Keine Filter,
+Schlagschatten oder Animation auf dem Logo selbst. Quelle und SHA-256:
+docs/design/landing/logo-integration.md. Diese Integration betrifft die öffentliche
+Landingpage, nicht die noch separat zu aktualisierenden App-Icons.
+
+Landingpage-Nutzerkorrektur V15: Beta-Logo und originales schwarz-grünes
+Kletterwelt-Sauerland-Logo stehen beide im Header, auch mobil. Separate Marken
+mit Trennlinie und Schutzraum. Unter600px bleibt der Zugang zu den Funktionen
+als beschrifteter44px-Pfeilbutton erreichbar, damit beide Logos Platz haben.
+
+### Landingpage-Ausblick16.10.2026
+
+Geplante Bereiche stehen in einer eigenen Ausblick-Sektion zwischen den heute
+verfügbaren Funktionen und den Projektpartnern. Status textlich unterscheiden:
+„In Entwicklung“ für den bestehenden unveröffentlichten Trainings-/Kinderbereich,
+„Geplant“ für spätere Seilkletter-Erweiterung. Keine Termine erfinden und keine
+Links zu gesperrten Vorschaufunktionen. Eine Marketingankündigung hebt keine
+Releasesperre der eigentlichen App auf. V17 ersetzt die aufklappbaren Zeilen
+durch sichtbare Vorschauflächen: großes Trainingsthema, getrennte Kletterhallen-
+und Kinderbereiche. Alle Aussagen bleiben auch ohne JavaScript direkt lesbar.
+Bestehende Konzeptillustrationen dürfen die Vorschau unterstützen, ohne eine
+schon verfügbare Appansicht oder einen Starttermin vorzutäuschen.
+
+Nutzerwahl Landingpage V18: Der Ausblick verwendet eine echte App-Vorschau mit fotografischem Smartphone-Mockup und drei umschaltbaren Themen. Training/Kinderbouldern zeigen ausschließlich isolierte Entwicklungsansichten und bleiben als unveröffentlicht markiert. Die Kletterhalle hat noch keine App-Ansicht. Tastaturfähige Tabs und ein ohne JavaScript vollständig lesbarer Fallback; keine automatische Bewegung. Details: docs/design/landing/design-system.md und docs/design/landing/upcoming/bar.md.
+
+### Landingpage-Ausblick V19 – Nutzerwahl B
+
+Nutzer wählt die Mockup-Galerie B. Im Ausblick steht das ausgewählte Smartphone
+farbig in der Mitte, Alternativen kleiner und grau daneben. Auswahl über Bilder
+und kompakte, tastaturfähige Themen-Tabs. Keine Dauerschleifen; Bewegung nur auf
+Auswahl, Reduced Motion entfernt Übergänge. Mobil vollständiges Hauptgerät und
+seitlich angeschnittene Alternativen. Auf ausdrücklichen Nutzerwunsch darf die
+Kletterhalle einen generierten App-Konzeptscreen zeigen, mit sichtbarem Hinweis
+„Geplant · Konzeptvorschau“. Das ist keine implementierte App-Funktion und keine
+Releasesperren-Aufhebung. Derselbe fotografische Rahmen für alle drei Ansichten.
+Diese Nutzerwahl ersetzt die abgelehnte V18-Ausblickgestaltung. Quelle/Prompt:
+docs/design/landing/concepts/climbing-mockup.md.
+
+Nutzerergänzung V23: Die Roadmap lässt sich horizontal wischen oder mit der Maus
+ziehen. Nach links folgt das nächste Thema in Tab-Reihenfolge, nach rechts das
+vorherige; die Galerie läuft am Ende wieder zum Anfang. Die seitlichen Geräte
+stehen entsprechend dieser Reihenfolge. Erst eine klar horizontale Geste wird
+übernommen; vertikales Scrollen und Pinch-Zoom bleiben nativ. Kleine und
+abgebrochene Gesten wählen kein anderes Thema. Themenbuttons, Tastatur und
+vollständig lesbarer No-JS-Fallback bleiben erhalten. Kein Autoplay; Reduced
+Motion entfernt die Zug-/Wechselbewegung.
+
+Roadmap-Korrektur V25: Nach horizontalem Wischen beginnt die Platzwechsel-
+animation an der tatsächlich sichtbaren Loslassposition. Keine gleichzeitige
+Rückfederung der ganzen Galerie. Das hintere Gerät wird unsichtbar an den
+Außenkanten umgesetzt, statt durch die Mitte zu kreuzen. Das neue Hauptgerät
+wird früh vollständig deckend, damit keine überlagerten Appansichten entstehen.
+Schnelle Gegenwahl übernimmt den aktuellen Animationsstand; Abbruch/kurzer Zug
+kehrt weich zur bestehenden Auswahl zurück. Reduced Motion beendet laufende
+Bewegungen unmittelbar. Vertikales Scrollen bleibt nativ.
+
+# Landingpage V28 – Rechtliches und Social Preview
+
+Impressum, Datenschutz und Community-Regeln verwenden dieselbe feste Navbar,
+Schrift und den vorhandenen Footer; gut lesbarer Textbereich mit 850px Maximalbreite,
+mobilem Innenabstand und ohne App-JavaScript. Die zusätzlichen Angaben zur
+Landingpage stehen vor den übernommenen App-Datenschutzhinweisen. Keine Änderung
+der freigegebenen Hero-, Feature-, Roadmap- und Partnerinteraktionen.
+Die Social-Vorschau ist eine eigene 1200×630-Komposition aus unveränderten Logos
+und echten App-Screenshots. Die geschützte Betriebsübersicht bekommt eine
+ruhige Zahlenkarte im bestehenden Design; keine Besucheridentitäten oder
+unbelegten QR-/Store-Konversionen. Zwei gerenderte QA-Schleifen auf 375/768/1280/1920.

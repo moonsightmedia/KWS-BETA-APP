@@ -1,0 +1,17 @@
+[Unit]
+Description=KWS anonymous landing request totals
+After=docker.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/kws/operations-dashboard/collect-landing.py
+User=root
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadOnlyPaths=/opt/kws/web-production/landing-metrics
+ReadWritePaths=/opt/kws/operations-dashboard/public/ops
+RestrictAddressFamilies=AF_UNIX
+MemoryMax=96M
+TimeoutStartSec=45

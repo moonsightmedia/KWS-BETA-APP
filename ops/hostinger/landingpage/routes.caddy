@@ -1,0 +1,85 @@
+# Insert in the existing web-production http://:80 block, before its SPA fallback.
+# Keep the application's /assets, /migrated-cdn, downloads and API routes intact.
+handle /favicon.ico {
+ root * /landing
+ rewrite * /beta-favicon.ico
+ header Cache-Control "public, max-age=0, must-revalidate"
+ header Content-Type "image/vnd.microsoft.icon"
+ file_server
+}
+
+log landing_counter {
+ no_hostname
+ output file /metrics/access.jsonl {
+  mode 0600
+  roll_size 1MiB
+  roll_interval 24h
+  roll_keep 31
+  roll_keep_for 744h
+ }
+ format filter {
+  wrap json {
+   time_format "2006-01-02T15:00Z"
+  }
+  fields {
+   request delete
+   resp_headers delete
+   user_id delete
+   bytes_read delete
+   duration delete
+   size delete
+   err_id delete
+   err_trace delete
+   error delete
+  }
+ }
+}
+@landingCount {
+ method GET
+ path /landingpage
+}
+log_name @landingCount landing_counter
+log_append @landingCount page landingpage
+@notLandingCount {
+ not {
+  method GET
+  path /landingpage
+ }
+}
+log_skip @notLandingCount
+
+@landingAliases path /landing /landing/ /landing/index.html /landingpage/
+redir @landingAliases /landingpage?{query} 308
+
+handle /landingpage {
+ root * /landing
+ rewrite * /index.html
+ header Cache-Control "no-cache"
+ header Content-Type "text/html; charset=utf-8"
+ header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+ file_server {
+  disable_canonical_uris
+ }
+}
+handle_path /landing/* {
+ root * /landing
+ header Cache-Control "public, max-age=0, must-revalidate"
+ header X-Content-Type-Options nosniff
+ file_server
+}
+@legalPages path /privacy /imprint /community-rules
+handle @legalPages {
+ root * /landing
+ rewrite * {path}.html
+ header Cache-Control "no-cache"
+ header Content-Type "text/html; charset=utf-8"
+ header X-Robots-Tag "noindex, follow"
+ header Content-Security-Policy "default-src 'none'; script-src 'none'; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+ file_server
+}
+@crawlerFiles path /robots.txt /sitemap.xml /googlef8c88b5192841789.html
+handle @crawlerFiles {
+ root * /landing
+ header Cache-Control "no-cache"
+ file_server
+}

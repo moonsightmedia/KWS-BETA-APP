@@ -41,12 +41,19 @@ jobs:
         run: |
           python3 ops/hostinger/test-update-production-web.py
           python3 ops/hostinger/test-github-web-autodeploy.py
+          python3 ops/hostinger/landingpage/test-collect-landing.py
+      - name: Verify generated legal pages are committed
+        run: |
+          node ops/hostinger/landingpage/build-legal.mjs
+          git diff --exit-code -- public/landing/privacy.html public/landing/imprint.html public/landing/community-rules.html
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Browser regression tests
         run: npx playwright test e2e/header-stability.spec.ts e2e/auth-layout.spec.ts e2e/guest-loading.spec.ts e2e/guest-navigation.spec.ts e2e/training-release-gate.spec.ts --workers=1
-      - name: Production build without changing the source version
-        run: ./node_modules/.bin/vite build --mode hostinger
+      - name: Build app and landing from the same revision
+        run: node ops/hostinger/build-web.mjs "$GITHUB_SHA"
+      - name: Verify built landing with production Caddy
+        run: node ops/hostinger/landingpage/test-web-release.cjs "$GITHUB_SHA"
       - name: Failure evidence
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -81,9 +88,11 @@ jobs:
                   request = urllib.request.Request(url, headers={'Cache-Control': 'no-cache'})
                   with urllib.request.urlopen(request, timeout=15) as response:
                       data = json.load(response)
-                  if data.get('revision') == revision:
+                  with urllib.request.urlopen('https://beta.kletterwelt-sauerland.de/landing/release.json?revision=' + revision, timeout=15) as response:
+                      landing = json.load(response)
+                  if data.get('revision') == revision and landing.get('revision') == revision and data.get('landing_release') == landing.get('release'):
                       with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
-                          summary.write('Published `' + revision + '` to [the Beta app](https://beta.kletterwelt-sauerland.de).\n')
+                          summary.write('Published app and landing `' + revision + '` to [the Beta website](https://beta.kletterwelt-sauerland.de/landingpage).\n')
                       print('HOSTINGER_REVISION_VERIFIED ' + revision)
                       break
               except (OSError, ValueError):
