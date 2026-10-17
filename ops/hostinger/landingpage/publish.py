@@ -32,6 +32,9 @@ def other_containers():
     containers = json.loads(run(['docker','inspect',*ids]))
     return {c['Name']: {'startedAt':c['State']['StartedAt'],'running':c['State']['Running']} for c in containers if c['Name'] != '/kws-web-production' and not c['Name'].startswith('/kws-landing-smoke-')}
 def smoke(port, manifest, expected_app):
+    status, icon_headers, icon_content = request(port, '/favicon.ico')
+    assert status == 200 and icon_content == (STAGE/'public/landing/beta-favicon.ico').read_bytes()
+    assert 'image/' in icon_headers.get('Content-Type','')
     status, headers, content = request(port, '/landingpage')
     assert status == 200 and content == (STAGE/'public/landing/index.html').read_bytes()
     assert 'default-src' in headers.get('Content-Security-Policy','')
@@ -56,7 +59,7 @@ def smoke(port, manifest, expected_app):
     for route in ['/','/auth','/guest?sector=Bug%20A','/reset-password','/auth/callback']:
         status, _, content = request(port, route)
         assert status == 200 and digest(content) == expected_app, route
-    return {'landing':200,'assets':len(manifest['files']),'aliases':308,'missingAsset':404,'appRoutesUnchanged':True}
+    return {'landing':200,'assets':len(manifest['files']),'aliases':308,'missingAsset':404,'appRoutesUnchanged':True,'domainFavicon':'approved Beta icon'}
 
 def stage(archive, archive_hash):
     assert digest(archive.read_bytes()) == archive_hash

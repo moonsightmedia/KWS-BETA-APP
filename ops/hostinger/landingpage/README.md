@@ -1,4 +1,14 @@
-# Aktuell: V28 – technische Veröffentlichung, 17.10.2026
+# Aktuell: V29 – Domain-Favicon, 17.10.2026
+
+Release `f1bc9f3fdb8f42ab`, live17.10.2026 um17:06:05Europe/Berlin.
+Zusätzliche exakte Route `/favicon.ico` liefert das freigegebene Beta-ICO aus
+dem unabhängigen Landing-Mount. Publisher prüft Bytes und Bild-MIME sowohl im
+Kandidaten als auch nach Veröffentlichung. App-HTML und bestehende Appversion
+werden nicht verändert. `public/favicon.ico` ist für künftige Appbuilds ebenfalls
+auf Beta ersetzt. Vorgänger `1a54729d849fb473` bleibt für Rollback erhalten.
+Nachweis: `docs/qa/2026-10-17-landing-v29-domain-favicon.md`.
+
+# V28 – technische Veröffentlichung, 17.10.2026
 
 Live: `1a54729d849fb473`, 37 Dateien / 1.586.551 Bytes. Veröffentlicht am
 17.10.2026 um 01:06:04 Europe/Berlin. Apprevision zum bewachten Deploy:

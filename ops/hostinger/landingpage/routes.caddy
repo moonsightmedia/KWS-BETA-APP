@@ -1,5 +1,13 @@
 # Insert in the existing web-production http://:80 block, before its SPA fallback.
 # Keep the application's /assets, /migrated-cdn, downloads and API routes intact.
+handle /favicon.ico {
+ root * /landing
+ rewrite * /beta-favicon.ico
+ header Cache-Control "public, max-age=0, must-revalidate"
+ header Content-Type "image/vnd.microsoft.icon"
+ file_server
+}
+
 log landing_counter {
  no_hostname
  output file /metrics/access.jsonl {
