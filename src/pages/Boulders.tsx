@@ -1,3 +1,4 @@
+import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { boulderNavigationState } from '@/lib/boulderNavigation';
@@ -582,7 +583,7 @@ const Boulders = () => {
             placeholder='Boulder oder Bereich suchen…'
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            className='h-10 !rounded-kws-control border-none bg-secondary pl-10 pr-10 text-sm text-foreground shadow-none placeholder:text-muted-foreground focus-visible:!ring-2 focus-visible:!ring-[#192436]/15 focus-visible:!ring-offset-0'
+            className='h-10 !rounded-kws-control border-none bg-secondary pl-10 pr-10 text-sm text-foreground shadow-none placeholder:text-muted-foreground focus-visible:!ring-2 focus-visible:!ring-brand-ink/15 focus-visible:!ring-offset-0'
             disabled={isLoading}
           />
           <button
@@ -684,10 +685,11 @@ const Boulders = () => {
 
   if (shouldShowPageSkeleton) {
     return (
-      <div className="flex min-h-screen bg-[#F9FAF9]">
-        <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+      <div className="flex min-h-screen bg-brand-canvas">
+        <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-brand-canvas md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
           {pageHeader}
-          <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
+          <main className="relative isolate mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
+            <BrandWatermark />
             <div className="mb-6 flex gap-3">
               <Skeleton className="h-10 flex-1" />
               <Skeleton className="h-10 w-10" />
@@ -714,11 +716,14 @@ const Boulders = () => {
 
   if (showSaved && (personalQuery.isLoading || personalQuery.error)) {
     return <div className="flex min-h-screen bg-background">
-      <div className={cn('kws-sidebar-content min-w-0 flex-1', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+      <div className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
         <DashboardHeader />
-        <main className="mx-auto w-full max-w-[1180px] space-y-4 p-4 md:p-8">
-          <PersonalDataState loading={personalQuery.isLoading} onRetry={() => personalQuery.refetch()} />
-          <Button variant="secondary" onClick={clearFilters}>Gespeichert-Filter entfernen</Button>
+        <main className="relative isolate mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
+          <BrandWatermark />
+          <div className="space-y-4">
+            <PersonalDataState loading={personalQuery.isLoading} onRetry={() => personalQuery.refetch()} />
+            <Button variant="secondary" onClick={clearFilters}>Gespeichert-Filter entfernen</Button>
+          </div>
         </main>
       </div>
     </div>;
@@ -726,13 +731,16 @@ const Boulders = () => {
 
   if (notificationId !== null && notificationQuery.isError) {
     return <div className="flex min-h-screen bg-background">
-      <div className={cn('kws-sidebar-content min-w-0 flex-1', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+      <div className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
         {pageHeader}
-        <main className="mx-auto w-full max-w-[1180px] space-y-4 p-4 md:p-8">
-          <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Verknüpfte Boulder nicht verfügbar</AlertTitle>
-            <AlertDescription>{notificationQuery.error instanceof Error ? notificationQuery.error.message : 'Bitte versuche es erneut.'}</AlertDescription>
-          </Alert>
-          <div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => void notificationQuery.refetch()}>Erneut versuchen</Button><Button variant="ghost" onClick={clearNotification}>Alle Boulder anzeigen</Button></div>
+        <main className="relative isolate mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
+          <BrandWatermark />
+          <div className="space-y-4">
+            <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Verknüpfte Boulder nicht verfügbar</AlertTitle>
+              <AlertDescription>{notificationQuery.error instanceof Error ? notificationQuery.error.message : 'Bitte versuche es erneut.'}</AlertDescription>
+            </Alert>
+            <div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => void notificationQuery.refetch()}>Erneut versuchen</Button><Button variant="ghost" onClick={clearNotification}>Alle Boulder anzeigen</Button></div>
+          </div>
         </main>
       </div>
     </div>;
@@ -740,10 +748,11 @@ const Boulders = () => {
 
   if (bouldersError) {
     return (
-      <div className="flex min-h-screen bg-[#F9FAF9]">
-        <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+      <div className="flex min-h-screen bg-brand-canvas">
+        <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-brand-canvas md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
           {pageHeader}
-          <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
+          <main className="relative isolate mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
+            <BrandWatermark />
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
@@ -758,14 +767,16 @@ const Boulders = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F9FAF9]">
-      <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-[#F9FAF9] md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
+    <div className="flex min-h-screen bg-brand-canvas">
+      <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-brand-canvas md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
         {pageHeader}
 
         <main
-          className="mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8"
+          className="relative isolate mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8"
           style={{ paddingTop: showMap ? '0' : '0.75rem' }}
         >
+          {!showMap && <BrandWatermark />}
+
           {showMap && (
               <BoulderMapPanel
                 headerRef={headerRef}
@@ -809,7 +820,7 @@ const Boulders = () => {
               >
                 <ArrowUpDown className="h-4 w-4" strokeWidth={1.9} />
                 {hasCustomSorting ? (
-                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-kws-badge bg-primary px-0.5 text-[9px] font-bold text-primary-foreground ring-2 ring-[#F9FAF9]">
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-kws-badge bg-primary px-0.5 text-[9px] font-bold text-primary-foreground ring-2 ring-brand-canvas">
                     1
                   </span>
                 ) : null}
@@ -991,11 +1002,11 @@ const Boulders = () => {
                     )}
                     <BoulderTypeBadge volumeOnly={boulder.volumeOnly} compact className="absolute left-1.5 top-9 sm:left-2" />
 
-                    <div className="absolute inset-x-0 bottom-0 flex h-[46%] flex-col justify-end bg-gradient-to-t from-white via-white/90 to-transparent px-1.5 pb-1.5 pt-7 text-[#192436] sm:h-[48%] sm:px-2 sm:pb-2 md:h-[40%] md:px-4 md:pb-4">
+                    <div className="absolute inset-x-0 bottom-0 flex h-[46%] flex-col justify-end bg-gradient-to-t from-white via-white/90 to-transparent px-1.5 pb-1.5 pt-7 text-brand-ink sm:h-[48%] sm:px-2 sm:pb-2 md:h-[40%] md:px-4 md:pb-4">
                       <span className="block truncate text-[9px] font-bold leading-tight tracking-[-0.02em] sm:text-[10px] md:text-sm">
                         {boulder.name}
                       </span>
-                      <span className="mt-0.5 truncate text-[8px] font-semibold leading-tight text-[#192436]/70 sm:text-[9px] md:mt-1 md:text-xs">
+                      <span className="mt-0.5 truncate text-[8px] font-semibold leading-tight text-brand-ink/70 sm:text-[9px] md:mt-1 md:text-xs">
                         {getSectorAreaLabel(boulder)}
                       </span>
                     </div>

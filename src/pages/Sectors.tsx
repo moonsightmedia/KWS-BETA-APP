@@ -89,7 +89,7 @@ const Sectors = () => {
             <MapPinned className="h-5 w-5" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <h2 className="font-sans text-base font-semibold tracking-[-0.02em] text-[#192436]">
+            <h2 className="font-sans text-base font-semibold tracking-[-0.02em] text-brand-ink">
               {sectorAreaGroups.length} Bereiche auf einen Blick
             </h2>
             <p className="mt-1 font-sans text-xs leading-relaxed text-muted-foreground">
@@ -142,10 +142,10 @@ const Sectors = () => {
 
                   <div className="absolute inset-x-0 -bottom-px h-[62%] bg-gradient-to-t from-white via-white/88 to-transparent" />
                   <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 px-4 pb-3.5">
-                    <h2 className="min-w-0 truncate font-sans text-lg font-semibold tracking-[-0.03em] text-[#192436]">
+                    <h2 className="min-w-0 truncate font-sans text-lg font-semibold tracking-[-0.03em] text-brand-ink">
                       {group.area.name}
                     </h2>
-                    <span className="inline-flex shrink-0 items-center rounded-kws-badge bg-white px-2 py-1 font-sans text-[9px] font-semibold text-[#192436] shadow-[0_2px_8px_rgba(19,17,43,0.10)]">
+                    <span className="inline-flex shrink-0 items-center rounded-kws-badge bg-white px-2 py-1 font-sans text-[9px] font-semibold text-brand-ink shadow-[0_2px_8px_rgba(19,17,43,0.10)]">
                       {activeBoulderCount} Boulder
                     </span>
                   </div>
@@ -173,7 +173,7 @@ const Sectors = () => {
                               {subarea.code}
                             </span>
                             <span className="min-w-0 flex-1">
-                              <span className="block font-sans text-xs font-semibold text-[#192436]">
+                              <span className="block font-sans text-xs font-semibold text-brand-ink">
                                 {subareaBoulderCount} Boulder
                               </span>
                               <span className="mt-0.5 block truncate font-sans text-[9px] text-muted-foreground">
@@ -197,7 +197,7 @@ const Sectors = () => {
         </div>
       ) : (
         <KwsSurface className="px-4 py-8 text-center">
-          <p className="font-sans text-sm font-semibold text-[#192436]">Noch keine Bereiche vorhanden</p>
+          <p className="font-sans text-sm font-semibold text-brand-ink">Noch keine Bereiche vorhanden</p>
           <p className="mt-1 font-sans text-xs text-muted-foreground">Sobald Bereiche angelegt sind, erscheinen sie hier.</p>
         </KwsSurface>
       )}

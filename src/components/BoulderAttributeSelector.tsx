@@ -30,13 +30,13 @@ export function BoulderAttributeSelector({
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">{title}</p>
             {description ? (
-              <p className="mt-1 text-xs leading-5 text-[#13112B]/56">
+              <p className="mt-1 text-xs leading-5 text-brand-ink/56">
                 {description}
               </p>
             ) : null}
           </div>
           {selectedCount > 0 ? (
-            <span className="text-xs font-medium text-[#13112B]/52">{selectedCount} gewählt</span>
+            <span className="text-xs font-medium text-brand-ink/52">{selectedCount} gewählt</span>
           ) : null}
         </div>
 
@@ -53,14 +53,14 @@ export function BoulderAttributeSelector({
                 className={cn(
                   'flex min-h-[56px] items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors',
                   isSelected
-                    ? 'border-[#69B545] bg-[#F4FBF4] text-[#13112B]'
-                    : 'border-[#DDE7DF] bg-white text-[#13112B] hover:border-[#69B545]/40',
+                    ? 'border-[#69B545] bg-[#F4FBF4] text-brand-ink'
+                    : 'border-brand-border bg-white text-brand-ink hover:border-[#69B545]/40',
                 )}
               >
                 <span
                   className={cn(
                     'grid h-9 w-9 shrink-0 place-items-center rounded-xl',
-                    isSelected ? 'bg-[#69B545] text-white' : 'bg-[#EFF7F0] text-[#36B531]',
+                    isSelected ? 'bg-[#69B545] text-white' : 'bg-[#EFF7F0] text-brand',
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -74,8 +74,8 @@ export function BoulderAttributeSelector({
           })}
 
           {attributes.length === 0 && (
-            <div className="col-span-full rounded-xl border border-dashed border-[#DCEEDF] bg-white/70 px-3 py-5 text-center text-xs text-[#13112B]/58">
-              <Sparkles className="mx-auto mb-2 h-5 w-5 text-[#36B531]" />
+            <div className="col-span-full rounded-xl border border-dashed border-[#DCEEDF] bg-white/70 px-3 py-5 text-center text-xs text-brand-ink/58">
+              <Sparkles className="mx-auto mb-2 h-5 w-5 text-brand" />
               Keine aktiven Attribute gefunden.
             </div>
           )}
@@ -90,12 +90,12 @@ export function BoulderAttributeSelector({
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6E806A]">{title}</p>
           {description ? (
-            <p className="mt-1 max-w-xl text-sm leading-6 text-[#13112B]/62">
+            <p className="mt-1 max-w-xl text-sm leading-6 text-brand-ink/62">
               {description}
             </p>
           ) : null}
         </div>
-        <span className="rounded-xl border border-[#DCEEDF] bg-[#FCFDFC] px-3 py-1 text-xs font-medium text-[#13112B]/58">
+        <span className="rounded-xl border border-[#DCEEDF] bg-[#FCFDFC] px-3 py-1 text-xs font-medium text-brand-ink/58">
           {selectedCount} aktiv
         </span>
       </div>
@@ -113,8 +113,8 @@ export function BoulderAttributeSelector({
               className={cn(
                 'group relative overflow-hidden rounded-2xl border px-4 py-4 text-left transition-all',
                 isSelected
-                  ? 'border-[#36B531] bg-[#36B531] text-white'
-                  : 'border-[#E7F0E8] bg-[#FCFDFC] text-[#13112B] hover:border-[#BEDFC2] hover:bg-white',
+                  ? 'border-brand bg-brand text-primary-foreground'
+                  : 'border-[#E7F0E8] bg-[#FCFDFC] text-brand-ink hover:border-[#BEDFC2] hover:bg-white',
               )}
             >
               <div className="relative flex items-start justify-between gap-3">
@@ -123,14 +123,14 @@ export function BoulderAttributeSelector({
                     'grid h-12 w-12 place-items-center rounded-2xl',
                     isSelected
                       ? 'bg-white/18 text-white'
-                      : 'bg-[#EFF7F0] text-[#36B531]',
+                      : 'bg-[#EFF7F0] text-brand',
                   )}
                 >
                   <Icon className="h-5 w-5" />
                 </span>
                 <div className="relative mt-5">
                   <p className="text-base font-semibold leading-tight">{attribute.label}</p>
-                  <p className={cn('mt-1 text-xs leading-5', isSelected ? 'text-white/78' : 'text-[#13112B]/55')}>
+                  <p className={cn('mt-1 text-xs leading-5', isSelected ? 'text-white/78' : 'text-brand-ink/55')}>
                     {getBoulderAttributeHint(attribute.key)}
                   </p>
                 </div>
@@ -150,8 +150,8 @@ export function BoulderAttributeSelector({
         })}
 
         {attributes.length === 0 && (
-          <div className="col-span-full rounded-2xl border border-dashed border-[#DCEEDF] bg-white/70 px-4 py-6 text-center text-sm text-[#13112B]/58">
-            <Sparkles className="mx-auto mb-2 h-5 w-5 text-[#36B531]" />
+          <div className="col-span-full rounded-2xl border border-dashed border-[#DCEEDF] bg-white/70 px-4 py-6 text-center text-sm text-brand-ink/58">
+            <Sparkles className="mx-auto mb-2 h-5 w-5 text-brand" />
             Keine aktiven Attribute gefunden.
           </div>
         )}

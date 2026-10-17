@@ -119,7 +119,7 @@ const Profile = () => {
                 </Avatar>
 
                 <div className="min-w-0 flex-1">
-                  <h2 className="truncate font-sans text-lg font-semibold tracking-[-0.03em] text-[#192436]">{displayName}</h2>
+                  <h2 className="truncate font-sans text-lg font-semibold tracking-[-0.03em] text-brand-ink">{displayName}</h2>
                   {user?.email ? <p className="mt-0.5 truncate font-sans text-xs text-muted-foreground">{user.email}</p> : null}
                   <span className="mt-2 inline-flex rounded-kws-badge bg-secondary px-2 py-1 font-sans text-[9px] font-semibold text-muted-foreground">
                     {memberSinceLabel}
@@ -129,7 +129,7 @@ const Profile = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/profile/edit')}
-                  className="grid h-10 w-10 shrink-0 place-items-center rounded-kws-control bg-secondary text-[#192436]/65 transition-colors hover:bg-[#E8EEE8] hover:text-[#192436] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-kws-control bg-secondary text-brand-ink/65 transition-colors hover:bg-[#E8EEE8] hover:text-brand-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
                   aria-label="Profil bearbeiten"
                 >
                   <Pencil className="h-4 w-4" aria-hidden="true" />
@@ -139,7 +139,7 @@ const Profile = () => {
           </KwsSurface>
 
           <section>
-            <h2 className="mb-2.5 px-0.5 font-sans text-sm font-semibold tracking-[-0.01em] text-[#192436]">Deine Aktivität</h2>
+            <h2 className="mb-2.5 px-0.5 font-sans text-sm font-semibold tracking-[-0.01em] text-brand-ink">Deine Aktivität</h2>
             {trackedQuery.isLoading || sessionsQuery.isLoading || trackedQuery.error || sessionsQuery.error
               ? <PersonalDataState loading={trackedQuery.isLoading || sessionsQuery.isLoading} onRetry={() => Promise.all([trackedQuery.refetch(), sessionsQuery.refetch()])} />
               : <KwsMetricStrip className="[&>button]:flex-col [&>button>span:last-child]:text-center [&_.truncate]:text-[11px] sm:[&>button]:flex-row sm:[&>button>span:last-child]:text-left" items={statsTiles} onItemClick={() => navigate('/statistics?period=all')} />}
@@ -149,7 +149,7 @@ const Profile = () => {
         <div className="space-y-5">
           {settingsGroups.map((group) => (
             <section key={group.title}>
-              <h2 className="mb-2.5 px-0.5 font-sans text-sm font-semibold tracking-[-0.01em] text-[#192436]">{group.title}</h2>
+              <h2 className="mb-2.5 px-0.5 font-sans text-sm font-semibold tracking-[-0.01em] text-brand-ink">{group.title}</h2>
               <KwsSurface className="overflow-hidden">
                 {group.items.map((item) => {
                   const ItemIcon = item.icon;
@@ -160,11 +160,11 @@ const Profile = () => {
                       onClick={() => navigate(item.path, item.path === '/schedule' ? { state: { from: 'profile' } } : undefined)}
                       className="flex min-h-[66px] w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-secondary/45 active:bg-secondary focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/45"
                     >
-                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-kws-control bg-secondary text-[#192436]/65">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-kws-control bg-secondary text-brand-ink/65">
                         <ItemIcon className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block font-sans text-sm font-semibold text-[#192436]">{item.label}</span>
+                        <span className="block font-sans text-sm font-semibold text-brand-ink">{item.label}</span>
                         <span className="mt-0.5 block truncate font-sans text-[10px] text-muted-foreground">{item.description}</span>
                       </span>
                       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden="true" />

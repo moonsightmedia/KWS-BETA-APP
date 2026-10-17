@@ -18,12 +18,12 @@ export const StatCard = ({ title, value, change, variant = 'default', subtitle }
   return (
     <Card className={cn(
       "shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden bg-white border border-[#E7F7E9]",
-      variant === 'primary' && "bg-[#36B531] border-0"
+      variant === 'primary' && "bg-brand border-0"
     )}>
       <CardContent className="pt-6 pb-6 flex flex-col h-full min-h-[120px]">
         <h3 className={cn(
           "text-sm font-medium mb-auto font-sans",
-          variant === 'primary' ? "text-white/80" : "text-[#13112B]/60"
+          variant === 'primary' ? "text-primary-foreground" : "text-brand-ink/60"
         )}>
           {title}
         </h3>
@@ -31,7 +31,7 @@ export const StatCard = ({ title, value, change, variant = 'default', subtitle }
         <div className="mt-auto">
           <div className={cn(
             "text-3xl font-bold font-heading",
-            variant === 'primary' ? "text-white" : "text-[#13112B]"
+            variant === 'primary' ? "text-primary-foreground" : "text-brand-ink"
           )}>
             {value}
           </div>
@@ -42,7 +42,7 @@ export const StatCard = ({ title, value, change, variant = 'default', subtitle }
                 "text-xs px-2 py-0.5 mt-1",
                 isPositive && "bg-success/10 text-success hover:bg-success/20",
                 isNegative && "bg-destructive/10 text-destructive hover:bg-destructive/20",
-                variant === 'primary' && "bg-white/20 text-white hover:bg-white/30"
+                variant === 'primary' && "bg-white/20 text-primary-foreground hover:bg-white/30"
               )}
             >
               {isPositive && <TrendingUp className="w-3 h-3 mr-1 inline" />}
@@ -54,7 +54,7 @@ export const StatCard = ({ title, value, change, variant = 'default', subtitle }
           {subtitle && (
             <p className={cn(
               "text-xs mt-2 font-sans",
-              variant === 'primary' ? "text-white/70" : "text-[#13112B]/60"
+              variant === 'primary' ? "text-primary-foreground" : "text-brand-ink/60"
             )}>
               {subtitle}
             </p>

@@ -35,7 +35,7 @@ export const KwsMetricStrip = ({
             <Icon className="h-4 w-4 text-primary" strokeWidth={2} aria-hidden="true" />
           </span>
           <span className="min-w-0 text-left">
-            <span className="block text-lg font-semibold leading-none tracking-[-0.04em] text-[#192436]">
+            <span className="block text-lg font-semibold leading-none tracking-[-0.04em] text-brand-ink">
               {item.value}
             </span>
             <span className="block truncate pt-1 font-sans text-[9px] font-medium text-muted-foreground">

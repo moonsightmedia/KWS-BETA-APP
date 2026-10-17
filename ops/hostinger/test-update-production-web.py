@@ -8,6 +8,31 @@ release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
 
 
+class StaticLegalPagesTests(unittest.TestCase):
+    def test_independent_legal_pages_and_app_routes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.assertEqual(release.expected_page(root, '/privacy', 'app'), 'app')
+            (root / 'LANDING-VERIFIED.json').write_text('{"release":"1234567890abcdef"}')
+            legal = root / 'landing-releases/1234567890abcdef/public/landing'
+            legal.mkdir(parents=True)
+            for route in ('privacy', 'imprint', 'community-rules'):
+                (legal / (route + '.html')).write_text('static ' + route)
+                self.assertEqual(release.expected_page(root, '/' + route, 'app'), 'static ' + route)
+            for route in ('/', '/auth', '/reset-password', '/auth/callback'):
+                self.assertEqual(release.expected_page(root, route, 'app'), 'app')
+
+    def test_missing_or_invalid_verified_legal_release_stops_deployment(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'LANDING-VERIFIED.json').write_text('{"release":"../../outside"}')
+            with self.assertRaisesRegex(AssertionError, 'Invalid landing release'):
+                release.expected_page(root, '/privacy', 'app')
+            (root / 'LANDING-VERIFIED.json').write_text('{"release":"1234567890abcdef"}')
+            with self.assertRaises(FileNotFoundError):
+                release.expected_page(root, '/privacy', 'app')
+
+
 class PreserveDownloadsTests(unittest.TestCase):
     def setUp(self):
         self.workspace = tempfile.TemporaryDirectory()
@@ -50,6 +75,15 @@ class PreserveDownloadsTests(unittest.TestCase):
 
     def test_release_without_previous_downloads(self):
         self.assertEqual(release.preserve_downloads(self.previous, self.next), 0)
+
+    def test_retry_retains_failed_stage_and_creates_fresh_directory(self):
+        root = Path(self.workspace.name)
+        first = release.new_release_stage(root, 'a' * 40)
+        (first / 'build.log').write_text('first attempt failed')
+        second = release.new_release_stage(root, 'a' * 40)
+        self.assertNotEqual(first, second)
+        self.assertTrue(second.is_dir())
+        self.assertEqual((first / 'build.log').read_text(), 'first attempt failed')
 
 
 if __name__ == '__main__':

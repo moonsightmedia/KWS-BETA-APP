@@ -6,6 +6,15 @@ directory, retain old hashed assets for open clients, and roll back failed start
 from pathlib import Path
 import argparse, datetime, hashlib, io, json, os, re, shutil, socket, subprocess, tarfile, time, urllib.parse, urllib.request
 
+def expected_page(root, route, app_html):
+    """Legal pages belong to the independently verified landing release."""
+    proof = root / 'LANDING-VERIFIED.json'
+    if route not in ('/privacy', '/imprint', '/community-rules') or not proof.exists():
+        return app_html
+    release = json.loads(proof.read_text())['release']
+    assert re.fullmatch('[0-9a-f]{16}', release), 'Invalid landing release'
+    return (root / 'landing-releases' / release / 'public/landing' / (route[1:] + '.html')).read_text()
+
 def preserve_downloads(previous_dist, next_dist):
     """Carry distributed installers across a web build, verifying their bytes."""
     downloads = previous_dist / 'downloads'
@@ -33,6 +42,15 @@ def preserve_downloads(previous_dist, next_dist):
         count += 1
     return count
 
+def new_release_stage(root, revision):
+    stage = root / 'releases' / revision
+    if stage.exists():
+        # Retain failed build diagnostics and permit a new GitHub run attempt.
+        suffix = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+        stage = stage.with_name(revision + '-' + suffix)
+    stage.mkdir(mode=0o700, parents=True, exist_ok=False)
+    return stage
+
 def main():
     assert os.geteuid() == 0 and socket.gethostname().split('.')[0] == 'srv2044594'
     os.umask(0o077)
@@ -51,8 +69,7 @@ def main():
     old = root / 'source'
     assert old.is_dir() and not old.is_symlink() and (old / 'dist/index.html').is_file()
     assert (root / 'docker-compose.yml').is_file()
-    stage = root / 'releases' / args.revision
-    stage.mkdir(mode=0o700, parents=True, exist_ok=False)
+    stage = new_release_stage(root, args.revision)
     source = stage / 'source'; source.mkdir(mode=0o700)
     url = 'https://github.com/moonsightmedia/KWS-BETA-APP/archive/' + args.revision + '.tar.gz'
     with urllib.request.urlopen(url, timeout=120) as response: archive = response.read()
@@ -105,6 +122,8 @@ def main():
     for path in dist.rglob('*'): path.chmod(0o644 if path.is_file() else 0o755)
     dist.chmod(0o755)
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    (dist / 'release.json').write_text(json.dumps({'revision':args.revision, 'deployed_at':stamp})+'\n')
+    (dist / 'release.json').chmod(0o644)
     previous = root / ('previous-source-' + stamp)
     assert not previous.exists()
     metadata = {name:(root / name).read_bytes() for name in ('SOURCE.json','BUILD-VERIFIED.json')}
@@ -124,7 +143,9 @@ def main():
                     time.sleep(2)
             for route in ('/','/auth','/reset-password','/auth/callback','/privacy','/imprint','/community-rules'):
                 with urllib.request.urlopen('http://127.0.0.1:9091'+route, timeout=30) as response:
-                    assert response.status == 200 and response.read().decode() == html
+                    assert response.status == 200 and response.read().decode() == expected_page(root, route, html)
+            with urllib.request.urlopen('http://127.0.0.1:9091/release.json', timeout=30) as response:
+                assert json.load(response)['revision'] == args.revision, 'Served revision differs'
             for path in (old / 'dist/downloads').rglob('*'):
                 if not path.is_file(): continue
                 route = '/downloads/' + urllib.parse.quote(path.relative_to(old / 'dist/downloads').as_posix(), safe='/')
@@ -153,7 +174,11 @@ def main():
     print(json.dumps(report))
 
 if __name__ == '__main__':
-    try: main()
+    try:
+        import fcntl
+        with Path('/run/lock/kws-production-web-release.lock').open('w') as release_lock:
+            fcntl.flock(release_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            main()
     except Exception as error:
         print('WEB_RELEASE_STOPPED: ' + type(error).__name__ + '; inspect protected release diagnostics')
         raise SystemExit(1)

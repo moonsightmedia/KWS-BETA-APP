@@ -52,8 +52,8 @@ const CompetitionContent = () => {
   // Show loading while redirecting
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F9FAF9]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#36B531]" />
+      <div className="min-h-screen flex items-center justify-center bg-brand-canvas">
+        <Loader2 className="w-8 h-8 animate-spin text-brand" />
       </div>
     );
   }

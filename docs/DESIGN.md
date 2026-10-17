@@ -2,7 +2,7 @@
 status: verbindlich
 scope: KWS Beta App
 owner: Janosch Althoff
-last_verified: 2026-09-14
+last_verified: 2026-10-17
 supersedes: docs/USER_AREA_DESIGN_GUIDE.md
 ---
 
@@ -70,14 +70,25 @@ Nicht verwenden:
 | Starke Schrift | `#192436` | Seitenüberschriften, Abschnittstitel, Kartentitel, wichtige Zahlen |
 | Seitenfläche | `#F9FAF9` | angemeldete Hauptseiten und ruhige App-Hintergründe |
 | Kartenfläche | `#FFFFFF` / `card` | Karten, Popover, Listenflächen |
-| Sekundärfläche | `secondary`, visuell etwa `#F1F5F1` | inaktive Controls, Iconflächen, leichte Gruppierung |
+| Sekundärfläche | `#F1F5F1` / `secondary` | inaktive Controls, Iconflächen, leichte Gruppierung |
 | Bild-Platzhalter | `#EEF2EE` | Thumbnail-Hintergrund während Laden oder bei fehlendem Bild |
-| Sekundärtext | `muted-foreground` | Metadaten, Hilfetext, Zähler |
-| Border | `border`, visuell etwa `#DDE7DF` | subtile Trenner und notwendige Control-Konturen |
+| Sekundärtext | `#646C71` / `muted-foreground` | Metadaten, Hilfetext, Zähler |
+| Border | `#DDE7DF` / `border` | subtile Trenner und notwendige Control-Konturen |
 | Gefahr | `destructive`, `hsl(5 55% 45%)` | Gefahrenhinweise auf hellem Rottint; gefüllte Löschaktionen mit Weiß |
 
 Regeln:
 
+- Nutzerentscheidung 16.10.2026: Dokumentierte Markenwerte und CSS-Tokens
+  stimmen exakt überein. Die HSL-Werte behalten dafür ihre nötige Genauigkeit.
+  `--brand-*` in `src/index.css` ist die zentrale unveränderliche Markenpalette;
+  `primary`, `foreground`, `secondary`, `muted-foreground`, `border` und weitere
+  semantische Tokens verweisen darauf. `brand-*`-Utilities ersetzen bisherige
+  direkte Markenfarben auf bewusst festen Flächen, damit deren Verhalten auch
+  innerhalb thematisierter Ansichten erhalten bleibt. Normale thematisierbare
+  Controls verwenden weiterhin die semantischen Tokens.
+  Das alte Textviolett `#13112B` entfällt als UI-Farbe; transparente historische
+  Schattenrezepte bleiben davon unabhängig. Grifffarben, Kartenbereiche,
+  Illustrationsfarben und fachlich verschiedene Zustandsfarben bleiben getrennt.
 - `#192436` ist die einheitliche starke Schriftfarbe der neuen Nutzeroberfläche.
 - Primärgrün wird nicht als großflächiger Seitenhintergrund eingesetzt.
 - Normaler informativer Text erreicht mindestens 4,5:1 auf seiner tatsächlichen
@@ -94,9 +105,8 @@ Regeln:
 - Direkte Hexwerte sollen bei neuer Arbeit nur ergänzt werden, wenn eine neue
   semantische Rolle beschlossen wurde. Wiederkehrende Werte gehören in
   `src/index.css` und `tailwind.config.ts`.
-- Alte Textverwendungen von `#13112B` werden bei Berührung auf die aktuelle
-  Texthierarchie geprüft. Der Farbwert kann weiterhin als Ausgangswert für
-  transparente Schatten dienen.
+- `#13112B` wird nicht mehr als UI-Textfarbe verwendet. Historische transparente
+  Schatten dürfen weiterhin auf diesem Ausgangswert beruhen.
 
 ### 3.2 Hallenkartenpalette
 
@@ -144,6 +154,50 @@ Regeln:
 - Sehr kleine Schrift ist nur für kurze Metadaten auf kompakten Fotokarten
   erlaubt. Bedienhandlungen und längere Texte bleiben größer.
 - Überschriften sind kurz. Zusätzliche Erklärung maximal ein kompakter Satz.
+
+### 3.3.1 Beta-Marke: Variante 03 mit Teko (16.10.2026)
+
+Die gewählte Produktmarke ist das kompakte Zeichen aus zwei Griffformen mit
+dem Schriftzug „beta“ in Teko SemiBold 600. `BetaLogo` verwendet festgelegte
+Vektorkonturen; Zeichen und Schriftzug werden weder nachgesetzt noch verändert.
+Das Zeichen nutzt `primary`, die Wortmarke `brand-ink`; die inverse Wortmarke
+ist weiß. Der Akzent kann damit später die Farbe einer anderen Halle übernehmen.
+
+Für die freigegebene Web-Integration gilt: vollständige farbige Marke auf Auth und in der Desktop-Seitenleiste; Header zeigen kein Produktlogo.
+
+- Header verwenden wieder die normalen Seitentitel und Bedienelemente.
+  Home zeigt mobil „Home“, auf Desktop die persönliche Begrüßung.
+- Die Desktop-Seitenleiste zeigt das vollständige Logo über der Navigation; eingeklappt bleibt das Zeichen sichtbar.
+- Anmeldung und Registrierung zeigen mobil ein mittiges, 128px breites Logo
+  über Begrüßung und Formular auf Weiß. Desktop behält die bestehende Zweispaltigkeit.
+  Ab 768px ist es 184px breit. Der bisherige Kletterwelt-Sauerland-Absender
+  wird an dieser Stelle ersetzt.
+- Boulder und andere Fachseiten behalten ihre Seitentitel und Werkzeuge.
+- Nutzererweiterung 17.10.2026: Das Zeichen dient auf den App-Seiten als
+  gemeinsamer Hintergrund: Home, Boulder, Statistiken, Profil und Unterseiten,
+  Gastübersicht, Auth, Passwort-Neuvergabe, Rechtstexte sowie Setter/Admin.
+  `BrandWatermark` übernimmt die freigegebene Geometrie: horizontal mittig im
+  Inhaltsbereich, vertikal in der sichtbaren Bildschirmmitte, beim Scrollen
+  dort gehalten. Mobil 22rem (maximal 90% der Fläche), ab md 30rem; Hallenakzent
+  mit 8% Deckkraft. Die Elternfläche verwendet `relative isolate`.
+  Weiße Karten, Formularflächen, Fotos, Textkontrast und Controls bleiben deckend.
+  Die separate Ebene ist für Screenreader verborgen und fängt keine Eingaben ab.
+  Hallenkarten/Zeicheneditor, Dialoge, Medienvollbild und TV-Aushang erhalten
+  kein eigenes Wasserzeichen. Header bleiben frei vom Produktlogo.
+
+Natives Android-App-Icon (Nutzerkorrektur 17.10.2026): Das freigegebene
+Beta-Zeichen steht ohne Schrift weiß auf KWS-Grün (#36B531), entsprechend dem
+Android-Motiv im Logo-Paket. Adaptive Icons verwenden identische Vorder- und
+Hintergrundebenen für normale und runde Launcher. Ab API33 ist dieselbe Kontur
+als monochrome Ebene für System-Theming hinterlegt. Ältere Android-Versionen
+haben passende PNGs für alle fünf Dichten. Das System setzt die adaptive Maske;
+keine vorgerundete Fläche oder Schatten in den adaptiven Ebenen. Änderungen
+werden aus public/brand/beta-icon.svg mit scripts/generate-android-icons.cjs
+reproduzierbar exportiert. Das alte KWS-Homescreen-Icon wird nicht weiterverwendet.
+
+Die lokale Designvorschau verwendet separate Beispieldaten. Der freigegebene
+Web-Release bindet nur die regulären App-Komponenten und die bestehende
+Produktionskonfiguration ein; Vorschau-Fixtures werden nicht veröffentlicht.
 
 ### 3.4 Radien
 
@@ -1330,7 +1384,8 @@ Bekannte Migrationshinweise:
   notwendige Konturen; Inhaltskarten nutzen `kwsSurfaceClassName`/`shadow-soft`.
 - Historische, nicht eingebundene Screens und einzelne nicht-kompakte
   Hallenkartenvarianten können weiterhin ältere Rundungen enthalten.
-- Direkte Farben wie `#13112B` und alte `rounded-xl/2xl/full` kommen noch vor.
+- Alte `rounded-xl/2xl/full` kommen noch vor; wiederkehrende direkte Markenfarben
+  wurden am 16.10.2026 durch zentrale `brand-*`-Utilities ersetzt.
 - Diese Altstellen werden beim nächsten fachlichen Anfassen gegen diese Datei
   geprüft; sie sind keine Vorlage für neue Screens.
 

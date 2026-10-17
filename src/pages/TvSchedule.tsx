@@ -321,7 +321,7 @@ function TvScheduleMap({
 
   if (isLoadingMap || isLoadingRegions) {
     return (
-      <div className="grid h-full min-h-[460px] place-items-center bg-[#F9FAF9] text-[#13112B]/60">
+      <div className="grid h-full min-h-[460px] place-items-center bg-brand-canvas text-brand-ink/60">
         <div className="flex items-center gap-3 text-[clamp(1rem,1.5vw,1.5rem)] font-semibold">
           <RefreshCw className="h-6 w-6 animate-spin text-[#69B545]" />
           Hallenkarte wird geladen
@@ -332,11 +332,11 @@ function TvScheduleMap({
 
   if (imageError) {
     return (
-      <div className="grid h-full min-h-[460px] place-items-center bg-[#F9FAF9] px-10 text-center text-[#13112B]">
+      <div className="grid h-full min-h-[460px] place-items-center bg-brand-canvas px-10 text-center text-brand-ink">
         <div className="max-w-xl">
           <MapPinned className="mx-auto h-12 w-12 text-[#69B545]" />
           <p className="mt-5 font-heading text-[clamp(2.2rem,4vw,4.8rem)] leading-none">Karte wird vorbereitet</p>
-          <p className="mt-3 text-[clamp(1rem,1.35vw,1.35rem)] text-[#13112B]/65">
+          <p className="mt-3 text-[clamp(1rem,1.35vw,1.35rem)] text-brand-ink/65">
             Die Termine werden rechts weiter angezeigt. Die Anzeige versucht automatisch erneut zu laden.
           </p>
         </div>
@@ -350,7 +350,7 @@ function TvScheduleMap({
       height={mapHeight}
       disablePanZoom
       lockAspectRatio
-      viewportClassName="h-full min-h-[460px] rounded-none border-0 bg-[#F9FAF9]"
+      viewportClassName="h-full min-h-[460px] rounded-none border-0 bg-brand-canvas"
     >
       <img
         src={mapData.image_url}
@@ -469,46 +469,46 @@ const TvSchedule = () => {
   const workBlockCount = groups.reduce((total, group) => total + group.entries.length, 0);
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#F9FAF9] text-[#13112B]">
+    <main className="min-h-screen overflow-hidden bg-brand-canvas text-brand-ink">
       <div className="grid min-h-screen grid-rows-[auto_minmax(0,1fr)]">
-        <header className="flex items-center justify-between gap-8 border-b border-[#DDE7DF] bg-white px-[clamp(1.25rem,3vw,3.5rem)] py-[clamp(0.9rem,1.7vh,1.4rem)] shadow-[0_8px_28px_rgba(19,17,43,0.04)]">
+        <header className="flex items-center justify-between gap-8 border-b border-brand-border bg-white px-[clamp(1.25rem,3vw,3.5rem)] py-[clamp(0.9rem,1.7vh,1.4rem)] shadow-[0_8px_28px_rgba(19,17,43,0.04)]">
           <div className="min-w-0">
             <div className="flex items-center gap-3 text-[#69B545]">
               <MapPinned className="h-[clamp(1.1rem,1.6vw,1.8rem)] w-[clamp(1.1rem,1.6vw,1.8rem)]" />
               <p className="text-[clamp(0.76rem,0.95vw,1.05rem)] font-bold uppercase tracking-[0.24em]">Kletterwelt Sauerland</p>
             </div>
-            <h1 className="mt-1 font-heading text-[clamp(2.8rem,5.2vw,6.1rem)] leading-[0.86] tracking-normal text-[#13112B]">
+            <h1 className="mt-1 font-heading text-[clamp(2.8rem,5.2vw,6.1rem)] leading-[0.86] tracking-normal text-brand-ink">
               Routenschraubplan
             </h1>
           </div>
 
           <div className="shrink-0 text-right">
-            <p className="font-heading text-[clamp(2.4rem,4.1vw,4.9rem)] leading-none text-[#13112B]">
+            <p className="font-heading text-[clamp(2.4rem,4.1vw,4.9rem)] leading-none text-brand-ink">
               {now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
             </p>
-            <p className="mt-1 text-[clamp(0.86rem,1.05vw,1.2rem)] font-semibold text-[#13112B]/58">
+            <p className="mt-1 text-[clamp(0.86rem,1.05vw,1.2rem)] font-semibold text-brand-ink/58">
               {now.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' })}
             </p>
           </div>
         </header>
 
         <section className="grid min-h-0 grid-cols-1 xl:grid-cols-[minmax(0,1.35fr)_minmax(420px,0.65fr)]">
-          <div className="relative min-h-[42vh] overflow-hidden border-b border-[#DDE7DF] bg-[#F9FAF9] xl:min-h-0 xl:border-b-0 xl:border-r">
+          <div className="relative min-h-[42vh] overflow-hidden border-b border-brand-border bg-brand-canvas xl:min-h-0 xl:border-b-0 xl:border-r">
             <TvScheduleMap sectors={sectors} sectorOrderById={sectorOrderById} />
           </div>
 
-          <aside className="flex min-h-0 flex-col bg-white text-[#13112B]">
-            <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[#DDE7DF] px-[clamp(1rem,2vw,2rem)] py-[clamp(0.9rem,1.6vh,1.4rem)]">
+          <aside className="flex min-h-0 flex-col bg-white text-brand-ink">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b border-brand-border px-[clamp(1rem,2vw,2rem)] py-[clamp(0.9rem,1.6vh,1.4rem)]">
               <div>
                 <p className="text-[0.76rem] font-bold uppercase tracking-[0.22em] text-[#6E806A]">Nächste Termine</p>
                 <p className="mt-1 font-heading text-[clamp(1.9rem,3vw,3.4rem)] leading-none">
                   {groups.length} {groups.length === 1 ? 'Termintag' : 'Termintage'}
                 </p>
-                <p className="mt-1 text-sm font-semibold text-[#13112B]/52">
+                <p className="mt-1 text-sm font-semibold text-brand-ink/52">
                   {workBlockCount} {workBlockCount === 1 ? 'Arbeitsblock' : 'Arbeitsblöcke'} in Reihenfolge
                 </p>
               </div>
-              <div className={cn('flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold', isFetching ? 'border-[#69B545]/35 bg-[#EAF5E7] text-[#347D2F]' : 'border-[#DDE7DF] bg-[#F9FAF9] text-[#6E806A]')}>
+              <div className={cn('flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold', isFetching ? 'border-[#69B545]/35 bg-[#EAF5E7] text-[#347D2F]' : 'border-brand-border bg-brand-canvas text-[#6E806A]')}>
                 <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
                 {secondsUntilRefresh}s
               </div>
@@ -539,7 +539,7 @@ const TvSchedule = () => {
                     <p className="mt-5 font-heading text-[clamp(2.1rem,3.6vw,4.1rem)] leading-none">
                       Aktuell keine Schraubtermine geplant.
                     </p>
-                    <p className="mt-3 text-[clamp(0.95rem,1.15vw,1.25rem)] font-medium text-[#13112B]/58">
+                    <p className="mt-3 text-[clamp(0.95rem,1.15vw,1.25rem)] font-medium text-brand-ink/58">
                       Die Anzeige aktualisiert sich automatisch jede Minute.
                     </p>
                   </div>
@@ -547,9 +547,9 @@ const TvSchedule = () => {
               ) : (
                 <div className="flex h-full flex-col gap-[clamp(0.8rem,1.4vh,1.25rem)] overflow-hidden">
                   {groups.slice(0, 5).map((group, groupIndex) => (
-                    <section key={group.key} className="min-h-0 border-b border-[#DDE7DF] pb-[clamp(0.8rem,1.4vh,1.25rem)] last:border-b-0">
+                    <section key={group.key} className="min-h-0 border-b border-brand-border pb-[clamp(0.8rem,1.4vh,1.25rem)] last:border-b-0">
                       <div className="flex items-baseline justify-between gap-4">
-                        <h2 className="font-heading text-[clamp(2.1rem,3.8vw,4.1rem)] leading-none text-[#13112B]">{group.label}</h2>
+                        <h2 className="font-heading text-[clamp(2.1rem,3.8vw,4.1rem)] leading-none text-brand-ink">{group.label}</h2>
                         <p className="text-[clamp(0.85rem,1.05vw,1.15rem)] font-bold uppercase tracking-[0.18em] text-[#6E806A]">
                           {group.entries.length} {group.entries.length === 1 ? 'Termin' : 'Termine'}
                         </p>
@@ -557,7 +557,7 @@ const TvSchedule = () => {
 
                       <div className="mt-[clamp(0.55rem,1vh,0.9rem)] grid gap-[clamp(0.5rem,0.85vh,0.75rem)]">
                         {group.entries.slice(0, groupIndex === 0 ? 5 : 3).map((entry) => (
-                          <article key={entry.id} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-4 rounded-lg border border-[#DDE7DF] bg-[#F9FAF9] px-[clamp(0.8rem,1.2vw,1.25rem)] py-[clamp(0.7rem,1vh,1rem)]">
+                          <article key={entry.id} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-4 rounded-lg border border-brand-border bg-brand-canvas px-[clamp(0.8rem,1.2vw,1.25rem)] py-[clamp(0.7rem,1vh,1rem)]">
                             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#69B545] text-lg font-extrabold text-white">
                               {entry.sequenceNumber}
                             </div>
@@ -566,11 +566,11 @@ const TvSchedule = () => {
                               <span className="font-heading text-[clamp(1.7rem,2.6vw,2.8rem)] leading-none">{formatTime(entry.scheduled_at)}</span>
                             </div>
                             <div className="min-w-0">
-                              <p className="truncate text-[clamp(1.08rem,1.55vw,1.7rem)] font-extrabold leading-tight text-[#13112B]">
+                              <p className="truncate text-[clamp(1.08rem,1.55vw,1.7rem)] font-extrabold leading-tight text-brand-ink">
                                 {entry.sectorName}
                               </p>
                               {entry.note ? (
-                                <p className="mt-1 line-clamp-1 text-[clamp(0.85rem,1vw,1.1rem)] font-medium text-[#13112B]/58">{entry.note}</p>
+                                <p className="mt-1 line-clamp-1 text-[clamp(0.85rem,1vw,1.1rem)] font-medium text-brand-ink/58">{entry.note}</p>
                               ) : null}
                             </div>
                           </article>
@@ -582,7 +582,7 @@ const TvSchedule = () => {
               )}
             </div>
 
-            <div className="flex shrink-0 items-center justify-between gap-4 border-t border-[#DDE7DF] px-[clamp(1rem,2vw,2rem)] py-3 text-[clamp(0.78rem,0.95vw,1rem)] font-semibold text-[#6E806A]">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-t border-brand-border px-[clamp(1rem,2vw,2rem)] py-3 text-[clamp(0.78rem,0.95vw,1rem)] font-semibold text-[#6E806A]">
               <span>Zuletzt aktualisiert: {updatedAt ? updatedAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : 'noch nicht geladen'}</span>
               <span>Nächster Sync in {secondsUntilRefresh}s</span>
             </div>

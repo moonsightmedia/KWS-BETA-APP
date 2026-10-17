@@ -1,3 +1,4 @@
+import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { boulderNavigationState } from '@/lib/boulderNavigation';
@@ -68,14 +69,14 @@ const DashboardSectionHeader = ({
 }) => (
   <div className="mb-2.5 flex flex-wrap items-center justify-between gap-3 px-0.5 sm:flex-nowrap">
     <div className="min-w-0">
-      <h2 className="break-words font-sans text-sm font-semibold tracking-[-0.01em] text-[#192436]">{title}</h2>
+      <h2 className="break-words font-sans text-sm font-semibold tracking-[-0.01em] text-brand-ink">{title}</h2>
       {description ? <p className="pt-0.5 text-xs text-muted-foreground">{description}</p> : null}
     </div>
     {actionLabel && onActionClick ? (
       <button
         type="button"
         onClick={onActionClick}
-        className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-kws-control px-2 font-sans text-xs font-semibold text-[#192436] transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+        className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-kws-control px-2 font-sans text-xs font-semibold text-brand-ink transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
       >
         {actionLabel}
         <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -255,7 +256,7 @@ const Index = () => {
   const nextFocusBoulders = useMemo(() => homeFocusBoulders(myTrackedBoulders ?? [], boulders ?? [], progressStats.successIds).slice(0, 2), [myTrackedBoulders, boulders, progressStats.successIds]);
 
   const layoutClassName = cn(
-    'kws-sidebar-content flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-[#F9FAF9]',
+    'kws-sidebar-content flex-1 flex flex-col mb-20 md:mb-0 w-full min-w-0 bg-brand-canvas',
     isExpanded ? 'md:ml-64' : 'md:ml-20',
   );
 
@@ -271,14 +272,15 @@ const Index = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex bg-[#F9FAF9]">
+      <div className="min-h-screen flex bg-brand-canvas">
         <div ref={swipeRef} className={layoutClassName}>
           <DashboardHeader
             desktopTitle={desktopGreeting}
             desktopSubtitle={desktopGreetingSubtitle}
             rightSlot={<NotificationCenter variant="header" />}
           />
-          <main className="mx-auto w-full max-w-[1180px] flex-1 px-4 pb-28 pt-6 md:px-8 md:pb-10">
+          <main className="relative isolate mx-auto w-full max-w-[1180px] flex-1 px-4 pb-28 pt-6 md:px-8 md:pb-10">
+            <BrandWatermark />
             <div className="space-y-4">
               <Skeleton className="h-20 rounded-kws-card" />
               <div className="grid grid-cols-3 gap-3">
@@ -297,14 +299,15 @@ const Index = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex bg-[#F9FAF9]">
+      <div className="min-h-screen flex bg-brand-canvas">
         <div ref={swipeRef} className={layoutClassName}>
           <DashboardHeader
             desktopTitle={desktopGreeting}
             desktopSubtitle={desktopGreetingSubtitle}
             rightSlot={<NotificationCenter variant="header" />}
           />
-          <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
+          <main className="relative isolate mx-auto w-full max-w-[1180px] flex-1 p-4 md:p-8">
+            <BrandWatermark />
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Fehler beim Laden der Daten</AlertTitle>
@@ -333,16 +336,17 @@ const Index = () => {
 
   if (!boulders?.length && !sectors?.length) {
     return (
-      <div className="min-h-screen flex bg-[#F9FAF9]">
+      <div className="min-h-screen flex bg-brand-canvas">
         <div ref={swipeRef} className={layoutClassName}>
           <DashboardHeader
             desktopTitle={desktopGreeting}
             desktopSubtitle={desktopGreetingSubtitle}
             rightSlot={<NotificationCenter variant="header" />}
           />
-          <main className="mx-auto flex w-full max-w-[1180px] flex-1 items-center justify-center p-4 md:p-8">
+          <main className="relative isolate mx-auto flex w-full max-w-[1180px] flex-1 items-center justify-center p-4 md:p-8">
+            <BrandWatermark />
             <div className="space-y-4 text-center">
-              <p className="text-[#13112B]/60">Keine Daten geladen</p>
+              <p className="text-brand-ink/60">Keine Daten geladen</p>
               <Button
                 onClick={async () => {
                   await Promise.all([
@@ -362,7 +366,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen flex bg-[#F9FAF9]">
+    <div className="min-h-screen flex bg-brand-canvas">
       <div ref={swipeRef} className={layoutClassName}>
         <DashboardHeader
           desktopTitle={desktopGreeting}
@@ -370,9 +374,10 @@ const Index = () => {
           rightSlot={<NotificationCenter variant="header" />}
         />
 
-        <main className="mx-auto w-full max-w-[1180px] flex-1 overflow-x-hidden px-4 pb-28 pt-4 md:px-8 md:pb-10 md:pt-6">
+        <main className="relative isolate mx-auto w-full max-w-[1180px] flex-1 overflow-x-clip px-4 pb-28 pt-4 md:px-8 md:pb-10 md:pt-6">
+          <BrandWatermark />
           <section className="mb-5 md:hidden">
-            <h1 className="font-sans text-[1.75rem] font-semibold leading-tight tracking-[-0.04em] text-[#192436] md:text-[2rem]">
+            <h1 className="font-sans text-[1.75rem] font-semibold leading-tight tracking-[-0.04em] text-brand-ink md:text-[2rem]">
               {authLoading ? 'Willkommen' : greetingName ? `Hallo ${greetingName}` : 'Willkommen zurück'}
             </h1>
             <p className="mt-1 font-sans text-xs text-muted-foreground">
@@ -440,11 +445,11 @@ const Index = () => {
                     NEU
                   </span>
 
-                  <div className="absolute inset-x-0 bottom-0 flex h-[46%] flex-col justify-end bg-gradient-to-t from-white via-white/90 to-transparent px-1.5 pb-1.5 pt-7 text-[#192436] sm:px-2 sm:pb-2 md:h-[48%] md:px-3 md:pb-3">
+                  <div className="absolute inset-x-0 bottom-0 flex h-[46%] flex-col justify-end bg-gradient-to-t from-white via-white/90 to-transparent px-1.5 pb-1.5 pt-7 text-brand-ink sm:px-2 sm:pb-2 md:h-[48%] md:px-3 md:pb-3">
                     <span className="block truncate text-[9px] font-bold leading-tight tracking-[-0.02em] sm:text-[10px] md:text-xs">
                       {boulder.name}
                     </span>
-                    <span className="mt-0.5 truncate text-[8px] font-semibold leading-tight text-[#192436]/70 sm:text-[9px] md:text-[11px]">
+                    <span className="mt-0.5 truncate text-[8px] font-semibold leading-tight text-brand-ink/70 sm:text-[9px] md:text-[11px]">
                       {getSectorAreaLabel(boulder)}
                     </span>
                   </div>

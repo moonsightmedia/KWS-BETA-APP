@@ -505,8 +505,8 @@ export function HallMapView({
           <MapPinned className="mr-2 h-3.5 w-3.5" />
           Hallenkartenmodus bereit
         </Badge>
-        <h3 className="text-2xl font-semibold tracking-tight text-[#13112B]">Noch keine aktive Hallenkarte</h3>
-        <p className="mt-2 max-w-lg text-sm leading-6 text-[#13112B]/68">
+        <h3 className="text-2xl font-semibold tracking-tight text-brand-ink">Noch keine aktive Hallenkarte</h3>
+        <p className="mt-2 max-w-lg text-sm leading-6 text-brand-ink/68">
           Lege im Admin einen Hallenplan an und zeichne die ersten Sektorflächen ein. Danach ist die Sektorwahl hier direkt in der Filterleiste verfügbar.
         </p>
       </div>
@@ -522,17 +522,17 @@ export function HallMapView({
               <MapPinned className="mr-2 h-3.5 w-3.5" />
               {activeMap.name}
             </Badge>
-            <Badge className="rounded-kws-badge border border-[#DCE5DE] bg-white px-3 py-1 text-[#13112B]/70 shadow-none">
+            <Badge className="rounded-kws-badge border border-[#DCE5DE] bg-white px-3 py-1 text-brand-ink/70 shadow-none">
               {new Set(renderedRegions.map(({ sector }) => resolveSectorArea(sector).area?.slug).filter(Boolean)).size || renderedRegions.length} Bereiche
             </Badge>
-            <Badge className="rounded-kws-badge border border-[#DCE5DE] bg-white px-3 py-1 text-[#13112B]/70 shadow-none">
+            <Badge className="rounded-kws-badge border border-[#DCE5DE] bg-white px-3 py-1 text-brand-ink/70 shadow-none">
               {totalVisibleBoulders} Boulder in der Halle
             </Badge>
           </div>
 
           <div className="flex items-center gap-2">
             {onClose && (
-              <Button variant="ghost" size="icon" onClick={onClose} className="rounded-kws-control text-[#13112B]/70 hover:bg-[#F3F6F3]">
+              <Button variant="ghost" size="icon" onClick={onClose} className="rounded-kws-control text-brand-ink/70 hover:bg-[#F3F6F3]">
                 <X className="h-4 w-4" />
               </Button>
             )}
@@ -810,7 +810,7 @@ export function HallMapView({
 
       {renderedRegions.length > 0 && !compact && !frameless && (
         <div className="space-y-2">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#13112B]/45">Teilbereich direkt wählen</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-ink/45">Teilbereich direkt wählen</div>
           <div className="flex flex-wrap gap-2">
             {logicalMapGroups.map(group => {
               const sector = group.sectors[0];
@@ -833,7 +833,7 @@ export function HallMapView({
                 >
                   <Check className={cn('h-4 w-4 text-primary-ink', !active && 'invisible')} aria-hidden="true" />
                   <span className="text-sm font-semibold">{resolveSectorArea(sector).publicName}</span>
-                  <span className="rounded-kws-badge border border-[#DFE7E1] bg-[#F7FAF8] px-2.5 py-1 text-xs font-semibold text-[#13112B]/72">{count}</span>
+                  <span className="rounded-kws-badge border border-[#DFE7E1] bg-[#F7FAF8] px-2.5 py-1 text-xs font-semibold text-brand-ink/72">{count}</span>
                 </button>
               );
             })}

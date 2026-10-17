@@ -21,7 +21,7 @@ export async function generateQRCodeDataURL(
     width: 400,
     margin: 2,
     color: {
-      dark: '#13112B', // Dark text color from design system
+      dark: '#192436', // Dark text color from design system
       light: '#FFFFFF', // White background
     },
     ...options,
