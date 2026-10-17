@@ -6,6 +6,15 @@ directory, retain old hashed assets for open clients, and roll back failed start
 from pathlib import Path
 import argparse, datetime, hashlib, io, json, os, re, shutil, socket, subprocess, tarfile, time, urllib.parse, urllib.request
 
+def expected_page(root, route, app_html):
+    """Legal pages belong to the independently verified landing release."""
+    proof = root / 'LANDING-VERIFIED.json'
+    if route not in ('/privacy', '/imprint', '/community-rules') or not proof.exists():
+        return app_html
+    release = json.loads(proof.read_text())['release']
+    assert re.fullmatch('[0-9a-f]{16}', release), 'Invalid landing release'
+    return (root / 'landing-releases' / release / 'public/landing' / (route[1:] + '.html')).read_text()
+
 def preserve_downloads(previous_dist, next_dist):
     """Carry distributed installers across a web build, verifying their bytes."""
     downloads = previous_dist / 'downloads'
@@ -134,7 +143,7 @@ def main():
                     time.sleep(2)
             for route in ('/','/auth','/reset-password','/auth/callback','/privacy','/imprint','/community-rules'):
                 with urllib.request.urlopen('http://127.0.0.1:9091'+route, timeout=30) as response:
-                    assert response.status == 200 and response.read().decode() == html
+                    assert response.status == 200 and response.read().decode() == expected_page(root, route, html)
             with urllib.request.urlopen('http://127.0.0.1:9091/release.json', timeout=30) as response:
                 assert json.load(response)['revision'] == args.revision, 'Served revision differs'
             for path in (old / 'dist/downloads').rglob('*'):
