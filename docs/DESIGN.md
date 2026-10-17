@@ -1134,8 +1134,9 @@ Verbindliche Regeln:
   Native Launch-Screens zeigen das unveränderte grüne Beta-Zeichen auf Weiß.
   Android verwendet eigene Splash-Ressourcen unabhängig vom weiß-grünen Launcher;
   iOS eine mittige 288pt-Bildfläche mit 72pt-Zeichen, ohne Aspect-Fill-Zuschnitt.
-  Export: `scripts/generate-beta-splash.cjs`. Stand 17.10.2026 als lokale Revision;
-  noch kein neuer Geräte- oder Store-Release.
+  Export: `scripts/generate-beta-splash.cjs`. Am 17.10.2026 zur Veröffentlichung
+  freigegeben (Web1.0.243 / Android1.0.66). iOS-Ressourcen vorbereitet;
+  ein neuer TestFlight-Build ist nicht Bestandteil dieses Releases.
 - Ein Ladezustand darf nicht kurz flackern: initiale Übergänge bleiben für eine
   kurze Mindestdauer stabil. `prefers-reduced-motion` reduziert alle dekorativen
   Ladeanimationen.
