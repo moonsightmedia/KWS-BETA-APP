@@ -8,6 +8,31 @@ release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
 
 
+class StaticLegalPagesTests(unittest.TestCase):
+    def test_independent_legal_pages_and_app_routes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.assertEqual(release.expected_page(root, '/privacy', 'app'), 'app')
+            (root / 'LANDING-VERIFIED.json').write_text('{"release":"1234567890abcdef"}')
+            legal = root / 'landing-releases/1234567890abcdef/public/landing'
+            legal.mkdir(parents=True)
+            for route in ('privacy', 'imprint', 'community-rules'):
+                (legal / (route + '.html')).write_text('static ' + route)
+                self.assertEqual(release.expected_page(root, '/' + route, 'app'), 'static ' + route)
+            for route in ('/', '/auth', '/reset-password', '/auth/callback'):
+                self.assertEqual(release.expected_page(root, route, 'app'), 'app')
+
+    def test_missing_or_invalid_verified_legal_release_stops_deployment(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'LANDING-VERIFIED.json').write_text('{"release":"../../outside"}')
+            with self.assertRaisesRegex(AssertionError, 'Invalid landing release'):
+                release.expected_page(root, '/privacy', 'app')
+            (root / 'LANDING-VERIFIED.json').write_text('{"release":"1234567890abcdef"}')
+            with self.assertRaises(FileNotFoundError):
+                release.expected_page(root, '/privacy', 'app')
+
+
 class PreserveDownloadsTests(unittest.TestCase):
     def setUp(self):
         self.workspace = tempfile.TemporaryDirectory()
