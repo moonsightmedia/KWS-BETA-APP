@@ -94,6 +94,15 @@ Backup wiederherstellen; neu hinzugefügte Handler anhand des Vorherplans entfer
 und den Container kontrolliert neu starten. Keine Migration wird von diesem
 Installer ausgeführt.
 
+Die API-Whitelist wird separat mit `route_install.py` geprüft und erst mit
+`--execute --approved-plan-sha256 <reviewed>` um exakt `/monitoring-events`
+erweitert. Der Installer bindet `/opt/kws/production/API.Caddyfile` an den
+bestätigten Container-Mount, validiert Caddy und startet ausschließlich
+`kws-api-internal` kontrolliert neu. Das verursacht eine kurze API-Unterbrechung.
+Die Caddy-Admin-API bleibt deaktiviert. Bei fehlgeschlagener Aktivierung werden
+die vorherigen Bytes wiederhergestellt und der Container erneut gestartet.
+JWT-Prüfung, unbekannte Slugs und andere Routen bleiben unverändert.
+
 Den tatsächlichen Ingestnachweis erzeugt das manuelle Operatortool:
 
 ```sh
@@ -187,10 +196,15 @@ Moonsight-Hub-Anbindung benötigt zunächst die Auflösung des mehrdeutigen
 `moonmon detect --mode adopt`-Befunds (Vite unbekannt; altes `vercel.json` wird als
 Provider erkannt). Es wurde kein Ersatzmanifest erfunden.
 
-Am 17.10.2026 lesend geprüft: bestehender SMTP-Runtime-Pfad vorhanden;
-Monitoringkonfiguration und Sentry-/Store-Keynamen dort nicht vorhanden. Kein
-Testalarm, Provider-Abruf mit Credentials, Installer oder Produktionsjob wurde
-durch die Implementierung ausgeführt.
+Am 18.10.2026 nach ausdrücklicher Veröffentlichungsfreigabe installiert:
+frisches verschlüsseltes Backup, Monitoringmigration, vier Edge-Dateien,
+gezielte API-Route und vier Betreiber-Timer. Der öffentliche Ingest wurde mit
+einem ausgeschlossenen Test zweimal auf genau einen Datensatz und keine Alarme
+geprüft. Alarmmodus ist `live`; die autorisierte Adresse steht nur in der privaten
+Konfiguration. Ein eindeutig markierter SMTP-Test wurde angenommen, ohne einen
+echten Fehler oder Nutzerereignisse zu erzeugen. Das bestätigt nicht den
+Posteingang. Sentry- und Storeimporte bleiben deaktiviert. Web-/Native-Release
+und tatsächliche Geräteprüfung sind hiervon getrennte Nachweise.
 
 Offizielle Quellen, geprüft am 17.10.2026:
 
