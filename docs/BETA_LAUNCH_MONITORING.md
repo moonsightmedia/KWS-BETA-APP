@@ -16,14 +16,19 @@ aktiviert keine zusätzliche native Erfassung.
   Geodaten, Freitexte, Breadcrumb-Inhalte und Gerätekennungen wurden am
   gespeicherten Ereignis geprüft. Der Test bleibt aus dem Dashboard ausgeschlossen.
   Echte Androidgeräte und iPhones sind damit nicht abgenommen.
-- Für neue native Kundenbuilds bleibt `KWS_SENTRY_DSN` entfernt: Im vorhandenen
-  Sentry-Konto ist die Vertragsfreigabe für das Data Processing Amendment noch
-  offen: [Legal & Compliance](https://moonsight-media.sentry.io/settings/legal/)
-  → Data Processing Amendment → Review and Accept. Der Betreiber prüft und
-  bestätigt selbst. Erst nach bestätigter Freigabe die Variable wieder setzen, neue Builds
-  veröffentlichen und den physischen Geräte-/Symboltest nachholen. Bis dahin
-  sind APK 1.0.246/code69 und TestFlightbuild93 die zuletzt veröffentlichten
-  nativen Fassungen; ein lokaler Kandidat ist kein veröffentlichter Release.
+- Der Betreiber hat das Data Processing Amendment selbst angenommen; die
+  angemeldete [Legal-Seite](https://moonsight-media.sentry.io/settings/legal/)
+  bestätigt Version5.1.0, unterschrieben am18.10.2026. Neue native Builds haben
+  die freigegebene Sentry-Konfiguration: Android1.0.248/code71 ist als geprüfte
+  APK verfügbar, TestFlightbuild94 wurde einschließlich dSYM-Dateien erfolgreich
+  hochgeladen. Echte physische Android-/iPhone-Abnahme und die Verfügbarkeit für
+  einzelne Apple-Tester sind damit nicht nachgewiesen. Alte Installationen
+  erhalten die zusätzliche native Erfassung erst nach einem App-Update.
+  Web-Sentry bleibt ausdrücklich deaktiviert, Firebase Analytics nativ ebenfalls.
+  Der neue kontrollierte Android-Emulatortest hat den unbehandelten Java-Absturz,
+  aufgelösten Quellframe und die bereinigten gespeicherten Daten bestätigt;
+  Testkanal und Fehlergruppe bleiben von den Produktivzahlen getrennt.
+  [Aktivierungsnachweise und Grenzen](qa/2026-10-18-native-sentry-activation.md).
 - Die offizielle Apple-API ist lesbar. Ein `ONGOING`-Analytics-Request wurde für
   die exakte KWS-App angelegt und zurückgelesen. Erste Tagesberichte und der
   abgenommene automatische Berichtsadapter fehlen noch. Verfügbare aggregierte
