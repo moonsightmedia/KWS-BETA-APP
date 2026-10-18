@@ -2,10 +2,42 @@
 
 ## Implementierter Stand
 
-Der bestehende Adminbereich `Monitoring` erhält Übersicht, Fehler, Nutzung und
-Mitteilungen. Uploadübersicht und Uploadaktivität bleiben erhalten. Diese Änderung
-installiert oder veröffentlicht nichts von selbst. Produktionsfassung und neue
-Erfassung bleiben bis zum kontrollierten Rollout unverändert.
+Der veröffentlichte Adminbereich `Monitoring` enthält Übersicht, Fehler, Nutzung,
+Mitteilungen und Aktivität. Uploadübersicht und Uploaddiagnose bleiben erhalten.
+Web und native Releases haben getrennte Abnahmen; ein erfolgreicher Webrelease
+aktiviert keine zusätzliche native Erfassung.
+
+### Verifizierter Providerstand am 18.10.2026
+
+- Der getrennte Sentry-Importer ist mit ausschließlich `event:read` verbunden
+  und übernimmt bereinigte Fehlergruppen. Web-Sentry bleibt deaktiviert.
+- Ein kontrollierter nativer Java-Absturz auf einem isolierten Android-Emulator
+  wurde nach Neustart tatsächlich von Sentry empfangen und aufgelöst. Nutzer-/
+  Geodaten, Freitexte, Breadcrumb-Inhalte und Gerätekennungen wurden am
+  gespeicherten Ereignis geprüft. Der Test bleibt aus dem Dashboard ausgeschlossen.
+  Echte Androidgeräte und iPhones sind damit nicht abgenommen.
+- Für neue native Kundenbuilds bleibt `KWS_SENTRY_DSN` entfernt: Im vorhandenen
+  Sentry-Konto ist die Vertragsfreigabe für das Data Processing Amendment noch
+  offen. Erst nach bestätigter Freigabe die Variable wieder setzen, neue Builds
+  veröffentlichen und den physischen Geräte-/Symboltest nachholen. Bis dahin
+  sind APK 1.0.246/code69 und TestFlightbuild93 die zuletzt veröffentlichten
+  nativen Fassungen; ein lokaler Kandidat ist kein veröffentlichter Release.
+- Die offizielle Apple-API ist lesbar. Ein `ONGOING`-Analytics-Request wurde für
+  die exakte KWS-App angelegt und zurückgelesen. Erste Tagesberichte und der
+  abgenommene automatische Berichtsadapter fehlen noch. Verfügbare aggregierte
+  TestFlight-Buildwerte werden nicht als tägliche Storedownloads importiert.
+  Google Play ist nicht verbunden; fehlende Berichte sind keine Nullwerte.
+- Provider-Prüfberichte werden vor dem GitHub-Artefaktupload mit `age`
+  verschlüsselt. Der private Schlüssel bleibt außerhalb von GitHub. Zwei frühere
+  unverschlüsselte Aggregate-Artefakte wurden entfernt; sie enthielten keine
+  Nutzeridentitäten oder privaten Credentials. Eine Löschung beweist nicht,
+  dass vorher keine Kopie angefertigt wurde.
+- Der externe Moonsight-Hub ist noch nicht für KWS eingerichtet. Er läuft zwar
+  außerhalb des KWS-VPS, meldet aber einen überfälligen Backupstand; der
+  Sicherungslauf scheitert an einem fehlenden Containerimage. Reparatur und
+  mehrdeutige Hostinger-Zuordnung benötigen noch die Betreiberfreigabe und den
+  serverseitigen Registry-/Plan-/Apply-Prozess. Keine aktiven KWS-Ausfallprüfungen
+  oder neuen externen Alarme behaupten.
 
 - Automatische technische Fehler: React-Abstürze, unbehandelte Fehler,
   fehlgeschlagene Datenabfragen/-änderungen nach Query-Retry, Start-Timeout,
