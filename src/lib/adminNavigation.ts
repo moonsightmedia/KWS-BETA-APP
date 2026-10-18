@@ -12,3 +12,4 @@ export function resolveAdminTab(value: string | null): AdminTab {
   return ADMIN_TABS.find(tab => tab.value === value)?.value || 'users';
 }
 export const adminTabPath = (tab: AdminTab) => `/admin?tab=${tab}`;
+export const ACCOUNT_DELETIONS_PATH = '/admin?tab=users&usersView=deletions';

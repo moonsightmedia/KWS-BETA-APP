@@ -18,6 +18,7 @@ import { useSidebar } from '@/components/SidebarContext';
 import { ADMIN_TABS, resolveAdminTab } from '@/lib/adminNavigation';
 import { cn } from '@/lib/utils';
 import { ContentModeration } from '@/components/admin/ContentModeration';
+import { AccountDeletionNotice } from '@/components/admin/AccountDeletionNotice';
 
 const SETTINGS_TABS = [
   { value: 'sectors', label: 'Sektoren' },
@@ -54,6 +55,8 @@ const Admin = () => {
         <main className={cn('relative isolate mx-auto w-full min-w-0 flex-1 p-4 md:p-6 xl:p-8', currentTab === 'settings' && settingsTab === 'hallMap' ? 'max-w-[1680px]' : 'max-w-[1244px]')}>
           {!(currentTab === 'settings' && settingsTab === 'hallMap') && <BrandWatermark />}
           {authLoading || loading ? <div role="status" aria-label="Adminbereich wird geladen"><Skeleton className="mb-8 h-12 w-64" /><Skeleton className="h-96 w-full" /></div> :
+            <>
+            {!(currentTab === 'users' && searchParams.get('usersView') === 'deletions') && <AccountDeletionNotice />}
             <Tabs value={currentTab} onValueChange={value => changeTab('tab', value)} className="w-full min-w-0">
               <TabsList aria-label="Adminbereiche" className="hidden">
                 {ADMIN_TABS.map(tab => <TabsTrigger key={tab.value} value={tab.value} className="min-w-0 flex-1 px-3 text-xs lg:text-sm">{tab.label}</TabsTrigger>)}
@@ -73,7 +76,7 @@ const Admin = () => {
               <TabsContent value="monitoring" className="mt-0"><MonitoringDashboard /></TabsContent>
               <TabsContent value="logs" className="mt-0"><BoulderOperationLogs /></TabsContent>
               <TabsContent value="tests" className="mt-0"><PushNotificationTest /></TabsContent>
-            </Tabs>}
+            </Tabs></>}
         </main>
       </div>
     </div>

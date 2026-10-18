@@ -1,5 +1,6 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import { useId } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ChevronDown, Pencil, Mail, Loader2 } from "lucide-react";
@@ -9,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserProfileEditor } from "@/components/admin/UserProfileEditor";
 import { AccountDeletionQueue } from "@/components/admin/AccountDeletionQueue";
+import { ACCOUNT_DELETIONS_PATH, adminTabPath } from "@/lib/adminNavigation";
 import type { ProfilePayload } from "@/lib/userProfileForm";
 import { AdminViewBar } from "@/components/admin/AdminViewBar";
 import { AdminSearchField } from "@/components/admin/AdminSearchField";
@@ -47,6 +49,7 @@ export const UserManagement = () => {
   const editTrigger = useRef<HTMLElement | null>(null);
   const actionTrigger = useRef<HTMLElement | null>(null);
   const { user, session, loading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
   const sessionRef = useRef(session);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeSegment, setActiveSegment] = useState<UserSegment>("all");
@@ -146,14 +149,21 @@ export const UserManagement = () => {
     : (b.created_at || "").localeCompare(a.created_at || ""));
   const clearFilters = () => { setSearchTerm(""); setActiveSegment("all"); setVisibleLimit(PAGE_SIZE); };
 
-  return <div className="space-y-4">
+  if (searchParams.get('usersView') === 'deletions') return <div className="space-y-4">
+    <Button asChild variant="ghost"><Link to={adminTabPath('users')}>Zur Benutzerliste</Link></Button>
     <AccountDeletionQueue enabled={!authLoading && !!user && !!session} names={Object.fromEntries(users.map(entry => [entry.id, entry.email || getDisplayName(entry)]))} />
+  </div>;
+
+  return <div className="space-y-4">
     <AdminViewBar refreshing={isFetching} onRefresh={() => void refetch()} disabled={authLoading}>
       <KwsSegmentedControl value={activeSegment} onValueChange={value => { setActiveSegment(value); setVisibleLimit(PAGE_SIZE); setExpandedUserId(null); }} ariaLabel="Benutzer nach Rolle filtern" options={SEGMENTS} />
     </AdminViewBar>
     <AdminSearchField value={searchTerm} onChange={value => { setSearchTerm(value); setVisibleLimit(PAGE_SIZE); setExpandedUserId(null); }} placeholder="Name oder E-Mail" label="Benutzer nach Name oder E-Mail suchen" />
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <p className="text-xs text-muted-foreground" role="status">{isLoading || authLoading ? "Benutzer werden geladen …" : isError ? "Benutzer nicht verfügbar" : filteredUsers.length === users.length ? `${users.length} Benutzer` : `${filteredUsers.length} von ${users.length} Benutzern`}</p>
+      <div className="flex flex-wrap items-center gap-x-3">
+        <p className="text-xs text-muted-foreground" role="status">{isLoading || authLoading ? "Benutzer werden geladen …" : isError ? "Benutzer nicht verfügbar" : filteredUsers.length === users.length ? `${users.length} Benutzer` : `${filteredUsers.length} von ${users.length} Benutzern`}</p>
+        <Button asChild variant="ghost" className="text-xs"><Link to={ACCOUNT_DELETIONS_PATH}>Löschanträge</Link></Button>
+      </div>
       <Select value={sort} onValueChange={value => { setSort(value); setVisibleLimit(PAGE_SIZE); }}><SelectTrigger aria-label="Benutzer sortieren" className="h-11 w-auto gap-3 border-0 bg-transparent text-xs shadow-none"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="newest">Neueste zuerst</SelectItem><SelectItem value="name">Name A–Z</SelectItem></SelectContent></Select>
     </div>
     {isLoading || authLoading ? <div className="animate-pulse space-y-3 rounded-kws-card bg-card p-4 motion-reduce:animate-none" aria-hidden="true">{[1, 2, 3].map(row => <div key={row} className="h-14 rounded-kws-control bg-secondary" />)}</div> : isError ? <div role="alert" className="rounded-kws-card bg-card p-5"><p className="text-sm">Benutzer konnten nicht geladen werden.</p><Button variant="outline" className="mt-4" disabled={isFetching} onClick={() => void refetch()}>Erneut versuchen</Button></div> : filteredUsers.length === 0 ? <div className="rounded-kws-card bg-card p-8 text-center"><p className="text-sm text-muted-foreground">Keine Benutzer gefunden.</p>{(searchTerm || activeSegment !== "all") && <Button variant="ghost" className="mt-3" onClick={clearFilters}>Filter zurücksetzen</Button>}</div> :
