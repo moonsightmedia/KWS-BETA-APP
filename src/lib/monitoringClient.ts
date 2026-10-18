@@ -1,5 +1,5 @@
 export const MONITORING_STORAGE_KEY = 'kws_monitoring_v1';
-export const MONITORING_CONSENT_KEY = 'kws_usage_consent_v1';
+export const MONITORING_CONSENT_KEY = 'kws_usage_consent_v2';
 export const MONITORING_EVENT_PREFIX = MONITORING_STORAGE_KEY + ':event:';
 export type MonitoringConsent = 'granted' | 'denied' | 'unknown';
 export type MonitoringEventName = 'first_open' | 'session_start' | 'app_ready' | 'foreground' | 'background' | 'foreground_heartbeat' | 'screen_view' | 'boulder_detail_view' | 'play_requested' | 'play_started' | 'play_failed' | 'play_completed' | 'sector_open' | 'filter_applied' | 'search_used' | 'signup_attempt' | 'signup_failed' | 'login_succeeded' | 'login_failed' | 'app_error' | 'notification_opened' | 'notification_client_received';

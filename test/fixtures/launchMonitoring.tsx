@@ -11,6 +11,8 @@ const mode = params.get('state');
 const fixture = launchDashboardFixture();
 const now = new Date().toISOString();
 window.launchMonitoringQA = { requests: [], writeMode: 'success', readMode: 'success', eventMode: mode === 'reports-error' ? 'fail' : mode === 'reports-empty' ? 'empty' : 'success' };
+window.launchMonitoringQA.live = { online: mode === 'empty' ? 0 : 12, accounts: mode === 'empty' ? 0 : 9, guests: mode === 'empty' ? 0 : 3, devices: mode === 'empty' ? 0 : 14, viewing_boulders: mode === 'empty' ? 0 : 7,
+  boulders: mode === 'empty' ? [] : [{ id: '00000000-0000-4000-8000-000000000005', name: mode === 'long' ? 'SehrLangerBouldername'.repeat(10) : 'Grüne Kante', viewers: 5 }, { id: '00000000-0000-4000-8000-000000000006', name: 'Über den Dächern', viewers: 2 }] };
 if (mode === 'query' || mode === 'reports-error' || mode === 'reports-empty') { fixture.issues[0].title = 'App-Daten konnten nicht geladen werden'; fixture.issues[0].platform = 'web'; fixture.issues[0].release = 'kws-beta-app@1.0.246+5086e1f42b61'; }
 if (mode === 'empty') { for (const key of Object.keys(fixture.summary)) fixture.summary[key] = 0; for (const key of ['issues', 'activity', 'top_boulders', 'daily', 'deliveries']) fixture[key] = []; fixture.sources.collector.state = 'empty'; fixture.sources.issues.state = 'empty'; fixture.sources.notifications.state = 'empty'; }
 if (mode === 'partial') { fixture.sources.collector.state = 'error'; fixture.sources.collector.detail = 'Collector vorübergehend nicht erreichbar. Fehlende Daten sind keine Nullwerte.'; }
@@ -26,6 +28,10 @@ window.fetch = async (input, init) => {
   if (mode === 'loading') await new Promise(resolve => setTimeout(resolve, 60_000));
   if (mode === 'error' || window.launchMonitoringQA.readMode === 'fail') return new Response('', { status: 503 });
   if (mode === 'unconfigured') return new Response('', { status: 404 });
+  if (requestUrl.pathname.endsWith('/kws_monitoring_live')) {
+    if (window.launchMonitoringQA.liveError) return new Response('', { status: 503 });
+    return Response.json({ schema_version: 1, generated_at: new Date().toISOString(), expires_at: new Date(Date.now() + 45000).toISOString(), ...window.launchMonitoringQA.live });
+  }
   if (requestUrl.pathname.endsWith('/kws_monitoring_dashboard')) {
     const response = structuredClone(fixture);
     if (payload.p_platform !== 'all' || payload.p_release !== 'all') { response.summary.new_accounts = null; response.summary.confirmed_accounts = null; }
@@ -46,4 +52,4 @@ window.fetch = async (input, init) => {
 };
 const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
 createRoot(document.getElementById('root')!).render(<QueryClientProvider client={client}><MemoryRouter><main className="relative isolate min-h-screen bg-canvas px-4 pb-12 md:px-8"><BrandWatermark /><div className="relative mx-auto max-w-[1180px]"><header className="flex min-h-20 items-center justify-between gap-3"><h1 className="font-heading text-[2.15rem] font-semibold">Monitoring</h1><span className="text-xs text-muted-foreground">Isolierte Beispieldaten</span></header><MonitoringDashboard /></div></main></MemoryRouter></QueryClientProvider>);
-declare global { interface Window { launchMonitoringQA: { requests: Array<{ path: string; payload: Record<string, unknown> }>; writeMode: 'success' | 'fail'; readMode: 'success' | 'fail'; eventMode: 'success' | 'fail' | 'empty' } } }
+declare global { interface Window { launchMonitoringQA: { requests: Array<{ path: string; payload: Record<string, unknown> }>; writeMode: 'success' | 'fail'; readMode: 'success' | 'fail'; eventMode: 'success' | 'fail' | 'empty'; live?: { online: number; accounts: number; guests: number; devices: number; viewing_boulders: number; boulders: Array<{ id: string; name: string; viewers: number }> }; liveError?: boolean; liveDisconnected?: boolean } } }

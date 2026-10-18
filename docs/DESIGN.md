@@ -1293,6 +1293,16 @@ Verbindliche Regeln:
   Aktivität verwendet dieselben aktuellen Launch-Signale wie Nutzung, nicht den
   abgeschalteten Altsammler. Aktuelle Vordergrundsignale stehen dort zuerst;
   Einträge älter als drei Minuten werden nicht mehr als aktiv ausgegeben.
+  Nutzerauftrag 18.10.2026: Übersicht und Aktivität beginnen zusätzlich mit
+  „Jetzt in der App“ und den aktuell angesehenen Bouldern. Diese Live-Zahlen
+  verwenden einen getrennten kurzlebigen Status und echte serverseitige
+  Änderungsmeldungen. Online zählt teilnehmende Konten einmal, Gäste pro
+  Installation; Boulderzeilen zeigen Namen und aktuelle Anzahl, keine Personen.
+  Hintergrund/Widerruf melden ab; fehlende Signale verfallen nach45Sekunden.
+  Verbindungsaufbau, bestätigte Null, Ersatzabfrage und Fehler bleiben sichtbar
+  getrennt. Zeitraumfilter beeinflussen nur Historie, Plattform/Version auch Live.
+  Mobile Kennzahlen zweispaltig mit nachgeordneter Aufteilung, Desktop dreispaltig;
+  Boulderlisten bleiben flach, umbrechend und direkt bedienbar.
   Monitoring trennt Übersicht, Upload-Suche und Aktivität; technische IDs und
   vollständige Fehler stehen in Details. Protokoll zeigt kompakte, aufklappbare
   Gruppen und benennt seine Suchgrenze (letzte 300 Einträge).

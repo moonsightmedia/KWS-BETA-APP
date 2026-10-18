@@ -8,7 +8,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import ts from 'typescript';
 
-const enginePath = process.env.KWS_MONITORING_PGLITE_PATH;
+const enginePath = process.env.KWS_MONITORING_PGLITE_PATH || fileURLToPath(new URL('../node_modules/@electric-sql/pglite/dist/index.js', import.meta.url));
 test('monitoring SQL security, idempotency, consent, lifecycle, imports and retention', { skip: !enginePath && 'Set KWS_MONITORING_PGLITE_PATH to an isolated @electric-sql/pglite module for SQL integration validation' }, async (context) => {
   const { PGlite } = await import(pathToFileURL(enginePath).href);
   const database = new PGlite();
