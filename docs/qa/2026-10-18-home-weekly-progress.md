@@ -21,9 +21,10 @@ redesign, database migration, or native-store release is included.
 
 ## Verification
 
-- Functional Node suite: 281 passed, one existing skip; includes period,
+- Functional Node suite after rebasing onto current main: 285 passed, one existing skip; includes period,
   duplicate-day, repeated-top, Flash-subset and attempt-only-day coverage.
-- Vite production build succeeded, committed app version 1.0.247 retained.
+- Vite production build succeeded before and after rebasing onto current main;
+  this PR does not change the app version.
 - Scoped ESLint and `git diff --check` passed.
 - Full TypeScript check: 72 existing diagnostics. Exact comparison with main
   using restored source bytes found identical diagnostics after normalizing
