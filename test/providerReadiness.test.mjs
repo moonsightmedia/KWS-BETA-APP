@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, verify } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { appleToken, betaUsage, checkApple, checkProviders, checkSentry, ensureAppleAnalytics, providerJson } from '../ops/hostinger/monitoring/provider-readiness.mjs';
 
@@ -95,4 +96,16 @@ test('official Apple report setup is explicit, app-bound, idempotent and never f
   assert.equal(existing.status, 'already_configured');
   await assert.rejects(providerJson('https://sentry.io', '/api/0/projects/', 'token', fetcher, {}), /write_rejected/);
   await assert.rejects(ensureAppleAnalytics(environment, async url => url.pathname === '/v1/apps' ? json({data:[{id:'123',attributes:{bundleId:'com.kletterwelt.beta'}}]}) : json({data:[],links:{next:'private-next'}})), /requests_incomplete/);
+});
+
+test('public CI uploads only encrypted provider artifacts and fails closed without a report recipient', async () => {
+  for (const [workflow, artifact] of [['monitoring-providers.yml','provider-readiness'], ['apple-analytics-reports.yml','apple-report-request']]) {
+    const source = await readFile(new URL(`../.github/workflows/${workflow}`, import.meta.url), 'utf8');
+    assert.ok(source.includes('test -n "$REPORT_RECIPIENT"'));
+    assert.ok(source.includes('age --encrypt --recipient "$REPORT_RECIPIENT"'));
+    assert.ok(source.includes(`path: \u0024{{ runner.temp }}/${artifact}.age`));
+    assert.ok(!source.includes(`path: \u0024{{ runner.temp }}/${artifact}.json`));
+    assert.ok(source.includes(`rm -- "$RUNNER_TEMP/${artifact}.json"`));
+    assert.ok(!source.includes('AGE-SECRET-KEY'));
+  }
 });

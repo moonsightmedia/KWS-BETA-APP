@@ -221,7 +221,13 @@ auf `main`. Er nutzt vorhandene GitHub-Secrets ausschließlich auf dem Runner,
 stellt nur GET-Anfragen und exportiert keine privaten Schlüssel, Tokens,
 Testeridentitäten oder Fehlerereignisse. Das kurzlebige Ergebnisartefakt enthält
 nur Zugriffsstatus, die öffentliche Sentry-DSN und aggregierte TestFlight-Zahlen
-der fünf neuesten Builds. Fehlende Rechte bleiben ausdrücklich sichtbar.
+der fünf neuesten Builds. Weil das Repository öffentlich ist, wird das Artefakt
+vor dem Upload mit `age` verschlüsselt. GitHub kennt nur den öffentlichen
+Empfänger `KWS_MONITORING_REPORT_RECIPIENT`; der private Schlüssel liegt
+ausschließlich im geschützten VPS-Runtime und unter der Bitwarden-Referenz
+`KWS_MONITORING_REPORT_DECRYPTION_KEY`. Ein fehlender oder ungültiger Empfänger
+stoppt den Workflow vor dem Providerzugriff. Klartextdateien werden nicht als
+Artefakt hochgeladen. Fehlende Rechte bleiben ausdrücklich sichtbar.
 
 TestFlight-Werte behalten den vom Provider gelieferten Zeitraum. Sie sind weder
 tägliche Store-Downloads noch eindeutige neue Personen und dürfen nicht in den
