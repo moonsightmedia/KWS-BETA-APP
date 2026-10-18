@@ -79,7 +79,7 @@ function UploadList({ rows, onSelect }: { rows: UploadLogRow[]; onSelect: (row: 
 export function MonitoringDashboard() {
   const { session } = useAuth();
   const [view, setView] = useState<MonitoringView>('overview');
-  if (view === 'uploads' || view === 'activity') return <LegacyMonitoringDashboard view={view} setView={setView} />;
+  if (view === 'uploads') return <LegacyMonitoringDashboard view={view} setView={setView} />;
   return <LaunchCockpit view={view} onViewChange={setView} accountId={session?.user.id || ''} connection={{ url: import.meta.env.VITE_SUPABASE_URL || '', key: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '', token: session?.access_token || '' }} />;
 }
 

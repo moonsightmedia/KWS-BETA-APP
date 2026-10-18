@@ -1241,6 +1241,9 @@ Verbindliche Regeln:
   vor den Zahlen erklärt. Desktop-Fehlerlisten richten Wirkung, Version und
   Zeitpunkt nebeneinander aus. Tagesverläufe zeigen zunächst sieben Tage mit
   explizitem Aufklappen; vollständige Werte bleiben erhalten.
+  Aktivität verwendet dieselben aktuellen Launch-Signale wie Nutzung, nicht den
+  abgeschalteten Altsammler. Aktuelle Vordergrundsignale stehen dort zuerst;
+  Einträge älter als drei Minuten werden nicht mehr als aktiv ausgegeben.
   Monitoring trennt Übersicht, Upload-Suche und Aktivität; technische IDs und
   vollständige Fehler stehen in Details. Protokoll zeigt kompakte, aufklappbare
   Gruppen und benennt seine Suchgrenze (letzte 300 Einträge).
