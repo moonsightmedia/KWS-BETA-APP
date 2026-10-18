@@ -27,16 +27,19 @@ export function appleToken(environment, now = Date.now()) {
   } catch { throw new ProviderError('apple_key_invalid'); }
 }
 
-export async function providerJson(origin, path, token, fetcher = fetch) {
+export async function providerJson(origin, path, token, fetcher = fetch, requestBody = null) {
   if (!(origin === appleOrigin || sentryOrigins.has(origin)) || !path.startsWith('/api/0/') && !path.startsWith('/v1/')) {
     throw new ProviderError('provider_target_rejected');
   }
   const target = new URL(path, origin);
   if (target.origin !== origin || target.username || target.password || target.hash || !(target.pathname.startsWith('/api/0/') || target.pathname.startsWith('/v1/'))) throw new ProviderError('provider_target_rejected');
+  if (requestBody !== null && (origin !== appleOrigin || target.pathname !== '/v1/analyticsReportRequests' || target.search)) throw new ProviderError('provider_write_rejected');
   let response;
   try {
     response = await fetcher(target, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'User-Agent': 'KWS-Monitoring/1' },
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'User-Agent': 'KWS-Monitoring/1', ...(requestBody === null ? {} : { 'Content-Type': 'application/json' }) },
+      method: requestBody === null ? 'GET' : 'POST',
+      ...(requestBody === null ? {} : { body: JSON.stringify(requestBody) }),
       redirect: 'error', signal: AbortSignal.timeout(20_000),
     });
     if (!response.ok && response.status !== 400) throw new ProviderError(`provider_http_${response.status}`);
@@ -118,6 +121,26 @@ export async function checkApple(environment, fetcher = fetch) {
   return { status: 'readable', bundle_id: bundleId, testflight: snapshots, app_store_analytics: analytics, daily_downloads_imported: false };
 }
 
+export async function ensureAppleAnalytics(environment, fetcher = fetch) {
+  const token = appleToken(environment);
+  const get = path => providerJson(appleOrigin, path, token, fetcher);
+  const apps = await get(`/v1/apps?filter[bundleId]=${bundleId}&fields[apps]=bundleId&limit=2`);
+  if (apps.data?.length !== 1 || apps.data[0].attributes?.bundleId !== bundleId || !/^\d+$/.test(apps.data[0].id)) throw new ProviderError('apple_app_not_unique');
+  const appId = apps.data[0].id;
+  const requests = await get(`/v1/apps/${appId}/analyticsReportRequests?limit=200`);
+  if (!Array.isArray(requests.data) || requests.links?.next || requests.data.length > 200) throw new ProviderError('apple_requests_incomplete');
+  const ongoing = requests.data.filter(request => request.attributes?.accessType === 'ONGOING');
+  if (ongoing.length > 1) throw new ProviderError('apple_requests_not_unique');
+  if (ongoing.length === 1) {
+    if (ongoing[0].attributes?.stoppedDueToInactivity === true) throw new ProviderError('apple_request_inactive');
+    return { status: 'already_configured', bundle_id: bundleId, access_type: 'ONGOING', daily_downloads_imported: false };
+  }
+  const body = { data: { type: 'analyticsReportRequests', attributes: { accessType: 'ONGOING' }, relationships: { app: { data: { type: 'apps', id: appId } } } } };
+  const created = await providerJson(appleOrigin, '/v1/analyticsReportRequests', token, fetcher, body);
+  if (created.data?.type !== 'analyticsReportRequests' || created.data.attributes?.accessType !== 'ONGOING') throw new ProviderError('apple_request_creation_unverified');
+  return { status: 'created', bundle_id: bundleId, access_type: 'ONGOING', initial_reports_pending: true, daily_downloads_imported: false };
+}
+
 export async function checkSentry(environment, fetcher = fetch) {
   const organization = environment.SENTRY_ORG;
   const project = environment.SENTRY_PROJECT;
@@ -155,9 +178,14 @@ export async function checkProviders(environment, fetcher = fetch) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const output = process.argv[2];
+  const provision = process.argv[2] === '--ensure-apple-reports';
+  const output = process.argv[provision ? 3 : 2];
   if (!output) throw new ProviderError('output_path_required');
-  const report = await checkProviders(process.env);
+  let report;
+  if (provision) {
+    try { report = { version: 1, observed_at: new Date().toISOString(), apple_reports: await ensureAppleAnalytics(process.env) }; }
+    catch (error) { report = { version: 1, observed_at: new Date().toISOString(), apple_reports: { status: 'unavailable', code: safeCode(error) } }; process.exitCode = 1; }
+  } else report = await checkProviders(process.env);
   await writeFile(output, JSON.stringify(report, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
-  console.log(JSON.stringify({ apple: report.apple.status, sentry: report.sentry.status, google_play: report.google_play.status }));
+  console.log(JSON.stringify(provision ? { apple_reports: report.apple_reports.status } : { apple: report.apple.status, sentry: report.sentry.status, google_play: report.google_play.status }));
 }

@@ -221,7 +221,13 @@ auf `main`. Er nutzt vorhandene GitHub-Secrets ausschließlich auf dem Runner,
 stellt nur GET-Anfragen und exportiert keine privaten Schlüssel, Tokens,
 Testeridentitäten oder Fehlerereignisse. Das kurzlebige Ergebnisartefakt enthält
 nur Zugriffsstatus, die öffentliche Sentry-DSN und aggregierte TestFlight-Zahlen
-der fünf neuesten Builds. Fehlende Rechte bleiben ausdrücklich sichtbar.
+der fünf neuesten Builds. Weil das Repository öffentlich ist, wird das Artefakt
+vor dem Upload mit `age` verschlüsselt. GitHub kennt nur den öffentlichen
+Empfänger `KWS_MONITORING_REPORT_RECIPIENT`; der private Schlüssel liegt
+ausschließlich im geschützten VPS-Runtime und unter der Bitwarden-Referenz
+`KWS_MONITORING_REPORT_DECRYPTION_KEY`. Ein fehlender oder ungültiger Empfänger
+stoppt den Workflow vor dem Providerzugriff. Klartextdateien werden nicht als
+Artefakt hochgeladen. Fehlende Rechte bleiben ausdrücklich sichtbar.
 
 TestFlight-Werte behalten den vom Provider gelieferten Zeitraum. Sie sind weder
 tägliche Store-Downloads noch eindeutige neue Personen und dürfen nicht in den
@@ -230,3 +236,11 @@ aktiviert weder native Crash-Erfassung noch Importe oder externe Alarme.
 
 Quellen: [Apple Build-Metriken](https://developer.apple.com/documentation/appstoreconnectapi/get-v1-builds-_id_-metrics-betabuildusages),
 [Apple Metrikdefinitionen](https://developer.apple.com/help/app-store-connect/test-a-beta-version/view-build-status-and-metrics/).
+
+Der getrennte manuelle Workflow `Prepare official Apple Analytics reports`
+fordert ausschließlich für das exakte KWS-Bundle einen fortlaufenden
+`ONGOING`-Bericht an, falls noch keiner existiert. Er veröffentlicht keine App
+und ändert keine Zugriffsrechte. Unvollständige Abfragen und inaktive Requests
+stoppen die Einrichtung. Die erste Bereitstellung benötigt laut Apple ein bis
+zwei Tage. Die Anforderung allein ist noch kein fertiger Download-Import und
+fehlende Daten werden nicht als null Downloads ausgegeben.
