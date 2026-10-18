@@ -1239,10 +1239,15 @@ Verbindliche Regeln:
 
 ### Admin-Grundbedienung (13. September 2026)
 
-- Mobile Administration hat vier Gruppen: Benutzer, Halle, Feedback und Betrieb.
+- Mobile Administration hat fünf Gruppen: Benutzer, Halle, Moderation, Feedback und Betrieb.
   Betrieb öffnet Monitoring, Protokoll und Push-Test. Die gemeinsame Definition
-  liegt in `src/lib/adminNavigation.ts`; alle sechs Ziele bleiben erreichbar.
-- Desktop zeigt dieselben sechs Adminziele direkt in der Sidebar und einen
+  liegt in `src/lib/adminNavigation.ts`; alle sieben Ziele bleiben erreichbar.
+- Moderation ist ein eigener Adminbereich. Kommentare zur Freigabe und offene
+  Inhaltsmeldungen haben getrennte, direkt verlinkbare Ansichten mit Anzahl und
+  Aktualisieren-Aktion. Erläuterungen stehen in einer kompakten aufklappbaren Hilfe
+  statt einer vorgeschalteten Karte. Andere Adminseiten zeigen nur bei bestätigten
+  offenen Aufgaben einen kurzen Hinweis mit Direktlink; Feedback bleibt separat.
+- Desktop zeigt dieselben sieben Adminziele direkt in der Sidebar und einen
   Rückweg zur App. Keine zweite große Bereichs-Tab-Leiste über dem Inhalt.
 - Adminseiten beginnen mit der Bereichsauswahl (maximal 480 px) und einer
   Aktualisieren-Aktion. Darunter folgen Suche/Filter, dann Ergebniszahl und
