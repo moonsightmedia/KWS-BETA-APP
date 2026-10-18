@@ -1,0 +1,39 @@
+apiVersion: monitoring.moonsight.dev/v1alpha1
+kind: MonitoringProject
+metadata:
+  projectId: mon_1114D8A6A1631E123C62
+  slug: kws-beta-app
+  displayName: KWS Beta App
+spec:
+  lifecycle: active
+  policy:
+    profileRef: web-stateless@1
+    pii: deny
+    eventRetentionDays: 7
+    incidentRetentionDays: 30
+  environments:
+    - name: production
+      tier: production
+      state: active
+      alertMode: shadow
+      alertRouteRef: default@1
+      telemetry:
+        heartbeatStaleAfterSeconds: 180
+        metricsRetentionDays: 30
+        logSummariesRetentionDays: 14
+      services:
+        - id: public-web
+          runtime:
+            framework: unknown
+            provider: unknown
+          checks:
+            - id: availability
+              type: http
+              targetRef: public-http-monitor
+              expectedStatus: 200
+          integrations:
+            - id: public-http
+              type: satellite
+              adapterVersion: 1
+              provisioning: create
+              credentialAlias: public-http-monitor
