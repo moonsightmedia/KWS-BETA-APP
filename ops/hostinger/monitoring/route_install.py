@@ -8,7 +8,7 @@ from pathlib import Path
 import socket
 import subprocess
 
-TARGET = Path('/opt/kws/production/Caddyfile')
+TARGET = Path('/opt/kws/production/API.Caddyfile')
 BEFORE = '@push path /send-push-notification'
 AFTER = BEFORE + ' /monitoring-events'
 
