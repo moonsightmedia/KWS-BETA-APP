@@ -18,7 +18,9 @@ aktiviert keine zusätzliche native Erfassung.
   Echte Androidgeräte und iPhones sind damit nicht abgenommen.
 - Für neue native Kundenbuilds bleibt `KWS_SENTRY_DSN` entfernt: Im vorhandenen
   Sentry-Konto ist die Vertragsfreigabe für das Data Processing Amendment noch
-  offen. Erst nach bestätigter Freigabe die Variable wieder setzen, neue Builds
+  offen: [Legal & Compliance](https://moonsight-media.sentry.io/settings/legal/)
+  → Data Processing Amendment → Review and Accept. Der Betreiber prüft und
+  bestätigt selbst. Erst nach bestätigter Freigabe die Variable wieder setzen, neue Builds
   veröffentlichen und den physischen Geräte-/Symboltest nachholen. Bis dahin
   sind APK 1.0.246/code69 und TestFlightbuild93 die zuletzt veröffentlichten
   nativen Fassungen; ein lokaler Kandidat ist kein veröffentlichter Release.
@@ -32,12 +34,14 @@ aktiviert keine zusätzliche native Erfassung.
   unverschlüsselte Aggregate-Artefakte wurden entfernt; sie enthielten keine
   Nutzeridentitäten oder privaten Credentials. Eine Löschung beweist nicht,
   dass vorher keine Kopie angefertigt wurde.
-- Der externe Moonsight-Hub ist noch nicht für KWS eingerichtet. Er läuft zwar
-  außerhalb des KWS-VPS, meldet aber einen überfälligen Backupstand; der
-  Sicherungslauf scheitert an einem fehlenden Containerimage. Reparatur und
-  mehrdeutige Hostinger-Zuordnung benötigen noch die Betreiberfreigabe und den
-  serverseitigen Registry-/Plan-/Apply-Prozess. Keine aktiven KWS-Ausfallprüfungen
-  oder neuen externen Alarme behaupten.
+- Der externe Moonsight-Hub ist nach Betreiberfreigabe repariert: exaktes
+  Backupimage wiederhergestellt, echte Sicherung und isolierte Wiederherstellung
+  bestanden. App, Auth-API und Videodienst werden nun jede Minute außerhalb des
+  KWS-VPS auf Erreichbarkeit geprüft, ausschließlich im Beobachtungsmodus ohne
+  neue Alarme. Drei tatsächlich gemessene, erreichbare Endpunkte und die automatische
+  Entwarnung sind verifiziert. Prüfgrenzen und stabile Zuordnung stehen unter
+  [ops/monitoring](../ops/monitoring/README.md). Das ersetzt weder Videowiedergabe-
+  noch vollständige API-/Datenbanktests oder Store-/Crashquellen.
 
 - Automatische technische Fehler: React-Abstürze, unbehandelte Fehler,
   fehlgeschlagene Datenabfragen/-änderungen nach Query-Retry, Start-Timeout,
@@ -168,12 +172,14 @@ Emulatornachweis ersetzt keinen iPhone-Absturztest.
 
 ## Weitere Ausbaustufen
 
-Automatische Store-API-Abholung, externer Ausfallmonitor, D1-/D7-Retention,
+Automatische Store-API-Abholung, D1-/D7-Retention,
 Vorperiodenvergleiche und zusätzliche Performancequantile sind nicht als fertige
 Quellen/Metriken ausgewiesen. Serverseitige Summen erfolgreicher Begehungen und
 Favoriten sind vorbereitet, werden im ersten Cockpit aber noch nicht visualisiert.
-Die Moonsight-Hub-Übernahme wartet auf geklärte Erkennung: altes `vercel.json`
-ist kein Nachweis für den tatsächlich verwendeten Hostinger-Betrieb.
+Die externe Erreichbarkeitsprüfung ist im Beobachtungsmodus aktiv; eine neue
+Alarmfreigabe steht aus. Die Hostinger-Zuordnung ist bestätigt. Das alte
+`vercel.json` bleibt kein Nachweis für Vercel-Produktion; generische Hub-Runtime-
+Metadaten sind ausdrücklich unbekannt, nicht als vollständig gesund ausgegeben.
 
 ## Prüfung
 
