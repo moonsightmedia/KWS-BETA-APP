@@ -28,7 +28,7 @@ export function initSentry(): void {
   try {
     const environment =
       import.meta.env.VITE_SENTRY_ENVIRONMENT ||
-      (Capacitor.isNativePlatform() ? 'testflight' : import.meta.env.MODE);
+      (Capacitor.isNativePlatform() ? import.meta.env.VITE_MONITORING_CHANNEL || 'native' : import.meta.env.MODE);
 
     Sentry.init(
       {
@@ -36,30 +36,27 @@ export function initSentry(): void {
         environment,
         release: `kws-beta-app@${APP_VERSION}${import.meta.env.VITE_RELEASE_REVISION ? '+' + import.meta.env.VITE_RELEASE_REVISION.slice(0, 12) : ''}`,
         tracesSampleRate: 0,
-        // Session Replay stays off — especially important during video compress/upload.
-        replaysSessionSampleRate: 0,
-        replaysOnErrorSampleRate: 0,
         sendDefaultPii: false,
+        enableLogs: false,
         enableNative: true,
         enableNativeCrashHandling: true,
-        enableAutoSessionTracking: true,
-        enableOutOfMemoryTracking: true,
-        integrations: defaults => import.meta.env.VITE_MONITORING_ENABLED === 'true'
-          ? defaults.filter(integration => !['GlobalHandlers', 'BrowserApiErrors', 'TryCatch'].includes(integration.name))
-          : defaults,
+        enableAutoSessionTracking: false,
+        enableWatchdogTerminationTracking: true,
+        enableCaptureFailedRequests: false,
+        attachThreads: false,
+        maxBreadcrumbs: 0,
+        beforeBreadcrumb: () => null,
+        integrations: defaults => defaults.filter(integration =>
+          !['Replay', 'ReplayCanvas', 'Breadcrumbs', 'HttpContext', 'BrowserSession'].includes(integration.name)
+          && !(import.meta.env.VITE_MONITORING_ENABLED === 'true' && ['GlobalHandlers', 'BrowserApiErrors', 'TryCatch'].includes(integration.name))),
         beforeSend(event) {
-          if (event.request) {
-            delete event.request.cookies;
-            delete event.request.data;
-            delete event.request.headers;
-            delete event.request.query_string;
-            if (event.request.url) event.request.url = event.request.url.split(/[?#]/)[0];
-          }
+          delete event.request;
+          delete event.user;
           if (event.message) event.message = scrubMonitoringText(event.message, 500);
           for (const exception of event.exception?.values ?? []) {
             if (exception.value) exception.value = scrubMonitoringText(exception.value, 500);
           }
-          event.breadcrumbs = event.breadcrumbs?.map(breadcrumb => ({ ...breadcrumb, data: undefined, message: breadcrumb.message ? scrubMonitoringText(breadcrumb.message, 200) : undefined }));
+          event.breadcrumbs = [];
           delete event.extra;
           return event;
         },
@@ -86,7 +83,7 @@ export function setSentryUser(
       Sentry.setTag('role', 'anonymous');
       return;
     }
-    Sentry.setUser({ id: user.id });
+    Sentry.setUser(null);
     if (user.role) {
       Sentry.setTag('role', user.role);
     }

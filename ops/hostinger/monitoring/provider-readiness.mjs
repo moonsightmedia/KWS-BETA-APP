@@ -39,8 +39,8 @@ export async function providerJson(origin, path, token, fetcher = fetch) {
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'User-Agent': 'KWS-Monitoring/1' },
       redirect: 'error', signal: AbortSignal.timeout(20_000),
     });
-    if (!response.ok) throw new ProviderError(`provider_http_${response.status}`);
-    if (!response.headers.get('content-type')?.toLowerCase().includes('application/json')) throw new ProviderError('provider_content_type');
+    if (!response.ok && response.status !== 400) throw new ProviderError(`provider_http_${response.status}`);
+    if (!response.headers.get('content-type')?.toLowerCase().includes('application/json')) throw new ProviderError(response.ok ? 'provider_content_type' : `provider_http_${response.status}`);
     const reader = response.body.getReader();
     const chunks = [];
     let size = 0;
@@ -51,8 +51,14 @@ export async function providerJson(origin, path, token, fetcher = fetch) {
       if (size > maximumResponse) { await reader.cancel(); throw new ProviderError('provider_response_too_large'); }
       chunks.push(next.value);
     }
-    try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+    let payload;
+    try { payload = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
     catch { throw new ProviderError('provider_json_invalid'); }
+    if (!response.ok) {
+      const codes = Array.isArray(payload?.errors) ? payload.errors.slice(0, 3).map(error => error.code).filter(code => typeof code === 'string' && /^[A-Z0-9_.]{1,80}$/.test(code)) : [];
+      throw new ProviderError(`provider_http_${response.status}${codes.length ? '_' + codes.join('_') : ''}`);
+    }
+    return payload;
   } catch (error) {
     if (error instanceof ProviderError) throw error;
     throw new ProviderError('provider_unreachable');
@@ -68,7 +74,8 @@ function count(value) {
 }
 
 function date(value) {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || new Date(value).toISOString().slice(0, 10) !== value) throw new ProviderError('provider_date_invalid');
+  const parsed = new Date(value);
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) throw new ProviderError('provider_date_invalid');
   return value;
 }
 
@@ -97,7 +104,7 @@ export async function checkApple(environment, fetcher = fetch) {
   for (const build of builds.data) {
     if (!/^[A-Za-z0-9-]{1,64}$/.test(build.id) || !/^[0-9.]{1,32}$/.test(build.attributes?.version ?? '')) throw new ProviderError('apple_build_invalid');
     try {
-      snapshots.push({ build: build.attributes.version, status: 'available', periods: betaUsage(await get(`/v1/builds/${build.id}/metrics/betaBuildUsages?limit=10`)) });
+      snapshots.push({ build: build.attributes.version, status: 'available', periods: betaUsage(await get(`/v1/builds/${build.id}/metrics/betaBuildUsages`)) });
     } catch (error) {
       snapshots.push({ build: build.attributes.version, status: 'unavailable', code: safeCode(error) });
     }

@@ -297,6 +297,31 @@ jobs:
           echo "path=$IPA_PATH" >> "$GITHUB_OUTPUT"
           echo "Exporting $IPA_PATH"
 
+      - name: Upload dSYMs to Sentry (native crash symbolication)
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_URL: ${{ vars.KWS_SENTRY_ORIGIN || 'https://sentry.io' }}
+          KWS_SENTRY_DSN: ${{ vars.KWS_MONITORING_ENABLED == 'true' && vars.KWS_SENTRY_DSN || '' }}
+        run: |
+          set -eo pipefail
+          if [ -z "${KWS_SENTRY_DSN:-}" ]; then
+            echo "Native Sentry capture disabled — skipping dSYM upload"
+            exit 0
+          fi
+          if [ -z "${SENTRY_AUTH_TOKEN:-}" ] || [ -z "${SENTRY_ORG:-}" ] || [ -z "${SENTRY_PROJECT:-}" ]; then
+            echo "::error::Native crash capture requires explicit Sentry symbol-upload credentials and project"
+            exit 1
+          fi
+          DSYM_ZIP="ios/App/build/ipa/App.app.dSYM.zip"
+          if [ ! -s "$DSYM_ZIP" ]; then
+            echo "::error::Expected dSYM archive was not created: $DSYM_ZIP"
+            exit 1
+          fi
+          echo "Uploading dSYM archive to Sentry"
+          npx --yes @sentry/cli@3.8.0 debug-files upload --org "$SENTRY_ORG" --project "$SENTRY_PROJECT" "$DSYM_ZIP"
+
       - name: Upload to TestFlight
         uses: apple-actions/upload-testflight-build@v3
         with:
@@ -304,28 +329,6 @@ jobs:
           issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
           api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
           api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
-
-      - name: Upload dSYMs to Sentry (native crash symbolication)
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-        run: |
-          set -eo pipefail
-          if [ -z "${SENTRY_AUTH_TOKEN:-}" ]; then
-            echo "SENTRY_AUTH_TOKEN not set — skipping dSYM upload"
-            exit 0
-          fi
-          ORG="${SENTRY_ORG:-moonsight-media}"
-          PROJECT="${SENTRY_PROJECT:-javascript-react}"
-          curl -sL https://sentry.io/get-cli/ | bash
-          DSYM_ZIP="ios/App/build/ipa/App.app.dSYM.zip"
-          if [ ! -s "$DSYM_ZIP" ]; then
-            echo "::error::Expected dSYM archive was not created: $DSYM_ZIP"
-            exit 1
-          fi
-          echo "Uploading dSYM archive to Sentry"
-          sentry-cli debug-files upload --org "$ORG" --project "$PROJECT" "$DSYM_ZIP"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4

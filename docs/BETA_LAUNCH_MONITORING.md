@@ -104,7 +104,28 @@ automatisch ab. Fehlende/defekte/veraltete Quellen sind keine künstlichen Nulle
 - Sentry-Projekt/Region, Auftragsverarbeitung, Credentials, Source-Map-/dSYM-Upload,
   symbolisierte Testfehler sowie echter iOS-/Android-Absturz nach Neustart müssen
   vor einer Behauptung vollständiger nativer Crashdiagnose abgenommen werden.
-  Dieser Stand lädt keine Symbole hoch und behauptet keinen Geräte-Crashtest.
+  Der TestFlight-Workflow lädt vorhandene dSYMs über den getrennten CI-Token
+  hoch. Der serverseitige Sentry-Importer verwendet ausschließlich `event:read`;
+  der CI-Token wird nicht auf den VPS kopiert. JavaScript-Filter gelten nicht
+  automatisch für native SDK-Ereignisse: Im Sentry-Projekt müssen zusätzlich
+  IP-Speicherung aus und serverseitige Regeln für Nutzer, Requests, Extras,
+  Breadcrumbs, Framevariablen, Freitexte und Gerätekennungen aktiv sein.
+
+### Kontrollierter nativer Android-Absturz
+
+`NativeCrashProbeTest` liegt ausschließlich im Instrumentierungs-Testpaket,
+nicht im ausgelieferten APK. Ohne `run_native_crash_probe=true` überspringt er
+den Absturz. Nur auf einem isolierten Emulator mit separatem QA-Build ausführen:
+
+```powershell
+adb -s <emulator> shell am instrument -w -e class com.kletterwelt.beta.NativeCrashProbeTest -e run_native_crash_probe true -e probe_report_id <uuid-v4> com.kletterwelt.beta.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Der instrumentierte Prozess muss dabei abstürzen; ein erfolgreicher Testexit
+ist kein Nachweis. Nach normalem Neustart müssen das konkrete Sentry-Ereignis,
+`handled=false`, native Plattform und aufgelöste Frames geprüft werden. Das
+zufällige `report_id` hält den Test aus dem Dashboard-Import heraus. Ein Android-
+Emulatornachweis ersetzt keinen iPhone-Absturztest.
 
 ## Weitere Ausbaustufen
 
