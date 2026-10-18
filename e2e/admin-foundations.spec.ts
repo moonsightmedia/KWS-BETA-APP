@@ -120,12 +120,12 @@ test('monitoring distinguishes complete failure, partial failure, empty data and
   await expect(page.getByText('Keine Upload-Logs in den letzten 24 Stunden.', { exact: true })).toBeVisible();
 });
 
-test('all six mobile admin destinations and keyboard menu are reachable', async ({ page }) => {
+test('all seven mobile admin destinations and keyboard menu are reachable', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await openFixture(page);
   const nav = page.getByRole('navigation', { name: 'Adminnavigation', exact: true });
   await expect(nav).toBeVisible();
-  for (const label of ['Benutzer', 'Halle', 'Feedback']) {
+  for (const label of ['Benutzer', 'Halle', 'Moderation', 'Feedback']) {
     await nav.getByRole('link', { name: label, exact: true }).click();
     await expect(nav.getByRole('link', { name: label, exact: true })).toHaveAttribute('aria-current', 'page');
   }

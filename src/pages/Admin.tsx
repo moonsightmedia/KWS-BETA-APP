@@ -19,6 +19,7 @@ import { ADMIN_TABS, resolveAdminTab } from '@/lib/adminNavigation';
 import { cn } from '@/lib/utils';
 import { ContentModeration } from '@/components/admin/ContentModeration';
 import { AccountDeletionNotice } from '@/components/admin/AccountDeletionNotice';
+import { ModerationNotice } from '@/components/admin/ModerationNotice';
 
 const SETTINGS_TABS = [
   { value: 'sectors', label: 'Sektoren' },
@@ -57,6 +58,7 @@ const Admin = () => {
           {authLoading || loading ? <div role="status" aria-label="Adminbereich wird geladen"><Skeleton className="mb-8 h-12 w-64" /><Skeleton className="h-96 w-full" /></div> :
             <>
             {!(currentTab === 'users' && searchParams.get('usersView') === 'deletions') && <AccountDeletionNotice />}
+            {currentTab !== 'moderation' && <ModerationNotice />}
             <Tabs value={currentTab} onValueChange={value => changeTab('tab', value)} className="w-full min-w-0">
               <TabsList aria-label="Adminbereiche" className="hidden">
                 {ADMIN_TABS.map(tab => <TabsTrigger key={tab.value} value={tab.value} className="min-w-0 flex-1 px-3 text-xs lg:text-sm">{tab.label}</TabsTrigger>)}
@@ -72,7 +74,8 @@ const Admin = () => {
                   <TabsContent value="colors" className="mt-0"><ColorManagement /></TabsContent>
                 </Tabs>
               </TabsContent>
-              <TabsContent value="feedback" className="mt-0"><div className="space-y-6"><ContentModeration /><FeedbackManagement /></div></TabsContent>
+              <TabsContent value="moderation" className="mt-0"><ContentModeration /></TabsContent>
+              <TabsContent value="feedback" className="mt-0"><FeedbackManagement /></TabsContent>
               <TabsContent value="monitoring" className="mt-0"><MonitoringDashboard /></TabsContent>
               <TabsContent value="logs" className="mt-0"><BoulderOperationLogs /></TabsContent>
               <TabsContent value="tests" className="mt-0"><PushNotificationTest /></TabsContent>

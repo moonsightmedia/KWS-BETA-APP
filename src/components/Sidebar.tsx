@@ -9,6 +9,7 @@ import {
   Activity,
   ClipboardList,
   Bell,
+  ShieldCheck,
 } from 'lucide-react';
 import { HomeIcon as LayoutDashboard, BouldersIcon as List, StatisticsIcon as BarChart3, EditIcon as Edit3, UsersIcon as Users, AccountIcon as User } from '@/lib/appIcons';
 import { ProfileMenu } from '@/components/ProfileMenu';
@@ -308,7 +309,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
     ] },
     { title: 'Zur App', visible: true, items: [{ icon: LayoutDashboard, label: 'Zur App', path: '/' }] },
   ] : location.pathname === '/admin' && stableIsAdmin ? [
-    { title: 'Administration', visible: true, items: ADMIN_TABS.map((tab, index) => ({ icon: [Users, Settings2, MessageSquare, Activity, ClipboardList, Bell][index], label: tab.label, path: `/admin?tab=${tab.value}` })) },
+    { title: 'Administration', visible: true, items: ADMIN_TABS.map(tab => ({ icon: { users: Users, settings: Settings2, moderation: ShieldCheck, feedback: MessageSquare, monitoring: Activity, logs: ClipboardList, tests: Bell }[tab.value], label: tab.label, path: `/admin?tab=${tab.value}` })) },
     { title: 'Zur App', visible: true, items: [{ icon: LayoutDashboard, label: 'Zur App', path: '/' }] },
   ] : [
     {

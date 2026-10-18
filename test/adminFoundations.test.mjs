@@ -59,7 +59,7 @@ test('profile payload trims names, clears optional fields and preserves existing
   assert.throws(() => profileDraftPayload({ ...draft, birthDate: '31.02.2000' }));
 });
 test('navigation contains every admin page once, with safe fallbacks', () => {
-  assert.equal(new Set(ADMIN_TABS.map(tab => tab.value)).size, 6);
+  assert.equal(new Set(ADMIN_TABS.map(tab => tab.value)).size, 7);
   assert.deepEqual(OPERATIONS_TABS.map(tab => tab.value), ['monitoring', 'logs', 'tests']);
   for (const tab of ADMIN_TABS) { assert.equal(resolveAdminTab(tab.value), tab.value); assert.equal(adminTabPath(tab.value), '/admin?tab=' + tab.value); }
   for (const value of [null, '', 'invalid']) assert.equal(resolveAdminTab(value), 'users');
