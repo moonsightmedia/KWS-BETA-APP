@@ -25,6 +25,7 @@ test('provider transport rejects arbitrary origins, redirects and large or non-J
   await assert.rejects(providerJson('https://sentry.io', '/api/0/../../elsewhere', 'token', async () => { throw new Error('should not fetch'); }), /target_rejected/);
   await assert.rejects(providerJson('https://sentry.io', '/api/0/projects/', 'token', async () => new Response('secret', { status: 403 })), /provider_http_403/);
   await assert.rejects(providerJson('https://sentry.io', '/api/0/projects/', 'token', async () => new Response('secret')), /provider_content_type/);
+  await assert.rejects(providerJson('https://api.appstoreconnect.apple.com', '/v1/apps', 'token', async () => new Response(JSON.stringify({errors:[{code:'PARAMETER_ERROR.INVALID',detail:'private-details'}]}), {status:400,headers:{'content-type':'application/json'}})), error => error.code === 'provider_http_400_PARAMETER_ERROR.INVALID' && !error.message.includes('private'));
   await assert.rejects(providerJson('https://sentry.io', '/api/0/projects/', 'token', async () => new Response('x'.repeat(2 * 1024 * 1024 + 1), { headers: { 'content-type': 'application/json' } })), /too_large/);
   await providerJson('https://sentry.io', '/api/0/projects/', 'token', async (url, options) => { assert.equal(options.redirect, 'error'); assert.equal(options.headers.Authorization, 'Bearer token'); return json([]); });
 });
@@ -34,6 +35,7 @@ test('TestFlight preserves provider periods and nulls, never invents daily downl
   assert.deepEqual(betaUsage({ data: [{ type: 'betaBuildUsages', dataPoints: [{ start: '2026-10-01', end: '2026-10-18', values: {} }] }] })[0].installs, null);
   assert.throws(() => betaUsage({ ...usage, links: { next: 'https://evil.invalid' } }), /shape/);
   assert.throws(() => betaUsage({ data: [{ type: 'betaBuildUsages', dataPoints: [{ start: '2026-10-18', end: '2026-10-01' }] }] }), /period/);
+  assert.throws(() => betaUsage({ data: [{ type: 'betaBuildUsages', dataPoints: [{ start: '2026-99-99', end: '2026-10-01' }] }] }), /date_invalid/);
   assert.throws(() => betaUsage({ data: [{ type: 'betaBuildUsages', dataPoints: [{ start: '2026-10-01', end: '2026-10-18', values: { installCount: -1 } }] }] }), /count/);
 });
 
