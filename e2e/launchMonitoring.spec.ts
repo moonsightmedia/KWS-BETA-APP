@@ -31,11 +31,34 @@ test('layout loop: all cockpit views fit required widths with long content', asy
     await page.setViewportSize({ width, height: 960 });
     await open(page, 'long');
     await expect(page.getByText('Erstmals erfasste App-Instanzen', { exact: true })).toBeVisible();
-    for (const [label, key] of [['Übersicht', 'overview'], ['Fehler', 'errors'], ['Nutzung', 'usage'], ['Mitteilungen', 'notifications']]) {
+    for (const [label, key] of [['Übersicht', 'overview'], ['Fehler', 'errors'], ['Nutzung', 'usage'], ['Mitteilungen', 'notifications'], ['Aktivität', 'activity']]) {
       await chooseView(page, label);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.screenshot({ path: `${directory}/loop1-${key}-${width}.png`, fullPage: true, animations: 'disabled' });
     }
+  }
+});
+
+test('activity uses current launch signals instead of disabled legacy telemetry', async ({ page }) => {
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 960 });
+    await open(page, 'long');
+    await chooseView(page, 'Aktivität');
+    await expect(page.getByRole('heading', { name: 'Zuletzt aktiv gemeldet', exact: true })).toBeVisible();
+    await expect(page.getByText('Instanz fixture-3a9f · Konto fixture-konto-82c1', { exact: true })).toBeVisible();
+    await expect(page.getByText('Vordergrundsignal, höchstens 3 Minuten alt. Kein Nachweis, dass jemand den Bildschirm betrachtet.', { exact: true })).toBeVisible();
+    if (width < 1280) {
+      const activity = await page.getByRole('heading', { name: 'Zuletzt aktiv gemeldet', exact: true }).boundingBox();
+      const popular = await page.getByRole('heading', { name: 'Häufig angesehene Boulder', exact: true }).boundingBox();
+      expect(activity!.y).toBeLessThan(popular!.y);
+    }
+    expect(await page.evaluate(() => window.launchMonitoringQA.requests.every(request => request.path.endsWith('/kws_monitoring_dashboard')))).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await open(page, 'stale');
+    await chooseView(page, 'Aktivität');
+    await expect(page.getByText('Keine aktuellen Vordergrundsignale.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Instanz fixture-3a9f · Konto fixture-konto-82c1', { exact: true })).toHaveCount(0);
+    await page.screenshot({ path: `${directory}/loop2-activity-stale-${width}.png`, fullPage: true, animations: 'disabled' });
   }
 });
 
@@ -59,6 +82,7 @@ test('filters send server predicates, keep unknown account counts and preserve u
   await page.getByRole('option', { name: 'Android', exact: true }).click();
   await sheet.getByRole('button', { name: 'Ergebnisse anzeigen', exact: true }).click();
   await expect(page.getByText('Nicht verfügbar', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Konten sind diesem Filter nicht zuordenbar', { exact: true })).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.launchMonitoringQA.requests.filter(request => request.path.endsWith('kws_monitoring_dashboard')).at(-1)?.payload)).toEqual({ p_days: 7, p_platform: 'android', p_release: 'all' });
   await chooseView(page, 'Uploads');
   await expect(page.getByRole('textbox', { name: 'Upload-Sessions filtern' })).toBeVisible();
