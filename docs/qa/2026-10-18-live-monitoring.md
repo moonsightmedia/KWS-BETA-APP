@@ -22,6 +22,8 @@ auf Handy und Desktop. Keine Klarnamenbeobachtung oder Bildschirmaufzeichnung.
 - Echter Client unter ReactStrictMode: Altfreigabev1 wird nicht übernommen;
   explizite Auswahl sendet Live-Status, Hintergrund und Widerruf senden sofort
   inaktive Zustände. Die Tests verwenden isolierte Daten, keine Produktivnutzer.
+  Ein Widerruf sperrt zusätzlich den alten v1-Schlüssel für noch geöffnete
+  ältere Browserfenster; bestehende Ablehnungen werden auch in v2 respektiert.
 - Produktions-Vitebuild und fokussierter Frontend-ESLint bestanden. Der vorhandene
   Edge-Scrubber löst unverändert `no-control-regex` aus; keine neue Lintdiagnose.
   Projektweiter Typecheck bleibt an bestehenden Diagnosen außerhalb der geänderten

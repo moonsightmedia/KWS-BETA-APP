@@ -77,6 +77,7 @@ test('legacy consent is not reused for live presence and revoke/background send 
   await page.getByRole('switch', { name: 'Nutzungsstatistik erlauben' }).click();
   await expect.poll(() => messages.at(-1)?.active).toBe(false);
   expect(messages.at(-1)?.boulder_id).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem('kws_usage_consent_v1'))).toBe('denied');
   expect(messages.every((message, index) => index === 0 || message.sequence > messages[index - 1].sequence)).toBe(true);
 });
 

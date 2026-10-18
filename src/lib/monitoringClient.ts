@@ -87,6 +87,7 @@ export class MonitoringClient {
     try {
       const preference = dependencies.storage.getItem(MONITORING_CONSENT_KEY);
       if (preference === 'granted' || preference === 'denied') this.consent = preference;
+      else if (dependencies.storage.getItem('kws_usage_consent_v1') === 'denied') this.consent = 'denied';
       const stored = JSON.parse(dependencies.storage.getItem(MONITORING_STORAGE_KEY) || 'null');
       if (stored && uuidPattern.test(stored.installation) && uuidPattern.test(stored.session)) {
         this.state = {
@@ -166,6 +167,9 @@ export class MonitoringClient {
   setConsent(consent: MonitoringConsent): void {
     this.consent = consent;
     try { this.dependencies.storage.setItem(MONITORING_CONSENT_KEY, consent); } catch { this.consent = consent; }
+    if (consent !== 'granted') {
+      try { this.dependencies.storage.setItem('kws_usage_consent_v1', 'denied'); } catch { this.consent = consent; }
+    }
     this.refreshQueue();
     if (consent !== 'granted') this.removePending(this.state.queue.filter(item => item.event.name !== 'app_error').map(item => item.event.event_id));
     this.persist();
