@@ -1,11 +1,11 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 
 // Self-contained, synthetic fixtures: no dependency on admin/setter test data.
 const sectors = [
   { id: 's1', name: 'Bug A', area: 'Bug', subarea: 'A' },
   { id: 's2', name: 'Grotte B', area: 'Grotte', subarea: 'B' },
 ];
-export const useSectorsTransformed = () => ({ data: sectors, isLoading: false, error: null });
+export const useSectorsTransformed = () => useData(sectors, 'catalog');
 export const useSectors = useSectorsTransformed;
 export const useColors = () => ({ data: [{ id: 'green', name: 'Grün', hex: '#67AE3F' }], isPending: false, isError: false });
 export const useIsAdmin = () => ({ isAdmin: true, loading: false });
@@ -27,8 +27,13 @@ const sessions = personalBoulders.slice(0, 24).map((b,i) => ({id:`session-${i}`,
   result:i < 16 ? (i % 3 === 0 ? 'flash' : 'top') : 'attempted', attempt_count:i % 3 === 0 ? 1 : 3, note:null, created_at:'2026-09-15T10:00:00Z', updated_at:'2026-09-15T10:00:00Z'}));
 const listeners = new Set<() => void>();
 let revision = 0;
-function useData<T>(data:T) {
-  const [state,setState] = useState(new URLSearchParams(location.search).get('state'));
+function useData<T>(data:T, scope = 'personal') {
+  const [state,setState] = useState(() => new URLSearchParams(location.search).get(scope === 'catalog' ? 'catalogState' : 'state'));
+  useEffect(() => {
+    const ready = () => setState(null);
+    window.addEventListener('personal-fixture-ready', ready);
+    return () => window.removeEventListener('personal-fixture-ready', ready);
+  }, []);
   return { data: state === 'empty' ? [] : state ? undefined : data, isLoading:state === 'loading', isPending:state === 'loading', isFetching:state === 'loading', error:state === 'error' ? new Error('Isolierter Ladefehler') : null, refetch:async()=>setState(null) };
 }
 export function useMyTrackedBoulders() {
@@ -36,7 +41,7 @@ export function useMyTrackedBoulders() {
   return useData(entries);
 }
 export const useMyTrackingSessions = () => useData(sessions);
-export const useBouldersWithSectors = () => ({data:personalBoulders, isLoading:false, error:null, rawBoulders:personalBoulders, rawSectors:[]});
+export const useBouldersWithSectors = () => ({...useData(personalBoulders, 'catalog'), rawBoulders:personalBoulders, rawSectors:[]});
 export const useSectorSchedule = () => ({data:[]});
 const user = {id:'personal-user',email:'test@example.invalid',user_metadata:{first_name:'Alex'},created_at:'2026-01-01'};
 const session = {access_token:'isolated-test-token'};
