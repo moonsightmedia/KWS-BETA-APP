@@ -260,7 +260,8 @@ const Guest = () => {
                 <p className="mt-1 text-[11px] font-medium text-brand-muted" aria-live="polite">
                   Gastansicht · {isRetrying || (!dataError && isLoading)
                     ? 'Wird geladen …'
-                    : dataError ? 'Daten nicht verfügbar' : `${filtered.length} aktuelle Boulder`}
+                    : dataError ? 'Daten nicht verfügbar'
+                      : `${filtered.length} ${searchQuery.trim() || activeFilterCount > 0 ? 'Treffer' : 'aktuelle Boulder'}`}
                 </p>
               </div>
 
@@ -328,6 +329,7 @@ const Guest = () => {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-ink/45" />
                 <Input
                   ref={searchInputRef}
+                  aria-label="Boulder oder Bereich suchen"
                   className="h-10 !rounded-kws-control border-none bg-brand-secondary pl-10 pr-10 text-sm text-brand-ink shadow-none placeholder:text-brand-ink/45 focus-visible:!ring-2 focus-visible:!ring-brand-ink/15 focus-visible:!ring-offset-0"
                   placeholder="Boulder oder Sektor suchen…"
                   value={searchQuery}

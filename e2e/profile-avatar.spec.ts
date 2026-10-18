@@ -37,7 +37,7 @@ for(const width of [375,768,1280,1920]) test('profile photo consistent at '+widt
   await expect(page.getByTestId('account-photo').locator('img')).toHaveAttribute('src',newPhoto);
   await expect(page.locator('main img').first()).toHaveAttribute('src',newPhoto);
   await mkdir(output,{recursive:true});await page.screenshot({path:output+'/profile-'+width+'.png',fullPage:true});
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(width);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1)).toBe(true);
 });
 test('removed photo never returns from stale metadata, including after save and revisit',async({page})=>{
   await open(page,{removed:true});
@@ -74,4 +74,73 @@ test('replacement automatically saves photo alone, keeping unsaved name and emai
   await expect(page.getByLabel('E-Mail',{exact:true})).toHaveValue('draft@example.invalid');
   expect(ctx.writes).toEqual([{avatar_url:newPhoto}]);
   expect(ctx.record.full_name).toBe('Alex Berg');expect(ctx.record.email).toBe('alex@example.invalid');
+});
+
+for (const width of [375,768,1280,1920]) test('unsaved profile protects drafts and honors discard at '+width,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  const ctx=await open(page);
+  await page.getByLabel('Name',{exact:true}).fill('Entwurf Name');
+  await page.getByRole('button',{name:'Zum Profil',exact:true}).click();
+  const dialog=page.getByRole('alertdialog',{name:'Änderungen verwerfen?'});
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button',{name:'Weiter bearbeiten'})).toBeFocused();
+  await expect(dialog).toHaveCSS('opacity','1');
+  await mkdir('output/usability',{recursive:true});
+  await page.screenshot({path:`output/usability/profile-confirm-${width}.png`,fullPage:true});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1)).toBe(true);
+  await dialog.getByRole('button',{name:'Weiter bearbeiten'}).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByLabel('Name',{exact:true})).toHaveValue('Entwurf Name');
+  await page.getByRole('button',{name:'Verlauf zurück',exact:true}).click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button',{name:'Weiter bearbeiten'})).toBeFocused();
+  await expect(dialog).toHaveCSS('opacity','1');
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByLabel('Name',{exact:true})).toHaveValue('Entwurf Name');
+  await page.getByRole('button',{name:'Zum Profil',exact:true}).click();
+  await dialog.getByRole('button',{name:'Verwerfen',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Profil bearbeiten',exact:true})).toBeVisible();
+  expect(ctx.writes).toEqual([]);
+});
+
+test('unchanged and reverted fields leave without warning; email edits also protected',async({page})=>{
+  await open(page);
+  await page.getByLabel('E-Mail',{exact:true}).fill('entwurf@example.invalid');
+  await page.getByRole('button',{name:'Zum Profil',exact:true}).click();
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await page.getByRole('button',{name:'Weiter bearbeiten'}).click();
+  await page.getByLabel('E-Mail',{exact:true}).fill('alex@example.invalid');
+  await page.getByRole('button',{name:'Zum Profil',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Profil bearbeiten',exact:true})).toBeVisible();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+});
+
+test('saved profile navigates without warning; failed save retains the protected draft',async({page})=>{
+  await open(page,{failSave:true});
+  await page.getByLabel('Name',{exact:true}).fill('Entwurf Name');
+  await page.getByRole('button',{name:'Speichern',exact:true}).click();
+  await expect(page.getByText('Speichern fehlgeschlagen',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Zum Profil',exact:true}).click();
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await page.getByRole('button',{name:'Weiter bearbeiten'}).click();
+  await expect(page.getByLabel('Name',{exact:true})).toHaveValue('Entwurf Name');
+  const ctx=await open(page);
+  await page.getByLabel('Name',{exact:true}).fill('Gespeicherter Name');
+  await page.getByRole('button',{name:'Speichern',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Profil bearbeiten',exact:true})).toBeVisible();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  expect(ctx.record.full_name).toBe('Gespeicherter Name');
+});
+
+test('browser reload asks before dropping unsaved profile edits',async({page})=>{
+  await open(page);
+  await page.getByLabel('Name',{exact:true}).fill('Entwurf Name');
+  const dialogPromise=page.waitForEvent('dialog');
+  // Schedule a real reload without waiting for a navigation we will cancel.
+  await page.evaluate(()=>{window.setTimeout(()=>window.location.reload(),0);});
+  const dialog=await dialogPromise;
+  expect(dialog.type()).toBe('beforeunload');
+  await dialog.dismiss();
+  await expect(page.getByLabel('Name',{exact:true})).toHaveValue('Entwurf Name');
 });

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useBlocker, useNavigate } from 'react-router-dom';
 import { Camera, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -13,6 +13,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { KwsSurface } from '@/components/ui/kws-surface';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { deleteProfileAvatar, uploadProfileAvatar } from '@/integrations/supabase/storage';
@@ -87,6 +91,7 @@ const ProfileEdit = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const loadedProfile = useRef<string | null>(null);
+  const savedSuccessfully = useRef(false);
   const { user, session, resetPassword } = useAuth();
   const queryClient = useQueryClient();
 
@@ -100,6 +105,22 @@ const ProfileEdit = () => {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [saving, setSaving] = useState(false);
   const [avatarSaving, setAvatarSaving] = useState(false);
+  const [initialFields, setInitialFields] = useState<{ name: string; email: string } | null>(null);
+  const hasUnsavedChanges = !loadingProfile && initialFields !== null && (
+    form.name.trim() !== initialFields.name.trim() || form.email.trim() !== initialFields.email.trim()
+  );
+  const blocker = useBlocker(() => hasUnsavedChanges && !savedSuccessfully.current);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (savedSuccessfully.current) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   useEffect(() => {
     if (!user) {
@@ -128,12 +149,9 @@ const ProfileEdit = () => {
         user.email?.split('@')[0] ||
         'Kletterer';
 
-      setForm((current) => ({
-        ...current,
-        name: current.name && current.name !== 'Kletterer' ? current.name : fallbackName,
-        email: current.email || user.email || '',
-        avatarUrl: current.avatarUrl ?? metadataAvatarUrl,
-      }));
+      const fallbackForm = { name: fallbackName, email: user.email || '', avatarUrl: metadataAvatarUrl };
+      setForm(fallbackForm);
+      setInitialFields(fallbackForm);
       setInitialAvatarUrl((current) => current ?? metadataAvatarUrl);
       try {
         if (cancelled) return;
@@ -153,6 +171,7 @@ const ProfileEdit = () => {
           avatarUrl: nextAvatarUrl,
         });
         setInitialAvatarUrl(nextAvatarUrl);
+        setInitialFields({ name: profileName, email: data?.email || user.email || '' });
       } catch (error: unknown) {
         toast.error('Profil konnte nicht geladen werden', {
           description: error instanceof Error ? error.message : 'Bitte versuche es erneut.',
@@ -329,6 +348,7 @@ const ProfileEdit = () => {
       setInitialAvatarUrl(nextAvatarUrl);
       setForm((current) => ({ ...current, avatarUrl: nextAvatarUrl }));
       setAvatarFile(null);
+      savedSuccessfully.current = true;
       navigate('/profile', { replace: true });
     } catch (error: unknown) {
       console.error('[Profile Edit] Save failed:', {
@@ -363,6 +383,22 @@ const ProfileEdit = () => {
 
   return (
     <DashboardPageLayout headerBackTo="/profile" mainClassName="pt-4 md:pt-6">
+      <AlertDialog open={blocker.state === 'blocked'} onOpenChange={(open) => {
+        if (!open && blocker.state === 'blocked') blocker.reset();
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Änderungen verwerfen?</AlertDialogTitle>
+            <AlertDialogDescription>Dein Name oder deine E-Mail-Adresse wurde noch nicht gespeichert.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Weiter bearbeiten</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (blocker.state === 'blocked') blocker.proceed();
+            }}>Verwerfen</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="mx-auto max-w-3xl space-y-4">
         <KwsSurface className="p-4 sm:p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -428,7 +464,7 @@ const ProfileEdit = () => {
                 id="name"
                 value={form.name}
                 onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-                disabled={loadingProfile}
+                disabled={loadingProfile || saving}
                 className="h-11 rounded-kws-control"
               />
             </div>
@@ -442,7 +478,7 @@ const ProfileEdit = () => {
                 type="email"
                 value={form.email}
                 onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
-                disabled={loadingProfile}
+                disabled={loadingProfile || saving}
                 className="h-11 rounded-kws-control"
               />
             </div>
