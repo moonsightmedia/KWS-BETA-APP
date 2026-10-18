@@ -27,11 +27,16 @@ const clients = [];
 for (const [role, token] of Object.entries({ admin: config.admin, member: config.member, guest: config.key })) {
   const client = createClient(config.url, config.key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }, accessToken: async () => token });
   clients.push(client);
-  const state = results[role] = { joined: false, changes: 0 };
+  await client.realtime.setAuth(token);
+  const state = results[role] = { joined: false, changes: 0, denied_changes: 0 };
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('Realtime join timeout: ' + role)), 15000);
     client.channel('live-verification-' + role)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'monitoring_live_revision' }, event => { state.changes++; assert.ok(!JSON.stringify(event).includes('user_id')); })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'monitoring_live_revision' }, event => {
+        if (event.errors?.length) { state.denied_changes++; return; }
+        if (typeof event.new.revision !== 'string') return;
+        state.changes++; assert.ok(!JSON.stringify(event).includes('user_id'));
+      })
       .subscribe(status => {
         if (status === 'SUBSCRIBED') { state.joined = true; clearTimeout(timeout); resolve(); }
         if (['CHANNEL_ERROR', 'TIMED_OUT'].includes(status)) {

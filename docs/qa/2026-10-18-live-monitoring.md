@@ -40,6 +40,13 @@ WebSocket-Zustellung für Admin gegenüber normalem Konto/Gast. Der öffentliche
 Marker enthält keine Identitätsdaten. Kein absichtlich sichtbarer Testnutzer
 oder Fehleralarm in Produktivzahlen.
 
+Die erste echte SDK-Prüfung zeigte einen wichtigen Integrationsunterschied:
+`accessToken` allein authentifizierte das initiale Realtime-Abonnement nicht.
+Ein explizites `await realtime.setAuth(token)` vor dem Beitritt wurde ergänzt.
+RLS-Fehlerantworten ohne Datensatz gelten nicht als empfangener Marker; die UI
+markiert diesen Zustand als gestört. Es wurden keine Live-Rohdaten oder
+Personeninformationen in diesen Fehlerantworten übertragen.
+
 Produktive Release-/Transportbelege liegen nach erfolgreicher Durchführung
 geschützt unter `/opt/kws/monitoring`; GitHub-PR/CI und App-/Landing-Revisionsbelege
 sind die regulären Veröffentlichungsnachweise. Lokal erfolgreiche Fixtures allein
