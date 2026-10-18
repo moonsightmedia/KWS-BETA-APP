@@ -25,7 +25,7 @@ import type { Boulder } from '@/types/boulder';
 import { KwsSegmentedControl } from '@/components/ui/kws-segmented-control';
 import { ContentSafetyActions } from '@/components/ContentSafetyActions';
 import { ExternalBetaVideo } from '@/components/boulder/ExternalBetaVideo';
-import { trackMonitoring } from '@/utils/monitoring';
+import { setMonitoringLoadedBoulder, trackMonitoring } from '@/utils/monitoring';
 
 const tabs = ['Info', 'Track', 'Beta'] as const;
 type DetailTab = (typeof tabs)[number];
@@ -65,6 +65,7 @@ export default function BoulderDetail() {
   const availableTabs = useMemo(() => (user ? tabs : (['Info', 'Beta'] as const)), [user]);
 
   useEffect(() => {
+    const clearLoadedBoulder = boulder?.id ? setMonitoringLoadedBoulder(boulder.id) : undefined;
     const record = () => {
       if (!boulder?.id || recordedView.current === boulder.id || document.visibilityState !== 'visible') return;
       if (trackMonitoring('boulder_detail_view', { screen: 'boulder', view_id: crypto.randomUUID() }, boulder.id)) recordedView.current = boulder.id;
@@ -72,7 +73,7 @@ export default function BoulderDetail() {
     record();
     window.addEventListener('kws:monitoring-consent', record);
     document.addEventListener('visibilitychange', record);
-    return () => { window.removeEventListener('kws:monitoring-consent', record); document.removeEventListener('visibilitychange', record); };
+    return () => { clearLoadedBoulder?.(); window.removeEventListener('kws:monitoring-consent', record); document.removeEventListener('visibilitychange', record); };
   }, [boulder?.id]);
 
   const getScrollContainer = useCallback(() => {

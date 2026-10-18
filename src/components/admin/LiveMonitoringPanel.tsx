@@ -16,7 +16,7 @@ export function LiveMonitoringPanel({ connection, filters, accountId, compact = 
     queryKey: ['monitoring-live', accountId, filters.platform, filters.release],
     queryFn: ({ signal }) => loadLiveMonitoring(connection, filters, signal),
     enabled: Boolean(connection.token) && visible, retry: false, staleTime: 0,
-    refetchInterval: connected ? false : 15_000, refetchIntervalInBackground: false,
+    refetchInterval: query => connected && !query.state.error ? false : 15_000, refetchIntervalInBackground: false,
   });
   useEffect(() => {
     const visibility = () => setVisible(document.visibilityState === 'visible');

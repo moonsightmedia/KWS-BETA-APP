@@ -33,6 +33,15 @@ auf Handy und Desktop. Keine Klarnamenbeobachtung oder Bildschirmaufzeichnung.
 
 ## Rollout-Prüfung getrennt
 
+Die abschließende Navigationsprüfung ergänzt zwei Regressionen: bereits aus
+dem Querycache geladene Boulder dürfen durch später laufende Eltern-Routeneffekte
+nicht verloren gehen. Der echte Detail-Lifecycle meldet jetzt ausdrücklich
+Laden/Entladen; ein alter Cleanup darf keinen neu geöffneten Boulder abmelden.
+Nicht geladene Detailseiten zählen keine Boulderansicht. Außerdem erholt sich
+die Ersatzabfrage nach HTTP-Fehlern auch bei noch bestehendem WebSocket ohne
+weitere Nutzerereignisse automatisch. Beide Flüsse laufen im echten Clientmodul
+unter StrictMode bzw. im gerenderten Dashboard.
+
 Vor Aktivierung: vollständige DB-Sicherung, geprüfte SQL-Migration,
 Hashplan für den bestehenden Edgehandler und erneuter Ingest-Verifikationsbeleg.
 Der Prüfhelper `verify-live-presence.mjs` erhält kurzlebige Berechtigung nur per

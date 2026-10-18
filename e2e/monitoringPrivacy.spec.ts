@@ -81,6 +81,25 @@ test('legacy consent is not reused for live presence and revoke/background send 
   expect(messages.every((message, index) => index === 0 || message.sequence > messages[index - 1].sequence)).toBe(true);
 });
 
+test('already cached Boulder details survive child-before-parent route effects; unloaded pages never count a Boulder', async ({ page }) => {
+  const messages: Array<{ active: boolean; screen: string; boulder_id: string | null }> = [];
+  await page.route('**/qa/functions/v1/monitoring-events', async route => {
+    const payload = route.request().postDataJSON();
+    if (payload.presence) { messages.push(payload.presence); await route.fulfill({ json: { accepted: true } }); }
+    else await route.fulfill({ json: { accepted_ids: payload.events.map((event: Event) => event.event_id), rejected_ids: [] } });
+  });
+  await page.goto('/test/fixtures/monitoringPrivacy.html?cached-navigation');
+  await page.getByRole('button', { name: 'Statistik erlauben', exact: true }).click();
+  await page.getByRole('button', { name: 'Geladenen Boulder öffnen', exact: true }).click();
+  await expect.poll(() => messages.at(-1)?.boulder_id).toBe('00000000-0000-4000-8000-000000000005');
+  await page.getByRole('button', { name: 'Nicht geladenen Boulder öffnen', exact: true }).click();
+  await expect.poll(() => messages.at(-1)?.boulder_id).toBeNull();
+  await page.getByRole('button', { name: 'Zur Übersicht', exact: true }).click();
+  await expect.poll(() => messages.at(-1)?.screen).toBe('boulders');
+  await page.getByRole('button', { name: 'Geladenen Boulder öffnen', exact: true }).click();
+  await expect.poll(() => messages.at(-1)?.boulder_id).toBe('00000000-0000-4000-8000-000000000005');
+});
+
 test('data request failures are classified without response content and media aborts are not failures', async ({ page }) => {
   const events = await collector(page);
   await page.goto('/test/fixtures/monitoringPrivacy.html');
