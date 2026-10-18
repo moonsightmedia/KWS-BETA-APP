@@ -1,0 +1,19 @@
+[Unit]
+Description=KWS read-only Sentry issue summaries
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/python3 /opt/kws/monitoring/sentry_importer.py --apply
+TimeoutStartSec=150
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+MemoryMax=128M
+CPUQuota=20%
+StandardOutput=journal
+StandardError=journal

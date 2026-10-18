@@ -74,8 +74,12 @@ jobs:
         env:
           BUILD_BACKEND: ${{ inputs.backend || 'current' }}
           KWS_HOSTINGER_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.KWS_HOSTINGER_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_MONITORING_ENABLED: ${{ vars.KWS_MONITORING_ENABLED == 'true' && 'true' || 'false' }}
+          VITE_MONITORING_CHANNEL: testflight
+          VITE_SENTRY_DSN: ${{ vars.KWS_MONITORING_ENABLED == 'true' && vars.KWS_SENTRY_DSN || '' }}
         run: |
           set -eo pipefail
+          export VITE_RELEASE_REVISION="$(git rev-parse HEAD)"
           if [ "$BUILD_BACKEND" = "hostinger" ]; then
             if [ -z "$KWS_HOSTINGER_SUPABASE_PUBLISHABLE_KEY" ]; then
               echo "::error::Missing Hostinger publishable client key"
@@ -89,7 +93,6 @@ jobs:
             export VITE_AUTH_SITE_URL="https://beta.kletterwelt-sauerland.de"
             export VITE_USE_ALLINKL_STORAGE="false"
             export VITE_TELEMETRY_ENABLED="false"
-            export VITE_SENTRY_DSN=""
             ./node_modules/.bin/vite build --mode hostinger --base=./
           else
             npm run build

@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import { reportError, type ReportErrorUserContext } from './feedbackUtils';
 import { captureSentryException } from './sentry';
+import { isMonitoringEnabled } from './monitoring';
 
 let errorHandlerInitialized = false;
 let currentUserContext: ReportErrorUserContext | null = null;
@@ -47,13 +48,13 @@ export function initializeErrorHandler(): void {
     reportError(error, {
       componentStack: event.error?.stack || '',
     }, undefined, currentUserContext ?? undefined)
-      .then(() => {
-        toast.info('Ein Fehler ist aufgetreten und wurde automatisch gemeldet.');
+      .then((result) => {
+        toast.info(result.success ? 'Ein Fehler ist aufgetreten und wurde automatisch gemeldet.' : result.error || 'Der Fehlerbericht konnte noch nicht übermittelt werden.');
       })
       .catch(() => {
         // Silently fail
       });
-    captureSentryException(error, { tags: { source: 'window.error' } });
+    if (!isMonitoringEnabled()) captureSentryException(error, { tags: { source: 'window.error' } });
   });
 
   // Handle unhandled promise rejections
@@ -67,13 +68,13 @@ export function initializeErrorHandler(): void {
     }
 
     reportError(error, undefined, undefined, currentUserContext ?? undefined)
-      .then(() => {
-        toast.info('Ein Fehler ist aufgetreten und wurde automatisch gemeldet.');
+      .then((result) => {
+        toast.info(result.success ? 'Ein Fehler ist aufgetreten und wurde automatisch gemeldet.' : result.error || 'Der Fehlerbericht konnte noch nicht übermittelt werden.');
       })
       .catch(() => {
         // Silently fail
       });
-    captureSentryException(error, { tags: { source: 'unhandledrejection' } });
+    if (!isMonitoringEnabled()) captureSentryException(error, { tags: { source: 'unhandledrejection' } });
   });
 }
 

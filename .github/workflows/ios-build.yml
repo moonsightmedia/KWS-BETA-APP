@@ -49,6 +49,9 @@ jobs:
           VITE_AUTH_SITE_URL: https://beta.kletterwelt-sauerland.de
           VITE_USE_ALLINKL_STORAGE: 'false'
           VITE_TELEMETRY_ENABLED: 'false'
+          VITE_MONITORING_ENABLED: 'false'
+          VITE_MONITORING_CHANNEL: test
+          VITE_RELEASE_REVISION: ${{ github.sha }}
           VITE_SENTRY_DSN: ''
         run: |
           set -eo pipefail

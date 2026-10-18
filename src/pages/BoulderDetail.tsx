@@ -25,6 +25,7 @@ import type { Boulder } from '@/types/boulder';
 import { KwsSegmentedControl } from '@/components/ui/kws-segmented-control';
 import { ContentSafetyActions } from '@/components/ContentSafetyActions';
 import { ExternalBetaVideo } from '@/components/boulder/ExternalBetaVideo';
+import { trackMonitoring } from '@/utils/monitoring';
 
 const tabs = ['Info', 'Track', 'Beta'] as const;
 type DetailTab = (typeof tabs)[number];
@@ -54,6 +55,7 @@ export default function BoulderDetail() {
   const [tabContentMinHeight, setTabContentMinHeight] = useState<number>(0);
   const tabBarRef = useRef<HTMLDivElement>(null);
   const tabContentRef = useRef<HTMLDivElement>(null);
+  const recordedView = useRef<string | null>(null);
 
   const boulder = useMemo(() => boulders?.find((entry) => entry.id === id), [boulders, id]);
   const videoUrl = boulder?.betaVideoUrls?.hd || boulder?.betaVideoUrls?.sd || boulder?.betaVideoUrls?.low || boulder?.betaVideoUrl;
@@ -61,6 +63,17 @@ export default function BoulderDetail() {
   const isVimeo = videoUrl ? isVimeoUrl(videoUrl) : false;
   const isDirectVideo = Boolean(videoUrl && !isYouTube && !isVimeo);
   const availableTabs = useMemo(() => (user ? tabs : (['Info', 'Beta'] as const)), [user]);
+
+  useEffect(() => {
+    const record = () => {
+      if (!boulder?.id || recordedView.current === boulder.id || document.visibilityState !== 'visible') return;
+      if (trackMonitoring('boulder_detail_view', { screen: 'boulder', view_id: crypto.randomUUID() }, boulder.id)) recordedView.current = boulder.id;
+    };
+    record();
+    window.addEventListener('kws:monitoring-consent', record);
+    document.addEventListener('visibilitychange', record);
+    return () => { window.removeEventListener('kws:monitoring-consent', record); document.removeEventListener('visibilitychange', record); };
+  }, [boulder?.id]);
 
   const getScrollContainer = useCallback(() => {
     const detailLayer = document.querySelector<HTMLElement>('[data-boulder-detail-scroll]');
@@ -255,6 +268,7 @@ export default function BoulderDetail() {
               ) : (
                 <BoulderVideoPlayer
                   key={boulder.id}
+                  boulderId={boulder.id}
                   betaVideoUrls={boulder.betaVideoUrls}
                   betaVideoUrl={boulder.betaVideoUrl}
                   poster={getThumbnailUrl(boulder)}

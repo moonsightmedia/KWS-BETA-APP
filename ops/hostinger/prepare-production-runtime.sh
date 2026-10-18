@@ -95,7 +95,7 @@ http://:80 {
     }
   }
   handle_path /functions/v1/* {
-    @push path /send-push-notification
+    @push path /send-push-notification /monitoring-events
     handle @push {
       reverse_proxy supabase-edge-functions:9000
     }

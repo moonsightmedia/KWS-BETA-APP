@@ -1,0 +1,11 @@
+[Unit]
+Description=Check grouped KWS error alerts each minute
+
+[Timer]
+OnBootSec=90s
+OnUnitInactiveSec=60s
+AccuracySec=5s
+Unit=kws-monitoring-alerts.service
+
+[Install]
+WantedBy=timers.target

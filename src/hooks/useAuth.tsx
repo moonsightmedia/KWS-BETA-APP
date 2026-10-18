@@ -11,6 +11,7 @@ import { SessionRecoveryDialog } from '@/components/SessionRecoveryDialog';
 import { Capacitor } from '@capacitor/core';
 import { emailRedirectUrl } from '@/lib/emailAuth';
 import { accountBirthDateError } from '@/lib/accountEligibility';
+import { trackAuthenticationFailure, trackMonitoring } from '@/utils/monitoring';
 
 const emailRedirect = (path: string) => emailRedirectUrl(path, Capacitor.isNativePlatform(), window.location.origin, import.meta.env.VITE_AUTH_SITE_URL);
 
@@ -658,14 +659,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       toast.success('Erfolgreich angemeldet!');
+      trackMonitoring('login_succeeded');
       window.location.assign('/');
     } catch (error) {
+      trackAuthenticationFailure('login_failed', error);
       setAuthTransition(null);
       throw error;
     }
   };
 
   const signUp = async (email: string, password: string, meta?: { firstName?: string; lastName?: string; birthDate?: string }) => {
+    trackMonitoring('signup_attempt');
     setAuthTransition('signing-up');
     try {
       const redirectUrl = emailRedirect('/auth/callback?next=/');
@@ -753,6 +757,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Fallback message
         toast.success('Registrierung erfolgreich! Bitte überprüfe deine E-Mail zur Bestätigung.');
       }
+    } catch (error) {
+      trackAuthenticationFailure('signup_failed', error);
+      throw error;
     } finally {
       setAuthTransition(null);
     }

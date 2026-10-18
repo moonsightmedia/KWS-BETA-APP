@@ -56,6 +56,8 @@ output/
 /test-results/oct15-*/
 /test-results/training-intro-*
 /test-results/header-stability-20261006/
+/test-results/launch-monitoring-*/
+/ops/hostinger/**/__pycache__/
 
 # Local design/reference material
 references/

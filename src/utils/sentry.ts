@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/capacitor';
 import { init as sentryReactInit } from '@sentry/react';
 import { Capacitor } from '@capacitor/core';
 import { APP_VERSION } from '@/utils/version';
+import { scrubMonitoringText } from '@/lib/monitoringClient';
 
 let initialized = false;
 
@@ -33,7 +34,7 @@ export function initSentry(): void {
       {
         dsn,
         environment,
-        release: `kws-beta-app@${APP_VERSION}`,
+        release: `kws-beta-app@${APP_VERSION}${import.meta.env.VITE_RELEASE_REVISION ? '+' + import.meta.env.VITE_RELEASE_REVISION.slice(0, 12) : ''}`,
         tracesSampleRate: 0,
         // Session Replay stays off — especially important during video compress/upload.
         replaysSessionSampleRate: 0,
@@ -43,11 +44,23 @@ export function initSentry(): void {
         enableNativeCrashHandling: true,
         enableAutoSessionTracking: true,
         enableOutOfMemoryTracking: true,
+        integrations: defaults => import.meta.env.VITE_MONITORING_ENABLED === 'true'
+          ? defaults.filter(integration => !['GlobalHandlers', 'BrowserApiErrors', 'TryCatch'].includes(integration.name))
+          : defaults,
         beforeSend(event) {
           if (event.request) {
             delete event.request.cookies;
             delete event.request.data;
+            delete event.request.headers;
+            delete event.request.query_string;
+            if (event.request.url) event.request.url = event.request.url.split(/[?#]/)[0];
           }
+          if (event.message) event.message = scrubMonitoringText(event.message, 500);
+          for (const exception of event.exception?.values ?? []) {
+            if (exception.value) exception.value = scrubMonitoringText(exception.value, 500);
+          }
+          event.breadcrumbs = event.breadcrumbs?.map(breadcrumb => ({ ...breadcrumb, data: undefined, message: breadcrumb.message ? scrubMonitoringText(breadcrumb.message, 200) : undefined }));
+          delete event.extra;
           return event;
         },
       },

@@ -4,6 +4,7 @@ import { resumableUpload } from '@/utils/resumableUpload';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { reportError } from '@/utils/feedbackUtils';
+import { isMonitoringEnabled, reportMonitoringError } from '@/utils/monitoring';
 import { useAuth } from '@/hooks/useAuth';
 import { authenticatedFetch, createAuthenticatedUploadFetch, getCurrentSession, SESSION_REQUIRED_EVENT } from '@/lib/authenticatedFetch';
 import { SessionAccountChangedError, SessionRequiredError } from '@/lib/sessionRecovery';
@@ -858,7 +859,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           session_id: upload.sessionId,
           file_type: upload.type,
         }, 'error');
-        captureSentryException(error, {
+        if (!isMonitoringEnabled()) captureSentryException(error, {
           tags: {
             source: 'upload',
             upload_type: upload.type,
@@ -875,7 +876,11 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // Automatically report upload error to feedback system
         try {
             const uploadError = error instanceof Error ? error : new Error(error.message || 'Upload-Fehler');
-            await reportError(
+            if (isMonitoringEnabled()) {
+              const diagnostic = new Error('Upload konnte nicht abgeschlossen werden');
+              diagnostic.name = 'UploadFailure';
+              reportMonitoringError(diagnostic, 'upload');
+            } else await reportError(
                 uploadError,
                 undefined,
                 `Upload-Fehler beim Hochladen von ${upload.type === 'video' ? 'Video' : 'Thumbnail'}:\n` +

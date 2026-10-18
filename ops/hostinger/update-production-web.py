@@ -6,6 +6,51 @@ directory, retain old hashed assets for open clients, and roll back failed start
 from pathlib import Path
 import argparse, datetime, hashlib, http.client, io, json, os, re, shutil, socket, subprocess, tarfile, time, urllib.parse, urllib.request
 
+def monitoring_build_values(root=Path('/opt/kws/monitoring'), functions=Path('/opt/kws/supabase/runtime/volumes/functions'), candidate=None):
+    values = {'VITE_MONITORING_ENABLED':'false','VITE_MONITORING_CHANNEL':'production','VITE_SENTRY_DSN':''}
+    config_path = root / 'config.json'
+    if not config_path.exists(): return values
+    def private_document(path):
+        assert not root.is_symlink() and not path.is_symlink() and path.is_file() and path.stat().st_size <= 262144, 'Unsafe monitoring configuration'
+        if os.name != 'nt': assert path.stat().st_uid == os.geteuid() and path.stat().st_mode & 0o077 == 0, 'Monitoring configuration must be operator-private'
+        document = json.loads(path.read_text())
+        assert isinstance(document, dict), 'Invalid monitoring configuration'
+        return document
+    config = private_document(config_path)
+    assert config.get('version') == 1 and isinstance(config.get('collection_enabled'), bool), 'Invalid monitoring build configuration'
+    if not config['collection_enabled']: return values
+    activation = private_document(root / 'activation.json')
+    assert activation.get('allow_jobs') is True and activation.get('config_sha256') == hashlib.sha256(json.dumps(config, sort_keys=True, separators=(',', ':')).encode()).hexdigest(), 'Monitoring configuration is not approved'
+    worker_files = {'common.py','alert_worker.py','sentry_importer.py','store_importer.py','maintenance.py','install.py'}
+    artifacts = activation.get('artifacts')
+    assert isinstance(artifacts, dict) and set(artifacts) == worker_files, 'Monitoring worker proof is incomplete'
+    for filename, expected in artifacts.items():
+        installed = root / filename
+        assert not installed.is_symlink() and hashlib.sha256(installed.read_bytes()).hexdigest() == expected, 'Monitoring worker changed after activation'
+    receipt = private_document(root / 'edge-installation.json')
+    assert receipt.get('runtime_mount_verified') is True and receipt.get('handler_hashes_verified') is True and receipt.get('functions_restarted') is True, 'Monitoring edge installation is not verified'
+    files = receipt.get('files')
+    expected_files = {'monitoring-events/handler.ts','monitoring-events/index.ts','send-push-notification/handler.ts','send-push-notification/index.ts'}
+    assert isinstance(files, dict) and set(files) == expected_files, 'Missing monitoring edge proof'
+    assert candidate is not None, 'Monitoring candidate proof is required'
+    verification = private_document(root / 'ingest-verification.json')
+    assert verification.get('ingest_verified') is True and verification.get('config_sha256') == activation['config_sha256'] and verification.get('files') == files, 'Monitoring ingest was not verified for this configuration'
+    assert re.fullmatch('[0-9a-f]{32}', verification.get('database_signature', '')), 'Missing monitoring schema signature'
+    assert verification.get('migration_sha256') == hashlib.sha256((candidate / 'supabase/migrations/20261017203000_beta_launch_monitoring.sql').read_bytes()).hexdigest(), 'Monitoring migration differs from verified candidate'
+    assert not functions.is_symlink(), 'Unsafe edge runtime'
+    for relative, expected in files.items():
+        assert relative in ('monitoring-events/handler.ts','monitoring-events/index.ts','send-push-notification/handler.ts','send-push-notification/index.ts'), 'Unexpected monitoring runtime file'
+        installed = functions / relative
+        assert not installed.is_symlink() and not installed.parent.is_symlink() and hashlib.sha256(installed.read_bytes()).hexdigest() == expected, 'Monitoring handler differs from installation proof'
+        assert hashlib.sha256((candidate / 'supabase/functions' / relative).read_bytes()).hexdigest() == expected, 'Monitoring candidate handler differs from verified installation'
+    dsn = config.get('client', {}).get('sentry_dsn') or ''
+    if dsn:
+        assert isinstance(dsn, str) and len(dsn) <= 512 and not re.search(r'[\s\x00-\x1f]', dsn), 'Invalid monitoring DSN'
+        parsed = urllib.parse.urlsplit(dsn)
+        assert parsed.scheme == 'https' and parsed.hostname and parsed.hostname.endswith(('.ingest.sentry.io','.ingest.us.sentry.io','.ingest.de.sentry.io')) and parsed.username and not parsed.password and parsed.path.strip('/').isdigit() and not parsed.query and not parsed.fragment, 'Invalid monitoring DSN'
+    values.update(VITE_MONITORING_ENABLED='true', VITE_SENTRY_DSN=dsn)
+    return values
+
 def verified_landing(source, revision):
     directory = source / 'dist/landing'
     manifest = json.loads((directory / 'release.json').read_text())
@@ -57,7 +102,7 @@ def smoke_web(dist, revision, port):
         if attempt == 29: raise RuntimeError('Web did not become ready')
         time.sleep(.5)
     manifest = json.loads((dist / 'landing/release.json').read_text())
-    for route in ('/', '/auth', '/guest?sector=Bug%20A', '/reset-password', '/auth/callback'):
+    for route in ('/', '/auth', '/guest?sector=Bug%20A', '/reset-password', '/auth/callback', '/app/privacy'):
         status, headers, body = web_response(port, route)
         assert status == 200 and body == (dist / 'index.html').read_bytes(), route
         assert headers.get('X-Robots-Tag') == 'noindex, follow'
@@ -213,6 +258,14 @@ def main():
         'VITE_ALLINKL_API_URL':'https://video.kletterwelt-sauerland.de','VITE_USE_ALLINKL_STORAGE':'false',
         'VITE_AUTH_SITE_URL':'https://beta.kletterwelt-sauerland.de','VITE_TELEMETRY_ENABLED':'false','VITE_SENTRY_DSN':'',
         'VITE_TRAINING_UI_PREVIEW':'false'}
+    values.update(monitoring_build_values(candidate=source))
+    if values['VITE_MONITORING_ENABLED'] == 'true':
+        subprocess.run(['systemctl','is-active','--quiet','kws-monitoring-maintenance.timer'], check=True)
+        schema = subprocess.run(['docker','exec','supabase-db','psql','-U','supabase_admin','-d','postgres','-X','-qAt','-v','ON_ERROR_STOP=1','-c',"SELECT to_regprocedure('public.kws_ingest_monitoring_events(jsonb,uuid)') IS NOT NULL AND to_regprocedure('public.kws_monitoring_retain()') IS NOT NULL"], check=True, capture_output=True, text=True, timeout=20)
+        assert schema.stdout.strip() == 't', 'Monitoring schema is not installed'
+        signature_sql = "SELECT md5(coalesce(string_agg(p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' || E'\\n' || pg_get_functiondef(p.oid), E'\\n' ORDER BY p.proname, pg_get_function_identity_arguments(p.oid)),'')) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND (p.proname LIKE 'kws_monitoring_%' OR p.proname = 'kws_ingest_monitoring_events')"
+        signature = subprocess.run(['docker','exec','supabase-db','psql','-U','supabase_admin','-d','postgres','-X','-qAt','-v','ON_ERROR_STOP=1','-c',signature_sql], check=True, capture_output=True, text=True, timeout=20)
+        assert signature.stdout.strip() == json.loads(Path('/opt/kws/monitoring/ingest-verification.json').read_text())['database_signature'], 'Monitoring schema changed after verification'
     (source / '.env.hostinger.local').write_text('\n'.join(key+'='+value for key,value in values.items())+'\n')
     log_path = stage / 'build.log'
     with log_path.open('ab') as log:

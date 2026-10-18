@@ -1,0 +1,2 @@
+import { defineConfig } from '@playwright/test';
+export default defineConfig({ testDir: '../e2e', testMatch: 'monitoringPrivacy.spec.ts', outputDir: '../test-results/launch-monitoring-privacy-artifacts', timeout: 45_000, fullyParallel: false, reporter: 'list', use: { baseURL: 'http://127.0.0.1:4192', trace: 'retain-on-failure' }, webServer: { cwd: '..', command: 'node node_modules/vite/bin/vite.js --config test/monitoringPrivacy.vite.config.ts', url: 'http://127.0.0.1:4192/test/fixtures/monitoringPrivacy.html', reuseExistingServer: false, timeout: 60_000 } });

@@ -82,6 +82,54 @@ class UnifiedReleaseTests(unittest.TestCase):
         (self.candidate / 'dist/landing/release.json').write_text(json.dumps(manifest))
         with self.assertRaises(AssertionError): release.verified_landing(self.candidate, 'a'*40)
 
+class MonitoringBuildGuardTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name); self.functions = self.root / 'functions'; self.functions.mkdir()
+    def write(self, name, document):
+        path = self.root / name; path.write_text(json.dumps(document)); path.chmod(0o600)
+    def enabled(self):
+        config = {'version':1,'collection_enabled':True,'client':{'sentry_dsn':None}}
+        self.write('config.json',config)
+        checksum = hashlib.sha256(json.dumps(config,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+        artifacts = {}
+        for filename in ('common.py','alert_worker.py','sentry_importer.py','store_importer.py','maintenance.py','install.py'):
+            path = self.root / filename; path.write_text('reviewed worker'); artifacts[filename] = hashlib.sha256(path.read_bytes()).hexdigest()
+        self.write('activation.json',{'allow_jobs':True,'config_sha256':checksum,'artifacts':artifacts})
+        files = {}
+        for filename in ('monitoring-events/handler.ts','monitoring-events/index.ts','send-push-notification/handler.ts','send-push-notification/index.ts'):
+            path = self.functions / filename; path.parent.mkdir(exist_ok=True); path.write_text('reviewed')
+            files[filename] = hashlib.sha256(path.read_bytes()).hexdigest()
+            candidate_path = self.root / 'supabase/functions' / filename; candidate_path.parent.mkdir(parents=True,exist_ok=True); candidate_path.write_text('reviewed')
+        migration = self.root / 'supabase/migrations/20261017203000_beta_launch_monitoring.sql'; migration.parent.mkdir(parents=True,exist_ok=True); migration.write_text('reviewed schema')
+        self.write('edge-installation.json',{'runtime_mount_verified':True,'handler_hashes_verified':True,'functions_restarted':True,'files':files})
+        self.write('ingest-verification.json',{'ingest_verified':True,'config_sha256':checksum,'migration_sha256':hashlib.sha256(migration.read_bytes()).hexdigest(),'files':files,'database_signature':'a'*32})
+    def test_default_and_disabled_configuration_never_enable_sentry_or_collection(self):
+        self.assertEqual(release.monitoring_build_values(self.root,self.functions)['VITE_MONITORING_ENABLED'],'false')
+        self.write('config.json',{'version':1,'collection_enabled':False,'client':{'sentry_dsn':'not-used'}})
+        self.assertEqual(release.monitoring_build_values(self.root,self.functions)['VITE_SENTRY_DSN'],'')
+    def test_enabled_collection_requires_exact_private_activation_and_edge_proof(self):
+        self.enabled()
+        self.assertEqual(release.monitoring_build_values(self.root,self.functions,self.root)['VITE_MONITORING_ENABLED'],'true')
+        self.write('activation.json',{'allow_jobs':True,'config_sha256':'changed'})
+        with self.assertRaisesRegex(AssertionError,'not approved'): release.monitoring_build_values(self.root,self.functions,self.root)
+    def test_changed_edge_handler_or_missing_restart_stops_build(self):
+        self.enabled(); (self.functions / 'monitoring-events/handler.ts').write_text('changed')
+        with self.assertRaisesRegex(AssertionError,'differs'): release.monitoring_build_values(self.root,self.functions,self.root)
+        self.enabled(); receipt = json.loads((self.root / 'edge-installation.json').read_text()); receipt['functions_restarted'] = False; self.write('edge-installation.json',receipt)
+        with self.assertRaisesRegex(AssertionError,'not verified'): release.monitoring_build_values(self.root,self.functions,self.root)
+    def test_missing_ingest_or_changed_candidate_blocks_collection(self):
+        self.enabled(); proof = json.loads((self.root / 'ingest-verification.json').read_text()); proof['ingest_verified'] = False; self.write('ingest-verification.json',proof)
+        with self.assertRaisesRegex(AssertionError,'not verified'): release.monitoring_build_values(self.root,self.functions,self.root)
+        self.enabled(); (self.root / 'supabase/functions/monitoring-events/handler.ts').write_text('different')
+        with self.assertRaisesRegex(AssertionError,'candidate handler differs'): release.monitoring_build_values(self.root,self.functions,self.root)
+        self.enabled(); (self.root / 'supabase/migrations/20261017203000_beta_launch_monitoring.sql').write_text('different schema')
+        with self.assertRaisesRegex(AssertionError,'migration differs'): release.monitoring_build_values(self.root,self.functions,self.root)
+    def test_changed_or_missing_worker_binding_stops_collection(self):
+        self.enabled(); (self.root / 'common.py').write_text('changed')
+        with self.assertRaisesRegex(AssertionError,'worker changed'): release.monitoring_build_values(self.root,self.functions,self.root)
+        self.enabled(); proof = json.loads((self.root / 'activation.json').read_text()); del proof['artifacts']['maintenance.py']; self.write('activation.json',proof)
+        with self.assertRaisesRegex(AssertionError,'worker proof is incomplete'): release.monitoring_build_values(self.root,self.functions,self.root)
 
 class StaticLegalPagesTests(unittest.TestCase):
     def test_independent_legal_pages_and_app_routes(self):
