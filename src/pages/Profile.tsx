@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   Bell,
   ChevronRight,
-  CalendarDays,
   Info,
   LogOut,
   Map,
@@ -23,7 +22,7 @@ import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderC
 import { buildPersonalProgress } from '@/lib/personalProgress';
 import { PersonalDataState } from '@/components/PersonalDataState';
 import { useAccountProfile } from '@/hooks/useAccountProfile';
-import { TrainingIcon } from '@/lib/appIcons';
+import { TrainingIcon, CalendarIcon as CalendarDays } from '@/lib/appIcons';
 import { TRAINING_UI_ENABLED } from '@/features/training/flags';
 import { MonitoringPrivacySettings } from '@/components/MonitoringPrivacy';
 

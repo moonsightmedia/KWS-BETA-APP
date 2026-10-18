@@ -8,3 +8,4 @@ export {
   Dumbbell as TrainingIcon,
 } from 'lucide-react';
 export { BoulderIcon as BouldersIcon } from '@/components/icons/BoulderIcon';
+export { CalendarIcon, FlashIcon } from '@/components/icons/ProgressIcons';

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, CalendarDays, RefreshCw } from 'lucide-react';
+import { ArrowRight, RefreshCw } from 'lucide-react';
+import { CalendarIcon as CalendarDays } from '@/lib/appIcons';
 import { useResetPlan } from '@/hooks/useResetPlan';
 import { formatHallDate, relativeResetDay } from '@/lib/resetSchedule';
 import { KwsSurface } from '@/components/ui/kws-surface';

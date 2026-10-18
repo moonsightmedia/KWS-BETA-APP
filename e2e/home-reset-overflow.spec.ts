@@ -11,7 +11,9 @@ async function open(page: Page, state = 'ready') {
     await page.route(`**/src/hooks/${name}.ts*`, r => r.fulfill({ contentType: 'application/javascript', body: "export * from '/test/fixtures/personal-hooks.ts';" }));
   }
   await page.route('**/src/hooks/useSectors.ts*', r => r.fulfill({ contentType: 'application/javascript', body: `export const useSectorsTransformed=()=>({data:[{id:'s1',name:'Bug A'},{id:'s2',name:'Kurze Platte'}],isLoading:false,error:null}); export const useSectors=useSectorsTransformed;` }));
-  await page.route('**/src/hooks/useSectorSchedule.ts*', r => r.fulfill({ contentType: 'application/javascript', body: `export const useSectorSchedule=()=>({data:${state === 'empty' ? '[]' : "[{id:'1',sector_id:'s1',scheduled_at:'2026-10-16T08:00:00Z'},{id:'2',sector_id:'s2',scheduled_at:'2026-10-16T08:00:00Z'},{id:'3',sector_id:'s1',scheduled_at:'2026-10-18T08:00:00Z'}]"}});` }));
+  // Home has used the public reset plan since 15 October; the old
+  // useSectorSchedule fixture no longer supplies this card's data.
+  await page.route('**/src/hooks/useResetPlan.ts*', r => r.fulfill({ contentType: 'application/javascript', body: `export const useResetPlan=()=>({appointments:${state === 'empty' ? '[]' : "[{day:'2026-10-16',when:new Date('2026-10-16T08:00:00Z'),sectors:[{name:'Bug A'},{name:'Kurze Platte mit einem sehr langen Teilbereichsnamen'}]}]"},now:new Date('2026-10-14T10:00:00Z'),pending:false,failed:false,fetching:false,retry:async()=>{}});` }));
   await page.route('**/src/components/NotificationCenter.tsx*', r => r.fulfill({ contentType: 'application/javascript', body: 'export const NotificationCenter=()=>null;' }));
   await page.route('**/src/hooks/useNotifications.ts*', r => r.fulfill({ contentType: 'application/javascript', body: 'export const useUnreadCount=()=>({data:0});' }));
   await page.route('**/src/hooks/usePreloadBoulderThumbnails.ts*', r => r.fulfill({ contentType: 'application/javascript', body: 'export const usePreloadBoulderThumbnails=()=>{};' }));
@@ -28,9 +30,9 @@ for (const width of [375, 768, 1280, 1920]) {
     await page.setViewportSize({ width, height: 1000 });
     await open(page);
     const section = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Nächste Umschraubung', exact: true }) });
-    await expect(section.getByText('Bug A & Kurze Platte bekommen neue Boulder', { exact: true })).toBeVisible();
+    await expect(section.getByText('Bug A · Kurze Platte mit einem sehr langen Teilbereichsnamen', { exact: true })).toBeVisible();
     const card = section.locator('div.rounded-kws-card').first();
-    const badge = section.getByText('in 2 Tagen', { exact: true });
+    const badge = section.getByText(/Uhr$/, { exact: false });
     await card.scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${output}/${phase}-loop1-${width}.png` });
     const cardBox = (await card.boundingBox())!;
@@ -51,7 +53,7 @@ for (const width of [375, 768, 1280, 1920]) {
     await expect(page.getByRole('heading', { name: 'Statistiken', exact: true })).toBeVisible();
     await page.unrouteAll({ behavior: 'wait' });
     await open(page, 'empty');
-    await expect(section.getByText('Kein Schraubtermin geplant.', { exact: true })).toBeVisible();
+    await expect(section.getByText('Noch kein Termin geplant', { exact: true })).toBeVisible();
     await card.scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${output}/${phase}-loop2-empty-${width}.png` });
     expect((await card.boundingBox())!.x + (await card.boundingBox())!.width).toBeLessThanOrEqual(width - 15);

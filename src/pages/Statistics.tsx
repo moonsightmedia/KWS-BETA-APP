@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowRight, CalendarDays, ChevronDown, RefreshCw, Target, Trophy, X, Zap } from 'lucide-react';
+import { ArrowRight, ChevronDown, RefreshCw, Target, Trophy, X } from 'lucide-react';
+import { CalendarIcon as CalendarDays, FlashIcon as Zap } from '@/lib/appIcons';
 import { DashboardPageLayout } from '@/components/DashboardPageLayout';
 import { PersonalDataState } from '@/components/PersonalDataState';
 import { PersonalCollection } from '@/components/statistics/PersonalCollection';
