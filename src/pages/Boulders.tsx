@@ -582,6 +582,7 @@ const Boulders = () => {
           <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground' />
           <Input
             ref={searchInputRef}
+            aria-label='Boulder oder Bereich suchen'
             placeholder='Boulder oder Bereich suchen…'
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
@@ -803,8 +804,8 @@ const Boulders = () => {
           )}
 
           <div className="mb-2 flex items-center justify-between gap-3 px-1">
-            <span className="text-xs font-medium text-muted-foreground">
-              {filteredAndSortedBoulders.length} Boulder
+            <span className="text-xs font-medium text-muted-foreground" aria-live="polite">
+              {filteredAndSortedBoulders.length} {searchQuery.trim() || activeFilterCount > 0 || showNew || showSaved || notificationId !== null ? 'Treffer' : 'Boulder'}
               {notificationId !== null ? ' aus dieser Mitteilung' : ''}
               {sectorFilters.length > 0 ? ` in ${activeSectorLabel}` : ''}
             </span>

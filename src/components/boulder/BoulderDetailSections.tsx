@@ -518,15 +518,20 @@ export function BoulderInfoTab({ boulder }: { boulder: Boulder }) {
         </div>
         <div className="border-t border-border pt-3">
           <p className="mb-2 text-xs text-muted-foreground">Deine Bewertung</p>
-          <div className="flex gap-1">
+          <div className="flex gap-1" role="group" aria-label="Deine Bewertung">
             {[1, 2, 3, 4, 5].map((star) => (
               <button
                 key={star}
                 type="button"
+                aria-label={`${star} von 5 Sternen`}
+                aria-pressed={summary?.myRating === star}
+                disabled={upsertRating.isPending}
                 onMouseEnter={() => setUserRatingHover(star)}
                 onMouseLeave={() => setUserRatingHover(0)}
+                onFocus={() => setUserRatingHover(star)}
+                onBlur={() => setUserRatingHover(0)}
                 onClick={() => upsertRating.mutate(star)}
-                className="p-1"
+                className="flex h-11 w-11 items-center justify-center rounded-kws-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
               >
                 <Star
                   className={cn(

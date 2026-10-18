@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Auth from '@/pages/Auth';
 import ProfileEdit from '@/pages/ProfileEdit';
@@ -18,4 +18,5 @@ function Fixture() {
   </>;
 }
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-createRoot(document.getElementById('root')!).render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/auth/register']}><Fixture /></MemoryRouter></QueryClientProvider>);
+const router = createMemoryRouter([{ path: '*', element: <Fixture /> }], { initialEntries: ['/auth/register'] });
+createRoot(document.getElementById('root')!).render(<QueryClientProvider client={client}><RouterProvider router={router} /></QueryClientProvider>);

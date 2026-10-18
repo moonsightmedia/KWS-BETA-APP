@@ -416,6 +416,8 @@ Card-in-Card ist zu vermeiden.
   beendet werden.
 - Gleiche Aktion = gleiche Komponente und gleiche Maße auf jeder Seite.
 - Iconbuttons benötigen ein verständliches `aria-label`.
+- Bewertungssterne benennen ihren Wert („3 von 5 Sternen“), kennzeichnen die
+  gespeicherte Auswahl mit `aria-pressed` und bieten mindestens 44 × 44px Touchfläche.
 
 ### 5.3 Badges und Tags
 
@@ -468,6 +470,9 @@ Inhaltswechsel wie `Info / Track / Beta` oder Statistikzeiträume.
   Tastaturbedienung (`focus-visible`). Nach Maus- oder Touch-Auswahl bleibt
   die normale Feldkontur erhalten; Fokus allein erzeugt keinen zweiten Rahmen.
 - Löschen/Schließen darf die Höhe des Feldes nicht verändern.
+- Suchfelder haben einen zugänglichen Namen unabhängig vom Platzhalter.
+  Ergebniszahlen bei aktiver Suche oder Filterung heißen „Treffer“; sie dürfen
+  nicht als ungefilterter Hallenbestand bezeichnet werden.
 
 ### 5.7 Menüs, Popover, Dialoge und Filterpanels
 
@@ -1074,6 +1079,13 @@ Bedienelemente auf wechselnden Wandfotos lesbar bleiben:
 - Farben sind semantisch, nicht dekorativ; Haupttext bleibt dunkelblau.
 
 ### 9.3 Profil und Unterseiten
+
+Ungespeicherte Änderungen an Name und E-Mail werden bei interner Navigation
+einschließlich Zurück mit „Änderungen verwerfen?“ geschützt. „Weiter bearbeiten“
+und Escape erhalten den Entwurf; „Verwerfen“ führt zum gewählten Ziel. Beim
+Neuladen/Schließen greift der Browserhinweis. Nach erfolgreichem Speichern oder
+Rückkehr zu den ursprünglichen Werten erscheint keine Warnung. Automatisch
+gespeicherte Profilbilder bleiben davon unabhängig.
 
 Profil, Sidebar und Kontomenü lesen das Profilbild aus demselben kontogebundenen
 Profil-Cache. Ein gespeichertes Entfernen (`avatar_url = null`) hat Vorrang vor
