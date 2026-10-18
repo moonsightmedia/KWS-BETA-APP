@@ -6,9 +6,8 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { KwsSegmentedControl } from '@/components/ui/kws-segmented-control';
 import { KwsSurface } from '@/components/ui/kws-surface';
-import { AdminViewBar } from './AdminViewBar';
+import { LaunchCockpit, LaunchCockpitNavigation, type MonitoringView } from './LaunchCockpit';
 import { AdminSearchField } from './AdminSearchField';
 import { useAuth } from '@/hooks/useAuth';
 import { loadMonitoring, type UploadLogRow } from '@/lib/adminMonitoring';
@@ -61,7 +60,6 @@ function StatCard({
 }
 
 
-const VIEWS = [{ value: 'overview', label: 'Übersicht' }, { value: 'uploads', label: 'Uploads' }, { value: 'activity', label: 'Aktivität' }] as const;
 const STATUS: Record<string, string> = { completed: 'Abgeschlossen', failed: 'Fehlgeschlagen', aborted_suspected_oom: 'Speicherabbruch vermutet', compressing: 'Komprimierung läuft', uploading: 'Lädt hoch', pending: 'Wartet', cancelled: 'Abgebrochen', cancelled_by_user: 'Abgebrochen', aborted: 'Abgebrochen' };
 const EVENTS: Record<string, string> = { upload_start: 'Upload gestartet', compress_start: 'Komprimierung gestartet', compress_done: 'Komprimierung abgeschlossen', chunk_progress: 'Upload-Fortschritt', upload_done: 'Upload abgeschlossen', upload_fail: 'Upload fehlgeschlagen', suspected_oom_resume: 'Neustart nach möglichem Speicherabbruch' };
 const isFailed = (row: UploadLogRow) => row.status === 'failed' || row.status === 'aborted_suspected_oom';
@@ -80,10 +78,16 @@ function UploadList({ rows, onSelect }: { rows: UploadLogRow[]; onSelect: (row: 
 
 export function MonitoringDashboard() {
   const { session } = useAuth();
+  const [view, setView] = useState<MonitoringView>('overview');
+  if (view === 'uploads' || view === 'activity') return <LegacyMonitoringDashboard view={view} setView={setView} />;
+  return <LaunchCockpit view={view} onViewChange={setView} accountId={session?.user.id || ''} connection={{ url: import.meta.env.VITE_SUPABASE_URL || '', key: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '', token: session?.access_token || '' }} />;
+}
+
+function LegacyMonitoringDashboard({ view, setView }: { view: MonitoringView; setView: (view: MonitoringView) => void }) {
+  const { session } = useAuth();
   const accessToken = session?.access_token;
   const configuredSentry = import.meta.env.VITE_SENTRY_ORG_URL as string | undefined;
   const sentryUrl = configuredSentry?.startsWith('https://') ? configuredSentry : undefined;
-  const [view, setView] = useState<(typeof VIEWS)[number]['value']>('overview');
   const [filter, setFilter] = useState('');
   const [status, setStatus] = useState('all');
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -104,9 +108,7 @@ export function MonitoringDashboard() {
   const showUpload = (row: UploadLogRow) => { detailTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; setSelected(row); };
   const unavailableUploads = !data || data.unavailable.includes('recentUploads');
   return <div className="space-y-4">
-    <AdminViewBar refreshing={isFetching} onRefresh={() => void refetch()} disabled={!accessToken}>
-      <KwsSegmentedControl<(typeof VIEWS)[number]['value']> value={view} onValueChange={setView} options={VIEWS} ariaLabel="Monitoringansicht" />
-    </AdminViewBar>
+    <LaunchCockpitNavigation view={view} onViewChange={setView} refreshing={isFetching} onRefresh={() => void refetch()} disabled={!accessToken} />
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
       <p className="text-xs text-muted-foreground" role="status">{isLoading ? 'Monitoring wird geladen …' : isFetching ? 'Daten werden erneut geprüft …' : dataUpdatedAt ? 'Letzte Abfrage: ' + dateTime(dataUpdatedAt) + ' · 24 Stunden' : 'Noch keine Abfrage'}</p>
       <div className="flex min-h-11 items-center gap-2"><Label htmlFor="monitor-auto" className="text-xs text-muted-foreground">Live · jede Minute</Label><Switch id="monitor-auto" checked={autoRefresh} onCheckedChange={setAutoRefresh} /></div>

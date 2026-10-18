@@ -3,6 +3,7 @@ import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { getCurrentSession } from '@/lib/authenticatedFetch';
 import { notificationRequest } from '@/lib/notificationRequest';
 import { notificationDestination } from '@/lib/notifications';
+import { trackMonitoring } from '@/utils/monitoring';
 
 export type SessionForPush = { access_token: string; user: { id: string } };
 let listenerHandles: PluginListenerHandle[] = [];
@@ -79,8 +80,10 @@ export async function initializePushNotifications(sessionOverride?: SessionForPu
           void registerPushToken(token.value, activeSession).then(() => finish(), () => finish(new Error('Gerät konnte nicht gespeichert werden. Bitte erneut verbinden.')));
         }));
         await add(await PushNotifications.addListener('registrationError', () => finish(new Error('Das Gerät konnte nicht für Push registriert werden.'))));
-        await add(await PushNotifications.addListener('pushNotificationReceived', () => {
+        await add(await PushNotifications.addListener('pushNotificationReceived', notification => {
           if (failed || currentGeneration !== generation) return;
+          const notificationId = notification.data?.notification_id;
+          if (typeof notificationId === 'string') trackMonitoring('notification_client_received', { notification_id: notificationId });
           // Realtime renders the in-app toast. Native receipt only refreshes the inbox.
           window.dispatchEvent(new Event('kws:notification-received'));
         }));

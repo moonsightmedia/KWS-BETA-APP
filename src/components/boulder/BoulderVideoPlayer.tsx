@@ -22,6 +22,7 @@ import {
   type VideoQualityLevel,
 } from '@/lib/videoPlayback';
 import { VideoQualities } from '@/types/boulder';
+import { reportMonitoringError, trackMonitoring } from '@/utils/monitoring';
 import { detectNetworkSpeed, getOptimalVideoQualityWithDataSaver } from '@/utils/networkUtils';
 import {
   getAvailableVideoQualities,
@@ -54,6 +55,7 @@ export const getVimeoEmbedUrl = (url: string): string => {
 };
 
 type BoulderVideoPlayerProps = {
+  boulderId?: string;
   betaVideoUrls?: VideoQualities;
   betaVideoUrl?: string;
   poster?: string;
@@ -76,6 +78,7 @@ type FullscreenVideoDocument = Document & {
 };
 
 export function BoulderVideoPlayer({
+  boulderId,
   betaVideoUrls: incomingVideoUrls,
   betaVideoUrl,
   poster,
@@ -102,6 +105,26 @@ export function BoulderVideoPlayer({
   const hasStartedPlayingRef = useRef(false);
   const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const playbackStateRef = useRef<{ time: number; wasPlaying: boolean } | null>(null);
+  const monitoringAttempt = useRef({ startedAt: 0, started: false, failed: false, completed: false, id: '' });
+  const monitoringSource = useRef('');
+
+  useEffect(() => {
+    const source = [boulderId, hd, sd, low, betaVideoUrl, sourceRevision].join('|');
+    if (!isVisible) { monitoringSource.current = ''; return; }
+    if (!(hd || sd || low || betaVideoUrl) || monitoringSource.current === source) return;
+    monitoringSource.current = source;
+    monitoringAttempt.current = { startedAt: performance.now(), started: false, failed: false, completed: false, id: crypto.randomUUID() };
+    trackMonitoring('play_requested', { view_id: monitoringAttempt.current.id }, boulderId);
+  }, [boulderId, isVisible, sourceRevision, hd, sd, low, betaVideoUrl]);
+
+  const reportPlaybackFailure = useCallback((code: string) => {
+    if (monitoringAttempt.current.failed) return;
+    monitoringAttempt.current.failed = true;
+    trackMonitoring('play_failed', { error_code: code, view_id: monitoringAttempt.current.id }, boulderId);
+    const error = new Error('Boulder-Video konnte nicht gestartet werden: ' + code);
+    error.name = 'VideoPlaybackError';
+    reportMonitoringError(error, 'video_player');
+  }, [boulderId]);
 
   const clearBufferingTimeout = useCallback(() => {
     if (!bufferingTimeoutRef.current) return;
@@ -181,6 +204,7 @@ export function BoulderVideoPlayer({
         if (!didFallback && video.readyState === 0) {
           setIsBuffering(false);
           setHasError(true);
+          reportPlaybackFailure('load_timeout');
         }
       }
     }, 10000);
@@ -243,6 +267,7 @@ export function BoulderVideoPlayer({
     handleQualityFallback,
     isVisible,
     sourceRevision,
+    reportPlaybackFailure,
   ]);
 
   useEffect(() => {
@@ -301,11 +326,24 @@ export function BoulderVideoPlayer({
     const handleEnded = () => {
       clearBufferingState();
       hasStartedPlayingRef.current = false;
+      if (!monitoringAttempt.current.completed && monitoringAttempt.current.started) {
+        monitoringAttempt.current.completed = true;
+        trackMonitoring('play_completed', { view_id: monitoringAttempt.current.id }, boulderId);
+      }
+    };
+
+    const handlePlaying = () => {
+      handleCanPlay();
+      if (!monitoringAttempt.current.started) {
+        monitoringAttempt.current.started = true;
+        trackMonitoring('play_started', { duration_ms: Math.round(performance.now() - monitoringAttempt.current.startedAt), view_id: monitoringAttempt.current.id }, boulderId);
+      }
     };
 
     const handleError = () => {
       const error = video.error;
       if (!error) return;
+      if (error.code === MediaError.MEDIA_ERR_ABORTED) { clearBufferingState(); return; }
 
       console.error('[VideoPlayer] Video error:', {
         code: error.code,
@@ -322,6 +360,7 @@ export function BoulderVideoPlayer({
       }
 
       setHasError(true);
+      reportPlaybackFailure('media_' + error.code);
     };
 
     const handleLoadedMetadata = () => {
@@ -344,7 +383,7 @@ export function BoulderVideoPlayer({
 
     video.addEventListener('waiting', handleWaiting);
     video.addEventListener('play', handlePlay);
-    video.addEventListener('playing', handleCanPlay);
+    video.addEventListener('playing', handlePlaying);
     video.addEventListener('pause', handlePause);
     video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('canplaythrough', handleCanPlay);
@@ -356,7 +395,7 @@ export function BoulderVideoPlayer({
     return () => {
       video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('play', handlePlay);
-      video.removeEventListener('playing', handleCanPlay);
+      video.removeEventListener('playing', handlePlaying);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('canplaythrough', handleCanPlay);
@@ -366,7 +405,7 @@ export function BoulderVideoPlayer({
       video.removeEventListener('stalled', handleStalled);
       clearBufferingTimeout();
     };
-  }, [clearBufferingTimeout, currentQuality, handleQualityFallback]);
+  }, [boulderId, clearBufferingTimeout, currentQuality, handleQualityFallback, reportPlaybackFailure]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {

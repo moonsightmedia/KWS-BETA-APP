@@ -25,6 +25,7 @@ import { PersonalDataState } from '@/components/PersonalDataState';
 import { useAccountProfile } from '@/hooks/useAccountProfile';
 import { TrainingIcon } from '@/lib/appIcons';
 import { TRAINING_UI_ENABLED } from '@/features/training/flags';
+import { MonitoringPrivacySettings } from '@/components/MonitoringPrivacy';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -175,6 +176,7 @@ const Profile = () => {
             </section>
           ))}
 
+          <MonitoringPrivacySettings />
           {user ? (
             <Button
               type="button"

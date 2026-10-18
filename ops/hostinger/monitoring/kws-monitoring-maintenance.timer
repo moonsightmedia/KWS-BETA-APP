@@ -1,0 +1,11 @@
+[Unit]
+Description=Apply reviewed KWS monitoring retention daily
+
+[Timer]
+OnCalendar=*-*-* 04:30:00 UTC
+Persistent=true
+RandomizedDelaySec=600
+Unit=kws-monitoring-maintenance.service
+
+[Install]
+WantedBy=timers.target

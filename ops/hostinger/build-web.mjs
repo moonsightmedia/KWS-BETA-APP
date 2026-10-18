@@ -6,6 +6,7 @@ import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const revision=process.argv[2];
 if(process.argv.length!==3||!/^[a-f0-9]{40}$/.test(revision||''))throw Error('Usage: node ops/hostinger/build-web.mjs exact-git-revision');
+process.env.VITE_RELEASE_REVISION=revision;
 function run(args){const result=spawnSync(process.execPath,args,{cwd:root,stdio:'inherit'});if(result.status!==0)throw Error('Build stopped: '+args[0]);}
 // Same committed version and same production mode as the previous app-only build.
 run(['node_modules/vite/bin/vite.js','build','--mode','hostinger']);

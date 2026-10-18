@@ -21,6 +21,7 @@ function fixture({ owner = own, admin = false, registered = true, enabled = true
       if (url.includes('/user_roles?')) return Response.json(admin ? [{ role: 'admin' }] : []);
       if (url.includes('/push_tokens?')) return Response.json(registered ? [{ token: 'registered-device', platform: 'android', user_id: owner }] : []);
       if (url.includes('/notification_preferences?')) return Response.json([{ user_id: owner, push_enabled: enabled }]);
+      if (url.endsWith('/rpc/kws_monitoring_record_delivery')) return Response.json(crypto.randomUUID());
     }
     if (url === 'https://oauth2.googleapis.com/token') return Response.json({ access_token: 'mock-provider-access', expires_in: 3600 });
     if (url === 'https://fcm.googleapis.com/v1/projects/kws-beta-app/messages:send') return Response.json(providerStatus === 200 ? { name: 'mock-accepted' } : { error: { details: [{ errorCode: 'UNREGISTERED' }], message: 'Sensitive upstream text must not escape' } }, { status: providerStatus });

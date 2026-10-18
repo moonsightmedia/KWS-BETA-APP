@@ -1,4 +1,5 @@
 import html2canvas from 'html2canvas';
+import { confirmMonitoringReport, isMonitoringEnabled, reportMonitoringError } from '@/utils/monitoring';
 
 export type FeedbackType = 'error' | 'bug' | 'feature' | 'general' | 'other';
 export type FeedbackPriority = 'low' | 'medium' | 'high' | 'critical';
@@ -353,6 +354,12 @@ export async function reportError(
   userContext?: ReportErrorUserContext | null
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    if (isMonitoringEnabled() && !userDescription) {
+      const reportId = reportMonitoringError(error, errorInfo ? 'react_boundary' : 'global_error', errorInfo ? 'fatal' : 'error');
+      if (!reportId) return { success: false, error: 'Der Fehlerbericht konnte nicht gespeichert werden.' };
+      const success = await confirmMonitoringReport(reportId);
+      return success ? { success: true } : { success: false, error: 'Der Fehlerbericht ist lokal gespeichert und wird bei Verbindung erneut gesendet.' };
+    }
     const screenshot = await captureScreenshot();
     const errorDetails: ErrorDetails = {
       message: error.message,

@@ -17,6 +17,21 @@ export function createPushHandler(config: Config, request: typeof fetch = fetch)
     if (!result.ok) throw new Error('DATABASE_UNAVAILABLE');
     return result.json();
   }
+  async function recordDelivery(owner: string, platform: string, status: string, code: string | null, notificationId: unknown) {
+    try {
+      const committed = await request(base + '/rest/v1/rpc/kws_monitoring_record_delivery', {
+        method: 'POST', headers: { apikey: config.serviceKey, Authorization: 'Bearer ' + config.serviceKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_notification_id: typeof notificationId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(notificationId) ? notificationId : null, p_user_id: owner, p_platform: platform, p_status: status, p_code: code }),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (committed.ok && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(await committed.json())) return true;
+    } catch {
+      console.warn('PUSH_AUDIT_UNCONFIRMED');
+      return false;
+    }
+    console.warn('PUSH_AUDIT_UNCONFIRMED');
+    return false;
+  }
   async function accessToken() {
     if (cachedAccess && cachedAccess.expires > Date.now() + 60_000) return cachedAccess.value;
     let raw = config.serviceAccount.trim();
@@ -88,15 +103,45 @@ export function createPushHandler(config: Config, request: typeof fetch = fetch)
       const results = [];
       for (const target of unique) {
         const owner = devices.find(d => d.token === target.token && d.platform === target.platform)!.user_id;
-        if (!Array.isArray(prefs) || !prefs.some(p => p.user_id === owner && p.push_enabled === true)) { results.push({ token: target.token, platform: target.platform, success: false, error: 'PUSH_DISABLED' }); continue; }
-        if (target.platform !== 'android') { results.push({ token: target.token, platform: target.platform, success: false, error: 'PLATFORM_NOT_CONFIGURED' }); continue; }
-        const access = await accessToken();
-        const sent = await request('https://fcm.googleapis.com/v1/projects/kws-beta-app/messages:send', { method: 'POST', headers: { Authorization: 'Bearer ' + access, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: { token: target.token, notification: { title: payload.title, body: payload.body }, data: { ...Object.fromEntries(Object.entries(payload.data || {}).map(([k, v]) => [k, String(v)])), action_url: payload.action_url || '' }, android: { priority: 'high' } } }), signal: AbortSignal.timeout(15_000) });
-        const provider = await sent.json();
-        const code = provider?.error?.details?.find((d: { errorCode?: string }) => d.errorCode)?.errorCode;
-        const safeCode = ['UNREGISTERED', 'INVALID_ARGUMENT', 'SENDER_ID_MISMATCH', 'QUOTA_EXCEEDED', 'UNAVAILABLE'].includes(code) ? code : 'PROVIDER_REJECTED';
-        results.push({ token: target.token, platform: target.platform, success: sent.ok, ...(sent.ok ? {} : { error: safeCode }) });
+        if (!Array.isArray(prefs) || !prefs.some(p => p.user_id === owner && p.push_enabled === true)) {
+          const audited = await recordDelivery(owner,target.platform,'disabled','PUSH_DISABLED',payload.data?.notification_id);
+          results.push({ token: target.token, platform: target.platform, success: false, error: 'PUSH_DISABLED', audit_status: audited ? 'confirmed' : 'unconfirmed' });
+          continue;
+        }
+        if (target.platform !== 'android') {
+          const audited = await recordDelivery(owner,target.platform,'unsupported','PLATFORM_NOT_CONFIGURED',payload.data?.notification_id);
+          results.push({ token: target.token, platform: target.platform, success: false, error: 'PLATFORM_NOT_CONFIGURED', audit_status: audited ? 'confirmed' : 'unconfirmed' });
+          continue;
+        }
+        if (!await recordDelivery(owner,target.platform,'dispatch_attempt',null,payload.data?.notification_id)) {
+          results.push({ token: target.token, platform: target.platform, success: false, error: 'AUDIT_UNAVAILABLE', audit_status: 'unconfirmed' });
+          continue;
+        }
+        let access: string;
+        try {
+          access = await accessToken();
+        } catch {
+          const audited = await recordDelivery(owner,target.platform,'failed','PROVIDER_AUTH_UNAVAILABLE',payload.data?.notification_id);
+          results.push({ token: target.token, platform: target.platform, success: false, error: 'PROVIDER_AUTH_UNAVAILABLE', audit_status: audited ? 'confirmed' : 'unconfirmed' });
+          continue;
+        }
+        try {
+          const sent = await request('https://fcm.googleapis.com/v1/projects/kws-beta-app/messages:send', { method: 'POST', headers: { Authorization: 'Bearer ' + access, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: { token: target.token, notification: { title: payload.title, body: payload.body }, data: { ...Object.fromEntries(Object.entries(payload.data || {}).map(([k, v]) => [k, String(v)])), action_url: payload.action_url || '' }, android: { priority: 'high' } } }), signal: AbortSignal.timeout(15_000) });
+          const provider = await sent.json().catch(() => null);
+          if (sent.ok && (typeof provider?.name !== 'string' || !provider.name)) {
+            const audited = await recordDelivery(owner,target.platform,'uncertain','PROVIDER_ACCEPTANCE_UNCERTAIN',payload.data?.notification_id);
+            results.push({ token: target.token, platform: target.platform, success: false, error: 'PROVIDER_ACCEPTANCE_UNCERTAIN', retryable: false, audit_status: audited ? 'confirmed' : 'unconfirmed' });
+            continue;
+          }
+          const code = provider?.error?.details?.find((d: { errorCode?: string }) => d.errorCode)?.errorCode;
+          const safeCode = ['UNREGISTERED', 'INVALID_ARGUMENT', 'SENDER_ID_MISMATCH', 'QUOTA_EXCEEDED', 'UNAVAILABLE'].includes(code) ? code : 'PROVIDER_REJECTED';
+          const audited = await recordDelivery(owner,target.platform,sent.ok ? 'provider_accepted' : 'provider_rejected',sent.ok ? null : safeCode,payload.data?.notification_id);
+          results.push({ token: target.token, platform: target.platform, success: sent.ok, audit_status: audited ? 'confirmed' : 'unconfirmed', ...(sent.ok ? {} : { error: safeCode }) });
+        } catch {
+          const audited = await recordDelivery(owner,target.platform,'uncertain','PROVIDER_ACCEPTANCE_UNCERTAIN',payload.data?.notification_id);
+          results.push({ token: target.token, platform: target.platform, success: false, error: 'PROVIDER_ACCEPTANCE_UNCERTAIN', retryable: false, audit_status: audited ? 'confirmed' : 'unconfirmed' });
+        }
       }
       return response(200, { success: results.every(r => r.success), results });
     } catch { return response(503, { success: false, error: 'PUSH_SERVICE_UNAVAILABLE' }); }

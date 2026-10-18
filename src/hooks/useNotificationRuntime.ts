@@ -8,6 +8,7 @@ import { useMarkAsRead } from '@/hooks/useNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { notificationDestination, notificationTarget } from '@/lib/notifications';
 import { initializePushNotifications, stopPushListeners } from '@/utils/pushNotifications';
+import { trackMonitoring } from '@/utils/monitoring';
 
 /** Mount once in Root, not once per inbox/query consumer. Receiving never sends. */
 export function useNotificationRuntime() {
@@ -23,6 +24,7 @@ export function useNotificationRuntime() {
     const openTarget = (target: string, id?: string) => {
       if (!active) return;
       navigateRef.current(target);
+      if (id) trackMonitoring('notification_opened', { notification_id: id });
       if (id) void markRef.current(id).catch(() => { if (active) toast.error('Gelesen-Status nicht gespeichert. Die Mitteilung bleibt ungelesen.'); });
     };
     const refresh = () => {

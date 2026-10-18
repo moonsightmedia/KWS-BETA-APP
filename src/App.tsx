@@ -1,6 +1,6 @@
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { createBrowserRouter, RouterProvider, useLocation, useNavigate, useNavigationType, Navigate } from "react-router-dom";
 import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -45,6 +45,8 @@ import { BoulderRouteContinuity } from '@/components/BoulderRouteContinuity';
 
 // Configure QueryClient for optimal caching and prefetching
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({ onError: error => reportMonitoringOperationError('query', error) }),
+  mutationCache: new MutationCache({ onError: error => reportMonitoringOperationError('mutation', error) }),
   defaultOptions: {
     queries: {
       staleTime: 0, // CRITICAL FIX: Set to 0 to ensure data is always refetched after reload
@@ -57,12 +59,6 @@ const queryClient = new QueryClient({
       // CRITICAL: Add timeout to prevent queries from hanging forever
       // If a query takes longer than 15 seconds, it will be marked as error
       // This prevents the app from hanging in loading state
-      // Global error handler for all queries
-      onError: (error: unknown) => {
-        console.error('[QueryClient] Query error:', error);
-        // Don't throw - let individual queries handle their errors
-        // This prevents the entire app from crashing
-      },
     },
     mutations: {
       // A lost response can still mean the write succeeded. Never replay writes
@@ -105,6 +101,8 @@ import { UploadProvider } from '@/contexts/UploadContext';
 import { initializeErrorHandler, setErrorHandlerUserContext } from '@/utils/errorHandler';
 import { initSentry, setSentryUser } from '@/utils/sentry';
 import { setTelemetryUser, startTelemetry, stopTelemetry } from '@/utils/telemetry';
+import { reportMonitoringError, reportMonitoringOperationError, setMonitoringScreen, setMonitoringUser, startMonitoring, stopMonitoring, trackMonitoring } from '@/utils/monitoring';
+import { MonitoringConsentPrompt } from '@/components/MonitoringPrivacy';
 import { OnboardingProvider } from '@/components/Onboarding';
 import { RoleTabProvider } from '@/contexts/RoleTabContext';
 import { useNotificationRuntime } from '@/hooks/useNotificationRuntime';
@@ -183,18 +181,21 @@ const Root = () => {
   useNotificationRuntime();
   const navigate = useNavigate();
   const location = useLocation();
-  const { loading: authLoading, user, authTransition } = useAuth();
+  const { loading: authLoading, user, session, authTransition } = useAuth();
   const queryClient = useQueryClient();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [authTimeout, setAuthTimeout] = useState(false);
+  const readyReported = useRef(false);
   
   // Initialize error handler + optional Sentry/telemetry (fail-open, flag-gated)
   useEffect(() => {
     initSentry();
     initializeErrorHandler();
     startTelemetry();
+    startMonitoring();
     return () => {
       stopTelemetry();
+      stopMonitoring();
     };
   }, []);
 
@@ -207,6 +208,22 @@ const Root = () => {
     setTelemetryUser(user ? { id: user.id } : null);
   }, [user]);
 
+  useEffect(() => {
+    setMonitoringUser(user && session?.access_token ? { id: user.id, token: session.access_token } : null);
+  }, [user?.id, session?.access_token]);
+
+  useEffect(() => {
+    const detail = location.pathname.match(/^\/boulders?\/([0-9a-f-]{36})$/i);
+    setMonitoringScreen(location.pathname, detail?.[1] ?? null);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!authLoading && !isInitialLoad && !readyReported.current) {
+      readyReported.current = true;
+      trackMonitoring('app_ready', { duration_ms: Math.round(performance.now()) });
+    }
+  }, [authLoading, isInitialLoad]);
+
   // Log when Root component is mounted
   useEffect(() => {
     console.log('[Root] Component mounted');
@@ -217,6 +234,9 @@ const Root = () => {
     if (authLoading) {
       const timeoutId = setTimeout(() => {
         console.warn('[Root] Auth loading timeout (10s) - showing fallback');
+        const error = new Error('Die App konnte die Sitzung innerhalb von zehn Sekunden nicht prüfen.');
+        error.name = 'AppStartTimeout';
+        reportMonitoringError(error, 'app_start');
         setAuthTimeout(true);
       }, 10000); // 10 second timeout
       
@@ -313,6 +333,7 @@ const Root = () => {
               <AppNavigation />
               <UploadOverview />
               <EmergencyReset />
+              <MonitoringConsentPrompt />
               <TrainingProvider key={user?.id ?? 'guest'} accountId={user?.id ?? 'guest'}>
                 <BoulderRouteContinuity key={user?.id ?? 'guest'} />
               </TrainingProvider>
@@ -383,6 +404,7 @@ const router = createBrowserRouter([
       { path: "auth/callback", element: <AuthCallback /> },
       { path: "reset-password", element: <ResetPassword /> },
       { path: "privacy", element: <AppLegal /> },
+      { path: "app/privacy", element: <AppLegal /> },
       { path: "imprint", element: <AppLegal /> },
       { path: "community-rules", element: <AppLegal /> },
       { path: "profile", element: (

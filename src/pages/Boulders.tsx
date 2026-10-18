@@ -28,6 +28,7 @@ import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
 import { BoulderTypeBadge } from '@/components/boulder/BoulderTypeBadge';
 import { Boulder } from '@/types/boulder';
 import { matchesBoulderColorFilter } from '@/utils/colorUtils';
+import { useMonitoringFilters } from '@/hooks/useMonitoringFilters';
 const STORAGE_KEY_BOULDER_VIEW = 'boulder_view_mode';
 const STORAGE_KEY_COLLAPSED_AREAS = 'boulder_collapsed_areas_v1';
 const SECTOR_AREA_ORDER = ['Bug', 'Couch-Ecke', 'Top-Out', 'Lange Platte', 'Grotte'];
@@ -121,6 +122,7 @@ const Boulders = () => {
   const [sectorFilters, setSectorFilters] = useState<string[]>([]);
   const [difficultyFilters, setDifficultyFilters] = useState<string[]>([]);
   const [colorFilters, setColorFilters] = useState<string[]>([]);
+  useMonitoringFilters(searchQuery, sectorFilters, difficultyFilters, colorFilters);
   const [sortBy, setSortBy] = useState<'name' | 'difficulty' | 'date'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showOnlyHanging, setShowOnlyHanging] = useState(true);

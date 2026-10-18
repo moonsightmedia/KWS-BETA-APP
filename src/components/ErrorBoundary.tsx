@@ -8,6 +8,7 @@ import { MessageSquare, RefreshCw, Send } from 'lucide-react';
 import { reportError, type ReportErrorUserContext } from '@/utils/feedbackUtils';
 import { captureSentryException } from '@/utils/sentry';
 import { toast } from 'sonner';
+import { isMonitoringEnabled } from '@/utils/monitoring';
 
 interface Props { children: ReactNode; fallback?: ReactNode; userContext?: ReportErrorUserContext | null }
 interface State {
@@ -25,7 +26,7 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     if (import.meta.env.DEV) console.error('[ErrorBoundary] Caught error:', error, errorInfo);
     this.setState({ error, errorInfo });
-    captureSentryException(error, { tags: { source: 'error_boundary' }, extra: { componentStack: errorInfo.componentStack } });
+    if (!isMonitoringEnabled()) captureSentryException(error, { tags: { source: 'error_boundary' }, extra: { componentStack: errorInfo.componentStack } });
     void reportError(error, errorInfo, undefined, this.props.userContext).catch(() => {});
     // No timed reset: the user keeps control, including their unsent description.
   }

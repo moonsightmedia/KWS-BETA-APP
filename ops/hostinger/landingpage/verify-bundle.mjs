@@ -14,7 +14,7 @@ for(const name of ['index.html','privacy.html','imprint.html','community-rules.h
 const html=readFileSync(join(directory,'public/landing',name),'utf8');
 if(name!=='index.html'&&(/<script\b/i.test(html)||!html.includes('content="noindex,follow"')))throw Error('Legal page must be static and noindex');
 for(const match of html.matchAll(/(?:src|href)="([^"]+)"/g)){
- const ref=match[1];if(ref.startsWith('#')||/^(https:\/\/|mailto:|tel:)/.test(ref)||['/privacy','/imprint','/community-rules'].includes(ref))continue;
+ const ref=match[1];if(ref.startsWith('#')||/^(https:\/\/|mailto:|tel:)/.test(ref)||['/privacy','/app/privacy','/imprint','/community-rules'].includes(ref))continue;
  if(!ref.startsWith('/landing/'))throw Error('Noncanonical relative asset '+ref);
  const assetPath=new URL(ref,manifest.canonical).pathname;
  if(!files.has('public'+assetPath))throw Error('Unbundled asset '+ref);

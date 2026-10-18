@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "collection_enabled": false,
+  "client": {
+    "sentry_dsn": null,
+    "sentry_org_url": null
+  },
+  "alert_mode": "shadow",
+  "alert_recipient": null,
+  "smtp_runtime_path": "/opt/kws/integrations/runtime.json",
+  "sentry": {
+    "enabled": false,
+    "origin": "https://sentry.io",
+    "organization": "",
+    "projects": []
+  },
+  "stores": {
+    "enabled": false,
+    "adapter": "reviewed_daily_csv",
+    "input_directory": "/opt/kws/monitoring/store-reports"
+  }
+}

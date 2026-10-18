@@ -10,6 +10,7 @@ import { SectorFilterOptions } from '@/components/boulder/SectorFilterOptions';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/hooks/useAuth';
 import { matchesBoulderColorFilter } from '@/utils/colorUtils';
+import { useMonitoringFilters } from '@/hooks/useMonitoringFilters';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -43,6 +44,7 @@ const Guest = () => {
   const [sectorFilters, setSectorFilters] = useState<string[]>([]);
   const [difficultyFilters, setDifficultyFilters] = useState<string[]>([]);
   const [colorFilters, setColorFilters] = useState<string[]>([]);
+  useMonitoringFilters(searchQuery, sectorFilters, difficultyFilters, colorFilters);
   const [sortBy, setSortBy] = useState<'name' | 'difficulty' | 'date'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   // Guest area doesn't need auth, but we still wait for auth to finish loading to avoid race conditions

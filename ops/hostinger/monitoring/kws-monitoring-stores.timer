@@ -1,0 +1,11 @@
+[Unit]
+Description=Import reviewed KWS store snapshots daily
+
+[Timer]
+OnCalendar=*-*-* 06:30:00 UTC
+Persistent=true
+RandomizedDelaySec=600
+Unit=kws-monitoring-stores.service
+
+[Install]
+WantedBy=timers.target

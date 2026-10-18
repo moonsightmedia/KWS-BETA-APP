@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+credentials.json
+config.json
+activation.json
+edge-installation.json
+ingest-verification.json
+*.sqlite3
+*.sqlite3-journal
+store-reports/
+edge-backups/

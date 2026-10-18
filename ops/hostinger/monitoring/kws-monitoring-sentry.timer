@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh KWS Sentry issue summaries every five minutes
+
+[Timer]
+OnBootSec=120s
+OnUnitInactiveSec=300s
+AccuracySec=15s
+Unit=kws-monitoring-sentry.service
+
+[Install]
+WantedBy=timers.target

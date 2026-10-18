@@ -24,6 +24,7 @@ jobs:
       VITE_SUPABASE_PUBLISHABLE_KEY: fixture-key-not-a-secret
       VITE_TRAINING_UI_PREVIEW: 'false'
       VITE_TELEMETRY_ENABLED: 'false'
+      VITE_MONITORING_ENABLED: 'false'
       VITE_SENTRY_DSN: ''
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -40,6 +41,7 @@ jobs:
       - name: Deployment safety tests
         run: |
           python3 ops/hostinger/test-update-production-web.py
+          python3 -m unittest discover -s ops/hostinger/monitoring -p 'test_*.py'
           python3 ops/hostinger/test-github-web-autodeploy.py
           python3 ops/hostinger/landingpage/test-collect-landing.py
       - name: Verify generated legal pages are committed
@@ -50,6 +52,10 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Browser regression tests
         run: npx playwright test e2e/header-stability.spec.ts e2e/auth-layout.spec.ts e2e/guest-loading.spec.ts e2e/guest-navigation.spec.ts e2e/training-release-gate.spec.ts --workers=1
+      - name: Monitoring browser tests
+        run: |
+          npx playwright test --config test/launchMonitoring.playwright.config.ts
+          npx playwright test --config test/monitoringPrivacy.playwright.config.ts
       - name: Build app and landing from the same revision
         run: node ops/hostinger/build-web.mjs "$GITHUB_SHA"
       - name: Verify built landing with production Caddy
