@@ -114,6 +114,29 @@ export async function loadLaunchDashboard(connection: MonitoringConnection, filt
   return parseLaunchDashboard(await rpc(connection, 'kws_monitoring_dashboard', launchFilterPayload(filters), signal));
 }
 
+export type LiveMonitoring = {
+  schema_version: 1; generated_at: string; expires_at: string;
+  online: number; accounts: number; guests: number; devices: number; viewing_boulders: number;
+  boulders: Array<{ id: string; name: string | null; viewers: number }>;
+};
+
+export function parseLiveMonitoring(value: unknown): LiveMonitoring {
+  const root = object(value);
+  if (root.schema_version !== 1) invalid();
+  const result = {
+    schema_version: 1 as const, generated_at: timestamp(root.generated_at), expires_at: timestamp(root.expires_at),
+    online: count(root.online), accounts: count(root.accounts), guests: count(root.guests), devices: count(root.devices), viewing_boulders: count(root.viewing_boulders),
+    boulders: rows(root.boulders, row => ({ id: string(row.id, 36), name: nullableString(row.name), viewers: count(row.viewers) }), 10000),
+  };
+  if (result.online !== result.accounts + result.guests || result.viewing_boulders > result.online || Date.parse(result.expires_at) <= Date.parse(result.generated_at)) invalid();
+  return result;
+}
+
+export async function loadLiveMonitoring(connection: MonitoringConnection, filters: LaunchFilters, signal?: AbortSignal): Promise<LiveMonitoring> {
+  const { p_platform, p_release } = launchFilterPayload(filters);
+  return parseLiveMonitoring(await rpc(connection, 'kws_monitoring_live', { p_platform, p_release }, signal));
+}
+
 export async function loadLaunchIssueEvents(connection: MonitoringConnection, fingerprint: string, signal?: AbortSignal): Promise<LaunchIssueEvent[]> {
   return rows(await rpc(connection, 'kws_monitoring_issue_events', { p_fingerprint: string(fingerprint, 256) }, signal), row => ({ event_id: string(row.event_id, 160), occurred_at: timestamp(row.occurred_at), received_at: timestamp(row.received_at), platform: string(row.platform, 40), release: string(row.release, 160), installation_ref: nullableString(row.installation_ref, 160), user_ref: nullableString(row.user_ref, 160), session_ref: nullableString(row.session_ref, 160), props: object(row.props) }), 50);
 }

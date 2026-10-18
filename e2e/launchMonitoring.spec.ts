@@ -52,13 +52,76 @@ test('activity uses current launch signals instead of disabled legacy telemetry'
       const popular = await page.getByRole('heading', { name: 'Häufig angesehene Boulder', exact: true }).boundingBox();
       expect(activity!.y).toBeLessThan(popular!.y);
     }
-    expect(await page.evaluate(() => window.launchMonitoringQA.requests.every(request => request.path.endsWith('/kws_monitoring_dashboard')))).toBe(true);
+    expect(await page.evaluate(() => window.launchMonitoringQA.requests.every(request => /\/kws_monitoring_(dashboard|live)$/.test(request.path)))).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await open(page, 'stale');
     await chooseView(page, 'Aktivität');
     await expect(page.getByText('Keine aktuellen Vordergrundsignale.', { exact: true })).toBeVisible();
     await expect(page.getByText('Instanz fixture-3a9f · Konto fixture-konto-82c1', { exact: true })).toHaveCount(0);
     await page.screenshot({ path: `${directory}/loop2-activity-stale-${width}.png`, fullPage: true, animations: 'disabled' });
+  }
+});
+
+test('live counts update on push signals, reconnect and filter without historical period; failures never show false zero', async ({ page }) => {
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 960 });
+    await open(page);
+    const live = page.getByTestId('live-monitoring');
+    await expect(live.getByText('Live verbunden', { exact: true })).toBeVisible();
+    await expect(live.getByTestId('live-online')).toHaveText('12');
+    await expect(live.getByRole('link', { name: /Grüne Kante/ })).toHaveAttribute('href', '/boulder/00000000-0000-4000-8000-000000000005');
+    await page.evaluate(() => { Object.assign(window.launchMonitoringQA.live!, { online: 13, accounts: 10 }); window.dispatchEvent(new Event('qa:live-update')); });
+    await expect(live.getByTestId('live-online')).toHaveText('13');
+    await page.screenshot({ path: `${directory}/live-loop1-${width}.png`, fullPage: true, animations: 'disabled' });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.evaluate(() => { window.launchMonitoringQA.liveDisconnected = true; window.dispatchEvent(new Event('qa:live-connection')); });
+    await expect(live.getByText('Verzögert · Ersatzabfrage alle 15 Sekunden')).toBeVisible();
+    await page.evaluate(() => { window.launchMonitoringQA.liveError = true; window.dispatchEvent(new Event('qa:live-update')); });
+    await expect(live.getByTestId('live-online')).toHaveText('–');
+    await expect(live.getByText('Live-Daten nicht bestätigt', { exact: true })).toBeVisible();
+    await page.screenshot({ path: `${directory}/live-loop2-error-${width}.png`, fullPage: true, animations: 'disabled' });
+    await page.evaluate(() => { window.launchMonitoringQA.liveError = false; window.launchMonitoringQA.liveDisconnected = false; window.dispatchEvent(new Event('qa:live-connection')); window.dispatchEvent(new Event('qa:live-update')); });
+    await expect(live.getByTestId('live-online')).toHaveText('13');
+    await chooseView(page, 'Aktivität');
+    await expect(page.getByTestId('live-online')).toHaveText('13');
+    const sheet = await openFilters(page);
+    await sheet.getByRole('combobox', { name: 'Plattform' }).click();
+    await page.getByRole('option', { name: 'Web', exact: true }).click();
+    await sheet.getByRole('button', { name: 'Ergebnisse anzeigen' }).click();
+    await expect.poll(() => page.evaluate(() => window.launchMonitoringQA.requests.some(request => request.path.endsWith('/kws_monitoring_live') && request.payload.p_platform === 'web' && !('p_days' in request.payload)))).toBe(true);
+  }
+});
+
+test('live expiry hides old numbers during failed refresh and empty is a confirmed zero', async ({ page }) => {
+  await open(page, 'empty');
+  const live = page.getByTestId('live-monitoring');
+  await expect(live.getByTestId('live-online')).toHaveText('0');
+  await expect(live.getByText('Gerade ist kein Boulder geöffnet.', { exact: true })).toBeVisible();
+  await page.clock.install();
+  await page.evaluate(() => { window.launchMonitoringQA.liveError = true; });
+  await page.clock.fastForward(46000);
+  await expect(live.getByTestId('live-online')).toHaveText('–');
+});
+
+test('complete live view expands real rows and remains usable at all widths', async ({ page }) => {
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 960 });
+    await open(page);
+    await page.evaluate(() => {
+      window.launchMonitoringQA.live!.boulders = Array.from({ length: 10 }, (_, index) => ({ id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`, name: `Aktueller Boulder ${index + 1}`, viewers: 1 }));
+      window.dispatchEvent(new Event('qa:live-update'));
+    });
+    await page.getByRole('button', { name: 'Live-Details', exact: true }).click();
+    const live = page.getByTestId('live-monitoring');
+    await expect(live.getByRole('link')).toHaveCount(8);
+    await live.getByRole('button', { name: 'Alle 10 Boulder anzeigen' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(live.getByRole('link')).toHaveCount(10);
+    await expect(live.getByText('9 angemeldet · 3 Gäste', { exact: false })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `${directory}/live-full-loop2-${width}.png`, fullPage: true, animations: 'disabled' });
+    await live.getByRole('button', { name: 'Weniger anzeigen' }).click();
+    await expect(live.getByRole('link')).toHaveCount(8);
   }
 });
 

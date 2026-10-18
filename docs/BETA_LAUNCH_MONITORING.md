@@ -71,6 +71,49 @@ aktiviert keine zusätzliche native Erfassung.
 
 ## Was die Zahlen bedeuten
 
+### Echte Live-Nutzung ab App1.0.249
+
+Übersicht und Aktivität besitzen zusätzlich ein getrenntes Live-Panel mit
+Onlinezahl, aktuellen Boulderbetrachtern und Bouldername/Anzahl. Der bestehende
+Supabase-WebSocket meldet serverseitige Änderungen; das Dashboard liest dann
+einen nur für Admins erlaubten aggregierten Snapshot. Normale Konten und Gäste
+dürfen weder diesen Snapshot noch den Änderungsmarker lesen. Die rohe
+Statustabelle ist für alle Browserrollen gesperrt.
+
+Konten zählen über mehrere Fenster/Geräte einmal, Gäste pro Installation.
+Mehrere gleichzeitig geöffnete Boulder können dasselbe Konto in mehreren
+Boulderzeilen zählen; die Gesamt-Onlinezahl bleibt dedupliziert. Es handelt
+sich um teilnehmende Nutzung, nicht um alle installierten Apps oder nachgewiesene
+Aufmerksamkeit. Admins und Testkanäle sind ausgeschlossen. Alte native Builds
+liefern keine neuen Live-Signale, bevor sie aktualisiert werden.
+
+Geöffnete Boulder zählen erst nach tatsächlichem Laden. Wechsel senden sofort,
+Vordergrund-Leases erneuern sich alle12Sekunden. Hintergrund/Widerruf melden
+nach Möglichkeit sofort ab; ohne neue Meldung endet ein Lease serverseitig nach
+45Sekunden. Instanzsequenzen verhindern, dass verspätete Anfragen einen neueren
+Abmeldestatus überschreiben. Keine Live-Offlinequeue, keine Namen oder
+Einzelverläufe in der Adminantwort. Die bisherige Aktivitätsliste bleibt eine
+getrennte historische Kurzsicht mit ihrem alten Drei-Minuten-Fenster.
+
+Statistikfreigabev1 gilt nicht automatisch für die Erweiterung. Der neue
+gerätebezogene Dialog erklärt die Live-Zahlen und verlangt eine erneute Auswahl
+für v2. Widerruf, Netzwechsel und Browser-Tabwechsel sowie der native App-Lifecycle
+sind angebunden. Live-Rohzustände werden bei weiteren Meldungen und über die
+bestehende tägliche Wartung bereinigt; Kontolöschung greift per Fremdschlüssel.
+
+„Live verbunden“ setzt eine bestätigte WebSocket-Verbindung und einen noch
+gültigen Snapshot voraus. Bei Verbindungsstörung gibt es ausdrücklich verzögerte
+Ersatzabfragen alle15Sekunden. Abgelaufene/fehlgeschlagene Werte werden als
+unbestätigt angezeigt, nicht als null. Zeitraum gilt nur für Historie;
+Plattform/Version gelten auch für Live. Das historische Auto-Update pausiert
+nicht die eigenständige Live-Verbindung.
+
+Migration: `20261018220000_live_presence.sql`; vorhandenen Edgehandler mit
+geprüftem Plan aktualisieren und den Monitoring-Ingestbeleg anschließend erneuern.
+Ein Webbuild führt keine Migration aus. [Design und Prüfvertrag](design/live-monitoring.md).
+
+### Historische Nutzung und offizielle Storeberichte
+
 `Erstmals erfasste App-Instanzen` zählt teilnehmende Android-/iOS-Installationen
 ab Messbeginn, nicht sicher neue Downloads und nicht eindeutige Menschen.
 Bestandsinstallationen können erstmals erscheinen; Speicherreset kann eine neue

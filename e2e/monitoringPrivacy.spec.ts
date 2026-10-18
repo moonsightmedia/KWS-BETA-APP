@@ -5,6 +5,7 @@ type Event = { event_id: string; name: string; props: Record<string, unknown> };
 async function collector(page: Page) {
   const events: Event[] = [];
   await page.route('**/qa/functions/v1/monitoring-events', async route => {
+    if (route.request().postDataJSON().presence) { await route.fulfill({ json: { accepted: true } }); return; }
     const batch = route.request().postDataJSON().events as Event[];
     events.push(...batch);
     await route.fulfill({ json: { accepted_ids: batch.map(event => event.event_id), rejected_ids: [] } });
@@ -54,6 +55,30 @@ test('guest can open an editable privacy route without requiring a profile', asy
   await page.getByRole('button', { name: 'Ohne Statistik', exact: true }).click();
   await page.getByRole('switch', { name: 'Nutzungsstatistik erlauben' }).click();
   await expect(page.getByRole('switch', { name: 'Nutzungsstatistik erlauben' })).toBeChecked();
+});
+
+test('legacy consent is not reused for live presence and revoke/background send immediate tombstones', async ({ page }) => {
+  const messages: Array<{ sequence: number; active: boolean; screen: string; boulder_id: string | null }> = [];
+  await page.addInitScript(() => localStorage.setItem('kws_usage_consent_v1', 'granted'));
+  await page.route('**/qa/functions/v1/monitoring-events', async route => {
+    const payload = route.request().postDataJSON();
+    if (payload.presence) { messages.push(payload.presence); await route.fulfill({ json: { accepted: true } }); }
+    else await route.fulfill({ json: { accepted_ids: payload.events.map((event: Event) => event.event_id), rejected_ids: [] } });
+  });
+  await page.goto('/test/fixtures/monitoringPrivacy.html');
+  await expect(page.getByRole('complementary', { name: 'Nutzungsstatistik auswählen' })).toBeVisible();
+  expect(messages).toHaveLength(0);
+  await page.getByRole('button', { name: 'Statistik erlauben', exact: true }).click();
+  await expect.poll(() => messages.some(message => message.active)).toBe(true);
+  await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' }); document.dispatchEvent(new Event('visibilitychange')); });
+  await expect.poll(() => messages.at(-1)?.active).toBe(false);
+  await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' }); document.dispatchEvent(new Event('visibilitychange')); });
+  await expect.poll(() => messages.at(-1)?.active).toBe(true);
+  await page.getByRole('switch', { name: 'Nutzungsstatistik erlauben' }).click();
+  await expect.poll(() => messages.at(-1)?.active).toBe(false);
+  expect(messages.at(-1)?.boulder_id).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem('kws_usage_consent_v1'))).toBe('denied');
+  expect(messages.every((message, index) => index === 0 || message.sequence > messages[index - 1].sequence)).toBe(true);
 });
 
 test('data request failures are classified without response content and media aborts are not failures', async ({ page }) => {

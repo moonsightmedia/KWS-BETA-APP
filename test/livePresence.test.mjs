@@ -1,0 +1,140 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import ts from 'typescript';
+
+async function moduleAt(path) {
+  const source = await readFile(new URL(path, import.meta.url), 'utf8');
+  const { outputText } = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } });
+  return import('data:text/javascript;base64,' + Buffer.from(outputText).toString('base64'));
+}
+const { LivePresenceClient } = await moduleAt('../src/lib/livePresenceClient.ts');
+const { createMonitoringHandler, normalizePresence } = await moduleAt('../supabase/functions/monitoring-events/handler.ts');
+const { parseLiveMonitoring, loadLiveMonitoring } = await moduleAt('../src/lib/launchMonitoring.ts');
+const installation = crypto.randomUUID();
+const instance = crypto.randomUUID();
+const user = crypto.randomUUID();
+const boulder = crypto.randomUUID();
+const presence = (overrides = {}) => ({ instance_id: instance, installation_id: installation, sequence: 1, active: true, platform: 'web', release: 'kws-beta-app@1.0.248+test', channel: 'production', screen: 'boulder', boulder_id: boulder, ...overrides });
+
+test('presence sends immediate ephemeral changes, revoke/background/offline and monotonic sequence without retrying old views', async () => {
+  const calls = [];
+  const client = new LivePresenceClient({ uuid: () => instance, installationId: installation, platform: 'web', release: 'web@1', channel: 'production', transport: async (message, owner) => { calls.push({ message, owner }); throw new Error('offline'); } });
+  const context = { allowed: false, foreground: true, online: true, owner: user, screen: 'boulder', boulderId: boulder };
+  client.update(context);
+  assert.equal(calls.length, 0);
+  client.update({ ...context, allowed: true });
+  client.update({ ...context, allowed: true, boulderId: null, screen: 'home' });
+  client.update({ ...context, allowed: true, foreground: false });
+  client.update(context);
+  client.update({ ...context, allowed: true, owner: null });
+  client.update({ ...context, allowed: true, online: false });
+  client.update({ ...context, allowed: true });
+  client.update(context);
+  await Promise.resolve();
+  assert.deepEqual(calls.map(call => call.message.sequence), [1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual(calls.map(call => call.message.active), [true, true, false, true, false, true, false]);
+  assert.equal(calls[1].message.boulder_id, null);
+  assert.equal(calls[2].message.screen, 'other');
+  assert.equal(calls[3].owner, null);
+});
+
+test('presence ingestion strips arbitrary data, derives account from validated bearer and rejects mixed/invalid requests', async () => {
+  const config = { supabaseUrl: 'https://private.invalid', anonKey: 'public-fixture', serviceKey: 'private-fixture' };
+  const calls = [];
+  const handler = createMonitoringHandler(config, async (url, init) => {
+    if (url.endsWith('/auth/v1/user')) return Response.json({ id: user });
+    assert.equal(url, config.supabaseUrl + '/rest/v1/rpc/kws_monitoring_presence');
+    calls.push(JSON.parse(init.body));
+    return Response.json({ accepted: true });
+  });
+  const send = body => handler(new Request('https://fixture.invalid', { method: 'POST', headers: { authorization: 'Bearer user-fixture' }, body: JSON.stringify(body) }));
+  assert.equal((await send({ presence: { ...presence(), user_id: 'forged', email: 'private@example.test', props: { private: true } } })).status, 200);
+  assert.equal(calls[0].p_user_id, user);
+  assert.equal(calls[0].p_presence.user_id, undefined);
+  assert.equal(calls[0].p_presence.email, undefined);
+  assert.equal((await send({ presence: presence(), events: [] })).status, 400);
+  for (const invalid of [{ sequence: 0 }, { sequence: 1.2 }, { active: 'true' }, { screen: '/private' }, { boulder_id: 'invalid' }, { release: 'a'.repeat(121) }]) assert.equal(normalizePresence(presence(invalid)), null);
+  assert.equal(normalizePresence(presence({ active: false })).boulder_id, null);
+});
+
+test('live snapshot validates counts and freshness; request omits historical date filter', async context => {
+  const fixture = { schema_version: 1, generated_at: new Date().toISOString(), expires_at: new Date(Date.now() + 45000).toISOString(), online: 3, accounts: 2, guests: 1, devices: 4, viewing_boulders: 2, boulders: [{ id: boulder, name: 'Test', viewers: 2 }] };
+  assert.equal(parseLiveMonitoring(fixture).online, 3);
+  for (const invalid of [{ online: 4 }, { online: -1 }, { viewing_boulders: 4 }, { expires_at: fixture.generated_at }, { boulders: [{ id: boulder, name: 'Test', viewers: -1 }] }]) assert.throws(() => parseLiveMonitoring({ ...fixture, ...invalid }));
+  context.mock.method(globalThis, 'fetch', async (url, init) => {
+    assert.ok(url.endsWith('/rpc/kws_monitoring_live'));
+    assert.equal(init.headers.Authorization, 'Bearer admin-fixture');
+    assert.deepEqual(JSON.parse(init.body), { p_platform: 'web', p_release: 'all' });
+    return Response.json(fixture);
+  });
+  assert.equal((await loadLiveMonitoring({ url: 'https://fixture.invalid', key: 'public', token: 'admin-fixture' }, { days: 30, platform: 'web', release: 'all' })).online, 3);
+});
+
+const engine = process.env.KWS_MONITORING_PGLITE_PATH || fileURLToPath(new URL('../node_modules/@electric-sql/pglite/dist/index.js', import.meta.url));
+test('isolated SQL: admin-only aggregate, deduplication, out-of-order/offline expiry, exclusions and daily cleanup', { skip: !engine && 'KWS_MONITORING_PGLITE_PATH required' }, async context => {
+  const { PGlite } = await import(pathToFileURL(engine).href);
+  const database = new PGlite();
+  context.after(() => database.close());
+  await database.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; CREATE SCHEMA auth;
+    CREATE TABLE auth.users(id uuid PRIMARY KEY,created_at timestamptz DEFAULT now(),email_confirmed_at timestamptz);
+    CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+    CREATE TABLE public.user_roles(user_id uuid,role text);
+    CREATE FUNCTION public.has_role(_user_id uuid,_role text) RETURNS boolean LANGUAGE sql SECURITY DEFINER AS $$ SELECT EXISTS(SELECT 1 FROM public.user_roles WHERE user_id=_user_id AND role=_role) $$;
+    GRANT USAGE ON SCHEMA auth TO authenticated; GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
+    CREATE TABLE public.boulders(id uuid PRIMARY KEY,name text);
+    CREATE TABLE public.notifications(id uuid PRIMARY KEY,user_id uuid,type text,read boolean DEFAULT false,dismissed_at timestamptz);
+    CREATE TABLE public.boulder_ticks(id uuid PRIMARY KEY,user_id uuid,status text,attempt_count integer,is_favorite boolean DEFAULT false,is_project boolean DEFAULT false);`);
+  await database.exec(await readFile(new URL('../supabase/migrations/20261017203000_beta_launch_monitoring.sql', import.meta.url), 'utf8'));
+  const migration = await readFile(new URL('../supabase/migrations/20261018220000_live_presence.sql', import.meta.url), 'utf8');
+  await database.exec(migration); await database.exec(migration);
+  const admin = crypto.randomUUID();
+  const secondBoulder = crypto.randomUUID();
+  await database.query('INSERT INTO auth.users(id) VALUES($1),($2)', [user, admin]);
+  await database.query("INSERT INTO public.user_roles VALUES($1,'admin')", [admin]);
+  await database.query("INSERT INTO public.boulders VALUES($1,'First'),($2,'Second')", [boulder, secondBoulder]);
+  const scalar = async (sql, args = []) => (await database.query(sql, args)).rows[0].value;
+  const ingest = async (value, owner = user) => scalar('SELECT public.kws_monitoring_presence($1::jsonb,$2::uuid) AS value', [JSON.stringify(value), owner]);
+  await database.exec('SET ROLE anon');
+  await assert.rejects(() => ingest(presence()), /permission denied/);
+  await assert.rejects(() => scalar('SELECT public.kws_monitoring_live() AS value'), /permission denied/);
+  await database.exec('RESET ROLE');
+  await database.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [user]);
+  await database.exec('SET ROLE authenticated');
+  await assert.rejects(() => ingest(presence()), /permission denied/);
+  await assert.rejects(() => scalar('SELECT public.kws_monitoring_live() AS value'), /Administrator required/);
+  await assert.rejects(() => scalar('SELECT count(*) AS value FROM public.monitoring_live_presence'), /permission denied/);
+  assert.equal(await scalar('SELECT count(*)::integer AS value FROM public.monitoring_live_revision'), 0);
+  await database.exec('RESET ROLE');
+  await database.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [admin]);
+  assert.equal((await ingest(presence())).accepted, true);
+  assert.equal((await ingest(presence({ sequence: 1, active: false }))).accepted, false);
+  const second = presence({ instance_id: crypto.randomUUID(), installation_id: crypto.randomUUID(), boulder_id: secondBoulder, platform: 'android' });
+  await ingest(second);
+  await ingest(presence({ instance_id: crypto.randomUUID(), channel: 'test' }), null);
+  await ingest(presence({ instance_id: crypto.randomUUID() }), admin);
+  const guest = presence({ instance_id: crypto.randomUUID(), installation_id: crypto.randomUUID() });
+  await ingest(guest, null);
+  await ingest({ ...guest, instance_id: crypto.randomUUID() }, null);
+  await database.exec('SET ROLE authenticated');
+  let snapshot = await scalar('SELECT public.kws_monitoring_live() AS value');
+  assert.equal(snapshot.online, 2); assert.equal(snapshot.accounts, 1); assert.equal(snapshot.guests, 1);
+  assert.equal(snapshot.devices, 3); assert.equal(snapshot.boulders.length, 2);
+  assert.equal(snapshot.boulders.find(row => row.id === boulder).viewers, 2);
+  assert.equal(JSON.stringify(snapshot).includes(user), false);
+  assert.equal(JSON.stringify(snapshot).includes(installation), false);
+  assert.equal((await scalar("SELECT public.kws_monitoring_live('android') AS value")).online, 1);
+  assert.equal(await scalar('SELECT count(*)::integer AS value FROM public.monitoring_live_revision'), 1);
+  await database.exec('RESET ROLE');
+  await ingest(presence({ sequence: 3, active: false }));
+  assert.equal((await ingest(presence({ sequence: 2 }))).accepted, false);
+  await database.query("UPDATE public.monitoring_live_presence SET expires_at=now()-interval '1 second' WHERE instance_id=$1", [second.instance_id]);
+  snapshot = await scalar('SELECT public.kws_monitoring_live() AS value');
+  assert.equal(snapshot.online, 1); assert.equal(snapshot.accounts, 0);
+  await ingest(presence({ sequence: 4 }));
+  await database.query('DELETE FROM auth.users WHERE id=$1', [user]);
+  assert.equal(await scalar('SELECT count(*)::integer AS value FROM public.monitoring_live_presence WHERE user_id=$1', [user]), 0);
+  await database.exec("UPDATE public.monitoring_live_presence SET expires_at=now()-interval '11 minutes'; SELECT public.kws_monitoring_retain();");
+  assert.equal(await scalar('SELECT count(*)::integer AS value FROM public.monitoring_live_presence'), 0);
+});

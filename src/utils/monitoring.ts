@@ -1,5 +1,7 @@
 import { Capacitor } from '@capacitor/core';
-import { MonitoringClient, monitoringScreen, type MonitoringConsent, type MonitoringEventName, type MonitoringProps } from '@/lib/monitoringClient';
+import { App } from '@capacitor/app';
+import { LivePresenceClient } from '@/lib/livePresenceClient';
+import { MONITORING_CONSENT_KEY, MonitoringClient, monitoringScreen, type MonitoringConsent, type MonitoringEventName, type MonitoringProps } from '@/lib/monitoringClient';
 import { APP_VERSION } from '@/utils/version';
 import { captureSentryException } from '@/utils/sentry';
 
@@ -10,6 +12,10 @@ let heartbeatAt = 0;
 let screen = 'other';
 let boulder: string | null = null;
 let cleanup: (() => void) | null = null;
+let presence: LivePresenceClient | null = null;
+let presenceTimer: ReturnType<typeof setInterval> | null = null;
+let nativeForeground = !Capacitor.isNativePlatform();
+let loadedBoulder: string | null = null;
 const reported = new WeakMap<object, { id: string; at: number }>();
 const operationFailures = new Map<string, number>();
 
@@ -51,8 +57,14 @@ function getClient(): MonitoringClient | null {
 
 export function getUsageConsent(): MonitoringConsent { return getClient()?.getConsent() ?? 'unknown'; }
 
+function updatePresence(foreground = document.visibilityState === 'visible' && nativeForeground): void {
+  presence?.update({ allowed: getUsageConsent() === 'granted', foreground, online: navigator.onLine,
+    owner: currentUser?.id ?? null, screen, boulderId: loadedBoulder });
+}
+
 export function setUsageConsent(consent: MonitoringConsent): void {
   getClient()?.setConsent(consent);
+  updatePresence();
   window.dispatchEvent(new Event('kws:monitoring-consent'));
   if (consent === 'granted') {
     trackMonitoring('screen_view', { screen }, boulder);
@@ -64,9 +76,14 @@ export function setUsageConsent(consent: MonitoringConsent): void {
 export function setMonitoringUser(user: { id: string; token: string } | null): void {
   currentUser = user;
   getClient()?.setOwner(user?.id ?? null);
+  updatePresence();
 }
 
 export function trackMonitoring(name: MonitoringEventName, props: MonitoringProps = {}, boulderId: string | null = null): string | null {
+  if (name === 'boulder_detail_view' && screen === 'boulder' && boulder === boulderId) {
+    loadedBoulder = boulderId;
+    updatePresence();
+  }
   return getClient()?.record(name, { screen, ...props }, boulderId) ?? null;
 }
 
@@ -75,7 +92,9 @@ export function setMonitoringScreen(path: string, boulderId: string | null = nul
   if (screen === next && boulder === boulderId) return;
   screen = next;
   boulder = boulderId;
+  loadedBoulder = null;
   trackMonitoring('screen_view', { screen }, boulder);
+  updatePresence();
 }
 
 export function reportMonitoringError(error: unknown, component = 'app', severity: 'error' | 'fatal' = 'error'): string | null {
@@ -136,20 +155,45 @@ export async function confirmMonitoringReport(reportId: string): Promise<boolean
 export function startMonitoring(): void {
   const collector = getClient();
   if (!collector || timer) return;
+  const platform = Capacitor.getPlatform();
+  presence = new LivePresenceClient({
+    uuid: () => crypto.randomUUID(), installationId: collector.getInstallationId(),
+    platform: platform === 'ios' || platform === 'android' ? platform : 'web',
+    release: `kws-beta-app@${APP_VERSION}${import.meta.env.VITE_RELEASE_REVISION ? '+' + import.meta.env.VITE_RELEASE_REVISION.slice(0, 12) : ''}`,
+    channel: import.meta.env.VITE_MONITORING_CHANNEL || (import.meta.env.DEV ? 'development' : platform === 'ios' ? 'testflight' : platform === 'android' ? 'apk' : 'production'),
+    transport: async (message, owner) => {
+      const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (!key || !import.meta.env.VITE_SUPABASE_URL) return;
+      const token = owner && currentUser?.id === owner ? currentUser.token : key;
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/monitoring-events`, {
+        method: 'POST', keepalive: true, signal: AbortSignal.timeout(8000),
+        headers: { apikey: key, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ presence: message }),
+      });
+      if (!response.ok) throw new Error('Presence unavailable');
+    },
+  });
   collector.startSession();
   const visible = () => {
+    updatePresence();
     trackMonitoring(document.visibilityState === 'visible' ? 'foreground' : 'background', { screen: document.visibilityState === 'visible' ? screen : 'other' }, document.visibilityState === 'visible' ? boulder : null);
     void collector.flush(true);
   };
-  const online = () => { void collector.flush(true); };
+  const online = () => { updatePresence(); void collector.flush(true); };
+  const offline = () => updatePresence(false);
+  const pageHide = () => updatePresence(false);
   const storage = (event: StorageEvent) => {
-    if (event.key === 'kws_usage_consent_v1') {
+    if (event.key === MONITORING_CONSENT_KEY) {
       collector.setConsent(event.newValue === 'granted' ? 'granted' : event.newValue === 'denied' ? 'denied' : 'unknown');
+      updatePresence();
       window.dispatchEvent(new Event('kws:monitoring-consent'));
     }
   };
   document.addEventListener('visibilitychange', visible);
   window.addEventListener('online', online);
+  window.addEventListener('offline', offline);
+  window.addEventListener('pagehide', pageHide);
+  window.addEventListener('pageshow', visible);
   window.addEventListener('storage', storage);
   timer = setInterval(() => {
     if (document.visibilityState === 'visible' && Date.now() - heartbeatAt >= 60_000) {
@@ -158,11 +202,29 @@ export function startMonitoring(): void {
     }
     void collector.flush();
   }, 10_000);
-  cleanup = () => { document.removeEventListener('visibilitychange', visible); window.removeEventListener('online', online); window.removeEventListener('storage', storage); };
+  let stopped = false;
+  let removeNativeListener: (() => Promise<void>) | undefined;
+  if (Capacitor.isNativePlatform()) {
+    void App.addListener('appStateChange', state => { nativeForeground = state.isActive; updatePresence(); })
+      .then(handle => { if (stopped) void handle.remove(); else removeNativeListener = () => handle.remove(); }).catch(() => undefined);
+    void App.getState().then(state => { if (!stopped) { nativeForeground = state.isActive; updatePresence(); } }).catch(() => undefined);
+  }
+  presenceTimer = setInterval(() => updatePresence(), 12_000);
+  updatePresence();
+  cleanup = () => {
+    stopped = true;
+    void removeNativeListener?.();
+    document.removeEventListener('visibilitychange', visible); window.removeEventListener('online', online); window.removeEventListener('offline', offline);
+    window.removeEventListener('pagehide', pageHide); window.removeEventListener('pageshow', visible); window.removeEventListener('storage', storage);
+  };
   void collector.flush();
 }
 
 export function stopMonitoring(): void {
+  updatePresence(false);
+  presence = null;
+  if (presenceTimer) clearInterval(presenceTimer);
+  presenceTimer = null;
   if (timer) clearInterval(timer);
   timer = null;
   cleanup?.();

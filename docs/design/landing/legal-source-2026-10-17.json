@@ -36,6 +36,10 @@
         "body": "<p>Unter <a href=\"/app/privacy\">Datenschutz und Diagnose in der App</a> kannst du die freiwillige Nutzungsstatistik auch ohne Konto erlauben oder widerrufen.</p>"
       },
       {
+        "title": "6c. Freiwillige Live-Nutzungszahlen",
+        "body": "<p>Die neue Auswahl zur Nutzungsstatistik umfasst zusätzlich einen kurzlebigen Live-Status: zufällige Installations- und Fensterkennung, Plattform, App-Version, aktueller App-Bereich und gegebenenfalls der geladene Boulder. Bei Anmeldung wird serverseitig die Kontokennung zugeordnet, damit dasselbe Konto auf mehreren Geräten nicht mehrfach zählt. Nur berechtigte Admins sehen die zusammengefassten Online- und Boulderzahlen, keine Namen oder einzelnen Live-Verläufe.</p><p>Ältere Statistikfreigaben aktivieren diese Erweiterung nicht; die neue App fragt erneut. Ohne Auswahl oder nach Widerruf werden keine neuen Live-Nutzungssignale gesendet. Ein Widerruf oder Wechsel in den Hintergrund meldet den Status nach Möglichkeit sofort ab; ohne neues Signal endet er serverseitig nach 45 Sekunden. Alte Live-Zustände werden bei weiterer Nutzung und spätestens durch die tägliche Bereinigung entfernt. Es entsteht kein zusätzlicher Live-Verlauf.</p>"
+      },
+      {
         "title": "7. Zwecke und Rechtsgrundlagen",
         "body": "<p>Die Verarbeitung für Konto, Anmeldung und von dir genutzte Funktionen beruht auf Art. 6 Abs. 1 lit. b DSGVO. Technische Sicherheit, Missbrauchsschutz, Moderation und notwendige Betriebsdiagnosen beruhen auf Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist ein sicherer und verlässlicher App-Betrieb. Soweit eine Verarbeitung deine Einwilligung erfordert, erfolgt sie auf Art. 6 Abs. 1 lit. a DSGVO und kann für die Zukunft widerrufen werden. Eine Betriebssystemberechtigung ersetzt nicht automatisch eine datenschutzrechtliche Einwilligung. Gesetzlich vorgeschriebene Aufbewahrung erfolgt auf Art. 6 Abs. 1 lit. c DSGVO.</p>"
       },

@@ -7,6 +7,16 @@ const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers
 const reply = (status: number, value: unknown) => new Response(JSON.stringify(value), { status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
 
+export function normalizePresence(value: unknown): Record<string, unknown> | null {
+  if (!object(value) || !uuid.test(String(value.instance_id)) || !uuid.test(String(value.installation_id)) ||
+    !Number.isSafeInteger(value.sequence) || Number(value.sequence) < 1 || typeof value.active !== 'boolean' ||
+    !['web', 'android', 'ios'].includes(String(value.platform)) || typeof value.release !== 'string' || !/^[A-Za-z0-9@._+-]{1,120}$/.test(value.release) ||
+    !['production', 'testflight', 'apk', 'development', 'test'].includes(String(value.channel)) || !screens.has(String(value.screen)) ||
+    (value.boulder_id !== null && !uuid.test(String(value.boulder_id)))) return null;
+  return { instance_id: value.instance_id, installation_id: value.installation_id, sequence: value.sequence, active: value.active,
+    platform: value.platform, release: value.release, channel: value.channel, screen: value.active ? value.screen : 'other', boulder_id: value.active ? value.boulder_id : null };
+}
+
 export function scrubMonitoringText(value: string, limit: number): string {
   return value.slice(0, 8000)
     .replace(/\b(?:Bearer\s+)?eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/gi, '[redacted]')
@@ -78,7 +88,20 @@ export function createMonitoringHandler(config: Config, request: typeof fetch = 
       for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
       let parsed: unknown;
       try { parsed = JSON.parse(new TextDecoder().decode(bytes)); } catch { return reply(400, { error: 'INVALID_PAYLOAD' }); }
-      if (!object(parsed) || !Array.isArray(parsed.events) || parsed.events.length < 1 || parsed.events.length > 20) return reply(400, { error: 'INVALID_PAYLOAD' });
+      if (!object(parsed)) return reply(400, { error: 'INVALID_PAYLOAD' });
+      if (parsed.presence !== undefined) {
+        const presence = normalizePresence(parsed.presence);
+        if (!presence || parsed.events !== undefined) return reply(400, { error: 'INVALID_PRESENCE' });
+        const stored = await request(base + '/rest/v1/rpc/kws_monitoring_presence', { method: 'POST', headers: { apikey: config.serviceKey, Authorization: 'Bearer ' + config.serviceKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_presence: presence, p_user_id: userId }), signal: AbortSignal.timeout(8000) });
+        if (!stored.ok) {
+          const failure = await stored.json().catch(() => ({}));
+          return reply(failure?.code === 'P4290' ? 429 : 503, { error: 'PRESENCE_UNAVAILABLE' });
+        }
+        const acknowledgement = await stored.json();
+        if (!object(acknowledgement) || typeof acknowledgement.accepted !== 'boolean') return reply(503, { error: 'PRESENCE_UNAVAILABLE' });
+        return reply(200, { accepted: acknowledgement.accepted });
+      }
+      if (!Array.isArray(parsed.events) || parsed.events.length < 1 || parsed.events.length > 20) return reply(400, { error: 'INVALID_PAYLOAD' });
       const events: Record<string, unknown>[] = [];
       const rejected: string[] = [];
       for (const entry of parsed.events) {
