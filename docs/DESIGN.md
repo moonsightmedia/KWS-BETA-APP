@@ -1229,6 +1229,18 @@ Verbindliche Regeln:
   Aktualisieren-Aktion. Darunter folgen Suche/Filter, dann Ergebniszahl und
   Sortierung, danach die Inhalte. Keine Benutzerzahl oberhalb des Switches.
   Einzelzweckseiten wie Push-Test zeigen dort Empfängerkreis und Gerätestatus.
+  Monitoring-Präzisierung 18.10.2026: Das Launchcockpit bietet Übersicht,
+  Fehler, Nutzung, Mitteilungen, Uploads und Aktivität. Unter 1024px wird die
+  Ansicht mit einem 44px hohen Select gewählt; ab 1024px stehen alle sechs
+  Ansichten in einer einzigen Zeile über der verfügbaren Inhaltsbreite. Nur
+  diese längere Bereichsauswahl überschreibt die normale 480px-Begrenzung.
+  Zeitraum und Filteraktion bleiben kompakt; Plattform/Version öffnen ein
+  gemeinsames Filterpanel mit sichtbarer Auswahl und Rücksetzweg. Messdefinitionen
+  liegen hinter einer benannten Infoaktion. Kennzahlen und Fehlerprioritäten
+  sind mobil ohne lange Einleitung erreichbar; fehlende Quellen werden direkt
+  vor den Zahlen erklärt. Desktop-Fehlerlisten richten Wirkung, Version und
+  Zeitpunkt nebeneinander aus. Tagesverläufe zeigen zunächst sieben Tage mit
+  explizitem Aufklappen; vollständige Werte bleiben erhalten.
   Monitoring trennt Übersicht, Upload-Suche und Aktivität; technische IDs und
   vollständige Fehler stehen in Details. Protokoll zeigt kompakte, aufklappbare
   Gruppen und benennt seine Suchgrenze (letzte 300 Einträge).

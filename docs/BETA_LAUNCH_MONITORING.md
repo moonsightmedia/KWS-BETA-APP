@@ -61,11 +61,16 @@ automatisch ab. Fehlende/defekte/veraltete Quellen sind keine künstlichen Nulle
 2. Datenbank sichern und die Migration
    `20261017203000_beta_launch_monitoring.sql` kontrolliert anwenden. Sie ersetzt
    keine bestehenden Produktdaten und aktiviert keinen Mailversand.
+   Die Datei enthält selbst `BEGIN`/`COMMIT`: Ein äußerer `ROLLBACK` ist kein
+   Probelauf. Dafür eine isolierte Testdatenbank verwenden.
 3. Die vier Edge-Dateien und Betreiberjobs gemäß
    `ops/hostinger/monitoring/README.md` per geprüftem Hashplan installieren.
    Die tägliche Bereinigung aktivieren. Nutzungsrohereignisse: 30 Tage,
    technische Rohdaten/Versandhistorie: 90 Tage, tägliche Summen: 366 Tage.
    Der Kontolöschtrigger löscht zugeordnete Diagnose-/Versandereignisse und Sitzungen.
+   Die bestehende API-Routen-Whitelist benötigt außerdem exakt den zusätzlichen
+   Slug `monitoring-events`. `route_install.py` prüft einen Hashplan, sichert die
+   vorherige Caddydatei und erhält JWT-Prüfung sowie alle anderen Routengrenzen.
 4. Wenn Backend und Bereinigung eingerichtet sind, die gewünschte private
    Konfiguration mit `collection_enabled: true` im Alarmmodus `shadow` per
    geprüftem Plan vorbereiten. Das veröffentlicht noch keinen neuen Client.
