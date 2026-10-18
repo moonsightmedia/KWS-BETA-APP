@@ -1,10 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ArrowUpRight, CheckCircle2, ChevronRight, Clock3, ExternalLink, Info, SlidersHorizontal, Smartphone } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, ChevronRight, Clock3, Info, SlidersHorizontal, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+import { Dialog } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { KwsSegmentedControl } from '@/components/ui/kws-segmented-control';
 import { KwsSurface } from '@/components/ui/kws-surface';
@@ -13,7 +12,9 @@ import { Switch } from '@/components/ui/switch';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { defaultLaunchFilters, LaunchMonitoringError, loadLaunchDashboard, loadLaunchIssueEvents, safeMonitoringLink, updateLaunchIssueStatus, visibleLaunchActivity, type LaunchDashboard, type LaunchFilters, type LaunchIssue, type MonitoringConnection, type MonitoringSource } from '@/lib/launchMonitoring';
+import { defaultLaunchFilters, LaunchMonitoringError, loadLaunchDashboard, visibleLaunchActivity, type LaunchDashboard, type LaunchFilters, type LaunchIssue, type MonitoringConnection, type MonitoringSource } from '@/lib/launchMonitoring';
+import { monitoringPlatformName, monitoringVersionName } from '@/lib/monitoringIssueGuide';
+import { LaunchIssueDetail as IssueDetail } from './LaunchIssueDetail';
 import { AdminSearchField } from './AdminSearchField';
 import { AdminViewBar } from './AdminViewBar';
 
@@ -52,36 +53,12 @@ function IssueList({ issues, onSelect }: { issues: LaunchIssue[]; onSelect: (iss
       <span className="min-w-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1fr)_120px_180px_90px] lg:items-center lg:gap-x-4"><span className="lg:col-start-1"><span className="flex flex-wrap gap-x-3 gap-y-1 text-xs"><span className="font-semibold">{severityNames[issue.severity] || issue.severity}</span><span className={cn('text-muted-foreground', issue.regression && 'font-semibold text-destructive')}>{issue.regression ? 'Erneut aufgetreten' : statusNames[issue.status] || issue.status}</span></span>
         <span className="mt-1 line-clamp-3 break-words text-sm font-semibold [overflow-wrap:anywhere]">{issue.title}</span>
         </span><span className="mt-2 block text-xs leading-relaxed text-muted-foreground lg:mt-0">{number(issue.affected_devices)} {issue.source === 'sentry' ? 'Nutzerreferenzen in Sentry' : issue.affected_devices === 1 ? 'betroffenes Gerät' : 'betroffene Geräte'} · {number(issue.occurrences)} {issue.occurrences === 1 ? 'Vorkommnis' : 'Vorkommnisse'}</span>
-        <span className="mt-1 block truncate text-xs text-muted-foreground lg:mt-0" title={issue.release || undefined}>{issue.platform || 'Mehrere Plattformen'} · {issue.release || 'Mehrere Versionen'}</span><span className="mt-1 block text-xs text-muted-foreground lg:mt-0">{dateTime(issue.last_seen_at)}</span>
+        <span className="mt-1 block truncate text-xs text-muted-foreground lg:mt-0" title={issue.release || undefined}>{monitoringPlatformName(issue.platform)} · {monitoringVersionName(issue.release)}</span><span className="mt-1 block text-xs text-muted-foreground lg:mt-0">{dateTime(issue.last_seen_at)}</span>
       </span><ChevronRight className="mt-3 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
     </button>
   </li>)}</ul>;
 }
 
-function IssueDetail({ issue, connection, onClose, onSaved, onCloseAutoFocus, onDirtyChange, onBusyChange }: { issue: LaunchIssue; connection: MonitoringConnection; onClose: () => void; onSaved: () => void; onCloseAutoFocus: () => void; onDirtyChange: (dirty: boolean) => void; onBusyChange: (busy: boolean) => void }) {
-  const [status, setStatus] = useState(['open', 'acknowledged', 'resolved'].includes(issue.status) ? issue.status : 'open');
-  const [fixedRelease, setFixedRelease] = useState(issue.fixed_release || '');
-  const [saving, setSaving] = useState(false);
-  const [writeError, setWriteError] = useState('');
-  const [saved, setSaved] = useState(false);
-  useLayoutEffect(() => { onDirtyChange(issue.source === 'app' && !saved && (status !== issue.status || fixedRelease !== (issue.fixed_release || ''))); }, [status, fixedRelease, issue.source, issue.status, issue.fixed_release, saved, onDirtyChange]);
-  useLayoutEffect(() => { onBusyChange(saving); }, [saving, onBusyChange]);
-  const { data, isLoading, error, refetch, isFetching } = useQuery({ queryKey: ['launch-issue-events', issue.fingerprint, connection.token], queryFn: ({ signal }) => loadLaunchIssueEvents(connection, issue.fingerprint, signal), enabled: issue.source === 'app', retry: false });
-  const permalink = safeMonitoringLink(issue.permalink);
-  const save = async () => {
-    setSaving(true); setWriteError(''); setSaved(false);
-    try { await updateLaunchIssueStatus(connection, issue.fingerprint, status, status === 'resolved' ? fixedRelease : null); setSaved(true); onSaved(); }
-    catch (error) { setWriteError(error instanceof Error ? error.message : 'Status konnte nicht gespeichert werden.'); }
-    finally { setSaving(false); }
-  };
-  return <DialogContent scrollLayout="contained" className="flex flex-col gap-0 p-0 md:max-w-2xl" onCloseAutoFocus={event => { event.preventDefault(); onCloseAutoFocus(); }} onEscapeKeyDown={event => { if (saving) event.preventDefault(); }} onInteractOutside={event => { if (saving) event.preventDefault(); }}>
-    <DialogHeader className="shrink-0 p-5"><DialogTitle>Fehlerdetails</DialogTitle><DialogDescription className="break-words [overflow-wrap:anywhere]">{issue.title}</DialogDescription></DialogHeader>
-    <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-5">
-    <dl className="grid grid-cols-2 gap-4 rounded-kws-control bg-secondary/60 p-4 text-xs">{[[issue.source === 'sentry' ? 'Nutzerreferenzen in Sentry' : 'Betroffene Geräte', number(issue.affected_devices)], ['Vorkommnisse', number(issue.occurrences)], ['Zuerst gemeldet', dateTime(issue.first_seen_at)], ['Zuletzt gemeldet', dateTime(issue.last_seen_at)], ['Plattform', issue.platform || 'Mehrere'], ['App-Version', issue.release || 'Mehrere']].map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-muted-foreground">{label}</dt><dd className="mt-1 break-words [overflow-wrap:anywhere]">{value}</dd></div>)}</dl>
-    {issue.source === 'sentry' ? <section className="space-y-2"><p className="text-sm text-muted-foreground">Dieses Problem wird in Sentry bearbeitet. Der Status wird aus dieser Quelle übernommen. Nutzerreferenzen und Vorkommnisse stammen aus dem gesamten Problemverlauf in Sentry, unabhängig vom Zeitraumfilter.</p>{permalink && <Button asChild variant="secondary"><a href={permalink} target="_blank" rel="noreferrer">In Sentry öffnen<ExternalLink className="h-4 w-4" aria-hidden="true" /></a></Button>}</section> : <section className="space-y-3"><h3 className="text-base font-semibold">Bearbeitungsstatus</h3><p className="text-xs text-muted-foreground">App-Diagnose · lokale Fehlergruppe. Historische Feedbackberichte bleiben unter Feedback.</p><div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1"><Label htmlFor="launch-issue-status">Status</Label><Select value={status} onValueChange={value => { setStatus(value); setSaved(false); }} disabled={saving}><SelectTrigger id="launch-issue-status"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="open">Offen</SelectItem><SelectItem value="acknowledged">In Bearbeitung</SelectItem><SelectItem value="resolved">Behoben</SelectItem></SelectContent></Select></div>{status === 'resolved' && <div className="space-y-1"><Label htmlFor="launch-fixed-release">Behoben ab App-Version</Label><Input id="launch-fixed-release" value={fixedRelease} onChange={event => { setFixedRelease(event.target.value); setSaved(false); }} maxLength={120} disabled={saving} placeholder="z. B. kws-beta-app@1.0.245" /></div>}</div>{writeError && <p role="alert" className="text-sm text-destructive">{writeError}</p>}{saved && <p role="status" className="flex items-center gap-2 text-sm"><CheckCircle2 className="h-4 w-4 text-primary-ink" aria-hidden="true" />Status gespeichert.</p>}<Button onClick={() => void save()} disabled={saving || (status === 'resolved' && !fixedRelease.trim())}>{saving ? 'Wird gespeichert …' : 'Status speichern'}</Button></section>}
-    {issue.source === 'app' && <section className="space-y-3"><h3 className="text-base font-semibold">Letzte Einzelberichte</h3><p className="text-xs text-muted-foreground">Bis zu 50 Berichte dieser Fehlergruppe, unabhängig vom Zeitraumfilter.</p>{isLoading ? <p role="status" className="text-sm text-muted-foreground">Berichte werden geladen …</p> : error ? <div role="alert" className="space-y-2"><p className="text-sm text-destructive">Einzelberichte konnten nicht geladen werden.</p><Button variant="secondary" disabled={isFetching} onClick={() => void refetch()}>Erneut laden</Button></div> : data?.length ? <ul className="divide-y divide-border/50">{data.map(event => <li key={event.event_id}><details><summary className="min-h-11 cursor-pointer rounded-kws-control py-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{dateTime(event.occurred_at)} · {event.platform}<span className="mt-1 block break-all text-xs text-muted-foreground">{event.release}</span></summary><dl className="space-y-2 pb-4 text-xs">{[['Supportreferenz', event.event_id], ['Servereingang', dateTime(event.received_at)], ['Installation', event.installation_ref || 'Nicht zugeordnet'], ['Konto', event.user_ref || 'Nicht zugeordnet'], ['Sitzung', event.session_ref || 'Nicht zugeordnet']].map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="mt-1 break-all">{value}</dd></div>)}</dl><pre className="mb-4 whitespace-pre-wrap break-all rounded-kws-control bg-secondary/60 p-3 text-xs">{JSON.stringify(event.props, null, 2)}</pre></details></li>)}</ul> : <p className="text-sm text-muted-foreground">Keine Einzelberichte mehr verfügbar.</p>}</section>}
-    </div><DialogFooter className="shrink-0 border-t border-border/50 p-4"><Button variant="secondary" disabled={saving} onClick={onClose}>Schließen</Button></DialogFooter></DialogContent>;
-}
 
 export function LaunchCockpit({ view, onViewChange, connection, accountId }: { view: MonitoringView; onViewChange: (value: MonitoringView) => void; connection: MonitoringConnection; accountId: string }) {
   const [filters, setFilters] = useState<LaunchFilters>(defaultLaunchFilters);

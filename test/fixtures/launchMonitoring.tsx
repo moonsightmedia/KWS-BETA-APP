@@ -10,7 +10,8 @@ const params = new URLSearchParams(location.search);
 const mode = params.get('state');
 const fixture = launchDashboardFixture();
 const now = new Date().toISOString();
-window.launchMonitoringQA = { requests: [], writeMode: 'success', readMode: 'success' };
+window.launchMonitoringQA = { requests: [], writeMode: 'success', readMode: 'success', eventMode: mode === 'reports-error' ? 'fail' : mode === 'reports-empty' ? 'empty' : 'success' };
+if (mode === 'query' || mode === 'reports-error' || mode === 'reports-empty') { fixture.issues[0].title = 'App-Daten konnten nicht geladen werden'; fixture.issues[0].platform = 'web'; fixture.issues[0].release = 'kws-beta-app@1.0.246+5086e1f42b61'; }
 if (mode === 'empty') { for (const key of Object.keys(fixture.summary)) fixture.summary[key] = 0; for (const key of ['issues', 'activity', 'top_boulders', 'daily', 'deliveries']) fixture[key] = []; fixture.sources.collector.state = 'empty'; fixture.sources.issues.state = 'empty'; fixture.sources.notifications.state = 'empty'; }
 if (mode === 'partial') { fixture.sources.collector.state = 'error'; fixture.sources.collector.detail = 'Collector vorübergehend nicht erreichbar. Fehlende Daten sind keine Nullwerte.'; }
 if (mode === 'stale') { fixture.generated_at = new Date(Date.now() - 3600_000).toISOString(); fixture.sources.collector.state = 'stale'; fixture.activity[0].last_seen_at = fixture.generated_at; }
@@ -30,7 +31,11 @@ window.fetch = async (input, init) => {
     if (payload.p_platform !== 'all' || payload.p_release !== 'all') { response.summary.new_accounts = null; response.summary.confirmed_accounts = null; }
     return new Response(JSON.stringify(response));
   }
-  if (requestUrl.pathname.endsWith('/kws_monitoring_issue_events')) return new Response(JSON.stringify([{ event_id: 'fixture-event-82', occurred_at: now, received_at: now, platform: 'android', release: 'android@1.0.67', installation_ref: 'fixture-3a9f', user_ref: null, session_ref: 'fixture-session', props: { feature: 'video', error_code: 'playback_failed' } }]));
+  if (requestUrl.pathname.endsWith('/kws_monitoring_issue_events')) {
+    if (window.launchMonitoringQA.eventMode === 'fail') return new Response('', { status: 503 });
+    if (window.launchMonitoringQA.eventMode === 'empty') return new Response('[]');
+    return new Response(JSON.stringify([{ event_id: 'fixture-event-82', occurred_at: now, received_at: now, platform: 'android', release: 'android@1.0.67', installation_ref: 'fixture-3a9f', user_ref: null, session_ref: 'fixture-session', props: { code: mode === 'query' || mode === 'reports-error' || mode === 'reports-empty' ? 'QueryNetwork' : 'VideoPlaybackError', component: mode === 'query' || mode === 'reports-error' || mode === 'reports-empty' ? 'query' : 'video_player', error_code: 'playback_failed', private_note: 'do-not-export' } }]));
+  }
   if (requestUrl.pathname.endsWith('/kws_monitoring_issue_status')) {
     if (window.launchMonitoringQA.writeMode === 'fail') return new Response('', { status: 503 });
     const issue = fixture.issues.find(row => row.fingerprint === payload.p_fingerprint);
@@ -41,4 +46,4 @@ window.fetch = async (input, init) => {
 };
 const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
 createRoot(document.getElementById('root')!).render(<QueryClientProvider client={client}><MemoryRouter><main className="relative isolate min-h-screen bg-canvas px-4 pb-12 md:px-8"><BrandWatermark /><div className="relative mx-auto max-w-[1180px]"><header className="flex min-h-20 items-center justify-between gap-3"><h1 className="font-heading text-[2.15rem] font-semibold">Monitoring</h1><span className="text-xs text-muted-foreground">Isolierte Beispieldaten</span></header><MonitoringDashboard /></div></main></MemoryRouter></QueryClientProvider>);
-declare global { interface Window { launchMonitoringQA: { requests: Array<{ path: string; payload: Record<string, unknown> }>; writeMode: 'success' | 'fail'; readMode: 'success' | 'fail' } } }
+declare global { interface Window { launchMonitoringQA: { requests: Array<{ path: string; payload: Record<string, unknown> }>; writeMode: 'success' | 'fail'; readMode: 'success' | 'fail'; eventMode: 'success' | 'fail' | 'empty' } } }

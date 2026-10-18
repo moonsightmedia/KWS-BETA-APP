@@ -99,7 +99,10 @@ test('keyboard detail lazily loads reports, saves confirmed status and restores 
   await trigger.focus(); await page.keyboard.press('Enter');
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('Letzte Einzelberichte')).not.toBeVisible();
+  await dialog.getByText('Technische Details', { exact: true }).click();
   await expect(dialog.getByText('Letzte Einzelberichte')).toBeVisible();
+  await dialog.getByText('Technische Details', { exact: true }).click();
   await dialog.getByRole('combobox', { name: 'Status', exact: true }).click();
   await page.getByRole('option', { name: 'Behoben', exact: true }).click();
   await dialog.getByLabel('Behoben ab App-Version').fill('android@1.0.68');
@@ -257,7 +260,7 @@ test('desktop focus returns to the selected view when the resolved issue row dis
   await page.setViewportSize({ width: 1280, height: 900 });
   await open(page);
   await page.getByRole('button', { name: /Boulder-Video konnte nicht geladen werden/ }).click();
-  const dialog = page.getByRole('dialog', { name: 'Fehlerdetails', exact: true });
+  const dialog = page.getByRole('dialog', { name: 'Video konnte nicht abgespielt werden', exact: true });
   await dialog.getByRole('combobox', { name: 'Status', exact: true }).click();
   await page.getByRole('option', { name: 'Behoben', exact: true }).click();
   await dialog.getByLabel('Behoben ab App-Version').fill('android@1.0.68');
@@ -266,4 +269,110 @@ test('desktop focus returns to the selected view when the resolved issue row dis
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('group', { name: 'Monitoringansicht', exact: true }).getByRole('button', { name: 'Übersicht', exact: true })).toBeFocused();
+});
+
+test('error detail design loops keep plain-language guidance and fixed actions usable at all widths', async ({ page }) => {
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, 'query');
+    await page.getByRole('button', { name: /App-Daten konnten nicht geladen werden/ }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('heading', { name: 'App-Daten wurden nicht geladen', exact: true })).toBeVisible();
+    await expect(dialog.getByText('Das kannst du tun', { exact: true })).toBeVisible();
+    await expect(dialog.getByText('Webbrowser', { exact: true })).toBeVisible();
+    await expect(dialog.getByText('1.0.246', { exact: true })).toBeVisible();
+    await expect(dialog.getByText(/Ob Gerät, Netzwerk oder Server die Ursache war/)).toBeVisible();
+    await expect(dialog.getByText('kws-beta-app@1.0.246+5086e1f42b61', { exact: true })).not.toBeVisible();
+    const bounds = await dialog.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1);
+    if (width >= 768) expect(bounds!.width).toBeLessThanOrEqual(680);
+    for (const label of ['Fehleransicht schließen', 'Schließen', 'Status speichern']) {
+      const action = dialog.getByRole('button', { name: label, exact: true });
+      const box = await action.boundingBox();
+      expect(box!.y + box!.height).toBeLessThanOrEqual(900);
+      await expect(action).toHaveCSS('height', '44px');
+    }
+    expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await page.screenshot({ path: `${directory}/issue-loop1-query-${width}.png`, animations: 'disabled' });
+    await dialog.getByText('Technische Details', { exact: true }).click();
+    await expect(dialog.getByText('kws-beta-app@1.0.246+5086e1f42b61', { exact: true })).toBeVisible();
+    await dialog.getByRole('combobox', { name: 'Status', exact: true }).click();
+    await page.getByRole('option', { name: 'In Bearbeitung', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Status speichern', exact: true }).click();
+    await expect(dialog.getByRole('status')).toHaveText('Status gespeichert.');
+    await page.screenshot({ path: `${directory}/issue-loop2-saved-${width}.png`, animations: 'disabled' });
+    await dialog.getByRole('button', { name: 'Fehleransicht schließen', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+  }
+});
+
+test('support copy exports a useful technical reference without identities or arbitrary properties', async ({ page }) => {
+  let copied = '';
+  await page.exposeFunction('recordCopiedReport', (value: string) => { copied = value; });
+  await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (value: string) => (window as unknown as { recordCopiedReport: (text: string) => Promise<void> }).recordCopiedReport(value) } }));
+  await open(page, 'query');
+  await page.getByRole('button', { name: /App-Daten konnten nicht geladen werden/ }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('region', { name: 'Was bedeutet das?', exact: true }).getByText(/Ob Gerät, Netzwerk oder Server/)).toBeVisible();
+  await dialog.getByRole('button', { name: 'Bericht für Technik kopieren', exact: true }).click();
+  await expect(dialog.getByRole('status')).toContainText('Bericht kopiert');
+  expect(copied).toContain('fixture-event-82');
+  expect(copied).toContain('QueryNetwork');
+  expect(copied).not.toContain('fixture-3a9f');
+  expect(copied).not.toContain('do-not-export');
+});
+
+test('a saved status becomes the confirmed baseline and reversing it is a new protected edit', async ({ page }) => {
+  await open(page, 'query');
+  await page.getByRole('button', { name: /App-Daten konnten nicht geladen werden/ }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('combobox', { name: 'Status', exact: true }).click();
+  await page.getByRole('option', { name: 'In Bearbeitung', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Status speichern', exact: true }).click();
+  await expect(dialog.getByRole('status')).toHaveText('Status gespeichert.');
+  await expect(dialog.getByText('In Bearbeitung', { exact: true })).toHaveCount(2);
+  await dialog.getByRole('combobox', { name: 'Status', exact: true }).click();
+  await page.getByRole('option', { name: 'Offen', exact: true }).click();
+  await expect(dialog.getByText('In Bearbeitung', { exact: true })).toHaveCount(1);
+  await expect(dialog.getByRole('button', { name: 'Status speichern', exact: true })).toBeEnabled();
+  await dialog.getByRole('button', { name: 'Fehleransicht schließen', exact: true }).click();
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await page.getByRole('button', { name: 'Weiter bearbeiten', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Status speichern', exact: true }).click();
+  await expect(dialog.getByRole('status')).toHaveText('Status gespeichert.');
+  await dialog.getByRole('button', { name: 'Fehleransicht schließen', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+});
+
+test('clipboard failure offers a selectable report and unavailable reports remain visible and retryable', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => { throw new Error('clipboard blocked'); } } }));
+  await open(page, 'reports-error');
+  await page.getByRole('button', { name: /App-Daten konnten nicht geladen werden/ }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('alert')).toContainText('Technische Einzelberichte');
+  await dialog.getByRole('button', { name: 'Bericht für Technik kopieren', exact: true }).click();
+  await expect(dialog.getByRole('textbox', { name: 'Bericht manuell kopieren', exact: true })).toHaveValue(/Beta – technischer Fehlerbericht/);
+  await dialog.getByText('Technische Details', { exact: true }).click();
+  await page.evaluate(() => { window.launchMonitoringQA.eventMode = 'success'; });
+  await dialog.getByRole('button', { name: 'Erneut laden', exact: true }).click();
+  await expect(dialog.getByText(/Technische Einzelberichte konnten nicht/)).toHaveCount(0);
+  await expect(dialog.getByRole('region', { name: 'Was bedeutet das?', exact: true }).getByText(/Ob Gerät, Netzwerk oder Server/)).toBeVisible();
+});
+
+test('long unknown errors, empty reports and a short mobile viewport keep a reachable close action', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 568 });
+  await open(page, 'long');
+  await page.getByRole('button', { name: /UnunterbrocheneTechnischeFehlermeldung/ }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name: 'Video konnte nicht abgespielt werden', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Fehleransicht schließen', exact: true })).toBeInViewport();
+  await expect(dialog.getByRole('button', { name: 'Schließen', exact: true })).toBeInViewport();
+  expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.screenshot({ path: `${directory}/issue-short-mobile-375.png`, animations: 'disabled' });
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
+  await open(page, 'reports-empty');
+  await page.getByRole('button', { name: /App-Daten konnten nicht geladen werden/ }).click();
+  await dialog.getByText('Technische Details', { exact: true }).click();
+  await expect(dialog.getByText('Keine Einzelberichte mehr verfügbar.', { exact: true })).toBeVisible();
 });

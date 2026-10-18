@@ -1273,6 +1273,17 @@ Verbindliche Regeln:
   Monitoring trennt Übersicht, Upload-Suche und Aktivität; technische IDs und
   vollständige Fehler stehen in Details. Protokoll zeigt kompakte, aufklappbare
   Gruppen und benennt seine Suchgrenze (letzte 300 Einträge).
+  Nutzerkorrektur 18.10.2026: Fehlerdetails müssen ohne Entwicklungswissen
+  bedienbar sein. Reihenfolge: verständliches Problem und letzter Zeitpunkt,
+  Auswirkung und belegte Einordnung, kompakter Umfang, nächste Handlung,
+  Bearbeitungsstatus. Keine vermutete Ursache als bewiesene Diagnose darstellen.
+  Plattformen und Versionen erscheinen lesbar statt als Buildketten. Vollständige
+  Releases, Referenzen, Einzelberichte und Rohdaten liegen unter „Technische
+  Details“. Ein kopierbarer Technikbericht enthält keine Konten-/Gerätekennungen
+  oder ungeprüften Zusatzfelder. Ein Statuswechsel dokumentiert nur Bearbeitung;
+  „Behoben“ erfordert eine von der Technik bestätigte Fixversion. Schließen und
+  Speichern bleiben im festen Fuß erreichbar, dazu ein sichtbarer Schließenknopf
+  im Kopf. Mobile Bottom-Sheet, Desktop begrenzter Dialog, genau ein Scrollbereich.
   Push-Erfolg bedeutet nur bestätigte Annahme durch den Dienst, niemals
   bestätigte Anzeige auf dem Gerät. Gerätetokens gehören nicht in die UI.
   Wiederholte
