@@ -103,6 +103,20 @@ test('live expiry hides old numbers during failed refresh and empty is a confirm
   await expect(live.getByTestId('live-online')).toHaveText('–');
 });
 
+test('temporary HTTP failure recovers automatically even when the websocket stays connected and no new user arrives', async ({ page }) => {
+  await open(page, 'empty');
+  const live = page.getByTestId('live-monitoring');
+  await expect(live.getByTestId('live-online')).toHaveText('0');
+  await page.clock.install();
+  await page.evaluate(() => { window.launchMonitoringQA.liveError = true; window.dispatchEvent(new Event('qa:live-update')); });
+  await page.clock.fastForward(500);
+  await expect(live.getByTestId('live-online')).toHaveText('–');
+  await page.evaluate(() => { window.launchMonitoringQA.liveError = false; });
+  await page.clock.fastForward(16000);
+  await expect(live.getByTestId('live-online')).toHaveText('0');
+  await expect(live.getByText('Live verbunden', { exact: true })).toBeVisible();
+});
+
 test('complete live view expands real rows and remains usable at all widths', async ({ page }) => {
   for (const width of widths) {
     await page.setViewportSize({ width, height: 960 });

@@ -16,6 +16,7 @@ let presence: LivePresenceClient | null = null;
 let presenceTimer: ReturnType<typeof setInterval> | null = null;
 let nativeForeground = !Capacitor.isNativePlatform();
 let loadedBoulder: string | null = null;
+let loadedBoulderOwner: symbol | null = null;
 const reported = new WeakMap<object, { id: string; at: number }>();
 const operationFailures = new Map<string, number>();
 
@@ -59,7 +60,7 @@ export function getUsageConsent(): MonitoringConsent { return getClient()?.getCo
 
 function updatePresence(foreground = document.visibilityState === 'visible' && nativeForeground): void {
   presence?.update({ allowed: getUsageConsent() === 'granted', foreground, online: navigator.onLine,
-    owner: currentUser?.id ?? null, screen, boulderId: loadedBoulder });
+    owner: currentUser?.id ?? null, screen, boulderId: screen === 'boulder' && loadedBoulder === boulder ? loadedBoulder : null });
 }
 
 export function setUsageConsent(consent: MonitoringConsent): void {
@@ -80,11 +81,20 @@ export function setMonitoringUser(user: { id: string; token: string } | null): v
 }
 
 export function trackMonitoring(name: MonitoringEventName, props: MonitoringProps = {}, boulderId: string | null = null): string | null {
-  if (name === 'boulder_detail_view' && screen === 'boulder' && boulder === boulderId) {
-    loadedBoulder = boulderId;
-    updatePresence();
-  }
   return getClient()?.record(name, { screen, ...props }, boulderId) ?? null;
+}
+
+export function setMonitoringLoadedBoulder(boulderId: string): () => void {
+  const owner = Symbol();
+  loadedBoulderOwner = owner;
+  loadedBoulder = boulderId;
+  updatePresence();
+  return () => {
+    if (loadedBoulderOwner !== owner) return;
+    loadedBoulderOwner = null;
+    loadedBoulder = null;
+    updatePresence();
+  };
 }
 
 export function setMonitoringScreen(path: string, boulderId: string | null = null): void {
@@ -92,7 +102,7 @@ export function setMonitoringScreen(path: string, boulderId: string | null = nul
   if (screen === next && boulder === boulderId) return;
   screen = next;
   boulder = boulderId;
-  loadedBoulder = null;
+  if (loadedBoulder !== boulderId) { loadedBoulder = null; loadedBoulderOwner = null; }
   trackMonitoring('screen_view', { screen }, boulder);
   updatePresence();
 }
