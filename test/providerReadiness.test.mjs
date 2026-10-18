@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, verify } from 'node:crypto';
 import test from 'node:test';
-import { appleToken, betaUsage, checkApple, checkProviders, checkSentry, providerJson } from '../ops/hostinger/monitoring/provider-readiness.mjs';
+import { appleToken, betaUsage, checkApple, checkProviders, checkSentry, ensureAppleAnalytics, providerJson } from '../ops/hostinger/monitoring/provider-readiness.mjs';
 
 const keys = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
 const environment = { APPSTORE_API_KEY_ID: 'TESTKEY123', APPSTORE_ISSUER_ID: '00000000-0000-4000-8000-000000000000', APPSTORE_API_PRIVATE_KEY: keys.privateKey.export({ type: 'pkcs8', format: 'pem' }), SENTRY_AUTH_TOKEN: 'do-not-print-this', SENTRY_ORG: 'fixture', SENTRY_PROJECT: 'kws' };
@@ -70,4 +70,29 @@ test('missing or failing provider access never leaks raw errors or pretends inte
   assert.equal(report.sentry.status, 'unavailable');
   assert.equal(report.google_play.status, 'not_configured');
   assert.ok(!JSON.stringify(report).includes('private-token'));
+});
+
+test('official Apple report setup is explicit, app-bound, idempotent and never fabricates downloaded data', async () => {
+  const calls = [];
+  const fetcher = async (url, options) => {
+    calls.push(options.method);
+    if (url.pathname === '/v1/apps') return json({data:[{id:'123',attributes:{bundleId:'com.kletterwelt.beta'}}]});
+    if (options.method === 'POST') {
+      const body = JSON.parse(options.body);
+      assert.equal(body.data.relationships.app.data.id, '123');
+      assert.equal(body.data.attributes.accessType, 'ONGOING');
+      return json({data:{type:'analyticsReportRequests',attributes:{accessType:'ONGOING'}}});
+    }
+    return json({data:[]});
+  };
+  const created = await ensureAppleAnalytics(environment, fetcher);
+  assert.equal(created.status, 'created'); assert.equal(created.initial_reports_pending, true); assert.equal(created.daily_downloads_imported, false);
+  assert.deepEqual(calls, ['GET','GET','POST']);
+  const existing = await ensureAppleAnalytics(environment, async (url, options) => {
+    assert.equal(options.method, 'GET');
+    return url.pathname === '/v1/apps' ? json({data:[{id:'123',attributes:{bundleId:'com.kletterwelt.beta'}}]}) : json({data:[{attributes:{accessType:'ONGOING',stoppedDueToInactivity:false}}]});
+  });
+  assert.equal(existing.status, 'already_configured');
+  await assert.rejects(providerJson('https://sentry.io', '/api/0/projects/', 'token', fetcher, {}), /write_rejected/);
+  await assert.rejects(ensureAppleAnalytics(environment, async url => url.pathname === '/v1/apps' ? json({data:[{id:'123',attributes:{bundleId:'com.kletterwelt.beta'}}]}) : json({data:[],links:{next:'private-next'}})), /requests_incomplete/);
 });
