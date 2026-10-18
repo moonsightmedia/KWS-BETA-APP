@@ -203,8 +203,11 @@ einem ausgeschlossenen Test zweimal auf genau einen Datensatz und keine Alarme
 geprüft. Alarmmodus ist `live`; die autorisierte Adresse steht nur in der privaten
 Konfiguration. Ein eindeutig markierter SMTP-Test wurde angenommen, ohne einen
 echten Fehler oder Nutzerereignisse zu erzeugen. Das bestätigt nicht den
-Posteingang. Sentry- und Storeimporte bleiben deaktiviert. Web-/Native-Release
-und tatsächliche Geräteprüfung sind hiervon getrennte Nachweise.
+Posteingang. Der Sentry-Importer wurde anschließend mit einem getrennten
+`event:read`-Token aktiviert; Storeimporte bleiben deaktiviert. Web-/Native-
+Release und tatsächliche Geräteprüfung sind hiervon getrennte Nachweise.
+Der aktuelle Providerstand und die noch offenen Freigaben stehen in
+`docs/BETA_LAUNCH_MONITORING.md`.
 
 Offizielle Quellen, geprüft am 17.10.2026:
 
