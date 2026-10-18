@@ -213,3 +213,20 @@ Offizielle Quellen, geprüft am 17.10.2026:
 - [Apple Downloaddefinitionen und Berichtskorrekturen](https://developer.apple.com/documentation/analytics-reports/app-download)
 - [Apple TestFlight-Metriken](https://developer.apple.com/help/app-store-connect/test-a-beta-version/view-build-status-and-metrics/)
 - [Google monatliche CSV-Berichte und Zugriffsrollen](https://support.google.com/googleplay/android-developer/answer/6135870?hl=en)
+# Provider-Zugriff vor Aktivierung prüfen
+
+Der manuell startbare GitHub-Workflow `Monitoring provider readiness` läuft nur
+auf `main`. Er nutzt vorhandene GitHub-Secrets ausschließlich auf dem Runner,
+stellt nur GET-Anfragen und exportiert keine privaten Schlüssel, Tokens,
+Testeridentitäten oder Fehlerereignisse. Das kurzlebige Ergebnisartefakt enthält
+nur Zugriffsstatus, die öffentliche Sentry-DSN und aggregierte TestFlight-Zahlen
+der fünf neuesten Builds. Fehlende Rechte bleiben ausdrücklich sichtbar.
+
+TestFlight-Werte behalten den vom Provider gelieferten Zeitraum. Sie sind weder
+tägliche Store-Downloads noch eindeutige neue Personen und dürfen nicht in den
+Daily-CSV-Importer umgedeutet werden. Eine erfolgreiche Provider-Prüfung
+aktiviert weder native Crash-Erfassung noch Importe oder externe Alarme.
+
+Quellen: [Apple Build-Metriken](https://developer.apple.com/documentation/appstoreconnectapi/get-v1-builds-_id_-metrics-betabuildusages),
+[Apple Metrikdefinitionen](https://developer.apple.com/help/app-store-connect/test-a-beta-version/view-build-status-and-metrics/).
+
