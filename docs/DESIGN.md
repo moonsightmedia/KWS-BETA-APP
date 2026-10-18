@@ -1107,6 +1107,8 @@ Confirmation-Surface-Verhalten. In der Administration stehen offene Anträge
 bei den Benutzern; ein Ladefehler darf nicht als leere Warteschlange erscheinen.
 Nutzerkorrektur 18.10.2026: Die vollständige Warteschlange öffnet über
 „Löschanträge“ als eigene Ansicht der Benutzerverwaltung, mit Rückweg zur Liste.
+Die Admin-Warteschlange zeigt keinen allgemeinen Marketing-Erklärungstext;
+maßgeblich sind der Vorgangsstatus und die jeweilige Frist.
 Die reguläre Benutzerliste beginnt mit ihren Filtern statt einer leeren
 Löschkarte. Oben im Adminbereich steht ausschließlich bei bestätigten offenen
 Anträgen ein kompakter Anzahlhinweis mit direktem Link zur Warteschlange.
