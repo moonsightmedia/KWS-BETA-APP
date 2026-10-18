@@ -32,3 +32,9 @@ Kontolöschung, API und Datenbank wurden nicht verändert.
 Die neue Suite läuft im regulären Web-Release-Workflow mit. Veröffentlichung und
 genauer Live-Stand werden über GitHub Actions und beide öffentlichen
 `release.json`-Nachweise kontrolliert.
+
+Nacharbeit auf Nutzerwunsch: Den allgemeinen Erklärungssatz „Marketing übernimmt
+die vollständige Löschung innerhalb von sieben Tagen“ aus der Admin-Warteschlange
+entfernt. Überschrift, Aktualisieren, Leer-/Fehlerzustände und Fristen der einzelnen
+Vorgänge bleiben bestehen. Die vorhandene Browser-Suite und beide visuellen Runden
+wurden für diese Fassung erneut ausgeführt.
