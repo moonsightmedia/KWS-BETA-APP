@@ -8,6 +8,27 @@ const number = (value: number) => value.toLocaleString('de-DE');
 const dayDate = (day: string) => new Date(`${day}T12:00:00`);
 const dateLabel = (day: string) => dayDate(day).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' });
 
+/** Reserve the loaded card's geometry without implying any values or activity. */
+export function WeeklyProgressSkeleton() {
+  return <KwsSurface className="weekly-progress-card weekly-progress-skeleton" data-testid="weekly-progress-skeleton" role="status" aria-busy="true">
+    <span className="sr-only">Dein Fortschritt wird geladen …</span>
+    <div aria-hidden="true">
+      <div className="weekly-progress-heading"><span>Deine Woche</span><span className="weekly-placeholder weekly-placeholder-date" /></div>
+      <div className="weekly-progress-body">
+        <div className="weekly-progress-total"><strong><span className="weekly-placeholder weekly-placeholder-total" /></strong><span><span className="weekly-placeholder weekly-placeholder-label" /></span></div>
+        <div className="weekly-progress-chart">
+          <div className="weekly-placeholder-caption"><span className="weekly-placeholder" /></div>
+          <div className="weekly-progress-days">{Array.from({ length: 7 }, (_, index) => <div className="weekly-progress-day" key={index}>
+            <div className="weekly-progress-track"><span className="weekly-placeholder weekly-placeholder-bar" /></div>
+            <span className="weekly-progress-day-label"><span className="weekly-placeholder weekly-placeholder-day" /></span>
+          </div>)}</div>
+        </div>
+      </div>
+      <div className="weekly-progress-footer"><span><span className="weekly-placeholder weekly-placeholder-footer" /></span><span><span className="weekly-placeholder weekly-placeholder-footer-short" /></span></div>
+    </div>
+  </KwsSurface>;
+}
+
 /** Seven local calendar days ending today, matching Home's statistics link. */
 export function WeeklyProgressCard({ summary }: { summary: ProgressSummary }) {
   const topsByDate = new Map(summary.topsByDate.map(day => [day.date, day.tops]));

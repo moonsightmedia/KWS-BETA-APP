@@ -20,4 +20,18 @@
 .weekly-progress-footer svg{width:16px;height:16px;color:hsl(var(--primary-ink));flex-shrink:0}
 .weekly-progress-footer strong{font-weight:600;color:hsl(var(--brand-ink))}
 .weekly-progress-empty{font-size:11px;line-height:1.7;color:hsl(var(--muted-foreground));margin-top:10px}
+.weekly-placeholder{display:block;background:hsl(var(--secondary));border-radius:4px;animation:weekly-placeholder-pulse 1800ms ease-in-out infinite}
+.weekly-placeholder-date{width:107px;height:16.5px}
+.weekly-placeholder-total{width:64px;height:52px}
+.weekly-placeholder-label{width:103px;height:16.5px}
+.weekly-placeholder-caption{height:15px;margin-bottom:8px;display:flex;justify-content:flex-end}
+.weekly-placeholder-caption>.weekly-placeholder{width:65px;height:10px;align-self:center}
+.weekly-placeholder-bar{height:48px;width:100%;max-width:14px;border-radius:3px 3px 0 0}
+.weekly-placeholder-day{width:13px;height:14px}
+.weekly-placeholder-footer{width:120px;height:16.5px}
+.weekly-placeholder-footer-short{width:80px;height:16.5px}
+.weekly-progress-skeleton .weekly-progress-footer>span{height:16.5px}
+@keyframes weekly-placeholder-pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@media(min-width:768px){.weekly-placeholder-total{height:56px}.weekly-placeholder-label,.weekly-placeholder-footer,.weekly-placeholder-footer-short,.weekly-progress-skeleton .weekly-progress-footer>span{height:18px}}
+@media(prefers-reduced-motion:reduce){.weekly-placeholder{animation:none}}
 @media(min-width:768px){.weekly-progress-card{padding:21px 24px}.weekly-progress-body{gap:24px}.weekly-progress-total>strong{font-size:56px}.weekly-progress-total>strong[data-wide=true]{font-size:42px}.weekly-progress-total>span{font-size:12px;max-width:160px}.weekly-progress-footer{justify-content:flex-start;gap:28px;font-size:12px}}

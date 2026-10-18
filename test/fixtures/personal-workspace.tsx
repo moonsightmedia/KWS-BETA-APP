@@ -21,7 +21,7 @@ function CrashTest() {
 createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}, mutations:{retry:false}}})}>
     <MemoryRouter initialEntries={[new URLSearchParams(location.search).get('route') || '/statistics']}>
-      <SidebarProvider><ErrorBoundary><Sidebar /><Routes>
+      <SidebarProvider><ErrorBoundary><Sidebar />{new URLSearchParams(location.search).has('loadingControls') ? <button type="button" className="fixed bottom-24 right-4 z-[9999] rounded-kws-control bg-white px-4 py-3 shadow-soft" onClick={() => window.dispatchEvent(new Event('personal-fixture-ready'))}>Testdaten freigeben</button> : null}<Routes>
         <Route path="/statistics" element={<Statistics />} /><Route path="/" element={<Index />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/boulders" element={<Boulders />} /><Route path="/boulders/:id" element={<p>Boulder-Detail geöffnet</p>} />

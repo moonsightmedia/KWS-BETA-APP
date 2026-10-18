@@ -1076,6 +1076,13 @@ Bedienelemente auf wechselnden Wandfotos lesbar bleiben:
   keine scheinbaren Nullzahlen; leere Daten erhalten einen kurzen Hinweis.
 - `Neu an der Wand` verwendet dieselbe kanonische Gridkarte wie die
   Boulderübersicht.
+- Nutzerfreigabe 18.10.2026: Nach dem unveränderten Start-/Session-Ladescreen
+  mit Beta-Logo lädt Home im normalen Seitenrahmen. `WeeklyProgressSkeleton`
+  reserviert oben die Geometrie der Wochenkarte mit neutralen Platzhaltern für
+  Gesamtzahl, sieben Tage und Metadaten. Das gilt auch, wenn nur die persönlichen
+  Daten noch fehlen. Boulder-/Sessionbereiche verwenden passende Platzhalter;
+  keine scheinbaren Nullwerte oder erfundene Aktivität. Reduzierte Bewegung
+  deaktiviert das Pulsieren. Keine zusätzliche Mindestwartezeit für Home-Daten.
 - Schraubtermine und Rückblicke bleiben kompakte, scannbare Flächen.
 - Home-Terminkarten begrenzen Gridspalten mit `minmax(0,1fr)` und Gridkinder
   mit `min-w-0`. Lange Sektornamen dürfen umbrechen; Datum und Zeitbadge teilen

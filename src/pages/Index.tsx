@@ -14,8 +14,8 @@ import { NotificationCenter } from '@/components/NotificationCenter';
 import { PersonalDataState } from '@/components/PersonalDataState';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { WeeklyProgressCard } from '@/components/statistics/WeeklyProgressCard';
-import { Skeleton } from '@/components/ui/skeleton';
+import { WeeklyProgressCard, WeeklyProgressSkeleton } from '@/components/statistics/WeeklyProgressCard';
+import { HomeBoulderSkeletons, HomeRowSkeleton } from '@/components/home/HomeLoadingSkeletons';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
 import { BoulderTypeBadge } from '@/components/boulder/BoulderTypeBadge';
 import { useSidebar } from '@/components/SidebarContext';
@@ -267,34 +267,7 @@ const Index = () => {
     ? `${newBoulderCount} neue Boulder in den letzten 7 Tagen`
     : 'Alles Wichtige für deine nächste Session';
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex bg-brand-canvas">
-        <div ref={swipeRef} className={layoutClassName}>
-          <DashboardHeader
-            desktopTitle={desktopGreeting}
-            desktopSubtitle={desktopGreetingSubtitle}
-            rightSlot={<NotificationCenter variant="header" />}
-          />
-          <main className="relative isolate mx-auto w-full max-w-[1180px] flex-1 px-4 pb-28 pt-6 md:px-8 md:pb-10">
-            <BrandWatermark />
-            <div className="space-y-4">
-              <Skeleton className="h-20 rounded-kws-card" />
-              <div className="grid grid-cols-3 gap-3">
-                {[...Array(3)].map((_, index) => (
-                  <Skeleton key={index} className="h-20 rounded-kws-card" />
-                ))}
-              </div>
-              <Skeleton className="h-44 rounded-kws-card" />
-              <Skeleton className="h-40 rounded-kws-card" />
-            </div>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
+  if (!isLoading && error) {
     return (
       <div className="min-h-screen flex bg-brand-canvas">
         <div ref={swipeRef} className={layoutClassName}>
@@ -331,7 +304,7 @@ const Index = () => {
     );
   }
 
-  if (!boulders?.length && !sectors?.length) {
+  if (!isLoading && !boulders?.length && !sectors?.length) {
     return (
       <div className="min-h-screen flex bg-brand-canvas">
         <div ref={swipeRef} className={layoutClassName}>
@@ -386,7 +359,7 @@ const Index = () => {
 
           <section className="mb-5">
             <DashboardSectionHeader title="Letzte 7 Tage" actionLabel="Fortschritt" onActionClick={() => navigate('/statistics?period=7')} />
-            {personalUnavailable ? <PersonalDataState loading={personalLoading} onRetry={retryPersonal} /> : <WeeklyProgressCard summary={weeklyStats} />}
+            {isLoading || personalLoading ? <WeeklyProgressSkeleton /> : personalUnavailable ? <PersonalDataState onRetry={retryPersonal} /> : <WeeklyProgressCard summary={weeklyStats} />}
           </section>
 
           <section className="mb-5">
@@ -395,8 +368,8 @@ const Index = () => {
               actionLabel="Alle ansehen"
               onActionClick={() => navigate('/boulders?show=new')}
             />
-            <div className="grid grid-cols-3 gap-2 md:gap-3 xl:grid-cols-6">
-              {newestBoulders.map((boulder) => (
+            <div className="grid grid-cols-3 gap-2 md:gap-3 xl:grid-cols-6" aria-busy={isLoading}>
+              {isLoading ? <HomeBoulderSkeletons /> : newestBoulders.map((boulder) => (
                 <button
                   key={boulder.id}
                   type="button"
@@ -446,7 +419,7 @@ const Index = () => {
                   <BoulderTypeBadge volumeOnly={boulder.volumeOnly} compact className="absolute left-1.5 top-9 sm:left-2" />
                 </button>
               ))}
-              {newestBoulders.length === 0 ? (
+              {!isLoading && newestBoulders.length === 0 ? (
                 <div className="col-span-3 rounded-kws-card bg-card px-4 py-5 text-sm text-muted-foreground shadow-[0_3px_14px_rgba(19,17,43,0.05)] xl:col-span-6">
                   In den letzten sieben Tagen kamen keine Boulder dazu.
                 </div>
@@ -457,7 +430,7 @@ const Index = () => {
           <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-2">
             <section className="min-w-0" data-testid="home-next-reset">
               <DashboardSectionHeader title="Nächste Umschraubung" actionLabel="Alle Termine" onActionClick={() => navigate('/schedule')} />
-              <NextResetCard />
+              {isLoading ? <HomeRowSkeleton /> : <NextResetCard />}
             </section>
 
             <section className="min-w-0">
@@ -466,7 +439,7 @@ const Index = () => {
                 actionLabel="Projekte"
                 onActionClick={() => navigate('/statistics?view=collection&collection=projects')}
               />
-              {personalUnavailable ? <p className="p-4 text-sm text-muted-foreground">Deine Projekte sind verfügbar, sobald dein Fortschritt geladen ist.</p> : nextFocusBoulders.length > 0 ? (
+              {isLoading || personalLoading ? <HomeRowSkeleton projects /> : personalUnavailable ? <p className="p-4 text-sm text-muted-foreground">Deine Projekte sind verfügbar, sobald dein Fortschritt geladen ist.</p> : nextFocusBoulders.length > 0 ? (
                 <div className="space-y-2.5">
                   {nextFocusBoulders.map((item) =>
                     item.boulder ? (
@@ -487,7 +460,7 @@ const Index = () => {
             </section>
           </div>
 
-          {!personalUnavailable ? <section className="mb-4 mt-5">
+          {!isLoading && !personalUnavailable ? <section className="mb-4 mt-5">
             <DashboardSectionHeader title="Dein Fortschritt" actionLabel="Alle Statistiken" onActionClick={() => navigate('/statistics?period=all')} />
             <div className="rounded-kws-card bg-card px-4 py-3.5 shadow-[0_3px_14px_rgba(19,17,43,0.07)]">
               <div className="mb-2.5 flex items-baseline justify-between gap-3">

@@ -93,3 +93,64 @@ for (const state of ['empty', 'loading', 'error']) {
     }
   });
 }
+
+for (const width of [375, 768, 1280, 1920]) {
+  for (const catalog of [false, true]) {
+    test(`${catalog ? 'initial Home' : 'personal-only'} skeleton resolves without moving weekly content at ${width}px`, async ({ page }) => {
+      const errors: string[] = [];
+      page.on('pageerror', error => errors.push(error.message));
+      await page.setViewportSize({ width, height: 900 });
+      await open(page, `state=loading&loadingControls=1${catalog ? '&catalogState=loading' : ''}`);
+      const skeleton = page.getByTestId('weekly-progress-skeleton');
+      await expect(skeleton).toBeVisible();
+      await expect(skeleton).toHaveAttribute('aria-busy', 'true');
+      await expect(skeleton.locator('[data-metric]')).toHaveCount(0);
+      await expect(page.getByTestId('weekly-progress-card')).toHaveCount(0);
+      await expect(page.getByText('Keine Daten geladen', { exact: true })).toHaveCount(0);
+      const before = (await skeleton.boundingBox())!;
+      const next = page.getByRole('heading', { name: 'Neu an der Wand', exact: true });
+      const nextBefore = (await next.boundingBox())!;
+      expect(before.y + before.height).toBeLessThan(nextBefore.y);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: `${output}/${catalog ? 'initial' : 'personal'}-loading-${width}.png`, fullPage: true, animations: 'disabled' });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await expect(skeleton.locator('.weekly-placeholder').first()).toHaveCSS('animation-name', 'none');
+      if (catalog) {
+        await expect(page.locator('main [aria-busy="true"]').filter({ has: page.locator('.aspect-\\[4\\/5\\]') })).toHaveCount(1);
+        await expect(page.locator('main .animate-pulse').first()).toHaveCSS('animation-name', 'none');
+      }
+      await page.getByRole('button', { name: 'Testdaten freigeben', exact: true }).click();
+      const loaded = page.getByTestId('weekly-progress-card');
+      await expect(loaded).toBeVisible();
+      await expect(skeleton).toHaveCount(0);
+      await expect(loaded.locator('[data-metric="weekly-tops"]')).toHaveText('11');
+      const after = (await loaded.boundingBox())!;
+      expect(after.height).toBeCloseTo(before.height, 0);
+      expect(after.y).toBeCloseTo(before.y, 0);
+      expect((await next.boundingBox())!.y).toBeCloseTo(nextBefore.y, 0);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: `${output}/${catalog ? 'initial' : 'personal'}-loaded-${width}.png`, fullPage: true, animations: 'disabled' });
+      expect(errors).toEqual([]);
+    });
+  }
+}
+
+test('approved Beta-logo app-start screen remains a separate full-screen status', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 900 });
+  await page.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.abort());
+  await page.goto('/test/fixtures/loading-preview.html?state=app');
+  await page.addStyleTag({ url: '/fonts.css' });
+  const start = page.getByRole('status', { name: 'App wird geladen …' });
+  await expect(start).toBeVisible();
+  await expect(start).toHaveAttribute('aria-busy', 'true');
+  await expect(start.locator('.beta-loading-logo')).toBeVisible();
+  await expect(start.locator('.beta-loading-logo')).toHaveCSS('width', '152px');
+  await expect(start.locator('.beta-loading-track')).toHaveCSS('width', '96px');
+  await expect(page.getByTestId('weekly-progress-skeleton')).toHaveCount(0);
+  const bounds = (await start.boundingBox())!;
+  expect(bounds).toMatchObject({ x: 0, y: 0, width: 375, height: 900 });
+  await page.screenshot({ path: `${output}/preserved-app-start-375.png`, animations: 'disabled' });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(start.locator('.beta-loading-logo')).toHaveCSS('animation-name', 'none');
+  await expect(start.locator('.beta-loading-indicator')).toHaveCSS('animation-name', 'none');
+});
