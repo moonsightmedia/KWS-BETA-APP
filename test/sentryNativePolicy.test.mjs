@@ -45,6 +45,15 @@ test('native symbol upload is mandatory before sending an instrumented build to 
   assert.ok(!workflow.includes('curl -sL https://sentry.io/get-cli/ | bash'));
 });
 
+test('native Firebase Analytics cannot collect usage alongside the separate opt-in KWS collector', async () => {
+  const android = await readFile(new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf8');
+  const ios = await readFile(new URL('../ios/App/App/Info.plist', import.meta.url), 'utf8');
+  assert.match(android, /android:name="firebase_analytics_collection_deactivated" android:value="true"/);
+  assert.match(android, /android:name="google_analytics_adid_collection_enabled" android:value="false"/);
+  assert.match(ios, /<key>FIREBASE_ANALYTICS_COLLECTION_DEACTIVATED<\/key>\s*<true\/>/);
+  assert.match(ios, /<key>GOOGLE_ANALYTICS_IDFV_COLLECTION_ENABLED<\/key>\s*<false\/>/);
+});
+
 test('native project receives no account identities, requests, extras or JavaScript breadcrumbs', async () => {
   const { api, calls } = await fixture('https://abcd@o1.ingest.de.sentry.io/1'); api.initSentry();
   api.setSentryUser({id:'private-account',email:'private@example.invalid'});

@@ -91,6 +91,13 @@ automatisch ab. Fehlende/defekte/veraltete Quellen sind keine künstlichen Nulle
 
 ## Native Builds und Sentry
 
+- Firebase Analytics bleibt in nativen Builds dauerhaft deaktiviert; Android-
+  Werbekennung und iOS-Vendor-ID sind zusätzlich für Analytics gesperrt. Die
+  eingebundene Firebase-Bibliothek darf nicht am freiwilligen eigenen KWS-
+  Sammler vorbei Nutzungsereignisse erfassen. Diese Konfiguration gilt erst für
+  aktualisierte native Builds; ein rückwirkender Netzwerkbeleg für ältere
+  Versionen wird damit nicht behauptet. Siehe [Android](https://firebase.google.com/docs/analytics/android/configure-data-collection)
+  und [iOS](https://firebase.google.com/docs/analytics/ios/configure-data-collection).
 - TestFlight: Repositoryvariable `KWS_MONITORING_ENABLED=true` erst nach
   Backend-Abnahme; optional `KWS_SENTRY_DSN`. Die tatsächliche ausgecheckte
   Gitrevision wird eingebaut. Simulator-/Screenshot-CI sendet keine Diagnosen.
