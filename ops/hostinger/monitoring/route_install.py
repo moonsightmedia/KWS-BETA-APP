@@ -9,6 +9,7 @@ import socket
 import subprocess
 
 TARGET = Path('/opt/kws/production/API.Caddyfile')
+BACKUPS = Path('/opt/kws/monitoring/route-backups')
 BEFORE = '@push path /send-push-notification'
 AFTER = BEFORE + ' /monitoring-events'
 
@@ -23,7 +24,14 @@ def plan(target=TARGET):
     updated = text.replace(BEFORE, AFTER, 1).encode()
     return {'target': str(target), 'before': hashlib.sha256(original).hexdigest(),
             'after': hashlib.sha256(updated).hexdigest(), 'added_slug': 'monitoring-events',
-            'jwt_checks_unchanged': True}, original, updated
+            'jwt_checks_unchanged': True, 'activation': 'restart_kws-api-internal'}, original, updated
+
+
+def restart(runner):
+    runner(['docker', 'restart', '--time', '10', 'kws-api-internal'], check=True, capture_output=True, timeout=40)
+    state = runner(['docker', 'inspect', '--format', '{{json .State}}', 'kws-api-internal'], check=True, capture_output=True, text=True, timeout=15)
+    if not json.loads(state.stdout).get('Running'):
+        raise ValueError('api_not_running')
 
 
 def execute(reviewed, original, updated, runner=subprocess.run):
@@ -35,19 +43,22 @@ def execute(reviewed, original, updated, runner=subprocess.run):
     mounts = json.loads(inspect.stdout)[0]['Mounts']
     if not any(mount['Source'] == str(TARGET) and mount['Destination'] == '/etc/caddy/Caddyfile' for mount in mounts):
         raise ValueError('route_mount_changed')
-    backup = Path('/opt/kws/monitoring/route-backups') / datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+    backup = BACKUPS / datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
     backup.mkdir(mode=0o700, parents=True)
     (backup / 'Caddyfile').write_bytes(original)
     (backup / 'Caddyfile').chmod(0o600)
+    restart_attempted = False
     try:
         with TARGET.open('r+b') as output:
             output.write(updated); output.truncate(); output.flush(); os.fsync(output.fileno())
         runner(['docker', 'exec', 'kws-api-internal', 'caddy', 'validate', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile'], check=True, capture_output=True, timeout=20)
-        runner(['docker', 'exec', 'kws-api-internal', 'caddy', 'reload', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile'], check=True, capture_output=True, timeout=20)
+        restart_attempted = True
+        restart(runner)
     except BaseException:
         with TARGET.open('r+b') as output:
             output.write(original); output.truncate(); output.flush(); os.fsync(output.fileno())
-        runner(['docker', 'exec', 'kws-api-internal', 'caddy', 'reload', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile'], check=True, capture_output=True, timeout=20)
+        if restart_attempted:
+            restart(runner)
         raise
     receipt = Path('/opt/kws/monitoring/route-installation.json')
     receipt.write_text(json.dumps({**reviewed, 'backup': str(backup), 'applied': True}) + '\n')
