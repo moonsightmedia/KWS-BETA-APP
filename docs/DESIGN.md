@@ -1105,6 +1105,13 @@ Frist. Fehler bleiben im geöffneten Dialog sichtbar; wiederholtes Absenden
 erzeugt keinen zweiten Vorgang. Mobile Rückfragen verwenden das gemeinsame
 Confirmation-Surface-Verhalten. In der Administration stehen offene Anträge
 bei den Benutzern; ein Ladefehler darf nicht als leere Warteschlange erscheinen.
+Nutzerkorrektur 18.10.2026: Die vollständige Warteschlange öffnet über
+„Löschanträge“ als eigene Ansicht der Benutzerverwaltung, mit Rückweg zur Liste.
+Die reguläre Benutzerliste beginnt mit ihren Filtern statt einer leeren
+Löschkarte. Oben im Adminbereich steht ausschließlich bei bestätigten offenen
+Anträgen ein kompakter Anzahlhinweis mit direktem Link zur Warteschlange.
+Die Warteschlange bleibt auch ohne Anträge über die Benutzerverwaltung erreichbar;
+Laden und Fehler erscheinen dort ausdrücklich und werden nicht als Null gezählt.
 
 - Dasselbe `ProfileMenu` muss aus Home, Boulder und Statistiken erscheinen.
 - Profilübersicht, Bearbeiten, Benachrichtigungen, Sektoren und „Über die App“

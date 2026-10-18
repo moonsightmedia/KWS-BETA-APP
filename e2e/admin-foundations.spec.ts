@@ -179,7 +179,7 @@ test('actual admin page mounts a single active content tree at every width', asy
       await page.getByRole('tab', { name: 'Farben', exact: true }).click();
       await expect(page.getByText('Isoliert: ColorManagement', { exact: true })).toHaveCount(1);
       await page.getByRole('link', { name: 'Monitoring', exact: true }).click();
-      await expect(page.getByRole('group', { name: 'Monitoringansicht', exact: true })).toHaveCount(1);
+      await expect(page.getByRole(width >= 1024 ? 'group' : 'combobox', { name: 'Monitoringansicht', exact: true })).toHaveCount(1);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }

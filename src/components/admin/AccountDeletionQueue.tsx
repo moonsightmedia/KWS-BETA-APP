@@ -1,10 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { KwsSurface } from '@/components/ui/kws-surface';
-import { getPendingAccountDeletions, formatDeletionDeadline } from '@/lib/accountDeletion';
+import { formatDeletionDeadline } from '@/lib/accountDeletion';
+import { usePendingAccountDeletions } from '@/hooks/usePendingAccountDeletions';
 
 export function AccountDeletionQueue({ enabled, names }: { enabled: boolean; names: Record<string, string> }) {
-  const queue = useQuery({ queryKey: ['admin-account-deletions'], queryFn: getPendingAccountDeletions, enabled, refetchInterval: 60_000 });
+  const queue = usePendingAccountDeletions(enabled);
   return <KwsSurface className="p-4 sm:p-5">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="text-base font-semibold">Kontolöschungen</h2>
