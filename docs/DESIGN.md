@@ -2,7 +2,7 @@
 status: verbindlich
 scope: KWS Beta App
 owner: Janosch Althoff
-last_verified: 2026-10-17
+last_verified: 2026-10-18
 supersedes: docs/USER_AREA_DESIGN_GUIDE.md
 ---
 
@@ -531,6 +531,12 @@ Inhaltswechsel wie `Info / Track / Beta` oder Statistikzeiträume.
   Iconbibliothek. Label „Boulder“, Linkziel und Aktivzustand bleiben unverändert.
 - Icons erklären eine Funktion und werden nicht als beliebige Dekoration
   eingesetzt.
+- Nutzerfreigabe 18.10.2026: Kalender und Flash verwenden eigene KWS-Konturen
+  aus `ProgressIcons.ts`, zentral über `appIcons.ts` exportiert. Wie das Boulder-
+  Icon: 24px-Raster, `currentColor`, 1,75px Strichstärke und weich gerundete
+  asymmetrische Konturen. Der Kalender hat einen einzelnen markierten Tag.
+  Home-Wochenkarte, Statistikkennzahlen, Profil-Klettertage und Home-Schraubtermin
+  teilen diese Symbole.
 - Trainingsillustrationen bleiben nach Nutzerkorrektur vom 13.10.2026 die primären Karten-/Detail-/Einheitenbilder. `training-glyphs.ts` stellt eigene kleine Themen-/Orientierungssymbole bereit; sie ersetzen keine vorhandenen Rasterbilder und wiederholen nicht unnötig die Bildinformation als Metadatenicon. Boulder-Lernaufgaben dürfen eine passende Grundbewegungsillustration über `illustrationId` teilen. Kinderspiele verwenden zwölf eigene Szenen. Gemeinsame Funktionsicons wie Merken, Zurück oder Schließen behalten ihre einheitliche Zuordnung. Die eigene KWS-Kontur beträgt 1,75px; kleine grüne Motive verwenden `primary-ink`, Rasterillustrationen das Markengrün mit Schattierungen. Bilder vor Nutzung auf Anatomie, Kontaktpunkte, Geräte, Motivpassung und echte CSS-Zuschnitte prüfen; eine Bildprüfung ersetzt keine fachliche Ausführungsfreigabe.
 - Icons sitzen häufig auf 32–40-px-Flächen mit 8-px-Radius.
 - Berg- oder Klettericons werden nur für eine passende fachliche Aussage
@@ -1057,7 +1063,17 @@ Bedienelemente auf wechselnden Wandfotos lesbar bleiben:
 - Header entspricht Boulder und Statistiken.
 - Persönliche Begrüßung darf groß sein; ein zusätzlicher abstrakter Claim wie
   „deine Kletterwelt“ ist zu vermeiden.
-- `Deine Woche` nutzt den kompakten `KwsMetricStrip` statt großer KPI-Karten.
+- Nutzerwahl 18.10.2026: `Deine Woche` nutzt Variante A als gemeinsame
+  `WeeklyProgressCard`: große Gesamtzahl „Boulder geschafft“, kleiner Verlauf
+  über die letzten sieben lokalen Kalendertage und darunter „davon als Flash“
+  sowie Klettertage mit eigenen KWS-Icons. Die Karte bleibt direkt nach der
+  Begrüßung und vor den Boulderbereichen. Der Zeitraum endet heute, keine
+  erfundenen Ziele, Trends oder Erfolgswerte.
+- Ein Boulder zählt im Zeitraum einmal. Der Verlauf ordnet ihn seinem ersten
+  erfolgreichen Tag innerhalb dieses Zeitraums zu; wiederholte Tops erhöhen
+  die Balken nicht. Flashes sind Teil der Gesamtzahl. Klettertage zählen auch
+  Tage mit protokollierten Versuchen ohne Top. Lade-/Fehlerzustände zeigen
+  keine scheinbaren Nullzahlen; leere Daten erhalten einen kurzen Hinweis.
 - `Neu an der Wand` verwendet dieselbe kanonische Gridkarte wie die
   Boulderübersicht.
 - Schraubtermine und Rückblicke bleiben kompakte, scannbare Flächen.

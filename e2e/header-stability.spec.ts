@@ -137,7 +137,10 @@ for (const width of [375, 768, 1280, 1920]) test(`loop 2: safe area, scroll, men
 });
 
 for (const collapsed of [false, true]) test(`desktop navigation keeps short and long pages aligned (sidebar ${collapsed ? 'collapsed' : 'expanded'})`, async ({ page }) => {
-  await page.setViewportSize({ width: 1920, height: 1080 });
+  // The approved weekly chart makes Home taller. Keep this regression's
+  // short-page/long-page scrollbar comparison with enough height for Home.
+  const height = 1280;
+  await page.setViewportSize({ width: 1920, height });
   await open(page);
   if (collapsed) {
     await page.getByRole('button', { name: 'Navigation einklappen', exact: true }).click();
@@ -150,15 +153,21 @@ for (const collapsed of [false, true]) test(`desktop navigation keeps short and 
   for (const label of ['Home', 'Boulder', 'Statistiken', 'Home']) {
     await page.getByRole('link', { name: label, exact: true }).locator('visible=true').first().click();
     await expect(page.getByRole('heading', { name: label === 'Home' ? 'Hallo Alex' : label, exact: true })).toBeVisible();
+    if (label === 'Statistiken') {
+      // Expand real day rows to guarantee a long page even with the taller
+      // viewport; the boulder page may now also fit at this height.
+      const more = page.getByRole('button', { name: /Ältere Klettertage anzeigen/ });
+      while (await more.count()) await more.click();
+    }
     measurements.push(await geometry(page));
     typography.push(await page.locator('.sticky.top-0 h1').evaluate(el => {
       const style = getComputedStyle(el);
       return { family: style.fontFamily, size: style.fontSize, weight: style.fontWeight, lineHeight: style.lineHeight, spacing: style.letterSpacing };
     }));
     if (label === 'Home') {
-      expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(1080);
-    } else {
-      expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeGreaterThan(1080);
+      expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(height);
+    } else if (label === 'Statistiken') {
+      expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeGreaterThan(height);
     }
   }
   for (const measurement of measurements) expect(measurement).toEqual(measurements[0]);

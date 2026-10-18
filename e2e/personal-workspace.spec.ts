@@ -21,7 +21,7 @@ async function open(page:Page, route='/statistics', extra='', beforeNavigate?: (
   await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
   for(const hook of ['useAuth','useBoulders','useSectors','useColors', ...(extra.includes('realTracking') ? [] : ['useBoulderCommunity']), 'useSectorSchedule','useHasRole','useIsAdmin'])
     await page.route(`**/src/hooks/${hook}.ts*`,r=>r.fulfill({contentType:'application/javascript',body:"export * from '/test/fixtures/personal-hooks.ts';"}));
-  await page.route('**/src/hooks/useNotifications.ts*',r=>r.fulfill({contentType:'application/javascript',body:'export const useUnreadCount=()=>({data:0});export const useNotifications=()=>({data:[]});export const useMarkAsRead=()=>({mutate(){}});export const useMarkAllAsRead=useMarkAsRead;'}));
+  await page.route('**/src/hooks/useNotifications.ts*',r=>r.fulfill({contentType:'application/javascript',body:'export const useUnreadCount=()=>({data:0});export const useNotifications=()=>({data:[],isLoading:false});export const useMarkAsRead=()=>({mutate(){},mutateAsync:async()=>{}});export const useMarkAllAsRead=useMarkAsRead;export const useChangeNotification=useMarkAsRead;'}));
   await page.route('**/src/hooks/usePreloadBoulderThumbnails.ts*',r=>r.fulfill({contentType:'application/javascript',body:'export const usePreloadBoulderThumbnails=()=>{};'}));
   await page.route('**/src/utils/feedbackUtils.ts*',r=>r.fulfill({contentType:'application/javascript',body:'export const reportError=async()=>({success:!location.search.includes("reportFail")});'}));
   await page.route('**/src/utils/sentry.ts*',r=>r.fulfill({contentType:'application/javascript',body:'export const captureSentryException=()=>{};'}));
@@ -35,7 +35,7 @@ for(const width of [375,768,1280,1920]) test(`visual personal workspace ${width}
   await page.setViewportSize({width,height:1000});await open(page);
   await expect(page.getByRole('heading',{name:'Statistiken',exact:true})).toBeVisible();
   await page.screenshot({path:`${output}/${phase}-statistics-${width}.png`,fullPage:true,animations:'disabled'});
-  expect(errors).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(width);
+  expect(errors).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 
 test('real personal hooks paginate and only patch the requested marker, scoped to the signed-in owner', async ({page}) => {
@@ -89,7 +89,7 @@ for (const width of [375,768,1280,1920]) test(`collection, Home and error layout
   await expect(page.getByText('1 Boulder',{exact:true})).toBeVisible();
   await expect(page.getByText('Grad ? · Abgeschraubt')).toBeVisible();
   await page.screenshot({path:`${output}/${phase}-saved-${width}.png`,fullPage:true,animations:'disabled'});
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(width);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await open(page,'/');
   await expect(page.getByRole('heading',{name:'Letzte 7 Tage'})).toBeVisible();
   await expect(page.getByText('16 Boulder geschafft',{exact:true})).toBeVisible();

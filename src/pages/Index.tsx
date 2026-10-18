@@ -6,10 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
   ArrowRight,
-  CalendarDays,
   RefreshCw,
-  Trophy,
-  Zap,
 } from 'lucide-react';
 
 import { DashboardHeader } from '@/components/DashboardHeader';
@@ -17,7 +14,7 @@ import { NotificationCenter } from '@/components/NotificationCenter';
 import { PersonalDataState } from '@/components/PersonalDataState';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { KwsMetricStrip } from '@/components/ui/kws-metric-strip';
+import { WeeklyProgressCard } from '@/components/statistics/WeeklyProgressCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
 import { BoulderTypeBadge } from '@/components/boulder/BoulderTypeBadge';
@@ -389,14 +386,7 @@ const Index = () => {
 
           <section className="mb-5">
             <DashboardSectionHeader title="Letzte 7 Tage" actionLabel="Fortschritt" onActionClick={() => navigate('/statistics?period=7')} />
-            {personalUnavailable ? <PersonalDataState loading={personalLoading} onRetry={retryPersonal} /> : <KwsMetricStrip
-              className="[&>div]:flex-col [&>div>span:last-child]:text-center [&_.truncate]:text-[11px] sm:[&>div]:flex-row sm:[&>div>span:last-child]:text-left"
-              items={[
-                { icon: Trophy, value: weeklyStats.tops, label: 'Tops' },
-                { icon: Zap, value: weeklyStats.flashes, label: 'Flashes' },
-                { icon: CalendarDays, value: weeklyStats.days, label: 'Klettertage' },
-              ]}
-            />}
+            {personalUnavailable ? <PersonalDataState loading={personalLoading} onRetry={retryPersonal} /> : <WeeklyProgressCard summary={weeklyStats} />}
           </section>
 
           <section className="mb-5">

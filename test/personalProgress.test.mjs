@@ -57,6 +57,24 @@ test('seven-day window includes today and six preceding calendar days, excludes 
   assert.equal(result.from, '2026-09-09'); assert.equal(result.tops, 2); assert.equal(result.days, 2);
   assert.equal(validSessionDay('2026-02-30'), false); assert.equal(validSessionDay('2024-02-29'), true);
 });
+
+test('weekly bars sum to distinct tops, assign repeats to the first successful day and retain attempt-only climbing days', () => {
+  const rows = [session('a1', 'a', '2026-09-14', 'flash'), session('a2', 'a', '2026-09-12'), session('b1', 'b', '2026-09-12'), session('c1', 'c', '2026-09-15', 'attempted')];
+  const stats = buildPersonalProgress([], rows.reverse(), { days: 7, now });
+  assert.deepEqual(stats.topsByDate, [{ date: '2026-09-12', tops: 2 }]);
+  assert.equal(stats.topsByDate.reduce((sum, day) => sum + day.tops, 0), stats.tops);
+  assert.equal(stats.flashes, 1);
+  assert.equal(stats.days, 3);
+});
+
+test('weekly bars share the summary period, latest daily result, grade filter and future-date exclusion', () => {
+  const rows = [session('old', 'a', '2026-09-01'), session('new', 'a', '2026-09-09'), session('b1', 'b', '2026-09-10', 'top', { updated_at: 'a' }), session('b2', 'b', '2026-09-10', 'attempted', { updated_at: 'b' }), session('future', 'c', '2026-09-16')];
+  const entries = [entry('a', 'top', 3), entry('b', 'top', 4), entry('c', 'top', 3)];
+  const stats = buildPersonalProgress(entries, rows, { days: 7, grade: '3', now });
+  assert.deepEqual(stats.topsByDate, [{ date: '2026-09-09', tops: 1 }]);
+  assert.equal(stats.tops, 1);
+  assert.deepEqual(buildPersonalProgress([], [], { days: 7, now }).topsByDate, []);
+});
 test('legacy tops have no invented dates; removed/unknown boulders are included in overall history', () => {
   const a = entry('a', 'flash', 3); a.boulder.status = 'abgeschraubt';
   const b = entry('b', 'top', null); b.boulder = null;

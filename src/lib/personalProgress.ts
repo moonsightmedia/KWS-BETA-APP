@@ -104,6 +104,17 @@ export function buildPersonalProgress(entries: TrackedBoulderItem[], sessions: B
   const matches = (id:string)=>!grade || gradeKey(metadata.get(id)?.difficulty)===grade;
   const scopedSuccess = [...succeeded].filter(([id])=>matches(id));
   const scopedSessions = periodSessions.filter(row=>matches(row.boulder_id));
+  // Each distinct top belongs to its earliest successful day in this period.
+  // Repeated tops still count as activity, but never inflate the weekly bars.
+  const firstTopDay = new Map<string, string>();
+  for (const row of scopedSessions) {
+    if (!isSuccessful(row.result)) continue;
+    const previous = firstTopDay.get(row.boulder_id);
+    if (!previous || row.session_date < previous) firstTopDay.set(row.boulder_id, row.session_date);
+  }
+  const topsPerDay = new Map<string, number>();
+  for (const date of firstTopDay.values()) topsPerDay.set(date, (topsPerDay.get(date) ?? 0) + 1);
+  const topsByDate = [...topsPerDay].sort(([a], [b]) => a.localeCompare(b)).map(([date, tops]) => ({ date, tops }));
   const climbedDays = new Set(scopedSessions.map(row=>row.session_date));
   const daysByDate = [...climbedDays].sort().map(date=>({date, entries:scopedSessions.filter(row=>row.session_date===date)}));
   const highestGrade = scopedSuccess.reduce<number|null>((max,[id])=>{
@@ -111,7 +122,7 @@ export function buildPersonalProgress(entries: TrackedBoulderItem[], sessions: B
   },null);
   return { from, today, tops:scopedSuccess.length, flashes:scopedSuccess.filter(([,result])=>result==='flash').length,
     days:climbedDays.size, attempts:scopedSessions.reduce((sum,row)=>sum+Math.max(0,row.attempt_count || 0),0), highestGrade,
-    distribution, daysByDate, legacySuccesses,
+    distribution, daysByDate, topsByDate, legacySuccesses,
     successIds:new Set(succeeded.keys()),
     recent:[...scopedSessions].sort((a,b)=>b.session_date.localeCompare(a.session_date)||b.updated_at.localeCompare(a.updated_at)||b.id.localeCompare(a.id)),
   };

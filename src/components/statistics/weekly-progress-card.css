@@ -1,0 +1,23 @@
+.weekly-progress-card{padding:18px;color:hsl(var(--brand-ink));font-variant-numeric:tabular-nums;min-width:0}
+.weekly-progress-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:11px;line-height:1.5;color:hsl(var(--muted-foreground));margin-bottom:18px}
+.weekly-progress-heading>span:first-child{font-weight:500;color:hsl(var(--brand-ink))}
+.weekly-progress-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);align-items:center;gap:14px}
+.weekly-progress-total{display:flex;flex-direction:column;min-width:0;gap:9px}
+.weekly-progress-total>strong{font-size:52px;line-height:1;letter-spacing:-.055em;font-weight:600;overflow-wrap:anywhere}
+.weekly-progress-total>strong[data-wide=true]{font-size:38px}
+.weekly-progress-total>span{font-size:11px;line-height:1.5;font-weight:500;max-width:114px}
+.weekly-progress-chart{min-width:0;margin:0;width:100%;max-width:320px;justify-self:end}
+.weekly-progress-chart figcaption{text-align:right;color:hsl(var(--muted-foreground));font-size:10px;line-height:1.5;margin-bottom:8px}
+.weekly-progress-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.weekly-progress-day{display:flex;flex-direction:column;align-items:center;min-width:0}
+.weekly-progress-track{height:66px;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end}
+.weekly-progress-bar{display:block;width:100%;max-width:14px;flex-shrink:0;background:hsl(var(--primary));border-radius:3px 3px 0 0}
+.weekly-progress-zero{background:hsl(var(--border));border-radius:1px}
+.weekly-progress-count{font-size:10px;line-height:1.3;margin-bottom:4px;font-weight:500}
+.weekly-progress-day-label{font-size:10px;color:hsl(var(--muted-foreground));line-height:1.4;margin-top:6px}
+.weekly-progress-footer{margin-top:20px;padding-top:15px;border-top:1px solid hsl(var(--border)/.7);display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 16px;font-size:11px;color:hsl(var(--muted-foreground))}
+.weekly-progress-footer>span{display:flex;align-items:center;gap:5px;min-width:0;line-height:1.5}
+.weekly-progress-footer svg{width:16px;height:16px;color:hsl(var(--primary-ink));flex-shrink:0}
+.weekly-progress-footer strong{font-weight:600;color:hsl(var(--brand-ink))}
+.weekly-progress-empty{font-size:11px;line-height:1.7;color:hsl(var(--muted-foreground));margin-top:10px}
+@media(min-width:768px){.weekly-progress-card{padding:21px 24px}.weekly-progress-body{gap:24px}.weekly-progress-total>strong{font-size:56px}.weekly-progress-total>strong[data-wide=true]{font-size:42px}.weekly-progress-total>span{font-size:12px;max-width:160px}.weekly-progress-footer{justify-content:flex-start;gap:28px;font-size:12px}}
