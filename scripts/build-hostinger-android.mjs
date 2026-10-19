@@ -19,7 +19,7 @@ const env={...process.env,VITE_SUPABASE_URL:'https://beta-api.kletterwelt-sauerl
   VITE_ALLINKL_API_URL:'https://video.kletterwelt-sauerland.de',
   VITE_AUTH_SITE_URL:site,VITE_USE_ALLINKL_STORAGE:'false',VITE_TELEMETRY_ENABLED:'false',
   VITE_MONITORING_ENABLED:process.env.KWS_MONITORING_ENABLED==='true'?'true':'false',
-  VITE_MONITORING_CHANNEL:'apk',
+  VITE_MONITORING_CHANNEL:process.env.KWS_NATIVE_RELEASE_CHANNEL || 'apk',
   VITE_RELEASE_REVISION:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8',windowsHide:true}).trim(),
   VITE_SENTRY_DSN:process.env.KWS_MONITORING_ENABLED==='true'?(process.env.KWS_SENTRY_DSN||''):'',
   VITE_TRAINING_UI_PREVIEW:'false'};
