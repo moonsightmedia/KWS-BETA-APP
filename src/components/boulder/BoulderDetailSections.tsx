@@ -441,7 +441,7 @@ function SessionSheet({
                 setErrorMessage(null);
               }}
               placeholder="Was möchtest du dir merken?"
-              className="resize-none rounded-kws-control border-border bg-white text-base md:text-sm focus-visible:ring-brand-ink/25"
+              className="resize-none rounded-kws-control border-border bg-white text-base leading-5 md:text-sm focus-visible:ring-brand-ink/25"
             />
           </div>
 
