@@ -1,5 +1,6 @@
 import { backendConfig } from '@/lib/backendConfig';
 import { useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Activity, AlertTriangle, ExternalLink, Smartphone, UploadCloud, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -79,9 +80,13 @@ function UploadList({ rows, onSelect }: { rows: UploadLogRow[]; onSelect: (row: 
 
 export function MonitoringDashboard() {
   const { session } = useAuth();
-  const [view, setView] = useState<MonitoringView>('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedView = searchParams.get('monitoringView');
+  const view: MonitoringView = ['overview', 'errors', 'usage', 'notifications', 'uploads', 'activity'].includes(requestedView || '') ? requestedView as MonitoringView : 'overview';
+  const initialDays = [1, 7, 30].includes(Number(searchParams.get('monitoringDays'))) ? Number(searchParams.get('monitoringDays')) as 1 | 7 | 30 : 1;
+  const setView = (value: MonitoringView) => { const next = new URLSearchParams(searchParams); next.set('monitoringView', value); setSearchParams(next, { replace: true }); };
   if (view === 'uploads') return <LegacyMonitoringDashboard view={view} setView={setView} />;
-  return <LaunchCockpit view={view} onViewChange={setView} accountId={session?.user.id || ''} connection={{ url: backendConfig.supabaseUrl || '', key: backendConfig.publicKey || '', token: session?.access_token || '' }} />;
+  return <LaunchCockpit view={view} onViewChange={setView} initialDays={initialDays} accountId={session?.user.id || ''} connection={{ url: backendConfig.supabaseUrl || '', key: backendConfig.publicKey || '', token: session?.access_token || '' }} />;
 }
 
 function LegacyMonitoringDashboard({ view, setView }: { view: MonitoringView; setView: (view: MonitoringView) => void }) {

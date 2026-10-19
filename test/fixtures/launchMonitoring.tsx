@@ -1,14 +1,20 @@
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { MonitoringDashboard } from '@/components/admin/MonitoringDashboard';
 import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { launchDashboardFixture } from './launchMonitoring-data.mjs';
+import { adminOverviewFixture } from './adminOverview-data.mjs';
+import { AdminOverview } from '@/components/admin/AdminOverview';
+import { UserManagement } from '@/components/admin/UserManagement';
+import { AdminMobileNavigation } from '@/components/admin/AdminMobileNavigation';
 import '@/index.css';
 
 const params = new URLSearchParams(location.search);
 const mode = params.get('state');
 const fixture = launchDashboardFixture();
+const overviewFixture = adminOverviewFixture();
+const fixturePerson = { id: '00000000-0000-4000-8000-000000000001', first_name: 'Alexandra', last_name: 'Bergmann', full_name: 'Alexandra Bergmann', email: 'alexandra@example.test', birth_date: null, created_at: new Date().toISOString() };
 const now = new Date().toISOString();
 window.launchMonitoringQA = { requests: [], writeMode: 'success', readMode: 'success', eventMode: mode === 'reports-error' ? 'fail' : mode === 'reports-empty' ? 'empty' : 'success' };
 window.launchMonitoringQA.live = { online: mode === 'empty' ? 0 : 12, accounts: mode === 'empty' ? 0 : 9, guests: mode === 'empty' ? 0 : 3, devices: mode === 'empty' ? 0 : 14, viewing_boulders: mode === 'empty' ? 0 : 7,
@@ -35,7 +41,7 @@ window.fetch = async (input, init) => {
   const requestUrl = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.origin);
   if (!requestUrl.pathname.startsWith('/qa/rest/v1/')) return realFetch(input, init);
   const payload = init?.body ? JSON.parse(String(init.body)) : {};
-  window.launchMonitoringQA.requests.push({ path: requestUrl.pathname, payload });
+  window.launchMonitoringQA.requests.push({ path: requestUrl.pathname, query: requestUrl.search, payload });
   if (mode === 'loading') await new Promise(resolve => setTimeout(resolve, 60_000));
   if (mode === 'error' || window.launchMonitoringQA.readMode === 'fail') return new Response('', { status: 503 });
   if (mode === 'unconfigured') return new Response('', { status: 404 });
@@ -51,10 +57,25 @@ window.fetch = async (input, init) => {
     }
     return new Response(JSON.stringify(response));
   }
-  if (requestUrl.pathname.endsWith('/kws_monitoring_issue_events')) {
+  if (requestUrl.pathname.endsWith('/kws_admin_overview')) {
+    if (mode === 'overview-unconfigured') return new Response('', { status: 404 });
+    if (mode === 'overview-denied') return new Response('', { status: 403 });
+    if (mode === 'overview-stale') {
+      overviewFixture.generated_at = new Date(Date.now() - 600000).toISOString();
+      overviewFixture.period_end = overviewFixture.generated_at;
+      overviewFixture.period_start = new Date(Date.now() - 600000 - 86400000).toISOString();
+    }
+    if (mode === 'overview-empty') for (const group of ['users', 'hall', 'moderation', 'feedback', 'monitoring', 'uploads', 'notifications']) for (const key of Object.keys(overviewFixture[group])) if (typeof overviewFixture[group][key] === 'number') overviewFixture[group][key] = 0;
+    return Response.json(overviewFixture);
+  }
+  if (requestUrl.pathname.endsWith('/profiles')) return Response.json(mode === 'profile-missing' || requestUrl.searchParams.has('id') && requestUrl.searchParams.get('id') !== `eq.${fixturePerson.id}` ? [] : [fixturePerson]);
+  if (requestUrl.pathname.endsWith('/user_roles')) return Response.json([]);
+  if (requestUrl.pathname.endsWith('/kws_admin_issue_events') && mode === 'actor-unavailable') return new Response('', { status: 404 });
+  if (requestUrl.pathname.endsWith('/kws_monitoring_issue_events') || requestUrl.pathname.endsWith('/kws_admin_issue_events')) {
     if (window.launchMonitoringQA.eventMode === 'fail') return new Response('', { status: 503 });
     if (window.launchMonitoringQA.eventMode === 'empty') return new Response('[]');
-    return new Response(JSON.stringify([{ event_id: 'fixture-event-82', occurred_at: now, received_at: now, platform: 'android', release: 'android@1.0.67', installation_ref: 'fixture-3a9f', user_ref: null, session_ref: 'fixture-session', props: { code: mode === 'query' || mode === 'reports-error' || mode === 'reports-empty' ? 'QueryNetwork' : 'VideoPlaybackError', component: mode === 'query' || mode === 'reports-error' || mode === 'reports-empty' ? 'query' : 'video_player', error_code: 'playback_failed', private_note: 'do-not-export' } }]));
+    const actor = mode === 'actor-unavailable' ? undefined : mode === 'actor-guest' ? { state: 'guest', user_id: null, display_name: null, email: null } : mode === 'actor-unassigned' ? { state: 'unassigned', user_id: null, display_name: null, email: null } : { state: 'account', user_id: fixturePerson.id, display_name: fixturePerson.full_name, email: fixturePerson.email };
+    return new Response(JSON.stringify([{ event_id: 'fixture-event-82', occurred_at: now, received_at: now, platform: 'android', release: 'android@1.0.67', installation_ref: 'fixture-3a9f', user_ref: null, session_ref: 'fixture-session', actor, props: { code: mode === 'query' || mode === 'reports-error' || mode === 'reports-empty' ? 'QueryNetwork' : 'VideoPlaybackError', component: mode === 'query' || mode === 'reports-error' || mode === 'reports-empty' ? 'query' : 'video_player', error_code: 'playback_failed', private_note: 'do-not-export' } }]));
   }
   if (requestUrl.pathname.endsWith('/kws_monitoring_issue_status')) {
     if (window.launchMonitoringQA.writeMode === 'fail') return new Response('', { status: 503 });
@@ -65,5 +86,13 @@ window.fetch = async (input, init) => {
   return new Response('[]');
 };
 const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-createRoot(document.getElementById('root')!).render(<QueryClientProvider client={client}><MemoryRouter><main className="relative isolate min-h-screen bg-canvas px-4 pb-12 md:px-8"><BrandWatermark /><div className="relative mx-auto max-w-[1180px]"><header className="flex min-h-20 items-center justify-between gap-3"><h1 className="font-heading text-[2.15rem] font-semibold">Monitoring</h1><span className="text-xs text-muted-foreground">Isolierte Beispieldaten</span></header><MonitoringDashboard /></div></main></MemoryRouter></QueryClientProvider>);
-declare global { interface Window { launchMonitoringQA: { requests: Array<{ path: string; payload: Record<string, unknown> }>; writeMode: 'success' | 'fail'; readMode: 'success' | 'fail'; eventMode: 'success' | 'fail' | 'empty'; live?: { online: number; accounts: number; guests: number; devices: number; viewing_boulders: number; boulders: Array<{ id: string; name: string; viewers: number }> }; liveError?: boolean; liveDisconnected?: boolean } } }
+const initialParams = new URLSearchParams({ tab: params.get('page') === 'overview' ? 'overview' : params.get('page') === 'user' ? 'users' : 'monitoring' });
+for (const key of ['userId', 'monitoringView', 'monitoringDays']) if (params.has(key)) initialParams.set(key, params.get(key)!);
+const initialRoute = '/admin?' + initialParams.toString();
+function FixturePage() {
+  const route = useLocation();
+  const tab = new URLSearchParams(route.search).get('tab');
+  return <><output data-testid="fixture-route" className="sr-only">{route.pathname}{route.search}</output>{tab === 'overview' ? <AdminOverview connection={{ url: 'http://127.0.0.1:4191/qa', key: 'isolated-fixture-public', token: 'fixture-only' }} accountId="fixture-admin" /> : tab === 'users' ? <UserManagement /> : tab === 'monitoring' ? <MonitoringDashboard /> : <p>Bereich: {tab}</p>}<AdminMobileNavigation /></>;
+}
+createRoot(document.getElementById('root')!).render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[initialRoute]}><main className="relative isolate min-h-screen bg-canvas px-4 pb-28 md:px-8 md:pb-12"><BrandWatermark /><div className="relative mx-auto max-w-[1180px]"><header className="flex min-h-20 items-center justify-between gap-3"><h1 className="font-heading text-[2.15rem] font-semibold">{params.get('page') === 'overview' ? 'Übersicht' : params.get('page') === 'user' ? 'Benutzer' : 'Monitoring'}</h1><span className="text-xs text-muted-foreground">Isolierte Beispieldaten</span></header><FixturePage /></div></main></MemoryRouter></QueryClientProvider>);
+declare global { interface Window { launchMonitoringQA: { requests: Array<{ path: string; query?: string; payload: Record<string, unknown> }>; writeMode: 'success' | 'fail'; readMode: 'success' | 'fail'; eventMode: 'success' | 'fail' | 'empty'; live?: { online: number; accounts: number; guests: number; devices: number; viewing_boulders: number; boulders: Array<{ id: string; name: string; viewers: number }> }; liveError?: boolean; liveDisconnected?: boolean } } }

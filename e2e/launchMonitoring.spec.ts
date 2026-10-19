@@ -231,7 +231,7 @@ test('keyboard detail lazily loads reports, saves confirmed status and restores 
   await open(page);
   const trigger = page.getByRole('button', { name: /Boulder-Video konnte nicht geladen werden/ });
   await expect(trigger).toBeVisible();
-  expect(await page.evaluate(() => window.launchMonitoringQA.requests.some(request => request.path.endsWith('kws_monitoring_issue_events')))).toBe(false);
+  expect(await page.evaluate(() => window.launchMonitoringQA.requests.some(request => request.path.endsWith('kws_admin_issue_events')))).toBe(false);
   await trigger.focus(); await page.keyboard.press('Enter');
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
@@ -396,6 +396,9 @@ test('regressions and Sentry counters keep distinct meanings and external status
   await page.getByRole('button', { name: /Sentry-Testproblem/ }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByText('Nutzerreferenzen in Sentry', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('region', { name: 'Nutzerzuordnung', exact: true })).toContainText('keine sichere Zuordnung zu einem App-Konto');
+  await expect(dialog.getByRole('link', { name: 'Nutzerprofil öffnen (neuer Tab)', exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => window.launchMonitoringQA.requests.some(request => request.path.endsWith('kws_admin_issue_events')))).toBe(false);
   await expect(dialog.getByRole('button', { name: 'Status speichern', exact: true })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
@@ -581,7 +584,7 @@ test('clipboard failure offers a selectable report and unavailable reports remai
   await open(page, 'reports-error');
   await page.getByRole('button', { name: /App-Daten konnten nicht geladen werden/ }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByRole('alert')).toContainText('Technische Einzelberichte');
+  await expect(dialog.getByRole('alert').filter({ hasText: 'Technische Einzelberichte' })).toBeVisible();
   await dialog.getByRole('button', { name: 'Bericht für Technik kopieren', exact: true }).click();
   await expect(dialog.getByRole('textbox', { name: 'Bericht manuell kopieren', exact: true })).toHaveValue(/Beta – technischer Fehlerbericht/);
   await dialog.getByText('Technische Details', { exact: true }).click();

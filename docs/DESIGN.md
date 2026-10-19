@@ -1264,16 +1264,28 @@ Verbindliche Regeln:
 
 ### Admin-Grundbedienung (13. September 2026)
 
-- Mobile Administration hat fünf Gruppen: Benutzer, Halle, Moderation, Feedback und Betrieb.
-  Betrieb öffnet Monitoring, Protokoll und Push-Test. Die gemeinsame Definition
-  liegt in `src/lib/adminNavigation.ts`; alle sieben Ziele bleiben erreichbar.
+- Mobile Administration hat fünf Gruppen: Übersicht, Benutzer, Halle, Moderation
+  und Mehr. Mehr öffnet Feedback, Monitoring, Protokoll und Push-Test. Die
+  gemeinsame Definition liegt in `src/lib/adminNavigation.ts`; alle acht Ziele
+  bleiben erreichbar. Ohne gültige Bereichsauswahl startet die Admin-Übersicht.
 - Moderation ist ein eigener Adminbereich. Kommentare zur Freigabe und offene
   Inhaltsmeldungen haben getrennte, direkt verlinkbare Ansichten mit Anzahl und
   Aktualisieren-Aktion. Erläuterungen stehen in einer kompakten aufklappbaren Hilfe
   statt einer vorgeschalteten Karte. Andere Adminseiten zeigen nur bei bestätigten
   offenen Aufgaben einen kurzen Hinweis mit Direktlink; Feedback bleibt separat.
-- Desktop zeigt dieselben sieben Adminziele direkt in der Sidebar und einen
+- Desktop zeigt dieselben acht Adminziele direkt in der Sidebar und einen
   Rückweg zur App. Keine zweite große Bereichs-Tab-Leiste über dem Inhalt.
+- Nutzerauftrag 19.10.2026: Eine zentrale Admin-Übersicht bündelt alle Bereiche:
+  Live-Zahlen mit Zustimmungshinweis, priorisierter Handlungsbedarf mit
+  Direktlinks und sechs kompakte Bereichsübersichten. Aufgaben zunächst auf fünf
+  begrenzen, weitere explizit öffnen. Mobil einspaltig, ab768px zwei und ab1280px
+  drei Kennzahlenbereiche; keine breite Reihe großer Einzel-KPI-Karten.
+  Bestände/offene Arbeit und die letzten24Stunden sind klar getrennt. Fehlende
+  Quellen zeigen Nicht verfügbar statt0; eine fehlende Servererweiterung ist ein
+  Einrichtungszustand. Alter Stand und fehlgeschlagener Refresh bleiben sichtbar.
+  Registrierungen sind keine Downloads, Push-Annahme ist keine Zustellung und
+  Fehlergruppen sind keine Nutzerzahlen. Bereichslinks öffnen die passende
+  Arbeitsansicht; die Fehlerliste startet über den Direktlink mit30Tagen.
 - Adminseiten beginnen mit der Bereichsauswahl (maximal 480 px) und einer
   Aktualisieren-Aktion. Darunter folgen Suche/Filter, dann Ergebniszahl und
   Sortierung, danach die Inhalte. Keine Benutzerzahl oberhalb des Switches.
@@ -1341,6 +1353,15 @@ Verbindliche Regeln:
   „Behoben“ erfordert eine von der Technik bestätigte Fixversion. Schließen und
   Speichern bleiben im festen Fuß erreichbar, dazu ein sichtbarer Schließenknopf
   im Kopf. Mobile Bottom-Sheet, Desktop begrenzter Dialog, genau ein Scrollbereich.
+  Nutzerauftrag19.10.2026: Fehlerdetails zeigen zusätzlich „Wer war betroffen?“
+  pro Einzelmeldung. Nur deren ursprüngliche Kontozuordnung darf Profilname und
+  E-Mail aus dem bestehenden App-Profil auflösen. „Ohne Konto gemeldet“, nicht
+  zugeordnet, Lade-/Abfragefehler und noch fehlende Serverunterstützung bleiben
+  unterscheidbar. Sentry-Referenzen werden nicht zu App-Konten geraten. Der
+  direkte Nutzerlink liest exakt dieses Konto und öffnet einen neuen Tab, damit
+  ungespeicherte Fehlerbearbeitung erhalten bleibt. Ein fehlendes/gelöschtes Konto
+  darf nie ein anderes Profil zeigen. Keine Identitäten in Live-Boulderlisten,
+  Nutzungsstatistik oder kopierten Technikberichten.
   Push-Erfolg bedeutet nur bestätigte Annahme durch den Dienst, niemals
   bestätigte Anzeige auf dem Gerät. Gerätetokens gehören nicht in die UI.
   Wiederholte

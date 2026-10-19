@@ -94,7 +94,7 @@ export const ProfileMenu = ({
       ? [{ label: 'Setter', description: 'Boulder verwalten', icon: Wrench, path: '/setter/create', active: isSetterArea }]
       : []),
     ...(effectiveIsAdmin
-      ? [{ label: 'Administration', description: 'App verwalten', icon: Shield, path: '/admin?tab=users', active: isAdminArea }]
+      ? [{ label: 'Administration', description: 'App verwalten', icon: Shield, path: '/admin?tab=overview', active: isAdminArea }]
       : []),
   ];
 

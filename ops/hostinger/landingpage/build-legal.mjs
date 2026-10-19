@@ -23,7 +23,7 @@ for(const [path,title] of Object.entries(titles)){
   .replace(/<meta property="og:description"[^>]*\/>/,`<meta property="og:description" content="${description}" />`)
   .replace(/<script[^>]*>[\s\S]*?<\/script>/g,'');
  const html=`<!doctype html><html lang="de"><head>${head}<meta name="robots" content="noindex,follow" /><link rel="stylesheet" href="/landing/legal.css" /></head><body class="legal-page"><a class="skip-link" href="#inhalt">Zum Inhalt</a>${header}<main id="inhalt" class="legal-main"><a class="legal-back" href="${base}/landingpage">← Zur Landingpage</a><header class="legal-heading"><p class="eyebrow">Beta App · Kletterwelt Sauerland</p><h1>${title}</h1><p>Stand: ${source.updated?.[path] || '17. Oktober 2026'}</p></header>${landingPrivacy}${sections}<nav class="legal-links" aria-label="Rechtliche Informationen">${Object.entries(titles).map(([p,t])=>`<a href="${base}/${p}" ${path===p?'aria-current="page"':''}>${t}</a>`).join('')}<a href="${base}/guest">Zur App</a></nav></main>${footer}</body></html>`;
- writeFileSync(`public/landing/${path}.html`,html.replace('<body class="legal-page">','<body class="legal-page">'+icons));
+writeFileSync(`public/landing/${path}.html`,html.replace('<body class="legal-page">','<body class="legal-page">'+icons));
 }
 writeFileSync('public/landing/robots.txt',`User-agent: *\nAllow: /\n\nSitemap: ${base}/sitemap.xml\n`);
 writeFileSync('public/landing/sitemap.xml',`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${base}/landingpage</loc></url></urlset>\n`);

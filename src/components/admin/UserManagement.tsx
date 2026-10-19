@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserProfileEditor } from "@/components/admin/UserProfileEditor";
 import { AccountDeletionQueue } from "@/components/admin/AccountDeletionQueue";
-import { ACCOUNT_DELETIONS_PATH, adminTabPath } from "@/lib/adminNavigation";
+import { ACCOUNT_DELETIONS_PATH, adminTabPath, adminUserId } from "@/lib/adminNavigation";
 import type { ProfilePayload } from "@/lib/userProfileForm";
 import { AdminViewBar } from "@/components/admin/AdminViewBar";
 import { AdminSearchField } from "@/components/admin/AdminSearchField";
@@ -50,12 +50,15 @@ export const UserManagement = () => {
   const editTrigger = useRef<HTMLElement | null>(null);
   const actionTrigger = useRef<HTMLElement | null>(null);
   const { user, session, loading: authLoading } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedUser = searchParams.get('userId');
+  const linkedUserId = adminUserId(requestedUser);
+  const clearLinkedUser = () => { const next = new URLSearchParams(searchParams); next.delete('userId'); setSearchParams(next, { replace: true }); };
   const sessionRef = useRef(session);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeSegment, setActiveSegment] = useState<UserSegment>("all");
   const [editUser, setEditUser] = useState<AdminUserRecord | null>(null);
-  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(linkedUserId);
   const [visibleLimit, setVisibleLimit] = useState(PAGE_SIZE);
   const [sort, setSort] = useState("newest");
   const [accountAction, setAccountAction] = useState<AccountAction | null>(null);
@@ -65,8 +68,8 @@ export const UserManagement = () => {
   useEffect(() => { sessionRef.current = session; }, [session]);
 
   const { data: users = [], isLoading, isFetching, isError, refetch } = useQuery({
-    queryKey: ["admin-users", user?.id],
-    enabled: !authLoading && !!user && !!session,
+    queryKey: ["admin-users", user?.id, requestedUser === null ? 'all' : linkedUserId || 'invalid'],
+    enabled: !authLoading && !!user && !!session && (requestedUser === null || linkedUserId !== null),
     queryFn: async ({ signal }) => {
       const url = backendConfig.supabaseUrl;
       const key = backendConfig.publicKey;
@@ -74,8 +77,8 @@ export const UserManagement = () => {
       if (!url || !key || !token) throw new Error("Keine aktive Sitzung");
       const headers = { apikey: key, Authorization: `Bearer ${token}` };
       const [profilesResponse, rolesResponse] = await Promise.all([
-        window.fetch(`${url}/rest/v1/profiles?select=*&order=created_at.desc`, { headers, signal }),
-        window.fetch(`${url}/rest/v1/user_roles?select=*`, { headers, signal }),
+        window.fetch(`${url}/rest/v1/profiles?select=*&${linkedUserId ? `id=eq.${linkedUserId}` : 'order=created_at.desc'}`, { headers, signal }),
+        window.fetch(`${url}/rest/v1/user_roles?select=*${linkedUserId ? `&user_id=eq.${linkedUserId}` : ''}`, { headers, signal }),
       ]);
       if (!profilesResponse.ok || !rolesResponse.ok) throw new Error("Benutzer konnten nicht geladen werden");
       const [profiles, roles]: [UserProfileRecord[], UserRoleRecord[]] = await Promise.all([profilesResponse.json(), rolesResponse.json()]);
@@ -140,6 +143,7 @@ export const UserManagement = () => {
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const filteredUsers = users.filter(entry => {
+    if (requestedUser !== null) return linkedUserId !== null && entry.id.toLowerCase() === linkedUserId;
     const matchesRole = activeSegment === "all"
       || (activeSegment === "admins" && entry.isAdmin)
       || (activeSegment === "setters" && entry.isSetter)
@@ -156,18 +160,19 @@ export const UserManagement = () => {
   </div>;
 
   return <div className="space-y-4">
+    {requestedUser !== null && <div className="flex flex-wrap items-center justify-between gap-2 rounded-kws-control bg-secondary p-3"><p className="text-xs font-medium">{linkedUserId ? 'Ausgewähltes Nutzerkonto' : 'Ungültiger Nutzerlink'}</p><Button variant="ghost" onClick={clearLinkedUser}>Alle Benutzer anzeigen</Button></div>}
     <AdminViewBar refreshing={isFetching} onRefresh={() => void refetch()} disabled={authLoading}>
-      <KwsSegmentedControl value={activeSegment} onValueChange={value => { setActiveSegment(value); setVisibleLimit(PAGE_SIZE); setExpandedUserId(null); }} ariaLabel="Benutzer nach Rolle filtern" options={SEGMENTS} />
+      {requestedUser === null ? <KwsSegmentedControl value={activeSegment} onValueChange={value => { setActiveSegment(value); setVisibleLimit(PAGE_SIZE); setExpandedUserId(null); }} ariaLabel="Benutzer nach Rolle filtern" options={SEGMENTS} /> : <h2 className="text-base font-semibold">Nutzerkonto</h2>}
     </AdminViewBar>
-    <AdminSearchField value={searchTerm} onChange={value => { setSearchTerm(value); setVisibleLimit(PAGE_SIZE); setExpandedUserId(null); }} placeholder="Name oder E-Mail" label="Benutzer nach Name oder E-Mail suchen" />
+    {requestedUser === null && <AdminSearchField value={searchTerm} onChange={value => { setSearchTerm(value); setVisibleLimit(PAGE_SIZE); setExpandedUserId(null); }} placeholder="Name oder E-Mail" label="Benutzer nach Name oder E-Mail suchen" />}
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="flex flex-wrap items-center gap-x-3">
         <p className="text-xs text-muted-foreground" role="status">{isLoading || authLoading ? "Benutzer werden geladen …" : isError ? "Benutzer nicht verfügbar" : filteredUsers.length === users.length ? `${users.length} Benutzer` : `${filteredUsers.length} von ${users.length} Benutzern`}</p>
         <Button asChild variant="ghost" className="text-xs"><Link to={ACCOUNT_DELETIONS_PATH}>Löschanträge</Link></Button>
       </div>
-      <Select value={sort} onValueChange={value => { setSort(value); setVisibleLimit(PAGE_SIZE); }}><SelectTrigger aria-label="Benutzer sortieren" className="h-11 w-auto gap-3 border-0 bg-transparent text-xs shadow-none"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="newest">Neueste zuerst</SelectItem><SelectItem value="name">Name A–Z</SelectItem></SelectContent></Select>
+      {requestedUser === null && <Select value={sort} onValueChange={value => { setSort(value); setVisibleLimit(PAGE_SIZE); }}><SelectTrigger aria-label="Benutzer sortieren" className="h-11 w-auto gap-3 border-0 bg-transparent text-xs shadow-none"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="newest">Neueste zuerst</SelectItem><SelectItem value="name">Name A–Z</SelectItem></SelectContent></Select>}
     </div>
-    {isLoading || authLoading ? <div className="animate-pulse space-y-3 rounded-kws-card bg-card p-4 motion-reduce:animate-none" aria-hidden="true">{[1, 2, 3].map(row => <div key={row} className="h-14 rounded-kws-control bg-secondary" />)}</div> : isError ? <div role="alert" className="rounded-kws-card bg-card p-5"><p className="text-sm">Benutzer konnten nicht geladen werden.</p><Button variant="outline" className="mt-4" disabled={isFetching} onClick={() => void refetch()}>Erneut versuchen</Button></div> : filteredUsers.length === 0 ? <div className="rounded-kws-card bg-card p-8 text-center"><p className="text-sm text-muted-foreground">Keine Benutzer gefunden.</p>{(searchTerm || activeSegment !== "all") && <Button variant="ghost" className="mt-3" onClick={clearFilters}>Filter zurücksetzen</Button>}</div> :
+    {isLoading || authLoading ? <div className="animate-pulse space-y-3 rounded-kws-card bg-card p-4 motion-reduce:animate-none" aria-hidden="true">{[1, 2, 3].map(row => <div key={row} className="h-14 rounded-kws-control bg-secondary" />)}</div> : isError ? <div role="alert" className="rounded-kws-card bg-card p-5"><p className="text-sm">Benutzer konnten nicht geladen werden.</p><Button variant="outline" className="mt-4" disabled={isFetching} onClick={() => void refetch()}>Erneut versuchen</Button></div> : filteredUsers.length === 0 ? <div className="rounded-kws-card bg-card p-8 text-center"><p className="text-sm text-muted-foreground">{requestedUser !== null ? 'Dieses Nutzerkonto ist nicht verfügbar oder hat noch kein Profil.' : 'Keine Benutzer gefunden.'}</p>{(searchTerm || activeSegment !== "all") && <Button variant="ghost" className="mt-3" onClick={clearFilters}>Filter zurücksetzen</Button>}</div> :
       <div className="overflow-hidden rounded-kws-card bg-card shadow-soft">
         <div className="divide-y divide-border/50">
           {filteredUsers.slice(0, visibleLimit).map(entry => {
@@ -186,11 +191,11 @@ export const UserManagement = () => {
               </button>
               {expanded && <div id={instanceId + entry.id + "-details"} className="space-y-4 px-4 pb-4 pt-3 sm:px-5">
                 <dl className="grid grid-cols-2 gap-3 text-xs lg:grid-cols-4"><div><dt className="text-muted-foreground">Registriert</dt><dd className="mt-1">{formatJoinedDate(entry.created_at)}</dd></div><div><dt className="text-muted-foreground">Geburtsdatum</dt><dd className="mt-1">{formatJoinedDate(entry.birth_date)}</dd></div><div className="col-span-2"><dt className="text-muted-foreground">E-Mail</dt><dd className="mt-1 break-all">{entry.email || "Nicht hinterlegt"}{entry.email ? <Button variant="ghost" className="mt-1 h-11 px-2 text-xs" onClick={async () => { try { await navigator.clipboard.writeText(entry.email!); toast.success("E-Mail kopiert"); } catch { toast.error("Kopieren nicht möglich"); } }}>E-Mail kopieren</Button>:null}</dd></div></dl>
-                <div className="grid gap-2 lg:grid-cols-2">
+                {requestedUser === null && <div className="grid gap-2 lg:grid-cols-2">
                   <div className="flex min-h-14 items-center justify-between gap-3 rounded-kws-control bg-secondary/60 p-3"><div><Label htmlFor={instanceId + entry.id + "-admin"}>Admin-Rechte</Label>{protectedAdmin && <p id={instanceId + entry.id + "-protected"} className="mt-1 text-xs text-muted-foreground">{entry.id === user?.id ? "Dein Adminzugang bleibt geschützt." : "Mindestens ein Admin bleibt erhalten."}</p>}</div><Switch id={instanceId + entry.id + "-admin"} checked={entry.isAdmin} disabled={actionPending || protectedAdmin} aria-describedby={protectedAdmin ? instanceId + entry.id + "-protected" : undefined} onCheckedChange={enabled => requestAction({ kind: "role", entry, role: "admin", enabled })} /></div>
                   <div className="flex min-h-14 items-center justify-between gap-3 rounded-kws-control bg-secondary/60 p-3"><Label htmlFor={instanceId + entry.id + "-setter"}>Setter-Rechte</Label><Switch id={instanceId + entry.id + "-setter"} checked={entry.isSetter} disabled={actionPending} onCheckedChange={enabled => requestAction({ kind: "role", entry, role: "setter", enabled })} /></div>
-                </div>
-                <div className="flex flex-wrap gap-2"><Button onClick={() => { editTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; setEditUser(entry); }}><Pencil className="h-4 w-4" aria-hidden="true" />Bearbeiten</Button><Button variant="ghost" disabled={!entry.email || actionPending} onClick={() => requestAction({ kind: "email", entry })}><Mail className="h-4 w-4" aria-hidden="true" />Passwort-E-Mail</Button></div>
+                </div>}
+                <div className="flex flex-wrap gap-2"><Button onClick={() => { editTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; setEditUser(entry); }}><Pencil className="h-4 w-4" aria-hidden="true" />Bearbeiten</Button>{requestedUser === null && <Button variant="ghost" disabled={!entry.email || actionPending} onClick={() => requestAction({ kind: "email", entry })}><Mail className="h-4 w-4" aria-hidden="true" />Passwort-E-Mail</Button>}</div>
               </div>}
             </article>;
           })}

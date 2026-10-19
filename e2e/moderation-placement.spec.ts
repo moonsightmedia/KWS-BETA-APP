@@ -23,7 +23,7 @@ async function open(page: Page, mode: Mode = 'pending', view = 'users', admin = 
     export async function moderateContent(...args) { q().writes.push(args); await new Promise(r=>setTimeout(r,200)); if(q().failWrite) throw new Error('Aktion wurde nicht bestätigt.'); if(args[2]==='approve'||args[2]==='reject') q().comments=false; if(args[2]==='resolve') q().reports=false; }
     export const getBlockedUsers=async()=>[]; export const reportContent=async()=>{}; export const blockUser=async()=>{};
   ` }));
-  await page.route(/\/src\/components\/admin\/(ColorManagement|SectorManagement|HallMapManagement|BoulderOperationLogs|FeedbackManagement|PushNotificationTest|MonitoringDashboard)\.tsx(\?.*)?$/, route => {
+  await page.route(/\/src\/components\/admin\/(AdminOverview|ColorManagement|SectorManagement|HallMapManagement|BoulderOperationLogs|FeedbackManagement|PushNotificationTest|MonitoringDashboard)\.tsx(\?.*)?$/, route => {
     const name = new URL(route.request().url()).pathname.split('/').pop()!.replace('.tsx', '');
     return route.fulfill({ contentType: 'application/javascript', body: `export const ${name}=()=> 'Isoliert: ${name}';` });
   });
@@ -33,6 +33,16 @@ async function open(page: Page, mode: Mode = 'pending', view = 'users', admin = 
 }
 
 async function noOverflow(page: Page) { expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); }
+async function openFeedback(page: Page) {
+  const mobileNavigation = page.getByRole('navigation', { name: 'Adminnavigation', exact: true });
+  if (await mobileNavigation.isVisible()) {
+    await mobileNavigation.getByRole('button', { name: /^Mehr/ }).click();
+    await page.getByRole('menuitem', { name: 'Feedback', exact: true }).click();
+  } else {
+    await page.getByRole('link', { name: 'Feedback', exact: true }).click();
+  }
+  await expect(page.getByText('Isoliert: FeedbackManagement', { exact: true })).toBeVisible();
+}
 const notice = (page: Page) => page.getByRole('complementary', { name: 'Offene Moderationsaufgaben' });
 const choice = (page: Page, name: RegExp) => page.getByRole('group', { name: 'Moderationsansicht' }).getByRole('button', { name });
 test.beforeEach(async () => { await mkdir(directory, { recursive: true }); });
@@ -106,7 +116,7 @@ for (const width of [375, 768, 1280, 1920]) {
       ['comment', 'reported-comment', 'hide'], ['comment', 'reported-comment', 'restore'],
       ['profile', 'qa-subject', 'ban'], ['profile', 'qa-subject', 'unban'], ['report', 'report-1', 'resolve'],
     ]);
-    await page.getByRole('link', { name: 'Feedback', exact: true }).click();
+    await openFeedback(page);
     await expect(notice(page)).toHaveCount(0);
     await noOverflow(page);
   });
@@ -118,14 +128,14 @@ test('a report-only task opens reports directly and partial failure stays explic
   await page.getByRole('link', { name: 'Moderation öffnen' }).click();
   await page.getByRole('button', { name: 'Aktualisieren', exact: true }).click();
   await expect(choice(page, /^Kommentare/)).toHaveText('Kommentare (0)');
-  await page.getByRole('link', { name: 'Feedback', exact: true }).click();
+  await openFeedback(page);
   await expect(notice(page)).toContainText('1 offene Inhaltsmeldung');
   await page.getByRole('link', { name: 'Moderation öffnen' }).click();
   await expect(page.getByRole('region', { name: 'Offene Inhaltsmeldungen' })).toBeVisible();
   await page.evaluate(() => { window.moderationQA.reportError = true; });
   await page.getByRole('button', { name: 'Aktualisieren', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Meldungen konnten nicht geladen werden.');
-  await page.getByRole('link', { name: 'Feedback', exact: true }).click();
+  await openFeedback(page);
   await expect(notice(page)).toContainText('Stand teilweise nicht aktuell');
 });
 

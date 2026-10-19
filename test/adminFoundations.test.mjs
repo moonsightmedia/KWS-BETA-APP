@@ -9,7 +9,7 @@ async function load(name) {
   return import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 }
 const { loadMonitoring } = await load('adminMonitoring');
-const { ADMIN_TABS, OPERATIONS_TABS, resolveAdminTab, adminTabPath } = await load('adminNavigation');
+const { ADMIN_TABS, OPERATIONS_TABS, MOBILE_ADMIN_TABS, MORE_ADMIN_TABS, resolveAdminTab, adminTabPath, adminUserId, adminUserPath } = await load('adminNavigation');
 const { makeProfileDraft, parseBirthDate, profileDraftPayload } = await load('userProfileForm');
 const metrics = ['activeDevices', 'sessionsToday', 'feedbackErrors', 'uploadFails', 'uploadOom'];
 
@@ -59,8 +59,17 @@ test('profile payload trims names, clears optional fields and preserves existing
   assert.throws(() => profileDraftPayload({ ...draft, birthDate: '31.02.2000' }));
 });
 test('navigation contains every admin page once, with safe fallbacks', () => {
-  assert.equal(new Set(ADMIN_TABS.map(tab => tab.value)).size, 7);
+  assert.equal(new Set(ADMIN_TABS.map(tab => tab.value)).size, 8);
   assert.deepEqual(OPERATIONS_TABS.map(tab => tab.value), ['monitoring', 'logs', 'tests']);
   for (const tab of ADMIN_TABS) { assert.equal(resolveAdminTab(tab.value), tab.value); assert.equal(adminTabPath(tab.value), '/admin?tab=' + tab.value); }
-  for (const value of [null, '', 'invalid']) assert.equal(resolveAdminTab(value), 'users');
+  assert.deepEqual(MOBILE_ADMIN_TABS.map(tab => tab.value), ['overview', 'users', 'settings', 'moderation']);
+  assert.deepEqual(MORE_ADMIN_TABS.map(tab => tab.value), ['feedback', 'monitoring', 'logs', 'tests']);
+  for (const value of [null, '', 'invalid']) assert.equal(resolveAdminTab(value), 'overview');
+});
+
+test('admin user links accept only an exact account UUID and cannot inject a different destination', () => {
+  const id = '00000000-0000-4000-8000-000000000001';
+  assert.equal(adminUserId(id.toUpperCase()), id);
+  assert.equal(adminUserPath(id), `/admin?tab=users&userId=${id}`);
+  for (const value of ['', null, 'javascript:alert(1)', id + '&tab=tests', 'somebody@example.test']) { assert.equal(adminUserId(value), null); assert.throws(() => adminUserPath(value)); }
 });

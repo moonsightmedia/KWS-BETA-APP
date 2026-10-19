@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -20,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { ContentModeration } from '@/components/admin/ContentModeration';
 import { AccountDeletionNotice } from '@/components/admin/AccountDeletionNotice';
 import { ModerationNotice } from '@/components/admin/ModerationNotice';
+import { AdminOverview } from '@/components/admin/AdminOverview';
 
 const SETTINGS_TABS = [
   { value: 'sectors', label: 'Sektoren' },
@@ -28,7 +30,7 @@ const SETTINGS_TABS = [
 ];
 
 const Admin = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const { isAdmin, loading } = useIsAdmin();
   const navigate = useNavigate();
   const { isExpanded } = useSidebar();
@@ -57,12 +59,13 @@ const Admin = () => {
           {!(currentTab === 'settings' && settingsTab === 'hallMap') && <BrandWatermark />}
           {authLoading || loading ? <div role="status" aria-label="Adminbereich wird geladen"><Skeleton className="mb-8 h-12 w-64" /><Skeleton className="h-96 w-full" /></div> :
             <>
-            {!(currentTab === 'users' && searchParams.get('usersView') === 'deletions') && <AccountDeletionNotice />}
-            {currentTab !== 'moderation' && <ModerationNotice />}
+            {currentTab !== 'overview' && !(currentTab === 'users' && searchParams.get('usersView') === 'deletions') && <AccountDeletionNotice />}
+            {currentTab !== 'overview' && currentTab !== 'moderation' && <ModerationNotice />}
             <Tabs value={currentTab} onValueChange={value => changeTab('tab', value)} className="w-full min-w-0">
               <TabsList aria-label="Adminbereiche" className="hidden">
                 {ADMIN_TABS.map(tab => <TabsTrigger key={tab.value} value={tab.value} className="min-w-0 flex-1 px-3 text-xs lg:text-sm">{tab.label}</TabsTrigger>)}
               </TabsList>
+              <TabsContent value="overview" className="mt-0"><AdminOverview accountId={user?.id || ''} connection={{ url: backendConfig.supabaseUrl || '', key: backendConfig.publicKey || '', token: session?.access_token || '' }} /></TabsContent>
               <TabsContent value="users" className="mt-0"><UserManagement /></TabsContent>
               <TabsContent value="settings" className="mt-0">
                 <Tabs value={settingsTab} onValueChange={value => changeTab('settingsTab', value)}>
