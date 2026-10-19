@@ -23,7 +23,7 @@ aktiviert keine zusätzliche native Erfassung.
   Geräte-/OS-Metadaten bleiben erhalten; das ist keine Null-Daten-Erfassung.
 - QA-Kanal `test`, Umgebung `native-crash-qa` und zufällige `report_id` halten
   diese Probe aus den normalen Nutzungszahlen und dem Sentry-Dashboardimport
-  heraus. Keine neue App-/TestFlight-Veröffentlichung für diesen Test.
+  heraus. Keine neue native App-/TestFlight-Veröffentlichung für diesen Test.
 - Keine physischen Testgeräte verfügbar. Die echte iPhone-/Android-Abnahme,
   insbesondere iOS-Absturz nach Neustart und native iOS-Symbolisierung am
   konkreten Crash, bleibt offen. Emulator und dSYM-Upload ersetzen sie nicht.

@@ -1,6 +1,7 @@
 # Externe Alarme und aktueller Android-Crashnachweis
 
-Stand: 19.10.2026, 17:00 Europe/Berlin. Betriebskonfiguration, kein App-Release.
+Stand: 19.10.2026, 17:00 Europe/Berlin. Betriebskonfiguration und Dokumentation,
+keine Änderung am App-Code und kein neuer nativer Release.
 
 ## Externe Erreichbarkeit
 
@@ -11,6 +12,10 @@ Stand: 19.10.2026, 17:00 Europe/Berlin. Betriebskonfiguration, kein App-Release.
   keine SQL-Einstellungsänderung, neue Ressource, Ziel- oder Routenänderung.
 - Hub bereit, keine wartenden oder festgefahrenen Benachrichtigungen, frisches
   geprüftes Backup und frischer stiller Pipeline-Canary.
+- Alle drei Manifeste wiederholt strikt gültig; Init unverändert und Offline-
+  Pläne ohne lokale Aktionen. CLI-Environment-Digests stimmen exakt mit der
+  serverautoritativen Registry überein. 20 fokussierte HTTP-Monitor-, Watchdog-
+  und Notifier-Tests bestanden. Keine Hub-Runtimeänderung in diesem Auftrag.
 - Öffentliche Hub-Readiness: HTTP 200, exakt `status` und `correlationId`, ready.
 - Bestehendes Google-Watchdog-Projekt im richtigen Betreiberkonto geprüft:
   genau ein zeitbasierter Trigger, aktuelle minütliche abgeschlossene Läufe.
