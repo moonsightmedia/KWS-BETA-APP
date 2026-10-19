@@ -35,6 +35,7 @@ const run=(args)=>new Promise((res,rej)=>{
   const child=spawn(process.execPath,args,{cwd:root,env,stdio:'inherit',windowsHide:true});
   child.on('error',rej);child.on('exit',code=>code===0?res():rej(new Error(`Build step failed (${code})`)));
 });
-await run(['node_modules/vite/bin/vite.js','build','--mode','hostinger','--base=./']);
+await run(['node_modules/vite/bin/vite.js','build','--mode','hostinger','--base=/']);
+await run(['scripts/verify-native-web-assets.mjs','dist']);
 await run(['node_modules/@capacitor/cli/bin/capacitor','sync','android']);
 console.log('Hostinger native assets synced; Gradle build remains a separate explicit step.');
