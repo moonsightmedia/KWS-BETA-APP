@@ -22,7 +22,7 @@ Escape, Menübehandlung und Fokusfolge werden berücksichtigt.
 ## Verifikation
 
 - Produktionsbuild der aktuellen App-Quellkopie mit dem bestehenden Lockfile
-  erfolgreich: 3334 Module, keine Änderung der regulären Appversion.
+  erfolgreich: 3332 Module, keine Änderung der regulären Appversion.
 - Gesamte Node-Regressionssuite: **334 Tests bestanden**.
 - Bestehende Detail-/Rückkehr-/Netzwerkprüfungen: **19 Browserprüfungen bestanden**.
 - Player-/Vollbildsuite: **9 Browserprüfungen bestanden**. Enthält mobile Controls,
