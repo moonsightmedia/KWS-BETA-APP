@@ -257,10 +257,18 @@ test('external beta has an honest detail fallback rather than unsupported native
 test('two visual loops on all four required widths', async ({ page }) => {
   await backend(page); await mkdir('output/video-feed/integration', { recursive: true });
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  const showRegularView = async () => {
+    const exit = page.getByRole('button', { name: 'Zur Boulderübersicht', exact: true });
+    const grid = page.getByRole('button', { name: 'Gridansicht', exact: true });
+    // A persisted video preference can still be loading its lazy entry after goto.
+    await expect(exit.or(grid)).toBeVisible();
+    if (await exit.isVisible()) await exit.click();
+    await expect(grid).toBeVisible();
+  };
   for (const width of [375, 768, 1280, 1920]) {
     await page.setViewportSize({ width, height: width === 375 ? 812 : width === 768 ? 1024 : width === 1280 ? 900 : 1080 });
     await page.goto('/test/fixtures/boulder-feed.html#/boulders');
-    if (await page.locator('.kws-feed').count()) await frame(page).getByRole('button', { name: 'Zur Boulderübersicht' }).click();
+    await showRegularView();
     await page.getByRole('button', { name: 'Gridansicht', exact: true }).click();
     await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-overview.png`, animations: 'disabled' });
     if (await page.locator('.kws-feed').count() === 0) await page.getByRole('button', { name: 'Videoansicht', exact: true }).click();
@@ -284,7 +292,7 @@ test('two visual loops on all four required widths', async ({ page }) => {
   for (const width of [375, 768, 1280, 1920]) {
     await page.setViewportSize({ width, height: width === 375 ? 812 : width === 768 ? 1024 : width === 1280 ? 900 : 1080 });
     await page.goto('/test/fixtures/boulder-feed.html?guest=1#/guest');
-    if (await page.locator('.kws-feed').count()) await frame(page).getByRole('button', { name: 'Zur Boulderübersicht' }).click();
+    await showRegularView();
     await page.getByRole('button', { name: 'Gridansicht', exact: true }).click();
     await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-guest-grid.png`, animations: 'disabled' });
     await page.getByRole('button', { name: 'Listenansicht', exact: true }).click();
