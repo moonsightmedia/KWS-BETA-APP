@@ -5,7 +5,10 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { boulderNavigationState } from '@/lib/boulderNavigation';
 import { backendStorageKey } from '@/lib/backendConfig';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Grid3X3, List, Map as MapIcon, RotateCcw, Search, SlidersHorizontal, Sparkles, Star, X } from 'lucide-react';
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Grid3X3, List, Map as MapIcon, RotateCcw, Search, SlidersHorizontal, Sparkles, Star, Video, X } from 'lucide-react';
+import { BoulderVideoFeed } from '@/components/boulder/BoulderVideoFeedEntry';
+import { useRetainedBoulderOrigin } from '@/components/BoulderRouteContinuity';
+import { hasBoulderVideo } from '@/lib/boulderFeed';
 import { BoulderFilterControls, BoulderFilterPanel, BoulderSortPanel, FilterSection, FilterToggle } from '@/components/boulder/BoulderFilterControls';
 import { SectorFilterOptions } from '@/components/boulder/SectorFilterOptions';
 import { DashboardHeader } from '@/components/DashboardHeader';
@@ -37,11 +40,12 @@ const STORAGE_KEY_BOULDER_VIEW = 'boulder_view_mode';
 const STORAGE_KEY_COLLAPSED_AREAS = 'boulder_collapsed_areas_v1';
 const SECTOR_AREA_ORDER = ['Bug', 'Couch-Ecke', 'Top-Out', 'Lange Platte', 'Grotte'];
 
-type BoulderViewMode = 'list' | 'grid';
+type BoulderViewMode = 'list' | 'grid' | 'video';
 
 const getStoredBoulderView = (): BoulderViewMode => {
   try {
-    return localStorage.getItem(STORAGE_KEY_BOULDER_VIEW) === 'grid' ? 'grid' : 'list';
+    const stored = localStorage.getItem(STORAGE_KEY_BOULDER_VIEW);
+    return stored === 'grid' || stored === 'video' ? stored : 'list';
   } catch {
     return 'list';
   }
@@ -134,6 +138,8 @@ const Boulders = () => {
   const [showMap, setShowMap] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [viewMode, setViewMode] = useState<BoulderViewMode>(getStoredBoulderView);
+  const lastRegularView = useRef<'list' | 'grid'>(viewMode === 'grid' ? 'grid' : 'list');
+  const coveredByDetail = useRetainedBoulderOrigin();
   const [collapsedAreaNames, setCollapsedAreaNames] = useState<Set<string>>(getStoredCollapsedAreas);
   const headerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -349,6 +355,7 @@ const Boulders = () => {
 
   const allGroupsExpanded = groupedBoulders.length > 0
     && groupedBoulders.every((group) => !collapsedAreaNames.has(group.areaName));
+  const videoBoulders = useMemo(() => groupedBoulders.flatMap(group => group.boulders).filter(hasBoulderVideo), [groupedBoulders]);
 
   useLayoutEffect(() => {
     if (notificationVisit === null) { expandedNotificationVisit.current = null; return; }
@@ -653,7 +660,7 @@ const Boulders = () => {
         </div>
       )}
 
-        <BoulderFilterPanel open={showFilters} onOpenChange={setShowFilters} resultCount={filteredAndSortedBoulders.length} activeCount={activeFilterCount} onReset={clearFilters}>
+        <BoulderFilterPanel open={showFilters} onOpenChange={setShowFilters} resultCount={viewMode === 'video' ? videoBoulders.length : filteredAndSortedBoulders.length} activeCount={activeFilterCount} onReset={clearFilters}>
           <BoulderFilterControls
             hideReset
             sectorControls={<SectorFilterOptions sectors={sectors ?? []} selected={sectorFilters} onChange={setSectorFilters} />}
@@ -767,8 +774,8 @@ const Boulders = () => {
     );
   }
 
-  return (
-    <div className="flex min-h-screen bg-brand-canvas">
+  return (<>
+    <div className="flex min-h-screen bg-brand-canvas" aria-hidden={viewMode === 'video' || undefined} {...(viewMode === 'video' ? { inert: '' } : {})}>
       <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-brand-canvas md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
         {pageHeader}
 
@@ -853,7 +860,7 @@ const Boulders = () => {
               >
               <button
                 type="button"
-                onClick={() => setViewMode('list')}
+                onClick={() => { lastRegularView.current = 'list'; setViewMode('list'); }}
                 aria-label="Listenansicht"
                 aria-pressed={viewMode === 'list'}
                 className={cn(
@@ -867,7 +874,7 @@ const Boulders = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setViewMode('grid')}
+                onClick={() => { lastRegularView.current = 'grid'; setViewMode('grid'); }}
                 aria-label="Gridansicht"
                 aria-pressed={viewMode === 'grid'}
                 className={cn(
@@ -879,6 +886,7 @@ const Boulders = () => {
               >
                 <Grid3X3 className="h-4 w-4" strokeWidth={2} />
               </button>
+              <button type="button" aria-label="Videoansicht" aria-pressed={viewMode === 'video'} onClick={() => { setShowSort(false); setShowSearch(false); setShowMap(false); setViewMode('video'); }} className="flex h-10 w-10 items-center justify-center rounded-kws-control text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"><Video className="h-4 w-4"/></button>
               </div>
             </div>
           </div>
@@ -1089,6 +1097,8 @@ const Boulders = () => {
 
       </div>
     </div>
+    {viewMode === 'video' && <BoulderVideoFeed boulders={videoBoulders} active={!coveredByDetail} loading={isLoading} onExit={() => setViewMode(lastRegularView.current)} onDetail={handleBoulderClick} onFilter={() => { setShowFilters(true); setShowSort(false); }} filtersOpen={showFilters} filterCount={activeFilterCount} sortLabel={sortOptions.find(option => option.key === selectedSortOption)?.label ?? 'Neueste zuerst'} sortControls={close => <BoulderSortPanel className="kws-feed-sort" options={sortOptions} selected={selectedSortOption} onSelect={value => { applySortOption(value); close(); }}/>} onReset={() => { clearFilters(); setSearchQuery(''); }}/>}
+  </>
   );
 };
 
