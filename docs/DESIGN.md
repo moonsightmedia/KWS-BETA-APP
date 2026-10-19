@@ -2,7 +2,7 @@
 status: verbindlich
 scope: KWS Beta App
 owner: Janosch Althoff
-last_verified: 2026-10-18
+last_verified: 2026-10-19
 supersedes: docs/USER_AREA_DESIGN_GUIDE.md
 ---
 
@@ -1303,6 +1303,14 @@ Verbindliche Regeln:
   getrennt. Zeitraumfilter beeinflussen nur Historie, Plattform/Version auch Live.
   Mobile Kennzahlen zweispaltig mit nachgeordneter Aufteilung, Desktop dreispaltig;
   Boulderlisten bleiben flach, umbrechend und direkt bedienbar.
+  Nutzerpräzisierung 19.10.2026: Die kurze freiwillige Statistikabfrage benennt
+  App-Starts, Boulder-/Videonutzung und Live-Zahlen ohne Namen. Gleich direkt
+  erreichbare Erlauben-/Ohne-Statistik-Aktionen, Gerätebezug, Widerruf im Profil
+  und unabhängige technische Fehlerberichte bleiben verständlich. Die
+  Dashboard-Kennzahl heißt „Online mit Zustimmung“; direkt vor den Live-Zahlen
+  in Übersicht und Aktivität steht, dass nur Nutzer mit Statistikzustimmung
+  gezählt werden, nicht alle App-Nutzer. Dieser Hinweis bleibt bei Null,
+  Ladezustand und Fehler sichtbar; keine erneute Abfrage allein wegen Textpflege.
   Monitoring trennt Übersicht, Upload-Suche und Aktivität; technische IDs und
   vollständige Fehler stehen in Details. Protokoll zeigt kompakte, aufklappbare
   Gruppen und benennt seine Suchgrenze (letzte 300 Einträge).

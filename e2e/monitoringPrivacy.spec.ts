@@ -17,6 +17,11 @@ test('no usage before consent, sanitized errors remain available and choice surv
   const events = await collector(page);
   await page.goto('/test/fixtures/monitoringPrivacy.html');
   await expect(page.getByRole('complementary', { name: 'Nutzungsstatistik auswählen' })).toBeVisible();
+  const prompt = page.getByRole('complementary', { name: 'Nutzungsstatistik auswählen' });
+  await expect(prompt.getByRole('heading', { name: 'Nutzungsstatistik erlauben?', exact: true })).toBeVisible();
+  await expect(prompt).toContainText('Admins sehen auch die Onlinezahl und aktuell geöffnete Boulder – ohne Namen.');
+  await expect(prompt).toContainText('Freiwillig. Nur für dieses Gerät. Jederzeit im Profil änderbar.');
+  await expect(prompt).toContainText('Technische Fehlerberichte sind davon unabhängig.');
   expect(events).toHaveLength(0);
   await page.getByRole('button', { name: 'Testfehler auslösen' }).click();
   await expect.poll(() => events.length).toBeGreaterThan(0);
@@ -46,6 +51,23 @@ test('consented real media playback is counted once under StrictMode; withdrawal
   await expect.poll(() => events.some(event => event.name === 'app_error')).toBe(true);
   expect(events.filter(event => event.name !== 'app_error')).toHaveLength(previous);
 });
+
+for (const choice of ['granted', 'denied'] as const) {
+  test(`copy update preserves existing v2 choice: ${choice}`, async ({ page }) => {
+    await page.addInitScript(value => localStorage.setItem('kws_usage_consent_v2', value), choice);
+    const events = await collector(page);
+    await page.goto('/test/fixtures/monitoringPrivacy.html');
+    await expect(page.getByRole('complementary', { name: 'Nutzungsstatistik auswählen' })).toHaveCount(0);
+    const setting = page.getByRole('switch', { name: 'Nutzungsstatistik erlauben' });
+    if (choice === 'granted') {
+      await expect(setting).toBeChecked();
+      await expect.poll(() => events.some(event => event.name === 'first_open')).toBe(true);
+    } else {
+      await expect(setting).not.toBeChecked();
+      expect(events).toHaveLength(0);
+    }
+  });
+}
 
 test('guest can open an editable privacy route without requiring a profile', async ({ page }) => {
   await collector(page);
@@ -115,15 +137,30 @@ for (const width of [375, 768, 1280, 1920]) {
   test(`privacy choice responsive loops at ${width}px`, async ({ page }) => {
     await collector(page); await page.setViewportSize({ width, height: width === 375 ? 812 : 960 });
     await page.goto('/test/fixtures/monitoringPrivacy.html');
-    const output = 'test-results/launch-monitoring-privacy-20261017'; await mkdir(output, { recursive: true });
+    const output = 'test-results/launch-monitoring-consent-20261019'; await mkdir(output, { recursive: true });
     await page.evaluate(() => document.fonts.ready);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     const prompt = page.getByRole('complementary'); await expect(prompt).toBeVisible();
     const accept = page.getByRole('button', { name: 'Statistik erlauben', exact: true });
+    const decline = page.getByRole('button', { name: 'Ohne Statistik', exact: true });
     expect((await accept.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect((await decline.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    const bounds = (await prompt.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(page.viewportSize()!.height);
     await page.screenshot({ path: `${output}/loop1-choice-${width}.png`, animations: 'disabled' });
-    await page.getByRole('button', { name: 'Ohne Statistik', exact: true }).click();
+    await decline.focus();
+    await page.keyboard.press('Enter');
     await expect(prompt).toHaveCount(0);
+    const setting = page.getByRole('switch', { name: 'Nutzungsstatistik erlauben' });
+    await expect(setting).not.toBeChecked();
+    await setting.focus();
+    await page.keyboard.press('Space');
+    await expect(setting).toBeChecked();
+    await page.keyboard.press('Space');
+    await expect(setting).not.toBeChecked();
     await page.screenshot({ path: `${output}/loop2-settings-${width}.png`, animations: 'disabled' });
   });
 }

@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 const widths = [375, 768, 1280, 1920];
 const directory = 'test-results/launch-monitoring-optimized-20261018';
+const consentNotice = 'Gezählt werden nur Nutzer, die der Nutzungsstatistik zugestimmt haben – nicht alle App-Nutzer.';
 async function open(page: Page, state = '') { await page.goto(`/test/fixtures/launchMonitoring.html${state ? `?state=${state}` : ''}`); }
 async function chooseView(page: Page, label: string) {
   const selector = page.getByRole('combobox', { name: 'Monitoringansicht', exact: true });
@@ -67,6 +68,8 @@ test('live counts update on push signals, reconnect and filter without historica
     await page.setViewportSize({ width, height: 960 });
     await open(page);
     const live = page.getByTestId('live-monitoring');
+    await expect(live.getByText('Online mit Zustimmung', { exact: true })).toBeVisible();
+    await expect(live.getByText(consentNotice, { exact: true })).toBeVisible();
     await expect(live.getByText('Live verbunden', { exact: true })).toBeVisible();
     await expect(live.getByTestId('live-online')).toHaveText('12');
     await expect(live.getByRole('link', { name: /Grüne Kante/ })).toHaveAttribute('href', '/boulder/00000000-0000-4000-8000-000000000005');
@@ -79,6 +82,7 @@ test('live counts update on push signals, reconnect and filter without historica
     await page.evaluate(() => { window.launchMonitoringQA.liveError = true; window.dispatchEvent(new Event('qa:live-update')); });
     await expect(live.getByTestId('live-online')).toHaveText('–');
     await expect(live.getByText('Live-Daten nicht bestätigt', { exact: true })).toBeVisible();
+    await expect(live.getByText(consentNotice, { exact: true })).toBeVisible();
     await page.screenshot({ path: `${directory}/live-loop2-error-${width}.png`, fullPage: true, animations: 'disabled' });
     await page.evaluate(() => { window.launchMonitoringQA.liveError = false; window.launchMonitoringQA.liveDisconnected = false; window.dispatchEvent(new Event('qa:live-connection')); window.dispatchEvent(new Event('qa:live-update')); });
     await expect(live.getByTestId('live-online')).toHaveText('13');
@@ -96,6 +100,7 @@ test('live expiry hides old numbers during failed refresh and empty is a confirm
   await open(page, 'empty');
   const live = page.getByTestId('live-monitoring');
   await expect(live.getByTestId('live-online')).toHaveText('0');
+  await expect(live.getByText(consentNotice, { exact: true })).toBeVisible();
   await expect(live.getByText('Gerade ist kein Boulder geöffnet.', { exact: true })).toBeVisible();
   await page.clock.install();
   await page.evaluate(() => { window.launchMonitoringQA.liveError = true; });
@@ -127,6 +132,8 @@ test('complete live view expands real rows and remains usable at all widths', as
     });
     await page.getByRole('button', { name: 'Live-Details', exact: true }).click();
     const live = page.getByTestId('live-monitoring');
+    await expect(live.getByText('Online mit Zustimmung', { exact: true })).toBeVisible();
+    await expect(live.getByText(consentNotice, { exact: true })).toBeVisible();
     await expect(live.getByRole('link')).toHaveCount(8);
     await live.getByRole('button', { name: 'Alle 10 Boulder anzeigen' }).focus();
     await page.keyboard.press('Enter');
@@ -136,6 +143,34 @@ test('complete live view expands real rows and remains usable at all widths', as
     await page.screenshot({ path: `${directory}/live-full-loop2-${width}.png`, fullPage: true, animations: 'disabled' });
     await live.getByRole('button', { name: 'Weniger anzeigen' }).click();
     await expect(live.getByRole('link')).toHaveCount(8);
+  }
+});
+
+test('consent scope is prominent in both live views at every required width', async ({ page }) => {
+  const output = 'test-results/launch-monitoring-consent-20261019';
+  await mkdir(output, { recursive: true });
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: width === 375 ? 812 : 960 });
+    await open(page);
+    await page.evaluate(() => document.fonts.ready);
+    const live = page.getByTestId('live-monitoring');
+    for (const view of ['overview', 'activity']) {
+      if (view === 'activity') await page.getByRole('button', { name: 'Live-Details', exact: true }).click();
+      const notice = live.getByText(consentNotice, { exact: true });
+      await expect(notice).toBeVisible();
+      await expect(live.getByTestId('live-online')).toHaveText('12');
+      const noticeBounds = (await notice.boundingBox())!;
+      const countBounds = (await live.getByTestId('live-online').boundingBox())!;
+      expect(noticeBounds.y + noticeBounds.height).toBeLessThanOrEqual(countBounds.y);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await live.screenshot({ path: `${output}/loop1-${view}-${width}.png`, animations: 'disabled' });
+      await page.evaluate(() => { window.launchMonitoringQA.liveError = true; window.dispatchEvent(new Event('qa:live-update')); });
+      await expect(live.getByTestId('live-online')).toHaveText('–');
+      await expect(notice).toBeVisible();
+      await live.screenshot({ path: `${output}/loop2-${view}-error-${width}.png`, animations: 'disabled' });
+      await page.evaluate(() => { window.launchMonitoringQA.liveError = false; window.dispatchEvent(new Event('qa:live-update')); });
+      await expect(live.getByTestId('live-online')).toHaveText('12');
+    }
   }
 });
 
