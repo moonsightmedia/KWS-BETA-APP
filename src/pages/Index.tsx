@@ -1,4 +1,3 @@
-import { withBoulderPhotoTransition } from '@/lib/boulderPhotoTransition';
 import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -378,7 +377,7 @@ const Index = () => {
                 <button
                   key={boulder.id}
                   type="button"
-                  onClick={event => withBoulderPhotoTransition(() => navigate(`/boulders/${boulder.id}`, { state: boulderNavigationState(location) }), event.currentTarget)}
+                  onClick={() => navigate(`/boulders/${boulder.id}`, { state: boulderNavigationState(location) })}
                   aria-label={`${boulder.name}, Grad ${boulder.difficulty ?? '?'}, ${getSectorAreaLabel(boulder)}`}
                   className="group relative aspect-[4/5] w-full overflow-hidden rounded-kws-card bg-[#EEF2EE] p-0 text-left shadow-[0_3px_14px_rgba(19,17,43,0.10)] transition-[transform,box-shadow] hover:shadow-[0_7px_22px_rgba(19,17,43,0.16)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55 focus-visible:ring-offset-2"
                 >
@@ -446,7 +445,7 @@ const Index = () => {
                         boulder={item.boulder}
                         status={item.tick.is_project?'project':item.tick.is_favorite?'saved':'attempted'}
                         attempts={item.tick.attempt_count??0}
-                        onClick={event => withBoulderPhotoTransition(() => navigate(`/boulders/${item.tick.boulder_id}`, { state: boulderNavigationState(location) }), event.currentTarget)}
+                        onClick={() => navigate(`/boulders/${item.tick.boulder_id}`, { state: boulderNavigationState(location) })}
                       />
                     ) : null,
                   )}
