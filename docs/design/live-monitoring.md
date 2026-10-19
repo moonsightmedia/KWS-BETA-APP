@@ -19,6 +19,12 @@ dekorative KPI-Wände. Keine neuen Bild- oder Komponentenbibliotheken.
   die vollständige Live-Ansicht mit nachgeordneter älterer Aktivität.
 - Zwei dominante Zahlen, Online und Boulderbetrachter;
   Aufteilung in angemeldete Konten, Gäste und Geräte nachgeordnet.
+- Nutzerpräzisierung19.10.2026: „Online mit Zustimmung“ und direkt darüber
+  „Gezählt werden nur Nutzer, die der Nutzungsstatistik zugestimmt haben –
+  nicht alle App-Nutzer.“ in beiden Live-Ansichten, auch bei Null oder Fehler.
+  Die freiwillige Abfrage benennt die Messung kurz, behält gleich erreichbare
+  Entscheidungen, Gerätebezug, Profil-Widerruf und getrennte Fehlerdiagnose.
+  Reine Textpflege verändert weder den Umfang noch bestehende v2-Entscheidungen.
 - Mobil zwei Zahlen nebeneinander, Aufteilung darunter; absm drei Spalten.
   Lange Bouldernamen umbrechen. Erst acht Boulder, weitere explizit aufklappbar.
 - Links öffnen echte vorhandene Boulder. Einladungs-, Lade-, Null-, Fehler-,

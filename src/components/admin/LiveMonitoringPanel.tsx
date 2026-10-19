@@ -49,10 +49,11 @@ export function LiveMonitoringPanel({ connection, filters, accountId, compact = 
   const boulders = usable ? data.boulders : [];
   if (compact) return <section aria-label="Live-Nutzung" data-testid="live-monitoring"><KwsSurface className="p-4">
     <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="flex items-center gap-2 text-sm font-semibold"><Activity className="h-4 w-4 text-primary-ink" aria-hidden="true" />Jetzt in der App</h2><span role="status" className="text-xs text-muted-foreground">{state}</span></div>
-    <dl className="mt-3 grid grid-cols-2 gap-4"><div><dt className="text-xs text-muted-foreground">Nutzer online</dt><dd className="mt-1 text-2xl font-semibold tabular-nums" data-testid="live-online">{count(data?.online)}</dd></div><div><dt className="text-xs text-muted-foreground">Schauen Boulder an</dt><dd className="mt-1 text-2xl font-semibold tabular-nums" data-testid="live-viewers">{count(data?.viewing_boulders)}</dd></div></dl>
+    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">Gezählt werden nur Nutzer, die der Nutzungsstatistik zugestimmt haben – nicht alle App-Nutzer.</p>
+    <dl className="mt-3 grid grid-cols-2 gap-4"><div><dt className="text-xs text-muted-foreground">Online mit Zustimmung</dt><dd className="mt-1 text-2xl font-semibold tabular-nums" data-testid="live-online">{count(data?.online)}</dd></div><div><dt className="text-xs text-muted-foreground">Schauen Boulder an</dt><dd className="mt-1 text-2xl font-semibold tabular-nums" data-testid="live-viewers">{count(data?.viewing_boulders)}</dd></div></dl>
     <div className="mt-2 divide-y divide-border/50">{boulders.slice(0, 2).map(boulder => <a key={boulder.id} href={`/boulder/${boulder.id}`} className="flex min-h-11 items-center gap-3 rounded-kws-control text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span className="min-w-0 flex-1 truncate">{boulder.name || 'Boulder ohne Namen'}</span><span className="shrink-0 text-xs font-semibold">{boulder.viewers} Nutzer</span><ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" /></a>)}</div>
     {!boulders.length && <p className="mt-3 text-xs text-muted-foreground">{usable ? 'Gerade ist kein Boulder geöffnet.' : 'Aktuelle Boulderansichten sind noch nicht bestätigt.'}</p>}
-    <div className="mt-1 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">Nur mit Freigabe · ohne Namen</p><Button variant="ghost" size="sm" onClick={onShowAll}>Live-Details<ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Button></div>
+    <div className="mt-1 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">Ohne Namen</p><Button variant="ghost" size="sm" onClick={onShowAll}>Live-Details<ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Button></div>
   </KwsSurface></section>;
   return <section aria-label="Live-Nutzung" className="space-y-3" data-testid="live-monitoring">
     <KwsSurface className="p-4 sm:p-5">
@@ -60,12 +61,13 @@ export function LiveMonitoringPanel({ connection, filters, accountId, compact = 
         <h2 className="flex items-center gap-2 text-base font-semibold"><Activity className="h-4 w-4 text-primary-ink" aria-hidden="true" />Jetzt in der App</h2>
         <span className="text-xs text-muted-foreground" role="status">{state}</span>
       </div>
+      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">Gezählt werden nur Nutzer, die der Nutzungsstatistik zugestimmt haben – nicht alle App-Nutzer.</p>
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3">
-        <div><dt className="text-xs text-muted-foreground">Nutzer online</dt><dd className="mt-1 text-3xl font-semibold tabular-nums" data-testid="live-online">{count(data?.online)}</dd></div>
+        <div><dt className="text-xs text-muted-foreground">Online mit Zustimmung</dt><dd className="mt-1 text-3xl font-semibold tabular-nums" data-testid="live-online">{count(data?.online)}</dd></div>
         <div><dt className="text-xs text-muted-foreground">Schauen Boulder an</dt><dd className="mt-1 text-3xl font-semibold tabular-nums" data-testid="live-viewers">{count(data?.viewing_boulders)}</dd></div>
         <div className="col-span-2 flex items-center gap-2 self-end text-xs text-muted-foreground sm:col-span-1 sm:block"><Users className="h-4 w-4 shrink-0 sm:mb-2" aria-hidden="true" /><span>{count(data?.accounts)} angemeldet · {count(data?.guests)} Gäste<br className="hidden sm:block" /> · {count(data?.devices)} Geräte</span></div>
       </dl>
-      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">Nur freigegebene Nutzung im Vordergrund. Konten zählen geräteübergreifend einmal, Gäste pro Installation. Verbindungsabbrüche laufen spätestens nach 45 Sekunden ohne neues Signal aus.</p>
+      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">Nur bei aktiver App. Konten zählen geräteübergreifend einmal, Gäste pro Installation. Verbindungsabbrüche laufen spätestens nach 45 Sekunden ohne neues Signal aus.</p>
       {(!usable || !connected) && <div className="mt-3 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{error ? 'Die Verbindung ist gestört. Unbestätigte Werte werden nicht als null angezeigt.' : 'Ohne bestätigte Live-Verbindung werden Werte nicht als Echtzeit ausgegeben.'}</p><Button variant="secondary" size="sm" onClick={() => void refetch()} disabled={isFetching}><RefreshCw className="h-4 w-4" aria-hidden="true" />Erneut prüfen</Button></div>}
     </KwsSurface>
     <KwsSurface>
