@@ -352,10 +352,14 @@ export async function reportError(
   error: Error,
   errorInfo?: React.ErrorInfo | null,
   userDescription?: string,
-  userContext?: ReportErrorUserContext | null
+  userContext?: ReportErrorUserContext | null,
+  options?: { userInitiated?: boolean }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (isMonitoringEnabled() && !userDescription) {
+    if (!options?.userInitiated) {
+      // Disabling the collector must not enable the legacy screenshot/feedback
+      // transport instead. Only an explicit report action can use that transport.
+      if (!isMonitoringEnabled()) return { success: false, error: 'Automatische Fehlerberichte sind deaktiviert.' };
       const reportId = reportMonitoringError(error, errorInfo ? 'react_boundary' : 'global_error', errorInfo ? 'fatal' : 'error');
       if (!reportId) return { success: false, error: 'Der Fehlerbericht konnte nicht gespeichert werden.' };
       const success = await confirmMonitoringReport(reportId);
@@ -388,7 +392,7 @@ export async function reportError(
       error_details: errorDetails,
       screenshot_url: screenshot || undefined,
       metadata: {
-        autoReported: true,
+        autoReported: false,
         timestamp: new Date().toISOString(),
       },
     });

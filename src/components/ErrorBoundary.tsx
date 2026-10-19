@@ -35,7 +35,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!this.state.error || this.state.isReporting) return;
     this.setState({ isReporting: true, reportFailure: false });
     try {
-      const result = await reportError(this.state.error, this.state.errorInfo, this.state.userDescription, this.props.userContext);
+      const result = await reportError(this.state.error, this.state.errorInfo, this.state.userDescription, this.props.userContext, { userInitiated: true });
       if (!result.success) throw new Error('Versand nicht bestätigt');
       if (this.mounted) {
         this.setState({ showReportDialog: false, userDescription: '' });

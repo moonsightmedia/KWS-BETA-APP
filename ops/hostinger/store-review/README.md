@@ -41,6 +41,14 @@ contains disposable invented data and is reproducible from schema plus fixtures;
 it is not a backup of production. Preserve the referenced credentials when
 recreating it, or coordinate an explicit replacement with the store review.
 
+Cold production recovery must create the external internal network
+`kws-store-review-private` before starting the public gateway (if it is absent:
+`docker network create --internal kws-store-review-private`). Production routes
+do not require a running demo database. The gateway's two files and TLS volume
+are included by the existing encrypted production backup. Restore the demo
+separately from its fixtures and protected configuration; never restore customer
+rows into it. Do not remove that network while the public gateway references it.
+
 Mail, registration of new demo accounts, external push and external diagnosis
 collection are disabled in the demo. Existing preverified demo logins work.
 Review instructions must state these limits; no successful external delivery is
