@@ -460,6 +460,10 @@ Inhaltswechsel wie `Info / Track / Beta` oder Statistikzeiträume.
 ### 5.6 Inputs und Suche
 
 - Inputs und Suchfelder verwenden den 8-px-Controlradius.
+- Nutzerfreigabe 19.10.2026: Texteingaben haben mobil mindestens 16px Schrift.
+  Die bisher 14px großen Boulder-Suchfelder (Gast/angemeldet), Kommentare,
+  private Tracking-Notizen, Bestätigungslink-E-Mail und HEX-Farbwerte verwenden
+  `text-base md:text-sm`. Feldhöhe und Desktoptypografie bleiben erhalten.
 - Die Suchfunktion der Boulderliste bleibt hinter einem Icon verborgen, da
   Boulder selten über ihren Namen gesucht werden.
 - Ein geöffnetes Suchfeld liegt im Header-Unterbereich und enthält Suchicon,
@@ -1246,6 +1250,15 @@ Verbindliche Regeln:
 ## 11. Responsive und mobile Bedienung
 
 - Mobile zuerst entwickeln, anschließend Tablet und Desktop bewusst anpassen.
+- Nutzerfreigabe 19.10.2026: Home-Abschnittsaktionen sind unter 768px mindestens
+  44px hoch. Bei Auth haben „Vergessen?“ und Passwortanzeige 44px Touchfläche,
+  ohne über benachbarte Felder zu ragen; Passwortfelder reservieren rechts 52px.
+  Ab 768px bleiben die bisherigen kompakten Maße bestehen.
+- Auf Setter-Bearbeiten, -Status und -Planung liegt die Upload-Übersicht als
+  44px-Icon im vorhandenen Header, mit Anzahl und zugänglichem Status.
+  Die Sammelauswahl bleibt unten vollständig erreichbar. Es gibt keinen zweiten
+  schwebenden Uploadzugang. Erstellen behält seinen bestehenden gemeinsamen
+  Upload-/Aktionsdock. Home-Statscard oben und Beta-Logo-Startlader bleiben erhalten.
 - Mindestprüfbreiten: `375`, `768`, `1280` und `1920px`.
 - Notch und Kamera werden über `env(safe-area-inset-top)` berücksichtigt.
 - Bottom-Navigation berücksichtigt `env(safe-area-inset-bottom)`.

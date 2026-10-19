@@ -39,6 +39,32 @@ async function shot(page: Page, name: string) {
   await page.screenshot({ path: `${output}/${name}.png`, animations: 'disabled' });
 }
 
+for (const width of [375, 768, 1280, 1920]) {
+  test(`upload header never intercepts bulk deletion at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await openSetter(page, '&uploadState=active');
+    const upload = page.getByRole('button', { name: 'Upload-Übersicht öffnen, 1 Upload aktiv', exact: true });
+    await expect(upload).toHaveCount(1);
+    await page.getByRole('checkbox', { name: 'Grüne Welle auswählen', exact: true }).first().check();
+    const remove = page.getByRole('button', { name: 'Löschen', exact: true });
+    await expect(remove).toBeVisible();
+    const u = (await upload.boundingBox())!;
+    const d = (await remove.boundingBox())!;
+    expect(u.width).toBe(44);
+    expect(u.height).toBe(44);
+    expect(Math.max(0, Math.min(u.x + u.width, d.x + d.width) - Math.max(u.x, d.x)) * Math.max(0, Math.min(u.y + u.height, d.y + d.height) - Math.max(u.y, d.y))).toBe(0);
+    await remove.click({ position: { x: 12, y: d.height / 2 } });
+    await expect(page.getByRole('alertdialog')).toContainText('1 Boulder löschen?');
+    await page.getByRole('button', { name: 'Abbrechen', exact: true }).click();
+    await upload.focus();
+    await upload.press('Enter');
+    await expect(page.getByRole('dialog')).toContainText('Desktop-Upload.mp4');
+    await page.getByRole('button', { name: 'Upload-Übersicht schließen', exact: true }).click();
+    await expect(upload).toBeFocused();
+    expect(await page.evaluate(() => window.setterQA.writes)).toEqual([]);
+  });
+}
+
 test('rename validates, never saves on blur, and Escape/unchanged values do not write', async ({ page }) => {
   await openSetter(page);
   await rename(page).click();
