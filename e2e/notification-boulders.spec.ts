@@ -17,6 +17,7 @@ async function open(page:Page, start='/', data:Record<string,unknown>={boulder_i
   await page.route('**/rest/v1/**',async r=>{
     const url=new URL(r.request().url()),q=url.searchParams;
     if(url.pathname.endsWith('notification_preferences'))return r.fulfill({json:[{user_id:row.user_id,updated_at:'',in_app_enabled:true,push_enabled:false,boulder_new:true,competition_update:true,feedback_reply:true,admin_announcement:true,schedule_reminder:true}]});
+    if(!url.pathname.endsWith('/notifications'))return r.fulfill({json:[]});
     reads.push(url.search);
     if(q.has('id') && r.request().method()==='GET') {
       if(state.delay) await new Promise(resolve=>setTimeout(resolve,600));
@@ -42,7 +43,7 @@ for(const width of [375,768,1280,1920]) {
     await page.getByRole('button',{name:'Ansehen',exact:true}).click();
     await expect(page.getByTestId('route')).toHaveText('/boulders?notification=note-batch');
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(page.getByText('2 Boulder aus dieser Mitteilung',{exact:true})).toBeVisible();
+    await expect(page.getByText('2 Treffer aus dieser Mitteilung',{exact:true})).toBeVisible();
     const results=page.locator('#boulder-results');
     await expect(results.getByRole('button',{name:/^Bug/})).toHaveAttribute('aria-expanded','true');
     await expect(results.getByRole('button',{name:/^Grotte/})).toHaveAttribute('aria-expanded','true');
@@ -54,7 +55,7 @@ for(const width of [375,768,1280,1920]) {
     expect(ctx.reads.filter(s=>new URLSearchParams(s).has('id')).every(s=>new URLSearchParams(s).get('user_id')==='eq.fixture-setter')).toBe(true);
     await page.mouse.move(width-2,500);
     await page.screenshot({path:`${output}/opened-${width}.png`,animations:'disabled'});
-    expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(width);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     await results.locator('button').filter({has:page.locator('img')}).first().click();
     await page.getByRole('button',{name:'Zurück zur Boulderübersicht'}).click();
     await expect(page.getByTestId('route')).toHaveText('/boulders?notification=note-batch');
@@ -68,7 +69,7 @@ for(const width of [375,768,1280,1920]) {
 test('cold push URL handles an 800-ID batch with a short link and no 7-day cutoff',async({page})=>{
   const ids=Array.from({length:798},(_,i)=>'removed-'+i).concat(['b-1','b-5']);
   await open(page,'/boulders?notification=note-batch',{boulder_ids:ids},true);
-  await expect(page.getByText('2 Boulder aus dieser Mitteilung',{exact:true})).toBeVisible();
+  await expect(page.getByText('2 Treffer aus dieser Mitteilung',{exact:true})).toBeVisible();
   await expect(page.locator('#boulder-results button').filter({has:page.locator('img')})).toHaveCount(2);
   await expect(page.getByTestId('route')).toHaveText('/boulders?notification=note-batch');
 });
@@ -80,7 +81,7 @@ test('native open event uses the same selected overview and confirms read',async
   await expect(page.getByText(ctx.row.title,{exact:true})).toBeVisible();
   await page.keyboard.press('Escape');
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kws:notification-open',{detail:{target:'/boulders?notification=note-batch',id:'note-batch'}})));
-  await expect(page.getByText('2 Boulder aus dieser Mitteilung',{exact:true})).toBeVisible();
+  await expect(page.getByText('2 Treffer aus dieser Mitteilung',{exact:true})).toBeVisible();
   await expect.poll(()=>ctx.row.read).toBe(true);
 });
 
@@ -99,13 +100,13 @@ test('realtime toast Ansehen opens the exact notification selection',async({page
   await expect(page.getByText(ctx.row.title,{exact:true})).toBeVisible();
   await page.keyboard.press('Escape');
   await page.evaluate(row=>(window as any).notificationEmit({eventType:'INSERT',new:row}),ctx.row);
-  await page.getByRole('button',{name:'Ansehen',exact:true}).click();
-  await expect(page.getByText('2 Boulder aus dieser Mitteilung',{exact:true})).toBeVisible();
+  await page.getByRole('region',{name:'Notifications alt+T'}).getByRole('button',{name:'Ansehen',exact:true}).click();
+  await expect(page.getByText('2 Treffer aus dieser Mitteilung',{exact:true})).toBeVisible();
 });
 
 test('legacy single upload opens its area even when saved as collapsed',async({page})=>{
   await open(page,'/boulders?notification=note-batch',{boulder_id:'b-1'});
-  await expect(page.getByText('1 Boulder aus dieser Mitteilung',{exact:true})).toBeVisible();
+  await expect(page.getByText('1 Treffer aus dieser Mitteilung',{exact:true})).toBeVisible();
   await expect(page.locator('#boulder-results').getByRole('button',{name:/^Grotte/})).toHaveAttribute('aria-expanded','true');
   await expect(page.locator('#boulder-results button').filter({has:page.locator('img')})).toHaveCount(1);
 });
@@ -126,7 +127,7 @@ test('a failed selection read stays separate from the catalog and retries safely
   await page.screenshot({path:`${output}/loop2-error-375.png`,animations:'disabled'});
   ctx.state.fail=false;
   await page.getByRole('button',{name:'Erneut versuchen'}).click();
-  await expect(page.getByText('2 Boulder aus dieser Mitteilung',{exact:true})).toBeVisible();
+  await expect(page.getByText('2 Treffer aus dieser Mitteilung',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Gridansicht'}).click();
   await expect(page.locator('#boulder-results img').first()).toHaveCSS('opacity','1');
   await page.screenshot({path:`${output}/loop2-grid-375.png`,animations:'disabled'});
@@ -138,12 +139,26 @@ test('delayed notification read never flashes the unfiltered catalog',async({pag
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kws:notification-open',{detail:{target:'/boulders?notification=note-batch'}})));
   await expect(page.locator('#boulder-results .animate-pulse').first()).toBeVisible();
   await expect(page.locator('#boulder-results button').filter({has:page.locator('img')})).toHaveCount(0);
-  await expect(page.getByText('2 Boulder aus dieser Mitteilung',{exact:true})).toBeVisible();
+  await expect(page.getByText('2 Treffer aus dieser Mitteilung',{exact:true})).toBeVisible();
+});
+
+test('notification selection leaves the regular overview search intact',async({page})=>{
+  await open(page,'/boulders');
+  await page.getByRole('button',{name:'Alle Gruppen ausklappen',exact:true}).click();
+  await page.getByRole('button',{name:'Boulder suchen'}).click();
+  await page.getByPlaceholder('Boulder oder Bereich suchen…').fill('Kleine Kante 6');
+  await expect(page.locator('#boulder-results button').filter({has:page.locator('img')})).toHaveCount(1);
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kws:notification-open',{detail:{target:'/boulders?notification=note-batch'}})));
+  await expect(page.locator('#boulder-results button').filter({has:page.locator('img')})).toHaveCount(2);
+  await page.getByRole('button',{name:'Mitteilungsfilter entfernen'}).click();
+  await expect(page.locator('#boulder-results button').filter({has:page.locator('img')})).toHaveCount(1);
+  if (await page.getByRole('button',{name:'Boulder suchen'}).getAttribute('aria-expanded') !== 'true') await page.getByRole('button',{name:'Boulder suchen'}).click();
+  await expect(page.getByPlaceholder('Boulder oder Bereich suchen…')).toHaveValue('Kleine Kante 6');
 });
 
 test('reopening a cached notification clears a previous search and opens all of its areas',async({page})=>{
   await open(page,'/boulders?notification=note-batch');
-  await expect(page.getByText('2 Boulder aus dieser Mitteilung',{exact:true})).toBeVisible();
+  await expect(page.getByText('2 Treffer aus dieser Mitteilung',{exact:true})).toBeVisible();
   await page.locator('#boulder-results').getByRole('button',{name:/^Grotte/}).click();
   await page.getByRole('button',{name:'Boulder suchen'}).click();
   await page.getByPlaceholder('Boulder oder Bereich suchen…').fill('Kleine Kante 6');
