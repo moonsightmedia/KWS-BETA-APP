@@ -15,7 +15,7 @@
     "prebuild": "node scripts/version-bump.cjs patch",
     "build": "vite build",
     "build:dev": "vite build --mode development",
-    "build:native": "vite build --mode production --base=./",
+    "build:native": "vite build --mode production --base=/ && node scripts/verify-native-web-assets.mjs dist",
     "lint": "eslint .",
     "test:upload-queue": "node --test test/uploadQueue.test.mjs",
     "test:boulder-colors": "node --test test/boulderColors.test.mjs",

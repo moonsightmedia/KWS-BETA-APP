@@ -93,10 +93,11 @@ jobs:
             export VITE_AUTH_SITE_URL="https://beta.kletterwelt-sauerland.de"
             export VITE_USE_ALLINKL_STORAGE="false"
             export VITE_TELEMETRY_ENABLED="false"
-            ./node_modules/.bin/vite build --mode hostinger --base=./
+            ./node_modules/.bin/vite build --mode hostinger --base=/
           else
             npm run build
           fi
+          node scripts/verify-native-web-assets.mjs dist
           npx cap sync ios
 
       - name: Verify Hostinger client assets
