@@ -115,7 +115,7 @@ test('mobile menu exposes overview, operational areas and feedback with keyboard
 test('profile deep link fetches only its exact account and invalid or absent accounts never show another user', async ({ page }) => {
   await page.goto(`/test/fixtures/launchMonitoring.html?page=user&userId=${accountId}`);
   await expect(page.getByRole('heading', { name: 'Alexandra Bergmann', exact: true })).toBeVisible();
-  await expect(page.locator('article dd').getByText('alexandra@example.test', { exact: true })).toBeVisible();
+  await expect(page.locator('article dd').filter({ hasText: 'alexandra@example.test' })).toBeVisible();
   expect(await page.evaluate(() => window.launchMonitoringQA.requests.filter(request => request.path.endsWith('/profiles')).every(request => new URLSearchParams(request.query).get('id') === `eq.00000000-0000-4000-8000-000000000001`))).toBe(true);
   await expect(page.getByRole('switch')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Passwort/ })).toHaveCount(0);
