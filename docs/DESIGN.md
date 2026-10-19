@@ -967,6 +967,13 @@ dieselbe visuelle Struktur.
   Bilder, Filter, Ansicht, Gruppen und Scrollposition bleiben erhalten. Andere
   Navigation und Kontowechsel geben sie frei. Direktlinks haben einen sicheren
   Rückweg zur Übersicht. Der kurze 150-ms-Eintritt entfällt bei Reduced Motion.
+- Nutzerkorrektur 19.10.2026: Boulderfilter, Suche und Sortierung bleiben während
+  der laufenden Sitzung auch nach einem Wechsel zu Home oder anderen Seiten
+  erhalten. Das gilt für Rücknavigation und Neuladen. Konto, Gastansicht und Demo
+  haben getrennte Auswahlen. Direktlinks beginnen ihre angegebene Auswahl;
+  Zurück zu einem bereits besuchten Link erhält danach gesetzte weitere Filter.
+  Mitteilungsansichten behalten eine eigene temporäre Auswahl. Der bewusste
+  Rücksetzweg bleibt erreichbar; gesperrter Browserspeicher blockiert die Liste nicht.
 - Beim Detailbesuch bleibt die Ausgangsseite auch gezeichnet und an derselben
   Dokumentposition. Die Detailseite besitzt eine eigene bildschirmfüllende
   Scrollebene. Der Hintergrund ist dabei `inert` und für Screenreader verborgen.

@@ -1,7 +1,8 @@
 import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { boulderNavigationState } from '@/lib/boulderNavigation';
+import { backendStorageKey } from '@/lib/backendConfig';
 import { useQueryClient } from '@tanstack/react-query';
 import { useBouldersWithSectors } from '@/hooks/useBoulders';
 import { useSectorsTransformed } from '@/hooks/useSectors';
@@ -11,6 +12,7 @@ import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/hooks/useAuth';
 import { matchesBoulderColorFilter } from '@/utils/colorUtils';
 import { useMonitoringFilters } from '@/hooks/useMonitoringFilters';
+import { useBoulderListPreferences } from '@/hooks/useBoulderListPreferences';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -33,20 +35,16 @@ const SORT_OPTIONS = [
 ] as const;
 const Guest = () => {
   const isCompetitionEnabled = import.meta.env.VITE_ENABLE_COMPETITION === 'true';
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [loadedThumbnails, setLoadedThumbnails] = useState<Set<string>>(new Set());
   const colorsQuery = useColors();
   const { data: colors } = colorsQuery;
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sectorFilters, setSectorFilters] = useState<string[]>([]);
-  const [difficultyFilters, setDifficultyFilters] = useState<string[]>([]);
-  const [colorFilters, setColorFilters] = useState<string[]>([]);
+  const { searchQuery, setSearchQuery, sectorFilters, setSectorFilters, difficultyFilters, setDifficultyFilters,
+    colorFilters, setColorFilters, sortBy, setSortBy, sortOrder, setSortOrder,
+  } = useBoulderListPreferences(backendStorageKey('guest'), location.search, location.key);
   useMonitoringFilters(searchQuery, sectorFilters, difficultyFilters, colorFilters);
-  const [sortBy, setSortBy] = useState<'name' | 'difficulty' | 'date'>('date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   // Guest area doesn't need auth, but we still wait for auth to finish loading to avoid race conditions
   const { loading: authLoading } = useAuth();
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(!authLoading);
@@ -97,10 +95,12 @@ const Guest = () => {
   }, [showSearch]);
 
   useEffect(() => {
-    const sectorParam = searchParams.get('sector');
-    const publicSectorName = sectors?.find((sector) => sector.legacyName === sectorParam)?.name;
-    setSectorFilters(sectorParam ? [publicSectorName || sectorParam] : []);
-  }, [searchParams, sectors]);
+    if (!sectors?.length) return;
+    setSectorFilters(current => {
+      const resolved = current.map(name => sectors.find(sector => sector.legacyName === name)?.name || name);
+      return resolved.some((name, index) => name !== current[index]) ? resolved : current;
+    });
+  }, [sectors, sectorFilters, setSectorFilters]);
 
   const filtered = useMemo(() => {
     let list = boulders || [];

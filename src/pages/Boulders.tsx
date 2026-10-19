@@ -3,6 +3,7 @@ import { BoulderCardCaption } from '@/components/boulder/BoulderCardCaption';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { boulderNavigationState } from '@/lib/boulderNavigation';
+import { backendStorageKey } from '@/lib/backendConfig';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Grid3X3, List, Map as MapIcon, RotateCcw, Search, SlidersHorizontal, Sparkles, Star, X } from 'lucide-react';
 import { BoulderFilterControls, BoulderFilterPanel, BoulderSortPanel, FilterSection, FilterToggle } from '@/components/boulder/BoulderFilterControls';
@@ -30,6 +31,8 @@ import { BoulderTypeBadge } from '@/components/boulder/BoulderTypeBadge';
 import { Boulder } from '@/types/boulder';
 import { matchesBoulderColorFilter } from '@/utils/colorUtils';
 import { useMonitoringFilters } from '@/hooks/useMonitoringFilters';
+import { useBoulderListPreferences } from '@/hooks/useBoulderListPreferences';
+import { defaultBoulderListPreferences, writeBoulderListPreferences } from '@/lib/boulderListPreferences';
 const STORAGE_KEY_BOULDER_VIEW = 'boulder_view_mode';
 const STORAGE_KEY_COLLAPSED_AREAS = 'boulder_collapsed_areas_v1';
 const SECTOR_AREA_ORDER = ['Bug', 'Couch-Ecke', 'Top-Out', 'Lange Platte', 'Grotte'];
@@ -104,6 +107,8 @@ const Boulders = () => {
   const swipeRef = useHorizontalRouteSwipe({ routes: APP_USER_ROUTES });
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user, loading: authLoading } = useAuth();
+  const preferenceScope = backendStorageKey(`boulders:${user?.id ?? 'guest'}`);
   const notificationId = searchParams.get('notification');
   const notificationVisit = notificationId === null ? null : location.key + ':' + notificationId;
   const notificationQuery = useBoulderNotification(notificationId);
@@ -119,16 +124,11 @@ const Boulders = () => {
       : Boolean((boulder.sectorId && notificationSelection.sectors.has(boulder.sectorId))
         || (boulder.sector2Id && notificationSelection.sectors.has(boulder.sector2Id)));
   }, [notificationId, notificationSelection]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sectorFilters, setSectorFilters] = useState<string[]>([]);
-  const [difficultyFilters, setDifficultyFilters] = useState<string[]>([]);
-  const [colorFilters, setColorFilters] = useState<string[]>([]);
+  const { searchQuery, setSearchQuery, sectorFilters, setSectorFilters, difficultyFilters, setDifficultyFilters,
+    colorFilters, setColorFilters, sortBy, setSortBy, sortOrder, setSortOrder,
+    showOnlyHanging, setShowOnlyHanging, showNew, setShowNew, showSaved, setShowSaved,
+  } = useBoulderListPreferences(preferenceScope, location.search, location.key, notificationVisit);
   useMonitoringFilters(searchQuery, sectorFilters, difficultyFilters, colorFilters);
-  const [sortBy, setSortBy] = useState<'name' | 'difficulty' | 'date'>('date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [showOnlyHanging, setShowOnlyHanging] = useState(true);
-  const [showNew, setShowNew] = useState(false);
-  const [showSaved, setShowSaved] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showSort, setShowSort] = useState(false);
   const [showMap, setShowMap] = useState(false);
@@ -143,7 +143,6 @@ const Boulders = () => {
 
   const colorsQuery = useColors();
   const { data: colors } = colorsQuery;
-  const { user, loading: authLoading } = useAuth();
   const queriesEnabled = !authLoading;
   const { data: boulders, isLoading: isLoadingBoulders, error: bouldersError } = useBouldersWithSectors(queriesEnabled);
   const { data: sectors, isLoading: isLoadingSectors } = useSectorsTransformed(queriesEnabled);
@@ -155,17 +154,12 @@ const Boulders = () => {
   const shouldShowPageSkeleton = authLoading && !user;
 
   useEffect(() => {
-    const sectorParam = searchParams.get('sector');
-    const showParam = searchParams.get('show');
-    const statusParam = searchParams.get('status');
-    const publicSectorName = sectors?.find((sector) => sector.legacyName === sectorParam)?.name;
-    const resolvedSectorName = publicSectorName || sectorParam;
-
-    setSectorFilters(resolvedSectorName ? [resolvedSectorName] : []);
-    setShowNew(showParam === 'new');
-    setShowSaved(showParam === 'saved');
-    setShowOnlyHanging(statusParam !== 'all');
-  }, [searchParams, sectors]);
+    if (!sectors?.length) return;
+    setSectorFilters(current => {
+      const resolved = current.map(name => sectors.find(sector => sector.legacyName === name)?.name || name);
+      return resolved.some((name, index) => name !== current[index]) ? resolved : current;
+    });
+  }, [sectors, sectorFilters, setSectorFilters]);
 
   useLayoutEffect(() => {
     if (notificationVisit === null) return;
@@ -179,7 +173,7 @@ const Boulders = () => {
     setSortBy('date');
     setSortOrder('desc');
     setShowMap(false);
-  }, [notificationVisit]);
+  }, [notificationVisit, setSearchQuery, setDifficultyFilters, setColorFilters, setSectorFilters, setShowNew, setShowSaved, setShowOnlyHanging, setSortBy, setSortOrder]);
 
   useEffect(() => {
     if (searchParams.has('view')) {
@@ -437,7 +431,10 @@ const Boulders = () => {
   };
 
   const clearFilters = () => {
-    if (notificationId !== null) clearNotification();
+    if (notificationId !== null) {
+      writeBoulderListPreferences(preferenceScope, defaultBoulderListPreferences());
+      clearNotification();
+    }
     setSectorFilters([]);
     setDifficultyFilters([]);
     setColorFilters([]);
