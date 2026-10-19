@@ -11,7 +11,7 @@ createRoot(document.getElementById('root')!).render(
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#17641D]">Mobile Player QA</p>
       <div className="h-[720px] max-h-[82dvh] overflow-hidden rounded-kws-card shadow-medium">
         <BoulderVideoPlayer
-          betaVideoUrls={{ hd: source, sd: source, low: source }}
+          betaVideoUrls={{ hd: `${source}?quality=hd`, sd: `${source}?quality=sd`, low: `${source}?quality=low` }}
           showOfficialBadge
         />
       </div>
