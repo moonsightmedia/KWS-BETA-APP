@@ -146,6 +146,21 @@ test('complete live view expands real rows and remains usable at all widths', as
   }
 });
 
+test('live numbers align when the consent label wraps in narrow content', async ({ page }) => {
+  await page.setViewportSize({ width: 335, height: 812 });
+  await open(page);
+  await page.evaluate(() => document.fonts.ready);
+  const live = page.getByTestId('live-monitoring');
+  for (const view of ['overview', 'activity']) {
+    if (view === 'activity') await page.getByRole('button', { name: 'Live-Details', exact: true }).click();
+    await expect(live.getByTestId('live-online')).toHaveText('12');
+    const online = (await live.getByTestId('live-online').boundingBox())!;
+    const viewers = (await live.getByTestId('live-viewers').boundingBox())!;
+    expect(Math.abs(online.y - viewers.y)).toBeLessThanOrEqual(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+});
+
 test('consent scope is prominent in both live views at every required width', async ({ page }) => {
   const output = 'test-results/launch-monitoring-consent-20261019';
   await mkdir(output, { recursive: true });
