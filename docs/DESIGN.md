@@ -1287,8 +1287,22 @@ Verbindliche Regeln:
   gemeinsames Filterpanel mit sichtbarer Auswahl und Rücksetzweg. Messdefinitionen
   liegen hinter einer benannten Infoaktion. Kennzahlen und Fehlerprioritäten
   sind mobil ohne lange Einleitung erreichbar; fehlende Quellen werden direkt
-  vor den Zahlen erklärt. Desktop-Fehlerlisten richten Wirkung, Version und
-  Zeitpunkt nebeneinander aus. Tagesverläufe zeigen zunächst sieben Tage mit
+  vor den Zahlen erklärt. Desktop-Fehlerlisten richten Problem/Plattform, Umfang
+  und Zeitpunkt nebeneinander aus. Nutzerkorrektur 19.10.2026: Fehler sind eine
+  Arbeitsliste wie in professionellen Issue-Tools. Standardmäßig nur aktive
+  Probleme; Behoben und Alle bleiben direkt erreichbar. Statusansichten mit
+  geladenen Anzahlen, Suche, Quelle und Sortierung bilden eine kompakte Einheit.
+  Zeitraum ist hier ein Select statt einer zweiten bildschirmbreiten Tableiste.
+  Mobil Statusauswahl und gestapelte Zeilen, Desktop Statuskurzwege und Spalten.
+  Priorität sortiert Wiederauftreten, gemeldeten Schweregrad und letzten Eingang,
+  nicht unvergleichbare App-/Sentry-Zähler. Fehlende Sentry-Nutzerreferenzen
+  bedeuten unbekannten Umfang statt null betroffene Geräte. Sentry-Zähler sind
+  als gesamter Problemverlauf gekennzeichnet; ausgeblendete Sentry-Daten bei
+  Plattform-/Versionsfilter werden mit gezieltem Rücksetzweg erklärt. Suche,
+  Quelle, Status und Sortierung bleiben bei Ansichts-/Zeitraumwechsel erhalten.
+  Rohmeldungen und Buildketten gehören in Details; unbekannte Auswirkungen
+  werden nicht als Diagnose dargestellt. Die Ladegrenze wird erklärt und beim
+  Erreichen hervorgehoben. Tagesverläufe zeigen zunächst sieben Tage mit
   explizitem Aufklappen; vollständige Werte bleiben erhalten.
   Aktivität verwendet dieselben aktuellen Launch-Signale wie Nutzung, nicht den
   abgeschalteten Altsammler. Aktuelle Vordergrundsignale stehen dort zuerst;

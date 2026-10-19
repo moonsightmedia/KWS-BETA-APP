@@ -19,6 +19,15 @@ async function openFilters(page: Page) {
   await expect(sheet).toBeVisible();
   return sheet;
 }
+async function chooseIssueStatus(page: Page, label: string) {
+  const selector = page.getByRole('combobox', { name: 'Fehlerstatus', exact: true });
+  if (await selector.isVisible()) {
+    await selector.click();
+    await page.getByRole('option', { name: new RegExp(`^${label} \\(`) }).click();
+  } else {
+    await page.getByRole('group', { name: 'Fehlerstatus', exact: true }).getByRole('button', { name: new RegExp(`^${label} \\d+$`) }).click();
+  }
+}
 test.beforeEach(async ({ page }) => {
   await mkdir(directory, { recursive: true });
   const errors: string[] = [];
@@ -283,7 +292,102 @@ test('unsaved error status has discard protection and search reset restores the 
   await page.getByRole('textbox', { name: 'Fehlergruppen filtern' }).fill('kein-treffer');
   await expect(page.getByText('Keine Fehlergruppen für diesen Filter.')).toBeVisible();
   await page.getByRole('button', { name: 'Filter zurücksetzen', exact: true }).click();
-  await expect(page.getByText(/2 von 2 Fehlergruppen/)).toBeVisible();
+  await expect(page.getByText('2 von 2 geladenen Problemen', { exact: true })).toBeVisible();
+});
+
+test('issue inbox defaults to active work and keeps resolved and ignored issues out of the queue', async ({ page }) => {
+  await open(page, 'workspace');
+  await chooseView(page, 'Fehler');
+  const list = page.getByRole('list', { name: 'Fehlerliste' });
+  await expect(list.getByRole('button')).toHaveCount(4);
+  await expect(list.getByRole('button').first()).toContainText('Video nach bestätigter Korrektur erneut ausgefallen');
+  await expect(list).not.toContainText('Bewusst ignorierter Testfall');
+  await expect(list).not.toContainText('Technischer Fehler gemeldet');
+  await expect(list.getByText('Betroffene Geräte unbekannt')).toBeVisible();
+  await expect(list.getByText('0 Nutzerreferenzen')).toHaveCount(0);
+  await chooseIssueStatus(page, 'Behoben');
+  await expect(list.getByRole('button')).toHaveCount(1);
+  await expect(list).toContainText('Technischer Fehler gemeldet');
+  await chooseIssueStatus(page, 'Alle');
+  await expect(list.getByRole('button')).toHaveCount(6);
+  await expect(list).toContainText('Bewusst ignorierter Testfall');
+  await page.getByRole('combobox', { name: 'Fehler sortieren' }).click();
+  await page.getByRole('option', { name: 'Zuletzt aufgetreten', exact: true }).click();
+  await expect(list.getByRole('button').last()).toContainText('Abgebrochener Vorgang gemeldet');
+  await page.getByRole('textbox', { name: 'Fehlergruppen filtern' }).fill('JAVASCRIPT-REACT-J');
+  await expect(list.getByRole('button')).toHaveCount(1);
+  await expect(list).toContainText('Auswirkung noch ungeklärt');
+});
+
+test('issue source, status, search and sorting survive scope changes without pretending hidden Sentry data is zero', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await open(page, 'workspace');
+  await chooseView(page, 'Fehler');
+  await chooseIssueStatus(page, 'Alle');
+  await page.getByRole('combobox', { name: 'Fehlerquelle' }).click();
+  await page.getByRole('option', { name: 'Sentry', exact: true }).click();
+  await expect(page.getByRole('list', { name: 'Fehlerliste' }).getByRole('button')).toHaveCount(2);
+  const sheet = await openFilters(page);
+  await sheet.getByRole('combobox', { name: 'Plattform', exact: true }).click();
+  await page.getByRole('option', { name: 'Web', exact: true }).click();
+  await sheet.getByRole('button', { name: 'Ergebnisse anzeigen' }).click();
+  await expect(page.getByText('Sentry ist mit Plattform- oder Versionsfilter ausgeblendet.')).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Fehlerquelle' })).toContainText('Sentry');
+  await expect(page.getByRole('list', { name: 'Fehlerliste' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Diese Filter aufheben' }).click();
+  await expect(page.getByRole('list', { name: 'Fehlerliste' }).getByRole('button')).toHaveCount(2);
+  await page.getByRole('combobox', { name: 'Monitoringzeitraum', exact: true }).click();
+  await page.getByRole('option', { name: '7 Tage', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Fehlerquelle' })).toContainText('Sentry');
+  await expect(page.getByRole('combobox', { name: 'Fehlerstatus', exact: true })).toContainText('Alle');
+  await expect.poll(() => page.evaluate(() => window.launchMonitoringQA.requests.filter(request => request.path.endsWith('kws_monitoring_dashboard')).at(-1)?.payload.p_days)).toBe(7);
+  await page.getByRole('textbox', { name: 'Fehlergruppen filtern' }).fill('web 1.0.246');
+  await expect(page.getByRole('list', { name: 'Fehlerliste' }).getByRole('button')).toHaveCount(1);
+  await chooseView(page, 'Übersicht');
+  await chooseView(page, 'Fehler');
+  await expect(page.getByRole('textbox', { name: 'Fehlergruppen filtern' })).toHaveValue('web 1.0.246');
+});
+
+test('issue inbox design loops show clear source semantics at all widths and support keyboard details', async ({ page }) => {
+  const output = 'test-results/launch-monitoring-inbox-20261019';
+  await mkdir(output, { recursive: true });
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 960 });
+    await open(page, 'workspace');
+    await chooseView(page, 'Fehler');
+    await expect(page.getByText('4 von 6 geladenen Problemen')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `${output}/loop1-active-${width}.png`, fullPage: true, animations: 'disabled' });
+    await chooseIssueStatus(page, 'Alle');
+    await page.getByRole('combobox', { name: 'Fehlerquelle' }).click();
+    await page.getByRole('option', { name: 'Sentry', exact: true }).click();
+    await expect(page.getByText('Gesamter Problemverlauf', { exact: true })).toHaveCount(2);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `${output}/loop2-sentry-${width}.png`, fullPage: true, animations: 'disabled' });
+    const trigger = page.getByRole('list', { name: 'Fehlerliste' }).getByRole('button').first();
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('link', { name: /In Sentry öffnen/ })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(trigger).toBeFocused();
+  }
+});
+
+test('issue source failures and load limits do not masquerade as a complete healthy inbox', async ({ page }) => {
+  await open(page, 'issues-error');
+  await chooseView(page, 'Fehler');
+  await expect(page.getByText('Fehlerquelle derzeit nicht verfügbar', { exact: true })).toBeVisible();
+  await expect(page.getByText('Keine verlässliche Fehlerübersicht', { exact: true })).toBeVisible();
+  await expect(page.getByText('Keine Probleme gemeldet', { exact: true })).toHaveCount(0);
+  await open(page, 'limit');
+  await chooseView(page, 'Fehler');
+  await expect(page.getByText(/Die Ladegrenze von 200 Problemen ist erreicht/)).toBeVisible();
+  await page.evaluate(() => { window.launchMonitoringQA.readMode = 'fail'; });
+  await page.getByRole('button', { name: 'Aktualisieren', exact: true }).click();
+  await expect(page.getByText('Aktualisierung fehlgeschlagen', { exact: true })).toBeVisible();
+  await expect(page.getByText('200 von 200 geladenen Problemen')).toBeVisible();
 });
 
 test('regressions and Sentry counters keep distinct meanings and external status is readonly', async ({ page }) => {
@@ -490,7 +594,7 @@ test('clipboard failure offers a selectable report and unavailable reports remai
 test('long unknown errors, empty reports and a short mobile viewport keep a reachable close action', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 568 });
   await open(page, 'long');
-  await page.getByRole('button', { name: /UnunterbrocheneTechnischeFehlermeldung/ }).click();
+  await page.getByRole('button', { name: /Technischer Fehler gemeldet/ }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: 'Video konnte nicht abgespielt werden', exact: true })).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Fehleransicht schließen', exact: true })).toBeInViewport();
