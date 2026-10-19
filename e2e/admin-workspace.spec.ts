@@ -156,7 +156,7 @@ test('mobile profile tap switches area and notification hover stays pinned', asy
   await page.getByRole('menuitem', { name: /Administration/ }).click();
   await expect(page.getByTestId('current-route')).toHaveText('/admin?tab=users');
   await page.setViewportSize({ width: 1280, height: 900 });
-  const trigger = page.getByRole('button', { name: 'Benachrichtigungen', exact: true });
+  const trigger = page.getByRole('button', { name: /^Benachrichtigungen, / });
   await trigger.hover();
   await expect(page.getByRole('dialog')).toBeVisible();
   await trigger.click();

@@ -618,3 +618,18 @@ All colors MUST be HSL.
   .kws-filter-collapse { animation: none !important; }
   [role="switch"], [role="switch"] > span { transition: none !important; }
 }
+
+/* Shared photo already supplies the entry motion; do not fade its snapshot as well. */
+.kws-detail-enter[data-photo-animated] { animation: none; }
+
+/* Only the selected photo participates; the retained, inert source never duplicates it. */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-boulder-photo-transition] [data-boulder-photo-source],
+  html[data-boulder-photo-transition] [data-boulder-photo-detail] { view-transition-name: boulder-photo; }
+  html[data-boulder-photo-transition] [aria-hidden="true"] [data-boulder-photo-source] { view-transition-name: none; }
+  html[data-boulder-photo-transition]::view-transition-old(root),
+  html[data-boulder-photo-transition]::view-transition-new(root) { animation: none; }
+  html[data-boulder-photo-transition]::view-transition-group(boulder-photo) { animation-duration: 180ms; animation-timing-function: ease-out; }
+  html[data-boulder-photo-transition]::view-transition-old(boulder-photo),
+  html[data-boulder-photo-transition]::view-transition-new(boulder-photo) { animation-duration: 180ms; }
+}

@@ -35,7 +35,7 @@ for(const width of [375,768,1280,1920]) {
   test(`Ansehen opens exactly the notified Boulders and expands their areas (${width})`,async({page})=>{
     await page.setViewportSize({width,height:900});
     const ctx=await open(page);
-    await page.getByRole('button',{name:'Benachrichtigungen',exact:true}).click();
+    await page.getByRole('button',{name:/^Benachrichtigungen, /}).click();
     await expect(page.getByText(ctx.row.title,{exact:true})).toBeVisible();
     await mkdir(output,{recursive:true});
     await page.screenshot({path:`${output}/inbox-${width}.png`,animations:'disabled'});
@@ -76,7 +76,7 @@ test('cold push URL handles an 800-ID batch with a short link and no 7-day cutof
 test('native open event uses the same selected overview and confirms read',async({page})=>{
   const ctx=await open(page);
   await expect.poll(()=>page.evaluate(()=>typeof (window as any).notificationEmit)).toBe('function');
-  await page.getByRole('button',{name:'Benachrichtigungen',exact:true}).click();
+  await page.getByRole('button',{name:/^Benachrichtigungen, /}).click();
   await expect(page.getByText(ctx.row.title,{exact:true})).toBeVisible();
   await page.keyboard.press('Escape');
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kws:notification-open',{detail:{target:'/boulders?notification=note-batch',id:'note-batch'}})));
@@ -95,7 +95,7 @@ test('missing/foreign notification shows a recoverable error, never unrelated Bo
 
 test('realtime toast Ansehen opens the exact notification selection',async({page})=>{
   const ctx=await open(page);
-  await page.getByRole('button',{name:'Benachrichtigungen',exact:true}).click();
+  await page.getByRole('button',{name:/^Benachrichtigungen, /}).click();
   await expect(page.getByText(ctx.row.title,{exact:true})).toBeVisible();
   await page.keyboard.press('Escape');
   await page.evaluate(row=>(window as any).notificationEmit({eventType:'INSERT',new:row}),ctx.row);

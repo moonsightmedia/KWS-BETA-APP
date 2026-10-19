@@ -104,6 +104,7 @@ const ProfileEdit = () => {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({ name: '', email: '' });
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [initialFields, setInitialFields] = useState<{ name: string; email: string } | null>(null);
   const hasUnsavedChanges = !loadingProfile && initialFields !== null && (
@@ -269,13 +270,13 @@ const ProfileEdit = () => {
     const trimmedName = form.name.trim();
     const trimmedEmail = form.email.trim();
 
-    if (!trimmedName) {
-      toast.error('Bitte gib einen Namen ein.');
-      return;
-    }
-
-    if (!trimmedEmail) {
-      toast.error('Bitte gib eine E-Mail-Adresse ein.');
+    const errors = {
+      name: trimmedName ? '' : 'Bitte gib einen Namen ein.',
+      email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail) ? '' : 'Bitte gib eine gültige E-Mail-Adresse ein.',
+    };
+    setFieldErrors(errors);
+    if (errors.name || errors.email) {
+      document.getElementById(errors.name ? 'name' : 'email')?.focus();
       return;
     }
 
@@ -461,12 +462,12 @@ const ProfileEdit = () => {
                 Name
               </Label>
               <Input
-                id="name"
+                id="name" autoComplete="name" aria-invalid={!!fieldErrors.name} aria-describedby={fieldErrors.name ? 'name-error' : undefined}
                 value={form.name}
-                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                onChange={(event) => {setForm((current) => ({ ...current, name: event.target.value }));setFieldErrors(current=>({...current,name:''}));}}
                 disabled={loadingProfile || saving}
                 className="h-11 rounded-kws-control"
-              />
+              />{fieldErrors.name ? <p id="name-error" className="text-xs text-destructive">{fieldErrors.name}</p>:null}
             </div>
 
             <div className="space-y-1.5">
@@ -474,13 +475,13 @@ const ProfileEdit = () => {
                 E-Mail
               </Label>
               <Input
-                id="email"
+                id="email" autoComplete="email" aria-invalid={!!fieldErrors.email} aria-describedby={fieldErrors.email ? 'email-error' : undefined}
                 type="email"
                 value={form.email}
-                onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+                onChange={(event) => {setForm((current) => ({ ...current, email: event.target.value }));setFieldErrors(current=>({...current,email:''}));}}
                 disabled={loadingProfile || saving}
                 className="h-11 rounded-kws-control"
-              />
+              />{fieldErrors.email ? <p id="email-error" className="text-xs text-destructive">{fieldErrors.email}</p>:null}
             </div>
           </div>
         </KwsSurface>
