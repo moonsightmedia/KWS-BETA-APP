@@ -64,8 +64,33 @@ der Ablauf wird erst nach Menü-Cleanup fortgesetzt. Die 44px-Prüfung wartet au
 das Ende der kurzen Eintrittsbewegung statt deren skalierten Anfang zu messen.
 Diese Zwischenläufe gelten nicht als bestandene Endprüfung.
 
-Finale Ergebnisse und Belege werden vor Übergabe ergänzt. Keine Veröffentlichung
-im Rahmen dieses Implementierungsauftrags behaupten.
+Finale lokale Ergebnisse nach Übernahme von main0d6ea35:
+
+- 328/328 Node-Tests bestanden; Produktionsbuild erfolgreich, Version1.0.250
+  ohne eigenen Versionsbump.
+- Exakter Browserbefehl aus dem Web-Workflow:146/146 Fälle bestanden, inklusive
+  neuer Schnellaktionen und bestehender App-/Profil-/Header-/Foto-Regressionsfälle.
+- Neue Setter-Suite zusätzlich separat15/15 grün. In den zwei bestehenden
+  Setter-Suites47 unterschiedliche Fälle bestanden. Zusammen193 unterschiedliche
+  Browserfälle über breiten Lauf und gezielten Nachlauf; kein einzelner193er-Lauf.
+- Zwei visuelle Loops bei375/768/1280/1920px einschließlich Liste, Inlineformular,
+  Menü, Bestätigung, Such-Leerzustand und Ladefehler. Finale Kontaktbögen angesehen;
+  keine neue Überbreite, Menü per Trefferprüfung oberhalb der Navigation bedienbar.
+- Geänderte Produktdateien/neue Suite: ESLint0Fehler, zwei vorbestehende
+  Fast-Refresh-Warnungen im gemeinsamen Bouldereditor. Keine neue TypeScript-
+  Diagnose;69 verbleibende Bestandsdiagnosen gegenüber71 vor der Änderung. Zwei
+  alte Zugriffe auf nicht vorhandenes isFetching an transformierten Hooks entfallen.
+  Der globale Typecheck ist weiterhin nicht grün.
+- Alle Browser-Schreibfälle arbeiten auf synthetischen Fixtures und sperren
+  externe Anfragen. Keine Livekonto-Schreibtests, keine vollständige native
+  Geräte-/Screenreader-/serverseitige RLS-Abnahme.
+
+Belege: output/setter-quick-actions/{browser-ci.txt,browser-after-rebase.txt,
+browser-verified.txt,node-tests-final.txt,build-final.txt,lint.txt,
+typecheck-before.txt,typecheck-final.txt,qa/}. Die Datei browser-verified.txt enthält
+noch die vier zu früh gemessenen Animationszustände; der15er-Nachlauf und der
+146er-CI-Befehl bestätigen die korrigierte Prüfung und endgültige Umsetzung.
+Keine Veröffentlichung im Rahmen dieses Implementierungsauftrags.
 
 ## Lokale Sichtprüfung
 
