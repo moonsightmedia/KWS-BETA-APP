@@ -8,6 +8,17 @@ Marketing prüft täglich **Admin → Benutzer → Kontolöschungen**. Dort steh
 
 Marketing koordiniert Sonderfälle mit dem technischen Administrator. Die eigentliche Entfernung führt dieser über die geschützte Hostinger-Konsole aus. Es gibt bewusst keinen allgemeinen Löschknopf mit Serverberechtigung im App-Bundle. Zu diesem Implementierungsstand wurden keine echten Konten gelöscht und keine Löschbestätigung an echte Personen verschickt.
 
+## Anträge ohne installierte App
+
+Die öffentliche Anleitung steht unter `/privacy#konto-loeschen`. Nutzer können
+die Web-App im Browser öffnen, sich anmelden und denselben bestätigten
+Löschantrag unter Profil → Profil bearbeiten → Konto löschen stellen. Eine
+Installation ist nicht erforderlich; Identitätsprüfung, Warteschlange und
+Sieben-Tage-Frist bleiben identisch zum App-Ablauf. Bei Anmeldeproblemen stehen
+Passwort-Reset und Marketing-Support bereit. Eine bloße E-Mail mit fremder
+Kontoadresse berechtigt nicht zur Löschung; keine Passwörter oder Ausweiskopien
+verlangen. Es entsteht kein zusätzlicher ungeschützter Lösch-Endpunkt.
+
 ## Technischer Ablauf pro Vorgang
 
 1. Die **vollständige Vorgangs-ID** aus der Queue übernehmen. Nur vorhandene, vom angemeldeten Kontoinhaber bestätigte Anträge können verarbeitet werden. Ein beliebiger Benutzername oder eine fremde E-Mail ist kein Löschauftrag.

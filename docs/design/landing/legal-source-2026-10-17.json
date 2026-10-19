@@ -49,7 +49,8 @@
       },
       {
         "title": "9. Aufbewahrung, Löschung und Sicherungen",
-        "body": "<p>Kontodaten und gespeicherte Aktivitäten werden für die Dauer der Kontonutzung gespeichert. Du kannst unter Profil → Profil bearbeiten → Konto löschen einen Löschantrag stellen. Marketing bearbeitet ihn spätestens innerhalb von sieben Tagen; nach Abschluss erhältst du eine Bestätigung. Notwendige gesetzliche Aufbewahrungspflichten und berechtigte Ausnahmen werden im Einzelfall berücksichtigt.</p><p>Sicherungen sind verschlüsselt. Der laufende Sicherungsplan hält die letzten sieben täglichen Sicherungen sowie je eine aus vier Wochen vor. Daten können bis zum turnusmäßigen Ersetzen in Sicherungen verbleiben; diese werden nicht für die reguläre App-Nutzung verwendet. Vor einer Wiederherstellung müssen zwischenzeitliche Löschungen berücksichtigt werden. Frühere Migrationssicherungen und die schreibgesperrte Altdatenbank werden bis zur kontrollierten Stilllegung gesondert geschützt aufbewahrt. Support- und Moderationsdaten werden gelöscht, sobald ihr Zweck entfällt und keine Aufbewahrung erforderlich ist.</p>"
+        "body": "<p>Kontodaten und gespeicherte Aktivitäten werden für die Dauer der Kontonutzung gespeichert. Du kannst unter Profil → Profil bearbeiten → Konto löschen einen Löschantrag stellen. Marketing bearbeitet ihn spätestens innerhalb von sieben Tagen; nach Abschluss erhältst du eine Bestätigung. Notwendige gesetzliche Aufbewahrungspflichten und berechtigte Ausnahmen werden im Einzelfall berücksichtigt.</p><p><strong>Kontolöschung ohne installierte App:</strong> Öffne die <a href=\"https://beta.kletterwelt-sauerland.de/app/login\">Web-App im Browser</a> und melde dich mit deinem Konto an. Wähle Profil → Profil bearbeiten → Konto löschen und bestätige den Antrag. Dafür ist keine App-Installation erforderlich. Wenn du dich nicht anmelden kannst, nutze „Passwort vergessen“ oder wende dich an <a href=\"mailto:marketing@kletterwelt-sauerland.de\">marketing@kletterwelt-sauerland.de</a>. Sende keine Passwörter oder Ausweiskopien.</p><p>Mit deinem Konto löschen wir dein Profil, persönliche Begehungen, Versuche, Favoriten, Projekte, Notizen, Kommentare, Bewertungen, Mitteilungsdaten und eindeutig zugeordnete persönliche Uploads. Gemeinsam genutzte Hallenmedien und notwendige betriebliche oder gesetzliche Aufbewahrung werden vorab geprüft; über Ausnahmen und ihre Dauer informieren wir dich. Nach Abschluss erhältst du eine Bestätigung.</p><p>Sicherungen sind verschlüsselt. Der laufende Sicherungsplan hält die letzten sieben täglichen Sicherungen sowie je eine aus vier Wochen vor. Daten können bis zum turnusmäßigen Ersetzen in Sicherungen verbleiben; diese werden nicht für die reguläre App-Nutzung verwendet. Vor einer Wiederherstellung müssen zwischenzeitliche Löschungen berücksichtigt werden. Frühere Migrationssicherungen und die schreibgesperrte Altdatenbank werden bis zur kontrollierten Stilllegung gesondert geschützt aufbewahrt. Support- und Moderationsdaten werden gelöscht, sobald ihr Zweck entfällt und keine Aufbewahrung erforderlich ist.</p>",
+        "id": "konto-loeschen"
       },
       {
         "title": "10. Deine Rechte",
@@ -96,5 +97,8 @@
         "body": "<p>Marketing bearbeitet Meldungen und kann Inhalte ausblenden sowie Veröffentlichungen eines Kontos sperren. Rückfragen oder Einwände kannst du an <a href=\"mailto:marketing@kletterwelt-sauerland.de\">marketing@kletterwelt-sauerland.de</a> richten. Bei akuter Gefahr wende dich an die zuständigen Notfallstellen.</p>"
       }
     ]
+  },
+  "updated": {
+    "privacy": "19. Oktober 2026"
   }
 }

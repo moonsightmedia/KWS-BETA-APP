@@ -61,3 +61,31 @@ Provide `KWS_ANDROID_KEYSTORE`, `KWS_ANDROID_STORE_PASSWORD`,
 environment, then run `node scripts/build-play-android.mjs`. Never put signing
 passwords into shell arguments, tracked files, logs or this document. Rebuild from
 the final committed source before uploading, so the embedded revision is accurate.
+
+## Follow-up: IARC and deletion instructions
+
+On 19 October the user approved IARC terms and disclosure of the existing
+ordinary reviewer account to Google. IARC is now **completed**, with USK 0 for
+Germany / PEGI 3. Account creation remains 16+. The access form returned a generic
+save failure twice; its exact cause is unconfirmed. No reviewer permissions were
+expanded and the unrestricted-access checkbox was not certified for an account
+without staff/admin access. User explicitly wants all roles in the same store app;
+no employee functionality has been removed. A separate review environment was
+suggested, not requested by either store, and is not authorised or created yet.
+Apple currently has the ordinary review account too; no Apple approval inferred.
+
+The privacy page now explains the existing browser-based account-deletion flow,
+including login, exact navigation, support, affected data and backup retention.
+Canonical static source, generator and in-app copy are aligned. The public target
+will be `/privacy#konto-loeschen` after the combined main web release; it is not
+claimed live before merge/deployment. No new deletion API or alternate email-only
+identity/deletion workflow was added. Legal anchor jumps are immediate so the
+long legal document does not animate past the requested section.
+
+Two visual QA loops cover generated landing legal text and the React app at
+375/768/1280/1920: no horizontal overflow, deep-link heading below the fixed
+header, HTTPS web-app link, keyboard access to the Marketing contact and matching
+request instructions. Evidence: output/play-release-20261019/privacy-*.png.
+Latest main `8c86264` (PR42/43) was merged into this isolated release branch to
+preserve current interface/statistics/monitoring changes. Final AAB must be rebuilt
+again after these edits; the earlier checksum is now a historical checkpoint.
