@@ -2,10 +2,11 @@
 
 ## Ergebnis und Veröffentlichungsgrenze
 
-Implementiert, lokal geprüft, noch nicht produktiv freigeschaltet. Die neuen
-RPCs benötigen eine gesonderte geschützte Datenbankmigration. Der reguläre
-Web-Autodeployer führt sie nicht aus. Vor deren Verifikation nicht nach main
-übernehmen und die UI nicht als live behaupten.
+Implementiert und lokal geprüft. Die gesonderte geschützte Datenbankmigration
+ist am19.10.2026 um11:04Berlin erfolgreich installiert und verifiziert worden.
+Der Webstand ist zu diesem Zeitpunkt noch nicht produktiv veröffentlicht.
+Der reguläre Web-Autodeployer führt keine Migrationen aus; die Webfreigabe
+bleibt an den exakten erfolgreichen PR-/Main-Prüflauf und HTTPS-Nachweis gebunden.
 
 - Admin startet mit Übersicht. Desktop acht direkte Ziele; mobil Übersicht,
   Benutzer, Halle, Moderation und Mehr mit Feedback und Betriebsansichten.
@@ -57,7 +58,29 @@ Web-Autodeployer führt sie nicht aus. Vor deren Verifikation nicht nach main
  8-REST-Abfragen-Dashboard und bleiben außerhalb der gezielten Navigationstests
   veraltet; aktuelle Monitoring-Suite ist vollständig grün.
 
-## Backend und nächster Schritt
+## Produktive Datenbankprüfung11:04
+
+- Bestehendes KWS-Konto im Chromeprofil bestätigt: srv2044594/187.7.70.230.
+  Geschützter HTTPS-Zugang zur Datenbank mit bestehenden Betreiber-Credentials
+  aus Bitwarden, ohne Passwortreset, neue Rolle oder Änderung von Firewall/SSH.
+- Studio-Standardrolle postgres darf Public-Schema nicht erweitern. Der dort
+  abgewiesene Versuch hat keine der neuen Funktionen angelegt. Anschließend
+  den vorhandenen Datenbankadministrator supabase_admin über den offiziellen
+  geschützten pg-meta-Zugang verwendet; keine Rechte für postgres ergänzt.
+- Aktuelle verschlüsselte Sicherung vom19.10.05:38:09Berlin bestätigt:
+ 5026 Dateien verifiziert, Timer aktiv und letzter Job erfolgreich. Der neueste
+  Archivsatz wird nicht als zusätzlich restore-getestet behauptet.
+- Exakter geprüfter LF-Migrationshash angewandt. Beide neuen Funktionen sind
+  vorhanden. Bestehende Monitoring-Signatur vor/nach identisch:
+  `f9faa38b58f57c9e1de16e340353359a`.
+- Bestehender Admin kann Übersicht lesen; schema_version1 und exaktes24Std.-
+  Fenster bestätigt. Ein vorhandener Diagnosebericht mit Actor-Vertrag gelesen,
+  höchstens50, keine Kontakte exportiert. Keine Nutzer/Fehlerstatus verändert.
+- Anon, service_role, angemeldete Rolle ohne Subjekt und gewöhnliches
+  Nutzerkonto für beide Funktionen abgewiesen. Öffentliche anonyme RPC-Anfrage
+  zusätzlich mit HTTP401 abgewiesen. Webclient noch nicht freigeschaltet.
+
+## Backend – ursprüngliche Zugangssperre
 
 Neue Migration: `20261019110000_admin_overview_and_issue_actors.sql`.
 Git-Blob-SHA256 bei LF-Zeilenenden:
@@ -80,8 +103,9 @@ umbruchfähiger/kopierbarer Verwaltungs-E-Mails. Deren Änderungen bleiben erhal
 Letzter gelesener öffentlicher App-/Landing-Stand:
 `8c86264d98a8f43a78c19bfe5678f5406baba4af`, nicht diese Admin-Erweiterung.
 
-Nächster Schritt: bestehenden KWS-Serverzugang herstellen, geprüfte Migration
-nach Runbook samt Admin-/Negativtests anwenden, anschließend regulären
-PR-/CI-/Main-Webrelease durchführen und angemeldete Produktionsansicht prüfen.
+Die ursprüngliche Zugangssperre ist für diesen Datenbankauftrag durch den
+bestehenden Administratorzugang gelöst; die SSH-IP-Beschränkung bleibt erhalten.
+Nächster Schritt: regulären PR-/CI-/Main-Webrelease durchführen und die
+angemeldete Produktionsansicht mit den tatsächlich neuen RPCs prüfen.
 Keine neue native Veröffentlichung, kein neuer kostenpflichtiger Dienst und
 keine Änderung bestehender Store-/Alarm-/Shadow-Monitor-Grenzen.

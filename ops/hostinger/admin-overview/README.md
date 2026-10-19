@@ -33,12 +33,22 @@ verifizierte Verbindung von `kws-admin` zu `187.7.70.230` und die bereits
 festgelegten Hostschlüssel. Zugangsdaten, private Schlüssel oder Tokens gehören
 nicht in CLI-Argumente, Git, SQL-Protokolle oder dieses Runbook.
 
-Aktuelle Einschränkung am 19.10.2026: Der bestehende SSH-Zugang ist mit einem
-Verbindungszeitüberschreitungsfehler nicht erreichbar; ein alternatives
-administratives Hostinger-Konto beziehungsweise dessen Serverzugang ist nicht
-bestätigt. Dieses Runbook belegt daher **keine Live-Migration**. Ohne bestätigten
-Zugriff auf genau diesen Host stoppen. Keine Firewall, öffentlichen Ports,
-Passwörter oder Web-Autodeploy-Rechte zur Umgehung ändern.
+Bei der Vorbereitung am19.10.2026 war der bestehende SSH-Zugang nicht erreichbar.
+Nach bestätigtem KWS-Hostinger-Konto wurde die Migration um11:04Berlin über den
+bereits vorhandenen geschützten Betreiberzugang erfolgreich angewandt. Belege:
+`docs/qa/2026-10-19-admin-overview.md`. SSH bleibt unverändert beschränkt.
+Ohne bestätigten Zugriff auf genau diesen Host stoppen. Keine Firewall,
+öffentlichen Ports, Passwörter oder Web-Autodeploy-Rechte zur Umgehung ändern.
+
+Alternativ zum bestehenden SSH-Zugang kann der bereits eingerichtete HTTPS-
+Betreiberzugang verwendet werden: äußere Basic-Authentifizierung und offizielles
+`/pg/query` mit bestehendem Service-API-Key sowie verschlüsselter Verbindung zum
+vorhandenen Datenbankadministrator `supabase_admin`. Die Werte stammen nur aus
+Bitwarden `KWS_HOSTINGER_SUPABASE_CONFIG` und bleiben im Speicher. Niemals
+Header, Verbindungszeichenketten oder Passwörter in Logs/URLs/Argumente schreiben.
+Die Studio-Standardrolle `postgres` besitzt hier kein CREATE im Public-Schema;
+keine Grants zur Umgehung ergänzen. Der alternative Weg ändert keine Rechte und
+ersetzt keine Sicherungs-, Hash-, Ziel- oder Negativprüfung.
 
 1. Den exakten Git-Stand und ausschließlich die neue Migration prüfen. Lokal
    `node --test test/adminOverviewDatabase.test.mjs test/monitoringDatabase.test.mjs`
