@@ -1,0 +1,37 @@
+.kws-video-mobile { isolation: isolate; }
+.kws-video-chrome { transition: opacity 150ms; }
+.kws-video-mobile[data-controls-visible=false] .kws-video-chrome { opacity: 0; visibility: hidden; pointer-events: none; }
+.kws-video-center { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; gap: 16px; pointer-events: none; }
+.kws-video-center>button { pointer-events: auto; position: relative; background: white; color: hsl(var(--brand-ink)); box-shadow: 0 3px 14px hsl(var(--brand-ink)/.2); }
+.kws-video-center .kws-video-play { height: 64px; width: 64px; padding: 0; border-radius: 12px; background: hsl(var(--brand-green)); color: hsl(var(--brand-ink)); }
+.kws-video-skip { position: relative; height: 24px; width: 24px; display: block; }
+.kws-video-skip>svg { height: 24px!important; width: 24px!important; }
+.kws-video-skip>span { position: absolute; inset: 0; display: grid; place-items: center; padding-top: 1px; font: 600 9px/1 Poppins,sans-serif; }
+.kws-video-dock { position: absolute; z-index: 30; left: 10px; right: 10px; bottom: 10px; padding: 0 10px 8px; border-radius: 12px; background: white; color: hsl(var(--brand-ink)); box-shadow: 0 3px 14px hsl(var(--brand-ink)/.15); }
+.kws-video-seek { height: 44px; display: flex; align-items: center; gap: 12px; }
+.kws-video-seek>span { font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; color: hsl(var(--brand-muted)); }
+.kws-video-seek b { font-weight: 500; color: hsl(var(--brand-ink)); }
+.kws-video-seek input { appearance: none; -webkit-appearance: none; flex: 1; min-width: 0; height: 44px; margin: 0; background: transparent; cursor: pointer; touch-action: none; }
+.kws-video-seek input::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right,hsl(var(--brand-green)) var(--video-progress),hsl(var(--brand-border)) var(--video-progress)); }
+.kws-video-seek input::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; height: 16px; width: 16px; border-radius: 4px; background: hsl(var(--brand-ink)); border: 2px solid white; margin-top: -6px; box-shadow: 0 1px 5px hsl(var(--brand-ink)/.25); }
+.kws-video-seek input::-moz-range-track { height: 4px; border-radius: 2px; background: hsl(var(--brand-border)); }
+.kws-video-seek input::-moz-range-progress { height: 4px; background: hsl(var(--brand-green)); }
+.kws-video-seek input::-moz-range-thumb { height: 14px; width: 14px; border-radius: 4px; border: 2px solid white; background: hsl(var(--brand-ink)); }
+.kws-video-seek input:disabled { opacity: .45; }
+.kws-video-tools { display: flex; align-items: center; gap: 4px; }
+.kws-video-tools-end { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.kws-video-speed { min-width: 64px; padding: 0 12px; font-size: 13px; }
+.kws-video-loop { font-size: 12px; padding: 0 12px; }
+.kws-video-speed-menu { z-index: 120; width: 222px; padding: 6px; background: white; color: hsl(var(--brand-ink)); border-radius: 12px; }
+.kws-video-speed-menu [role=menuitemradio] { min-height: 44px; margin-top: 2px; gap: 12px; border-radius: 4px; padding-left: 10px; padding-right: 10px; }
+.kws-video-speed-menu [role=menuitemradio]>span:first-child { display: none; }
+.kws-video-speed-option>svg { width: 14px; height: 14px; }
+.kws-video-speed-option>span { font-size: 13px; }
+.kws-video-speed-option>small { margin-left: auto; font-size: 11px; color: hsl(var(--brand-muted)); }
+.kws-video-speed-option[data-state=checked] { background: hsl(var(--brand-green)); color: hsl(var(--brand-ink)); }
+.kws-video-speed-option[data-state=checked]>small { color: inherit; }
+.kws-video-mobile [data-video-quality], .kws-video-mobile [data-video-fullscreen] { height: 44px; min-width: 44px; }
+.kws-video-mobile input:focus-visible { outline: 2px solid hsl(var(--brand-ink)); outline-offset: 3px; }
+.kws-video-viewport { position: fixed!important; inset: 0; width: 100vw!important; height: 100dvh!important; z-index: 10000; border-radius: 0!important; }
+.kws-video-blocked { position: absolute; z-index: 21; top: calc(50% + 48px); left: 16px; right: 16px; font-size: 12px; text-align: center; color: hsl(var(--brand-ink)); background: white; padding: 10px; border-radius: 8px; }
+@media(prefers-reduced-motion:reduce) { .kws-video-chrome, .kws-video-speed-menu { transition: none!important; animation: none!important; } }

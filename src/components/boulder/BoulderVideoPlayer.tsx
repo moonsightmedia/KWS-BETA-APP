@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { BadgeCheck, Check, ChevronDown, ExternalLink, Loader2, Maximize2, Minimize2, Settings, Video } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { useBoulderVideoControls, useMobileVideoControls } from '@/hooks/useBoulderVideoControls';
+import { BoulderVideoControls } from './BoulderVideoControls';
+import './BoulderVideoControls.css';
 import {
   getNextLowerVideoQuality,
   HAVE_CURRENT_DATA,
@@ -25,7 +29,6 @@ import { VideoQualities } from '@/types/boulder';
 import { reportMonitoringError, trackMonitoring } from '@/utils/monitoring';
 import { detectNetworkSpeed, getOptimalVideoQualityWithDataSaver } from '@/utils/networkUtils';
 import {
-  getAvailableVideoQualities,
   getPreferredVideoQuality,
   getVideoUrl,
   hasMultipleVideoQualities,
@@ -95,7 +98,13 @@ export function BoulderVideoPlayer({
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isBuffering, setIsBuffering] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [nativeFullscreen, setNativeFullscreen] = useState(false);
+  const [viewportFullscreen, setViewportFullscreen] = useState(false);
+  const isFullscreen = nativeFullscreen || viewportFullscreen;
+  const mobileControls = useMobileVideoControls();
+  const mountRef = useRef<HTMLDivElement>(null);
+  const [portalHost] = useState(() => { const host = document.createElement('div'); host.style.cssText = 'width:100%;height:100%'; return host; });
+  const [qualityOpen, setQualityOpen] = useState(false);
   const [currentQuality, setCurrentQuality] = useState<VideoQualityLevel>(() =>
     getPreferredVideoQuality(betaVideoUrls, betaVideoUrl, getOptimalVideoQualityWithDataSaver(detectNetworkSpeed())));
   const [hasError, setHasError] = useState(false);
@@ -149,6 +158,36 @@ export function BoulderVideoPlayer({
   }, []);
 
   const currentVideoUrl = getVideoUrl(betaVideoUrls, betaVideoUrl, currentQuality);
+  const controls = useBoulderVideoControls(videoRef, hasError ? undefined : `${currentVideoUrl}|${sourceRevision}`, mobileControls, isVisible, qualityOpen);
+
+  // Keep the same portal host/media node while moving fallback fullscreen out of
+  // transformed or clipped dialogs. React never changes the media portal target.
+  useLayoutEffect(() => {
+    const destination = viewportFullscreen ? document.body : mountRef.current;
+    destination?.appendChild(portalHost);
+    return () => portalHost.remove();
+  }, [portalHost, viewportFullscreen, hasError]);
+
+  useEffect(() => {
+    if (!viewportFullscreen) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = 'hidden';
+    containerRef.current?.focus();
+    return () => { document.body.style.overflow = previousOverflow; previousFocus?.focus(); };
+  }, [viewportFullscreen]);
+
+  useEffect(() => {
+    if (hasError) setViewportFullscreen(false);
+  }, [hasError]);
+
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented && !qualityOpen && !controls.menuOpen) setViewportFullscreen(false);
+    };
+    window.addEventListener('keydown', escape);
+    return () => window.removeEventListener('keydown', escape);
+  }, [qualityOpen, controls.menuOpen]);
 
   const handleQualityFallback = useCallback((reason: 'initial-load' | 'stall' | 'error') => {
     const nextQuality = getNextLowerVideoQuality(currentQuality, betaVideoUrls);
@@ -181,7 +220,7 @@ export function BoulderVideoPlayer({
     enforceMuted();
     video.addEventListener('volumechange', enforceMuted);
     return () => video.removeEventListener('volumechange', enforceMuted);
-  }, [currentVideoUrl]);
+  }, [currentVideoUrl, sourceRevision, hasError]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -227,7 +266,7 @@ export function BoulderVideoPlayer({
       setIsBuffering(false);
 
       const shouldPlay = savedPlaybackState?.wasPlaying ?? !hasStartedPlayingRef.current;
-      if (shouldPlay) {
+      if (shouldPlay && !document.hidden) {
         video.play().catch((error) => {
           console.log('[VideoPlayer] Auto-play blocked or failed:', error);
         });
@@ -265,6 +304,7 @@ export function BoulderVideoPlayer({
     clearLoadTimeout,
     currentQuality,
     handleQualityFallback,
+    hasError,
     isVisible,
     sourceRevision,
     reportPlaybackFailure,
@@ -405,12 +445,12 @@ export function BoulderVideoPlayer({
       video.removeEventListener('stalled', handleStalled);
       clearBufferingTimeout();
     };
-  }, [boulderId, clearBufferingTimeout, currentQuality, handleQualityFallback, reportPlaybackFailure]);
+  }, [boulderId, clearBufferingTimeout, currentQuality, handleQualityFallback, reportPlaybackFailure, sourceRevision, hasError]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
       const fullscreenDocument = document as FullscreenVideoDocument;
-      setIsFullscreen(Boolean(fullscreenDocument.fullscreenElement || fullscreenDocument.webkitFullscreenElement));
+      setNativeFullscreen((fullscreenDocument.fullscreenElement || fullscreenDocument.webkitFullscreenElement) === containerRef.current);
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -429,6 +469,8 @@ export function BoulderVideoPlayer({
   const toggleFullscreen = async () => {
     const container = containerRef.current as FullscreenVideoElement | null;
     if (!container) return;
+    controls.reveal();
+    if (viewportFullscreen) { setViewportFullscreen(false); return; }
     const fullscreenDocument = document as FullscreenVideoDocument;
 
     try {
@@ -442,6 +484,8 @@ export function BoulderVideoPlayer({
           await container.mozRequestFullScreen();
         } else if (container.msRequestFullscreen) {
           await container.msRequestFullscreen();
+        } else {
+          setViewportFullscreen(true);
         }
       } else if (fullscreenDocument.exitFullscreen) {
         await fullscreenDocument.exitFullscreen();
@@ -453,7 +497,8 @@ export function BoulderVideoPlayer({
         await fullscreenDocument.msExitFullscreen();
       }
     } catch (error) {
-      console.error('Error toggling fullscreen:', error);
+      console.warn('Native fullscreen unavailable; using viewport fullscreen:', error);
+      setViewportFullscreen(true);
     }
   };
 
@@ -501,11 +546,14 @@ export function BoulderVideoPlayer({
   }
 
   return (
+    <div ref={mountRef} className="h-full w-full">{createPortal(
     <div
       ref={containerRef}
       className={cn(
         'relative h-full w-full overflow-hidden bg-brand-ink',
         className,
+        mobileControls && 'kws-video-mobile bg-secondary',
+        viewportFullscreen && 'kws-video-viewport',
         isFullscreen && 'flex min-h-[100svh] min-h-[100dvh] items-center justify-center rounded-none bg-[#F7F9F7]',
       )}
       style={isFullscreen ? {
@@ -515,6 +563,34 @@ export function BoulderVideoPlayer({
         paddingRight: 'env(safe-area-inset-right, 0px)',
       } : undefined}
       data-fullscreen={isFullscreen ? 'true' : 'false'}
+      data-controls-visible={!mobileControls || controls.visible}
+      data-swipe-ignore
+      role={viewportFullscreen ? 'dialog' : mobileControls ? 'region' : undefined}
+      aria-modal={viewportFullscreen || undefined}
+      aria-label={mobileControls ? 'Boulder-Videoplayer' : undefined}
+      tabIndex={mobileControls ? 0 : undefined}
+      onFocusCapture={event => {
+        if (!mobileControls) return;
+        const keyboard = (event.target as HTMLElement).matches(':focus-visible');
+        controls.setKeyboardFocus(keyboard);
+        if (keyboard) controls.reveal();
+      }}
+      onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) controls.setKeyboardFocus(false); }}
+      onKeyDown={event => {
+        if (!mobileControls) return;
+        if (viewportFullscreen && event.key === 'Tab') {
+          if (!controls.visible) { event.preventDefault(); controls.reveal(); return; }
+          const targets = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),[tabindex="0"]')).filter(element => !element.closest('[inert]') && element.getClientRects().length);
+          const first = targets[0], last = targets[targets.length - 1];
+          if (event.shiftKey && (event.target === first || event.target === event.currentTarget)) { event.preventDefault(); last?.focus(); }
+          else if (!event.shiftKey && event.target === last) { event.preventDefault(); first?.focus(); }
+        }
+        if (event.target !== event.currentTarget) return;
+        if (event.key === 'Enter') { event.preventDefault(); controls.reveal(); }
+        if (event.key === ' ') { event.preventDefault(); controls.togglePlayback(); }
+        if (event.key === 'ArrowLeft') { event.preventDefault(); controls.skip(-5); }
+        if (event.key === 'ArrowRight') { event.preventDefault(); controls.skip(5); }
+      }}
     >
       <style>{`
         video::-webkit-media-controls-start-playback-button {
@@ -528,15 +604,16 @@ export function BoulderVideoPlayer({
       <video
         ref={videoRef}
         src={isVisible ? currentVideoUrl : undefined}
-        autoPlay
-        controls
+        autoPlay={!mobileControls}
+        controls={!mobileControls}
         muted
         playsInline
         controlsList="nodownload"
         className={cn(
           'h-full w-full object-center bg-brand-ink',
-          isFullscreen ? 'object-contain bg-[#F7F9F7]' : 'object-cover',
+          isFullscreen ? 'object-contain bg-[#F7F9F7]' : mobileControls ? 'object-contain bg-secondary' : 'object-cover',
         )}
+        onClick={mobileControls ? controls.toggleVisibility : undefined}
         poster={poster || undefined}
         preload="auto"
       >
@@ -545,7 +622,8 @@ export function BoulderVideoPlayer({
 
       {showOfficialBadge ? (
         <div
-          className="absolute left-2.5 top-2.5 z-30 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.96] px-2.5 text-brand-ink shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm"
+          ref={element => { if (element) element.inert = mobileControls && !controls.visible; }}
+          className="kws-video-chrome absolute left-2.5 top-2.5 z-30 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.96] px-2.5 text-brand-ink shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm"
           style={isFullscreen ? {
             left: 'max(env(safe-area-inset-left, 0px), 12px)',
             top: 'max(calc(var(--app-safe-area-top) + 12px), 28px)',
@@ -557,18 +635,20 @@ export function BoulderVideoPlayer({
       ) : null}
 
       <div
-        className="absolute right-2.5 top-2.5 z-30 flex items-center gap-1.5"
+        ref={element => { if (element) element.inert = mobileControls && !controls.visible; }}
+        className="kws-video-chrome absolute right-2.5 top-2.5 z-30 flex items-center gap-1.5"
         style={isFullscreen ? {
           right: 'max(env(safe-area-inset-right, 0px), 12px)',
           top: 'max(calc(var(--app-safe-area-top) + 12px), 28px)',
         } : undefined}
       >
         {showQualitySelector && betaVideoUrls ? (
-          <DropdownMenu>
+          <DropdownMenu open={qualityOpen} onOpenChange={open => { setQualityOpen(open); if (open) controls.reveal(); }}>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
                 className="flex h-9 cursor-pointer items-center gap-1.5 rounded-kws-control border border-white/70 bg-white/[0.94] px-2.5 text-xs font-semibold text-brand-ink shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent"
+                data-video-quality
                 aria-label={`Videoqualität: ${videoQualityLabels[currentQuality].short}`}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -635,6 +715,7 @@ export function BoulderVideoPlayer({
 
         <button
           type="button"
+          data-video-fullscreen
           onClick={toggleFullscreen}
           className="grid h-9 w-9 place-items-center rounded-kws-control border border-white/70 bg-white/[0.94] text-brand-ink shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent"
           aria-label={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
@@ -644,10 +725,14 @@ export function BoulderVideoPlayer({
         </button>
       </div>
 
+      {mobileControls && <BoulderVideoControls controls={controls} fullscreenContainer={isFullscreen ? containerRef.current : null} />}
+
       {isBuffering && (
         <div
           className="pointer-events-none absolute bottom-4 left-1/2 flex min-h-9 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-kws-control bg-brand-ink/88 px-3 py-2 text-xs font-medium text-white shadow-[0_3px_12px_rgba(19,17,43,0.18)] backdrop-blur-sm"
-          style={isFullscreen ? {
+          style={mobileControls ? {
+            bottom: isFullscreen ? 'max(calc(var(--app-safe-area-bottom) + 124px), 136px)' : '120px',
+          } : isFullscreen ? {
             bottom: 'max(calc(var(--app-safe-area-bottom) + 64px), 76px)',
           } : undefined}
           role="status"
@@ -657,6 +742,7 @@ export function BoulderVideoPlayer({
           Video wird geladen …
         </div>
       )}
+    </div>, portalHost)}
     </div>
   );
 }
