@@ -42,7 +42,7 @@ export default function Training() {
   return <DashboardPageLayout headerBackTo={atHome ? undefined : backTo} headerBackLabel={exercise ? returningToSession ? 'Zur eigenen Einheit' : params.get('from') === 'favorites' ? 'Zur Favoritenliste' : 'Zur Bibliothek' : 'Training-Übersicht'} mainClassName={showSelection ? 'pb-52 md:pb-28' : undefined} rightSlot={<div className="flex items-center gap-1">
     {plan && !kidsView && pathname !== '/training/week' && <Button asChild variant="ghost" size="icon"><Link to="/training/week" aria-label="Mein Plan"><CalendarDays className="h-5 w-5" aria-hidden="true" /></Link></Button>}
     <TrainingHelp key={accountId} exercise={exercise} session={pathname.startsWith('/training/sessions/') ? pathname.endsWith('/new') ? draft : sessions.find(session => session.id === pathname.split('/').at(-1)) : undefined} /></div>}>
-    <div ref={element => { swipe.current = element; }} data-swipe-ignore={atHome && !assistantOpen ? undefined : true} className="space-y-5">
+    <div ref={swipe} data-swipe-ignore={atHome && !assistantOpen ? undefined : true} className="space-y-5">
       <Routes>
         <Route index element={<TrainingHome onOpenAssistant={() => setAssistantOpen(true)} />} />
         <Route path="library/:area" element={<TrainingLibrary />} />

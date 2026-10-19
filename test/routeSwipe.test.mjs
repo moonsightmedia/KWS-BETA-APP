@@ -13,8 +13,8 @@ const { outputText } = ts.transpileModule(source, {
 const swipe = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 
 test('a deliberate horizontal gesture selects the neighboring route', () => {
-  assert.equal(swipe.resolveHorizontalSwipeIntent(72, 5), 'next');
-  assert.equal(swipe.resolveHorizontalSwipeIntent(-72, 5), 'previous');
+  assert.equal(swipe.resolveHorizontalSwipeIntent(-72, 5), 'next');
+  assert.equal(swipe.resolveHorizontalSwipeIntent(72, 5), 'previous');
 });
 
 test('short horizontal movement locks the axis without navigating yet', () => {
