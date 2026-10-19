@@ -7,9 +7,10 @@ export type LaunchIssue = {
   occurrences: number; affected_devices: number; release: string | null; platform: string | null;
   status: string; regression: boolean; source: 'app' | 'sentry'; permalink: string | null; fixed_release: string | null;
 };
+export type LaunchIssueActor = { state: 'account' | 'guest' | 'unassigned'; user_id: string | null; display_name: string | null; email: string | null };
 export type LaunchIssueEvent = {
   event_id: string; occurred_at: string; received_at: string; platform: string; release: string;
-  installation_ref: string | null; user_ref: string | null; session_ref: string | null; props: Record<string, unknown>;
+  installation_ref: string | null; user_ref: string | null; session_ref: string | null; props: Record<string, unknown>; actor?: LaunchIssueActor;
 };
 export type LaunchDelivery = { id: string; notification_id: string | null; recipient_ref: string | null; platform: string | null; status: string; code: string | null; created_at: string };
 export type LaunchStoreMetric = {
@@ -114,6 +115,8 @@ export async function loadLaunchDashboard(connection: MonitoringConnection, filt
   return parseLaunchDashboard(await rpc(connection, 'kws_monitoring_dashboard', launchFilterPayload(filters), signal));
 }
 
+export const requestMonitoringRpc = rpc;
+
 export type LiveMonitoring = {
   schema_version: 1; generated_at: string; expires_at: string;
   online: number; accounts: number; guests: number; devices: number; viewing_boulders: number;
@@ -137,8 +140,26 @@ export async function loadLiveMonitoring(connection: MonitoringConnection, filte
   return parseLiveMonitoring(await rpc(connection, 'kws_monitoring_live', { p_platform, p_release }, signal));
 }
 
+function parseIssueActor(value: unknown): LaunchIssueActor | undefined {
+  if (value === undefined) return undefined;
+  const actor = object(value);
+  if (!['account', 'guest', 'unassigned'].includes(String(actor.state))) invalid();
+  const result: LaunchIssueActor = { state: actor.state as LaunchIssueActor['state'], user_id: nullableString(actor.user_id, 36), display_name: nullableString(actor.display_name, 200), email: nullableString(actor.email, 254) };
+  if (result.state === 'account') {
+    if (!result.user_id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(result.user_id)) invalid();
+  } else if (result.user_id !== null || result.display_name !== null || result.email !== null) invalid();
+  return result;
+}
+
 export async function loadLaunchIssueEvents(connection: MonitoringConnection, fingerprint: string, signal?: AbortSignal): Promise<LaunchIssueEvent[]> {
-  return rows(await rpc(connection, 'kws_monitoring_issue_events', { p_fingerprint: string(fingerprint, 256) }, signal), row => ({ event_id: string(row.event_id, 160), occurred_at: timestamp(row.occurred_at), received_at: timestamp(row.received_at), platform: string(row.platform, 40), release: string(row.release, 160), installation_ref: nullableString(row.installation_ref, 160), user_ref: nullableString(row.user_ref, 160), session_ref: nullableString(row.session_ref, 160), props: object(row.props) }), 50);
+  const payload = { p_fingerprint: string(fingerprint, 256) };
+  let response: unknown;
+  try { response = await rpc(connection, 'kws_admin_issue_events', payload, signal); }
+  catch (error) {
+    if (!(error instanceof LaunchMonitoringError) || error.kind !== 'unconfigured') throw error;
+    response = await rpc(connection, 'kws_monitoring_issue_events', payload, signal);
+  }
+  return rows(response, row => ({ event_id: string(row.event_id, 160), occurred_at: timestamp(row.occurred_at), received_at: timestamp(row.received_at), platform: string(row.platform, 40), release: string(row.release, 160), installation_ref: nullableString(row.installation_ref, 160), user_ref: nullableString(row.user_ref, 160), session_ref: nullableString(row.session_ref, 160), props: object(row.props), actor: parseIssueActor(row.actor) }), 50);
 }
 
 export async function updateLaunchIssueStatus(connection: MonitoringConnection, fingerprint: string, status: string, fixedRelease: string | null) {

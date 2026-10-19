@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { loadLaunchIssueEvents, safeMonitoringLink, updateLaunchIssueStatus, type LaunchIssue, type MonitoringConnection } from '@/lib/launchMonitoring';
 import { monitoringIssueGuide, monitoringPlatformName, monitoringSupportReport, monitoringVersionName } from '@/lib/monitoringIssueGuide';
+import { LaunchIssueActors } from './LaunchIssueActors';
 
 const dateTime = (value: string) => new Date(value).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 const statusNames: Record<string, string> = { open: 'Offen', unresolved: 'Offen', acknowledged: 'In Bearbeitung', resolved: 'Behoben', ignored: 'Ignoriert' };
@@ -24,7 +25,7 @@ export function LaunchIssueDetail({ issue, connection, onClose, onSaved, onClose
   const dirty = issue.source === 'app' && (status !== confirmed.status || fixedRelease !== confirmed.fixedRelease);
   useLayoutEffect(() => { onDirtyChange(dirty); }, [dirty, onDirtyChange]);
   useLayoutEffect(() => { onBusyChange(saving); }, [saving, onBusyChange]);
-  const { data, isLoading, error, refetch, isFetching } = useQuery({ queryKey: ['launch-issue-events', issue.fingerprint, connection.token], queryFn: ({ signal }) => loadLaunchIssueEvents(connection, issue.fingerprint, signal), enabled: issue.source === 'app', retry: false });
+  const { data, isLoading, error, refetch, isFetching } = useQuery({ queryKey: ['admin-issue-events', issue.fingerprint, connection.token], queryFn: ({ signal }) => loadLaunchIssueEvents(connection, issue.fingerprint, signal), enabled: issue.source === 'app' && Boolean(connection.token), retry: false, gcTime: 0, staleTime: 0 });
   const guide = monitoringIssueGuide(issue, data);
   const supportReport = monitoringSupportReport(issue, data);
   const permalink = safeMonitoringLink(issue.permalink);
@@ -68,6 +69,7 @@ export function LaunchIssueDetail({ issue, connection, onClose, onSaved, onClose
           {[[issue.source === 'sentry' ? 'Nutzerreferenzen in Sentry' : 'Betroffene Geräte', issue.affected_devices.toLocaleString('de-DE')], ['Fehlermeldungen', issue.occurrences.toLocaleString('de-DE')], ['Plattform', monitoringPlatformName(issue.platform)], ['App-Version', monitoringVersionName(issue.release)]].map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 break-words text-sm font-semibold">{value}</dd></div>)}
         </dl>
       </section>
+      <LaunchIssueActors events={error ? undefined : data} external={issue.source === 'sentry'} loading={isLoading} failed={Boolean(error)} refreshing={isFetching} onRetry={() => void refetch()} />
       <section aria-labelledby="issue-next-step" className="space-y-3">
         <h3 id="issue-next-step" className="text-sm font-semibold">Das kannst du tun</h3>
         <ol className="list-decimal space-y-2 pl-5 text-sm leading-relaxed marker:text-muted-foreground">{guide.steps.map(step => <li key={step} className="pl-1">{step}</li>)}</ol>

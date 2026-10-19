@@ -70,7 +70,7 @@ test('issue details are lazy by fingerprint and a write succeeds only after stat
   globalThis.fetch = async (url, init) => {
     calls++;
     const payload = JSON.parse(init.body);
-    if (url.endsWith('kws_monitoring_issue_events')) { assert.deepEqual(payload, { p_fingerprint: 'fixture-video' }); return new Response('[]'); }
+    if (url.endsWith('kws_admin_issue_events')) { assert.deepEqual(payload, { p_fingerprint: 'fixture-video' }); return new Response('[]'); }
     assert.deepEqual(payload, { p_fingerprint: 'fixture-video', p_status: 'resolved', p_fixed_release: 'android@1.0.68' });
     return new Response(JSON.stringify({ fingerprint: 'fixture-video', status: 'resolved', fixed_release: 'android@1.0.68' }));
   };
@@ -80,6 +80,25 @@ test('issue details are lazy by fingerprint and a write succeeds only after stat
   await assert.rejects(api.updateLaunchIssueStatus(connection, 'fixture-video', 'resolved', ''), error => error.kind === 'invalid');
   globalThis.fetch = async () => new Response('{}');
   await assert.rejects(api.updateLaunchIssueStatus(connection, 'fixture-video', 'open', null), /nicht bestätigt/);
+});
+
+test('issue attribution remains admin-only, validates account links and never guesses guests for legacy data', async () => {
+  const event = { event_id: 'fixture-event', occurred_at: new Date().toISOString(), received_at: new Date().toISOString(), platform: 'web', release: 'web@1.0.250', installation_ref: 'ref', user_ref: 'pseudo', session_ref: null, props: {} };
+  const actor = { state: 'account', user_id: '00000000-0000-4000-8000-000000000001', display_name: 'Example User', email: 'person@example.test' };
+  globalThis.fetch = async (_url, init) => { assert.equal(init.headers.Authorization, 'Bearer fixture-session'); return Response.json([{ ...event, actor }]); };
+  assert.deepEqual((await api.loadLaunchIssueEvents(connection, 'fixture-video'))[0].actor, actor);
+  for (const invalidActor of [{ ...actor, user_id: 'javascript:bad' }, { ...actor, state: 'guest' }, { ...actor, state: 'deleted' }, { state: 'unassigned', user_id: null, display_name: 'guessed', email: null }]) {
+    globalThis.fetch = async () => Response.json([{ ...event, actor: invalidActor }]);
+    await assert.rejects(api.loadLaunchIssueEvents(connection, 'fixture-video'), error => error.kind === 'invalid');
+  }
+  const calls = [];
+  globalThis.fetch = async url => { calls.push(url); return url.endsWith('kws_admin_issue_events') ? new Response('', { status: 404 }) : Response.json([event]); };
+  assert.equal((await api.loadLaunchIssueEvents(connection, 'fixture-video'))[0].actor, undefined);
+  assert.equal(calls.length, 2);
+  let deniedCalls = 0;
+  globalThis.fetch = async () => { deniedCalls++; return new Response('', { status: 403 }); };
+  await assert.rejects(api.loadLaunchIssueEvents(connection, 'fixture-video'), error => error.kind === 'permission');
+  assert.equal(deniedCalls, 1);
 });
 
 test('foreground activity expires after three minutes and external links reject unsafe schemes', () => {

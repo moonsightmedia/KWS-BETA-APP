@@ -15,7 +15,7 @@ async function openFixture(page: Page, view = 'users', state = '', integration =
   await page.route(/\/src\/hooks\/(useAuth\.tsx|useIsAdmin\.tsx|useHasRole\.ts)(\?.*)?$/, route => route.fulfill({ contentType: 'application/javascript', body: "export * from '/test/fixtures/admin-foundations-hooks.ts';" }));
   await page.route('**/src/integrations/supabase/client.ts*', route => route.fulfill({ contentType: 'application/javascript', body: "export { supabase } from '/test/fixtures/admin-foundations-hooks.ts';" }));
   await page.route('**/src/components/DashboardHeader.tsx*', route => route.fulfill({ contentType: 'application/javascript', body: "export const DashboardHeader = () => null; export const AdminTabTitleProvider = ({children}) => children;" }));
-  await page.route(/\/src\/components\/admin\/(ColorManagement|SectorManagement|HallMapManagement|BoulderOperationLogs|FeedbackManagement|PushNotificationTest)\.tsx(\?.*)?$/, route => {
+  await page.route(/\/src\/components\/admin\/(AdminOverview|ColorManagement|SectorManagement|HallMapManagement|BoulderOperationLogs|FeedbackManagement|PushNotificationTest)\.tsx(\?.*)?$/, route => {
     const name = new URL(route.request().url()).pathname.split('/').pop()!.replace('.tsx', '');
     return route.fulfill({ contentType: 'application/javascript', body: `export const ${name} = () => 'Isoliert: ${name}';` });
   });
@@ -120,28 +120,28 @@ test('monitoring distinguishes complete failure, partial failure, empty data and
   await expect(page.getByText('Keine Upload-Logs in den letzten 24 Stunden.', { exact: true })).toBeVisible();
 });
 
-test('all seven mobile admin destinations and keyboard menu are reachable', async ({ page }) => {
+test('all eight mobile admin destinations and keyboard menu are reachable', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await openFixture(page);
   const nav = page.getByRole('navigation', { name: 'Adminnavigation', exact: true });
   await expect(nav).toBeVisible();
-  for (const label of ['Benutzer', 'Halle', 'Moderation', 'Feedback']) {
+  for (const label of ['Übersicht', 'Benutzer', 'Halle', 'Moderation']) {
     await nav.getByRole('link', { name: label, exact: true }).click();
     await expect(nav.getByRole('link', { name: label, exact: true })).toHaveAttribute('aria-current', 'page');
   }
-  await nav.getByRole('button', { name: 'Betrieb', exact: true }).focus();
+  await nav.getByRole('button', { name: 'Mehr', exact: true }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('menu')).toBeVisible();
   await page.screenshot({ path: 'test-results/admin-block-20260913/after-mobile-navigation.png', animations: 'disabled' });
   await page.keyboard.press('Escape');
-  await expect(nav.getByRole('button', { name: 'Betrieb', exact: true })).toBeFocused();
-  for (const label of ['Monitoring', 'Protokoll', 'Push-Test']) {
-    await nav.getByRole('button', { name: /^Betrieb/ }).click();
+  await expect(nav.getByRole('button', { name: 'Mehr', exact: true })).toBeFocused();
+  for (const label of ['Feedback', 'Monitoring', 'Protokoll', 'Push-Test']) {
+    await nav.getByRole('button', { name: /^Mehr/ }).click();
     await page.getByRole('menuitem', { name: label, exact: true }).click();
-    await expect(nav.getByRole('button', { name: 'Betrieb: ' + label, exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: 'Mehr: ' + label, exact: true })).toBeVisible();
     await expect(page.getByRole('menu')).toHaveCount(0);
   }
-  await nav.getByRole('button', { name: /^Betrieb/ }).click();
+  await nav.getByRole('button', { name: /^Mehr/ }).click();
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(page.getByRole('menu')).toHaveCount(0);
   await expect(nav).toBeHidden();
@@ -175,6 +175,9 @@ test('actual admin page mounts a single active content tree at every width', asy
     expect(duplicates).toEqual([]);
     if (width >= 768) {
       await expect(page.locator('#desktop-navigation a[aria-current="page"]')).toHaveCount(1);
+      for (const label of ['Übersicht', 'Benutzer', 'Halle', 'Moderation', 'Feedback', 'Monitoring', 'Protokoll', 'Push-Test']) {
+        await expect(page.locator('#desktop-navigation').getByRole('link', { name: label, exact: true })).toBeVisible();
+      }
       await page.getByRole('link', { name: 'Halle', exact: true }).click();
       await page.getByRole('tab', { name: 'Farben', exact: true }).click();
       await expect(page.getByText('Isoliert: ColorManagement', { exact: true })).toHaveCount(1);
@@ -184,7 +187,8 @@ test('actual admin page mounts a single active content tree at every width', asy
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
   await openFixture(page, 'invalid', '', true);
-  await expect(page.getByRole('heading', { name: 'Alexandra Bergmann', exact: true })).toBeVisible();
+  await expect(page.getByText('Isoliert: AdminOverview', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Alexandra Bergmann', exact: true })).toHaveCount(0);
   await openFixture(page, 'users', 'auth-loading', true);
   await expect(page.getByRole('status', { name: 'Adminbereich wird geladen' })).toBeVisible();
   await expect(page.getByTestId('current-route')).toHaveText('/admin?tab=users');
