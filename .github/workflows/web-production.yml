@@ -43,6 +43,7 @@ jobs:
           python3 ops/hostinger/test-update-production-web.py
           python3 -m unittest discover -s ops/hostinger/monitoring -p 'test_*.py'
           python3 ops/hostinger/test-github-web-autodeploy.py
+          python3 ops/hostinger/store-review/test_guards.py
           python3 ops/hostinger/landingpage/test-collect-landing.py
       - name: Verify generated legal pages are committed
         run: |

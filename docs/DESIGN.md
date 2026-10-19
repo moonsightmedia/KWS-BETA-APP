@@ -2016,3 +2016,18 @@ unbelegten QR-/Store-Konversionen. Zwei gerenderte QA-Schleifen auf 375/768/1280
 - Die Wochen-Statscard bleibt auf Home oben; Beta-Logo-Startscreen bleibt erhalten.
 
 Prüfumfang und Belege: docs/design/designmotion-2026-10-19.md.
+
+### Getrennte Demoumgebung für Store-Prüfungen (19. Oktober 2026)
+
+- Nutzerentscheidung: Kunde, Setter und Verwaltung bleiben in derselben App.
+  Für die Store-Prüfung steht eine getrennte Umgebung mit erfundenen Daten bereit.
+- Die Anmeldung bietet die Demo ausdrücklich und aufklappbar an. Kein
+  automatischer Wechsel anhand von E-Mail, Gerät oder vermutetem Store-Prüfer.
+- In der Demo bleibt „Demo · Beispieldaten“ dauerhaft sichtbar. Sidebar und
+  fester Header berücksichtigen die tatsächliche Höhe dieses Hinweises,
+  einschließlich Zeilenumbrüchen und Safe Area. Bestehende Komponenten behalten
+  ihre Gestaltung; der Hinweis verdeckt weder Logo noch Aktionen.
+- Der Rückweg verlangt die Abmeldung des Demo-Kontos. Während eines laufenden
+  Uploads ist der Wechsel gesperrt. Sitzungen und Rollen-Caches sind getrennt;
+  die reguläre App bleibt der Standard. Eine nicht verfügbare Demo wechselt nie
+  automatisch zu echten Betriebsdaten.
