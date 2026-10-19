@@ -505,9 +505,15 @@ Inhaltswechsel wie `Info / Track / Beta` oder Statistikzeiträume.
 - Panels wachsen im normalen Seitenfluss oder werden als klarer, einziger
   Dialog/Sheet geöffnet.
 - Mobile Dialoge unter 768 px sind randbündige Bottom-Sheets: volle Breite,
-  Unterkante am Bildschirmrand, ungefähr 92 dvh hoch und ausschließlich oben
-  12 px gerundet. Safe Areas und reduzierte Bewegung bleiben berücksichtigt.
-  Header und Aktionen bleiben sichtbar, der Inhalt dazwischen scrollt.
+  Unterkante am Bildschirmrand und ausschließlich oben 12 px gerundet.
+  Nutzerkorrektur 19.10.2026: Kurze Interaktionen richten sich nach ihrem Inhalt,
+  statt pauschal ungefähr 92 dvh einzunehmen. Kommentare beginnen etwa halbhoch;
+  Tracking bleibt kompakt, optionale Felder werden bei Bedarf geöffnet.
+  Größere Formulare dürfen mehr Platz benötigen; 92 dvh sind eine Obergrenze,
+  keine Mindesthöhe. Safe Areas und reduzierte Bewegung bleiben berücksichtigt.
+  Header und Aktionen bleiben sichtbar, nur der Inhalt dazwischen scrollt.
+  Im integrierten Videofeed umgesetzt; die globale Bestandsregel einschließlich
+  Onboarding wird auf Nutzerwunsch anschließend separat korrigiert.
 - Formulardialoge mit eigenem Scrollinhalt verwenden
   `DialogContent scrollLayout="contained"`, einen `flex-1 min-h-0`-Inhalt
   und nicht schrumpfende Kopf-/Fußbereiche. Der Dialograhmen scrollt dann
@@ -693,6 +699,93 @@ gespeichert.
 - Der Switch verwendet dieselbe 8/12-px-Segmentlogik wie andere Controls.
 - Aktive Ansicht: weiße Fläche, Primärgrün und leichter Schatten.
 - Inaktive Ansicht: graues Icon ohne extra Rahmen.
+
+#### Freigegebene Integration 19.10.2026: dritte Ansicht „Videos“
+
+Der konkrete Screenentwurf ist zur Integration freigegeben. `BoulderVideoFeed`
+ergänzt Liste und Grid in der angemeldeten Übersicht und im Gastbereich.
+Ansicht, aktive Filter und Sortierung bleiben beim Wechsel nachvollziehbar erhalten.
+
+- Neben Liste und Grid öffnet sich ein bildschirmfüllender vertikaler Videofeed,
+  vergleichbar mit Reels. Die normale Hauptnavigation tritt in dieser Ansicht
+  zurück; ein klarer Rückweg führt zur bisherigen Boulderübersicht.
+- Bestehende Filter und Sortierung werden übernommen; nur Boulder mit Video
+  gehören zur Auswahl. Keine zusätzliche zufällige oder personalisierte Reihenfolge.
+- Statt öffentlicher Likes wird die bestehende persönliche Projektmarkierung
+  angeboten. Diese bleibt von Favoriten und Begehungen getrennt.
+- Nutzerpräzisierung: Symbole entsprechen der bestehenden App. Projekt verwendet
+  die Zielscheibe; die Tracking-Ergebnisse übernehmen Plus, Bestätigungsabzeichen
+  und Blitz für Versuch, Top und Flash.
+- Der Entwurf verwendet die gemeinsamen Boulderfilter einschließlich Schnellfilter,
+  Grad-Mehrfachauswahl, Grifffarben und Hallenbereichen sowie die sechs bestehenden
+  Sortierungen. Eine vereinfachte zusätzliche Filterwelt wird nicht weitergeführt.
+- Die Qualitätswahl bleibt im Videofeed erreichbar: HD, SD und Low entsprechend
+  den vorhandenen Quellen. Die Startauswahl berücksichtigt Verbindung und
+  Datensparmodus. Manuelles Umschalten erhält Position und Pausenzustand.
+- Eigene Bewertungen bleiben ganze Werte von 1 bis 5. Leere Sterne bedeuten
+  unbewertet; 0 Sterne sind keine gültige Bewertung. Horizontal auf der Sternleiste
+  ziehen zeigt die Vorschau, Loslassen übernimmt den Wert. Abbruch übernimmt
+  nichts. Tippen und Tastatur sind gleichwertige Alternativen; vertikales Wischen
+  außerhalb der Sternleiste wechselt das Video.
+- Kommentare und der bestehende Track-Ablauf sind aus dem Feed erreichbar.
+  Schließen erhält den aktuellen Boulder und die Feedposition. Ansehen allein
+  erzeugt keinen Tracking-Eintrag. Moderation und persönliche Datenrechte gelten
+  unverändert.
+- Nutzerkorrektur: Der Bouldername öffnet dieselbe vollständige Detailansicht
+  wie eine Karte in Liste oder Raster. Zurück erhält Video, Filter, Sortierung,
+  Wiedergabeposition und Fokus. Kein zusätzliches kurzes Info-Sheet als Zwischenstufe.
+  Die Integration verwendet die echte Route `/boulders/:id` und die bestehende
+  `BoulderRouteContinuity`. Der Feed bleibt montiert und pausiert im Hintergrund;
+  bei Rückkehr werden weder Medium noch Filter neu aufgebaut.
+- Projekt, Kommentare und Tracking stehen im Videofeed als dezente Iconaktionen
+  ohne dauerhafte Textschilder. Die Anzahl sichtbarer Kommentare steht innerhalb
+  der Kommentarblase (ab100 als99+); der zugängliche Name nennt weiterhin die
+  vollständige Zahl und Aktion. Projektstatus erhält zusätzlich ein Häkchen,
+  Tracking das jeweilige Ergebnissymbol. Mindestens44px Touchfläche bleiben erhalten.
+- Nutzerpräzisierung: Ein kurzes Tippen auf die freie Videofläche pausiert bzw.
+  startet die Wiedergabe. Doppeltippen blendet das gesamte Layout aus und wieder
+  ein, ohne den Wiedergabezustand zu verändern oder eine Projektmarkierung zu setzen.
+  Der Einzeltipp wartet dafür kurz auf einen möglichen zweiten Tipp (280ms im
+  Entwurf). Wischen, Gestenabbruch und das Öffnen anderer Ansichten verwerfen
+  einen ausstehenden Tipp. Eine eigene Augen-Aktion blendet die gesamten
+  Bedienelemente einschließlich Bildverläufen aus; ein kleiner, dauerhaft
+  erreichbarer Schalter blendet sie wieder ein. Pause und Wischen funktionieren
+  auch ohne die Bedienelemente. Escape stellt zunächst die normale Ansicht her.
+- Gedrückthalten auf der freien linken Videohälfte spielt vorübergehend mit0,5×,
+  rechts mit2× (350ms Halteschwelle im Entwurf). Währenddessen ist ausschließlich
+  die kompakte Geschwindigkeitsanzeige sichtbar; auch der Augenschalter entfällt.
+  Loslassen stellt Geschwindigkeit, Pausezustand und vorherige Layoutsichtbarkeit
+  wieder her. Ein zuvor pausiertes Video läuft nur während des Haltens.
+  Wischen vor Erreichen der Halteschwelle bleibt Feednavigation; ein aktiviertes
+  Halten löst beim Loslassen weder einen Tipp noch einen Videowechsel aus.
+  Buttons, Sterne und Zeitleiste bleiben eigene Gestenflächen. Abbruch,
+  Fokusverlust und Hintergrundwechsel beenden den temporären Modus zuverlässig.
+  Tastaturalternative: Pfeil links/rechts halten, Loslassen beendet; Escape bricht ab.
+- Der vertikale Wechsel folgt dem Finger. Benachbarte Video-Seiten bleiben
+  stabil vorbereitet; beim Loslassen rastet die Ansicht über etwa 240 ms ein.
+  Kurze/abgebrochene Gesten kehren zum aktuellen Video zurück. Nur das aktive
+  Video spielt; Reduced Motion wechselt ohne die Schiebebewegung.
+- Der isolierte Screenentwurf unter `docs/design/boulder-video-feed/` verwendet
+  klar bezeichnete Beispieldaten und nimmt keine produktiven Schreibaktionen vor.
+  Er bleibt die historische Abstimmungsansicht; die App verwendet reale Boulder,
+  dieselben Community-Abfragen und Schreibwege wie die Detailseite. Bestätigte
+  Tages- und Status-Schreibvorgänge sind Voraussetzung einer Tracking-Bestätigung.
+  Teilfehler erhalten Eingaben und einen Wiederholungsweg zum selben Tagesdatensatz.
+- Gäste sehen Videos und echte Details, keine privaten Projekt-, Bewertungs-,
+  Kommentar- oder Trackingaktionen. Query- und Kontogrenzen bleiben erhalten.
+- Höchstens drei direkte Videoelemente werden vorbereitet; nur das aktive darf
+  spielen. Panels, Detailbesuch und Hintergrundwechsel pausieren den Feed.
+  Qualitätswechsel erhalten Position und Pause; Lade-/Abspielfehler verwenden
+  vorhandene kleinere Qualitätsstufen und danach einen expliziten Wiederholungsweg.
+  Die bestehenden Monitoring-Ereignisse bleiben zustimmungsabhängig.
+- Externe YouTube-/Vimeo-Betas erhalten im Feed Vorschaubild und Zugang zur echten
+  Detailansicht. Deren externer Player bleibt dort; die direkten Halte-/Tempo-
+  und Qualitätsgesten werden für diese Quellen nicht vorgetäuscht.
+- Die feste Videoebene liegt unter einem gegebenenfalls aktiven Demo-Hinweis.
+  Dessen gemessene Höhe wird vollständig berücksichtigt; normale Navigation und
+  Pull-to-Refresh treten für den Feed zurück. Safe Areas bleiben berücksichtigt.
+
+Integrations- und Prüfbelege: `docs/qa/2026-10-19-boulder-video-feed.md`.
 
 ### 6.5 Gridkarte
 
