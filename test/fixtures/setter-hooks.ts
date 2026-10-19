@@ -122,7 +122,10 @@ export const useAuth = () => ({
   loading: false,
 });
 export const useColors = () => read("colors", colors);
-export const useSectorsTransformed = () => read("sectors-transformed", sectors);
+export const useSectorsTransformed = () => {
+  const result = read("sectors", snapshot.sectors);
+  return { ...result, data: result.data ? sectors : undefined };
+};
 export const useSectors = () => read("sectors", snapshot.sectors);
 export const useBouldersWithSectors = () =>
   useQuery({
@@ -133,7 +136,10 @@ export const useBouldersWithSectors = () =>
       return [...boulders];
     },
   });
-export const useUpdateBoulder = () => mutation("update-boulder");
+export const useUpdateBoulder = () => mutation<{ id: string; name?: string }>("update-boulder", payload => {
+  boulders = boulders.map(boulder => boulder.id === payload.id && payload.name !== undefined
+    ? { ...boulder, name: payload.name } : boulder);
+});
 export const useDeleteBoulder = () =>
   mutation<string>("delete-boulder", (id) => {
     boulders = boulders.filter((b) => b.id !== id);

@@ -2016,3 +2016,34 @@ unbelegten QR-/Store-Konversionen. Zwei gerenderte QA-Schleifen auf 375/768/1280
 - Die Wochen-Statscard bleibt auf Home oben; Beta-Logo-Startscreen bleibt erhalten.
 
 Prüfumfang und Belege: docs/design/designmotion-2026-10-19.md.
+
+### Nutzerfreigabe 19.10.2026 – Setter-Schnellaktionen (Videos 2, 3, 4, 6, 7)
+
+- Die Setter-Bearbeitenliste bietet einen benannten Stift zum direkten Umbenennen.
+  Das einzelne Namensfeld steht unter der betreffenden Zeile. Enter bzw.
+  „Name speichern“ bestätigt ausschließlich den getrimmten, nicht leeren Namen;
+  Escape/Abbrechen verwirft. Blur speichert nichts. Erfolg benötigt eine bestätigte
+  Antwort des bestehenden Schreibwegs; Fehler erhalten die Eingabe.
+- Während der Namensbearbeitung sind andere Zeilenaktionen, Suche, Filter und
+  Mehrfachauswahl gesperrt. Speichern sperrt auch die Formaktionen gegen doppelte
+  Ausführung. Ein zwischenzeitlicher Ladefehler erhält den offenen Namen im
+  Seitenentwurf; Wiederholen und Abbrechen bleiben erreichbar. Kein automatisches
+  Sichern oder Wiederherstellen nach einem App-Neustart ist damit freigegeben.
+- Ein sichtbares Drei-Punkte-Menü enthält Bearbeiten und abgetrenntes Löschen.
+  Die normale Zeile öffnet weiterhin direkt den vollständigen Editor. Mobil
+  stehen Stift und Menü übereinander, damit Namen nicht durch zwei zusätzliche
+  nebeneinanderstehende Iconbuttons zusammengedrückt werden.
+- Einzelnes Löschen aus Menü oder Editor nennt den Boulder im Titel, verwendet
+  „Boulder löschen“ und erklärt die Unwiderruflichkeit. Es löscht nur das konkrete
+  Objekt, unabhängig von einer bestehenden Sammelauswahl. Abbrechen und Fehler
+  bleiben im vorhandenen Bestätigungsablauf. Beim Schließen kehrt der Fokus zum
+  Auslöser bzw. nach dessen Entfernung zur Suche zurück.
+- Null Setter-Treffer nennen Suchbegriff/Auswahl und bieten in der Leerfläche
+  „Suche und Filter zurücksetzen“. Ein tatsächlich leerer Bestand ist getrennt.
+  Ladefehler erklären den erhaltenen Filter-/Suchkontext. Wiederholen liest die
+  vier beteiligten Quellen parallel, bleibt bis zum Abschluss sichtbar gesperrt
+  und zeigt bei unbestätigtem Bestand keine scheinbare Null.
+- Der optionale Admin-Schnellzugriff (Video 10) wird ausdrücklich nicht umgesetzt.
+  Upload-Ergänzungen und lokale Entwurfswiederherstellung sind weiter Vorschläge.
+
+Prüfumfang: docs/qa/2026-10-19-setter-quick-actions.md.

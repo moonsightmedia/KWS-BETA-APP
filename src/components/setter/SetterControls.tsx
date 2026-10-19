@@ -95,12 +95,14 @@ export function SetterState({
   loading,
   onRetry,
   retrying = false,
+  action,
 }: {
   title: string;
   description?: string;
   loading?: boolean;
   onRetry?: () => void;
   retrying?: boolean;
+  action?: ReactNode;
 }) {
   return (
     <div
@@ -121,6 +123,7 @@ export function SetterState({
       {description && (
         <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
       )}
+      {action}
       {onRetry && (
         <Button variant="secondary" onClick={onRetry} disabled={retrying}>
           {retrying ? 'Wird geladen …' : 'Erneut versuchen'}
@@ -180,6 +183,7 @@ export function SetterConfirm({
   confirmLabel = "Löschen",
   destructive = true,
   onConfirm,
+  onRestoreFocus,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -188,6 +192,7 @@ export function SetterConfirm({
   confirmLabel?: string;
   destructive?: boolean;
   onConfirm: () => void | boolean | Promise<void | boolean>;
+  onRestoreFocus?: () => void;
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -221,7 +226,10 @@ export function SetterConfirm({
         }
       }}
     >
-      <AlertDialogContent>
+      <AlertDialogContent onCloseAutoFocus={onRestoreFocus ? event => {
+        event.preventDefault();
+        requestAnimationFrame(onRestoreFocus);
+      } : undefined}>
         <AlertDialogTitle>{title}</AlertDialogTitle>
         <AlertDialogDescription>{description}</AlertDialogDescription>
         {error && (
