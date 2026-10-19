@@ -1311,6 +1311,8 @@ Verbindliche Regeln:
   in Übersicht und Aktivität steht, dass nur Nutzer mit Statistikzustimmung
   gezählt werden, nicht alle App-Nutzer. Dieser Hinweis bleibt bei Null,
   Ladezustand und Fehler sichtbar; keine erneute Abfrage allein wegen Textpflege.
+  Umbrüche der Kennzahl-Beschriftungen dürfen die nebeneinanderstehenden Zahlen
+  nicht vertikal gegeneinander versetzen; die Zahlbereiche richten sich unten aus.
   Monitoring trennt Übersicht, Upload-Suche und Aktivität; technische IDs und
   vollständige Fehler stehen in Details. Protokoll zeigt kompakte, aufklappbare
   Gruppen und benennt seine Suchgrenze (letzte 300 Einträge).

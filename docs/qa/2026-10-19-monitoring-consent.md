@@ -43,6 +43,13 @@ Wiederholung derselben Ereignis-ID beim Neuladen. Der vollständige zweite Lauf
 war erfolgreich; der unveränderte Server dedupliziert anhand der Ereignis-ID.
 Keine fachfremde Client-/Retryänderung in dieser Textpflege.
 
+Die zusätzliche angemeldete Produktionssichtprüfung nach PR40 bestätigte neue
+Texte und echten Live-Status auf Desktop und375px. In schmaler effektiver
+Inhaltsbreite brach nur ein Kennzahllabel um; die Zahlen waren dadurch16px
+versetzt. Reproduzierender335px-Test zunächst rot. Flexible Spalten richten
+Zahlen jetzt unabhängig von der Labelhöhe unten aus, ohne feste Leerzeilen.
+Dieser zusätzliche Fall wird vor dem korrigierten Release erneut geprüft.
+
 Reguläre PR-/Main-CI, Web-/Landing-HTTPS-Revisionsbelege und native Artefaktprüfung
 werden getrennt als Releasebeleg festgehalten. Fixtureprüfung ersetzt weder
 angemeldete Live-Sichtprüfung noch physische Android-/iPhone-Abnahme.
