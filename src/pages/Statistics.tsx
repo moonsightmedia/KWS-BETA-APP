@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowRight, ChevronDown, RefreshCw, Target, Trophy, X } from 'lucide-react';
+import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, RefreshCw, Target, Trophy, X } from 'lucide-react';
 import { CalendarIcon as CalendarDays, FlashIcon as Zap } from '@/lib/appIcons';
 import { DashboardPageLayout } from '@/components/DashboardPageLayout';
 import { PersonalDataState } from '@/components/PersonalDataState';
 import { PersonalCollection } from '@/components/statistics/PersonalCollection';
+import { StatisticsPeriodPicker } from '@/components/statistics/StatisticsPeriodPicker';
 import { Button } from '@/components/ui/button';
 import { KwsSegmentedControl } from '@/components/ui/kws-segmented-control';
 import { KwsSurface } from '@/components/ui/kws-surface';
@@ -12,10 +13,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMyTrackedBoulders, useMyTrackingSessions } from '@/hooks/useBoulderCommunity';
 import { useHorizontalRouteSwipe } from '@/hooks/useHorizontalRouteSwipe';
 import { APP_USER_ROUTES } from '@/features/training/flags';
-import { buildPersonalProgress, gradeKey, isSuccessful } from '@/lib/personalProgress';
+import { buildPersonalProgress, gradeKey, isSuccessful, localDay } from '@/lib/personalProgress';
+import { resolveStatisticsPeriod, shiftLocalDay } from '@/lib/statisticsPeriod';
 import { cn } from '@/lib/utils';
 
-const periods = [{ value: '7', label: '7 Tage' }, { value: '30', label: '30 Tage' }, { value: 'all', label: 'Gesamt' }];
+const periods = [{ value: '7', label: '7 Tage' }, { value: '30', label: '30 Tage' }, { value: 'all', label: 'Gesamt' }, {value:'custom',label:'Zeitraum'}];
 const dateLabel = (day: string) => new Date(day + 'T12:00:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'short' });
 
 export default function Statistics() {
@@ -25,10 +27,13 @@ export default function Statistics() {
   const [params, setParams] = useSearchParams();
   const [refreshing, setRefreshing] = useState(false);
   const [visibleDays, setVisibleDays] = useState(4);
+  const [pickingPeriod, setPickingPeriod] = useState(false);
   const swipeRef = useHorizontalRouteSwipe({ routes: APP_USER_ROUTES });
   const view = params.get('view') === 'collection' ? 'collection' : 'progress';
   const collection = params.get('collection') === 'saved' ? 'saved' : 'projects';
-  const period = periods.some(p => p.value === params.get('period')) ? params.get('period')! : '30';
+  const range = resolveStatisticsPeriod(params);
+  const { period, from, to } = range;
+  const today = localDay(new Date());
   const grade = /^[1-8?]$/.test(params.get('grade') || '') ? params.get('grade') : null;
   const updateParams = (values: Record<string, string | null>) => {
     if (values.view && values.view !== view) window.scrollTo({ top: 0, behavior: 'auto' });
@@ -38,7 +43,7 @@ export default function Statistics() {
     return next;
     }, { replace: true });
   };
-  const summary = useMemo(() => buildPersonalProgress(ticks.data ?? [], sessions.data ?? [], { days: period === 'all' ? null : Number(period), grade }), [ticks.data, sessions.data, period, grade]);
+  const summary = useMemo(() => buildPersonalProgress(ticks.data ?? [], sessions.data ?? [], {days:range.days,from:from??undefined,to,grade}), [ticks.data, sessions.data, range.days, from, to, grade]);
   const all = useMemo(() => buildPersonalProgress(ticks.data ?? [], sessions.data ?? []), [ticks.data, sessions.data]);
   const metadata = useMemo(() => new Map((ticks.data ?? []).map(e => [e.tick.boulder_id, e.boulder])), [ticks.data]);
   const loading = authLoading || ticks.isLoading || sessions.isLoading;
@@ -50,6 +55,14 @@ export default function Statistics() {
   };
   const maxGradeCount = Math.max(1, ...summary.distribution.map(row => row.tops));
   const recentDays = summary.daysByDate.slice(-visibleDays).reverse();
+  const changeWindow = (end:string) => {
+    const nextEnd=end>today?today:end;
+    updateParams(period==='custom' ? {from:shiftLocalDay(nextEnd,1-range.days!),to:nextEnd,end:null} : {end:nextEnd===today?null:nextEnd,from:null,to:null});
+    setVisibleDays(4);
+  };
+  const fullDate=(day:string)=>new Date(day+'T12:00:00').toLocaleDateString('de-DE',{day:'numeric',month:'short',year:'numeric'});
+  const dayTops=new Map(summary.topsByDate.map(day=>[day.date,day.tops]));
+  const maxDailyTops=Math.max(1,...dayTops.values());
 
   return <DashboardPageLayout rightSlot={<Button variant="ghost" size="icon" aria-label="Statistik aktualisieren" disabled={refreshing} onClick={() => void refresh()}><RefreshCw className={refreshing ? 'animate-spin' : ''} /></Button>}>
     <div ref={node => { swipeRef.current = node; }} className="space-y-5">
@@ -57,9 +70,19 @@ export default function Statistics() {
       {loading || failed ? <PersonalDataState loading={loading} onRetry={refresh} /> : view === 'collection' ?
         <PersonalCollection entries={ticks.data ?? []} successIds={all.successIds} collection={collection} onCollectionChange={value => updateParams({ collection: value })} /> : <>
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div><h2 className="text-xl font-semibold tracking-tight">Dein Kletterfortschritt</h2><p className="mt-1 text-sm text-muted-foreground">{summary.from ? dateLabel(summary.from) + ' – ' + dateLabel(summary.today) : 'Deine gesamte Kletterhistorie'} · auch abgeschraubte Boulder</p></div>
-            <KwsSegmentedControl ariaLabel="Zeitraum" className="w-full shrink-0 sm:w-80 [&_button]:whitespace-nowrap" value={period} onValueChange={value => { updateParams({ period: value }); setVisibleDays(4); }} options={periods} />
+            <div><h2 className="text-xl font-semibold tracking-tight">Dein Kletterfortschritt</h2><p className="mt-1 text-sm text-muted-foreground">{period==='all'?'Deine gesamte Kletterhistorie · ':''}Auch abgeschraubte Boulder</p></div>
+            <KwsSegmentedControl ariaLabel="Zeitraum" className="w-full shrink-0 sm:w-96 [&_button]:whitespace-nowrap [&_button]:px-2 [&_button]:text-xs" value={period} onValueChange={value => {if(value==='custom'){setPickingPeriod(true);return;} updateParams({ period: value,end:null,from:null,to:null }); setVisibleDays(4); }} options={periods} />
           </div>
+          {range.invalid ? <p role="alert" className="text-xs text-destructive">Der verlinkte Zeitraum ist ungültig. Angezeigt werden die letzten sieben Tage.</p>:null}
+          {from ? <KwsSurface className="p-3 sm:p-4">
+            <div className="flex items-center gap-2" role="group" aria-label="Zeitraum durchblättern">
+              <Button variant="ghost" size="icon" aria-label={`Vorherige ${range.days} Tage`} onClick={()=>changeWindow(shiftLocalDay(to,-range.days!))}><ChevronLeft/></Button>
+              <Button variant="ghost" className="min-w-0 flex-1 whitespace-normal px-1 text-center text-xs font-medium" aria-label="Individuellen Zeitraum wählen" onClick={()=>setPickingPeriod(true)}><CalendarDays className="h-4 w-4 shrink-0"/><span aria-live="polite" aria-atomic="true">{fullDate(from)} – {fullDate(to)}</span></Button>
+              <Button variant="ghost" size="icon" aria-label={`Nächste ${range.days} Tage`} disabled={to>=today} onClick={()=>changeWindow(shiftLocalDay(to,range.days!))}><ChevronRight/></Button>
+            </div>
+            {period==='7' ? <figure className="mt-3 grid grid-cols-7 gap-1" aria-label="Geschaffte Boulder pro Tag. Jeder Boulder zählt im Zeitraum einmal; Wiederholungen erhöhen die Balken nicht.">{Array.from({length:7},(_,i)=>{const day=shiftLocalDay(from,i),count=dayTops.get(day)??0;return <div key={day} className="min-w-0 text-center" aria-label={fullDate(day)+': '+count+' Tops'}><span className="block text-[10px] text-muted-foreground">{new Date(day+'T12:00:00').toLocaleDateString('de-DE',{weekday:'short'})}</span><span className="mt-1 block text-xs font-medium tabular-nums">{new Date(day+'T12:00:00').getDate()}.</span><div className="mt-2 flex h-12 flex-col items-center justify-end gap-1"><span className="text-[10px] tabular-nums text-muted-foreground">{count}</span><span className={cn('block w-3 rounded-kws-badge',count?'bg-primary':'bg-border')} style={{height:count?Math.max(4,count/maxDailyTops*28):2}}/></div></div>;})}</figure>:null}
+            {to<today?<Button variant="ghost" className="mt-2 w-full text-xs" onClick={()=>changeWindow(today)}>Zum aktuellen Zeitraum</Button>:null}
+          </KwsSurface>:null}
           {grade ? <div className="flex items-center justify-between rounded-kws-control bg-secondary px-3 text-sm"><span>Ansicht gefiltert: Grad {grade}</span><Button variant="ghost" size="icon" aria-label="Gradfilter entfernen" onClick={() => updateParams({ grade: null })}><X /></Button></div> : null}
           <KwsSurface className="overflow-hidden">
             <dl className="grid grid-cols-2 xl:grid-cols-4">
@@ -102,5 +125,6 @@ export default function Statistics() {
           <details className="text-xs text-muted-foreground"><summary className="min-h-11 cursor-pointer py-3 font-medium">So werden deine Zahlen berechnet</summary><div className="max-w-3xl space-y-2 pb-4 leading-relaxed"><p>Ein Boulder zählt im gewählten Zeitraum einmal als Top. Flashes sind darin enthalten. Der höchste Grad stammt nur aus geschafften Bouldern; unbekannte Grade zählen bei den Tops, aber nicht beim Höchstgrad.</p><p>Klettertage und Versuche stammen aus deinen datierten Einträgen. Speichern oder eine Projektmarkierung zählen nicht als Kletteraktivität. Ohne protokollierte Versuche kann die Versuchssumme unvollständig sein.</p><p>„Gesamt“ berücksichtigt zusätzlich ältere Tops ohne Tagesprotokoll. {period === 'all' && summary.legacySuccesses ? summary.legacySuccesses + ' ältere Erfolge lassen sich keinem Klettertag zuordnen.' : 'Diese lassen sich nicht zuverlässig einem Zeitraum zuordnen.'}</p></div></details>
         </>}
     </div>
+    {pickingPeriod?<StatisticsPeriodPicker from={from??shiftLocalDay(today,-6)} to={to} today={today} onClose={()=>setPickingPeriod(false)} onApply={(start,end)=>{updateParams({period:'custom',from:start,to:end,end:null});setVisibleDays(4);}}/>:null}
   </DashboardPageLayout>;
 }

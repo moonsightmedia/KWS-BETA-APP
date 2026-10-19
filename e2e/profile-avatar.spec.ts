@@ -144,3 +144,16 @@ test('browser reload asks before dropping unsaved profile edits',async({page})=>
   await dialog.dismiss();
   await expect(page.getByLabel('Name',{exact:true})).toHaveValue('Entwurf Name');
 });
+
+
+test('invalid profile fields retain drafts, expose inline errors and focus the first invalid field without a write',async({page})=>{
+ const ctx=await open(page);
+ const name=page.getByLabel('Name',{exact:true}),email=page.getByLabel('E-Mail',{exact:true});
+ await name.fill('');await email.fill('ungueltig');
+ await page.getByRole('button',{name:'Speichern',exact:true}).click();
+ await expect(name).toBeFocused();await expect(name).toHaveAttribute('aria-invalid','true');
+ await expect(email).toHaveValue('ungueltig');await expect(page.locator('#email-error')).toBeVisible();expect(ctx.writes).toEqual([]);
+ await name.fill('Entwurf Name');await page.getByRole('button',{name:'Speichern',exact:true}).click();
+ await expect(email).toBeFocused();await expect(name).toHaveValue('Entwurf Name');expect(ctx.writes).toEqual([]);
+ await expect(name).toHaveAttribute('autocomplete','name');await expect(email).toHaveAttribute('autocomplete','email');
+});

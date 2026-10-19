@@ -1,4 +1,6 @@
+import { withBoulderPhotoTransition } from '@/lib/boulderPhotoTransition';
 import { BrandWatermark } from '@/components/brand/BrandWatermark';
+import { BoulderCardCaption } from '@/components/boulder/BoulderCardCaption';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { boulderNavigationState } from '@/lib/boulderNavigation';
@@ -476,8 +478,8 @@ const Boulders = () => {
     setShowSearch(false);
   };
 
-  const handleBoulderClick = (boulderId: string) => {
-    navigate(`/boulders/${boulderId}`, { state: boulderNavigationState(location) });
+  const handleBoulderClick = (boulderId: string, source: HTMLElement) => {
+    withBoulderPhotoTransition(() => navigate(`/boulders/${boulderId}`, { state: boulderNavigationState(location) }), source);
   };
 
   const handleMapSectorSelect = (sectorName: string) => {
@@ -962,7 +964,7 @@ const Boulders = () => {
                   <button
                     key={`boulder-grid-${boulder.id}`}
                     type="button"
-                    onClick={() => handleBoulderClick(boulder.id)}
+                    onClick={event => handleBoulderClick(boulder.id, event.currentTarget)}
                     aria-label={`${boulder.name}, Grad ${boulder.difficulty ?? '?'}, ${getSectorAreaLabel(boulder)}`}
                     className="group relative aspect-[4/5] w-full overflow-hidden rounded-kws-card bg-[#EEF2EE] p-0 text-left shadow-[0_3px_14px_rgba(19,17,43,0.10)] transition-[transform,box-shadow] hover:shadow-[0_7px_22px_rgba(19,17,43,0.16)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55 focus-visible:ring-offset-2"
                   >
@@ -1005,20 +1007,13 @@ const Boulders = () => {
                     )}
                     <BoulderTypeBadge volumeOnly={boulder.volumeOnly} compact className="absolute left-1.5 top-9 sm:left-2" />
 
-                    <div className="absolute inset-x-0 bottom-0 flex h-[46%] flex-col justify-end bg-gradient-to-t from-white via-white/90 to-transparent px-1.5 pb-1.5 pt-7 text-brand-ink sm:h-[48%] sm:px-2 sm:pb-2 md:h-[40%] md:px-4 md:pb-4">
-                      <span className="block truncate text-[9px] font-bold leading-tight tracking-[-0.02em] sm:text-[10px] md:text-sm">
-                        {boulder.name}
-                      </span>
-                      <span className="mt-0.5 truncate text-[8px] font-semibold leading-tight text-brand-ink/70 sm:text-[9px] md:mt-1 md:text-xs">
-                        {getSectorAreaLabel(boulder)}
-                      </span>
-                    </div>
+                    <BoulderCardCaption overview name={boulder.name} area={getSectorAreaLabel(boulder)}/>
                   </button>
                 ) : (
                   <button
                     key={`boulder-list-${boulder.id}`}
                     type="button"
-                    onClick={() => handleBoulderClick(boulder.id)}
+                    onClick={event => handleBoulderClick(boulder.id, event.currentTarget)}
                     className="w-full overflow-hidden rounded-kws-card bg-card p-0 text-left shadow-[0_3px_14px_rgba(19,17,43,0.07)] transition-[transform,box-shadow] hover:shadow-[0_6px_20px_rgba(19,17,43,0.11)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2"
                   >
                     <div className="flex min-h-[94px] items-stretch">

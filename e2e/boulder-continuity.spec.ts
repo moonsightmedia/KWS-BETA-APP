@@ -31,8 +31,13 @@ for (const width of [375,768,1280,1920]) {
     await mkdir(output,{recursive:true});
     await page.screenshot({path:`${output}/home-${width}.png`});
     const media:string[]=[];page.on('request',r=>{if(r.url().includes('vertical-player.mp4'))media.push(r.url());});
+    await expect.poll(()=>card.locator('img').evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     await card.click();
     await expect(page.getByTestId('route')).toHaveText('/boulders/b-1');
+    if (await page.evaluate(()=> 'startViewTransition' in document)) {
+      await expect(page.locator('.kws-detail-enter')).toHaveAttribute('data-photo-animated','');
+      await expect(page.locator('.kws-detail-enter')).toHaveCSS('animation-name','none');
+    }
     const originScroll = Number(await page.getByTestId('origin-scroll').textContent());
     await expect(page.locator('video')).toHaveJSProperty('readyState',4);
     await expect(page.getByRole('button',{name:'Videoqualität: HD'})).toBeVisible();

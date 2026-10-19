@@ -119,7 +119,7 @@ test('profile summary shares the same counts; controls work by keyboard with red
 });
 
 test('periods, grade filter, daily details and older history', async ({page}) => {
-  await open(page); await expect(page.locator('[data-metric="tops"]')).toHaveText('16');
+  await open(page,'/statistics?period=30'); await expect(page.locator('[data-metric="tops"]')).toHaveText('16');
   await expect(page.locator('[data-metric="days"]')).toHaveText('12');
   await page.getByRole('button',{name:'7 Tage',exact:true}).click();
   await expect(page.locator('[data-metric="tops"]')).toHaveText('11');
@@ -140,7 +140,7 @@ test('removing a marker does not delete progress; failures stay visible', async 
   await open(page,'/statistics?view=collection&collection=projects');
   const remove=page.getByRole('button',{name:/^Projektmarkierung entfernen:/});
   await expect(remove).toHaveCount(5);await remove.first().click();await expect(remove).toHaveCount(4);
-  await page.getByRole('button',{name:'Fortschritt',exact:true}).click();await expect(page.locator('[data-metric="tops"]')).toHaveText('16');
+  await page.getByRole('button',{name:'Fortschritt',exact:true}).click();await expect(page.locator('[data-metric="tops"]')).toHaveText('11');
   await open(page,'/statistics?view=collection&collection=saved','writeError');
   const saved=page.getByRole('button',{name:/^Speicherung entfernen:/});const count=await saved.count();
   await saved.first().click();await expect(page.getByRole('alert')).toContainText('nicht entfernt');await expect(saved).toHaveCount(count);
@@ -152,7 +152,7 @@ test('loading, legitimate empty and failed personal queries never pretend succes
   await expect(page.getByText('Noch keine Klettereinträge in dieser Auswahl.')).toBeVisible();
   await page.screenshot({path:`${output}/empty-statistics.png`,fullPage:true});
   await open(page,'/statistics','state=error');await expect(page.getByText('Fortschritt gerade nicht verfügbar')).toBeVisible();await expect(page.locator('[data-metric]')).toHaveCount(0);
-  await page.getByRole('button',{name:'Erneut versuchen',exact:true}).click();await expect(page.locator('[data-metric="tops"]')).toHaveText('16');
+  await page.getByRole('button',{name:'Erneut versuchen',exact:true}).click();await expect(page.locator('[data-metric="tops"]')).toHaveText('11');
   await open(page,'/','state=error');await expect(page.getByText('Fortschritt gerade nicht verfügbar')).toBeVisible();await expect(page.getByText('0 Boulder geschafft',{exact:true})).toHaveCount(0);
   await open(page,'/boulders?show=saved','state=error');await expect(page.getByText('Fortschritt gerade nicht verfügbar')).toBeVisible();
 });
@@ -174,4 +174,35 @@ for(const width of [375,1280]) test(`error boundary retains description and does
   await page.screenshot({path:`${output}/${phase}-report-${width}.png`,animations:'disabled'});
   await page.getByRole('button',{name:'Schließen',exact:true}).click();
   await page.getByRole('button',{name:'Erneut versuchen',exact:true}).click();await expect(page.getByRole('button',{name:'Testfehler auslösen'})).toBeVisible();
+});
+
+
+test('seven-day navigation, custom 20 days, cancel, invalid bounds and keyboard selection',async({page})=>{
+ await open(page);
+ await expect(page.getByRole('button',{name:'7 Tage',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('[data-metric="tops"]')).toHaveText('11');
+ await expect(page.getByRole('button',{name:'Nächste 7 Tage'})).toBeDisabled();
+ await page.getByRole('button',{name:'Vorherige 7 Tage'}).click();
+ await expect(page.locator('[data-metric="tops"]')).toHaveText('5');
+ await page.getByRole('button',{name:'Zum aktuellen Zeitraum'}).click();
+ await expect(page.locator('[data-metric="tops"]')).toHaveText('11');
+ await page.getByRole('button',{name:'Zeitraum',exact:true}).click();
+ await page.getByRole('button',{name:'Letzte 20 Tage'}).click();
+ await expect(page.getByLabel('Von',{exact:true})).toHaveValue('2026-08-27');
+ await expect(page.getByLabel('Bis',{exact:true})).toHaveValue('2026-09-15');
+ await page.getByRole('button',{name:'Übernehmen'}).click();
+ await expect(page.getByRole('button',{name:'Zeitraum',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('[data-metric="tops"]')).toHaveText('16');
+ await page.getByRole('button',{name:'Individuellen Zeitraum wählen'}).click();
+ await page.getByLabel('Von',{exact:true}).fill('2026-09-16');
+ await page.getByRole('button',{name:'Übernehmen'}).click();
+ await expect(page.getByRole('alert')).toContainText('gültiges Von–Bis');
+ await expect(page.getByLabel('Von',{exact:true})).toBeFocused();
+ await page.getByRole('button',{name:'Abbrechen'}).click();
+ await expect(page.locator('[data-metric="tops"]')).toHaveText('16');
+ await page.getByRole('button',{name:'7 Tage',exact:true}).focus();await page.keyboard.press('Space');
+ await expect(page.locator('[data-metric="tops"]')).toHaveText('11');
+ await open(page,'/statistics?period=custom&from=2026-02-30&to=2026-09-15');
+ await expect(page.getByRole('alert')).toContainText('ungültig');
+ await expect(page.locator('[data-metric="tops"]')).toHaveText('11');
 });
