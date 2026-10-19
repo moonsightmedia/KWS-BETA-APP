@@ -31,7 +31,7 @@ export const resolveHorizontalSwipeIntent = (
     return 'horizontal';
   }
 
-  // Existing app convention: a finger movement to the right advances to the
-  // next main page; a movement to the left returns to the previous one.
-  return deltaX > 0 ? 'next' : 'previous';
+  // Pages follow their visual left-to-right order: drag left to reveal the
+  // next page on the right, drag right to reveal the previous page on the left.
+  return deltaX < 0 ? 'next' : 'previous';
 };

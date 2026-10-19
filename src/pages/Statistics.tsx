@@ -65,7 +65,7 @@ export default function Statistics() {
   const maxDailyTops=Math.max(1,...dayTops.values());
 
   return <DashboardPageLayout rightSlot={<Button variant="ghost" size="icon" aria-label="Statistik aktualisieren" disabled={refreshing} onClick={() => void refresh()}><RefreshCw className={refreshing ? 'animate-spin' : ''} /></Button>}>
-    <div ref={node => { swipeRef.current = node; }} className="space-y-5">
+    <div ref={swipeRef} className="space-y-5">
       <KwsSegmentedControl ariaLabel="Statistikansicht" className="max-w-lg" value={view} onValueChange={value => updateParams({ view: value })} options={[{ value: 'progress', label: 'Fortschritt' }, { value: 'collection', label: 'Meine Boulder' }]} />
       {loading || failed ? <PersonalDataState loading={loading} onRetry={refresh} /> : view === 'collection' ?
         <PersonalCollection entries={ticks.data ?? []} successIds={all.successIds} collection={collection} onCollectionChange={value => updateParams({ collection: value })} /> : <>

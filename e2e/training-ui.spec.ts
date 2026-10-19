@@ -618,9 +618,9 @@ test('disabled training is excluded from horizontal main navigation', async ({ p
   await page.setViewportSize({ width: 375, height: 900 });
   const swipe = async () => {
     const surface = page.locator('main .min-h-\\[60dvh\\]');
-    await surface.dispatchEvent('pointerdown', { pointerId: 1, pointerType: 'mouse', isPrimary: true, button: 0, clientX: 80, clientY: 300 });
-    await surface.dispatchEvent('pointermove', { pointerId: 1, pointerType: 'mouse', isPrimary: true, clientX: 230, clientY: 300 });
-    await surface.dispatchEvent('pointerup', { pointerId: 1, pointerType: 'mouse', isPrimary: true, clientX: 230, clientY: 300 });
+    await surface.dispatchEvent('pointerdown', { pointerId: 1, pointerType: 'mouse', isPrimary: true, button: 0, clientX: 230, clientY: 300 });
+    await surface.dispatchEvent('pointermove', { pointerId: 1, pointerType: 'mouse', isPrimary: true, clientX: 80, clientY: 300 });
+    await surface.dispatchEvent('pointerup', { pointerId: 1, pointerType: 'mouse', isPrimary: true, clientX: 80, clientY: 300 });
   };
   await open(page, '/statistics'); await swipe(); await expect(page).toHaveURL(/\/training$/);
   await open(page, '/profile/training');
