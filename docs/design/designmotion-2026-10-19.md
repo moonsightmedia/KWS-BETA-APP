@@ -64,3 +64,6 @@ Die produktiven Namen werden nicht bearbeitet.
 Diese Änderung ist auf codex/designmotion-improvements vorbereitet. Noch keine
 Veröffentlichung: ein Merge nach main würde App und Landing gemeinsam über den
 bestehenden CI-/Hostinger-Releaseweg ausliefern.
+
+Abschlusslauf:99 Browserfälle bestanden,1 optionaler Altbildvergleich übersprungen;
+zusätzlich4 native Fotoübergangsprüfungen und der gezielte Editorfall bestanden.
