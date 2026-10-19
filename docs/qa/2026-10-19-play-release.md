@@ -71,7 +71,8 @@ save failure twice; its exact cause is unconfirmed. No reviewer permissions were
 expanded and the unrestricted-access checkbox was not certified for an account
 without staff/admin access. User explicitly wants all roles in the same store app;
 no employee functionality has been removed. A separate review environment was
-suggested, not requested by either store, and is not authorised or created yet.
+initially suggested, then explicitly selected by the user. Its implementation is
+recorded in the later checkpoint below.
 Apple currently has the ordinary review account too; no Apple approval inferred.
 
 The privacy page now explains the existing browser-based account-deletion flow,
@@ -89,3 +90,51 @@ request instructions. Evidence: output/play-release-20261019/privacy-*.png.
 Latest main `8c86264` (PR42/43) was merged into this isolated release branch to
 preserve current interface/statistics/monitoring changes. Final AAB must be rebuilt
 again after these edits; the earlier checksum is now a historical checkpoint.
+
+## Current checkpoint: isolated demo and accepted Play bundle
+
+The user chose a separate synthetic environment and explicitly authorised
+disclosing its three customer/setter/admin logins to Google Play. All three
+entries and English navigation instructions are now saved, with Google's
+"Änderung gespeichert" confirmation. Optional device/partner usability testing
+with these credentials is disabled. The original form failure was client-side
+validation of the mandatory full-access certification, reproduced with a visible
+checkbox error and no failed network request.
+
+`review-api.kletterwelt-sauerland.de` and `review-video.kletterwelt-sauerland.de`
+serve the isolated Docker stack through verified HTTPS. No source user rows,
+objects or media were copied, only software/schema/policy configuration. Demo
+mail, new registrations and external push are disabled and disclosed in Google's
+instructions. Canonical credentials are verified in Bitwarden EU under
+`KWS_STORE_REVIEW_ACCOUNTS` and `KWS_STORE_REVIEW_CONFIG`.
+
+Verification includes27 private API/media checks and16 public HTTPS/Storage/
+Realtime checks: real logins, own/foreign rows, role escalation denial, cross-system
+JWT rejection, actual synthetic video transcoding in three qualities, Range,
+publisher state, protected admin overview, avatar ownership and own-only live
+notifications. The real customer, setter (including a saved edit) and admin UI
+were exercised. Two rendered visual loops cover375/768/1280/1920px; notice,
+sidebar/header, wrapping, images and actions fit. Local UI QA uses a documented
+HTTPS transport adapter because the local recursive DNS cache retains the old
+wildcard answer; public Google/Cloudflare DNS resolve the new VPS records. Full
+TLS/SNI validation remains enabled. No test responses were invented.
+
+Product source `6ccf023e82a1c875f0ac6422640d9823c68e991f` includes main24bf173,
+including the admin overview. Android74/1.0.250 now uses minSDK24, target36 and
+the explicit demo switch. The signed AAB was validated with Bundletool, signature
+verification, embedded source check, private-secret exclusion and all8 native
+libraries'16KB ELF alignment. SHA256:
+`acd492e8d68b828005924a8f0f16840706c5a5c6b3ab564278ad416d52871fb5`.
+Google processed it and saved it in the production draft. The earlier minSDK23
+upload was rejected by enabled automatic protection; protection was preserved.
+
+322 Node regression tests and3 provisioning isolation tests pass. The release
+CI repeated an existing keyboard-focus test failure. A subsequent test-only
+commit waits for actual dialog keyboard readiness before Escape, still checking
+dialog removal and focus return, and retains monitoring failure evidence. Its CI
+result remains a release gate. CI for the test-only commit51d002e subsequently passed, including the full browser and combined build checks. No main merge/web deployment or store submission
+is inferred from a successful local build or a saved draft.
+
+Country selection is saved as Germany only. IARC is complete (USK0/PEGI3), while
+account creation and the target audience are16+. Store phone screenshots and
+final Data Safety details remain open at this checkpoint. Apple90 is unchanged.
