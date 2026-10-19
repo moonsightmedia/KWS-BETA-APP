@@ -7,7 +7,28 @@ Mitteilungen und Aktivität. Uploadübersicht und Uploaddiagnose bleiben erhalte
 Web und native Releases haben getrennte Abnahmen; ein erfolgreicher Webrelease
 aktiviert keine zusätzliche native Erfassung.
 
-### Verifizierter Providerstand am 18.10.2026
+### Ergänzende Abnahme am 19.10.2026
+
+- Externe Erreichbarkeitsalarme für App, Auth-API und Videodienst sind nach
+  serverautorisierter Vorschau/Bestätigung effektiv `live`. Die bestehende
+  Telegram-Route hat einen aktuellen Provider-Receipt; ein künstlicher
+  Kunden-Ausfall wurde nicht ausgelöst. Der außerhalb von Hostinger laufende
+  Google-Wächter prüft den Hub weiterhin minütlich. Details und Einschränkungen:
+  `ops/monitoring/README.md`.
+- Android 1.0.250/code77 aus Revision `1339484ff1d8` wurde erneut auf einem
+  isolierten Android-16-Emulator geprüft: unbehandelter nativer Java-Absturz,
+  Neustart, tatsächlicher Sentry-Eingang und aufgelöste Fehlerstelle bestätigt.
+  Gespeicherte Konto-, IP-, Geo-, Request-, Freitext- und Geräte-ID-Inhalte
+  wurden am konkreten Ereignis auf Entfernung/Redaktion geprüft. Technische
+  Geräte-/OS-Metadaten bleiben erhalten; das ist keine Null-Daten-Erfassung.
+- QA-Kanal `test`, Umgebung `native-crash-qa` und zufällige `report_id` halten
+  diese Probe aus den normalen Nutzungszahlen und dem Sentry-Dashboardimport
+  heraus. Keine neue App-/TestFlight-Veröffentlichung für diesen Test.
+- Keine physischen Testgeräte verfügbar. Die echte iPhone-/Android-Abnahme,
+  insbesondere iOS-Absturz nach Neustart und native iOS-Symbolisierung am
+  konkreten Crash, bleibt offen. Emulator und dSYM-Upload ersetzen sie nicht.
+
+### Historischer Providerstand am 18.10.2026
 
 - Der getrennte Sentry-Importer ist mit ausschließlich `event:read` verbunden
   und übernimmt bereinigte Fehlergruppen. Web-Sentry bleibt deaktiviert.
@@ -224,8 +245,9 @@ Automatische Store-API-Abholung, D1-/D7-Retention,
 Vorperiodenvergleiche und zusätzliche Performancequantile sind nicht als fertige
 Quellen/Metriken ausgewiesen. Serverseitige Summen erfolgreicher Begehungen und
 Favoriten sind vorbereitet, werden im ersten Cockpit aber noch nicht visualisiert.
-Die externe Erreichbarkeitsprüfung ist im Beobachtungsmodus aktiv; eine neue
-Alarmfreigabe steht aus. Die Hostinger-Zuordnung ist bestätigt. Das alte
+Die externe Erreichbarkeitsprüfung samt Telegram-Alarmierung ist aktiv; sie
+ersetzt keine vollständigen API-/Video-Funktionstests. Die Hostinger-Zuordnung
+ist bestätigt. Das alte
 `vercel.json` bleibt kein Nachweis für Vercel-Produktion; generische Hub-Runtime-
 Metadaten sind ausdrücklich unbekannt, nicht als vollständig gesund ausgegeben.
 

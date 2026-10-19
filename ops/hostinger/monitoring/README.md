@@ -191,10 +191,13 @@ python3 -m unittest discover -s ops/hostinger/monitoring -p 'test_*.py' -v
 Offline-Tests decken SMTP-Mehrfachschutz/Neustart/Ackverlust/unklare Annahme,
 sichere Meldungen, Sentry-Paginierung/Negativfilter/fehlende Credentials,
 Storekorrekturen/Zeiträume/Mehrfachzählungen und die Aktivierungsgrenzen ab.
-Ein externer Ausfallmonitor läuft nicht auf diesem VPS: die vorhandene
-Moonsight-Hub-Anbindung benötigt zunächst die Auflösung des mehrdeutigen
-`moonmon detect --mode adopt`-Befunds (Vite unbekannt; altes `vercel.json` wird als
-Provider erkannt). Es wurde kein Ersatzmanifest erfunden.
+Der externe Ausfallmonitor läuft auf einem getrennten VPS. App, Auth-API und
+Videodienst werden minütlich geprüft; seit dem 19.10.2026 sind die bestehenden
+Telegram-Alarme über serverautorisierte Vorschau/Bestätigung freigegeben.
+Hostinger ist durch den Betrieb und die Nutzerfreigabe bestätigt; der
+Vite-/Vercel-Detektorbefund beschreibt nicht das tatsächliche Hosting.
+Grenzen, Alarmweg und stabile Manifestkennungen stehen in
+`ops/monitoring/README.md`.
 
 Am 18.10.2026 nach ausdrücklicher Veröffentlichungsfreigabe installiert:
 frisches verschlüsseltes Backup, Monitoringmigration, vier Edge-Dateien,

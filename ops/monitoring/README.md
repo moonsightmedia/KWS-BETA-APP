@@ -1,8 +1,9 @@
 # Externe KWS-Erreichbarkeitsprüfung
 
 Die KWS-Produktion läuft auf dem eigenen Hostinger-VPS. Die drei Prüfungen
-laufen jede Minute auf einem anderen Server und beginnen im Beobachtungsmodus:
-keine neuen E-Mail-, Push- oder Telegram-Alarme, kein neuer kostenpflichtiger Dienst.
+laufen jede Minute auf einem anderen Server. Seit der ausdrücklichen Freigabe
+am 19.10.2026 ist für alle drei Prüfungen die bestehende Telegram-Alarmroute
+aktiv. Es wurde kein neuer kostenpflichtiger Dienst eingerichtet.
 
 | Prüfbereich | Öffentliche Adresse | Manifest |
 | --- | --- | --- |
@@ -17,6 +18,24 @@ Die lokalen Manifeste übernehmen die dabei vergebenen stabilen Projektkennungen
 und die tatsächlich registrierte Konfiguration, nicht einen neuen Zufallswert.
 Zieladressen werden serverseitig verwaltet; das Manifest enthält nur Referenzen.
 
+## Freigabe am 19.10.2026
+
+Die serverautoritative Vorschau und Bestätigung änderte je Projekt ausschließlich
+`alertMode` von `shadow` auf `live`. Die Prüfungen und Integrationen zeigen
+ebenfalls effektiv `live`; Projektkennungen, Ziele, Route und Aufbewahrung
+blieben unverändert. Alle drei Komponenten hatten frische gesunde Messungen,
+der Hub war bereit, die Warteschlangen leer und das Backup aktuell. Der externe
+Google-Apps-Script-Wächter hat genau einen aktiven Minuten-Trigger und aktuell
+erfolgreiche Ausführungen. Eine klar bezeichnete Telegram-Zustellprobe wurde
+mit echtem Provider-Receipt angenommen. Dafür wurde kein Kundendienst gestoppt
+und kein künstlicher KWS-Ausfall erzeugt. Ein echter KWS-Ausfall-/Recovery-Zyklus
+wurde in dieser Abnahme nicht provoziert.
+
+Bei bestätigtem Ausfall folgen die bestehende Störungsmeldung und bei Erholung
+die Entwarnung über Telegram. Das ist getrennt von den bestehenden E-Mail-
+Benachrichtigungen für kritische App-Fehler. Der Google-Wächter überwacht die
+Betriebsbereitschaft des Hubs und hat einen eigenen E-Mail-/Telegram-Weg.
+
 ## Was die Messung belegt
 
 - HTTP 200, öffentliches DNS, gültiges TLS und rechtzeitige Antwort der Adresse.
@@ -25,6 +44,9 @@ Zieladressen werden serverseitig verwaltet; das Manifest enthält nur Referenzen
 - Der API-Check deckt den Auth-Gesundheitsendpunkt ab, nicht jede Datenbankabfrage.
 - Der Video-Check deckt den Gesundheitsendpunkt ab, nicht eine Videowiedergabe.
 - Keine Nutzerbeobachtung, Store-Downloads, Rohlogs oder native Crash-Erfassung.
+- Getrennter Prüfserver, aber derselbe Hostinganbieter: kein vollständiger
+  Schutz gegen einen Ausfall des gesamten Anbieters. Der Google-Wächter liegt
+  außerhalb dieses Anbieters und prüft den Hub, nicht sämtliche App-Funktionen.
 
 Der generische Hub-Anschluss liefert keine Framework-/Hosting-Telemetrie;
 deshalb bleiben dessen Runtime-Felder bewusst `unknown`. Das bedeutet fehlende
