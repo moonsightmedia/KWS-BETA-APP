@@ -1287,8 +1287,22 @@ Verbindliche Regeln:
   gemeinsames Filterpanel mit sichtbarer Auswahl und Rücksetzweg. Messdefinitionen
   liegen hinter einer benannten Infoaktion. Kennzahlen und Fehlerprioritäten
   sind mobil ohne lange Einleitung erreichbar; fehlende Quellen werden direkt
-  vor den Zahlen erklärt. Desktop-Fehlerlisten richten Wirkung, Version und
-  Zeitpunkt nebeneinander aus. Tagesverläufe zeigen zunächst sieben Tage mit
+  vor den Zahlen erklärt. Desktop-Fehlerlisten richten Problem/Plattform, Umfang
+  und Zeitpunkt nebeneinander aus. Nutzerkorrektur 19.10.2026: Fehler sind eine
+  Arbeitsliste wie in professionellen Issue-Tools. Standardmäßig nur aktive
+  Probleme; Behoben und Alle bleiben direkt erreichbar. Statusansichten mit
+  geladenen Anzahlen, Suche, Quelle und Sortierung bilden eine kompakte Einheit.
+  Zeitraum ist hier ein Select statt einer zweiten bildschirmbreiten Tableiste.
+  Mobil Statusauswahl und gestapelte Zeilen, Desktop Statuskurzwege und Spalten.
+  Priorität sortiert Wiederauftreten, gemeldeten Schweregrad und letzten Eingang,
+  nicht unvergleichbare App-/Sentry-Zähler. Fehlende Sentry-Nutzerreferenzen
+  bedeuten unbekannten Umfang statt null betroffene Geräte. Sentry-Zähler sind
+  als gesamter Problemverlauf gekennzeichnet; ausgeblendete Sentry-Daten bei
+  Plattform-/Versionsfilter werden mit gezieltem Rücksetzweg erklärt. Suche,
+  Quelle, Status und Sortierung bleiben bei Ansichts-/Zeitraumwechsel erhalten.
+  Rohmeldungen und Buildketten gehören in Details; unbekannte Auswirkungen
+  werden nicht als Diagnose dargestellt. Die Ladegrenze wird erklärt und beim
+  Erreichen hervorgehoben. Tagesverläufe zeigen zunächst sieben Tage mit
   explizitem Aufklappen; vollständige Werte bleiben erhalten.
   Aktivität verwendet dieselben aktuellen Launch-Signale wie Nutzung, nicht den
   abgeschalteten Altsammler. Aktuelle Vordergrundsignale stehen dort zuerst;
@@ -1947,3 +1961,37 @@ Die Social-Vorschau ist eine eigene 1200×630-Komposition aus unveränderten Log
 und echten App-Screenshots. Die geschützte Betriebsübersicht bekommt eine
 ruhige Zahlenkarte im bestehenden Design; keine Besucheridentitäten oder
 unbelegten QR-/Store-Konversionen. Zwei gerenderte QA-Schleifen auf 375/768/1280/1920.
+
+
+## Nutzerfreigabe 2026-10-19 – Statistik und gezielte DesignMotion-Ergänzungen
+
+- Statistik startet mit heute und sechs vorherigen Kalendertagen. Pfeile blättern
+  um sieben Tage; der nächste Zeitraum reicht höchstens bis heute. Datumskopf und
+  „Zeitraum“ öffnen eine freie Von–Bis-Auswahl mit Kalender und „Letzte 20 Tage“.
+  Beide Grenztage zählen mit. Abbrechen übernimmt keine Änderung. Unzulässige
+  URL-Daten führen mit sichtbarem Hinweis zur aktuellen 7-Tage-Ansicht zurück.
+  Zeitraum und Gradfilter bleiben in der URL. Gesamt enthält weiterhin undatierte
+  ältere Tops; frei begrenzte Zeiträume erhalten keine erfundenen Aktivitätsdaten.
+- Statusbadges für Projekt, Gespeichert, In Arbeit und Geschafft verwenden die
+  gemeinsame 4px-Form und lesbares dunkles Grün. Bereich und Versuche bleiben
+  Untertitel. Grad, NEU und Volumen behalten ihre bestehenden Badge-Aufgaben.
+- Fotokarten: Name mobil 12px, Bereich 11px; Name maximal eine Zeile, bei Überlänge
+  mit Ellipse und vollständigem zugänglichem Namen. Grad nur im eigenen Badge;
+  keine ergänzte Schwierigkeit hinter dem Namen. Tatsächliche Namen werden nicht
+  gekürzt gespeichert. Originale Bildformate, Gradbadges und Gradientenhöhen bleiben.
+- Mehrfachauswahl bleibt nach gewählten Filtern sichtbar; „Filter wirken sofort“
+  erläutert die bestehende Wirkung. Profilfehler stehen am Feld; der erste Fehler
+  erhält Fokus und Eingaben bleiben erhalten. Der Editor-Kopf nennt Boulder und
+  Ungespeichert, ohne vorhandenen Verwerfenschutz oder festen Fuß zu ersetzen.
+- Ein optionaler 180ms-Fotoübergang verbindet ausdrücklich geöffnete Karten mit
+  dem Detail. Die Rücknavigation läuft sofort und behält vorhandene Filter,
+  Ansicht, Fokus und Scrollposition. Reduced Motion und fehlende Browser-API
+  erhalten die direkte Navigation. Keine zusätzlichen Videostarts für den Effekt.
+- Tracking zeigt Erfolg erst nach bestätigten Tages- und Status-Schreibvorgängen;
+  Fehler erhalten Rücknahme und Wiederholungsmöglichkeit. Keine Erfolgsbestätigung
+  allein aufgrund einer optimistischen Anzeige.
+- Lange Verwaltungs-E-Mails dürfen umbrechen, Kopieren steht im geöffneten Eintrag.
+  Der zugängliche Name der Glocke enthält Anzahl oder Lade-/Fehlerzustand.
+- Die Wochen-Statscard bleibt auf Home oben; Beta-Logo-Startscreen bleibt erhalten.
+
+Prüfumfang und Belege: docs/design/designmotion-2026-10-19.md.

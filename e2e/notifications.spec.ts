@@ -45,18 +45,18 @@ async function open(page: Page, extra = '') {
 }
 for(const width of [375,768,1280,1920])test(`visual notifications ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});await open(page);
-  await page.getByRole('button',{name:'Benachrichtigungen',exact:true}).click();
+  await page.getByRole('button',{name:/^Benachrichtigungen, /}).click();
   await expect(page.getByText('12 neue Boulder warten auf dich').first()).toBeVisible();
   await expect(page.getByText('44 ungelesen',{exact:true}).last()).toBeVisible();
   await page.screenshot({path:`${output}/${phase}-inbox-${width}.png`,fullPage:true,animations:'disabled'});
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(width);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await open(page,'route=/profile/notifications');
   await expect(page.getByRole('switch').first()).toBeVisible();
   await page.screenshot({path:`${output}/${phase}-settings-${width}.png`,fullPage:true,animations:'disabled'});
 });
 
 async function inbox(page: Page) {
-  await page.getByRole('button',{name:'Benachrichtigungen',exact:true}).click();
+  await page.getByRole('button',{name:/^Benachrichtigungen, /}).click();
   await expect(page.locator('article[data-notification-id]').first()).toBeVisible();
 }
 test('opening is read-only and all 67 messages can be paged, including tied timestamps', async ({page}) => {
@@ -108,7 +108,7 @@ test('mark all includes older pages but leaves future arrivals unread', async ({
 });
 test('read errors are not an empty inbox or a false zero and can be retried', async ({page}) => {
   const ctx = await open(page,'error');
-  await page.getByRole('button',{name:'Benachrichtigungen',exact:true}).click();
+  await page.getByRole('button',{name:/^Benachrichtigungen, /}).click();
   await expect(page.getByText('Mitteilungen nicht verfügbar')).toBeVisible();
   await expect(page.getByRole('button',{name:'Alle als gelesen markieren'})).toBeDisabled();
   await expect(page.getByText('Noch keine Mitteilungen',{exact:true})).toHaveCount(0);
@@ -147,7 +147,7 @@ test('missing preferences require explicit setup; reading never silently opts in
 test('desktop hover previews without focus theft; click pins and Escape returns focus', async ({page}) => {
   await page.setViewportSize({width:1280,height:900}); await open(page);
   const link = page.getByRole('link',{name:'Mitteilungen einstellen'}); await link.focus();
-  const bell = page.getByRole('button',{name:'Benachrichtigungen',exact:true}); await bell.hover();
+  const bell = page.getByRole('button',{name:/^Benachrichtigungen, /}); await bell.hover();
   await expect(page.getByRole('dialog')).toBeVisible(); await expect(link).toBeFocused();
   await page.mouse.move(10,450); await expect(page.getByRole('dialog')).toHaveCount(0); await expect(link).toBeFocused();
   await bell.hover(); await expect(page.getByRole('dialog')).toBeVisible(); await bell.click();
@@ -162,7 +162,7 @@ test('mobile footer stays reachable while scrolling and close restores focus', a
   await expect(page.getByRole('button',{name:'Ältere Mitteilungen laden'})).toBeVisible(); await expect(page.getByRole('button',{name:'Einstellungen',exact:true})).toBeVisible();
   await page.screenshot({path:`${output}/loop2-scroll-375.png`,fullPage:true,animations:'disabled'});
   await page.getByRole('button',{name:'Benachrichtigungen schließen'}).click(); await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole('button',{name:'Benachrichtigungen',exact:true})).toBeFocused();
+  await expect(page.getByRole('button',{name:/^Benachrichtigungen, /})).toBeFocused();
 });
 test('realtime refreshes updates and inserts once without sending another push', async ({page}) => {
   const ctx = await open(page); await inbox(page);

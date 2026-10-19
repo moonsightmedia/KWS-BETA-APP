@@ -99,7 +99,7 @@ for (const width of [375, 768, 1280, 1920]) test(`loop 2: safe area, scroll, men
   await open(page);
   await page.addStyleTag({ content: ':root { --app-safe-area-top: 32px; }' });
   const initial = await geometry(page);
-  await page.getByRole('button', { name: 'Benachrichtigungen', exact: true }).click();
+  await page.getByRole('button', { name: /^Benachrichtigungen, / }).click();
   await expect(page.getByRole('heading', { name: 'Benachrichtigungen', exact: true })).toBeVisible();
   expect(await geometry(page)).toEqual(initial);
   await page.screenshot({ path: `${output}/loop2-notifications-${width}.png`, animations: 'disabled' });
@@ -180,7 +180,7 @@ for (const width of [375, 768, 1280, 1920]) test(`brand colors agree across head
   await page.setViewportSize({ width, height: 900 });
   await open(page);
   await expect(page.locator('.sticky.top-0 h1')).toHaveCSS('color', 'rgb(25, 36, 54)');
-  await expect(page.getByRole('button', { name: 'Benachrichtigungen', exact: true })).toHaveCSS('background-color', 'rgb(241, 245, 241)');
+  await expect(page.getByRole('button', { name: /^Benachrichtigungen, / })).toHaveCSS('background-color', 'rgb(241, 245, 241)');
   if (width >= 768) await expect(page.locator('.sticky.top-0 p').first()).toHaveCSS('color', 'rgb(100, 108, 113)');
   await page.getByRole('link', { name: 'Statistiken', exact: true }).locator('visible=true').first().click();
   const selected = page.getByRole('button', { name: 'Fortschritt', exact: true });

@@ -142,7 +142,7 @@ test('hover opens both menus, crosses the portal gap and closes without trapping
   await expect(page.getByRole('menu')).toBeVisible();
   await page.getByRole('button', { name: 'Außerhalb' }).hover();
   await expect(page.getByRole('menu')).toBeHidden();
-  const bell = page.getByRole('button', { name: 'Benachrichtigungen', exact: true });
+  const bell = page.getByRole('button', { name: /^Benachrichtigungen, / });
   await bell.hover();
   await expect(page.getByRole('dialog', { name: 'Benachrichtigungen' })).toBeVisible();
   await page.getByRole('button', { name: 'Einstellungen', exact: true }).hover();
@@ -169,7 +169,7 @@ test('hover does not steal focus; clicking pins a preview; Escape and keyboard s
   await expect(page.getByRole('menuitem', { name: 'Profil & Einstellungen' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('menu')).toBeHidden();
-  const bell = page.getByRole('button', { name: 'Benachrichtigungen', exact: true });
+  const bell = page.getByRole('button', { name: /^Benachrichtigungen, / });
   await bell.hover();
   await expect(page.getByRole('dialog')).toBeVisible();
   await bell.click();
@@ -191,7 +191,7 @@ test('touch opens and closes menus without hover, with matching corner radii', a
   await expect(page.getByRole('menuitem', { name: 'Profil & Einstellungen' })).toHaveCSS('border-radius', '4px');
   await page.getByRole('button', { name: 'Außerhalb' }).tap();
   await expect(menu).toBeHidden();
-  await page.getByRole('button', { name: 'Benachrichtigungen', exact: true }).tap();
+  await page.getByRole('button', { name: /^Benachrichtigungen, / }).tap();
   await expect(page.getByRole('dialog')).toHaveCSS('border-top-left-radius', '12px');
   await expect(page.getByRole('dialog')).toHaveCSS('border-bottom-left-radius', '0px');
   await context.close();

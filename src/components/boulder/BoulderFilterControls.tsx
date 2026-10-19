@@ -99,7 +99,7 @@ export function BoulderFilterControls({ leadingControls, sectorControls, difficu
     <div className="space-y-5" aria-label="Boulder filtern">
       {leadingControls}
       <div className="space-y-5">
-        <FilterSection title="Schwierigkeit" icon={ChartNoAxesColumnIncreasing} active={difficulties.length > 0} onReset={onDifficultyReset} summary={difficulties.length ? `Grad ${DIFFICULTY_FILTER_OPTIONS.filter(value => difficulties.includes(value)).join(' · ')}` : 'Alle Grade · Mehrfachauswahl'}>
+        <FilterSection title="Schwierigkeit" icon={ChartNoAxesColumnIncreasing} active={difficulties.length > 0} onReset={onDifficultyReset} summary={difficulties.length ? `Grad ${DIFFICULTY_FILTER_OPTIONS.filter(value => difficulties.includes(value)).join(' · ')} · Mehrfachauswahl` : 'Alle Grade · Mehrfachauswahl'}>
           <div className="grid grid-cols-5 gap-1.5 rounded-kws-card bg-secondary/60 p-1.5 md:grid-cols-9">
             {DIFFICULTY_FILTER_OPTIONS.map((difficulty) => (
               <FilterOption key={difficulty} selected={difficulties.includes(difficulty)} indicator="corner" onClick={() => onDifficultyToggle(difficulty)} aria-label={difficulty === '?' ? 'Unbekannter Grad' : `Grad ${difficulty}`} className={cn('relative h-12 justify-center px-2 text-center text-base leading-none tabular-nums', !difficulties.includes(difficulty) && 'bg-transparent hover:bg-white')}>
@@ -108,7 +108,7 @@ export function BoulderFilterControls({ leadingControls, sectorControls, difficu
             ))}
           </div>
         </FilterSection>
-        <FilterSection title="Grifffarbe" icon={Palette} active={selectedColors.length > 0} onReset={onColorReset} summary={selectedColors.length ? selectedColors.join(' · ') : 'Alle Farben · Mehrfachauswahl'}>
+        <FilterSection title="Grifffarbe" icon={Palette} active={selectedColors.length > 0} onReset={onColorReset} summary={selectedColors.length ? selectedColors.join(' · ')+' · Mehrfachauswahl' : 'Alle Farben · Mehrfachauswahl'}>
           {colors?.length ? (
             <div id={colorListId} className="grid grid-cols-2 gap-2 md:grid-cols-3">
               {visibleColors?.map((color) => (
@@ -157,7 +157,7 @@ export function BoulderFilterPanel({ open, onOpenChange, children, resultCount, 
             <span className="grid h-10 w-10 place-items-center rounded-kws-control bg-primary/10 text-primary-ink"><SlidersHorizontal className="h-5 w-5" aria-hidden="true" /></span>
             <div>
               <DialogTitle>Boulder filtern</DialogTitle>
-              <DialogDescription className="mt-1 text-xs" aria-live="polite" aria-atomic="true">{resultCount === 1 ? '1 passender Boulder' : `${resultCount} passende Boulder`}{activeCount ? ` · ${activeCount} aktiv` : ''}</DialogDescription>
+              <DialogDescription className="mt-1 text-xs" aria-live="polite" aria-atomic="true">{resultCount === 1 ? '1 passender Boulder' : `${resultCount} passende Boulder`}{activeCount ? ` · ${activeCount} aktiv` : ''} · Filter wirken sofort</DialogDescription>
             </div>
           </div>
           <Button variant="ghost" size="icon" aria-label="Filter schließen" onClick={() => onOpenChange(false)}><X className="h-5 w-5" /></Button>

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bookmark, Check, Search, Target, X } from 'lucide-react';
+import { Bookmark, Search, Target, X } from 'lucide-react';
+import { BoulderStatusBadge } from '@/components/boulder/BoulderStatusBadge';
 import { toast } from 'sonner';
 import { BouldersIcon } from '@/lib/appIcons';
 import { Button } from '@/components/ui/button';
@@ -76,7 +77,7 @@ export function PersonalCollection({ entries, successIds, collection, onCollecti
           <div className="min-w-0 flex-1">
             {boulder ? <Link to={`/boulders/${boulder.id}`} className="block break-words rounded-kws-control font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">{name}</Link> : <p className="font-semibold">{name}</p>}
             <p className="mt-1 text-xs text-muted-foreground">Grad {gradeKey(boulder?.difficulty)} · {boulder?.status === 'haengt' ? 'An der Wand' : boulder ? 'Abgeschraubt' : 'Nicht verfügbar'}</p>
-            <p className="mt-1 flex items-center gap-1.5 text-xs">{done ? <Check className="h-3.5 w-3.5" /> : collection === 'projects' ? <Target className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}{done ? 'Geschafft' : collection === 'projects' ? 'Offenes Projekt' : 'Für später'}</p>
+            <div className="mt-1"><BoulderStatusBadge status={done?'done':collection==='projects'?'project':'saved'}/></div>
           </div>
           <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" disabled={pendingId !== null} aria-label={`${collection === 'projects' ? 'Projektmarkierung' : 'Speicherung'} entfernen: ${name}`} onClick={() => void remove(entry)}><X aria-hidden="true" /></Button>
         </KwsSurface>;

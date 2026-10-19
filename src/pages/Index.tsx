@@ -1,3 +1,4 @@
+import { withBoulderPhotoTransition } from '@/lib/boulderPhotoTransition';
 import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -11,6 +12,8 @@ import {
 
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import { BoulderCardCaption } from '@/components/boulder/BoulderCardCaption';
+import { BoulderStatusBadge, type BoulderStatus } from '@/components/boulder/BoulderStatusBadge';
 import { PersonalDataState } from '@/components/PersonalDataState';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -84,12 +87,14 @@ const DashboardSectionHeader = ({
 
 const HomePreviewCard = ({
   boulder,
-  meta,
+  status,
+  attempts,
   onClick,
 }: {
   boulder: Boulder;
-  meta: string;
-  onClick: () => void;
+  status: BoulderStatus;
+  attempts: number;
+  onClick: React.MouseEventHandler<HTMLButtonElement>;
 }) => (
   <button
     type="button"
@@ -116,7 +121,7 @@ const HomePreviewCard = ({
         <p className="truncate text-sm font-semibold tracking-[-0.02em] text-foreground">{boulder.name}</p>
         <BoulderTypeBadge volumeOnly={boulder.volumeOnly} />
         <p className="truncate pt-0.5 text-xs text-muted-foreground">{getSectorAreaLabel(boulder)}</p>
-        <p className="truncate pt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">{meta}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"><BoulderStatusBadge status={status}/><span className="text-[11px] text-muted-foreground">{attempts} {attempts===1?'Versuch':'Versuche'}</span></div>
       </div>
       <div className="grid h-8 w-8 shrink-0 place-items-center rounded-kws-control bg-secondary">
         <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
@@ -373,7 +378,7 @@ const Index = () => {
                 <button
                   key={boulder.id}
                   type="button"
-                  onClick={() => navigate(`/boulders/${boulder.id}`, { state: boulderNavigationState(location) })}
+                  onClick={event => withBoulderPhotoTransition(() => navigate(`/boulders/${boulder.id}`, { state: boulderNavigationState(location) }), event.currentTarget)}
                   aria-label={`${boulder.name}, Grad ${boulder.difficulty ?? '?'}, ${getSectorAreaLabel(boulder)}`}
                   className="group relative aspect-[4/5] w-full overflow-hidden rounded-kws-card bg-[#EEF2EE] p-0 text-left shadow-[0_3px_14px_rgba(19,17,43,0.10)] transition-[transform,box-shadow] hover:shadow-[0_7px_22px_rgba(19,17,43,0.16)] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/55 focus-visible:ring-offset-2"
                 >
@@ -408,14 +413,7 @@ const Index = () => {
                     NEU
                   </span>
 
-                  <div className="absolute inset-x-0 bottom-0 flex h-[46%] flex-col justify-end bg-gradient-to-t from-white via-white/90 to-transparent px-1.5 pb-1.5 pt-7 text-brand-ink sm:px-2 sm:pb-2 md:h-[48%] md:px-3 md:pb-3">
-                    <span className="block truncate text-[9px] font-bold leading-tight tracking-[-0.02em] sm:text-[10px] md:text-xs">
-                      {boulder.name}
-                    </span>
-                    <span className="mt-0.5 truncate text-[8px] font-semibold leading-tight text-brand-ink/70 sm:text-[9px] md:text-[11px]">
-                      {getSectorAreaLabel(boulder)}
-                    </span>
-                  </div>
+                  <BoulderCardCaption name={boulder.name} area={getSectorAreaLabel(boulder)}/>
                   <BoulderTypeBadge volumeOnly={boulder.volumeOnly} compact className="absolute left-1.5 top-9 sm:left-2" />
                 </button>
               ))}
@@ -446,8 +444,9 @@ const Index = () => {
                       <HomePreviewCard
                         key={item.tick.id}
                         boulder={item.boulder}
-                        meta={`${item.tick.is_project ? 'Projekt' : item.tick.is_favorite ? 'Gespeichert' : 'In Arbeit'} · ${item.tick.attempt_count ?? 0} ${(item.tick.attempt_count ?? 0) === 1 ? 'Versuch' : 'Versuche'}`}
-                        onClick={() => navigate(`/boulders/${item.tick.boulder_id}`, { state: boulderNavigationState(location) })}
+                        status={item.tick.is_project?'project':item.tick.is_favorite?'saved':'attempted'}
+                        attempts={item.tick.attempt_count??0}
+                        onClick={event => withBoulderPhotoTransition(() => navigate(`/boulders/${item.tick.boulder_id}`, { state: boulderNavigationState(location) }), event.currentTarget)}
                       />
                     ) : null,
                   )}

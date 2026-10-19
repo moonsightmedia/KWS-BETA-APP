@@ -74,18 +74,20 @@ export function gradeKey(difficulty: number | null | undefined) { return difficu
  * included in Gesamt, never attributed to the date a bookmark was edited.
  */
 export function buildPersonalProgress(entries: TrackedBoulderItem[], sessions: BoulderTrackingSession[],
-  { days = null, grade = null, now = new Date() }: {days?: number | null; grade?: string | null; now?:Date} = {}) {
-  const today = localDay(now); const first = new Date(now); first.setDate(first.getDate() - ((days ?? 1) - 1));
-  const from = days === null ? null : localDay(first);
+  { days = null, grade = null, now = new Date(), from: rangeFrom, to: rangeTo }: {days?: number | null; grade?: string | null; now?:Date; from?:string; to?:string} = {}) {
+  const actualToday = localDay(now);
+  const today = rangeTo && validSessionDay(rangeTo) && rangeTo <= actualToday ? rangeTo : actualToday;
+  const first = new Date(today + 'T12:00:00'); first.setDate(first.getDate() - ((days ?? 1) - 1));
+  const from = rangeFrom && validSessionDay(rangeFrom) && rangeFrom <= today ? rangeFrom : days === null ? null : localDay(first);
   const metadata = new Map(entries.filter(e=>e.boulder).map(e=>[e.tick.boulder_id,e.boulder!]));
   const daily = new Map<string,BoulderTrackingSession>();
   for (const row of sessions) {
-    if (!validSessionDay(row.session_date) || row.session_date > today) continue;
+    if (!validSessionDay(row.session_date) || row.session_date > actualToday) continue;
     const key = `${row.boulder_id}:${row.session_date}`; const previous=daily.get(key);
     if (!previous || row.updated_at > previous.updated_at || (row.updated_at === previous.updated_at && row.id > previous.id)) daily.set(key,row);
   }
   const allSessions = [...daily.values()].filter(row=>isSuccessful(row.result) || row.attempt_count > 0);
-  const periodSessions = allSessions.filter(row=>!from || row.session_date >= from);
+  const periodSessions = allSessions.filter(row=>(!from || row.session_date >= from) && row.session_date <= today);
   const succeeded = new Map<string,'top'|'flash'>();
   const addSuccess = (id:string, result:string) => {
     if (isSuccessful(result) && succeeded.get(id) !== 'flash') succeeded.set(id,result as 'top'|'flash');
@@ -93,7 +95,7 @@ export function buildPersonalProgress(entries: TrackedBoulderItem[], sessions: B
   periodSessions.forEach(row=>addSuccess(row.boulder_id,row.result));
   const datedSuccess = new Set(allSessions.filter(row=>isSuccessful(row.result)).map(row=>row.boulder_id));
   let legacySuccesses = 0;
-  if (days === null) entries.forEach(({tick})=>{
+  if (days === null && from === null && today === actualToday) entries.forEach(({tick})=>{
     if (isSuccessful(tick.status) && !datedSuccess.has(tick.boulder_id)) legacySuccesses++;
     addSuccess(tick.boulder_id,tick.status);
   });

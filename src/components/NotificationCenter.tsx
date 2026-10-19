@@ -13,7 +13,7 @@ import { NotificationList } from '@/components/NotificationList';
 export function NotificationCenter({ variant = 'default' }: { variant?: 'default' | 'header' }) {
   const menu = useHoverMenu(); const mobile = useIsMobile(); const titleId = useId();
   const navigate = useNavigate(); const count = useUnreadCount();
-  const trigger = <Button variant="ghost" aria-label="Benachrichtigungen" className={'relative h-10 w-10 shrink-0 rounded-kws-control p-0 text-muted-foreground hover:bg-secondary data-[state=open]:bg-primary/10 data-[state=open]:text-foreground ' + (variant === 'header' ? 'bg-secondary' : '')}>
+  const trigger = <Button variant="ghost" aria-label={"Benachrichtigungen, "+(count.isError?"Anzahl nicht verfügbar":count.data===undefined?"Anzahl wird geladen":count.data+" ungelesen")} className={'relative h-10 w-10 shrink-0 rounded-kws-control p-0 text-muted-foreground hover:bg-secondary data-[state=open]:bg-primary/10 data-[state=open]:text-foreground ' + (variant === 'header' ? 'bg-secondary' : '')}>
     <Bell className="h-5 w-5" aria-hidden="true" />
     {!count.isError && !!count.data && <span aria-hidden="true" className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-kws-badge bg-primary px-1 text-[10px] font-semibold leading-5 text-primary-foreground">{count.data > 99 ? '99+' : count.data}</span>}
     <span className="sr-only">{count.isError ? 'Anzahl nicht verfügbar' : count.data === undefined ? 'Anzahl wird geladen' : count.data + ' ungelesen'}</span>

@@ -18,6 +18,17 @@ if (mode === 'empty') { for (const key of Object.keys(fixture.summary)) fixture.
 if (mode === 'partial') { fixture.sources.collector.state = 'error'; fixture.sources.collector.detail = 'Collector vorübergehend nicht erreichbar. Fehlende Daten sind keine Nullwerte.'; }
 if (mode === 'stale') { fixture.generated_at = new Date(Date.now() - 3600_000).toISOString(); fixture.sources.collector.state = 'stale'; fixture.activity[0].last_seen_at = fixture.generated_at; }
 if (mode === 'external') { fixture.issues[0].regression = true; fixture.issues.push({ ...fixture.issues[1], fingerprint: 'sentry:fixture', title: 'Sentry-Testproblem', source: 'sentry', status: 'unresolved', permalink: 'https://sentry.example.test/issues/fixture', occurrences: 300, affected_devices: 8 }); }
+if (mode === 'workspace') {
+  fixture.issues[0].title = 'App-Daten konnten nicht geladen werden'; fixture.issues[0].platform = 'web'; fixture.issues[0].release = 'kws-beta-app@1.0.246+5086e1f42b61';
+  fixture.issues.push(
+    { ...fixture.issues[0], fingerprint: 'sentry:abort', title: 'AbortError (JAVASCRIPT-REACT-J)', source: 'sentry', status: 'unresolved', platform: null, release: null, affected_devices: 0, occurrences: 300, last_seen_at: new Date(Date.now() - 3600_000).toISOString(), permalink: 'https://sentry.example.test/issues/abort' },
+    { ...fixture.issues[0], fingerprint: 'sentry:fixed', title: 'Sentry-Problem (JAVASCRIPT-REACT-H)', source: 'sentry', status: 'resolved', affected_devices: 0, occurrences: 1, permalink: 'https://sentry.example.test/issues/fixed' },
+    { ...fixture.issues[1], fingerprint: 'fixture-regression', title: 'Video nach bestätigter Korrektur erneut ausgefallen', regression: true, status: 'open', fixed_release: 'android@1.0.66' },
+    { ...fixture.issues[0], fingerprint: 'fixture-ignored', title: 'Bewusst ignorierter Testfall', status: 'ignored' },
+  );
+}
+if (mode === 'issues-error') fixture.sources.issues.state = 'error';
+if (mode === 'limit') fixture.issues = Array.from({ length: 200 }, (_, index) => ({ ...fixture.issues[0], fingerprint: `fixture-limit-${index}`, title: `Video-Problem ${index + 1}` }));
 if (mode === 'long') { fixture.issues[0].title = 'UnunterbrocheneTechnischeFehlermeldung'.repeat(8); fixture.issues[0].release = 'android@build-'.repeat(10); fixture.top_boulders[0].name = 'SehrLangerBouldername'.repeat(10); fixture.activity[0].release = 'android@build-'.repeat(10); fixture.releases.push(fixture.issues[0].release); }
 const realFetch = window.fetch.bind(window);
 window.fetch = async (input, init) => {
@@ -34,7 +45,10 @@ window.fetch = async (input, init) => {
   }
   if (requestUrl.pathname.endsWith('/kws_monitoring_dashboard')) {
     const response = structuredClone(fixture);
-    if (payload.p_platform !== 'all' || payload.p_release !== 'all') { response.summary.new_accounts = null; response.summary.confirmed_accounts = null; }
+    if (payload.p_platform !== 'all' || payload.p_release !== 'all') {
+      response.summary.new_accounts = null; response.summary.confirmed_accounts = null;
+      response.issues = response.issues.filter(issue => issue.source !== 'sentry' && (payload.p_platform === 'all' || issue.platform === payload.p_platform) && (payload.p_release === 'all' || issue.release === payload.p_release));
+    }
     return new Response(JSON.stringify(response));
   }
   if (requestUrl.pathname.endsWith('/kws_monitoring_issue_events')) {

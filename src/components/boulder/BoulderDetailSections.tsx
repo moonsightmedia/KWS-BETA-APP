@@ -876,6 +876,8 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
   const [isProject, setIsProject] = useState(false);
   const [showSessionSheet, setShowSessionSheet] = useState(false);
   const [pendingAction, setPendingAction] = useState<'attempt' | 'top' | 'flash' | 'favorite' | 'project' | 'session' | null>(null);
+  const [confirmation, setConfirmation] = useState('');
+  useEffect(() => setConfirmation(''), [boulder.id]);
   const [optimisticTodaySession, setOptimisticTodaySession] = useState<BoulderTrackingSession | null | undefined>(undefined);
 
   const currentTick = summary?.myTick ?? null;
@@ -931,6 +933,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
       note: payload.note,
     }));
     setPendingAction(action);
+    setConfirmation('');
 
     try {
       await upsertSession.mutateAsync({
@@ -949,6 +952,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
       });
 
       await Promise.all([communityQuery.refetch(), sessionsQuery.refetch()]);
+      setConfirmation(payload.result === 'flash' ? 'Flash gespeichert' : payload.result === 'top' ? 'Top gespeichert' : 'Versuch gespeichert');
     } catch (error) {
       setOptimisticTodaySession(previousSession);
       await Promise.allSettled([communityQuery.refetch(), sessionsQuery.refetch()]);
@@ -1148,7 +1152,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
 
         {pendingAction === 'attempt' || pendingAction === 'top' || pendingAction === 'flash' ? (
           <p className="mt-3 px-1 text-[11px] font-medium text-muted-foreground">Tracking wird gespeichert …</p>
-        ) : null}
+        ) : confirmation ? <p role="status" className="mt-3 flex items-center gap-1.5 px-1 text-[11px] font-medium text-primary-ink"><Check className="h-3.5 w-3.5" aria-hidden="true"/>{confirmation}</p> : null}
       </section>
 
       <section className="rounded-kws-card bg-card p-4 shadow-[0_3px_14px_rgba(19,17,43,0.07)]">

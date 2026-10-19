@@ -398,10 +398,10 @@ export function SetterBoulderEditorDialog({
           aria-busy={busy}
         >
           <header className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 sm:px-6">
-            <div>
+            <div className="min-w-0 flex-1">
               <DialogTitle>{title}</DialogTitle>
-              <DialogDescription className="sr-only">
-                Medien, Name, Sektor und Farbe festlegen.
+              <DialogDescription className="mt-1 max-w-[28rem] break-words text-xs">
+                {draft.name || 'Unbenannter Boulder'}{dirty ? ' · Ungespeichert' : ''}
               </DialogDescription>
             </div>
             <Button
