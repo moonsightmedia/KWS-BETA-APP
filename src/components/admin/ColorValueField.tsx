@@ -44,7 +44,7 @@ export function ColorValueField({ label, value, onChange, error, disabled }: {
           <p className="mt-3 text-xs text-muted-foreground">Andere Farbe? Trage ihren HEX-Code ins Feld ein.</p>
         </PopoverContent>
       </Popover>
-      <Input id={id} value={value} disabled={disabled} onChange={e => onChange(e.target.value)} onBlur={() => { const hex = normalizeHex(value); if (hex) onChange(hex); }} placeholder="#22C55E" spellCheck={false} autoComplete="off" aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} className="min-w-0 flex-1 font-mono text-sm uppercase" />
+      <Input id={id} value={value} disabled={disabled} onChange={e => onChange(e.target.value)} onBlur={() => { const hex = normalizeHex(value); if (hex) onChange(hex); }} placeholder="#22C55E" spellCheck={false} autoComplete="off" aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} className="min-w-0 flex-1 font-mono text-base md:text-sm uppercase" />
     </div>
     {error && <p id={`${id}-error`} className="text-xs text-destructive">{error}</p>}
   </div>;

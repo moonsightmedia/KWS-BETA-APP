@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { Sidebar } from '@/components/Sidebar';
 import { SidebarProvider } from '@/components/SidebarContext';
-import { UploadOverview } from '@/components/UploadOverview';
 import { SetterAreaLayout } from '@/components/setter/SetterAreaLayout';
 import Setter from '@/pages/Setter';
 import SetterCreatePage from '@/pages/setter/SetterCreatePage';
@@ -20,7 +19,6 @@ if (window.setterQA) window.setterQA.refetch = async () => { await client.refetc
 createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={client}><MemoryRouter initialEntries={[route]}><SidebarProvider>
     <Sidebar />
-    <UploadOverview />
     <Routes>
       <Route path="/setter" element={<SetterAreaLayout />}>
         <Route index element={<Setter />} />

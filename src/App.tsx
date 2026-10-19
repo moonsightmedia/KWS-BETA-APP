@@ -98,7 +98,6 @@ import { PullToRefreshHandler } from '@/components/PullToRefreshHandler';
 import { Capacitor } from '@capacitor/core';
 
 import { SidebarProvider } from '@/components/SidebarContext';
-import { UploadOverview } from '@/components/UploadOverview';
 import { UploadProvider } from '@/contexts/UploadContext';
 import { initializeErrorHandler, setErrorHandlerUserContext } from '@/utils/errorHandler';
 import { initSentry, setSentryUser } from '@/utils/sentry';
@@ -334,7 +333,6 @@ const Root = () => {
               <ReviewEnvironmentNotice />
               <PullToRefreshHandler />
               <AppNavigation />
-              <UploadOverview />
               <EmergencyReset />
               <MonitoringConsentPrompt />
               <TrainingProvider key={user?.id ?? 'guest'} accountId={user?.id ?? 'guest'}>

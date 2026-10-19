@@ -441,7 +441,7 @@ function SessionSheet({
                 setErrorMessage(null);
               }}
               placeholder="Was möchtest du dir merken?"
-              className="resize-none rounded-kws-control border-border bg-white text-sm focus-visible:ring-brand-ink/25"
+              className="resize-none rounded-kws-control border-border bg-white text-base leading-5 md:text-sm focus-visible:ring-brand-ink/25"
             />
           </div>
 
@@ -619,7 +619,7 @@ export function BoulderInfoTab({ boulder }: { boulder: Boulder }) {
                 placeholder="Kommentar schreiben …"
                 aria-label="Kommentar schreiben"
                 maxLength={1000}
-                className="h-10 min-w-0 rounded-kws-control border-0 bg-transparent px-2.5 text-sm shadow-none focus-visible:ring-2 focus-visible:ring-brand-ink/20 focus-visible:ring-offset-0"
+                className="h-10 min-w-0 rounded-kws-control border-0 bg-transparent px-2.5 text-base md:text-sm shadow-none focus-visible:ring-2 focus-visible:ring-brand-ink/20 focus-visible:ring-offset-0"
               />
               <button
                 type="submit"

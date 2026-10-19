@@ -20,7 +20,7 @@ const statusLabels: Record<UploadStatus, string> = {
 };
 
 type UploadOverviewProps = {
-  placement?: 'floating' | 'inline';
+  placement?: 'floating' | 'inline' | 'header';
 };
 
 export const UploadOverview = ({ placement = 'floating' }: UploadOverviewProps) => {
@@ -71,7 +71,8 @@ export const UploadOverview = ({ placement = 'floating' }: UploadOverviewProps) 
     : errorCount ? `${errorCount} fehlgeschlagen`
     : waitingCount ? `${waitingCount} ohne Verbindung`
     : processingCount ? `${processingCount} in Verarbeitung` : '';
-  const showSummary = Boolean(summary);
+  const isHeader = placement === 'header';
+  const showSummary = Boolean(summary) && !isHeader;
 
   const handleFileSelect = async (sessionId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -142,21 +143,27 @@ export const UploadOverview = ({ placement = 'floating' }: UploadOverviewProps) 
           ref={triggerRef}
           variant="default"
           size="lg"
-          aria-label="Upload-Übersicht öffnen"
-          title="Upload-Übersicht"
+          aria-label={isHeader && summary ? `Upload-Übersicht öffnen, ${summary}` : 'Upload-Übersicht öffnen'}
+          title={isHeader && summary ? summary : 'Upload-Übersicht'}
           className={cn(
             "rounded-kws-card shadow-soft transition-colors duration-200 flex items-center justify-center gap-3",
-            placement === 'inline'
+            isHeader
+              ? "relative h-11 w-11 min-w-11 shrink-0 rounded-kws-control bg-secondary p-0 shadow-none [&>svg]:h-5 [&>svg]:w-5"
+              : placement === 'inline'
               ? "pointer-events-auto min-w-0 max-w-[calc(100%-4.25rem)]"
               : "upload-overview-trigger fixed left-4 md:left-auto md:right-8 z-30",
-            showSummary ? cn("px-4 h-14", placement === 'floating' && "max-w-[calc(100vw-6rem)] md:max-w-none") : "h-14 w-14 shrink-0 p-0",
-            "bg-background text-foreground hover:bg-secondary",
+            !isHeader && (showSummary ? cn("px-4 h-14", placement === 'floating' && "max-w-[calc(100vw-6rem)] md:max-w-none") : "h-14 w-14 shrink-0 p-0"),
+            !isHeader && "bg-background",
+            "text-foreground hover:bg-secondary",
             (errorCount > 0 || recoveryStatus === 'error') && "text-destructive"
           )}
         >
           {recoveryStatus === 'checking' ? <Loader2 className="h-6 w-6 shrink-0 animate-spin motion-reduce:animate-none" />
             : errorCount > 0 || reviewCount > 0 || recoveryStatus === 'error' ? <AlertCircle className="h-6 w-6 shrink-0" />
             : <Upload className="h-6 w-6 shrink-0 text-primary" />}
+          {isHeader && activeUploads.length > 0 && (
+            <span aria-hidden="true" className="absolute -right-1 -top-1 min-w-4 rounded-kws-badge bg-primary px-[3px] text-[10px] font-semibold leading-4 text-primary-foreground">{activeUploads.length}</span>
+          )}
           {showSummary && (
             <div className="flex min-w-0 flex-col items-start text-sm text-left">
               <span className="font-semibold whitespace-normal leading-tight">{summary}</span>
