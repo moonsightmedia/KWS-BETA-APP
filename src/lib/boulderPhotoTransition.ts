@@ -1,8 +1,8 @@
 import { flushSync } from "react-dom";
 
-type PhotoTransition = { finished: Promise<void>; skipTransition: () => void };
+type PhotoTransition = { ready: Promise<void>; finished: Promise<void>; skipTransition: () => void };
 type TransitionDocument = Document & {
-  startViewTransition?: (update: () => Promise<void>) => PhotoTransition;
+  startViewTransition?: (update: () => void) => PhotoTransition;
 };
 let active: PhotoTransition | undefined;
 
@@ -31,16 +31,13 @@ export function withBoulderPhotoTransition(
   doc.documentElement.dataset.boulderPhotoTransition = "";
   let updated = false;
   try {
-    const transition = doc.startViewTransition(async () => {
+    const transition = doc.startViewTransition(() => {
       updated = true;
       flushSync(update);
       doc.querySelector("[data-boulder-detail-scroll] .kws-detail-enter")?.setAttribute("data-photo-animated", "");
-      // Let the mounted media and its cached poster settle before the snapshot.
-      await new Promise<void>((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-      );
     });
     active = transition;
+    void transition.ready.catch(() => undefined);
     void transition.finished
       .catch(() => undefined)
       .then(() => {
