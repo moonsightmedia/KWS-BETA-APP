@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { KwsSurface } from '@/components/ui/kws-surface';
 import { AlertCircle, ArrowUpDown, ChevronRight, Grid3X3, Info, List, Loader2, LogIn, RefreshCw, Search, SlidersHorizontal, Trophy, Video, X } from 'lucide-react';
-import { BoulderVideoFeed } from '@/components/boulder/BoulderVideoFeed';
+import { BoulderVideoFeed } from '@/components/boulder/BoulderVideoFeedEntry';
 import { BoulderCardCaption } from '@/components/boulder/BoulderCardCaption';
 import { hasBoulderVideo } from '@/lib/boulderFeed';
 import { useRetainedBoulderOrigin } from '@/components/BoulderRouteContinuity';

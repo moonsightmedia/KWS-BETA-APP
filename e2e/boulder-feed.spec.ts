@@ -38,6 +38,18 @@ async function backend(page: Page) {
   return store;
 }
 const frame = (page: Page) => page.locator('.kws-feed .reel-page[data-active=true]');
+
+test('regular guest list does not load feed community code until the third view opens', async ({ page }) => {
+  await backend(page);
+  const requested: string[] = [];
+  page.on('request', request => requested.push(request.url()));
+  await page.goto('/test/fixtures/boulder-feed.html?guest#/guest');
+  await expect(page.getByRole('button', { name: 'Videoansicht', exact: true })).toBeVisible();
+  expect(requested.some(url => url.includes('/useBoulderFeedCommunity.'))).toBe(false);
+  await page.getByRole('button', { name: 'Videoansicht', exact: true }).click();
+  await expect(frame(page).locator('video')).toHaveJSProperty('readyState', 4);
+  expect(requested.some(url => url.includes('/useBoulderFeedCommunity.'))).toBe(true);
+});
 test('combined guest onboarding waits for a persisted video feed and keeps its filter tour', async ({ page }) => {
   const store = await backend(page);
   await page.addInitScript(() => localStorage.setItem('boulder_view_mode', 'video'));

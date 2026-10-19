@@ -6,7 +6,7 @@ import { boulderNavigationState } from '@/lib/boulderNavigation';
 import { backendStorageKey } from '@/lib/backendConfig';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Bookmark, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Grid3X3, List, Map as MapIcon, RotateCcw, Search, SlidersHorizontal, Sparkles, Star, Video, X } from 'lucide-react';
-import { BoulderVideoFeed } from '@/components/boulder/BoulderVideoFeed';
+import { BoulderVideoFeed } from '@/components/boulder/BoulderVideoFeedEntry';
 import { useRetainedBoulderOrigin } from '@/components/BoulderRouteContinuity';
 import { hasBoulderVideo } from '@/lib/boulderFeed';
 import { BoulderFilterControls, BoulderFilterPanel, BoulderSortPanel, FilterSection, FilterToggle } from '@/components/boulder/BoulderFilterControls';

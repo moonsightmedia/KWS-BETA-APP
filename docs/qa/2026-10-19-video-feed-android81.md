@@ -17,7 +17,11 @@ checks, artifact verification and internal publication are captured in the task
 handoff and updated PR59 description when complete. Source design and broader
 isolated feed tests remain in docs/qa/2026-10-19-boulder-video-feed.md.
 
-VersionCode81 / versionName1.0.250 is for the existing internal Play track only.
+The initial81 draft was uploaded but not published. Static imports also pulled
+feed community hooks into older isolated list/grid fixtures with narrower hook
+exports. A shared lazy entry now loads those modules only when video mode opens;
+an integration regression checks this boundary. Final candidate is VersionCode82
+/ versionName1.0.250, for the existing internal Play track only.
 Public79 and Apple are outside this update. Keep the existing upload signature,
 Hostinger/review configuration, optional encoder and permission boundaries.
 Do not infer physical81 installation from successful compilation or upload.
