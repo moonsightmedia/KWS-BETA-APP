@@ -1,0 +1,15 @@
+[Unit]
+Description=Publish restricted external KWS availability snapshot
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/python3 /opt/moonsight-hub/integrations/kws-availability/availability-bridge.py
+TimeoutStartSec=45
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+UMask=0077
