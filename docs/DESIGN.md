@@ -195,6 +195,13 @@ keine vorgerundete Fläche oder Schatten in den adaptiven Ebenen. Änderungen
 werden aus public/brand/beta-icon.svg mit scripts/generate-android-icons.cjs
 reproduzierbar exportiert. Das alte KWS-Homescreen-Icon wird nicht weiterverwendet.
 
+Nutzerbestätigung19.10.2026: Dasselbe grüne Beta-Appsymbol gilt auch für iOS,
+TestFlight und beide Store-Einträge. Originales weißes Zeichen auf #36B531,
+ohne Schrift oder Kletterwelt-Weltkugel. Die iOS-1024px- und Play-512px-Dateien
+exportiert `scripts/generate-store-icons.cjs` aus derselben Vektorkontur und
+demselben Ausschnitt wie Android. Beide Exporte sind quadratisch, deckend und
+ohne vorweggenommene Systemmaske; Apple bzw. Android setzen die äußere Form.
+
 Die lokale Designvorschau verwendet separate Beispieldaten. Der freigegebene
 Web-Release bindet nur die regulären App-Komponenten und die bestehende
 Produktionskonfiguration ein; Vorschau-Fixtures werden nicht veröffentlicht.
