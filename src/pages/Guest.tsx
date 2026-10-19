@@ -19,7 +19,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { KwsSurface } from '@/components/ui/kws-surface';
-import { AlertCircle, ArrowUpDown, ChevronRight, Info, Loader2, LogIn, RefreshCw, Search, SlidersHorizontal, Trophy, X } from 'lucide-react';
+import { AlertCircle, ArrowUpDown, ChevronRight, Grid3X3, Info, List, Loader2, LogIn, RefreshCw, Search, SlidersHorizontal, Trophy, Video, X } from 'lucide-react';
+import { BoulderVideoFeed } from '@/components/boulder/BoulderVideoFeed';
+import { BoulderCardCaption } from '@/components/boulder/BoulderCardCaption';
+import { hasBoulderVideo } from '@/lib/boulderFeed';
+import { useRetainedBoulderOrigin } from '@/components/BoulderRouteContinuity';
 import { DifficultyBadge } from '@/components/boulder/DifficultyBadge';
 import { BoulderTypeBadge } from '@/components/boulder/BoulderTypeBadge';
 import type { Boulder } from '@/types/boulder';
@@ -39,6 +43,10 @@ const Guest = () => {
   const isCompetitionEnabled = import.meta.env.VITE_ENABLE_COMPETITION === 'true';
   const navigate = useNavigate();
   const location = useLocation();
+  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'video'>(() => { try { const stored = localStorage.getItem('boulder_view_mode'); return stored === 'grid' || stored === 'video' ? stored : 'list'; } catch { return 'list'; } });
+  const previousView = useRef<'list' | 'grid'>(viewMode === 'grid' ? 'grid' : 'list');
+  const coveredByDetail = useRetainedBoulderOrigin();
+  useEffect(() => { try { localStorage.setItem('boulder_view_mode', viewMode); } catch { /* Session selection still works. */ } }, [viewMode]);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [loadedThumbnails, setLoadedThumbnails] = useState<Set<string>>(new Set());
   const colorsQuery = useColors();
@@ -71,7 +79,7 @@ const Guest = () => {
       setIsRetrying(false);
     }
   };
-  
+
   // Note: Hooks already have refetchOnMount: true, so data will be reloaded automatically
   const [showSearch, setShowSearch] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -110,7 +118,7 @@ const Guest = () => {
 
     // show only hanging boulders in guest view
     list = list.filter((b) => b.status !== 'abgeschraubt');
-    
+
     if (sectorFilters.length > 0) {
       // Filter: Boulder erscheint, wenn er in einem der beiden Sektoren ist
       list = list.filter(b => {
@@ -135,7 +143,7 @@ const Guest = () => {
         return b.name.toLowerCase().includes(q) || sectorText.toLowerCase().includes(q);
       });
     }
-    
+
     // Sortierung
     const sorted = [...list].sort((a, b) => {
       let result = 0;
@@ -159,15 +167,16 @@ const Guest = () => {
       }
       return sortOrder === 'asc' ? result : -result;
     });
-    
+
     return sorted;
   }, [boulders, sectorFilters, difficultyFilters, colorFilters, searchQuery, sortBy, sortOrder]);
 
   const tourBoulder = filtered.find(b => b.betaVideoUrl || b.betaVideoUrls?.hd || b.betaVideoUrls?.sd || b.betaVideoUrls?.low) ?? filtered[0];
   useEffect(() => {
-    reportGuest({ ready: !isLoading && !showDataError, boulder: tourBoulder, filtersOpen: showFilters && !showDataError && !isLoading, openFilters: openTourFilters });
+    // The tour targets the regular list/grid, never the inert page behind a feed.
+    reportGuest({ ready: !isLoading && !showDataError && viewMode !== 'video', boulder: tourBoulder, filtersOpen: showFilters && !showDataError && !isLoading, openFilters: openTourFilters });
     return () => reportGuest(null);
-  }, [reportGuest, isLoading, showDataError, tourBoulder, showFilters, openTourFilters]);
+  }, [reportGuest, isLoading, showDataError, tourBoulder, showFilters, openTourFilters, viewMode]);
 
   // Reset loaded thumbnails when filtered list changes
   useEffect(() => {
@@ -179,7 +188,7 @@ const Guest = () => {
   const thumbnailUrlMap = useMemo(() => {
     const map = new Map<string, string>();
     if (!filtered) return map;
-    
+
     filtered.forEach(b => {
       if (b.thumbnailUrl) {
         let url = b.thumbnailUrl;
@@ -259,8 +268,8 @@ const Guest = () => {
   // Thumbnails are loaded lazily using native browser lazy loading
   // No blocking preloading - page shows immediately
 
-  return (
-    <div data-guest-surface className="flex min-h-screen flex-col bg-brand-canvas">
+  return (<>
+    <div data-guest-surface className="flex min-h-screen flex-col bg-brand-canvas" aria-hidden={(viewMode === 'video' && !showDataError) || undefined} {...(viewMode === 'video' && !showDataError ? { inert: '' } : {})}>
         <header className="sticky top-0 z-30 border-b border-[#E7F0E8] bg-white/95 px-4 pb-3 pt-[calc(1rem+var(--app-safe-area-top))] backdrop-blur-xl md:pt-[calc(1.25rem+var(--app-safe-area-top))]">
           <div className="mx-auto max-w-4xl">
             <div className="flex items-center justify-between gap-3">
@@ -380,7 +389,7 @@ const Guest = () => {
               </div>
             )}
 
-            <BoulderFilterPanel tourHostRef={reportFilterHost} onShowResults={confirmFilters} open={showFilters && !showDataError && !isLoading} onOpenChange={setShowFilters} resultCount={filtered.length} activeCount={activeFilterCount} onReset={clearFilters}>
+            <BoulderFilterPanel tourHostRef={reportFilterHost} onShowResults={confirmFilters} open={showFilters && !showDataError && !isLoading} onOpenChange={setShowFilters} resultCount={viewMode === 'video' ? filtered.filter(hasBoulderVideo).length : filtered.length} activeCount={activeFilterCount} onReset={clearFilters}>
               {filterControls}
             </BoulderFilterPanel>
 
@@ -405,6 +414,7 @@ const Guest = () => {
 
         <main className="relative isolate mx-auto w-full max-w-4xl flex-1 p-4 md:p-8">
           <BrandWatermark />
+          <div className="mb-4 flex justify-end"><div role="group" aria-label="Ansicht wechseln" className="flex gap-1 rounded-kws-control bg-secondary p-1">{([{ value: 'list', label: 'Listenansicht', icon: List }, { value: 'grid', label: 'Gridansicht', icon: Grid3X3 }, { value: 'video', label: 'Videoansicht', icon: Video }] as const).map(option => <button key={option.value} type="button" aria-label={option.label} aria-pressed={viewMode === option.value} onClick={() => { if (option.value !== 'video') previousView.current = option.value; setShowSort(false); setShowSearch(false); setViewMode(option.value); }} className={cn('flex h-11 w-11 items-center justify-center rounded-kws-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', viewMode === option.value ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground')}><option.icon className="h-4 w-4"/></button>)}</div></div>
           {/* Nikolaus Wettkampf Navigation Card - Temporarily hidden */}
           {isCompetitionEnabled && (
             <Card className="mb-6 rounded-kws-card border border-[#E7F7E9] bg-white shadow-sm transition-shadow hover:shadow-md">
@@ -472,7 +482,7 @@ const Guest = () => {
           )}
         </KwsSurface>
       ) : (
-      <div className="grid grid-cols-1 gap-3 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] md:grid-cols-2 md:pb-[calc(2rem+env(safe-area-inset-bottom,0px))] lg:grid-cols-3">
+      <div className={cn('grid pb-[calc(7rem+env(safe-area-inset-bottom,0px))] md:pb-[calc(2rem+env(safe-area-inset-bottom,0px))]', viewMode === 'grid' ? 'grid-cols-3 gap-2.5 md:grid-cols-4 lg:grid-cols-5' : 'grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3')}>
         {filtered.map((b, index) => (
           <button
             key={b.id}
@@ -481,7 +491,7 @@ const Guest = () => {
             onClick={() => navigate(`/boulders/${b.id}`, { state: boulderNavigationState(location) })}
             className="w-full overflow-hidden rounded-kws-card bg-white p-0 text-left shadow-[0_3px_14px_rgba(19,17,43,0.07)] transition-[transform,box-shadow] hover:shadow-[0_6px_20px_rgba(19,17,43,0.11)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 focus-visible:ring-offset-2"
           >
-            <div className="flex min-h-[94px] items-stretch">
+            {viewMode === 'grid' ? <div className="relative aspect-[4/5] overflow-hidden"><img className="h-full w-full object-cover" src={getThumbnailUrl(b)} alt="" loading={index < 12 ? 'eager' : 'lazy'} decoding="async" onError={event => { event.currentTarget.src = placeholder; }}/><DifficultyBadge color={b.color} color2={b.color2} difficulty={b.difficulty} colors={colors} className="!bottom-auto !left-1.5 !right-auto !top-1.5 !h-6 !min-w-6 !px-1 !text-[10px]"/><BoulderTypeBadge volumeOnly={b.volumeOnly} compact className="absolute left-1.5 top-9"/><BoulderCardCaption overview name={b.name} area={b.sectorArea?.name ?? b.sector.replace(/\s+[A-Z][A-Z0-9]{0,2}$/, '')}/></div> : <div className="flex min-h-[94px] items-stretch">
               <div className="relative w-[5.75rem] shrink-0 overflow-hidden bg-muted">
                 <img
                   className="absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-300"
@@ -541,7 +551,7 @@ const Guest = () => {
 
                 <ChevronRight className="h-4 w-4 shrink-0 text-brand-ink/40" />
               </div>
-            </div>
+            </div>}
           </button>
         ))}
       </div>
@@ -549,6 +559,8 @@ const Guest = () => {
 
         </main>
     </div>
+    {viewMode === 'video' && !showDataError && <BoulderVideoFeed boulders={filtered.filter(hasBoulderVideo)} active={!coveredByDetail} loading={isLoading} onExit={() => setViewMode(previousView.current)} onDetail={id => navigate(`/boulders/${id}`, { state: boulderNavigationState(location) })} onFilter={() => { setShowFilters(true); setShowSort(false); }} filtersOpen={showFilters} filterCount={activeFilterCount} sortLabel={SORT_OPTIONS.find(option => option.key === activeSortKey)?.label ?? 'Neueste zuerst'} sortControls={close => <BoulderSortPanel className="kws-feed-sort" options={SORT_OPTIONS} selected={activeSortKey} onSelect={key => { const option = SORT_OPTIONS.find(entry => entry.key === key); if (option) { setSortBy(option.sortBy); setSortOrder(option.sortOrder); close(); } }}/>} onReset={() => { clearFilters(); setSearchQuery(''); }}/>}
+  </>
   );
 };
 

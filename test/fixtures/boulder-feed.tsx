@@ -1,0 +1,13 @@
+import { createRoot } from 'react-dom/client';
+import { HashRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
+import Boulders from '@/pages/Boulders';
+import Guest from '@/pages/Guest';
+import BoulderDetail from '@/pages/BoulderDetail';
+import { SidebarProvider } from '@/components/SidebarContext';
+import { BoulderRouteContinuity } from '@/components/BoulderRouteContinuity';
+import '@/index.css';
+const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+if (!location.hash) location.hash = '/boulders';
+createRoot(document.getElementById('root')!).render(<QueryClientProvider client={client}><HashRouter><SidebarProvider><div data-app-navigation>Navigation QA</div><Routes><Route element={<BoulderRouteContinuity/>}><Route path="/boulders" element={<Boulders/>}/><Route path="/guest" element={<Guest/>}/><Route path="/boulders/:id" element={<BoulderDetail/>}/></Route></Routes><Toaster/></SidebarProvider></HashRouter></QueryClientProvider>);
