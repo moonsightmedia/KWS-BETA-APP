@@ -1,6 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 const output = 'test-results/boulder-continuity-20261014';
+
+declare global {
+  interface Window {
+    photoTransitionChecks: { ready: string; finished: boolean; waitsForFrames: boolean }[];
+  }
+}
 test.use({trace:'off',video:'off'});
 async function open(page: Page, start = '/', network = 'fast') {
   page.on('pageerror',error=>console.error('Fixture page:',error.message));
@@ -116,6 +122,47 @@ test('Forward reopens detail; leaving the source releases its retained DOM',asyn
   await expect(page.getByTestId('route')).toHaveText('/statistics');
   expect(await page.evaluate(()=>(window as any).sourceImg.isConnected)).toBe(false);
 });
+
+for (const width of [375, 768, 1280, 1920]) {
+  test(`photo transition completes without waiting for rendering frames (${width})`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.addInitScript(() => {
+      const start = document.startViewTransition.bind(document);
+      window.photoTransitionChecks = [];
+      document.startViewTransition = update => {
+        const check = { ready: 'pending', finished: false, waitsForFrames: false };
+        window.photoTransitionChecks.push(check);
+        const transition = start(() => {
+          const originalFrame = window.requestAnimationFrame;
+          window.requestAnimationFrame = () => { check.waitsForFrames = true; return 0; };
+          try {
+            return typeof update === 'function' ? update() : undefined;
+          } finally {
+            window.requestAnimationFrame = originalFrame;
+          }
+        });
+        void transition.ready.then(() => { check.ready = 'ready'; }, error => { check.ready = error.name; });
+        void transition.finished.then(() => { check.finished = true; }, () => {});
+        return transition;
+      };
+    });
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await open(page);
+    const card = page.getByRole('button', { name: /Kleine Kante, Grad/ }).first();
+    await expect.poll(() => card.locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    await card.click();
+    await expect(page.getByTestId('route')).toHaveText('/boulders/b-1');
+    await expect.poll(() => page.evaluate(() => window.photoTransitionChecks)).toEqual([
+      { ready: 'ready', finished: true, waitsForFrames: false },
+    ]);
+    await expect(page.locator('html')).not.toHaveAttribute('data-boulder-photo-transition');
+    await page.getByRole('button', { name: 'Zurück zur Startseite', exact: true }).click();
+    await expect(page.getByTestId('route')).toHaveText('/');
+    expect(errors).toEqual([]);
+  });
+}
 
 for (const width of [375,768,1280,1920]) {
 test(`scrolled overview keeps its painted geometry throughout detail and return (${width})`,async({page})=>{
