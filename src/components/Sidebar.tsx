@@ -20,7 +20,7 @@ import { TRAINING_UI_ENABLED } from '@/features/training/flags';
 import { useTrainingPreferences } from '@/features/training/trainingPreferences';
 import { AccountAvatar } from '@/components/AccountAvatar';
 import { AdminMobileNavigation } from '@/components/admin/AdminMobileNavigation';
-import { ADMIN_TABS } from '@/lib/adminNavigation';
+import { ADMIN_TABS, resolveAdminTab } from '@/lib/adminNavigation';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
@@ -309,7 +309,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
     ] },
     { title: 'Zur App', visible: true, items: [{ icon: LayoutDashboard, label: 'Zur App', path: '/' }] },
   ] : location.pathname === '/admin' && stableIsAdmin ? [
-    { title: 'Administration', visible: true, items: ADMIN_TABS.map(tab => ({ icon: { users: Users, settings: Settings2, moderation: ShieldCheck, feedback: MessageSquare, monitoring: Activity, logs: ClipboardList, tests: Bell }[tab.value], label: tab.label, path: `/admin?tab=${tab.value}` })) },
+    { title: 'Administration', visible: true, items: ADMIN_TABS.map(tab => ({ icon: { overview: LayoutDashboard, users: Users, settings: Settings2, moderation: ShieldCheck, feedback: MessageSquare, monitoring: Activity, logs: ClipboardList, tests: Bell }[tab.value], label: tab.label, path: `/admin?tab=${tab.value}` })) },
     { title: 'Zur App', visible: true, items: [{ icon: LayoutDashboard, label: 'Zur App', path: '/' }] },
   ] : [
     {
@@ -396,7 +396,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                         isActive = location.pathname === item.path || (location.pathname === '/setter' && item.path === `/setter/${legacyView === 'batch' ? 'create' : legacyView}`);
                       } else if (item.path.startsWith('/admin')) {
                         const itemTab = item.path.split('?tab=')[1];
-                        const currentTab = searchParams.get('tab') || 'users';
+                        const currentTab = resolveAdminTab(searchParams.get('tab'));
                         isActive = location.pathname === '/admin' && itemTab === currentTab;
                       } else {
                         isActive = item.path === '/training' ? location.pathname === '/training' || location.pathname.startsWith('/training/') : location.pathname === item.path;
@@ -516,7 +516,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
                           : item.path.startsWith('/admin')
                             ? location.pathname === '/admin' && (() => {
                                 const itemTab = item.path.split('?tab=')[1];
-                                const currentTab = searchParams.get('tab') || 'users';
+                                const currentTab = resolveAdminTab(searchParams.get('tab'));
                                 return itemTab === currentTab;
                               })()
                             : location.pathname === item.path;

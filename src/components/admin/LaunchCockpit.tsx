@@ -46,8 +46,8 @@ function SourceNotice({ source, label }: { source: MonitoringSource; label: stri
   return <div className="space-y-1 p-4"><p className="text-sm font-semibold">{label}: {sourceStates[source.state]}</p><p className="text-sm text-muted-foreground">{source.detail || 'Für diesen Zeitraum liegen keine bestätigten Daten vor.'}</p>{source.last_updated_at && <p className="text-xs text-muted-foreground">Letzter Eingang: {dateTime(source.last_updated_at)}</p>}</div>;
 }
 
-export function LaunchCockpit({ view, onViewChange, connection, accountId }: { view: MonitoringView; onViewChange: (value: MonitoringView) => void; connection: MonitoringConnection; accountId: string }) {
-  const [filters, setFilters] = useState<LaunchFilters>(defaultLaunchFilters);
+export function LaunchCockpit({ view, onViewChange, connection, accountId, initialDays = 1 }: { view: MonitoringView; onViewChange: (value: MonitoringView) => void; connection: MonitoringConnection; accountId: string; initialDays?: LaunchFilters['days'] }) {
+  const [filters, setFilters] = useState<LaunchFilters>(() => ({ ...defaultLaunchFilters, days: initialDays }));
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [issueWorkspace, setIssueWorkspace] = useState(defaultIssueWorkspace);
   const [selected, setSelected] = useState<LaunchIssue | null>(null);
