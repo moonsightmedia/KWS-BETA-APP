@@ -138,3 +138,33 @@ is inferred from a successful local build or a saved draft.
 Country selection is saved as Germany only. IARC is complete (USK0/PEGI3), while
 account creation and the target audience are16+. Store phone screenshots and
 final Data Safety details remain open at this checkpoint. Apple90 is unchanged.
+
+## Later checkpoint — current main, privacy and Google validation
+
+- Three isolated review-role credentials were explicitly authorised and saved
+  under Google App Access. Target audience16–17 and18+ and the complete Data
+  Safety declaration are saved. The listing is ready for review with four
+  unmodified432×768 captures of the actual responsive app UI (boulders, video,
+  filters, login); these are not claimed as physical Android device tests.
+- Disabled automatic diagnostics now return without legacy screenshot/feedback
+  transmission; explicit user reports remain possible. Four policy regression
+  tests cover disabled collection, upload errors, enabled collection and manual
+  reporting. The complete local suite passes330 tests after merging mainbc0d5f3,
+  including setter quick actions and stable boulder entry. CI39250503286 passed.
+- Repeated the two visual QA loops on375/768/1280/1920px after that merge. Home
+  and administration keep the notice/header/sidebar clear without horizontal
+  overflow. A375px capture taken during the sidebar transition was replaced
+  after the layout settled. Temporary viewport overrides were cleared.
+- AAB75 frombfbddb315a2c348c513b49041eed4b35c0783a2a was validated, signed and
+  accepted/saved by Google; SHA256
+  fd39a71c95128f38e52142de661d9620eb868065520076f96d24a1a846090652.
+  Server secrets are excluded and all eight native ELF libraries align to16KB.
+- Google's final validation exposed unused FOREGROUND_SERVICE_DATA_SYNC from
+  the optional, unwired Capgo uploader. No application code imports that plugin;
+  uploads use the active WebView's existing chunked path. Remove its two
+  services, broadcast receiver and foreground-service permissions at manifest
+  merge. Build76 supersedes75 and must be checked in the actual packaged
+  manifest before upload. Do not falsely declare background functionality or
+  remove protection to satisfy the form. No Google submission yet.
+- The external account-deletion anchor still requires the regular main/CI web
+  release before review submission. Apple90 remains unchanged.
