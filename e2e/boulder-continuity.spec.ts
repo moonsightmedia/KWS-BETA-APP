@@ -1,6 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 const output = 'test-results/boulder-continuity-20261014';
+
+declare global {
+  interface Window {
+    boulderMotionAnimations: Animation[];
+    boulderNativeTransitions: number;
+  }
+}
 test.use({trace:'off',video:'off'});
 async function open(page: Page, start = '/', network = 'fast') {
   page.on('pageerror',error=>console.error('Fixture page:',error.message));
@@ -34,10 +41,8 @@ for (const width of [375,768,1280,1920]) {
     await expect.poll(()=>card.locator('img').evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     await card.click();
     await expect(page.getByTestId('route')).toHaveText('/boulders/b-1');
-    if (await page.evaluate(()=> 'startViewTransition' in document)) {
-      await expect(page.locator('.kws-detail-enter')).toHaveAttribute('data-photo-animated','');
-      await expect(page.locator('.kws-detail-enter')).toHaveCSS('animation-name','none');
-    }
+    await expect(page.locator('.kws-detail-enter')).toHaveCSS('transform','none');
+    await expect(page.locator('html')).not.toHaveAttribute('data-boulder-photo-transition');
     const originScroll = Number(await page.getByTestId('origin-scroll').textContent());
     await expect(page.locator('video')).toHaveJSProperty('readyState',4);
     await expect(page.getByRole('button',{name:'Videoqualität: HD'})).toBeVisible();
@@ -116,6 +121,109 @@ test('Forward reopens detail; leaving the source releases its retained DOM',asyn
   await expect(page.getByTestId('route')).toHaveText('/statistics');
   expect(await page.evaluate(()=>(window as any).sourceImg.isConnected)).toBe(false);
 });
+
+test('quick Back and Forward remain usable even while entry is paused', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.addInitScript(() => {
+    document.addEventListener('animationstart', event => {
+      if (event.animationName !== 'kws-detail-enter') return;
+      document.getAnimations().forEach(animation => {
+        if (animation.effect instanceof KeyframeEffect && animation.effect.target instanceof Element
+          && animation.effect.target.matches('.kws-detail-enter')) {
+          animation.pause();
+          animation.currentTime = 0;
+        }
+      });
+    });
+  });
+  await open(page);
+  for (let visit = 0; visit < 2; visit++) {
+    await page.getByRole('button', { name: /Kleine Kante, Grad/ }).first().click();
+    await expect(page.getByTestId('route')).toHaveText('/boulders/b-1');
+    await expect(page.locator('.kws-detail-enter')).toHaveCSS('opacity', '0.92');
+    await page.getByRole('button', { name: 'Zurück zur Startseite', exact: true }).click();
+    await expect(page.getByTestId('route')).toHaveText('/');
+  }
+  await page.getByRole('button', { name: 'Verlauf vor', exact: true }).click();
+  await expect(page.getByTestId('route')).toHaveText('/boulders/b-1');
+  await page.getByRole('button', { name: 'Verlauf zurück', exact: true }).click();
+  await expect(page.getByTestId('route')).toHaveText('/');
+});
+
+for (const width of [375, 768, 1280, 1920]) {
+  test(`detail entry keeps media and header fixed throughout every frame (${width})`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.addInitScript(() => {
+      window.boulderMotionAnimations = [];
+      window.boulderNativeTransitions = 0;
+      const pauseEntry = () => {
+        for (const animation of document.getAnimations()) {
+          const effect = animation.effect;
+          if (effect instanceof KeyframeEffect && effect.target instanceof Element
+            && (effect.target === document.documentElement || effect.target.matches('.kws-detail-enter'))) {
+            animation.pause();
+            animation.currentTime = 0;
+            if (!window.boulderMotionAnimations.includes(animation)) window.boulderMotionAnimations.push(animation);
+          }
+        }
+      };
+      document.addEventListener('animationstart', event => {
+        if (event.animationName === 'kws-detail-enter') pauseEntry();
+      });
+      const start = document.startViewTransition?.bind(document);
+      if (start) document.startViewTransition = update => {
+        window.boulderNativeTransitions++;
+        const transition = start(update);
+        void transition.ready.then(pauseEntry, () => {});
+        return transition;
+      };
+    });
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await open(page);
+    const card = page.getByRole('button', { name: /Kleine Kante, Grad/ }).first();
+    await expect.poll(() => card.locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    await page.evaluate(() => document.fonts.ready);
+    await card.click();
+    await expect(page.getByTestId('route')).toHaveText('/boulders/b-1');
+    await expect.poll(() => page.evaluate(() => window.boulderMotionAnimations.length)).toBeGreaterThan(0);
+    const frames = [];
+    const proof = `test-results/boulder-motion-20261019/${process.env.KWS_MOTION_PROOF ?? 'after'}`;
+    await mkdir(proof, { recursive: true });
+    for (const currentTime of [0, 75, 150]) {
+      const frame = await page.evaluate(currentTime => {
+        window.boulderMotionAnimations.forEach(animation => { animation.currentTime = currentTime; });
+        const detail = document.querySelector<HTMLElement>('.kws-detail-enter')!;
+        const layer = document.querySelector<HTMLElement>('[data-boulder-detail-scroll]')!;
+        const rect = (selector: string) => {
+          const bounds = layer.querySelector(selector)!.getBoundingClientRect();
+          return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
+        };
+        return {
+          media: rect('video'), header: rect('h1'),
+          transform: getComputedStyle(detail).transform,
+          layerOpacity: getComputedStyle(layer).opacity,
+          layerBackground: getComputedStyle(layer).backgroundColor,
+          overflow: document.documentElement.scrollWidth > innerWidth,
+        };
+      }, currentTime);
+      frames.push(frame);
+      await page.screenshot({ path: `${proof}/entry-${width}-${currentTime}.png` });
+    }
+    expect(frames.every(frame => JSON.stringify(frame) === JSON.stringify(frames[0]))).toBe(true);
+    expect(frames[0].transform).toBe('none');
+    expect(frames[0].layerOpacity).toBe('1');
+    expect(frames[0].layerBackground).not.toBe('rgba(0, 0, 0, 0)');
+    expect(frames[0].overflow).toBe(false);
+    expect(await page.evaluate(() => window.boulderNativeTransitions)).toBe(0);
+    await page.evaluate(() => window.boulderMotionAnimations.forEach(animation => animation.finish()));
+    await expect(page.locator('html')).not.toHaveAttribute('data-boulder-photo-transition');
+    await page.getByRole('button', { name: 'Zurück zur Startseite', exact: true }).click();
+    await expect(page.getByTestId('route')).toHaveText('/');
+    expect(errors).toEqual([]);
+  });
+}
 
 for (const width of [375,768,1280,1920]) {
 test(`scrolled overview keeps its painted geometry throughout detail and return (${width})`,async({page})=>{

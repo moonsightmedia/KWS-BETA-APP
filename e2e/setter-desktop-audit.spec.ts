@@ -27,7 +27,8 @@ async function shot(page: Page, name: string) {
   await page.screenshot({path:`${output}/${name}.png`,animations:'disabled'});
 }
 async function assertFrame(page: Page, width: number) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+  expect(await page.evaluate(() => innerWidth)).toBe(width);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   const sidebar = await page.locator('#desktop-navigation').boundingBox();
   const main = await page.locator('main').boundingBox();
   expect(main!.x).toBeGreaterThanOrEqual(sidebar!.x+sidebar!.width-1);
@@ -155,9 +156,10 @@ for (const [width,height] of [[1280,720],[1920,1080]]) {
       await page.evaluate(()=>{window.setterQA.fail=false;});
       await page.getByRole('button',{name:'Speichern',exact:true}).click();
       await expect(page.getByRole('dialog')).toHaveCount(0);
-      await page.getByRole('button',{name:'Kleine Kante bearbeiten',exact:true}).click();
+      await page.getByRole('textbox',{name:'Boulder suchen',exact:true}).fill('Desktop geändert');
+      await page.getByRole('button',{name:'Desktop geändert bearbeiten',exact:true}).click();
       await page.getByRole('button',{name:'Boulder löschen',exact:true}).click();
-      await expect(page.getByRole('alertdialog')).toContainText('Kleine Kante');
+      await expect(page.getByRole('alertdialog')).toContainText('Desktop geändert');
       await page.getByRole('alertdialog').getByRole('button',{name:'Abbrechen',exact:true}).click();
       expect(await page.evaluate(()=>window.setterQA.writes.filter(w=>w.kind==='delete-boulder'))).toEqual([]);
     });
@@ -240,7 +242,7 @@ for (const [width,height] of [[375,812],[768,1024],[1280,720],[1920,1080]]) {
     await expect(page.getByRole('status').filter({hasText:/\d+ Boulder/})).toHaveCount(0);
     await openSetter(page,'/setter/edit','&empty');
     await expect(page.getByRole('status').filter({hasText:'0 Boulder'})).toBeVisible();
-    await expect(page.getByText('Keine Boulder gefunden',{exact:true})).toBeVisible();
+    await expect(page.getByText('Noch keine Boulder',{exact:true})).toBeVisible();
     await openSetter(page,'/setter/status');
     await page.getByLabel('Boulder suchen',{exact:true}).fill('Kleine Kante 6');
     await expect(page.getByRole('status').filter({hasText:'1 Boulder'})).toHaveText('1 Boulder · 1 Sektor');

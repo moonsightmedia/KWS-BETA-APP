@@ -1,4 +1,3 @@
-import { withBoulderPhotoTransition } from '@/lib/boulderPhotoTransition';
 import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
@@ -464,7 +463,7 @@ const Guest = () => {
           <button
             key={b.id}
             type="button"
-            onClick={event => withBoulderPhotoTransition(() => navigate(`/boulders/${b.id}`, { state: boulderNavigationState(location) }), event.currentTarget)}
+            onClick={() => navigate(`/boulders/${b.id}`, { state: boulderNavigationState(location) })}
             className="w-full overflow-hidden rounded-kws-card bg-white p-0 text-left shadow-[0_3px_14px_rgba(19,17,43,0.07)] transition-[transform,box-shadow] hover:shadow-[0_6px_20px_rgba(19,17,43,0.11)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 focus-visible:ring-offset-2"
           >
             <div className="flex min-h-[94px] items-stretch">

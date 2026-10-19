@@ -69,10 +69,10 @@
 }
 
 @keyframes kws-detail-enter {
-  from { transform: translateY(6px); }
-  to { transform: translateY(0); }
+  from { opacity: 0.92; }
+  to { opacity: 1; }
 }
-.kws-detail-enter { animation: kws-detail-enter 180ms ease-out; }
+.kws-detail-enter { animation: kws-detail-enter 150ms ease-out; }
 @media (prefers-reduced-motion: reduce) {
   .kws-detail-enter { animation: none; }
 }
@@ -619,24 +619,11 @@ All colors MUST be HSL.
   [role="switch"], [role="switch"] > span { transition: none !important; }
 }
 
-/* Shared photo already supplies the entry motion; do not fade its snapshot as well. */
+/* Keep the explicit review notice clear of the sidebar and fixed app header. */
 html[data-kws-review] .kws-sidebar {
   top: var(--kws-review-notice-height, 0px);
   height: calc(100dvh - var(--kws-review-notice-height, 0px));
 }
 html[data-kws-review] [data-kws-dashboard-header] {
   top: var(--kws-review-notice-height, 0px);
-}
-.kws-detail-enter[data-photo-animated] { animation: none; }
-
-/* Only the selected photo participates; the retained, inert source never duplicates it. */
-@media (prefers-reduced-motion: no-preference) {
-  html[data-boulder-photo-transition] [data-boulder-photo-source],
-  html[data-boulder-photo-transition] [data-boulder-photo-detail] { view-transition-name: boulder-photo; }
-  html[data-boulder-photo-transition] [aria-hidden="true"] [data-boulder-photo-source] { view-transition-name: none; }
-  html[data-boulder-photo-transition]::view-transition-old(root),
-  html[data-boulder-photo-transition]::view-transition-new(root) { animation: none; }
-  html[data-boulder-photo-transition]::view-transition-group(boulder-photo) { animation-duration: 180ms; animation-timing-function: ease-out; }
-  html[data-boulder-photo-transition]::view-transition-old(boulder-photo),
-  html[data-boulder-photo-transition]::view-transition-new(boulder-photo) { animation-duration: 180ms; }
 }

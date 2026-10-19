@@ -780,8 +780,9 @@ export function SetterBoulderEditorDialog({
       <SetterConfirm
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title="Boulder löschen?"
-        description={`„${draft.name}“ wird dauerhaft gelöscht.`}
+        title={`„${draft.name}“ löschen?`}
+        description={`„${draft.name}“ wird dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.`}
+        confirmLabel="Boulder löschen"
         onConfirm={async () => {
           await onDelete?.();
         }}

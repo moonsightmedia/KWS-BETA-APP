@@ -966,7 +966,7 @@ dieselbe visuelle Struktur.
   Während eines Detailbesuchs bleibt genau diese Ausgangsseite im Speicher:
   Bilder, Filter, Ansicht, Gruppen und Scrollposition bleiben erhalten. Andere
   Navigation und Kontowechsel geben sie frei. Direktlinks haben einen sicheren
-  Rückweg zur Übersicht. Ein kurzer 180-ms-Übergang entfällt bei Reduced Motion.
+  Rückweg zur Übersicht. Der kurze 150-ms-Eintritt entfällt bei Reduced Motion.
 - Beim Detailbesuch bleibt die Ausgangsseite auch gezeichnet und an derselben
   Dokumentposition. Die Detailseite besitzt eine eigene bildschirmfüllende
   Scrollebene. Der Hintergrund ist dabei `inert` und für Screenreader verborgen.
@@ -974,8 +974,12 @@ dieselbe visuelle Struktur.
   erneuter Seitenaufbau oder nachträglicher Scrollsprung. Klassische Scrollleisten
   werden beim Sperren des Hintergrunds ausgeglichen. Detailtabs und Pull-to-Refresh
   beziehen sich ausschließlich auf die aktive Scrollebene.
-  Die Vordergrundfläche ist ab dem ersten Frame deckend; nur ihr Inhalt bewegt
-  sich beim Eintritt leicht. Die Ausgangsseite darf dabei nicht durchscheinen.
+  Die Vordergrundfläche ist ab dem ersten Frame deckend. Nutzerkorrektur19.10.:
+  Bild, Video und Kopf stehen sofort an ihrer endgültigen Position; kein
+  Foto-Flug, Größenmorphing oder Verschieben der Detailseite. Nur eine dezente
+  150ms-Einblendung des Inhalts von92% auf100% Deckkraft; keine leere Startphase.
+  Die Ausgangsseite darf dabei nicht durchscheinen. Diese Regel ersetzt den
+  früheren gemeinsamen Foto-Snapshot-Übergang.
 - Videos wählen ihre Netzwerkqualität vor der ersten Medienanfrage. Gleiche
   URLs oder Änderungen anderer Detaildaten dürfen Wiedergabe nicht neu starten.
   Sichtbare Bilder haben Vorrang vor einem Vorladen des gesamten Katalogs.
@@ -2004,10 +2008,13 @@ unbelegten QR-/Store-Konversionen. Zwei gerenderte QA-Schleifen auf 375/768/1280
   erläutert die bestehende Wirkung. Profilfehler stehen am Feld; der erste Fehler
   erhält Fokus und Eingaben bleiben erhalten. Der Editor-Kopf nennt Boulder und
   Ungespeichert, ohne vorhandenen Verwerfenschutz oder festen Fuß zu ersetzen.
-- Ein optionaler 180ms-Fotoübergang verbindet ausdrücklich geöffnete Karten mit
-  dem Detail. Die Rücknavigation läuft sofort und behält vorhandene Filter,
-  Ansicht, Fokus und Scrollposition. Reduced Motion und fehlende Browser-API
-  erhalten die direkte Navigation. Keine zusätzlichen Videostarts für den Effekt.
+- Nutzerkorrektur19.10.2026 nach Sichtprüfung: Der verzerrende Foto-Flug entfällt.
+  Karten öffnen das Detail unmittelbar in seiner endgültigen Geometrie, mit
+  einer einzigen dezenten150ms-Deckkraftangleichung von92% auf100%. Kein
+  Größenmorphing, Positionsgleiten, nativer Foto-Snapshot oder zweiter Eintritt.
+  Die Rücknavigation läuft sofort und behält Filter, Ansicht, Fokus und
+  Scrollposition. Reduced Motion entfernt die Einblendung. Keine zusätzlichen
+  Videostarts oder Abhängigkeit von Bildladezustand/Browser-Animations-API.
 - Tracking zeigt Erfolg erst nach bestätigten Tages- und Status-Schreibvorgängen;
   Fehler erhalten Rücknahme und Wiederholungsmöglichkeit. Keine Erfolgsbestätigung
   allein aufgrund einer optimistischen Anzeige.
@@ -2031,3 +2038,33 @@ Prüfumfang und Belege: docs/design/designmotion-2026-10-19.md.
   Uploads ist der Wechsel gesperrt. Sitzungen und Rollen-Caches sind getrennt;
   die reguläre App bleibt der Standard. Eine nicht verfügbare Demo wechselt nie
   automatisch zu echten Betriebsdaten.
+### Nutzerfreigabe 19.10.2026 – Setter-Schnellaktionen (Videos 2, 3, 4, 6, 7)
+
+- Die Setter-Bearbeitenliste bietet einen benannten Stift zum direkten Umbenennen.
+  Das einzelne Namensfeld steht unter der betreffenden Zeile. Enter bzw.
+  „Name speichern“ bestätigt ausschließlich den getrimmten, nicht leeren Namen;
+  Escape/Abbrechen verwirft. Blur speichert nichts. Erfolg benötigt eine bestätigte
+  Antwort des bestehenden Schreibwegs; Fehler erhalten die Eingabe.
+- Während der Namensbearbeitung sind andere Zeilenaktionen, Suche, Filter und
+  Mehrfachauswahl gesperrt. Speichern sperrt auch die Formaktionen gegen doppelte
+  Ausführung. Ein zwischenzeitlicher Ladefehler erhält den offenen Namen im
+  Seitenentwurf; Wiederholen und Abbrechen bleiben erreichbar. Kein automatisches
+  Sichern oder Wiederherstellen nach einem App-Neustart ist damit freigegeben.
+- Ein sichtbares Drei-Punkte-Menü enthält Bearbeiten und abgetrenntes Löschen.
+  Die normale Zeile öffnet weiterhin direkt den vollständigen Editor. Mobil
+  stehen Stift und Menü übereinander, damit Namen nicht durch zwei zusätzliche
+  nebeneinanderstehende Iconbuttons zusammengedrückt werden.
+- Einzelnes Löschen aus Menü oder Editor nennt den Boulder im Titel, verwendet
+  „Boulder löschen“ und erklärt die Unwiderruflichkeit. Es löscht nur das konkrete
+  Objekt, unabhängig von einer bestehenden Sammelauswahl. Abbrechen und Fehler
+  bleiben im vorhandenen Bestätigungsablauf. Beim Schließen kehrt der Fokus zum
+  Auslöser bzw. nach dessen Entfernung zur Suche zurück.
+- Null Setter-Treffer nennen Suchbegriff/Auswahl und bieten in der Leerfläche
+  „Suche und Filter zurücksetzen“. Ein tatsächlich leerer Bestand ist getrennt.
+  Ladefehler erklären den erhaltenen Filter-/Suchkontext. Wiederholen liest die
+  vier beteiligten Quellen parallel, bleibt bis zum Abschluss sichtbar gesperrt
+  und zeigt bei unbestätigtem Bestand keine scheinbare Null.
+- Der optionale Admin-Schnellzugriff (Video 10) wird ausdrücklich nicht umgesetzt.
+  Upload-Ergänzungen und lokale Entwurfswiederherstellung sind weiter Vorschläge.
+
+Prüfumfang: docs/qa/2026-10-19-setter-quick-actions.md.

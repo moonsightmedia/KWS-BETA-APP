@@ -1,4 +1,3 @@
-import { cancelBoulderPhotoTransition } from '@/lib/boulderPhotoTransition';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { readBoulderOrigin } from '@/lib/boulderNavigation';
@@ -187,7 +186,6 @@ export default function BoulderDetail() {
   const backDestination = origin ? origin.pathname + origin.search + origin.hash : user ? '/boulders' : '/guest';
   const backLabel = origin?.pathname === '/' || origin?.pathname === '/app' ? 'Zurück zur Startseite' : 'Zurück zur Boulderübersicht';
   const goBack = () => {
-    cancelBoulderPhotoTransition();
     if (hasRetainedOrigin) navigate(-1);
     else navigate(backDestination, { replace: true });
   };
@@ -265,7 +263,7 @@ export default function BoulderDetail() {
 
       <div className="lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start lg:gap-x-8 xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] xl:gap-x-10">
         <section className="lg:sticky lg:top-[calc(5.75rem+var(--app-safe-area-top))] lg:self-start" aria-label="Boulder-Video">
-          <div data-boulder-photo-detail className="relative mx-auto flex aspect-[9/16] max-h-[min(60vh,720px)] w-full max-w-md items-center justify-center overflow-hidden rounded-kws-card bg-secondary shadow-[0_3px_14px_rgba(19,17,43,0.08)] lg:mx-0 lg:max-h-[calc(100vh-8rem)] lg:max-w-none">
+          <div className="relative mx-auto flex aspect-[9/16] max-h-[min(60vh,720px)] w-full max-w-md items-center justify-center overflow-hidden rounded-kws-card bg-secondary shadow-[0_3px_14px_rgba(19,17,43,0.08)] lg:mx-0 lg:max-h-[calc(100vh-8rem)] lg:max-w-none">
             {videoUrl ? (
               isYouTube ? (
                 <ExternalBetaVideo key={videoUrl} src={getYouTubeEmbedUrl(videoUrl)} provider="YouTube" />
