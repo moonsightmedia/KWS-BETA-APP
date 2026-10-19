@@ -257,9 +257,10 @@ test("schedule: valid date, physical IDs, pending lock, error retention and dele
     window.setterQA.writes.filter((w) => w.kind === "create-schedule"),
   );
   expect(writes).toHaveLength(2);
-  expect((writes[1].payload as { sectorIds: string[] }).sectorIds).toHaveLength(
-    2,
-  );
+  // Bug A is Atta-Höhle; the former second member is now the separate Kurze Platte.
+  expect((writes[1].payload as { sectorIds: string[] }).sectorIds).toEqual([
+    '21b1248b-5cf4-4492-aecd-e5ba2c139121',
+  ]);
   await page
     .getByRole("button", { name: "Termin Bug A löschen", exact: true })
     .last()
@@ -333,8 +334,8 @@ for (const width of [375, 768, 1280, 1920]) {
         }
       }
       expect(
-        await page.evaluate(() => document.documentElement.scrollWidth),
-      ).toBe(width);
+        await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
+      ).toBe(true);
       expect(errors).toEqual([]);
       expect(await page.evaluate(() => window.setterQA.writes)).toEqual([]);
     });

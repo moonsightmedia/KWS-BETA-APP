@@ -8,6 +8,7 @@ import {
   type SetterBoulderDraft,
 } from "@/components/setter/SetterBoulderEditorDialog";
 import { SetterSurface } from "@/components/setter/SetterWorkspaceShell";
+import { SetterBoulderNameEditor, SetterBoulderQuickActions } from "@/components/setter/SetterBoulderQuickActions";
 import { Button } from "@/components/ui/button";
 import { BoulderTypeBadge } from "@/components/boulder/BoulderTypeBadge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -113,6 +114,12 @@ export default function SetterEditPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [limit, setLimit] = useState(50);
   const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
+  const [deleteName, setDeleteName] = useState<string | null>(null);
+  const deleteTrigger = useRef<HTMLButtonElement | null>(null);
+  const [renameDraft, setRenameDraft] = useState<{ id: string; name: string; value: string } | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const retryLock = useRef(false);
   const [deletingMany, setDeletingMany] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editorDraft, setEditorDraft] = useState<SetterBoulderDraft | null>(
@@ -215,7 +222,7 @@ export default function SetterEditPage() {
         });
         setDeleteIds([...remaining]);
       }
-      toast.success("Ausgewählte Boulder gelöscht.");
+      toast.success(deleteName ? "Boulder gelöscht." : "Ausgewählte Boulder gelöscht.");
     } finally {
       setDeletingMany(false);
     }
@@ -339,6 +346,39 @@ export default function SetterEditPage() {
     setEditorDraft(null);
   };
 
+  const finishRename = (id: string) => {
+    setRenameDraft(null);
+    requestAnimationFrame(() => {
+      const trigger = document.getElementById(`rename-boulder-${id}`);
+      if (trigger) trigger.focus();
+      else document.querySelector<HTMLInputElement>('input[aria-label="Boulder suchen"]')?.focus();
+    });
+  };
+  const renameBoulder = async (id: string, name: string) => {
+    setRenaming(true);
+    try {
+      // A name-only update must not overwrite media, grades or other editor fields.
+      await updateBoulder.mutateAsync({ id, name });
+    } finally {
+      setRenaming(false);
+    }
+  };
+  const retryLoad = async () => {
+    if (retryLock.current) return;
+    retryLock.current = true;
+    setRetrying(true);
+    try {
+      await Promise.allSettled([
+        queryClient.refetchQueries({ queryKey: ["boulders"] }),
+        queryClient.refetchQueries({ queryKey: ["sectors"] }),
+        colorQuery.refetch(), attributeQuery.refetch(),
+      ]);
+    } finally {
+      retryLock.current = false;
+      setRetrying(false);
+    }
+  };
+
   const visible = filteredBoulders.slice(0, limit);
   const selectedVisibleIds = visible
     .filter((b) => selectedIds.has(b.id))
@@ -362,17 +402,22 @@ export default function SetterEditPage() {
     setSelectedIds(new Set());
     setLimit(50);
   };
-  const loading =
+  const loading = !retrying && (
     boulderQuery.isLoading ||
     sectorQuery.isLoading ||
     colorQuery.isLoading ||
-    attributeQuery.isLoading;
+    attributeQuery.isLoading);
   const failed =
-    Boolean(boulderQuery.error) ||
+    retrying || Boolean(boulderQuery.error) ||
     Boolean(sectorQuery.error) ||
     colorQuery.isError ||
     attributeQuery.isError;
-  const disabled = deletingMany || saving;
+  const disabled = deletingMany || saving || Boolean(renameDraft);
+  const nameEditor = renameDraft ? <SetterBoulderNameEditor key={renameDraft.id}
+    name={renameDraft.name} value={renameDraft.value}
+    onValueChange={value => setRenameDraft(current => current ? { ...current, value } : current)}
+    disabled={renaming || deletingMany || saving} unavailable={loading || failed}
+    onSave={name => renameBoulder(renameDraft.id, name)} onCancel={() => finishRename(renameDraft.id)} /> : null;
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -429,23 +474,23 @@ export default function SetterEditPage() {
           </Button>
         </div>
       </div>
+      {renameDraft && (loading || failed || !visible.some(boulder => boulder.id === renameDraft.id)) && nameEditor}
       {loading ? (
         <SetterState loading title="Boulder werden geladen …" />
       ) : failed ? (
         <SetterState
           title="Boulder konnten nicht geladen werden."
-          retrying={boulderQuery.isFetching || sectorQuery.isFetching || colorQuery.isFetching || attributeQuery.isFetching}
-          onRetry={() => {
-            void queryClient.refetchQueries({ queryKey: ["boulders"] });
-            void queryClient.refetchQueries({ queryKey: ["sectors"] });
-            void colorQuery.refetch();
-            void attributeQuery.refetch();
-          }}
+          description="Die Daten sind gerade nicht verfügbar. Deine Suche und Filter bleiben erhalten. Versuche es erneut."
+          retrying={retrying || colorQuery.isFetching || attributeQuery.isFetching}
+          onRetry={() => void retryLoad()}
         />
       ) : !visible.length ? (
         <SetterState
-          title="Keine Boulder gefunden"
-          description="Passe die Suche oder die Filter an."
+          title={search.trim() || activeFilterCount ? "Keine passenden Boulder" : "Noch keine Boulder"}
+          description={search.trim()
+            ? `Für „${search.trim()}“ gibt es mit dieser Auswahl keine Treffer.`
+            : activeFilterCount ? "Für diese Auswahl gibt es keine Treffer." : "Hier erscheinen die angelegten Boulder. Neue Boulder legst du unter Erstellen an."}
+          action={search.trim() || activeFilterCount ? <Button variant="secondary" onClick={() => { setSearch(""); resetFilters(); }}>Suche und Filter zurücksetzen</Button> : undefined}
         />
       ) : (
         [...groups.entries()]
@@ -464,7 +509,7 @@ export default function SetterEditPage() {
                     <article
                       key={b.id}
                       className={cn(
-                        "flex items-center gap-1 px-2 py-1 sm:px-3",
+                        "flex flex-wrap items-center gap-1 px-2 py-1 sm:px-3",
                         selectedIds.has(b.id) && "bg-primary/10",
                       )}
                     >
@@ -521,6 +566,14 @@ export default function SetterEditPage() {
                         </div>
                         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                       </button>
+                      <SetterBoulderQuickActions id={b.id} name={b.name} disabled={disabled}
+                        onRename={() => setRenameDraft({ id: b.id, name: b.name, value: b.name })} onEdit={() => openEditor(b)}
+                        onDelete={trigger => {
+                          deleteTrigger.current = trigger;
+                          setDeleteName(b.name);
+                          setDeleteIds([b.id]);
+                        }} />
+                      {renameDraft?.id === b.id && nameEditor}
                     </article>
                   ))}
                 </div>
@@ -569,7 +622,7 @@ export default function SetterEditPage() {
         <Button
           variant="destructive"
           disabled={disabled || loading || failed}
-          onClick={() => setDeleteIds(selectedVisibleIds)}
+          onClick={event => { deleteTrigger.current = event.currentTarget; setDeleteName(null); setDeleteIds(selectedVisibleIds); }}
         >
           <Trash2 className="mr-2 h-4 w-4" />
           Löschen
@@ -580,8 +633,13 @@ export default function SetterEditPage() {
         onOpenChange={(open) => {
           if (!open) setDeleteIds(null);
         }}
-        title={`${deleteIds?.length ?? 0} Boulder löschen?`}
-        description="Nur die ausgewählten Boulder werden dauerhaft gelöscht. Diese Aktion lässt sich nicht rückgängig machen."
+        title={deleteName ? `„${deleteName}“ löschen?` : `${deleteIds?.length ?? 0} Boulder löschen?`}
+        description={deleteName ? `„${deleteName}“ wird dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.` : "Nur die ausgewählten Boulder werden dauerhaft gelöscht. Diese Aktion lässt sich nicht rückgängig machen."}
+        confirmLabel={deleteName ? "Boulder löschen" : undefined}
+        onRestoreFocus={() => {
+          if (deleteTrigger.current?.isConnected) deleteTrigger.current.focus();
+          else document.querySelector<HTMLInputElement>('input[aria-label="Boulder suchen"]')?.focus();
+        }}
         onConfirm={deleteMany}
       />
     </div>
