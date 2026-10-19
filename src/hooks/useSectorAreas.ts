@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import type { SectorArea } from '@/hooks/useSectors';
@@ -25,8 +26,8 @@ export function useCreateSectorArea() {
   return useMutation({
     mutationFn: async (area: CreateSectorArea): Promise<SectorArea> => {
       const token = session?.access_token;
-      const url = import.meta.env.VITE_SUPABASE_URL;
-      const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const url = backendConfig.supabaseUrl;
+      const key = backendConfig.publicKey;
       if (!token || !url || !key) throw new Error('Bitte melde dich erneut an.');
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15_000);

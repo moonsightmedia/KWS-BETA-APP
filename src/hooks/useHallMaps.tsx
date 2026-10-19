@@ -1,11 +1,12 @@
+import { backendConfig } from '@/lib/backendConfig';
 ﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { HallMap, MapPoint, SectorMapRegion } from '@/types/hallMap';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { SessionRequiredError } from '@/lib/sessionRecovery';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL = backendConfig.supabaseUrl;
+const SUPABASE_PUBLISHABLE_KEY = backendConfig.publicKey;
 
 interface SectorMapRegionRow {
   id: string;

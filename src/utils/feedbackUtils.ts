@@ -1,3 +1,4 @@
+import { backendConfig, backendStorageKey } from '@/lib/backendConfig';
 import html2canvas from 'html2canvas';
 import { confirmMonitoringReport, isMonitoringEnabled, reportMonitoringError } from '@/utils/monitoring';
 
@@ -118,8 +119,8 @@ async function uploadScreenshot(screenshotDataUrl: string): Promise<string | nul
     const blob = await response.blob();
     const filename = `feedback-screenshots/${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
 
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const supabaseUrl = backendConfig.supabaseUrl;
+    const supabaseKey = backendConfig.publicKey;
     if (!supabaseUrl || !supabaseKey) {
       console.error('[Feedback] Missing Supabase env for screenshot upload');
       return null;
@@ -155,13 +156,13 @@ async function uploadScreenshot(screenshotDataUrl: string): Promise<string | nul
  */
 function storeFeedbackInLocalStorage(data: FeedbackData): void {
   try {
-    const pendingFeedback = JSON.parse(localStorage.getItem('pendingFeedback') || '[]');
+    const pendingFeedback = JSON.parse(localStorage.getItem(backendStorageKey('pendingFeedback')) || '[]');
     pendingFeedback.push({
       ...data,
       timestamp: new Date().toISOString(),
       retryCount: 0,
     });
-    localStorage.setItem('pendingFeedback', JSON.stringify(pendingFeedback));
+    localStorage.setItem(backendStorageKey('pendingFeedback'), JSON.stringify(pendingFeedback));
     console.log('[Feedback] Stored feedback in localStorage as fallback');
   } catch (e) {
     console.error('[Feedback] Could not store feedback in localStorage:', e);
@@ -173,7 +174,7 @@ function storeFeedbackInLocalStorage(data: FeedbackData): void {
  */
 export async function retryPendingFeedback(): Promise<void> {
   try {
-    const pendingFeedback = JSON.parse(localStorage.getItem('pendingFeedback') || '[]');
+    const pendingFeedback = JSON.parse(localStorage.getItem(backendStorageKey('pendingFeedback')) || '[]');
     if (pendingFeedback.length === 0) return;
 
     const successful: number[] = [];
@@ -221,9 +222,9 @@ export async function retryPendingFeedback(): Promise<void> {
         !successful.includes(idx) && (item.retryCount ?? 0) < 3
     );
     if (remaining.length > 0) {
-      localStorage.setItem('pendingFeedback', JSON.stringify(remaining));
+      localStorage.setItem(backendStorageKey('pendingFeedback'), JSON.stringify(remaining));
     } else {
-      localStorage.removeItem('pendingFeedback');
+      localStorage.removeItem(backendStorageKey('pendingFeedback'));
     }
 
     if (successful.length > 0) {
@@ -290,8 +291,8 @@ export async function submitFeedback(
           }
         }
 
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const supabaseUrl = backendConfig.supabaseUrl;
+        const supabaseKey = backendConfig.publicKey;
         if (!supabaseUrl || !supabaseKey) {
           return { success: false, error: 'Missing Supabase env' };
         }
@@ -351,10 +352,14 @@ export async function reportError(
   error: Error,
   errorInfo?: React.ErrorInfo | null,
   userDescription?: string,
-  userContext?: ReportErrorUserContext | null
+  userContext?: ReportErrorUserContext | null,
+  options?: { userInitiated?: boolean }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (isMonitoringEnabled() && !userDescription) {
+    if (!options?.userInitiated) {
+      // Disabling the collector must not enable the legacy screenshot/feedback
+      // transport instead. Only an explicit report action can use that transport.
+      if (!isMonitoringEnabled()) return { success: false, error: 'Automatische Fehlerberichte sind deaktiviert.' };
       const reportId = reportMonitoringError(error, errorInfo ? 'react_boundary' : 'global_error', errorInfo ? 'fatal' : 'error');
       if (!reportId) return { success: false, error: 'Der Fehlerbericht konnte nicht gespeichert werden.' };
       const success = await confirmMonitoringReport(reportId);
@@ -387,7 +392,7 @@ export async function reportError(
       error_details: errorDetails,
       screenshot_url: screenshot || undefined,
       metadata: {
-        autoReported: true,
+        autoReported: false,
         timestamp: new Date().toISOString(),
       },
     });

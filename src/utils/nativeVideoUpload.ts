@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 import { Capacitor } from '@capacitor/core';
 import { VideoCompressor } from '@honem/native-video-compressor';
 import { UploadMasterEncoder } from '@/plugins/uploadMasterEncoder';
@@ -32,8 +33,8 @@ export function isNativeVideoPipelineAvailable(): boolean {
 /** Video uploads always use the Hostinger video endpoint, never the All-Inkl asset API. */
 export function getVideoApiBase(): string {
   const raw =
-    import.meta.env.VITE_VIDEO_API_URL ||
-    import.meta.env.VITE_NATIVE_VIDEO_API_URL ||
+    backendConfig.videoUrl ||
+    backendConfig.nativeVideoUrl ||
     'https://video.kletterwelt-sauerland.de';
   return raw.replace(/\/$/, '');
 }

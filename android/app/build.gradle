@@ -1,5 +1,14 @@
 apply plugin: 'com.android.application'
 
+def playRelease = providers.gradleProperty('kwsPlayRelease').map { it.toBoolean() }.getOrElse(false)
+def playSigningVariables = ['KWS_ANDROID_KEYSTORE', 'KWS_ANDROID_STORE_PASSWORD', 'KWS_ANDROID_KEY_ALIAS', 'KWS_ANDROID_KEY_PASSWORD']
+if (playRelease) {
+    def missing = playSigningVariables.findAll { !System.getenv(it)?.trim() }
+    if (!missing.isEmpty()) {
+        throw new GradleException("Play release signing is incomplete: ${missing.join(', ')}")
+    }
+}
+
 android {
     namespace "com.kletterwelt.beta"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,7 +16,7 @@ android {
         applicationId "com.kletterwelt.beta"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 73
+        versionCode 76
         versionName "1.0.250"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -16,8 +25,19 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (playRelease) {
+            play {
+                storeFile rootProject.file(System.getenv('KWS_ANDROID_KEYSTORE'))
+                storePassword System.getenv('KWS_ANDROID_STORE_PASSWORD')
+                keyAlias System.getenv('KWS_ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('KWS_ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (playRelease) signingConfig signingConfigs.play
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
@@ -43,7 +63,6 @@ dependencies {
     
     // Firebase Cloud Messaging (für Push-Benachrichtigungen)
     implementation 'com.google.firebase:firebase-messaging:23.4.0'
-    implementation 'com.google.firebase:firebase-analytics:21.5.0'
 }
 
 apply from: 'capacitor.build.gradle'

@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 import { supabase } from '@/integrations/supabase/client';
 import { summarizePushResponse, type PushDeliveryReport } from '@/lib/pushDeliveryReport';
 
@@ -75,8 +76,8 @@ export const sendPushNotification = async (
     devLog('[PushNotifications] ✅ Session found:', { userId: session.user?.id });
 
     // Use direct fetch instead of QueryBuilder to avoid hanging issues after reload
-    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-    const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const SUPABASE_URL = backendConfig.supabaseUrl;
+    const SUPABASE_KEY = backendConfig.publicKey;
 
     if (!SUPABASE_URL || !SUPABASE_KEY) {
       throw new Error('Supabase-Konfiguration fehlt');
@@ -237,8 +238,8 @@ export const sendPushNotification = async (
  */
 const deleteInvalidToken = async (token: string, session: any, signal?: AbortSignal): Promise<void> => {
   try {
-    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-    const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const SUPABASE_URL = backendConfig.supabaseUrl;
+    const SUPABASE_KEY = backendConfig.publicKey;
 
     if (!SUPABASE_URL || !SUPABASE_KEY) {
       throw new Error('Supabase-Konfiguration fehlt');
@@ -304,8 +305,8 @@ export const sendPushNotificationForNotification = async (
     }
 
     // Use direct fetch instead of QueryBuilder to avoid hanging issues after reload
-    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-    const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const SUPABASE_URL = backendConfig.supabaseUrl;
+    const SUPABASE_KEY = backendConfig.publicKey;
 
     if (!SUPABASE_URL || !SUPABASE_KEY) {
       throw new Error('Supabase-Konfiguration fehlt');

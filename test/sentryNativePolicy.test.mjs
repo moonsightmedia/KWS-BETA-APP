@@ -8,7 +8,7 @@ const source = await readFile(new URL('../src/utils/sentry.ts', import.meta.url)
 async function fixture(dsn) {
   const calls = { users: [], tags: [], initializations: 0 };
   const mock = { init: options => { calls.options = options; calls.initializations++; }, setTag: (...value) => calls.tags.push(value), setUser: value => calls.users.push(value) };
-  const stripped = source.replace(/^import .*;\r?\n/gm, '')
+  const stripped = 'const isReviewEnvironment = false;\n' + source.replace(/^import .*;\r?\n/gm, '')
     .replaceAll('import.meta.env.VITE_SENTRY_DSN', JSON.stringify(dsn))
     .replaceAll('import.meta.env.VITE_MONITORING_ENABLED', '"true"')
     .replaceAll('import.meta.env.VITE_MONITORING_CHANNEL', '"testflight"')

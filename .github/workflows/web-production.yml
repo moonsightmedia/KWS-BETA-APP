@@ -43,6 +43,7 @@ jobs:
           python3 ops/hostinger/test-update-production-web.py
           python3 -m unittest discover -s ops/hostinger/monitoring -p 'test_*.py'
           python3 ops/hostinger/test-github-web-autodeploy.py
+          python3 ops/hostinger/store-review/test_guards.py
           python3 ops/hostinger/landingpage/test-collect-landing.py
       - name: Verify generated legal pages are committed
         run: |
@@ -65,7 +66,9 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: web-test-failure
-          path: test-results/playwright-artifacts
+          path: |
+            test-results/playwright-artifacts
+            test-results/launch-monitoring-artifacts
           retention-days: 7
           if-no-files-found: ignore
 

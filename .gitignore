@@ -71,3 +71,5 @@ vite*.err
 # iOS signing material (never commit)
 .secrets/
 *.p12
+*.jks
+*.keystore

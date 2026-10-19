@@ -370,7 +370,11 @@ test('issue inbox design loops show clear source semantics at all widths and sup
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole('link', { name: /In Sentry öffnen/ })).toBeVisible();
+    // Visibility can precede Radix's focus/layer installation. Start the Escape
+    // assertion only after its actual initial keyboard focus has been installed.
+    await expect(dialog.getByRole('button', { name: 'Fehleransicht schließen', exact: true })).toBeFocused();
     await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
     await expect(trigger).toBeFocused();
   }
 });

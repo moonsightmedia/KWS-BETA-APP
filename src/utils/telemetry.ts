@@ -1,8 +1,9 @@
+import { backendConfig, backendStorageKey, isReviewEnvironment } from '@/lib/backendConfig';
 import { Capacitor } from '@capacitor/core';
 import { APP_VERSION } from '@/utils/version';
 
-const DEVICE_ID_KEY = 'kws_telemetry_device_id';
-const OPEN_UPLOADS_KEY = 'kws_open_upload_sessions';
+const DEVICE_ID_KEY = backendStorageKey('kws_telemetry_device_id');
+const OPEN_UPLOADS_KEY = backendStorageKey('kws_open_upload_sessions');
 const HEARTBEAT_MS = 90_000;
 const FLUSH_MS = 30_000;
 const FETCH_TIMEOUT_MS = 3_000;
@@ -58,7 +59,7 @@ declare global {
 }
 
 function isTelemetryEnabled(): boolean {
-  return import.meta.env.VITE_TELEMETRY_ENABLED === 'true';
+  return !isReviewEnvironment && import.meta.env.VITE_TELEMETRY_ENABLED === 'true';
 }
 
 export function getTelemetryDeviceId(): string {
@@ -87,14 +88,14 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
 }
 
 function getAuthHeaders(): Record<string, string> | null {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const supabaseUrl = backendConfig.supabaseUrl;
+  const supabaseKey = backendConfig.publicKey;
   if (!supabaseUrl || !supabaseKey) return null;
 
   let accessToken = supabaseKey;
   try {
     const authKey =
-      Object.keys(localStorage).find((k) => k.startsWith('sb-') && k.endsWith('-auth-token')) || '';
+      backendConfig.authStorageKey;
     const raw = authKey ? localStorage.getItem(authKey) : null;
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -114,7 +115,7 @@ function getAuthHeaders(): Record<string, string> | null {
 
 async function upsertSession(): Promise<void> {
   if (!isTelemetryEnabled()) return;
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseUrl = backendConfig.supabaseUrl;
   const headers = getAuthHeaders();
   if (!supabaseUrl || !headers) return;
 
@@ -140,7 +141,7 @@ async function upsertSession(): Promise<void> {
 
 async function flushEvents(): Promise<void> {
   if (!isTelemetryEnabled() || queue.length === 0) return;
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseUrl = backendConfig.supabaseUrl;
   const headers = getAuthHeaders();
   if (!supabaseUrl || !headers) {
     queue = [];

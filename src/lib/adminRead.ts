@@ -1,8 +1,9 @@
+import { backendConfig } from '@/lib/backendConfig';
 /** Read-only admin queries: bounded time, cancellation, no token/body logging. */
 import { authenticatedFetch } from './authenticatedFetch';
 export async function readAdminRows<T>(path: string, accessToken: string, signal?: AbortSignal): Promise<T[]> {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const url = backendConfig.supabaseUrl;
+  const key = backendConfig.publicKey;
   if (!url || !key || !accessToken) throw new Error('Keine aktive Verbindung');
   const controller = new AbortController();
   const abort = () => controller.abort();

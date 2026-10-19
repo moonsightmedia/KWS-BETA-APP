@@ -1,3 +1,4 @@
+import { backendConfig, backendStorageKey } from '@/lib/backendConfig';
 import { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 
@@ -13,7 +14,7 @@ import { emailRedirectUrl } from '@/lib/emailAuth';
 import { accountBirthDateError } from '@/lib/accountEligibility';
 import { trackAuthenticationFailure, trackMonitoring } from '@/utils/monitoring';
 
-const emailRedirect = (path: string) => emailRedirectUrl(path, Capacitor.isNativePlatform(), window.location.origin, import.meta.env.VITE_AUTH_SITE_URL);
+const emailRedirect = (path: string) => emailRedirectUrl(path, Capacitor.isNativePlatform(), window.location.origin, backendConfig.authSiteUrl);
 
 interface AuthContextType {
   user: User | null;
@@ -292,17 +293,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               // CRITICAL: After reload, check if roles are missing and refresh them
               if (session?.user) {
                 // Check localStorage first (persists), then sessionStorage (backward compatibility)
-                let storedUserId = localStorage.getItem('nav_userId');
+                let storedUserId = localStorage.getItem(backendStorageKey('nav_userId'));
                 if (storedUserId === null) {
-                  storedUserId = sessionStorage.getItem('nav_userId');
+                  storedUserId = sessionStorage.getItem(backendStorageKey('nav_userId'));
                 }
-                let storedAdmin = localStorage.getItem('nav_isAdmin');
+                let storedAdmin = localStorage.getItem(backendStorageKey('nav_isAdmin'));
                 if (storedAdmin === null) {
-                  storedAdmin = sessionStorage.getItem('nav_isAdmin');
+                  storedAdmin = sessionStorage.getItem(backendStorageKey('nav_isAdmin'));
                 }
-                let storedSetter = localStorage.getItem('nav_isSetter');
+                let storedSetter = localStorage.getItem(backendStorageKey('nav_isSetter'));
                 if (storedSetter === null) {
-                  storedSetter = sessionStorage.getItem('nav_isSetter');
+                  storedSetter = sessionStorage.getItem(backendStorageKey('nav_isSetter'));
                 }
                 
                 // If roles are missing or user ID doesn't match, refresh roles
@@ -475,17 +476,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Check and store roles if not already in localStorage
           try {
             // Check localStorage first (persists), then sessionStorage (backward compatibility)
-            let storedUserId = localStorage.getItem('nav_userId');
+            let storedUserId = localStorage.getItem(backendStorageKey('nav_userId'));
             if (storedUserId === null) {
-              storedUserId = sessionStorage.getItem('nav_userId');
+              storedUserId = sessionStorage.getItem(backendStorageKey('nav_userId'));
             }
             if (storedUserId !== session.user.id) {
               await checkAndStoreRoles(session.user.id, session.access_token ?? '');
             } else {
-              let storedAdmin = localStorage.getItem('nav_isAdmin');
-              let storedSetter = localStorage.getItem('nav_isSetter');
-              if (storedAdmin === null) storedAdmin = sessionStorage.getItem('nav_isAdmin');
-              if (storedSetter === null) storedSetter = sessionStorage.getItem('nav_isSetter');
+              let storedAdmin = localStorage.getItem(backendStorageKey('nav_isAdmin'));
+              let storedSetter = localStorage.getItem(backendStorageKey('nav_isSetter'));
+              if (storedAdmin === null) storedAdmin = sessionStorage.getItem(backendStorageKey('nav_isAdmin'));
+              if (storedSetter === null) storedSetter = sessionStorage.getItem(backendStorageKey('nav_isSetter'));
               if (storedAdmin === null || storedSetter === null) {
                 console.log('[Auth] Roles missing in storage, refreshing roles');
                 await checkAndStoreRoles(session.user.id, session.access_token ?? '');
@@ -574,8 +575,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Check and store roles via direct user_roles REST (avoids has_role RPC overload ambiguity)
   const checkAndStoreRoles = async (userId: string, accessToken: string) => {
-    const url = import.meta.env.VITE_SUPABASE_URL;
-    const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const url = backendConfig.supabaseUrl;
+    const key = backendConfig.publicKey;
     if (!url || !key || !accessToken) return;
     try {
       console.log('[Auth] Checking roles for user:', userId);
@@ -597,12 +598,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const isAdmin = Array.isArray(adminData) && adminData.length > 0;
       const isSetter = Array.isArray(setterData) && setterData.length > 0;
       try {
-        localStorage.setItem('nav_isAdmin', String(isAdmin));
-        localStorage.setItem('nav_isSetter', String(isSetter));
-        localStorage.setItem('nav_userId', userId);
-        sessionStorage.setItem('nav_isAdmin', String(isAdmin));
-        sessionStorage.setItem('nav_isSetter', String(isSetter));
-        sessionStorage.setItem('nav_userId', userId);
+        localStorage.setItem(backendStorageKey('nav_isAdmin'), String(isAdmin));
+        localStorage.setItem(backendStorageKey('nav_isSetter'), String(isSetter));
+        localStorage.setItem(backendStorageKey('nav_userId'), userId);
+        sessionStorage.setItem(backendStorageKey('nav_isAdmin'), String(isAdmin));
+        sessionStorage.setItem(backendStorageKey('nav_isSetter'), String(isSetter));
+        sessionStorage.setItem(backendStorageKey('nav_userId'), userId);
         console.log('[Auth] Roles stored:', { isAdmin, isSetter, userId });
       } catch (storageError) {
         console.warn('[Auth] Error storing roles:', storageError);
@@ -822,18 +823,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     // Clear persisted data immediately
     try {
-      localStorage.removeItem('greetingName');
-      localStorage.removeItem('nav_isAdmin');
-      localStorage.removeItem('nav_isSetter');
-      localStorage.removeItem('nav_userId');
-      sessionStorage.removeItem('nav_isAdmin');
-      sessionStorage.removeItem('nav_isSetter');
-      sessionStorage.removeItem('nav_userId');
+      localStorage.removeItem(backendStorageKey('greetingName'));
+      localStorage.removeItem(backendStorageKey('nav_isAdmin'));
+      localStorage.removeItem(backendStorageKey('nav_isSetter'));
+      localStorage.removeItem(backendStorageKey('nav_userId'));
+      sessionStorage.removeItem(backendStorageKey('nav_isAdmin'));
+      sessionStorage.removeItem(backendStorageKey('nav_isSetter'));
+      sessionStorage.removeItem(backendStorageKey('nav_userId'));
       
       // Also clear Supabase auth storage keys to ensure complete logout
       // These are used by Supabase to persist sessions
       const supabaseStorageKeys = Object.keys(localStorage).filter(key => 
-        key.startsWith('sb-') || key.includes('supabase')
+        key === backendConfig.authStorageKey || key.startsWith(backendConfig.authStorageKey + '-')
       );
       supabaseStorageKeys.forEach(key => {
         try {
@@ -844,7 +845,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       
       const supabaseSessionKeys = Object.keys(sessionStorage).filter(key => 
-        key.startsWith('sb-') || key.includes('supabase')
+        key === backendConfig.authStorageKey || key.startsWith(backendConfig.authStorageKey + '-')
       );
       supabaseSessionKeys.forEach(key => {
         try {

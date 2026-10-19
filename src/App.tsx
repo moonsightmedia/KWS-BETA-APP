@@ -42,6 +42,8 @@ import { AppNavigation } from "@/components/AppNavigation";
 import { isAuthPage } from '@/lib/authRoutes';
 import { SetterAreaLayout } from "@/components/setter/SetterAreaLayout";
 import { BoulderRouteContinuity } from '@/components/BoulderRouteContinuity';
+import { ReviewEnvironmentNotice } from '@/components/ReviewEnvironmentNotice';
+import { isReviewEnvironment, isReviewAvailable, switchBackendEnvironment } from '@/lib/backendConfig';
 
 // Configure QueryClient for optimal caching and prefetching
 const queryClient = new QueryClient({
@@ -329,6 +331,7 @@ const Root = () => {
             <ErrorBoundaryWithAuth>
               <RouteLogger />
               <RouteScrollReset />
+              <ReviewEnvironmentNotice />
               <PullToRefreshHandler />
               <AppNavigation />
               <UploadOverview />
@@ -478,6 +481,11 @@ if (typeof window !== 'undefined') {
 }
 
 const App = () => (
+  isReviewEnvironment && !isReviewAvailable ? <main className="min-h-dvh bg-brand-canvas p-6 text-brand-ink">
+    <h1 className="font-sans text-base font-semibold">Demoumgebung nicht verfügbar</h1>
+    <p className="mt-2 text-sm">Die Demo ist in dieser Version nicht freigeschaltet. Du kannst zur regulären App zurückwechseln.</p>
+    <Button type="button" className="mt-4" onClick={() => switchBackendEnvironment('production')}>Zur Kletterwelt</Button>
+  </main> :
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

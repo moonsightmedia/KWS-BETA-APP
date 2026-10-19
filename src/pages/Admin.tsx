@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -64,7 +65,7 @@ const Admin = () => {
               <TabsList aria-label="Adminbereiche" className="hidden">
                 {ADMIN_TABS.map(tab => <TabsTrigger key={tab.value} value={tab.value} className="min-w-0 flex-1 px-3 text-xs lg:text-sm">{tab.label}</TabsTrigger>)}
               </TabsList>
-              <TabsContent value="overview" className="mt-0"><AdminOverview accountId={user?.id || ''} connection={{ url: import.meta.env.VITE_SUPABASE_URL || '', key: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '', token: session?.access_token || '' }} /></TabsContent>
+              <TabsContent value="overview" className="mt-0"><AdminOverview accountId={user?.id || ''} connection={{ url: backendConfig.supabaseUrl || '', key: backendConfig.publicKey || '', token: session?.access_token || '' }} /></TabsContent>
               <TabsContent value="users" className="mt-0"><UserManagement /></TabsContent>
               <TabsContent value="settings" className="mt-0">
                 <Tabs value={settingsTab} onValueChange={value => changeTab('settingsTab', value)}>

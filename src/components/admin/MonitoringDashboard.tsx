@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 import { useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -15,8 +16,8 @@ import { loadMonitoring, type UploadLogRow } from '@/lib/adminMonitoring';
 import { cn } from '@/lib/utils';
 
 async function adminFetch<T>(path: string, accessToken: string, signal: AbortSignal): Promise<T> {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const supabaseUrl = backendConfig.supabaseUrl;
+  const supabaseKey = backendConfig.publicKey;
   if (!supabaseUrl || !supabaseKey) throw new Error('Monitoring nicht konfiguriert');
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -85,7 +86,7 @@ export function MonitoringDashboard() {
   const initialDays = [1, 7, 30].includes(Number(searchParams.get('monitoringDays'))) ? Number(searchParams.get('monitoringDays')) as 1 | 7 | 30 : 1;
   const setView = (value: MonitoringView) => { const next = new URLSearchParams(searchParams); next.set('monitoringView', value); setSearchParams(next, { replace: true }); };
   if (view === 'uploads') return <LegacyMonitoringDashboard view={view} setView={setView} />;
-  return <LaunchCockpit view={view} onViewChange={setView} initialDays={initialDays} accountId={session?.user.id || ''} connection={{ url: import.meta.env.VITE_SUPABASE_URL || '', key: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '', token: session?.access_token || '' }} />;
+  return <LaunchCockpit view={view} onViewChange={setView} initialDays={initialDays} accountId={session?.user.id || ''} connection={{ url: backendConfig.supabaseUrl || '', key: backendConfig.publicKey || '', token: session?.access_token || '' }} />;
 }
 
 function LegacyMonitoringDashboard({ view, setView }: { view: MonitoringView; setView: (view: MonitoringView) => void }) {

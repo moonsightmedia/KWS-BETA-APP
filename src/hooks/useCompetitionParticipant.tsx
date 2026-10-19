@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -27,8 +28,8 @@ export const useCompetitionParticipant = () => {
             const guestId = localStorage.getItem('competition_guest_id');
             if (guestId) {
               // Use direct fetch instead of QueryBuilder to avoid hanging issues after reload
-              const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-              const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+              const SUPABASE_URL = backendConfig.supabaseUrl;
+              const SUPABASE_KEY = backendConfig.publicKey;
 
               if (!SUPABASE_URL || !SUPABASE_KEY) {
                 throw new Error('Supabase-Konfiguration fehlt');
@@ -73,8 +74,8 @@ export const useCompetitionParticipant = () => {
           return null;
         }
 
-        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-        const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const SUPABASE_URL = backendConfig.supabaseUrl;
+        const SUPABASE_KEY = backendConfig.publicKey;
 
         if (!SUPABASE_URL || !SUPABASE_KEY) {
           throw new Error('Supabase-Konfiguration fehlt');

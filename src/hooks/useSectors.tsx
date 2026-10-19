@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -119,7 +120,7 @@ export const useSectors = (enabled: boolean = true) => {
           
           // Use REST client fetch directly
           // Get the API key from environment
-          const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          const SUPABASE_PUBLISHABLE_KEY = backendConfig.publicKey;
           if (!SUPABASE_PUBLISHABLE_KEY) {
             throw new Error('Supabase API key not found');
           }

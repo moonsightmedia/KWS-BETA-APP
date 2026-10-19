@@ -618,3 +618,12 @@ All colors MUST be HSL.
   .kws-filter-collapse { animation: none !important; }
   [role="switch"], [role="switch"] > span { transition: none !important; }
 }
+
+/* Keep the explicit review notice clear of the sidebar and fixed app header. */
+html[data-kws-review] .kws-sidebar {
+  top: var(--kws-review-notice-height, 0px);
+  height: calc(100dvh - var(--kws-review-notice-height, 0px));
+}
+html[data-kws-review] [data-kws-dashboard-header] {
+  top: var(--kws-review-notice-height, 0px);
+}

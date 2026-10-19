@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMemo } from 'react';
 
 // Get Supabase API key from environment
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_PUBLISHABLE_KEY = backendConfig.publicKey;
 import { transformBoulder } from '@/lib/dataTransformers';
 import { Boulder as FrontendBoulder } from '@/types/boulder';
 import { useSectors } from './useSectors';
@@ -69,8 +70,8 @@ export async function logBoulderOperation(
   accessToken: string | null | undefined
 ): Promise<boolean> {
   try {
-    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-    const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const SUPABASE_URL = backendConfig.supabaseUrl;
+    const key = backendConfig.publicKey;
     if (!SUPABASE_URL || !key || !accessToken) {
       console.warn('[logBoulderOperation] Missing URL, key or token – skip logging');
       toast.warning('Log konnte nicht geschrieben werden (kein Zugriffstoken).');
@@ -459,8 +460,8 @@ export const useUpdateBoulder = () => {
       console.log('[useUpdateBoulder] ✅ Session obtained');
 
       // Use direct fetch instead of QueryBuilder to avoid hanging issues after reload
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const SUPABASE_URL = backendConfig.supabaseUrl;
+      const SUPABASE_KEY = backendConfig.publicKey;
 
       if (!SUPABASE_URL || !SUPABASE_KEY) {
         throw new Error('Supabase-Konfiguration fehlt');
@@ -625,8 +626,8 @@ export const useCreateBoulder = () => {
       };
       
       // Use direct fetch instead of QueryBuilder to avoid hanging issues after reload
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const SUPABASE_URL = backendConfig.supabaseUrl;
+      const SUPABASE_KEY = backendConfig.publicKey;
 
       if (!SUPABASE_URL || !SUPABASE_KEY) {
         throw new Error('Supabase-Konfiguration fehlt');
@@ -746,8 +747,8 @@ export const useDeleteBoulder = () => {
       console.log('[useDeleteBoulder] ✅ Session obtained');
       
       // Use direct fetch instead of QueryBuilder to avoid hanging issues after reload
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const SUPABASE_URL = backendConfig.supabaseUrl;
+      const SUPABASE_KEY = backendConfig.publicKey;
 
       if (!SUPABASE_URL || !SUPABASE_KEY) {
         throw new Error('Supabase-Konfiguration fehlt');
@@ -1046,8 +1047,8 @@ export const useBulkUpdateBoulderStatus = () => {
       console.log('[useBulkUpdateBoulderStatus] ✅ Session obtained');
       
       // Use direct fetch instead of QueryBuilder to avoid hanging issues after reload
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const SUPABASE_URL = backendConfig.supabaseUrl;
+      const SUPABASE_KEY = backendConfig.publicKey;
 
       if (!SUPABASE_URL || !SUPABASE_KEY) {
         throw new Error('Supabase-Konfiguration fehlt');
@@ -1125,7 +1126,7 @@ export const useCdnVideos = () => {
     queryKey: ['cdn-videos'],
     queryFn: async () => {
       // Get All-Inkl API URL from environment
-      const allinklApiUrl = import.meta.env.VITE_ALLINKL_API_URL || 'https://cdn.kletterwelt-sauerland.de/upload-api';
+      const allinklApiUrl = backendConfig.legacyUploadUrl || 'https://cdn.kletterwelt-sauerland.de/upload-api';
       
       try {
         // Fetch all videos directly from CDN directory
