@@ -40,6 +40,7 @@ jobs:
         run: node --test test/*.test.mjs
       - name: Deployment safety tests
         run: |
+          python3 -m unittest discover -s test -p availability_bridge_test.py
           python3 ops/hostinger/test-update-production-web.py
           python3 -m unittest discover -s ops/hostinger/monitoring -p 'test_*.py'
           python3 ops/hostinger/test-github-web-autodeploy.py

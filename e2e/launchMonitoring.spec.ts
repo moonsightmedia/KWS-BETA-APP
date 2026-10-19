@@ -62,7 +62,7 @@ test('activity uses current launch signals instead of disabled legacy telemetry'
       const popular = await page.getByRole('heading', { name: 'Häufig angesehene Boulder', exact: true }).boundingBox();
       expect(activity!.y).toBeLessThan(popular!.y);
     }
-    expect(await page.evaluate(() => window.launchMonitoringQA.requests.every(request => /\/kws_monitoring_(dashboard|live)$/.test(request.path)))).toBe(true);
+    expect(await page.evaluate(() => window.launchMonitoringQA.requests.every(request => /\/(kws_monitoring_(dashboard|live)|kws_admin_availability)$/.test(request.path)))).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await open(page, 'stale');
     await chooseView(page, 'Aktivität');

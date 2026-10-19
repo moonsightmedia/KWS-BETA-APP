@@ -5,6 +5,7 @@ import { ArrowUpRight, Check, ChevronDown, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { KwsSurface } from '@/components/ui/kws-surface';
 import { LiveMonitoringPanel } from '@/components/admin/LiveMonitoringPanel';
+import { AdminAvailabilityPanel } from '@/components/admin/AdminAvailabilityPanel';
 import { loadAdminOverview, type AdminOverviewData, type AdminOverviewSource } from '@/lib/adminOverview';
 import { defaultLaunchFilters, LaunchMonitoringError, type MonitoringConnection } from '@/lib/launchMonitoring';
 
@@ -79,6 +80,7 @@ export function AdminOverview({ connection, accountId }: { connection: Monitorin
     <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs text-muted-foreground" role="status">{denied ? 'Anmeldung erforderlich' : isFetching ? snapshot ? 'Wird aktualisiert …' : 'Übersicht wird geladen …' : snapshot ? `Stand ${dateTime(snapshot.generated_at)} · Aktualisierung jede Minute` : 'Noch kein bestätigter Stand'}</p></div><Button variant="secondary" onClick={() => void refetch()} disabled={isFetching || denied} aria-label="Admin-Übersicht aktualisieren"><RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />Aktualisieren</Button></div>
     {(error || denied) && <KwsSurface role="alert" className="space-y-2 p-4"><p className="text-sm font-semibold">{snapshot ? 'Aktualisierung fehlgeschlagen' : 'Übersicht nicht verfügbar'}</p><p className="text-sm text-muted-foreground">{errorMessage}</p>{snapshot && <p className="text-xs text-muted-foreground">Die angezeigten Zahlen stammen aus dem letzten erfolgreichen Abruf.</p>}{!denied && <Button variant="outline" disabled={isFetching} onClick={() => void refetch()}>Erneut versuchen</Button>}</KwsSurface>}
     {!snapshot && !error && !denied && <KwsSurface role="status" aria-label="Admin-Kennzahlen werden geladen" className="space-y-4 p-4"><div className="h-4 w-40 rounded-kws-badge bg-secondary motion-safe:animate-pulse" /><div className="grid grid-cols-2 gap-4 sm:grid-cols-3">{['Konten', 'Halle', 'Offene Aufgaben'].map(label => <div key={label}><p className="text-xs text-muted-foreground">{label}</p><div className="mt-2 h-6 w-16 rounded-kws-badge bg-secondary motion-safe:animate-pulse" /></div>)}</div></KwsSurface>}
+    {!denied && <AdminAvailabilityPanel connection={connection} accountId={accountId} />}
     {snapshot && <>
       {stale && !error && <p role="alert" className="rounded-kws-control bg-secondary p-3 text-sm">Dieser Stand ist älter als zwei Minuten. Bitte aktualisieren, bevor du Aufgaben beurteilst.</p>}
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]"><LiveMonitoringPanel connection={connection} accountId={accountId} filters={defaultLaunchFilters} compact onShowAll={() => navigate(links.activity)} /><WorkQueue data={snapshot} stale={stale} /></div>
