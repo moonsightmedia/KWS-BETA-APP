@@ -1296,6 +1296,15 @@ Verbindliche Regeln:
 
 ### Admin-Grundbedienung (13. September 2026)
 
+- Nutzerauftrag19.10.2026: Admin-Übersicht und Monitoring-Übersicht zeigen
+  denselben kompakten Systemstatus für App, API und Videos aus der externen
+  Überwachung. Mobil drei flache Zeilen, ab768px drei Spalten. Prüfzeit,
+  verständlicher Zustand und tatsächlicher Alarmmodus bleiben sichtbar;
+  letzte Störungen sind aufklappbar. Fehlender Abruf, alte Übertragung und alte
+  Einzelprüfung werden nie als grün/Entwarnung ausgegeben. Keine erfundene
+  Verfügbarkeitsquote. Die Überwachung/Alarmierung bleibt außerhalb der App;
+  das Dashboard ist ausschließlich eine Admin-Leseansicht, kein Hub-Steuerzugang.
+
 - Mobile Administration hat fünf Gruppen: Übersicht, Benutzer, Halle, Moderation
   und Mehr. Mehr öffnet Feedback, Monitoring, Protokoll und Push-Test. Die
   gemeinsame Definition liegt in `src/lib/adminNavigation.ts`; alle acht Ziele
