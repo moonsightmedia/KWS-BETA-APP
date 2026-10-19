@@ -795,6 +795,10 @@ Ansicht, aktive Filter und Sortierung bleiben beim Wechsel nachvollziehbar erhal
 
 Integrations- und Prüfbelege: `docs/qa/2026-10-19-boulder-video-feed.md`.
 
+Die Gast-Einführung erklärt die normale Liste bzw. das Raster. Bei einer bereits
+gespeicherten Videoansicht wartet ihr automatischer Start bis zur Rückkehr in
+diese Übersicht. Keine Hinweise an der verdeckten Seite hinter dem Feed.
+
 ### 6.5 Gridkarte
 
 - mobil immer drei Karten nebeneinander,
@@ -1146,7 +1150,8 @@ Bedienelemente auf wechselnden Wandfotos lesbar bleiben:
 - Die V2-Bedienung wird in den regulären `BoulderVideoPlayer` übernommen.
   Sie gilt unter 768px sowie auf Touchgeräten (`pointer: coarse`), auch im
   Querformat. Breite Mausgeräte behalten ihre bestehende Browsersteuerung.
-  Der separat entwickelte Reels-/Videofeed bleibt ausdrücklich außen vor.
+  Der Reels-/Videofeed ist eine eigenständige dritte Boulderansicht (Abschnitt6.4),
+  getrennt von diesen normalen Player-Controls.
 - Eigene Play/Pause-, Neustart- und 5-Sekunden-Controls, präzise Zeitleiste,
   Zeitlupe 0,25×/0,5×/0,75×/1× und Loop liegen auf demselben Medienelement.
   Auf Mobilgeräten wird das vollständige Bild auch eingebettet eingepasst.
