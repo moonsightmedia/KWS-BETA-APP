@@ -1,3 +1,4 @@
+import OnboardingPreview from '@/pages/OnboardingPreview';
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
@@ -401,6 +402,9 @@ const router = createBrowserRouter([
       { path: "schedule", element: <ResetSchedule /> },
       { path: "boulders", element: <BouldersOverviewRoute /> },
       { path: "boulders/:id", element: <BoulderDetail /> },
+      { path: "onboarding/account", element: <OnboardingPreview /> },
+      { path: "onboarding/progress", element: <OnboardingPreview /> },
+      { path: "onboarding/register", element: <OnboardingPreview /> },
       { path: "auth", element: <Auth /> },
       { path: "auth/callback", element: <AuthCallback /> },
       { path: "reset-password", element: <ResetPassword /> },

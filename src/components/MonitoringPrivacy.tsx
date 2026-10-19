@@ -1,5 +1,6 @@
+import { useOnboarding } from '@/components/onboarding/OnboardingContext';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -18,8 +19,10 @@ function useUsageChoice() {
 }
 
 export function MonitoringConsentPrompt() {
+  const { isOpen: onboardingOpen } = useOnboarding();
+  const { pathname } = useLocation();
   const choice = useUsageChoice();
-  if (!isMonitoringEnabled() || choice !== 'unknown') return null;
+  if (onboardingOpen || pathname.startsWith('/onboarding/') || !isMonitoringEnabled() || choice !== 'unknown') return null;
   return <aside aria-label="Nutzungsstatistik auswählen" className="fixed inset-x-4 bottom-[calc(var(--app-safe-area-bottom)+96px)] z-40 mx-auto max-w-md">
     <KwsSurface className="space-y-3 p-4">
       <div className="flex items-start gap-3">

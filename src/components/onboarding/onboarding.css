@@ -1,0 +1,44 @@
+.tour-highlight{position:fixed;z-index:121;pointer-events:none;border:2px solid hsl(var(--primary));border-radius:8px}
+.tour-panel{position:fixed;z-index:125;width:min(336px,calc(100vw - 32px));max-height:calc(100dvh - 24px);overflow-y:auto;background:hsl(var(--card));color:hsl(var(--foreground));padding:12px 16px 16px;border-radius:12px;box-shadow:0 5px 18px hsl(var(--brand-ink)/.16);outline:none;isolation:isolate}
+.tour-arrow{position:absolute;width:12px;height:12px;transform:rotate(45deg);background:hsl(var(--card));z-index:-1}
+.tour-top{display:flex;justify-content:space-between;gap:6px;align-items:center;min-height:36px}
+.tour-top>span{font-size:11px;font-weight:500;color:hsl(var(--muted-foreground))}
+.tour-top button{margin-right:-8px;width:44px;height:44px}
+.tour-top svg{width:17px;height:17px}
+.tour-title{font-family:Poppins,sans-serif;font-size:16px;font-weight:600;line-height:1.5;margin:4px 0 0;outline:none}
+.tour-description{font-size:13px;line-height:1.8;color:hsl(var(--muted-foreground));margin-top:8px}
+.tour-actions{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:16px}
+.tour-actions button{font-size:12px;padding-left:10px;padding-right:10px}
+.tour-actions button:first-child{padding-left:0}
+.tour-actions svg{width:15px;height:15px}
+.tour-guest{width:100%;margin-top:4px;font-size:12px}
+.tour-arrow{position:fixed;z-index:124}
+.tour-layer{display:contents}
+.tour-in-filter{position:absolute;inset:0;z-index:150;pointer-events:none}
+.tour-in-filter .tour-panel,.tour-in-filter .tour-highlight,.tour-in-filter .tour-arrow{position:absolute}
+.tour-in-filter .tour-panel{pointer-events:auto}
+.tour-in-filter .tour-panel{max-height:calc(100% - 24px)}
+.tour-in-filter .tour-panel{padding:8px 12px 12px}
+.tour-in-filter .tour-title{font-size:14px}
+.tour-in-filter .tour-description{font-size:12px;line-height:1.7;margin-top:6px}
+@media(max-height:480px){.tour-in-filter .tour-panel{width:calc(100% - 32px)}
+.tour-in-filter .tour-actions{margin-top:8px}}
+@media(max-height:480px){.tour-in-filter .tour-top{position:absolute;right:12px;top:4px}
+.tour-in-filter .tour-top>span{display:none}
+.tour-in-filter .tour-title{padding-right:44px}
+.tour-in-filter .tour-description{padding-right:44px;line-height:1.5}}
+.tour-shade{position:fixed;inset:0;z-index:120;width:100%;height:100%;pointer-events:none;touch-action:none}
+.tour-shade path{fill:hsl(var(--brand-ink)/.36);pointer-events:visiblePainted}
+.tour-in-filter .tour-shade{position:absolute}
+
+/* The modal's own close action stays reachable while its header is visible. */
+[data-onboarding=filter-dialog]:has(.tour-in-filter[data-tour-docked=false])>header button[aria-label="Filter schließen"]{position:relative;z-index:151}
+
+@media(max-height:480px){
+  .tour-layer[data-tour-docked=true] .tour-panel{width:calc(100% - 32px);padding:8px 12px 12px}
+  .tour-layer[data-tour-docked=true] .tour-title{font-size:14px;padding-right:44px}
+  .tour-layer[data-tour-docked=true] .tour-description{font-size:12px;line-height:1.5;padding-right:44px;margin-top:6px}
+  .tour-layer[data-tour-docked=true] .tour-top{position:absolute;right:12px;top:4px}
+  .tour-layer[data-tour-docked=true] .tour-top>span{display:none}
+  .tour-layer[data-tour-docked=true] .tour-actions{margin-top:8px}
+}

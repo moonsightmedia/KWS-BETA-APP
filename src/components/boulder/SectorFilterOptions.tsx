@@ -18,7 +18,7 @@ export function SectorFilterOptions({ sectors, selected, onChange, single = fals
   }
   const toggle = (name: string) => onChange(selected.includes(name) ? selected.filter(value => value !== name) : single ? [name] : [...selected, name]);
   return <FilterSection title="Hallenbereiche" icon={MapIcon} active={selected.length > 0} onReset={() => onChange([])} summary={selected.length ? selected.join(' · ') : single ? 'Ganze Halle · Ein Teilbereich wählbar' : 'Ganze Halle · Mehrfachauswahl'}>
-    <div className="grid items-start gap-4 md:grid-cols-2">
+    <div data-onboarding="filter-area" className="grid items-start gap-4 md:grid-cols-2">
       {[...groups.entries()].sort(([, a], [, b]) => a.order - b.order || a.title.localeCompare(b.title, 'de')).map(([key, group]) => {
         const names = [...group.names.keys()];
         const all = names.every(name => selected.includes(name));
