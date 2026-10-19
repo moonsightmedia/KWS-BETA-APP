@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -169,8 +170,8 @@ export function BatchUpload() {
       return;
     }
 
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const supabaseUrl = backendConfig.supabaseUrl;
+    const supabaseKey = backendConfig.publicKey;
     if (!supabaseUrl || !supabaseKey) {
       toast.error("Supabase-Konfiguration fehlt.");
       return;

@@ -1,3 +1,4 @@
+import { backendStorageKey } from '@/lib/backendConfig';
 import type { ReactNode } from 'react';
 import { CalendarDays, Check, ChevronRight, LogOut, Settings, Shield, Wrench } from 'lucide-react';
 import { HomeIcon as LayoutDashboard, AccountIcon as User } from '@/lib/appIcons';
@@ -18,9 +19,9 @@ import { kwsPopoverClassName } from '@/components/ui/kws-surface';
 import { useHoverMenu } from '@/hooks/useHoverMenu';
 import { TRAINING_UI_ENABLED } from '@/features/training/flags';
 
-const STORAGE_KEY_ADMIN = 'nav_isAdmin';
-const STORAGE_KEY_SETTER = 'nav_isSetter';
-const STORAGE_KEY_USER_ID = 'nav_userId';
+const STORAGE_KEY_ADMIN = backendStorageKey('nav_isAdmin');
+const STORAGE_KEY_SETTER = backendStorageKey('nav_isSetter');
+const STORAGE_KEY_USER_ID = backendStorageKey('nav_userId');
 
 const getStoredRole = (key: string, userId?: string): boolean => {
   if (!userId) return false;

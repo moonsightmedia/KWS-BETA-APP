@@ -13,7 +13,15 @@ const key=(bundle.match(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g)??[
   try{return JSON.parse(Buffer.from(value.split('.')[1],'base64url')).role==='anon';}catch{return false;}
 });
 assert(key,'Public anon configuration missing');
+if(process.env.KWS_STORE_REVIEW_ENABLED==='true') {
+  const reviewKey=process.env.KWS_STORE_REVIEW_ANON_KEY || '';
+  let reviewRole;
+  try { reviewRole=JSON.parse(Buffer.from(reviewKey.split('.')[1],'base64url')).role; } catch { /* Reject below. */ }
+  assert(reviewRole==='anon' && reviewKey!==key,'Separate public review configuration required; privileged keys are forbidden');
+}
 const env={...process.env,VITE_SUPABASE_URL:'https://beta-api.kletterwelt-sauerland.de',
+  VITE_STORE_REVIEW_ENABLED:process.env.KWS_STORE_REVIEW_ENABLED==='true'?'true':'false',
+  VITE_STORE_REVIEW_ANON_KEY:process.env.KWS_STORE_REVIEW_ANON_KEY || '',
   VITE_SUPABASE_PUBLISHABLE_KEY:key,VITE_VIDEO_API_URL:'https://video.kletterwelt-sauerland.de',
   VITE_NATIVE_VIDEO_API_URL:'https://video.kletterwelt-sauerland.de',
   VITE_ALLINKL_API_URL:'https://video.kletterwelt-sauerland.de',

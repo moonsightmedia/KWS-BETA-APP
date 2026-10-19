@@ -16,7 +16,7 @@ globalThis.__silentNative = {
 let source = await readFile(new URL('../src/utils/nativeVideoUpload.ts', import.meta.url), 'utf8');
 source = source.replace(/^import .* from .*;\r?\n/gm, '')
   .replaceAll("import.meta.env", '({})').replaceAll('console.warn', 'globalThis.__silentNative.warn');
-source = "const { Capacitor, UploadMasterEncoder, SilentVideo, VideoCompressor } = globalThis.__silentNative; const isNativeVideoUploadFile = f => f.kind === 'native-video';\n" + source;
+source = "const backendConfig = {}; const { Capacitor, UploadMasterEncoder, SilentVideo, VideoCompressor } = globalThis.__silentNative; const isNativeVideoUploadFile = f => f.kind === 'native-video';\n" + source;
 const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
 const { prepareVideoFileForChunkedUpload } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 const input = { kind: 'native-video', path: '/gallery/source.mov', name: 'source.mov', size: 10_000_000, mimeType: 'video/quicktime', cached: false };

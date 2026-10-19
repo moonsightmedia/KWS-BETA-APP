@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Trash2 } from "lucide-react";
@@ -313,8 +314,8 @@ export default function SetterEditPage() {
         if (!currentSession?.access_token) throw new Error("Bitte erneut anmelden. Deine Eingaben bleiben erhalten.");
         await publishBoulderWithoutVideo({
           fetch: authenticatedFetch,
-          url: import.meta.env.VITE_SUPABASE_URL,
-          publicKey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          url: backendConfig.supabaseUrl,
+          publicKey: backendConfig.publicKey,
           accessToken: currentSession.access_token,
           boulderId: editorDraft.id,
         });

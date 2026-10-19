@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { UploadLogger, markStaleUploadsAsSuspectedOom } from '@/utils/uploadLogger';
 import { resumableUpload } from '@/utils/resumableUpload';
@@ -65,8 +66,8 @@ const TERMINAL_UPLOAD_OUTCOME_TTL_MS = 30 * 60 * 1000;
 async function readUploadJson<T>(owner: string, table: string, query: URLSearchParams, signal: AbortSignal): Promise<T[]> {
   const current = await getCurrentSession(signal);
   if (!current || current.user.id !== owner) throw new Error('Die Anmeldung hat sich geändert.');
-  const response = await authenticatedFetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/${table}?${query}`, {
-    signal, headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${current.access_token}` },
+  const response = await authenticatedFetch(`${backendConfig.supabaseUrl}/rest/v1/${table}?${query}`, {
+    signal, headers: { apikey: backendConfig.publicKey, Authorization: `Bearer ${current.access_token}` },
   });
   if (!response.ok) throw new Error('Upload-Status nicht verfügbar.');
   return response.json();
@@ -264,8 +265,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return false;
     }
 
-    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-    const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const SUPABASE_URL = backendConfig.supabaseUrl;
+    const SUPABASE_KEY = backendConfig.publicKey;
 
     if (!SUPABASE_URL || !SUPABASE_KEY) {
       console.warn('[UploadContext] ⚠️ Cannot update log - missing config');
@@ -385,8 +386,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                  return false;
              }
              
-             const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-             const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+             const SUPABASE_URL = backendConfig.supabaseUrl;
+             const SUPABASE_KEY = backendConfig.publicKey;
 
              if (!SUPABASE_URL || !SUPABASE_KEY) {
                  console.warn('[UploadContext] ⚠️ Cannot update log - missing config');
@@ -462,7 +463,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             console.log('[UploadContext] ⏭️ Skipping upload log creation (status is not "pending"):', upload.status);
         }
 
-        const API_URL = import.meta.env.VITE_ALLINKL_API_URL || 'https://cdn.kletterwelt-sauerland.de/upload-api';
+        const API_URL = backendConfig.legacyUploadUrl || 'https://cdn.kletterwelt-sauerland.de/upload-api';
         console.log('[UploadContext] 🌐 API URL:', API_URL);
         
         // Create abort controller if not provided
@@ -507,8 +508,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         let url: string | undefined;
         
         if (upload.type === 'video' && !videoQueuedOnServer) {
-            const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-            const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+            const SUPABASE_URL = backendConfig.supabaseUrl;
+            const SUPABASE_KEY = backendConfig.publicKey;
             if (!SUPABASE_URL || !SUPABASE_KEY) {
                 throw new Error('Supabase-Konfiguration fehlt');
             }
@@ -703,8 +704,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         // Persist the uploaded asset through the established Boulder PATCH flow.
         console.log('[UploadContext] 📝 Persisting upload result in database...');
-        const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-        const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const SUPABASE_URL = backendConfig.supabaseUrl;
+        const SUPABASE_KEY = backendConfig.publicKey;
 
         if (!SUPABASE_URL || !SUPABASE_KEY) {
             throw new Error('Supabase-Konfiguration fehlt');
@@ -804,8 +805,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         if (upload.type === 'video' && !videoQueuedOnServer) {
-            const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-            const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+            const SUPABASE_URL = backendConfig.supabaseUrl;
+            const SUPABASE_KEY = backendConfig.publicKey;
             if (SUPABASE_URL && SUPABASE_KEY && currentSession?.access_token) {
                 await uploadFetch(`${SUPABASE_URL}/rest/v1/rpc/fail_boulder_video_upload`, {
                     method: 'POST',
@@ -1123,8 +1124,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [clearTerminalCleanupTimer]);
 
   const failPendingBoulderVideoUpload = useCallback(async (boulderId: string, error: string) => {
-    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-    const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const SUPABASE_URL = backendConfig.supabaseUrl;
+    const SUPABASE_KEY = backendConfig.publicKey;
     if (!SUPABASE_URL || !SUPABASE_KEY) return;
 
     const activeSession = await getCurrentSession();

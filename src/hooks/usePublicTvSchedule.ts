@@ -1,11 +1,12 @@
+import { backendConfig } from '@/lib/backendConfig';
 import { useQuery } from '@tanstack/react-query';
 
 import { transformSector } from '@/lib/dataTransformers';
 import type { Sector as FrontendSector } from '@/types/boulder';
 import type { HallMap, MapPoint, SectorMapRegion } from '@/types/hallMap';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL = backendConfig.supabaseUrl;
+const SUPABASE_PUBLISHABLE_KEY = backendConfig.publicKey;
 const TV_REFETCH_INTERVAL = 60_000;
 
 const tvQueryOptions = {

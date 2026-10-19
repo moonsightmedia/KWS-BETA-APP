@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
-const raw = await readFile(new URL('../src/lib/accountDeletion.ts', import.meta.url), 'utf8');
+const raw = (await readFile(new URL('../src/lib/accountDeletion.ts', import.meta.url), 'utf8'))
+  .replace("import { backendConfig } from '@/lib/backendConfig';", "const backendConfig = {supabaseUrl:'https://fixture.invalid', publicKey:'public-fixture'};");
 const compiled = ts.transpileModule(raw.replace("import { authenticatedFetch, getCurrentSession } from '@/lib/authenticatedFetch';", 'const {authenticatedFetch,getCurrentSession}=fixture;').replaceAll('import.meta.env.VITE_SUPABASE_URL', "'https://fixture.invalid'").replaceAll('import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY', "'public-fixture'"), { compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS} }).outputText;
 function setup() {
   const state = {session:{access_token:'signed-session-fixture'},calls:[],status:200,body:[]};

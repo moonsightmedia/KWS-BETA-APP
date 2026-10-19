@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, ArrowLeft, ArrowRight, Bug, Check, ChevronRight, Filter, Inbox, Layers, Lightbulb, Loader2, MessageSquare, Search, Trash2, X } from 'lucide-react';
@@ -44,7 +45,7 @@ export function FeedbackManagement() {
   const filterTrigger = useRef<HTMLButtonElement | null>(null);
   const restoreDetailFocus = () => { if (detailTrigger.current?.isConnected) detailTrigger.current.focus(); else searchInput.current?.focus(); };
   const ready = !authLoading && !!user && !!session;
-  const connection: FeedbackConnection = { url: import.meta.env.VITE_SUPABASE_URL || '', key: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '', token: session?.access_token || '' };
+  const connection: FeedbackConnection = { url: backendConfig.supabaseUrl || '', key: backendConfig.publicKey || '', token: session?.access_token || '' };
   useEffect(() => {
     const timer = setTimeout(() => setFilters(current => ({ ...current, search })), 300);
     return () => clearTimeout(timer);

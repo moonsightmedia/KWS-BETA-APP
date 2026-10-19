@@ -1,8 +1,9 @@
+import { backendConfig } from '@/lib/backendConfig';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 /** Bounded, authenticated REST. Failed requests never masquerade as empty data. */
 export async function notificationRequest(path: string, accessToken: string | undefined, init: RequestInit = {}) {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const url = backendConfig.supabaseUrl;
+  const key = backendConfig.publicKey;
   if (!accessToken) throw new Error('Bitte melde dich erneut an.');
   if (!url || !key) throw new Error('Supabase-Konfiguration fehlt.');
   const controller = new AbortController(); const abort = () => controller.abort();

@@ -27,6 +27,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { accountBirthDateError } from '@/lib/accountEligibility';
 import { AUTH_LOGIN_PATH, AUTH_REGISTER_PATH, isAuthPage } from '@/lib/authRoutes';
+import { isReviewAvailable, isReviewEnvironment, switchBackendEnvironment } from '@/lib/backendConfig';
 
 type AuthMode = 'login' | 'signup';
 type PendingAction = 'login' | 'signup' | 'reset' | null;
@@ -80,6 +81,7 @@ const Auth = () => {
   const [resendEmail, setResendEmail] = useState('');
   const [resendPending, setResendPending] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const [environmentError, setEnvironmentError] = useState('');
 
 
   const {
@@ -88,6 +90,7 @@ const Auth = () => {
     resetPassword,
     resendConfirmation,
     user,
+    loading: authLoading,
   } = useAuth();
 
   useEffect(() => {
@@ -268,6 +271,14 @@ const Auth = () => {
 
         <section className="mobile-page-bottom-safe px-4 sm:px-8 lg:flex lg:min-h-[100dvh] lg:items-center lg:px-10 lg:pt-[calc(2.5rem+var(--app-safe-area-top))]">
           <div className="mx-auto w-full max-w-[480px] rounded-kws-card bg-white p-4 shadow-[0_5px_18px_rgba(19,17,43,0.08)] sm:p-6">
+            {isReviewAvailable && !isReviewEnvironment && !user && !authLoading && <details className="mb-4 text-xs text-muted-foreground">
+              <summary className="min-h-11 cursor-pointer rounded-kws-control py-3 font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Demoumgebung</summary>
+              <p>Die App mit Beispieldaten und einem bereitgestellten Demo-Zugang ausprobieren.</p>
+              <Button type="button" variant="secondary" className="mt-2" disabled={pendingAction !== null} onClick={() => {
+                try { switchBackendEnvironment('review'); } catch { setEnvironmentError('Der Wechsel ist gerade nicht möglich. Bitte erneut versuchen.'); }
+              }}>Demo öffnen</Button>
+              {environmentError && <p role="alert" className="mt-2 text-destructive">{environmentError}</p>}
+            </details>}
             <KwsSegmentedControl
               value={authMode}
               options={AUTH_MODES}

@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 ﻿import { useEffect, useRef, useState } from "react";
 import { useId } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -67,8 +68,8 @@ export const UserManagement = () => {
     queryKey: ["admin-users", user?.id],
     enabled: !authLoading && !!user && !!session,
     queryFn: async ({ signal }) => {
-      const url = import.meta.env.VITE_SUPABASE_URL;
-      const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const url = backendConfig.supabaseUrl;
+      const key = backendConfig.publicKey;
       const token = sessionRef.current?.access_token;
       if (!url || !key || !token) throw new Error("Keine aktive Sitzung");
       const headers = { apikey: key, Authorization: `Bearer ${token}` };
@@ -116,8 +117,8 @@ export const UserManagement = () => {
       } else {
         // UI guard only. Authorization remains enforced by the server/RLS.
         if (action.role === "admin" && !action.enabled && (action.entry.id === user?.id || adminCount <= 1)) throw new Error("Adminrechte geschützt");
-        const url = import.meta.env.VITE_SUPABASE_URL;
-        const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const url = backendConfig.supabaseUrl;
+        const key = backendConfig.publicKey;
         const token = sessionRef.current?.access_token;
         if (!url || !key || !token) throw new Error("Keine aktive Sitzung");
         const response = await window.fetch(`${url}/rest/v1/user_roles${action.enabled ? "" : `?user_id=eq.${encodeURIComponent(action.entry.id)}&role=eq.${action.role}`}`, {

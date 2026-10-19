@@ -1,3 +1,4 @@
+import { backendConfig, isReviewEnvironment } from '@/lib/backendConfig';
 import { supabase } from './client';
 import exifr from 'exifr';
 
@@ -7,14 +8,14 @@ const HALL_MAPS_BUCKET = 'hall-maps';
 const PROFILE_AVATARS_BUCKET = 'profile-avatars';
 
 // All-Inkl API Configuration
-const ALLINKL_API_URL = import.meta.env.VITE_ALLINKL_API_URL || 'https://cdn.kletterwelt-sauerland.de/upload-api';
+const ALLINKL_API_URL = backendConfig.legacyUploadUrl || 'https://cdn.kletterwelt-sauerland.de/upload-api';
 const USE_ALLINKL_STORAGE = import.meta.env.VITE_USE_ALLINKL_STORAGE === 'true' || false;
 const DEFAULT_VIDEO_API_URL = 'https://video.kletterwelt-sauerland.de';
 
 function getHostingerVideoOrigins(): Set<string> {
   const configuredVideoApiUrl =
-    import.meta.env.VITE_VIDEO_API_URL || import.meta.env.VITE_NATIVE_VIDEO_API_URL;
-  const candidates = [DEFAULT_VIDEO_API_URL, configuredVideoApiUrl].filter(
+    backendConfig.videoUrl || backendConfig.nativeVideoUrl;
+  const candidates = [isReviewEnvironment ? undefined : DEFAULT_VIDEO_API_URL, configuredVideoApiUrl].filter(
     (value): value is string => Boolean(value),
   );
 

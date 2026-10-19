@@ -1,12 +1,13 @@
+import { backendConfig, backendStorageKey } from '@/lib/backendConfig';
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from './useAuth';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 
 // Storage keys (same as in Sidebar and RoleTabs)
 // CRITICAL: Use localStorage instead of sessionStorage for native apps
-const STORAGE_KEY_ADMIN = 'nav_isAdmin';
-const STORAGE_KEY_SETTER = 'nav_isSetter';
-const STORAGE_KEY_USER_ID = 'nav_userId';
+const STORAGE_KEY_ADMIN = backendStorageKey('nav_isAdmin');
+const STORAGE_KEY_SETTER = backendStorageKey('nav_isSetter');
+const STORAGE_KEY_USER_ID = backendStorageKey('nav_userId');
 
 type RoleCheckResult =
   | { status: 'ok'; hasRole: boolean }
@@ -83,8 +84,8 @@ const checkRoleOnce = async (
 ): Promise<RoleCheckResult> => {
   if (role === 'user') return { status: 'ok', hasRole: true };
 
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const url = backendConfig.supabaseUrl;
+  const key = backendConfig.publicKey;
   if (!url || !key || !accessToken) {
     return { status: 'error' };
   }

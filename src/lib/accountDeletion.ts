@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 import { authenticatedFetch, getCurrentSession } from '@/lib/authenticatedFetch';
 
 export interface AccountDeletionRequest {
@@ -12,9 +13,9 @@ async function deletionApi(path: string, init?: RequestInit) {
   const session = await getCurrentSession(init?.signal);
   if (!session) throw new Error('Bitte melde dich erneut an, um die Kontolöschung zu verwalten.');
   const headers = new Headers(init?.headers);
-  headers.set('apikey', import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+  headers.set('apikey', backendConfig.publicKey);
   headers.set('Authorization', `Bearer ${session.access_token}`);
-  const response = await authenticatedFetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/${path}`, { ...init, headers });
+  const response = await authenticatedFetch(`${backendConfig.supabaseUrl}/rest/v1/${path}`, { ...init, headers });
   if (!response.ok) throw new Error('Die Anfrage konnte nicht bestätigt werden. Bitte versuche es erneut.');
   return response.json();
 }

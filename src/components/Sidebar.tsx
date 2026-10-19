@@ -1,3 +1,4 @@
+import { backendStorageKey } from '@/lib/backendConfig';
 import {
   ChevronRight,
   ChevronLeft,
@@ -35,9 +36,9 @@ interface SidebarProps {
 }
 
 // Simple storage keys
-const STORAGE_KEY_ADMIN = 'nav_isAdmin';
-const STORAGE_KEY_SETTER = 'nav_isSetter';
-const STORAGE_KEY_USER_ID = 'nav_userId';
+const STORAGE_KEY_ADMIN = backendStorageKey('nav_isAdmin');
+const STORAGE_KEY_SETTER = backendStorageKey('nav_isSetter');
+const STORAGE_KEY_USER_ID = backendStorageKey('nav_userId');
 
 // Simple storage helpers
 // CRITICAL: Use localStorage instead of sessionStorage for native apps

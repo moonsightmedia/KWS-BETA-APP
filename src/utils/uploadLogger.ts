@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 import type { Session } from '@supabase/supabase-js';
 import { uploadLogTransitionFilter } from '@/lib/uploadRecovery';
 import { createAuthenticatedUploadFetch } from '@/lib/authenticatedFetch';
@@ -16,8 +17,8 @@ function getRestConfig(session: Session | null): {
   key: string;
   ownerId: string;
 } {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const url = backendConfig.supabaseUrl;
+  const key = backendConfig.publicKey;
 
   if (!url || !key) {
     throw new Error('Supabase-Konfiguration fehlt');
@@ -34,8 +35,8 @@ async function patchUploadLog(
   ownerId: string,
   updates: Record<string, unknown>,
 ): Promise<boolean> {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const url = backendConfig.supabaseUrl;
+  const key = backendConfig.publicKey;
   if (!url || !key) return false;
 
   try {
@@ -172,8 +173,8 @@ export class UploadLogger {
 export async function getActiveUploads(session: Session | null) {
   if (!session?.access_token) return [];
 
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const url = backendConfig.supabaseUrl;
+  const key = backendConfig.publicKey;
   if (!url || !key) return [];
 
   try {
@@ -207,8 +208,8 @@ export async function markStaleUploadsAsSuspectedOom(
 ): Promise<number> {
   if (!session?.access_token) return 0;
 
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const url = backendConfig.supabaseUrl;
+  const key = backendConfig.publicKey;
   if (!url || !key) return 0;
 
   try {

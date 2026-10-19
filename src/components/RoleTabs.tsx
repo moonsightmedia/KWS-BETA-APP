@@ -1,3 +1,4 @@
+import { backendStorageKey } from '@/lib/backendConfig';
 import { Link, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -5,9 +6,9 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useHasRole } from '@/hooks/useHasRole';
 import { cn } from '@/lib/utils';
 
-const STORAGE_KEY_ADMIN = 'nav_isAdmin';
-const STORAGE_KEY_SETTER = 'nav_isSetter';
-const STORAGE_KEY_USER_ID = 'nav_userId';
+const STORAGE_KEY_ADMIN = backendStorageKey('nav_isAdmin');
+const STORAGE_KEY_SETTER = backendStorageKey('nav_isSetter');
+const STORAGE_KEY_USER_ID = backendStorageKey('nav_userId');
 
 const getStoredValue = (key: string): boolean | null => {
   try {

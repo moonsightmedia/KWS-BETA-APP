@@ -1,3 +1,4 @@
+import { backendConfig } from '@/lib/backendConfig';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -22,8 +23,8 @@ export const useSectorSchedule = () => {
     retry: (count, error) => !(error instanceof SessionRequiredError) && count < 1,
     enabled: queriesEnabled,
     queryFn: async () => {
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const SUPABASE_URL = backendConfig.supabaseUrl;
+      const SUPABASE_PUBLISHABLE_KEY = backendConfig.publicKey;
       
       if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
         throw new Error('Supabase URL or API key not found');
@@ -64,8 +65,8 @@ export const useCreateSectorSchedule = () => {
   
   return useMutation({
     mutationFn: async (payload: Omit<SectorSchedule, 'id' | 'created_at' | 'created_by'>) => {
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const SUPABASE_URL = backendConfig.supabaseUrl;
+      const SUPABASE_PUBLISHABLE_KEY = backendConfig.publicKey;
       
       if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
         throw new Error('Supabase URL or API key not found');
@@ -118,8 +119,8 @@ export const useDeleteSectorSchedule = () => {
   
   return useMutation({
     mutationFn: async (id: string) => {
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const SUPABASE_URL = backendConfig.supabaseUrl;
+      const SUPABASE_PUBLISHABLE_KEY = backendConfig.publicKey;
       
       if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
         throw new Error('Supabase URL or API key not found');
@@ -168,8 +169,8 @@ export const useCreateSectorScheduleGroup = () => {
 
   return useMutation({
     mutationFn: async ({ sectorIds, scheduledAt, note }: SectorScheduleGroupInput) => {
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const SUPABASE_URL = backendConfig.supabaseUrl;
+      const SUPABASE_PUBLISHABLE_KEY = backendConfig.publicKey;
       const accessToken = session?.access_token;
 
       if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
@@ -229,8 +230,8 @@ export const useDeleteSectorScheduleGroup = () => {
 
   return useMutation({
     mutationFn: async (scheduleIds: string[]) => {
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const SUPABASE_URL = backendConfig.supabaseUrl;
+      const SUPABASE_PUBLISHABLE_KEY = backendConfig.publicKey;
       const accessToken = session?.access_token;
 
       if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {

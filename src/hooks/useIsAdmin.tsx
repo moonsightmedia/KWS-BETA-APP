@@ -1,8 +1,9 @@
+import { backendConfig, backendStorageKey } from '@/lib/backendConfig';
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from './useAuth';
 
-const STORAGE_KEY_ADMIN = 'nav_isAdmin';
-const STORAGE_KEY_USER_ID = 'nav_userId';
+const STORAGE_KEY_ADMIN = backendStorageKey('nav_isAdmin');
+const STORAGE_KEY_USER_ID = backendStorageKey('nav_userId');
 
 type AdminCheckResult =
   | { status: 'ok'; isAdmin: boolean }
@@ -52,8 +53,8 @@ const checkAdminOnce = async (
   userId: string,
   accessToken: string,
 ): Promise<AdminCheckResult> => {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const url = backendConfig.supabaseUrl;
+  const key = backendConfig.publicKey;
   if (!url || !key || !accessToken) {
     return { status: 'error' };
   }

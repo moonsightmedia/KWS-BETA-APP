@@ -620,6 +620,13 @@ All colors MUST be HSL.
 }
 
 /* Shared photo already supplies the entry motion; do not fade its snapshot as well. */
+html[data-kws-review] .kws-sidebar {
+  top: var(--kws-review-notice-height, 0px);
+  height: calc(100dvh - var(--kws-review-notice-height, 0px));
+}
+html[data-kws-review] [data-kws-dashboard-header] {
+  top: var(--kws-review-notice-height, 0px);
+}
 .kws-detail-enter[data-photo-animated] { animation: none; }
 
 /* Only the selected photo participates; the retained, inert source never duplicates it. */

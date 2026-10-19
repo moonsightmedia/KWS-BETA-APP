@@ -1,3 +1,4 @@
+import { backendConfig, isReviewEnvironment } from '@/lib/backendConfig';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { LivePresenceClient } from '@/lib/livePresenceClient';
@@ -20,7 +21,7 @@ let loadedBoulderOwner: symbol | null = null;
 const reported = new WeakMap<object, { id: string; at: number }>();
 const operationFailures = new Map<string, number>();
 
-export function isMonitoringEnabled(): boolean { return import.meta.env.VITE_MONITORING_ENABLED === 'true'; }
+export function isMonitoringEnabled(): boolean { return !isReviewEnvironment && import.meta.env.VITE_MONITORING_ENABLED === 'true'; }
 
 function getClient(): MonitoringClient | null {
   if (!isMonitoringEnabled()) return null;
@@ -40,10 +41,10 @@ function getClient(): MonitoringClient | null {
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 8000);
         try {
-          const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          const key = backendConfig.publicKey;
           const token = owner && currentUser?.id === owner ? currentUser.token : key;
-          if (!key || !import.meta.env.VITE_SUPABASE_URL || (owner && currentUser?.id !== owner)) throw new Error('Monitoring session unavailable');
-          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/monitoring-events`, {
+          if (!key || !backendConfig.supabaseUrl || (owner && currentUser?.id !== owner)) throw new Error('Monitoring session unavailable');
+          const response = await fetch(`${backendConfig.supabaseUrl}/functions/v1/monitoring-events`, {
             method: 'POST', signal: controller.signal, headers: { apikey: key, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ events }),
           });
@@ -172,10 +173,10 @@ export function startMonitoring(): void {
     release: `kws-beta-app@${APP_VERSION}${import.meta.env.VITE_RELEASE_REVISION ? '+' + import.meta.env.VITE_RELEASE_REVISION.slice(0, 12) : ''}`,
     channel: import.meta.env.VITE_MONITORING_CHANNEL || (import.meta.env.DEV ? 'development' : platform === 'ios' ? 'testflight' : platform === 'android' ? 'apk' : 'production'),
     transport: async (message, owner) => {
-      const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      if (!key || !import.meta.env.VITE_SUPABASE_URL) return;
+      const key = backendConfig.publicKey;
+      if (!key || !backendConfig.supabaseUrl) return;
       const token = owner && currentUser?.id === owner ? currentUser.token : key;
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/monitoring-events`, {
+      const response = await fetch(`${backendConfig.supabaseUrl}/functions/v1/monitoring-events`, {
         method: 'POST', keepalive: true, signal: AbortSignal.timeout(8000),
         headers: { apikey: key, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ presence: message }),

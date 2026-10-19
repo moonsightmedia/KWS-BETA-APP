@@ -1,3 +1,4 @@
+import { backendStorageKey } from '@/lib/backendConfig';
 import { withBoulderPhotoTransition } from '@/lib/boulderPhotoTransition';
 import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { useEffect, useMemo, useState } from 'react';
@@ -175,7 +176,7 @@ const Index = () => {
 
   const getPersistedName = () => {
     try {
-      return localStorage.getItem('greetingName');
+      return localStorage.getItem(backendStorageKey('greetingName'));
     } catch {
       return null;
     }
@@ -194,7 +195,7 @@ const Index = () => {
   useEffect(() => {
     if (greetingName) {
       try {
-        localStorage.setItem('greetingName', greetingName);
+        localStorage.setItem(backendStorageKey('greetingName'), greetingName);
       } catch {
         // ignore storage errors
       }

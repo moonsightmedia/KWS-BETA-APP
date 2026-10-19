@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/capacitor';
+import { isReviewEnvironment } from '@/lib/backendConfig';
 import { init as sentryReactInit } from '@sentry/react';
 import { Capacitor } from '@capacitor/core';
 import { APP_VERSION } from '@/utils/version';
@@ -7,6 +8,7 @@ import { scrubMonitoringText } from '@/lib/monitoringClient';
 let initialized = false;
 
 function getSentryDsn(): string | undefined {
+  if (isReviewEnvironment) return undefined;
   const dsn = import.meta.env.VITE_SENTRY_DSN;
   return typeof dsn === 'string' && dsn.trim().length > 0 ? dsn.trim() : undefined;
 }
