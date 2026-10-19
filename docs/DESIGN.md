@@ -2088,3 +2088,68 @@ Prüfumfang und Belege: docs/design/designmotion-2026-10-19.md.
   Upload-Ergänzungen und lokale Entwurfswiederherstellung sind weiter Vorschläge.
 
 Prüfumfang: docs/qa/2026-10-19-setter-quick-actions.md.
+
+
+### Onboarding – freigegebene App-Integration 19.10.2026
+
+- Der erste Gastbesuch führt mit kurzen verankerten Hinweisen durch die echte
+  Oberfläche, nach der bestehenden Trainings-Tour-Methode: sichtbares Ziel,
+  dezenter Hintergrund, grüne Kontur und zugehöriger Pfeil. Keine vorgeschaltete
+  Folge allgemeiner Erklärungskarten. Das erklärte Element bleibt bedienbar.
+- Präzisierung nach Sichtprüfung: Die Aufhellung folgt der tatsächlichen
+  Rundung des Zielelements einschließlich des umlaufenden Abstands. Ausschnitt,
+  grüne Kontur und klickfreie Öffnung haben dieselbe Geometrie; keine hellen
+  rechteckigen Eckflächen außerhalb der Rundung. Abgeschnittene Zielkanten
+  bleiben gerade. Die Kontozeile heißt auf Nutzerwunsch „Das Kommentieren“ und
+  behält ausdrücklich den Stern. Bestätigte Nutzerwahl im Iconvergleich:
+  Gespeicherte Boulder B (`Bookmark`), Tracking A (`Play`), Statistik A
+  (zentraler `StatisticsIcon`). Diese Auswahl gilt für die Konto-Vorteilszeilen.
+  Produktive Detail- und Ergebnisaktionen behalten ihre eigenen Funktionsicons.
+  Die Kontozeilen heißen „Gespeicherte Boulder“, „Tracking“, „Statistik“ und
+  „Das Kommentieren“.
+  Boulder-/Konto-/Statistiknavigation verwenden die gemeinsamen `appIcons`.
+  Die Kontovorteile erhalten keine zusätzlichen Erledigt-Häkchen.
+- Gastfunktionen zuerst: Boulder öffnen, vorhandene Beta ansehen und die echten
+  Mehrfachfilter ausprobieren. Nutzerkorrektur 19.10.2026: Die Einführung bleibt
+  im geöffneten Filter erhalten und erklärt Grad, Farbe, Hallenbereich und den
+  Ergebnisbutton direkt an den bedienbaren Elementen. Nach „Boulder anzeigen“
+  folgt ein Hinweis an der gefilterten Liste, bevor die Kontofunktionen beginnen.
+  Keine Unterbrechung durch eine unbegleitete Standard-Filteransicht. In kurzen
+  Viewports bleiben Erklärung und scrollbar erreichbare Auswahl getrennt sichtbar.
+- Texte nennen konkrete Handlungen in kurzen, natürlichen Sätzen. Keine
+  Werbeslogans, künstlichen Motivationszeilen oder wiederholten Nutzenformeln.
+- Kontovorteile werden direkt im jeweiligen Kontext beworben: Merken/Projekte,
+  Versuche/Tops/Flashes und persönlicher Fortschritt, ergänzt um Bewertungen und
+  Kommentare. Gastvideos sind kein exklusiver Kontovorteil. Unveröffentlichtes
+  Training und geplante Funktionen gehören nicht in dieses Verfügbarkeitsversprechen.
+- Eine Gastvorschau persönlicher Funktionen ist dauerhaft als Kontovorschau mit
+  Beispieldaten gekennzeichnet; sie erzeugt keine echten Einträge. Konto erstellen
+  und als Gast fortfahren sind ausdrücklich erreichbar. Überspringen, X, Escape,
+  Zurück und erneuter Start bleiben möglich; Hinweise liegen im Viewport und
+  verdecken ihr Ziel nicht. Fokus und Gastfilter bleiben nachvollziehbar erhalten.
+- Freigabe 19.10.2026: Integration in die App. Automatischer Start nur beim
+  ersten geladenen Gastbesuch; direkte Anmeldung/Registrierung und angemeldete
+  Nutzer werden nicht unterbrochen. Der bisherige `hasSeenOnboarding`-Status
+  wird berücksichtigt. Neue Abschlüsse sind versioniert und nach Backend
+  getrennt; gesperrter Browserspeicher verhindert die Nutzung nicht.
+- Die echte Gastliste und das echte Boulder-Detail liefern die Ziele. Ohne
+  vorhandenes Beta-Video erklärt der Hinweis das Foto und benennt das fehlende
+  Video. Lade-/Fehler-/Leerzustände erzeugen keine Erklärung ohne sichtbares Ziel.
+- Persönliche Funktionen werden unter `/onboarding/account` und
+  `/onboarding/progress` ausprobiert. Markierungen und Tracking bleiben lokaler
+  Zustand; die Woche verwendet ausdrücklich Beispieldaten. Die Kontovorteile
+  führen über `/onboarding/register` zum vorhandenen Formular `/app/register`.
+  „Einführung ansehen“ im Gastkopf startet die Führung erneut.
+- Der Filter meldet Öffnen, tatsächliche Ergebnisbestätigung und seinen
+  Dialoghost explizit an die Tour. Stabile `data-onboarding`-Ziele ersetzen
+  CSS-Layout-/Textsuche. X oder Zurück schließt den Filter ohne Ergebnisbestätigung;
+  Escape bzw. das X der Einführung beendet nur die Tour.
+- Verankerte Hinweise berücksichtigen die eigene Scrollebene des Boulder-Details
+  und den tatsächlich verfügbaren Scrollbereich im Filter. Auch Browser-Zurück
+  darf den vorgesehenen nächsten Schritt nicht durch einen Zwischenzustand ersetzen.
+
+Prüfbeleg: `docs/qa/2026-10-19-onboarding-integration.md`.
+
+- Begleitende Systemabfragen dürfen die erklärten Ziele nicht überdecken. Die
+  freiwillige Statistikabfrage wartet während der Tour und ihrer Kontovorschau;
+  ihre bestehende Auswahl wird dadurch weder erteilt noch zurückgesetzt.

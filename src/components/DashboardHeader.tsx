@@ -17,6 +17,7 @@ export const AdminTabTitleProvider = ({ children, tabTitle }: { children: React.
 );
 
 const getPageTitle = (pathname: string, setterTabTitle?: string, adminTabTitle?: string): string => {
+  if (pathname.startsWith('/onboarding/')) return pathname === '/onboarding/progress' ? 'Statistiken' : pathname === '/onboarding/register' ? 'Dein Konto' : 'Boulder';
   if (pathname === '/training') return 'Training';
   if (pathname === '/training/library/strength') return 'Krafttraining';
   if (pathname === '/training/library/boulder') return 'Boulderübungen';
