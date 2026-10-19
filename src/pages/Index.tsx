@@ -76,7 +76,7 @@ const DashboardSectionHeader = ({
       <button
         type="button"
         onClick={onActionClick}
-        className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-kws-control px-2 font-sans text-xs font-semibold text-brand-ink transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+        className="inline-flex min-h-11 md:min-h-9 shrink-0 items-center gap-1.5 rounded-kws-control px-2 font-sans text-xs font-semibold text-brand-ink transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
       >
         {actionLabel}
         <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />

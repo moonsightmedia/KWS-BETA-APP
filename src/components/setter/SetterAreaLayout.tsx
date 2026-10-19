@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { DashboardPageLayout } from '@/components/DashboardPageLayout';
+import { UploadOverview } from '@/components/UploadOverview';
 import { Button } from '@/components/ui/button';
 import { SetterState } from '@/components/setter/SetterControls';
 import { useAuth } from '@/hooks/useAuth';
@@ -53,5 +54,6 @@ export const SetterAreaLayout = () => {
   if (!canAccess) {
     return <DashboardPageLayout><div className="space-y-4"><SetterState title="Kein Zugriff auf den Setterbereich" description="Für diese Seiten brauchst du eine Setter- oder Adminfreigabe." /><Button variant="secondary" onClick={() => navigate('/')}>Zurück zur App</Button></div></DashboardPageLayout>;
   }
-  return <DashboardPageLayout><Outlet /></DashboardPageLayout>;
+  const isCreatePage = location.pathname.replace(/\/+$/, '') === '/setter/create';
+  return <DashboardPageLayout rightSlot={isCreatePage ? undefined : <UploadOverview placement="header" />}><Outlet /></DashboardPageLayout>;
 };

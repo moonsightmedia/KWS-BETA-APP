@@ -301,14 +301,14 @@ const Auth = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-3">
                       <Label htmlFor="login-password" className="text-sm font-semibold text-brand-ink">Passwort</Label>
-                      <button type="button" onClick={() => { setResetEmail(email); setShowResetPassword(true); }} className="rounded-kws-badge text-xs font-semibold text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                      <button type="button" onClick={() => { setResetEmail(email); setShowResetPassword(true); }} className="inline-flex min-h-11 items-center justify-center px-2 -mr-2 md:min-h-0 md:px-0 md:mr-0 rounded-kws-badge text-xs font-semibold text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
                         Vergessen?
                       </button>
                     </div>
                     <div className="relative">
                       <LockKeyhole className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                      <Input id="login-password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="Dein Passwort" value={password} onChange={(event) => setPassword(event.target.value)} required className={`${fieldClassName} px-10`} />
-                      <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-kws-control text-muted-foreground transition-colors hover:bg-secondary hover:text-brand-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={showPassword ? 'Passwort ausblenden' : 'Passwort anzeigen'}>
+                      <Input id="login-password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="Dein Passwort" value={password} onChange={(event) => setPassword(event.target.value)} required className={`${fieldClassName} pl-10 pr-[52px] md:pr-10`} />
+                      <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-0.5 md:right-1.5 top-1/2 flex h-11 w-11 md:h-9 md:w-9 -translate-y-1/2 items-center justify-center rounded-kws-control text-muted-foreground transition-colors hover:bg-secondary hover:text-brand-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={showPassword ? 'Passwort ausblenden' : 'Passwort anzeigen'}>
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
@@ -398,8 +398,8 @@ const Auth = () => {
                   <Label htmlFor="signup-password" className="text-sm font-semibold text-brand-ink">Passwort</Label>
                   <div className="relative">
                     <LockKeyhole className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                    <Input id="signup-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" placeholder="Mindestens 6 Zeichen" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} className={`${fieldClassName} px-10`} />
-                    <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-kws-control text-muted-foreground transition-colors hover:bg-secondary hover:text-brand-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={showPassword ? 'Passwort ausblenden' : 'Passwort anzeigen'}>
+                    <Input id="signup-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" placeholder="Mindestens 6 Zeichen" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} className={`${fieldClassName} pl-10 pr-[52px] md:pr-10`} />
+                    <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-0.5 md:right-1.5 top-1/2 flex h-11 w-11 md:h-9 md:w-9 -translate-y-1/2 items-center justify-center rounded-kws-control text-muted-foreground transition-colors hover:bg-secondary hover:text-brand-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={showPassword ? 'Passwort ausblenden' : 'Passwort anzeigen'}>
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
@@ -420,7 +420,7 @@ const Auth = () => {
               ) : (
                 <form onSubmit={handleResendConfirmation} className="space-y-3 rounded-kws-control bg-secondary p-3">
                   <Label htmlFor="resend-email" className="text-xs font-semibold text-brand-ink">Bestätigungslink erneut senden</Label>
-                  <Input id="resend-email" type="email" inputMode="email" autoComplete="email" placeholder="deine@email.de" value={resendEmail} onChange={(event) => setResendEmail(event.target.value)} required className={`${fieldClassName} h-11 bg-white text-sm`} />
+                  <Input id="resend-email" type="email" inputMode="email" autoComplete="email" placeholder="deine@email.de" value={resendEmail} onChange={(event) => setResendEmail(event.target.value)} required className={`${fieldClassName} h-11 bg-white text-base md:text-sm`} />
                   <div className="grid grid-cols-2 gap-2">
                     <Button type="button" variant="outline" onClick={() => { setShowResendConfirmation(false); setResendEmail(''); }} className="h-10 bg-white text-xs">Abbrechen</Button>
                     <Button type="submit" disabled={resendPending} className="h-10 px-2 text-xs">{resendPending ? 'Wird gesendet…' : 'Link senden'}</Button>

@@ -587,7 +587,7 @@ const Boulders = () => {
             placeholder='Boulder oder Bereich suchen…'
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            className='h-10 !rounded-kws-control border-none bg-secondary pl-10 pr-10 text-sm text-foreground shadow-none placeholder:text-muted-foreground focus-visible:!ring-2 focus-visible:!ring-brand-ink/15 focus-visible:!ring-offset-0'
+            className='h-10 !rounded-kws-control border-none bg-secondary pl-10 pr-10 text-base md:text-sm text-foreground shadow-none placeholder:text-muted-foreground focus-visible:!ring-2 focus-visible:!ring-brand-ink/15 focus-visible:!ring-offset-0'
             disabled={isLoading}
           />
           <button

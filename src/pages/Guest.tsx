@@ -330,7 +330,7 @@ const Guest = () => {
                 <Input
                   ref={searchInputRef}
                   aria-label="Boulder oder Bereich suchen"
-                  className="h-10 !rounded-kws-control border-none bg-brand-secondary pl-10 pr-10 text-sm text-brand-ink shadow-none placeholder:text-brand-ink/45 focus-visible:!ring-2 focus-visible:!ring-brand-ink/15 focus-visible:!ring-offset-0"
+                  className="h-10 !rounded-kws-control border-none bg-brand-secondary pl-10 pr-10 text-base md:text-sm text-brand-ink shadow-none placeholder:text-brand-ink/45 focus-visible:!ring-2 focus-visible:!ring-brand-ink/15 focus-visible:!ring-offset-0"
                   placeholder="Boulder oder Sektor suchen…"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
