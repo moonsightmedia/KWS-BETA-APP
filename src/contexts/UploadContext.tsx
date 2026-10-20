@@ -597,6 +597,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                         mimeType: prepared.mimeType,
                       };
                 const uploadResult = await resumableUpload(uploadSource, videoApiUrl, {
+                    sourceProvenance: 'selected-video-lossless',
                     sessionId: upload.sessionId,
                     sectorId: upload.sectorId,
                     boulderId: upload.boulderId,
