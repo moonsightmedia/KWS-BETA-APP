@@ -393,17 +393,21 @@ anderes Design ersetzt.
 - Mobile Hauptseiten unterstützen horizontales Route-Swipen:
   - Wisch von rechts nach links: nächster Eintrag rechts in der Reihenfolge,
   - Wisch von links nach rechts: vorheriger Eintrag links,
-  - Mindestdistanz etwa `56px`,
-  - klare horizontale Gesten bewegen den Inhalt leicht mit dem Finger;
-    Loslassen setzt die Richtung weich fort (90ms Austritt, 200ms Eintritt),
-  - kurze/abgebrochene Gesten und die Enden der Reihenfolge gleiten in 180ms
-    zurück; kein Umlauf von der letzten zur ersten Seite,
+  - klare horizontale Gesten bewegen den Inhalt 1:1 mit dem Finger; die echte
+    Nachbarseite wird bereits während des Ziehens sichtbar, ohne 48px-Begrenzung,
+  - Loslassen setzt beide Seiten von ihrer sichtbaren Position gemeinsam fort
+    (140–260ms je nach Restweg); kein getrennter Austritt/Eintritt oder erneuter
+    Aufbau der Zielseite beim Einrasten,
+  - etwa ein Viertel der Inhaltsbreite (mindestens 56px) oder ein kurzer, schneller
+    Wisch entscheidet den Wechsel; kleine langsame Züge gleiten zurück,
+  - die Enden der Reihenfolge zeigen gedämpften Widerstand; kein Umlauf,
   - Header und Hauptnavigation bleiben währenddessen an ihrer Position,
   - vertikale Gesten, Pinch-Zoom, Formfelder, Dialoge, Hallenkarte und horizontale
     Scroller bleiben frei; normale Karten/Links dürfen eine Wischfläche sein,
     ein erkannter horizontaler Zug löst keinen anschließenden Kartenklick aus,
   - Reduced Motion entfernt Zug- und Wechselbewegung, auch beim Livewechsel.
-  Nutzerkorrektur 19.10.2026 ersetzt damit die frühere umgekehrte Wischrichtung.
+  Nutzerkorrekturen 19./20.10.2026: intuitive Richtung und kontinuierlicher
+  Seitenwechsel statt begrenztem Zug mit anschließendem Seitenaufbau.
 - Karte und andere komplexe Gestenflächen erhalten `data-swipe-ignore`.
 
 ## 5. Gemeinsame Komponenten

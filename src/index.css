@@ -8,6 +8,16 @@ video {
   dynamic-range-limit: standard;
 }
 
+/* Only the moving content paints the incoming page. Its stationary layout
+   ancestors must not cover the outgoing page with an empty canvas. */
+[data-route-preview] [data-route-page] > div,
+[data-route-preview] .kws-sidebar-content {
+  background-color: transparent;
+}
+[data-route-preview] main {
+  background-color: hsl(var(--brand-canvas));
+}
+
 @keyframes beta-placeholder-attempt {
   0%, 10% { transform: translate(-8px, 15px); }
   25% { transform: translate(2px, 1px); }
