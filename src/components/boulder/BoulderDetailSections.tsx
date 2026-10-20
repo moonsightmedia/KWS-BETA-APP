@@ -1323,7 +1323,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
   );
 }
 
-export function BoulderBetaTab({ boulder }: { boulder: Boulder }) {
+export function BoulderBetaTab({ boulder, onPlayOfficial }: { boulder: Boulder; onPlayOfficial?: () => void }) {
   const videoUrl = boulder.betaVideoUrls?.hd || boulder.betaVideoUrls?.sd || boulder.betaVideoUrls?.low || boulder.betaVideoUrl;
 
   const betaCards = [
@@ -1336,6 +1336,7 @@ export function BoulderBetaTab({ boulder }: { boulder: Boulder }) {
   ];
 
   const handleOfficialVideoCardClick = () => {
+    if (onPlayOfficial) { onPlayOfficial(); return; }
     const videoElement = document.querySelector('video');
     if (!(videoElement instanceof HTMLVideoElement)) {
       return;
