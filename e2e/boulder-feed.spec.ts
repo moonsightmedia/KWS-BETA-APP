@@ -57,9 +57,16 @@ async function enter(page: Page) {
 }
 
 async function chooseDoubleTap(page: Page, name: string) {
-  await frame(page).getByRole('button', { name: 'Bedienungseinstellungen öffnen' }).click();
-  await page.getByRole('radio', { name, exact: true }).check();
-  await page.getByRole('button', { name: 'Zurück zum Video', exact: true }).click();
+  const origin = page.url();
+  await page.goto('/test/fixtures/boulder-feed.html#/profile');
+  await page.getByRole('button', { name: /^Bedienung/ }).click();
+  await expect(page.getByRole('heading', { name: 'Video-Feed', exact: true })).toBeVisible();
+  await page.getByRole('combobox', { name: 'Doppeltipp auf das Video' }).click();
+  await page.getByRole('option', { name, exact: true }).click();
+  await page.getByRole('button', { name: 'Zurück zu Einstellungen', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Bedienung/ })).toBeVisible();
+  await page.goto(origin);
+  await expect(frame(page).locator('video')).toHaveJSProperty('readyState', 4);
 }
 
 test('third view shares filters and retains the real detail origin, video and focus', async ({ page }) => {
@@ -154,7 +161,7 @@ test('tap, double tap, hold, swipe and quality remain independent', async ({ pag
   await expect(page.locator('.kws-feed video')).toHaveCount(2);
 });
 
-test('double tap is opt-in, settings persist and the eye remains independent', async ({ page }) => {
+test('double tap is opt-in and selected through the regular settings page', async ({ page }) => {
   const db = await backend(page); await enter(page);
   const client = await page.context().newCDPSession(page);
   const tap = async () => {
@@ -164,22 +171,15 @@ test('double tap is opt-in, settings persist and the eye remains independent', a
   await tap(); await expect(frame(page).locator('video')).toHaveJSProperty('paused', true);
   await tap(); await expect(frame(page).locator('video')).toHaveJSProperty('paused', false);
   await expect(page.locator('.kws-feed')).toHaveAttribute('data-clean', 'false');
+  await expect(frame(page).getByRole('button', { name: 'Bedienungseinstellungen öffnen' })).toHaveCount(0);
   expect(db.writes).toHaveLength(0);
-  await frame(page).getByRole('button', { name: 'Bedienungseinstellungen öffnen' }).click();
-  await expect(page.getByRole('radio', { name: 'Aus', exact: true })).toBeChecked();
-  await page.getByRole('radio', { name: 'Layout ausblenden', exact: true }).check();
-  await page.getByRole('button', { name: 'Zurück zum Video', exact: true }).click();
-  await expect(frame(page).getByRole('button', { name: 'Bedienungseinstellungen öffnen' })).toBeFocused();
-  const videoBounds = await frame(page).locator('video').boundingBox();
+  await chooseDoubleTap(page, 'Layout ausblenden');
+  const box = await frame(page).locator('video').boundingBox();
   await tap(); await tap(); await expect(page.locator('.kws-feed')).toHaveAttribute('data-clean', 'true');
+  expect(await frame(page).locator('video').boundingBox()).toEqual(box);
   await expect(frame(page).locator('video')).toHaveJSProperty('paused', false);
-  expect(await frame(page).locator('video').boundingBox()).toEqual(videoBounds);
   await page.getByRole('button', { name: 'Bedienelemente einblenden' }).click();
-  await page.reload(); await expect(frame(page).locator('video')).toHaveJSProperty('readyState', 4);
-  await frame(page).getByRole('button', { name: 'Bedienungseinstellungen öffnen' }).click();
-  await expect(page.getByRole('radio', { name: 'Layout ausblenden', exact: true })).toBeChecked();
-  await page.getByRole('radio', { name: 'Aus', exact: true }).check();
-  await page.getByRole('button', { name: 'Zurück zum Video', exact: true }).click();
+  await chooseDoubleTap(page, 'Aus');
   await frame(page).getByRole('button', { name: 'Bedienelemente ausblenden' }).click();
   await expect(page.locator('.kws-feed')).toHaveAttribute('data-clean', 'true');
   await page.getByRole('button', { name: 'Bedienelemente einblenden' }).click();
@@ -203,16 +203,14 @@ test('project double tap only saves, preserves tracking and never removes an exi
   await expect(frame(page).locator('video')).toHaveJSProperty('paused', false);
 });
 
-test('guests cannot activate project double tap, even with a saved device preference', async ({ page }) => {
+test('saved project gesture does not mutate guest data', async ({ page }) => {
   const db = await backend(page);
   await page.addInitScript(() => localStorage.setItem('boulder_feed_double_tap_v1', 'project'));
   await page.goto('/test/fixtures/boulder-feed.html?guest=1#/guest');
   await page.getByRole('button', { name: 'Videoansicht', exact: true }).click();
   await expect(frame(page).locator('video')).toHaveJSProperty('readyState', 4);
   await page.locator('.kws-feed .reel').dblclick({ position: { x: 180, y: 320 } });
-  await frame(page).getByRole('button', { name: 'Bedienungseinstellungen öffnen' }).click();
-  await expect(page.getByRole('radio', { name: 'Als Projekt speichern', exact: true })).toBeDisabled();
-  await expect(page.getByRole('radio', { name: 'Aus', exact: true })).toBeChecked();
+  await expect(frame(page).getByRole('button', { name: 'Bedienungseinstellungen öffnen' })).toHaveCount(0);
   expect(db.writes).toHaveLength(0);
 });
 
@@ -321,19 +319,11 @@ test('two visual loops on all four required widths', async ({ page }) => {
     await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-feed.png`, animations: 'disabled' });
     const geometry = await frame(page).evaluate(node => {
       const video = node.querySelector('video')!;
-      const box = video.getBoundingClientRect();
-      const top = node.querySelector('.official')!.getBoundingClientRect().bottom;
-      const bottom = node.querySelector('.reel-footer')!.getBoundingClientRect().top;
-      return { top: box.top, bottom: box.bottom, height: box.height, width: box.width, headerEnd: top, footerStart: bottom, fit: getComputedStyle(video).objectFit };
+      const media = video.getBoundingClientRect(), stage = node.getBoundingClientRect();
+      return { fit: getComputedStyle(video).objectFit, media: { x: media.x, y: media.y, width: media.width, height: media.height }, stage: { x: stage.x, y: stage.y, width: stage.width, height: stage.height } };
     });
-    expect(geometry.fit).toBe('contain'); expect(geometry.height).toBeGreaterThan(100);
-    expect(geometry.top).toBeGreaterThan(geometry.headerEnd);
-    expect(geometry.bottom).toBeLessThan(geometry.footerStart);
-    await frame(page).getByRole('button', { name: 'Bedienungseinstellungen öffnen' }).click();
-    await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-preferences.png`, animations: 'disabled' });
-    await page.getByRole('radio', { name: 'Als Projekt speichern', exact: true }).check();
-    await page.screenshot({ path: `output/video-feed/integration/loop2-${width}-preferences.png`, animations: 'disabled' });
-    await page.getByRole('button', { name: 'Zurück zum Video', exact: true }).click();
+    expect(geometry.fit).toBe('cover');
+    expect(geometry.media).toEqual(geometry.stage);
     await frame(page).getByRole('button', { name: '2 Kommentare öffnen', exact: true }).click();
     await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-comments.png`, animations: 'disabled' });
     await page.getByRole('button', { name: 'Schließen', exact: true }).click();
@@ -356,6 +346,19 @@ test('two visual loops on all four required widths', async ({ page }) => {
     await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-guest-grid.png`, animations: 'disabled' });
     await page.getByRole('button', { name: 'Listenansicht', exact: true }).click();
     await page.screenshot({ path: `output/video-feed/integration/loop2-${width}-guest-list.png`, animations: 'disabled' });
+  }
+  for (const width of [375, 768, 1280, 1920]) {
+    await page.setViewportSize({ width, height: width === 375 ? 812 : width === 768 ? 1024 : width === 1280 ? 900 : 1080 });
+    await page.goto('/test/fixtures/boulder-feed.html#/profile');
+    await page.getByRole('button', { name: /^Bedienung/ }).click();
+    const select = page.getByRole('combobox', { name: 'Doppeltipp auf das Video' });
+    await expect(select).toBeVisible();
+    await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-preferences.png`, animations: 'disabled' });
+    await select.click();
+    await page.screenshot({ path: `output/video-feed/integration/loop2-${width}-preferences.png`, animations: 'disabled' });
+    await page.getByRole('option', { name: 'Als Projekt speichern', exact: true }).click();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    expect(await select.boundingBox()).toMatchObject({ height: 44 });
   }
   expect(errors).toEqual([]);
 });

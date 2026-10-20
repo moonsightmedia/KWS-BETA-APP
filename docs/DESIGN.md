@@ -742,14 +742,17 @@ Ansicht, aktive Filter und Sortierung bleiben beim Wechsel nachvollziehbar erhal
   der Kommentarblase (ab100 als99+); der zugängliche Name nennt weiterhin die
   vollständige Zahl und Aktion. Projektstatus erhält zusätzlich ein Häkchen,
   Tracking das jeweilige Ergebnissymbol. Mindestens44px Touchfläche bleiben erhalten.
-- Nutzerkorrektur 20.10.2026: Das vollständige Video bleibt mit `object-fit: contain`
-  sichtbar. Der Medienbereich reserviert die gemessenen Höhen von Kopf und Fuß
-  sowie Platz neben den persönlichen Aktionen. Keine dunklen Verläufe über den
-  oberen/unteren Bildteilen. Auch bei ausgeblendeter Bedienung und temporärem
-  Tempo bleibt die Videogeometrie stabil; kein Zuschnitt oder Größenwechsel.
+- Nutzerpräzisierung 20.10.2026: Das Video füllt die gesamte Feedfläche wie bei
+  Reels (`object-fit: cover`), hinter Kopf, Aktionen und Fuß. Kein verkleinerter
+  Medienbereich zwischen Bedienelementen und keine reservierten Bildränder.
+  Zur Lesbarkeit liegen dezente Verläufe unter den überlagerten Controls.
+  Ausblenden und temporäres Tempo ändern die Videogeometrie nicht.
 - Ein kurzes Tippen auf die freie Videofläche pausiert bzw. startet die Wiedergabe.
-  Doppeltipp ist standardmäßig **aus**. „Bedienung“ im Feed bietet die lokal pro
-  Gerät gespeicherten Optionen „Aus“, „Als Projekt speichern“ und „Layout ausblenden“.
+  Doppeltipp ist standardmäßig **aus**. Unter Profil/Einstellungen → Bedienung
+  (`/profile/interaction`) steht die Kategorie „Video-Feed“. Eine kompakte Zeile
+  „Doppeltipp auf das Video“ bietet ein gemeinsames Select mit „Aus“, „Als Projekt
+  speichern“ und „Layout ausblenden“. Keine große Auswahlkarte, kein Sheet und
+  kein zusätzlicher Einstellungsbutton im Feed. Die Auswahl gilt lokal pro Gerät.
   Alte Nutzer erhalten keine automatisch aktivierte Aktion. Projektspeichern setzt
   ausschließlich die Markierung, entfernt sie bei erneutem Doppeltipp nie und
   erhält Begehung, Versuche, Favorit und Notiz. Für Gäste ist diese Option gesperrt;
@@ -760,8 +763,8 @@ Ansicht, aktive Filter und Sortierung bleiben beim Wechsel nachvollziehbar erhal
   Wischen, Abbruch, Einstellungswechsel und fremde Ansichten verwerfen wartende
   Tipps. Der Augenschalter funktioniert unabhängig davon; Pause und Wischen bleiben
   auch ohne Bedienung möglich. Escape stellt zunächst die normale Ansicht her.
-  Die kompakte Einstellungsfläche pausiert das Video und übernimmt Änderungen
-  direkt. Qualitätswahl bleibt separat; keine zweite allgemeine Einstellungsseite.
+  Einstellungen übernehmen die Auswahl unmittelbar. Qualitätswahl bleibt direkt
+  im Feed; die Bedienungseinstellungen sind Teil der regulären Einstellungen.
 - Gedrückthalten auf der freien linken Videohälfte spielt vorübergehend mit0,5×,
   rechts mit2× (350ms Halteschwelle im Entwurf). Währenddessen ist ausschließlich
   die kompakte Geschwindigkeitsanzeige sichtbar; auch der Augenschalter entfällt.

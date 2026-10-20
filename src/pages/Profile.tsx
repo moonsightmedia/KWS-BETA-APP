@@ -8,6 +8,7 @@ import {
   Map,
   Mountain,
   Pencil,
+  SlidersHorizontal,
   Trophy,
 } from 'lucide-react';
 
@@ -82,6 +83,7 @@ const Profile = () => {
       title: 'Einstellungen',
       items: [
         { icon: Bell, label: 'Benachrichtigungen', description: 'Hinweise und Push-Einstellungen', path: '/profile/notifications' },
+        { icon: SlidersHorizontal, label: 'Bedienung', description: 'Gesten und Video-Feed', path: '/profile/interaction' },
         ...(TRAINING_UI_ENABLED ? [{ icon: TrainingIcon, label: 'Training', description: 'Training und Kinderbouldern einblenden', path: '/profile/training' }] : []),
       ],
     },

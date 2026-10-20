@@ -13,7 +13,7 @@
 .kws-feed .playback input[type=range]::-moz-range-thumb{width:10px;height:10px;border-radius:4px;background:var(--reel-green);border:0}
 .kws-feed{height:calc(100dvh - var(--preview-bar));display:flex;justify-content:center;position:relative;isolation:isolate;background:var(--reel-ink)}
 .kws-feed .reel{position:relative;width:100%;height:100%;max-width:570px;overflow:hidden;touch-action:pan-x pinch-zoom;background:var(--reel-ink);color:white}
-.kws-feed .reel-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--reel-ink)}
+.kws-feed .reel-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:var(--reel-ink)}
 .kws-feed .reel-header{position:absolute;top:calc(env(safe-area-inset-top,0px) + 16px);left:16px;right:16px;display:flex;align-items:center;gap:12px;z-index:3}.kws-feed .reel-header>div{flex:1}.kws-feed .reel-header strong{font-size:17px;font-weight:600;display:block}.kws-feed .reel-header div>span{font-size:11px;color:white;display:block;margin-top:2px}
 .kws-feed .overlay-button{width:44px;height:44px;display:grid;place-items:center;border:0;border-radius:8px;background:white;color:var(--reel-ink);box-shadow:0 2px 9px hsl(var(--brand-ink)/.14)}.kws-feed .overlay-button svg{width:20px;height:20px;stroke-width:1.75}.kws-feed .overlay-button:hover{background:hsl(var(--brand-secondary))}.kws-feed .overlay-button:active{transform:scale(.97)}.kws-feed .overlay-button:disabled{opacity:.3;cursor:default}.kws-feed .filter-trigger{position:relative}.kws-feed .filter-trigger>span{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;display:grid;place-items:center;background:var(--reel-green);color:var(--reel-ink);border-radius:4px;font-size:10px;font-weight:600}
 .kws-feed .official{position:absolute;top:calc(env(safe-area-inset-top,0px) + 82px);left:16px;display:flex;align-items:center;gap:5px;background:white;color:var(--reel-ink);border-radius:4px;padding:5px 8px;font-size:10px;font-weight:600;box-shadow:0 2px 8px hsl(var(--brand-ink)/.1)}.kws-feed .official svg{color:hsl(var(--primary-ink))}
@@ -87,20 +87,6 @@ html[data-boulder-feed=true]{overflow:hidden}body[data-boulder-feed=true] [data-
 html[data-kws-review] .kws-feed{top:var(--kws-review-notice-height,0px);height:calc(100dvh - var(--kws-review-notice-height,0px))}
 html[data-kws-review] .kws-feed .reel-header,html[data-kws-review] .kws-feed .restore-chrome{top:16px}html[data-kws-review] .kws-feed :is(.official,.quality-trigger){top:82px}html[data-kws-review] .kws-feed .speed-feedback{top:24px}
 
-/* Keep the entire source image free of header, rating and tracking overlays.
-   The measured slots stay fixed when the chrome is hidden or speed is held. */
-.kws-feed .reel-media{position:absolute;inset:var(--feed-media-top,126px) 12px var(--feed-media-bottom,216px);pointer-events:none}
-.kws-feed[data-signed-in=true] .reel-media{right:64px}
-.kws-feed .reel-video{object-fit:contain;object-position:center;background:transparent}
-.kws-feed-sheet .feed-preference-title{font-size:14px;font-weight:600;margin:0 0 12px}
-.kws-feed-sheet .feed-preferences{gap:8px}
-.kws-feed-sheet .feed-preference{display:flex;align-items:center;gap:12px;padding:12px;min-height:64px;border-radius:8px;background:hsl(var(--brand-secondary));cursor:pointer}
-.kws-feed-sheet .feed-preference[data-selected=true]{box-shadow:inset 0 0 0 2px hsl(var(--primary));background:hsl(var(--brand-canvas))}
-.kws-feed-sheet .feed-preference>span{flex:1;min-width:0}
-.kws-feed-sheet .feed-preference>svg,.kws-feed-sheet .feed-preference>button{flex-shrink:0}
-.kws-feed-sheet .feed-preference strong{display:block;font-size:13px;font-weight:600}
-.kws-feed-sheet .feed-preference small{display:block;font-size:12px;line-height:1.55;color:var(--reel-muted);margin-top:4px}
-.kws-feed-sheet .feed-preference[data-disabled=true]{cursor:default}
-.kws-feed-sheet .feed-preference>button{color:var(--reel-ink);border-color:var(--reel-muted)}
-.kws-feed-sheet .feed-preference>button[data-state=checked]{border-color:var(--reel-ink)}
-.kws-feed-sheet .feed-preference-hint{font-size:12px;line-height:1.65;color:var(--reel-muted);margin-top:16px}
+/* Fullscreen feed: media fills the stage behind the overlay controls. */
+.kws-feed .reel-media{position:absolute;inset:0;pointer-events:none}
+.kws-feed .video-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,hsl(var(--brand-ink)/.66),transparent 24%,transparent 48%,hsl(var(--brand-ink)/.78) 78%,hsl(var(--brand-ink)/.92))}
