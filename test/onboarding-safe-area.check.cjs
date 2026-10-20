@@ -26,6 +26,7 @@ fs.mkdirSync(out, { recursive: true });
       const tip = () => page.locator('[data-coachmark]');
       const check = async id => {
         await page.locator(`[data-coachmark=${id}]`).waitFor({ state: 'visible' });
+        assert.equal(await page.getByRole('complementary', { name: 'Nutzungsstatistik auswählen' }).count(), 0, 'Statistics prompt must wait for the tour');
         await page.waitForTimeout(180);
         const box = await tip().boundingBox();
         assert(box.y >= profile.top + 11, `${id}: status bar at ${width}`);
@@ -53,7 +54,9 @@ fs.mkdirSync(out, { recursive: true });
       await check('progress');
       await tip().getByRole('button', { name: 'Als Gast weiter', exact: true }).click();
       const consent = page.getByRole('button', { name: 'Ohne Statistik', exact: true });
-      if (await consent.isVisible()) await consent.click();
+      await consent.waitFor({ state: 'visible' });
+      await consent.click();
+      await consent.waitFor({ state: 'detached' });
       await page.evaluate(() => window.scrollTo(0, 0));
       const info = page.getByRole('button', { name: 'Einführung ansehen', exact: true });
       await info.waitFor({ state: 'visible' });
