@@ -132,6 +132,13 @@ Gatewaykonfiguration. Noch währenddessen bleibt das App-Flag aus.
 
 Nach Recreate müssen alle drei öffentlichen Healthziele, die beiden dynamisch
 geprüften privaten Gateway-DNS-Aliase und die bisherigen Web-/GoTrue-Routen stimmen.
+Die unabhängig nach vollständigem Rollback vermessene Zugänglichkeit bleibt
+exakt erhalten: App-`version.json` ohne Key200, Produktions-GoTrue-Health ohne
+Key200, Review-GoTrue-Health ohne Key401. Beide GoTrue-Healthziele müssen mit
+ihrem jeweils vorhandenen eigenen Public-/Anon-Key aus root600
+`production.env` beziehungsweise `review.env`200 liefern. Der Operator akzeptiert
+keinen pauschalen200-oder401-Ersatz und verändert die bestehende Auth-Konfiguration
+nicht. Schlüsselwerte werden nicht protokolliert oder bei Redirects weitergereicht.
 Kein MAC-/IP-Hardcoding. Unter Review erfolgt HTTPS-Auth innerhalb des privaten
 Netzes; Zertifikatsprüfung bleibt aktiv.
 
@@ -199,7 +206,7 @@ python -m unittest discover -s services/thumbnail-focus -p test_security.py -v
 python -m unittest discover -s ops/hostinger/thumbnail-focus -p test_operations.py -v
 ```
 
-14Service- und7Operatortests am20.10.2026 lokal bestanden, dazu Python-Syntaxcheck.
+14Service- und10Operatortests am20.10.2026 lokal bestanden, dazu Python-Syntaxcheck.
 Nur Pillow12.3.0 nötig. Diese Tests prüfen Grenzen und Rollback mit synthetischen
 Daten; tatsächlicher Linux-Dockerbetrieb, Modelldecode/Leistung, Authmatrix und
 Live-Caddyvalidate werden beim geschützten Rollout separat belegt.

@@ -142,16 +142,17 @@ def verify_normal():
         if response.status != 200: raise ValueError('Existing web version route failed')
     for environment, host in (('production', 'beta-api.kletterwelt-sauerland.de'), ('review', 'review-api.kletterwelt-sauerland.de')):
         url = 'https://' + host + '/auth/v1/health'
-        # These existing GoTrue gateways intentionally require their public key.
-        # A missing key must retain the pre-existing401 boundary; each configured
-        # context must then accept its own existing anon key, never a user JWT.
+        # Preserve the independently measured pre-rollout behavior exactly:
+        # production health is public200; review health requires an API key401.
+        # Both must also accept their own existing public key, never a user JWT.
         try:
             with HEALTH_HTTP.open(url, timeout=10) as response:
                 unauthenticated_status = response.status
         except urllib.error.HTTPError as error:
             unauthenticated_status = error.code
             error.close()
-        if unauthenticated_status != 401: raise ValueError('Existing API-key boundary changed: ' + environment)
+        expected_status = 200 if environment == 'production' else 401
+        if unauthenticated_status != expected_status: raise ValueError('Existing health access boundary changed: ' + environment)
         request = urllib.request.Request(url, headers={'apikey': load_public_key(environment)})
         with HEALTH_HTTP.open(request, timeout=10) as response:
             if response.status != 200: raise ValueError('Existing GoTrue health failed: ' + environment)

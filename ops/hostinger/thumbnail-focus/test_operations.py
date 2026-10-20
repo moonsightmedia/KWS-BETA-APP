@@ -58,7 +58,7 @@ class GatewayTests(unittest.TestCase):
         requests = []
         def response(item, timeout):
             requests.append(item)
-            if isinstance(item, str) and item.endswith('/auth/v1/health'):
+            if item == 'https://review-api.kletterwelt-sauerland.de/auth/v1/health':
                 raise gateway.urllib.error.HTTPError(item, 401, 'API key required', {}, None)
             result = Mock(status=200)
             result.__enter__ = Mock(return_value=result)
@@ -79,14 +79,26 @@ class GatewayTests(unittest.TestCase):
         response = Mock(status=200)
         response.__enter__ = Mock(return_value=response)
         response.__exit__ = Mock(return_value=False)
-        with patch.object(gateway.HEALTH_HTTP, 'open', return_value=response):
+        with patch.object(gateway, 'load_public_key', return_value='synthetic-key'), patch.object(gateway.HEALTH_HTTP, 'open', return_value=response):
             self.assertRaises(ValueError, gateway.verify_normal)
         def unavailable(item, timeout):
             if not isinstance(item, str): raise gateway.urllib.error.HTTPError(item.full_url, 403, 'Rejected key', {}, None)
-            if item.endswith('/auth/v1/health'): raise gateway.urllib.error.HTTPError(item, 401, 'API key required', {}, None)
+            if item == 'https://review-api.kletterwelt-sauerland.de/auth/v1/health': raise gateway.urllib.error.HTTPError(item, 401, 'API key required', {}, None)
             return response
         with patch.object(gateway, 'load_public_key', return_value='synthetic-key'), patch.object(gateway.HEALTH_HTTP, 'open', side_effect=unavailable):
             self.assertRaises(gateway.urllib.error.HTTPError, gateway.verify_normal)
+
+    def test_production_public_health_regression_to_401_is_rejected(self):
+        def response(item, timeout):
+            if item == 'https://beta-api.kletterwelt-sauerland.de/auth/v1/health':
+                raise gateway.urllib.error.HTTPError(item, 401, 'Unexpected key requirement', {}, None)
+            result = Mock(status=200)
+            result.__enter__ = Mock(return_value=result)
+            result.__exit__ = Mock(return_value=False)
+            return result
+        with patch.object(gateway, 'load_public_key') as key, patch.object(gateway.HEALTH_HTTP, 'open', side_effect=response):
+            self.assertRaises(ValueError, gateway.verify_normal)
+            key.assert_not_called()
 
     def test_compose_only_replaces_exact_network_list_with_private_aliases(self):
         changed = gateway.transform_compose(COMPOSE)
