@@ -1403,6 +1403,7 @@ Laden und Fehler erscheinen dort ausdrücklich und werden nicht als Null gezähl
 - Administratoren sehen auch inaktive Farben und können sie wieder aktivieren;
   öffentliche Boulderfilter bleiben aktiv-only. Die bestehenden RLS-Schreibrechte
   bleiben unverändert.
+
 - Standardfarben werden nur nach Bestätigung ergänzt; vorhandene Namen und
   Farbwerte werden dabei nicht überschrieben. Löschen nennt die betroffene
   Farbe, bietet Abbrechen an und bestätigt erst eine tatsächlich gelöschte Zeile.
@@ -2509,3 +2510,43 @@ Prüfbelege: `docs/qa/2026-10-20-map-schedule-feedback.md`,
   bleiben im ursprünglichen Koordinatenraum.
 
 Prüfumfang: docs/qa/2026-10-20-mobile-portrait-maps.md.
+
+### Nutzerfreigabe 20.10.2026 – Startgriffvorschau und Bestandsprüfung
+
+- Die kompakte Griffvorschau folgt im bestehenden Bouldereditor unmittelbar auf
+  die Farbauswahl. Sie darf die Farbauswahl nicht voraussetzen und oberhalb davon
+  zum Zurückscrollen zwingen. Mehrere Startgriffe lassen sich einzeln antippen,
+  ergänzen und wieder abwählen. Originalvergleich und Rückgängig bleiben erreichbar.
+- Bestehende Online-Thumbnails werden in einer gemeinsamen Prüfliste mit „Passt“,
+  „Korrigieren“ und „Überspringen“ angeboten. Statusfilter und Suche sind kompakt;
+  mobil erhält die Suche eine volle Zeile. Die Übernahmeleiste verdeckt die mobile
+  Navigation nicht. Der Korrekturdialog nutzt das gemeinsame Sheet-/Dialogsystem
+  und einen eigenen scrollbaren Inhalt.
+- Automatische Vorschläge sind keine Nutzerbestätigung. Entscheidungen und auch
+  unbestätigte Korrekturen überstehen ein Neuladen auf demselben Gerät/Origin.
+  Ohne Startauswahl bleibt das Original; eine leere Maske lässt sich nicht online
+  bestätigen. Fotos ohne Farbautomatik bleiben in der Liste und erlauben Tipps.
+- Online werden ausschließlich ausdrücklich bestätigte Varianten nach einer
+  Mengenbestätigung übernommen. Bereits veränderte Original-URLs werden nicht
+  überschrieben; Originaldateien bleiben erhalten. Rollen-/Kontogrenzen gelten
+  auch bei Wiederaufnahme. Die Veröffentlichung der App ist eine eigene Freigabe.
+
+Prüfumfang: `docs/qa/2026-10-20-thumbnail-focus-review.md`.
+
+Ergänzung für große/angeschnittene Griffe: Bewusste Tippkorrekturen dürfen mehrere
+Bildränder berühren und große Teile des Fotos einnehmen. Der automatische
+Wandfilter bleibt getrennt und konservativ. Die größere Korrekturansicht bietet
+„Kontur nachzeichnen“ mit Randpunkten, Punkt zurück, Übernehmen und Abbrechen.
+Eine unvollständige Kontur sperrt die endgültige Bestätigung. Es wird nur die
+sichtbare Fläche markiert; alte Entscheidungen und Rückgängig bleiben erhalten.
+Überlappende Flächen zeigen keine inneren Trennlinien. Die Anmeldung erklärt den
+Übernahmezweck und kehrt zu einem fest erlaubten Prüfziel zurück.
+
+Nutzerkorrektur 20.10.2026: Ein Klick auf „Korrigieren“ oder ein noch offenes
+Boulderfoto startet unmittelbar im großen Auswahlmodus. Kein zusätzlicher Klick
+auf „Griffe antippen“. Das gilt auch für Fotos ohne automatischen Vorschlag.
+Die kompakte Vorschau im Uploadeditor bleibt zunächst eine Vorschau. Die lokale
+Live-Prüfung bietet „Auswahl passt · Weiter“: erst nach erfolgreicher dauerhafter
+Speicherung öffnet der nächste noch offene Boulder direkt seine Griffauswahl.
+Bereits online übernommene Bilder sind getrennt markiert und werden nicht erneut
+in die offene Prüfung aufgenommen. Automatische Vorschläge sind nie Bestätigungen.

@@ -1,3 +1,4 @@
+import { isThumbnailFocusEnabled, thumbnailUploadFile } from '@/lib/thumbnailFocus';
 import { backendConfig } from '@/lib/backendConfig';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { useEffect, useMemo, useState } from "react";
@@ -96,8 +97,9 @@ export function BatchUpload() {
   const queueThumbPreviewUrls = useMemo(() => {
     const previews = new Map<string, string>();
     boulders.forEach((boulder) => {
-      if (boulder.thumbFile) {
-        previews.set(boulder.id, URL.createObjectURL(boulder.thumbFile));
+      const thumbnail = thumbnailUploadFile(boulder);
+      if (thumbnail) {
+        previews.set(boulder.id, URL.createObjectURL(thumbnail));
       } else if (boulder.existingThumbnailUrl) {
         previews.set(boulder.id, boulder.existingThumbnailUrl);
       }
@@ -289,7 +291,7 @@ export function BatchUpload() {
         }));
         const thumbSessionId = await startUpload(
           created.id,
-          boulder.thumbFile!,
+          thumbnailUploadFile(boulder)!,
           "thumbnail",
           boulder.sectorId,
         );
@@ -397,6 +399,7 @@ export function BatchUpload() {
             : ""}
         </p>
       </div>
+      {isThumbnailFocusEnabled() && <Button asChild variant="secondary"><Link to="/setter/thumbnails">Bestehende Vorschaubilder prüfen</Link></Button>}
       {loading ? (
         <SetterState loading title="Sektoren und Farben werden geladen …" />
       ) : failed ? (
