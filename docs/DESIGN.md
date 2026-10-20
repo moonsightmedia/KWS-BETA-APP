@@ -2324,6 +2324,10 @@ Prüfumfang: docs/qa/2026-10-19-setter-quick-actions.md.
   Desktop-Scrollleisten. Ziele werden explizit identifiziert; ein zusätzlicher
   Toolbarbutton darf nicht anstelle der ersten Boulderkarte markiert werden.
   Bei Dialogen wird erst nach deren Eintrittsskalierung gemessen.
+  Präzisierung Desktop20.10.: Hinweise nutzen zuerst freien Platz rechts oder
+  links des sichtbaren Ziels. Auch bei geringer Fensterhöhe wird ein hohes
+  Medium nicht unnötig unter einen angedockten Hinweis geschoben. Seitliche
+  Hinweise bleiben16px vom Ziel entfernt und zeigen zur sichtbaren Zielmitte.
   Abgeschnittene Zielkanten
   bleiben gerade. Die Kontozeile heißt auf Nutzerwunsch „Das Kommentieren“ und
   behält ausdrücklich den Stern. Bestätigte Nutzerwahl im Iconvergleich:
