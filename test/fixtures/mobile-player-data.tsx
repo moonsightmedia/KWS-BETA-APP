@@ -5,6 +5,7 @@ const source = new URLSearchParams(location.search).has('visual')
   : '/test/fixtures/vertical-player.mp4';
 export const example: Boulder = { id: 'b-1', name: 'Kühner Wurm', difficulty: 6, color: 'Grün', sector: 'Bug A', createdAt: new Date('2026-10-17T10:00:00'), betaVideoUrls: { hd: source + '?quality=hd', sd: source + '?quality=sd', low: source + '?quality=low' } };
 if (new URLSearchParams(location.search).has('broken')) { example.betaVideoUrls = undefined; example.betaVideoUrl = '/test/fixtures/missing-mobile-player.mp4'; }
+if (new URLSearchParams(location.search).has('novideo')) { example.betaVideoUrls = undefined; example.betaVideoUrl = undefined; }
 export const useBouldersWithSectors = () => ({ data: [example], isLoading: false });
 export const useAuth = () => ({ user: new URLSearchParams(location.search).has('guest') ? null : { id: 'fixture-user', email: 'qa@example.invalid' }, loading: false });
 export const ContentSafetyActions = () => null;

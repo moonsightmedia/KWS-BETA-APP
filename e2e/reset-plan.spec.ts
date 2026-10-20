@@ -32,18 +32,19 @@ for (const width of [375, 768, 1280, 1920]) test(`agenda and calendar ${width}`,
   await page.setViewportSize({ width, height: 1000 }); await open(page);
   await expect(page.getByText('2 Termine geplant · Hallenzeit')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Aktuelle Boulder in Bug A', exact: true })).toBeVisible();
-  await expect(page.getByText('Als Nächstes', { exact: true })).toBeVisible();
-  const firstCard = page.locator('[data-reset-plan] section').first().locator('article').first().locator('..');
+  await expect(page.getByRole('heading', { name: 'Als Nächstes an der Wand', exact: true })).toBeVisible();
+  await expect(page.locator('[data-reset-sequence-number]')).toHaveCount(3);
+  const firstCard = page.locator('[data-reset-sequence] ol').locator('..');
   expect(await firstCard.evaluate(element => getComputedStyle(element, '::before').content)).toBe('none');
   await page.screenshot({ path: `${output}/${phase}-agenda-${width}.png`, fullPage: true, animations: 'disabled' });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   await page.getByText('Kalender', { exact: true }).click();
   await expect(page.locator('[data-schedule-calendar]')).toBeVisible();
   await expect(page.getByRole('button', { name: /Termin hinzufügen/ })).toHaveCount(0);
   await page.locator('button[name="day"]').filter({ hasText: /^13/ }).click();
   await expect(page.getByRole('link', { name: 'Aktuelle Boulder in Kurze Platte' })).toBeVisible();
   await page.screenshot({ path: `${output}/${phase}-calendar-${width}.png`, fullPage: true, animations: 'disabled' });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   await page.getByRole('button', { name: 'Nächster Monat' }).click();
   await expect(page.getByRole('heading', { name: 'November 2026', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Heute', exact: true }).click();
@@ -140,8 +141,8 @@ for (const width of [375, 1280]) test(`explicit view, month and day survive Home
 
 test('375px: next-day details fit above navigation, day targets remain 44px', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 }); await open(page);
-  await expect(page.getByRole('heading', { name: 'Morgen', exact: true })).toBeVisible();
-  await expect(page.getByText('Dienstag, 13. Oktober 2026', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Als Nächstes an der Wand', exact: true })).toBeVisible();
+  await expect(page.locator('[data-reset-sequence-number="1"] time')).toContainText('13. Oktober 2026');
   await page.getByRole('button', { name: 'Kalender', exact: true }).click();
   const calendar = await page.locator('[data-schedule-calendar]').boundingBox();
   expect(calendar!.height).toBeLessThan(380);

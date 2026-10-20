@@ -55,6 +55,9 @@ export function BoulderVideoFeed({ boulders, active, loading, onExit, onDetail, 
     paused, holdRate: gestures.holdRate, suspended: gestures.suspended,
   });
   const openPanel = (next: FeedPanel, trigger: HTMLElement) => { panelTrigger.current = trigger; setPanel(next); };
+  // An explicit new sort begins at its first result (e.g. all grade 1s before
+  // grade 2s). Returning from details keeps the existing currentId untouched.
+  useLayoutEffect(() => { setCurrentId(null); }, [sortLabel]);
   useEffect(() => { setPreviewRating(null); }, [item?.id]);
   useLayoutEffect(() => {
     if (!active) return;

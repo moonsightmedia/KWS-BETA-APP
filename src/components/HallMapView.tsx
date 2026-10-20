@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 import type { Sector } from '@/types/boulder';
 import type { MapPoint, SectorMapRegion } from '@/types/hallMap';
+import type { SectorMapAnnotation } from '@/lib/hallMapStatus';
 
 interface HallMapViewProps {
   sectors: Sector[];
@@ -40,6 +41,11 @@ interface HallMapViewProps {
   viewportClassName?: string;
   /** Keep the stage and selection actions inside a viewport-sized panel. */
   fitContainer?: boolean;
+  /** Public annotations participate in marker collision layout. IDs remain physical sector IDs. */
+  sectorAnnotations?: Readonly<Record<string, SectorMapAnnotation>>;
+  markerActionLabel?: string;
+  showSelectionActions?: boolean;
+  annotationsOnlyInteractive?: boolean;
 }
 
 type MarkerLayout = {
@@ -52,6 +58,7 @@ type MarkerLayout = {
   anchorX: number;
   anchorY: number;
   compact: boolean;
+  annotation?: string;
 };
 
 type LogicalMapGroup = {
@@ -144,6 +151,7 @@ function buildMarkerLayout({
   mapHeight,
   showCounts,
   minimal,
+  annotation,
 }: {
   anchorX: number;
   anchorY: number;
@@ -156,6 +164,7 @@ function buildMarkerLayout({
   mapHeight: number;
   showCounts: boolean;
   minimal: boolean;
+  annotation?: string;
 }): MarkerLayout {
   const centroidX = (anchorX / 100) * mapWidth;
   const centroidY = (anchorY / 100) * mapHeight;
@@ -167,16 +176,18 @@ function buildMarkerLayout({
       ? showCounts ? `${line2} · ${count}` : line2
       : showCounts ? `${count} Boulder` : undefined;
   const longestLineLength = Math.max(visibleLine1.length, visibleLine2?.length ?? 0);
-  const width = minimal
+  const baseWidth = minimal
     ? Math.max(8.4, visibleLine1.length * 3 + 2.4) * mapUnit
     : clamp(
         longestLineLength * (compact ? 1.58 : 1.72) * mapUnit + 3.8 * mapUnit,
         17 * mapUnit,
         compact ? 33 * mapUnit : 39 * mapUnit,
       );
-  const height = minimal
+  const baseHeight = minimal
     ? 7.2 * mapUnit
     : visibleLine2 ? (compact ? 9.4 : 10.2) * mapUnit : (compact ? 7.1 : 7.7) * mapUnit;
+  const width = Math.max(baseWidth, annotation ? (annotation.length * 1.8 + 3) * mapUnit : 0);
+  const height = baseHeight + (annotation ? 4.6 * mapUnit : 0);
   const edgeInset = 1.2 * mapUnit;
 
   return {
@@ -185,6 +196,7 @@ function buildMarkerLayout({
     width,
     height,
     compact,
+    annotation,
     anchorX: centroidX,
     anchorY: centroidY,
     x: clamp(centroidX, width / 2 + edgeInset, mapWidth - width / 2 - edgeInset),
@@ -284,6 +296,10 @@ export function HallMapView({
   lockAspectRatio = true,
   viewportClassName,
   fitContainer = false,
+  sectorAnnotations,
+  markerActionLabel = 'filtern',
+  showSelectionActions = true,
+  annotationsOnlyInteractive = false,
 }: HallMapViewProps) {
   const appearanceId = useId().replace(/:/g, '');
   const wallFillId = `${appearanceId}-wall-fill`;
@@ -450,17 +466,22 @@ export function HallMapView({
           mapHeight,
           showCounts,
           minimal: frameless,
+          annotation: group.sectors.map(sector => sectorAnnotations?.[sector.id]?.label).find(Boolean),
         }),
       };
     });
 
     return placeMarkerLayouts(entries, mapWidth, mapHeight, mapUnit);
-  }, [boulderSectorReferences, countsBySectorId, frameless, logicalGroupSectorIds, logicalMapGroups, mapHeight, mapUnit, mapWidth, rotateClockwise, selectedLogicalGroupKeys, showCounts]);
+  }, [boulderSectorReferences, countsBySectorId, frameless, logicalGroupSectorIds, logicalMapGroups, mapHeight, mapUnit, mapWidth, rotateClockwise, selectedLogicalGroupKeys, showCounts, sectorAnnotations]);
 
   const handleSelectSector = (sector: Sector) => {
+    const target = annotationsOnlyInteractive
+      ? logicalMapGroups.find(group => group.key === getLogicalSectorKey(sector))?.sectors.find(member => sectorAnnotations?.[member.id])
+      : sector;
+    if (!target) return;
     setHoveredSectorKey(null);
-    if (onSelectSectorId) onSelectSectorId(sector.id);
-    else onSelectSector?.(sector.name);
+    if (onSelectSectorId) onSelectSectorId(target.id);
+    else onSelectSector?.(target.name);
   };
 
   const handleDeselectGroup = (group: LogicalMapGroup) => {
@@ -689,16 +710,20 @@ export function HallMapView({
                 const markerFill = '#FFFFFF';
                 const markerStroke = isSelected ? '#36B531' : isHovered || isFocused ? '#192436' : 'transparent';
                 const markerText = '#192436';
+                const annotation = group.sectors.map(sector => sectorAnnotations?.[sector.id]).find(Boolean);
+                const interactive = !annotationsOnlyInteractive || Boolean(annotation);
+                const textY = marker.y - (marker.annotation ? 2.3 * mapUnit : 0);
 
                 return (
                   <g
                     key={`marker-${group.key}`}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`${resolveSectorArea(markerSector).publicName}, ${count} Boulder filtern`}
-                    aria-pressed={isSelected}
-                    className="cursor-pointer outline-none"
+                    role={interactive ? 'button' : 'img'}
+                    tabIndex={interactive ? 0 : undefined}
+                    aria-label={`${resolveSectorArea(markerSector).publicName}${annotation ? `, ${annotation.description}` : ''}${interactive ? `, ${showCounts ? `${count} Boulder ` : ''}${markerActionLabel}` : ', kein kommender Termin'}`}
+                    aria-pressed={interactive ? isSelected : undefined}
+                    className={cn('outline-none', interactive ? 'cursor-pointer' : 'pointer-events-none')}
                     data-sector-marker-group={group.key}
+                    data-sector-annotation={annotation?.label}
                     onPointerEnter={event => event.pointerType === 'mouse' && setHoveredSectorKey(group.key)}
                     onPointerLeave={() => setHoveredSectorKey((current) => (current === group.key ? null : current))}
                     onFocus={event => setFocusedSectorKey(event.currentTarget.matches(':focus-visible') ? group.key : null)}
@@ -746,7 +771,7 @@ export function HallMapView({
                     >
                       <tspan
                         x={marker.x}
-                        y={marker.line2 ? marker.y - 1.12 * mapUnit : marker.y + 0.88 * mapUnit}
+                        y={marker.line2 ? textY - 1.12 * mapUnit : textY + 0.88 * mapUnit}
                         fontSize={(frameless ? 3.8 : marker.compact ? 2.82 : 3.08) * mapUnit}
                         letterSpacing="0.005em"
                       >
@@ -755,7 +780,7 @@ export function HallMapView({
                       {marker.line2 ? (
                         <tspan
                           x={marker.x}
-                          y={marker.y + 2.18 * mapUnit}
+                          y={textY + 2.18 * mapUnit}
                           fontSize={(frameless ? 2.15 : marker.compact ? 2.28 : 2.48) * mapUnit}
                           fontWeight="700"
                           letterSpacing="0.018em"
@@ -764,6 +789,12 @@ export function HallMapView({
                         </tspan>
                       ) : null}
                     </text>
+                    {marker.annotation && <g aria-hidden="true" pointerEvents="none">
+                      <rect x={marker.x - marker.width / 2} y={marker.y + marker.height / 2 - 4.6 * mapUnit}
+                        width={marker.width} height={4.6 * mapUnit} rx={0.5 * mapUnit} fill="hsl(var(--primary))" />
+                      <text x={marker.x} y={marker.y + marker.height / 2 - 1.25 * mapUnit} textAnchor="middle"
+                        fill="hsl(var(--primary-foreground))" fontSize={2.8 * mapUnit} fontWeight="700">{marker.annotation}</text>
+                    </g>}
                     {isSelected && <g aria-hidden="true" transform={`translate(${marker.x + marker.width / 2 - 1.5 * mapUnit} ${marker.y - marker.height / 2 - 1.5 * mapUnit})`}>
                       <rect width={4 * mapUnit} height={4 * mapUnit} rx={0.6 * mapUnit} fill="#192436" />
                       <path d={`M ${0.8 * mapUnit} ${2 * mapUnit} l ${0.8 * mapUnit} ${0.8 * mapUnit} l ${1.6 * mapUnit} ${-1.6 * mapUnit}`} fill="none" stroke="white" strokeWidth={0.55 * mapUnit} strokeLinecap="round" strokeLinejoin="round" />
@@ -777,7 +808,7 @@ export function HallMapView({
 
       </div>
 
-      {!imageError && renderedRegions.length > 0 && (fitContainer || !frameless || selectedGroups.length > 0) && <div className={fitContainer ? 'flex h-14 shrink-0 items-center gap-2' : 'space-y-2'}>
+      {showSelectionActions && !imageError && renderedRegions.length > 0 && (fitContainer || !frameless || selectedGroups.length > 0) && <div className={fitContainer ? 'flex h-14 shrink-0 items-center gap-2' : 'space-y-2'}>
         <div className={fitContainer ? 'order-2 shrink-0' : 'flex min-h-11 items-center justify-between gap-3'}>
           {(!frameless || selectedGroups.length > 0) && <p role="status" aria-live="polite" className={cn('text-xs font-medium text-foreground', fitContainer && 'sr-only')}>
             {selectedGroups.length ? <>{selectedGroups.length} {selectedGroups.length === 1 ? 'Teilbereich' : 'Teilbereiche'} ausgewählt<span className="sr-only">: {selectedGroups.map(group => resolveSectorArea(group.sectors[0]).publicName).join(', ')}</span></> : 'Ganze Halle'}
