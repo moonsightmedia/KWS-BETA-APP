@@ -13,8 +13,7 @@
 .kws-feed .playback input[type=range]::-moz-range-thumb{width:10px;height:10px;border-radius:4px;background:var(--reel-green);border:0}
 .kws-feed{height:calc(100dvh - var(--preview-bar));display:flex;justify-content:center;position:relative;isolation:isolate;background:var(--reel-ink)}
 .kws-feed .reel{position:relative;width:100%;height:100%;max-width:570px;overflow:hidden;touch-action:pan-x pinch-zoom;background:var(--reel-ink);color:white}
-.kws-feed .reel-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--reel-ink)}
-.kws-feed .video-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,hsl(var(--brand-ink)/.88) 0%,hsl(var(--brand-ink)/.18) 15%,transparent 30%,transparent 49%,hsl(var(--brand-ink)/.18) 64%,hsl(var(--brand-ink)/.94) 85%,var(--reel-ink) 100%)}
+.kws-feed .reel-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:var(--reel-ink)}
 .kws-feed .reel-header{position:absolute;top:calc(env(safe-area-inset-top,0px) + 16px);left:16px;right:16px;display:flex;align-items:center;gap:12px;z-index:3}.kws-feed .reel-header>div{flex:1}.kws-feed .reel-header strong{font-size:17px;font-weight:600;display:block}.kws-feed .reel-header div>span{font-size:11px;color:white;display:block;margin-top:2px}
 .kws-feed .overlay-button{width:44px;height:44px;display:grid;place-items:center;border:0;border-radius:8px;background:white;color:var(--reel-ink);box-shadow:0 2px 9px hsl(var(--brand-ink)/.14)}.kws-feed .overlay-button svg{width:20px;height:20px;stroke-width:1.75}.kws-feed .overlay-button:hover{background:hsl(var(--brand-secondary))}.kws-feed .overlay-button:active{transform:scale(.97)}.kws-feed .overlay-button:disabled{opacity:.3;cursor:default}.kws-feed .filter-trigger{position:relative}.kws-feed .filter-trigger>span{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;display:grid;place-items:center;background:var(--reel-green);color:var(--reel-ink);border-radius:4px;font-size:10px;font-weight:600}
 .kws-feed .official{position:absolute;top:calc(env(safe-area-inset-top,0px) + 82px);left:16px;display:flex;align-items:center;gap:5px;background:white;color:var(--reel-ink);border-radius:4px;padding:5px 8px;font-size:10px;font-weight:600;box-shadow:0 2px 8px hsl(var(--brand-ink)/.1)}.kws-feed .official svg{color:hsl(var(--primary-ink))}
@@ -36,7 +35,7 @@
 .kws-feed .reel-page[data-active=false]{pointer-events:none}
 .kws-feed .reel-chrome{position:absolute;inset:0;pointer-events:none;transition:opacity 160ms ease}
 .kws-feed .reel-chrome>.reel-header,.kws-feed .reel-chrome>.quality-trigger,.kws-feed .reel-chrome>.reel-actions,.kws-feed .reel-chrome>.reel-footer,.kws-feed .reel-chrome>.media-status{pointer-events:auto}
-.kws-feed .reel-chrome>.video-shade{pointer-events:none}
+
 .kws-feed .reel-header>div{min-width:0}
 .kws-feed .reel-header{gap:10px}
 .kws-feed .sort-trigger{max-width:100%;white-space:nowrap;font-size:10px}
@@ -87,3 +86,14 @@ html[data-boulder-feed=true]{overflow:hidden}body[data-boulder-feed=true] [data-
 .kws-feed-sheet .kws-feed-sort{padding:0;box-shadow:none;background:none;animation:none}
 html[data-kws-review] .kws-feed{top:var(--kws-review-notice-height,0px);height:calc(100dvh - var(--kws-review-notice-height,0px))}
 html[data-kws-review] .kws-feed .reel-header,html[data-kws-review] .kws-feed .restore-chrome{top:16px}html[data-kws-review] .kws-feed :is(.official,.quality-trigger){top:82px}html[data-kws-review] .kws-feed .speed-feedback{top:24px}
+
+/* Fullscreen feed: media fills the stage behind the overlay controls. */
+.kws-feed .reel-media{position:absolute;inset:0;pointer-events:none}
+.kws-feed .video-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,hsl(var(--brand-ink)/.66),transparent 24%,transparent 48%,hsl(var(--brand-ink)/.78) 78%,hsl(var(--brand-ink)/.92))}
+
+/* Two fingers control the video only; dialogs retain normal browser zoom. */
+.kws-feed .reel[data-zoomable=true]{touch-action:none}
+.kws-feed .reel-video{transform-origin:center}
+.kws-feed .zoom-feedback{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 24px);transform:translateX(-50%);z-index:9;pointer-events:none;border-radius:8px;background:hsl(var(--brand-ink)/.9);color:white;padding:9px 14px;font-size:13px;font-weight:600;white-space:nowrap}
+.kws-feed-quality-menu{max-height:min(480px,var(--radix-dropdown-menu-content-available-height,calc(100dvh - 32px)));overflow-y:auto}
+html[data-kws-review] .kws-feed .zoom-feedback{top:24px}

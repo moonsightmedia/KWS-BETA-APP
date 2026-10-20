@@ -21,8 +21,9 @@ export function useBoulderFeedCommunity(id?: string) {
   const ready = community.isSuccess && !community.isError;
   const trackReady = ready && sessions.isSuccess && !sessions.isError;
   const busy = saving || rating.isPending || marker.isPending || tick.isPending || removeTick.isPending || session.isPending || comments.addComment.isPending;
-  const toggleProject = async () => {
+  const toggleProject = async (ensureProject = false) => {
     if (!id || !ready || !trackReady || busy) return;
+    if (ensureProject && current?.is_project) return;
     setSaving(true);
     try {
       if (current) {
@@ -31,6 +32,7 @@ export function useBoulderFeedCommunity(id?: string) {
         else await marker.mutateAsync({ tickId: current.id, field: 'is_project', value: !current.is_project });
       } else await tick.mutateAsync({ status: 'attempted', attemptCount: null, isProject: true, isFavorite: false });
       await community.refetch({ throwOnError: true });
+      if (ensureProject) toast.success('Als Projekt gespeichert');
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Projekt konnte nicht gespeichert werden.'); }
     finally { setSaving(false); }
   };
