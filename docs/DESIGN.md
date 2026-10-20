@@ -1211,6 +1211,20 @@ Videoanbieter und Videofeed werden durch diese Layoutfreigabe nicht umgestaltet.
 
 Prüfung: `docs/qa/2026-10-20-mobile-player-v5-integration.md`.
 
+### 8.3.2 Gleichmäßige Videohelligkeit – Nutzerkorrektur 20.10.2026
+
+- Eigene Videos verwenden denselben normalen Helligkeitsbereich wie die Oberfläche.
+  Unterstützte Webplayer verwenden `dynamic-range-limit: standard`, auch im Feed,
+  eingebettet und im appinternen Vollbild. Externe Player behalten ihren eigenen Weg.
+- HDR wird serverseitig tatsächlich nach SDR BT.709 umgerechnet. Die verbesserte
+  Mobius-Fassung aus PR68 ersetzt die ältere Hable-Fassung aus PR64. Ein CSS-Filter
+  oder bloßes Entfernen der HDR-Metadaten ersetzt keine Farbumrechnung.
+- Die stumme ausgewählte Videoquelle bleibt privat in ihrer vorhandenen Qualität
+  archiviert. Wiedergabequalitäten HD/SD/Low entstehen daraus. Historische Dateien
+  erhalten neue URLs; bestehende URLs bleiben für einen Rückfall erhalten.
+- Ein Screenshot bestätigt keine HDR-Helligkeit auf echter Displayhardware.
+  Nicht durchgeführte iPhone-/HDR-Geräteabnahmen bleiben ausdrücklich unbestätigt.
+
 ### 8.4 Kommentare und Track
 
 - Kommentarzeilen und Composer zeigen das Profilfoto in derselben 8-px-
@@ -1644,6 +1658,8 @@ Verbindliche Regeln:
 - Bearbeitung ist ein Entwurf mit Speichern/Abbrechen, Versionsprüfung,
   Pending-Sperre und Verwerfenschutz. Dialoge geben Tastaturfokus an den Auslöser
   zurück; technische Informationen sind nachgeordnet und einklappbar.
+  Die Monitoring-Fehleransicht verarbeitet Escape bereits beim initialen Fokus;
+  verschachtelte Menüs, laufendes Speichern und Verwerfenschutz behalten Vorrang.
 - Marken-Grün, dunkelblaue Beschriftung, 4/8/12-px-Radien und mobile randbündige
   Bottom-Sheets mit festen Aktionen bleiben unverändert.
 
