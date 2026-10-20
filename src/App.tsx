@@ -21,6 +21,7 @@ import Profile from "./pages/Profile";
 import ProfileEdit from "./pages/ProfileEdit";
 import TrainingSettings from './pages/TrainingSettings';
 import NotificationSettings from "./pages/NotificationSettings";
+import InteractionSettings from "./pages/InteractionSettings";
 import AboutApp from "./pages/AboutApp";
 import AppLegal from "./pages/AppLegal";
 import Statistics from "./pages/Statistics";
@@ -423,6 +424,7 @@ const router = createBrowserRouter([
           <NotificationSettings />
         </RequireAuth>
       ) },
+      { path: "profile/interaction", element: <RequireAuth><InteractionSettings /></RequireAuth> },
       { path: "profile/about", element: (
         <RequireAuth>
           <AboutApp />
