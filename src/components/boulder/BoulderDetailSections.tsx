@@ -877,6 +877,14 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
   const [showSessionSheet, setShowSessionSheet] = useState(false);
   const [pendingAction, setPendingAction] = useState<'attempt' | 'top' | 'flash' | 'favorite' | 'project' | 'session' | null>(null);
   const [confirmation, setConfirmation] = useState('');
+  const projectUndo = useRef<{ generation: number; toastId?: string | number; locked: boolean }>({ generation: 0, locked: false });
+  useEffect(() => {
+    const undo = projectUndo.current;
+    return () => {
+      undo.generation++;
+      if (undo.toastId !== undefined) toast.dismiss(undo.toastId);
+    };
+  }, [boulder.id, user?.id]);
   useEffect(() => setConfirmation(''), [boulder.id]);
   const [optimisticTodaySession, setOptimisticTodaySession] = useState<BoulderTrackingSession | null | undefined>(undefined);
 
@@ -916,10 +924,18 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
     updated_at: new Date().toISOString(),
   });
 
+  function clearProjectUndo() {
+    projectUndo.current.generation++;
+    if (projectUndo.current.toastId !== undefined) toast.dismiss(projectUndo.current.toastId);
+    projectUndo.current.toastId = undefined;
+  }
+
   const persistTodaySession = async (
     payload: { result: BoulderTickStatus; attemptCount: number; note?: string },
     action: 'attempt' | 'top' | 'flash' | 'session',
   ) => {
+    if (projectUndo.current.locked) return;
+    clearProjectUndo();
     const normalizedAttemptCount = payload.result === 'flash' ? 1 : Math.max(1, payload.attemptCount);
 
     if (payload.result === 'flash' && payload.attemptCount > 1) {
@@ -966,11 +982,14 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
     nextMarkers: { isFavorite: boolean; isProject: boolean },
     action: 'favorite' | 'project',
   ) => {
-    if (isMutationPending) {
+    if (isMutationPending || projectUndo.current.locked) {
       return;
     }
 
+    clearProjectUndo();
+
     const previousMarkers = { isFavorite, isProject };
+    const actionGeneration = projectUndo.current.generation;
     setIsFavorite(nextMarkers.isFavorite);
     setIsProject(nextMarkers.isProject);
     setPendingAction(action);
@@ -981,6 +1000,39 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
       && (!currentTick || isMarkerOnlyTick(currentTick));
 
     try {
+      if (action === 'project' && previousMarkers.isProject && !nextMarkers.isProject && currentTick) {
+        await upsertTick.mutateAsync({ projectOnly: true, tickId: currentTick.id, isProject: false });
+        await communityQuery.refetch();
+        if (projectUndo.current.generation !== actionGeneration) return;
+        const generation = projectUndo.current.generation;
+        projectUndo.current.toastId = toast('Aus Projekten entfernt.', {
+          duration: 10000,
+          action: {
+            label: 'Rückgängig',
+            onClick: () => {
+              if (projectUndo.current.generation !== generation || projectUndo.current.locked) return;
+              clearProjectUndo();
+              projectUndo.current.locked = true;
+              const activeGeneration = projectUndo.current.generation;
+              void (async () => {
+                try {
+                  await upsertTick.mutateAsync({ projectOnly: true, tickId: currentTick.id, isProject: true });
+                  await communityQuery.refetch();
+                  if (projectUndo.current.generation === activeGeneration) {
+                    setIsProject(true);
+                    toast.success('Wieder in deinen Projekten.');
+                  }
+                } catch {
+                  if (projectUndo.current.generation === activeGeneration) toast.error('Nicht wiederhergestellt. Bitte erneut als Projekt markieren.');
+                } finally {
+                  projectUndo.current.locked = false;
+                }
+              })();
+            },
+          },
+        });
+        return;
+      }
       if (shouldDeleteTick) {
         if (currentTick) {
           await deleteTick.mutateAsync();

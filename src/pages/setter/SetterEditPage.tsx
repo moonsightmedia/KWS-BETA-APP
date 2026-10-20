@@ -330,6 +330,7 @@ export default function SetterEditPage() {
       }
 
       setEditorDraft(null);
+      toast.success("Boulder gespeichert. Die Bestätigung ist eingegangen.");
     } catch (error) {
       console.error("[SetterEditPage] saveEditor failed:", error);
       throw error;

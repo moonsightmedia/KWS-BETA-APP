@@ -131,6 +131,22 @@ export const canSubmitSetterBoulderDraft = (
   );
 };
 
+export const getMissingSetterBoulderFields = (
+  draft: SetterBoulderDraft,
+  dualColorAttributeId?: string,
+) => {
+  const missing: string[] = [];
+  if (!draft.name.trim()) missing.push("Name");
+  if (!draft.videoFile && !draft.existingVideoUrl && !draft.withoutVideo) missing.push("Video oder „Beta später ergänzen“");
+  if (!draft.thumbFile && !draft.existingThumbnailUrl) missing.push("Vorschaubild");
+  if (!draft.sectorId) missing.push("Sektor");
+  if (!draft.colorId) missing.push("Farbe");
+  if (dualColorAttributeId && draft.attributeIds.includes(dualColorAttributeId)
+    && (!draft.colorId2 || draft.colorId2 === draft.colorId)) missing.push("andere zweite Farbe");
+  if (draft.spansMultipleSectors && (!draft.sectorId2 || draft.sectorId2 === draft.sectorId)) missing.push("anderer zweiter Sektor");
+  return missing;
+};
+
 function EditorMediaDrop({
   label,
   accept,
@@ -242,6 +258,7 @@ export function SetterBoulderEditorDialog({
   const [extraOpen, setExtraOpen] = useState(false);
   const [thumbPreview, setThumbPreview] = useState<string | null>(null);
   const lock = useRef(false);
+  const contentRef = useRef<HTMLDivElement>(null);
   const busy = working || isSubmitting || isDeleting;
   useEffect(() => {
     setDirty(false);
@@ -304,6 +321,7 @@ export function SetterBoulderEditorDialog({
     setError("");
     if (!canSubmitSetterBoulderDraft(draft, dual?.id)) {
       setError("Bitte ergänze die markierten Pflichtfelder.");
+      requestAnimationFrame(() => contentRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
       return;
     }
     lock.current = true;
@@ -393,6 +411,14 @@ export function SetterBoulderEditorDialog({
         }}
       >
         <DialogContent
+          ref={contentRef}
+          onOpenAutoFocus={(event) => {
+            const nameInput = contentRef.current?.querySelector<HTMLInputElement>('#setter-boulder-name');
+            if (nameInput && !nameInput.matches(':disabled')) {
+              event.preventDefault();
+              nameInput.focus();
+            }
+          }}
           scrollLayout="contained"
           className="flex h-[min(90dvh,850px)] flex-col overflow-hidden p-0 md:!max-w-2xl"
           aria-busy={busy}
@@ -751,6 +777,7 @@ export function SetterBoulderEditorDialog({
               )}
             </fieldset>
           </div>
+          {isSubmitting && <p role="status" className="shrink-0 px-4 py-2 text-xs text-muted-foreground sm:px-6">Änderungen werden übertragen. Bitte auf die Bestätigung warten.</p>}
           <footer className="flex shrink-0 gap-3 bg-white px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
             <Button variant="secondary" disabled={busy} onClick={close}>
               Abbrechen
@@ -761,7 +788,7 @@ export function SetterBoulderEditorDialog({
               onClick={() => void save()}
             >
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {busy ? "Bitte warten …" : submitLabel}
+              {busy ? (isSubmitting ? "Wird gespeichert …" : "Bitte warten …") : error && submitLabel === "Speichern" ? "Erneut speichern" : submitLabel}
             </Button>
           </footer>
         </DialogContent>

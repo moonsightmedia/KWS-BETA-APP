@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import {
   SetterBoulderEditorDialog,
   canSubmitSetterBoulderDraft,
+  getMissingSetterBoulderFields,
   createEmptySetterBoulderDraft,
   type SetterBoulderDraft,
 } from "@/components/setter/SetterBoulderEditorDialog";
@@ -91,6 +92,7 @@ export function BatchUpload() {
       ).length,
     [boulders, dualColorAttributeId],
   );
+  const incompleteCount = boulders.filter(boulder => !canSubmitSetterBoulderDraft(boulder, dualColorAttributeId)).length;
   const queueThumbPreviewUrls = useMemo(() => {
     const previews = new Map<string, string>();
     boulders.forEach((boulder) => {
@@ -439,6 +441,7 @@ export function BatchUpload() {
                 boulder,
                 dualColorAttributeId,
               );
+              const missingFields = getMissingSetterBoulderFields(boulder, dualColorAttributeId);
               return (
                 <article
                   key={boulder.id}
@@ -490,7 +493,7 @@ export function BatchUpload() {
                       {phase ??
                         (ready
                           ? (boulder.videoFile ? "Bereit zum Hochladen" : "Bereit · Beta folgt")
-                          : "Medien oder Angaben ergänzen")}
+                          : `Noch ergänzen: ${missingFields.join(", ")}`)}
                     </p>
                     {boulder.createdBoulderId && !isProcessing && (
                       <Link to="/setter/edit" className="mt-1 inline-flex min-h-11 items-center text-xs font-medium text-primary-ink underline underline-offset-4">
@@ -551,7 +554,13 @@ export function BatchUpload() {
                     : "Nicht übernommene Entwürfe gehen beim Neuladen verloren."}
                 </p>
               </div>
+              {!isProcessing && !loading && !failed && incompleteCount > 0 && (
+                <p id="setter-upload-reason" role="status" className="w-full text-xs text-foreground">
+                  Noch nicht bereit: {incompleteCount} Boulder mit fehlenden Angaben. Öffne den Stift beim Boulder.
+                </p>
+              )}
               <Button
+                aria-describedby={!isProcessing && !loading && !failed && incompleteCount > 0 ? "setter-upload-reason" : undefined}
                 className="w-full sm:w-auto"
                 disabled={
                   isProcessing ||
