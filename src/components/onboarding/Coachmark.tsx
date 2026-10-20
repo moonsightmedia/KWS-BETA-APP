@@ -44,6 +44,7 @@ export function Coachmark({ step, index, total, onNext, onBack, onClose, portalP
     progressLabel?: string;
 }) {
     const panel = useRef<HTMLDivElement>(null);
+    const safeArea = useRef<HTMLSpanElement>(null);
     const heading = useRef<HTMLHeadingElement>(null);
     const [geometry, setGeometry] = useState<Geometry | null>(null);
     useLayoutEffect(() => {
@@ -69,10 +70,30 @@ export function Coachmark({ step, index, total, onNext, onBack, onClose, portalP
                 else if (!portalParent)
                     target.scrollIntoView({ block: 'center', behavior: 'instant' });
             }
+            // A dialog's entrance scale is temporary. Measure its final coordinate
+            // system before drawing a spotlight inside the transformed portal.
+            if (portalParent?.getAnimations().some(animation => animation.playState === 'running')) {
+                setGeometry(null);
+                schedule();
+                return;
+            }
             const view = window.visualViewport;
             const host = portalParent?.getBoundingClientRect();
-            const l = host?.left ?? view?.offsetLeft ?? 0, t = host?.top ?? view?.offsetTop ?? 0;
-            const w = host?.width ?? view?.width ?? innerWidth, h = host?.height ?? view?.height ?? innerHeight;
+            // Fixed portals share the viewport with iOS status bars and the home indicator.
+            // Resolve env() and the app's native insets as pixels, then intersect the
+            // visible viewport with a dialog host instead of adding its insets twice.
+            const insets = safeArea.current ? getComputedStyle(safeArea.current) : null;
+            const inset = (side: 'Top' | 'Right' | 'Bottom' | 'Left') => parseFloat(insets?.[`padding${side}`] ?? '') || 0;
+            const viewportLeft = view?.offsetLeft ?? 0, viewportTop = view?.offsetTop ?? 0;
+            const viewportRight = viewportLeft + (view?.width ?? innerWidth);
+            const viewportBottom = viewportTop + (view?.height ?? innerHeight);
+            const l = Math.max(host?.left ?? viewportLeft, viewportLeft + inset('Left'));
+            const t = Math.max(host?.top ?? viewportTop, viewportTop + inset('Top'));
+            const right = Math.min(host?.right ?? viewportRight, viewportRight - inset('Right'));
+            const bottom = Math.min(host?.bottom ?? viewportBottom, viewportBottom - inset('Bottom'));
+            const w = Math.max(0, right - l), h = Math.max(0, bottom - t);
+            panel.current.style.maxWidth = `${Math.max(0, w - 32)}px`;
+            panel.current.style.maxHeight = `${Math.max(0, h - 24)}px`;
             const r = target.getBoundingClientRect(), p = panel.current.getBoundingClientRect();
             const header = target.closest('[data-onboarding-page], [data-guest-surface], [data-boulder-detail-scroll]')?.querySelector('[data-kws-dashboard-header], header');
             const headerBottom = header && !header.contains(target) ? header.getBoundingClientRect().bottom : t;
@@ -96,8 +117,8 @@ export function Coachmark({ step, index, total, onNext, onBack, onClose, portalP
                 if (!portalParent && r.bottom > t + h - 8) {
                     const before = scrollRoot!.scrollTop;
                     scrollRoot!.scrollBy({ top: r.bottom - (t + h - 8), behavior: 'instant' });
-                    // A viewport-sized mobile player cannot scroll beyond its boundary.
-                    if (Math.abs(scrollRoot!.scrollTop - before) > 0.5) {
+                    // Stop at scroll boundaries and when scrolling cannot move the target.
+                    if (Math.abs(scrollRoot!.scrollTop - before) > 0.5 && target.getBoundingClientRect().bottom < r.bottom) {
                         schedule();
                         return;
                     }
@@ -114,7 +135,7 @@ export function Coachmark({ step, index, total, onNext, onBack, onClose, portalP
             else if (y + height + p.height + 16 > t + h - 12 && height + p.height + 40 < h) {
                 const scroller = scrollRoot ?? window;
                 const before = scrollRoot ? scrollRoot.scrollTop : window.scrollY;
-                scroller?.scrollBy({ top: y + height + p.height + 28 - (t + h), behavior: 'instant' });
+                scroller?.scrollBy({ top: Math.ceil(y + height + p.height + 28 - (t + h)), behavior: 'instant' });
                 const after = scrollRoot ? scrollRoot.scrollTop : window.scrollY;
                 if (after !== before) {
                     schedule();
@@ -143,8 +164,10 @@ export function Coachmark({ step, index, total, onNext, onBack, onClose, portalP
         const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); };
         if (panel.current)
             observer.observe(panel.current);
+        if (safeArea.current)
+            observer.observe(safeArea.current);
         const mutation = new MutationObserver(schedule);
-        mutation.observe(portalParent ?? document.getElementById('root')!, { childList: true, subtree: true });
+        mutation.observe(portalParent ?? document.getElementById('root')!, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-onboarding', 'data-draft-tour', 'hidden', 'inert'] });
         window.addEventListener('resize', schedule);
         window.addEventListener('scroll', schedule, true);
         window.visualViewport?.addEventListener('resize', schedule);
@@ -183,9 +206,11 @@ export function Coachmark({ step, index, total, onNext, onBack, onClose, portalP
     }, [step, geometry, portalParent, scrollRoot]);
     return createPortal(<div className={portalParent ? 'tour-in-filter' : 'tour-layer'} data-tour-docked={g?.docked}><Dialog.Root open modal={false} onOpenChange={open => { if (!open)
         onClose(); }}>
+    <span ref={safeArea} className="tour-safe-area" aria-hidden="true"/>
     {g && <>
       {/* One rounded cutout shares its exact contour with the highlight and hit area. */}
-      <svg className="tour-shade" aria-hidden="true" viewBox={`0 0 ${g.canvasWidth} ${g.canvasHeight}`} preserveAspectRatio="none"><path d={shadePath(g)} fillRule="evenodd"/></svg>
+      {/* Explicit pixel dimensions avoid scaling the cutout around desktop scrollbar gutters. */}
+      <svg className="tour-shade" aria-hidden="true" viewBox={`0 0 ${g.canvasWidth} ${g.canvasHeight}`} preserveAspectRatio="none" style={{ width: g.canvasWidth, height: g.canvasHeight }}><path d={shadePath(g)} fillRule="evenodd"/></svg>
       <div className="tour-highlight" aria-hidden="true" style={{ left: g.x, top: g.y, width: g.width, height: g.height, borderRadius: g.radii.map(radius => `${radius}px`).join(' ') }}/>
       <span className="tour-arrow" aria-hidden="true" style={g.side === 'right' ? { left: g.left - 6, top: g.top + g.arrow - 6 } : { left: g.left + g.arrow - 6, top: g.side === 'top' ? g.top + (panel.current?.offsetHeight ?? 0) - 6 : g.top - 6 }}/>
     </>}

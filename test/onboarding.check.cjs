@@ -2,6 +2,7 @@ require('node:fs').mkdirSync('output/playwright/onboarding', { recursive: true }
 const { chromium } = require('playwright');
 const fs = require('node:fs');
 const assert = require('node:assert/strict');
+const checkSpotlight = require('./onboarding-geometry.cjs');
 (async () => { const b = await chromium.launch({ channel: 'msedge', headless: true }); for (const width of [375, 768, 1280, 1920]) {
     const p = await b.newPage({ viewport: { width, height: 900 } });
     const errors = [];
@@ -9,7 +10,7 @@ const assert = require('node:assert/strict');
     await p.route('**/*', r => new URL(r.request().url()).hostname === '127.0.0.1' ? r.continue() : r.abort());
     await p.goto('http://127.0.0.1:5220' + (process.env.ONBOARDING_REAL_APP ? '/guest' : '/test/fixtures/onboarding.html'));
     const tip = id => p.locator(`[data-coachmark=${id}]`);
-    const snap = async (id) => { await tip(id).waitFor({ state: 'visible' }); await p.waitForTimeout(150); await p.screenshot({ path: `output/playwright/onboarding/${width}-${id}.png` }); const rect = await tip(id).boundingBox(); assert(rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= width + 1 && rect.y + rect.height <= 901, `${id} out of bounds`); assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth), false); };
+    const snap = async (id) => { await tip(id).waitFor({ state: 'visible' }); await p.waitForTimeout(250); await checkSpotlight(p, `${width}-${id}`); await p.screenshot({ path: `output/playwright/onboarding/${width}-${id}.png` }); const rect = await tip(id).boundingBox(); assert(rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= width + 1 && rect.y + rect.height <= 901, `${id} out of bounds`); assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth), false); };
     try {
         await snap('discover');
         await tip('discover').getByRole('button', { name: 'Boulder öffnen' }).click();

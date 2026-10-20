@@ -2314,7 +2314,12 @@ Prüfumfang: docs/qa/2026-10-19-setter-quick-actions.md.
 - Präzisierung nach Sichtprüfung: Die Aufhellung folgt der tatsächlichen
   Rundung des Zielelements einschließlich des umlaufenden Abstands. Ausschnitt,
   grüne Kontur und klickfreie Öffnung haben dieselbe Geometrie; keine hellen
-  rechteckigen Eckflächen außerhalb der Rundung. Abgeschnittene Zielkanten
+  rechteckigen Eckflächen außerhalb der Rundung. Präzisierung20.10.: Der SVG-
+  Ausschnitt verwendet denselben Pixelmaßstab wie die Kontur, auch bei klassischen
+  Desktop-Scrollleisten. Ziele werden explizit identifiziert; ein zusätzlicher
+  Toolbarbutton darf nicht anstelle der ersten Boulderkarte markiert werden.
+  Bei Dialogen wird erst nach deren Eintrittsskalierung gemessen.
+  Abgeschnittene Zielkanten
   bleiben gerade. Die Kontozeile heißt auf Nutzerwunsch „Das Kommentieren“ und
   behält ausdrücklich den Stern. Bestätigte Nutzerwahl im Iconvergleich:
   Gespeicherte Boulder B (`Bookmark`), Tracking A (`Play`), Statistik A
@@ -2354,7 +2359,7 @@ Prüfumfang: docs/qa/2026-10-19-setter-quick-actions.md.
   `/onboarding/progress` ausprobiert. Markierungen und Tracking bleiben lokaler
   Zustand; die Woche verwendet ausdrücklich Beispieldaten. Die Kontovorteile
   führen über `/onboarding/register` zum vorhandenen Formular `/app/register`.
-  „Einführung ansehen“ im Gastkopf startet die Führung erneut.
+  Das kleine Info-Symbol neben dem Ansichtswechsel startet die Führung erneut.
 - Der Filter meldet Öffnen, tatsächliche Ergebnisbestätigung und seinen
   Dialoghost explizit an die Tour. Stabile `data-onboarding`-Ziele ersetzen
   CSS-Layout-/Textsuche. X oder Zurück schließt den Filter ohne Ergebnisbestätigung;
@@ -2420,3 +2425,19 @@ Prüfumfang: docs/qa/2026-10-20-designmotion-four.md.
 - Diese Freigabe betrifft die genannten fünf Entwürfe. Die zuvor ausgeschlossene
   neue Mehrfachauswahl bleibt ausgeschlossen. Wochenkarte oben und Beta-Startlogo
   bleiben unverändert.
+
+### Onboarding – Safe Areas und dezenter Einstieg 20.10.2026
+
+- Die Führung reserviert die tatsächlich gemeldeten Safe Areas oben, unten,
+  links und rechts. Ihre Hinweise bleiben zusätzlich mit Abstand im sichtbaren
+  Visual Viewport; Statusleiste, Dynamic Island und Home-Indikator werden nicht
+  durch Bedienelemente überlagert. Dialoggrenzen werden mit diesem Bereich
+  geschnitten, bereits vorhandene Dialogabstände nicht nochmals addiert.
+- „Einführung ansehen“ ist ein benanntes Info-Icon direkt links neben dem
+  Ansichtswechsel. Das Icon bleibt klein (16px), sein Touch-Ziel mindestens 44px.
+  Die zusätzliche breite Gastkopfzeile mit Einführung und Kontowerbung entfällt.
+  Kontovorteile bleiben Teil der geführten Einführung und der Detailansicht.
+- Ein Tourstart aus der Videoansicht zeigt wieder die letzte Kartenansicht,
+  damit der erste erklärte Boulder sichtbar und bedienbar ist.
+
+Prüfbeleg: `docs/qa/2026-10-20-onboarding-safe-area.md`.
