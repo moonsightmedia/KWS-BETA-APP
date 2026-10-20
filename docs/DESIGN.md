@@ -742,15 +742,26 @@ Ansicht, aktive Filter und Sortierung bleiben beim Wechsel nachvollziehbar erhal
   der Kommentarblase (ab100 als99+); der zugängliche Name nennt weiterhin die
   vollständige Zahl und Aktion. Projektstatus erhält zusätzlich ein Häkchen,
   Tracking das jeweilige Ergebnissymbol. Mindestens44px Touchfläche bleiben erhalten.
-- Nutzerpräzisierung: Ein kurzes Tippen auf die freie Videofläche pausiert bzw.
-  startet die Wiedergabe. Doppeltippen blendet das gesamte Layout aus und wieder
-  ein, ohne den Wiedergabezustand zu verändern oder eine Projektmarkierung zu setzen.
-  Der Einzeltipp wartet dafür kurz auf einen möglichen zweiten Tipp (280ms im
-  Entwurf). Wischen, Gestenabbruch und das Öffnen anderer Ansichten verwerfen
-  einen ausstehenden Tipp. Eine eigene Augen-Aktion blendet die gesamten
-  Bedienelemente einschließlich Bildverläufen aus; ein kleiner, dauerhaft
-  erreichbarer Schalter blendet sie wieder ein. Pause und Wischen funktionieren
-  auch ohne die Bedienelemente. Escape stellt zunächst die normale Ansicht her.
+- Nutzerkorrektur 20.10.2026: Das vollständige Video bleibt mit `object-fit: contain`
+  sichtbar. Der Medienbereich reserviert die gemessenen Höhen von Kopf und Fuß
+  sowie Platz neben den persönlichen Aktionen. Keine dunklen Verläufe über den
+  oberen/unteren Bildteilen. Auch bei ausgeblendeter Bedienung und temporärem
+  Tempo bleibt die Videogeometrie stabil; kein Zuschnitt oder Größenwechsel.
+- Ein kurzes Tippen auf die freie Videofläche pausiert bzw. startet die Wiedergabe.
+  Doppeltipp ist standardmäßig **aus**. „Bedienung“ im Feed bietet die lokal pro
+  Gerät gespeicherten Optionen „Aus“, „Als Projekt speichern“ und „Layout ausblenden“.
+  Alte Nutzer erhalten keine automatisch aktivierte Aktion. Projektspeichern setzt
+  ausschließlich die Markierung, entfernt sie bei erneutem Doppeltipp nie und
+  erhält Begehung, Versuche, Favorit und Notiz. Für Gäste ist diese Option gesperrt;
+  ein gespeicherter Projektmodus bleibt ohne Anmeldung wirkungslos.
+  Layout-Doppeltipp blendet die gesamte Bedienung aus oder wieder ein, ohne
+  Pause/Projekt zu ändern. Nur bei aktivierter Doppeltipp-Aktion wartet der
+  Einzeltipp bis280ms auf einen zweiten Tipp. Ohne Zusatzaktion reagiert er sofort.
+  Wischen, Abbruch, Einstellungswechsel und fremde Ansichten verwerfen wartende
+  Tipps. Der Augenschalter funktioniert unabhängig davon; Pause und Wischen bleiben
+  auch ohne Bedienung möglich. Escape stellt zunächst die normale Ansicht her.
+  Die kompakte Einstellungsfläche pausiert das Video und übernimmt Änderungen
+  direkt. Qualitätswahl bleibt separat; keine zweite allgemeine Einstellungsseite.
 - Gedrückthalten auf der freien linken Videohälfte spielt vorübergehend mit0,5×,
   rechts mit2× (350ms Halteschwelle im Entwurf). Währenddessen ist ausschließlich
   die kompakte Geschwindigkeitsanzeige sichtbar; auch der Augenschalter entfällt.

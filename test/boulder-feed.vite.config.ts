@@ -11,7 +11,7 @@ export default defineConfig({
       || /(?:@\/|\/src\/)(utils\/monitoring|lib\/backendConfig)(?:\.tsx?)?$/.test(normalized)) return fixtures;
   }, load(id) { if (/\/integrations\/supabase\/client\./.test(id.replace(/\\/g, '/'))) throw new Error('Live backend is forbidden in feed tests.'); } }, react()],
   resolve: { alias: { '@': path.resolve('src') } },
-  server: { host: '127.0.0.1', port: 5217, strictPort: true, watch: { ignored: ['**/output/**'] } },
+  server: { host: '127.0.0.1', port: Number(process.env.BOULDER_FEED_TEST_PORT ?? 5217), strictPort: true, watch: { ignored: ['**/output/**'] } },
   optimizeDeps: { entries: ['test/fixtures/boulder-feed.html'] },
   build: { outDir: 'output/video-feed/integration-build', rollupOptions: { input: 'test/fixtures/boulder-feed.html' } },
 });

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent, type RefObject } from 'react';
+import type { FeedDoubleTapAction } from './useBoulderFeedPreferences';
 
 /** One gesture owner for taps, holds and vertical navigation. Media URLs/data live elsewhere. */
-export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, index, count, onIndex, onExit, disabled }: {
+export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, index, count, onIndex, onExit, disabled, doubleTapAction, onProject }: {
   videoRef: RefObject<HTMLVideoElement>; reelRef: RefObject<HTMLElement>; paused: boolean;
   onPause: (paused: boolean) => void; index: number; count: number;
   onIndex: (index: number) => void; onExit: () => void; disabled: boolean;
+  doubleTapAction: FeedDoubleTapAction; onProject: () => void;
 }) {
   const [clean, setClean] = useState(false);
   const [holdRate, setHoldRate] = useState<0.5 | 2 | null>(null);
@@ -86,10 +88,11 @@ export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, ind
     if (current.held) { stopHold(); return; }
     const dy = event.clientY - current.y, dx = event.clientX - current.x;
     if (!current.moved && Math.abs(dy) < 8 && Math.abs(dx) < 8) {
+      if (doubleTapAction === 'off') { cancelTap(); onPause(!paused); return; }
       const previous = tap.current, now = performance.now();
       const double = previous && now - previous.time <= 280 && previous.type === event.pointerType && Math.hypot(event.clientX - previous.x, event.clientY - previous.y) <= 32;
       cancelTap();
-      if (double) { setClean(value => !value); return; }
+      if (double) { if (doubleTapAction === 'layout') setClean(value => !value); else onProject(); return; }
       if (previous) onPause(!paused);
       tap.current = { x: event.clientX, y: event.clientY, time: now, type: event.pointerType, timer: window.setTimeout(() => { tap.current = null; onPause(previous ? paused : !paused); }, 280) };
       return;
@@ -104,7 +107,7 @@ export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, ind
     if (settleTimer.current !== null) clearTimeout(settleTimer.current);
     settlingRef.current = false; setSettling(false); setDragY(0);
     return () => { cancelTap(); gesture.current = null; stopHold(true); if (settleTimer.current !== null) clearTimeout(settleTimer.current); };
-  }, [disabled, index, count, clean, cancelTap, stopHold]);
+  }, [disabled, index, count, clean, doubleTapAction, cancelTap, stopHold]);
   useEffect(() => {
     if (clean) { hadClean.current = true; reelRef.current?.querySelector<HTMLButtonElement>('.restore-chrome')?.focus({ preventScroll: true }); }
     else if (hadClean.current) { hadClean.current = false; reelRef.current?.querySelector<HTMLButtonElement>('[data-active="true"] [aria-label="Bedienelemente ausblenden"]')?.focus({ preventScroll: true }); }

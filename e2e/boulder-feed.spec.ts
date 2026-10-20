@@ -56,6 +56,12 @@ async function enter(page: Page) {
   await expect(frame(page).getByRole('button', { name: 'Als Projekt markieren', exact: true })).toBeEnabled();
 }
 
+async function chooseDoubleTap(page: Page, name: string) {
+  await frame(page).getByRole('button', { name: 'Bedienungseinstellungen öffnen' }).click();
+  await page.getByRole('radio', { name, exact: true }).check();
+  await page.getByRole('button', { name: 'Zurück zum Video', exact: true }).click();
+}
+
 test('third view shares filters and retains the real detail origin, video and focus', async ({ page }) => {
   await backend(page); await enter(page);
   await expect(page.locator('[data-app-navigation]')).toBeHidden();
@@ -122,6 +128,7 @@ test('tracking confirms both writes, preserves draft on partial failure and retr
 
 test('tap, double tap, hold, swipe and quality remain independent', async ({ page }) => {
   await backend(page); await enter(page);
+  await chooseDoubleTap(page, 'Layout ausblenden');
   const client = await page.context().newCDPSession(page);
   const down = (x: number, y: number) => client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
   const up = () => client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
@@ -145,6 +152,68 @@ test('tap, double tap, hold, swipe and quality remain independent', async ({ pag
   await down(180, 450); await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 180, y: 190 }] }); await up();
   await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-b');
   await expect(page.locator('.kws-feed video')).toHaveCount(2);
+});
+
+test('double tap is opt-in, settings persist and the eye remains independent', async ({ page }) => {
+  const db = await backend(page); await enter(page);
+  const client = await page.context().newCDPSession(page);
+  const tap = async () => {
+    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 180, y: 320 }] });
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
+  await tap(); await expect(frame(page).locator('video')).toHaveJSProperty('paused', true);
+  await tap(); await expect(frame(page).locator('video')).toHaveJSProperty('paused', false);
+  await expect(page.locator('.kws-feed')).toHaveAttribute('data-clean', 'false');
+  expect(db.writes).toHaveLength(0);
+  await frame(page).getByRole('button', { name: 'Bedienungseinstellungen öffnen' }).click();
+  await expect(page.getByRole('radio', { name: 'Aus', exact: true })).toBeChecked();
+  await page.getByRole('radio', { name: 'Layout ausblenden', exact: true }).check();
+  await page.getByRole('button', { name: 'Zurück zum Video', exact: true }).click();
+  await expect(frame(page).getByRole('button', { name: 'Bedienungseinstellungen öffnen' })).toBeFocused();
+  const videoBounds = await frame(page).locator('video').boundingBox();
+  await tap(); await tap(); await expect(page.locator('.kws-feed')).toHaveAttribute('data-clean', 'true');
+  await expect(frame(page).locator('video')).toHaveJSProperty('paused', false);
+  expect(await frame(page).locator('video').boundingBox()).toEqual(videoBounds);
+  await page.getByRole('button', { name: 'Bedienelemente einblenden' }).click();
+  await page.reload(); await expect(frame(page).locator('video')).toHaveJSProperty('readyState', 4);
+  await frame(page).getByRole('button', { name: 'Bedienungseinstellungen öffnen' }).click();
+  await expect(page.getByRole('radio', { name: 'Layout ausblenden', exact: true })).toBeChecked();
+  await page.getByRole('radio', { name: 'Aus', exact: true }).check();
+  await page.getByRole('button', { name: 'Zurück zum Video', exact: true }).click();
+  await frame(page).getByRole('button', { name: 'Bedienelemente ausblenden' }).click();
+  await expect(page.locator('.kws-feed')).toHaveAttribute('data-clean', 'true');
+  await page.getByRole('button', { name: 'Bedienelemente einblenden' }).click();
+  await tap(); await tap(); await expect(page.locator('.kws-feed')).toHaveAttribute('data-clean', 'false');
+  expect(db.writes).toHaveLength(0);
+});
+
+test('project double tap only saves, preserves tracking and never removes an existing project', async ({ page }) => {
+  const db = await backend(page);
+  db.ticks.push({ id: 'tick-existing', boulder_id: 'feed-a', user_id: 'feed-user', status: 'top', attempt_count: 4, note: 'Alte Notiz', is_favorite: true, is_project: false });
+  await enter(page); await chooseDoubleTap(page, 'Als Projekt speichern');
+  const doubleTap = () => page.locator('.kws-feed .reel').dblclick({ position: { x: 180, y: 320 } });
+  await doubleTap();
+  await expect(frame(page).getByRole('button', { name: 'Projektmarkierung entfernen', exact: true })).toBeEnabled();
+  expect(db.ticks[0]).toMatchObject({ status: 'top', attempt_count: 4, note: 'Alte Notiz', is_favorite: true, is_project: true });
+  const writes = db.writes.length;
+  await doubleTap();
+  await expect(frame(page).getByRole('button', { name: 'Projektmarkierung entfernen', exact: true })).toBeEnabled();
+  expect(db.writes).toHaveLength(writes);
+  await expect(page.locator('.kws-feed')).toHaveAttribute('data-clean', 'false');
+  await expect(frame(page).locator('video')).toHaveJSProperty('paused', false);
+});
+
+test('guests cannot activate project double tap, even with a saved device preference', async ({ page }) => {
+  const db = await backend(page);
+  await page.addInitScript(() => localStorage.setItem('boulder_feed_double_tap_v1', 'project'));
+  await page.goto('/test/fixtures/boulder-feed.html?guest=1#/guest');
+  await page.getByRole('button', { name: 'Videoansicht', exact: true }).click();
+  await expect(frame(page).locator('video')).toHaveJSProperty('readyState', 4);
+  await page.locator('.kws-feed .reel').dblclick({ position: { x: 180, y: 320 } });
+  await frame(page).getByRole('button', { name: 'Bedienungseinstellungen öffnen' }).click();
+  await expect(page.getByRole('radio', { name: 'Als Projekt speichern', exact: true })).toBeDisabled();
+  await expect(page.getByRole('radio', { name: 'Aus', exact: true })).toBeChecked();
+  expect(db.writes).toHaveLength(0);
 });
 
 test('guests can use videos and details without personal actions', async ({ page }) => {
@@ -250,6 +319,21 @@ test('two visual loops on all four required widths', async ({ page }) => {
     await expect(frame(page).locator('video')).toHaveJSProperty('readyState', 4);
     await expect(frame(page).getByRole('button', { name: 'Als Projekt markieren', exact: true })).toBeEnabled();
     await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-feed.png`, animations: 'disabled' });
+    const geometry = await frame(page).evaluate(node => {
+      const video = node.querySelector('video')!;
+      const box = video.getBoundingClientRect();
+      const top = node.querySelector('.official')!.getBoundingClientRect().bottom;
+      const bottom = node.querySelector('.reel-footer')!.getBoundingClientRect().top;
+      return { top: box.top, bottom: box.bottom, height: box.height, width: box.width, headerEnd: top, footerStart: bottom, fit: getComputedStyle(video).objectFit };
+    });
+    expect(geometry.fit).toBe('contain'); expect(geometry.height).toBeGreaterThan(100);
+    expect(geometry.top).toBeGreaterThan(geometry.headerEnd);
+    expect(geometry.bottom).toBeLessThan(geometry.footerStart);
+    await frame(page).getByRole('button', { name: 'Bedienungseinstellungen öffnen' }).click();
+    await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-preferences.png`, animations: 'disabled' });
+    await page.getByRole('radio', { name: 'Als Projekt speichern', exact: true }).check();
+    await page.screenshot({ path: `output/video-feed/integration/loop2-${width}-preferences.png`, animations: 'disabled' });
+    await page.getByRole('button', { name: 'Zurück zum Video', exact: true }).click();
     await frame(page).getByRole('button', { name: '2 Kommentare öffnen', exact: true }).click();
     await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-comments.png`, animations: 'disabled' });
     await page.getByRole('button', { name: 'Schließen', exact: true }).click();

@@ -6,6 +6,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadio
 import { DifficultyBadge } from './DifficultyBadge';
 import { BoulderTypeBadge } from './BoulderTypeBadge';
 import { BoulderFeedPanels, type FeedPanel } from './BoulderFeedPanels';
+import { BoulderFeedPreferences } from './BoulderFeedPreferences';
+import { useBoulderFeedPreferences } from '@/hooks/useBoulderFeedPreferences';
 import { useAuth } from '@/hooks/useAuth';
 import { useColors } from '@/hooks/useColors';
 import { useBoulderFeedCommunity } from '@/hooks/useBoulderFeedCommunity';
@@ -28,6 +30,8 @@ export function BoulderVideoFeed({ boulders, active, loading, onExit, onDetail, 
   const [paused, setPaused] = useState(false);
   const [panel, setPanel] = useState<FeedPanel>(null);
   const [qualityOpen, setQualityOpen] = useState(false);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const preferences = useBoulderFeedPreferences();
   const [previewRating, setPreviewRating] = useState<number | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -42,13 +46,34 @@ export function BoulderVideoFeed({ boulders, active, loading, onExit, onDetail, 
   const external = item ? isExternalBoulderVideo(item) : false;
   const gestures = useBoulderFeedGestures({ videoRef, reelRef, paused, onPause: setPaused, index, count: boulders.length,
     onIndex: next => { setCurrentId(boulders[next]?.id ?? null); setPaused(false); setPreviewRating(null); }, onExit,
-    disabled: !active || Boolean(panel) || filtersOpen || qualityOpen || data.busy || loading === true,
+    doubleTapAction: !user && preferences.doubleTapAction === 'project' ? 'off' : preferences.doubleTapAction,
+    onProject: () => { if (user) void data.toggleProject(true); },
+    disabled: !active || Boolean(panel) || filtersOpen || qualityOpen || preferencesOpen || data.busy || loading === true,
   });
-  const media = useBoulderFeedPlayback({ videoRef, boulder: item, enabled: active && !external && !panel && !filtersOpen && !qualityOpen,
+  const media = useBoulderFeedPlayback({ videoRef, boulder: item, enabled: active && !external && !panel && !filtersOpen && !qualityOpen && !preferencesOpen,
     paused, holdRate: gestures.holdRate, suspended: gestures.suspended,
   });
   const openPanel = (next: FeedPanel, trigger: HTMLElement) => { panelTrigger.current = trigger; setPanel(next); };
   useEffect(() => { setPreviewRating(null); }, [item?.id]);
+  useLayoutEffect(() => {
+    const reel = reelRef.current;
+    const page = reel?.querySelector<HTMLElement>('.reel-page[data-active=true]');
+    if (!reel || !page) return;
+    const header = page.querySelector<HTMLElement>('.reel-header');
+    const official = page.querySelector<HTMLElement>('.official');
+    const footer = page.querySelector<HTMLElement>('.reel-footer');
+    const measure = () => {
+      const bounds = reel.getBoundingClientRect();
+      const top = Math.max(...[header, official].map(node => node ? node.getBoundingClientRect().bottom - bounds.top : 0)) + 12;
+      const bottom = footer ? bounds.bottom - footer.getBoundingClientRect().top + 12 : 16;
+      reel.style.setProperty('--feed-media-top', `${top}px`);
+      reel.style.setProperty('--feed-media-bottom', `${bottom}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    [reel, header, official, footer].forEach(node => { if (node) observer.observe(node); });
+    return () => observer.disconnect();
+  }, [item?.id, user]);
   useLayoutEffect(() => {
     if (!active) return;
     const root = document.documentElement, body = document.body;
@@ -74,7 +99,7 @@ export function BoulderVideoFeed({ boulders, active, loading, onExit, onDetail, 
   const availableQualities = item ? getAvailableVideoQualities(item.betaVideoUrls, item.betaVideoUrl) : [];
   const frames = boulders.slice(Math.max(0, index - 1), index + 2);
   return <>
-    <main className="kws-feed" data-clean={gestures.hidden} data-holding={gestures.holdRate !== null} data-active-feed={active} data-swipe-ignore data-pull-to-refresh="ignore" aria-label="Boulder-Videofeed">
+    <main className="kws-feed" data-clean={gestures.hidden} data-holding={gestures.holdRate !== null} data-active-feed={active} data-signed-in={Boolean(user)} data-swipe-ignore data-pull-to-refresh="ignore" aria-label="Boulder-Videofeed">
       <div className="desktop-caption"><Video size={19}/><strong>Videos</strong></div>
       <section ref={reelRef} className="reel" tabIndex={0} aria-label={item?.name ?? 'Boulder-Videos'} {...gestures.handlers}>
         <div className={`reel-track ${gestures.settling ? 'is-settling' : ''}`} style={{ transform: `translate3d(0,${gestures.dragY}px,0)` }}>
@@ -86,12 +111,11 @@ export function BoulderVideoFeed({ boulders, active, loading, onExit, onDetail, 
             const project = current && Boolean(data.current?.is_project);
             const TrackIcon = current && data.today?.result === 'flash' ? Zap : current && data.today?.result === 'top' ? BadgeCheck : Plus;
             return <article className="reel-page" key={boulder.id} data-boulder-id={boulder.id} data-active={current} aria-hidden={!current} {...(!current ? { inert: '' } : {})} style={{ transform: `translate3d(0,${(position - index) * 100}%,0)` }}>
-              {remote ? <img className="reel-video" src={boulder.thumbnailUrl} alt=""/> : <video ref={media.register(boulder.id)} className="reel-video" data-active={current} src={media.sourceFor(boulder)} poster={boulder.thumbnailUrl} muted loop playsInline preload={current ? 'auto' : 'metadata'} {...media.events(boulder.id)}/>}
+              <div className="reel-media">{remote ? <img className="reel-video" src={boulder.thumbnailUrl} alt=""/> : <video ref={media.register(boulder.id)} className="reel-video" data-active={current} src={media.sourceFor(boulder)} poster={boulder.thumbnailUrl} muted loop playsInline preload={current ? 'auto' : 'metadata'} {...media.events(boulder.id)}/>}</div>
               <div className="reel-chrome" aria-hidden={gestures.hidden} {...(gestures.hidden ? { inert: '' } : {})}>
-                <div className="video-shade"/>
-                <header className="reel-header"><button className="overlay-button" aria-label="Zur Boulderübersicht" onClick={onExit}><ArrowLeft/></button><div><strong>Videos</strong><button className="sort-trigger" aria-label="Sortierung öffnen" onClick={event => openPanel('sort', event.currentTarget)}>{sortLabel}<ChevronDown size={12}/></button></div><button className="overlay-button" aria-label="Bedienelemente ausblenden" onClick={() => gestures.setClean(true)}><EyeOff/></button><button className="overlay-button filter-trigger" aria-label="Boulder filtern" onClick={onFilter}><SlidersHorizontal/>{filterCount > 0 && <span>{filterCount}</span>}</button></header>
+                <header className="reel-header"><button className="overlay-button" aria-label="Zur Boulderübersicht" onClick={onExit}><ArrowLeft/></button><div><strong>Videos</strong><button className="sort-trigger" aria-label="Sortierung öffnen" onClick={event => openPanel('sort', event.currentTarget)}>{sortLabel}<ChevronDown size={12}/></button></div><button className="overlay-button" aria-label="Bedienelemente ausblenden" onClick={() => gestures.setClean(true)}><EyeOff/></button><button className="overlay-button" aria-label="Bedienungseinstellungen öffnen" onClick={event => { panelTrigger.current = event.currentTarget; setPreferencesOpen(true); }}><Settings/></button><button className="overlay-button filter-trigger" aria-label="Boulder filtern" onClick={onFilter}><SlidersHorizontal/>{filterCount > 0 && <span>{filterCount}</span>}</button></header>
                 <div className="official"><BadgeCheck size={14}/>Offizielle Beta</div>
-                {current && !remote && <DropdownMenu open={qualityOpen} onOpenChange={setQualityOpen}><DropdownMenuTrigger asChild><button className="quality-trigger" disabled={availableQualities.length < 2} aria-label={`Videoqualität: ${qualityNames[media.quality]}`}><Settings size={16}/>{qualityNames[media.quality]}<ChevronDown size={13}/></button></DropdownMenuTrigger><DropdownMenuContent align="end" sideOffset={8} collisionPadding={12} className="kws-feed-quality-menu"><DropdownMenuLabel>Videoqualität</DropdownMenuLabel><DropdownMenuSeparator/><DropdownMenuRadioGroup value={media.quality} onValueChange={value => media.changeQuality(value as VideoQualityLevel)}>{availableQualities.map(value => <DropdownMenuRadioItem value={value} key={value} className="feed-quality-option"><span className="quality-check">{value === media.quality && <Check size={15}/>}</span><strong>{qualityNames[value]}</strong><span>{value === 'hd' ? 'Hohe Auflösung' : value === 'sd' ? 'Ausgewogen' : 'Weniger Daten'}</span></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
+                {current && !remote && <DropdownMenu open={qualityOpen} onOpenChange={setQualityOpen}><DropdownMenuTrigger asChild><button className="quality-trigger" disabled={availableQualities.length < 2} aria-label={`Videoqualität: ${qualityNames[media.quality]}`}><Video size={16}/>{qualityNames[media.quality]}<ChevronDown size={13}/></button></DropdownMenuTrigger><DropdownMenuContent align="end" sideOffset={8} collisionPadding={12} className="kws-feed-quality-menu"><DropdownMenuLabel>Videoqualität</DropdownMenuLabel><DropdownMenuSeparator/><DropdownMenuRadioGroup value={media.quality} onValueChange={value => media.changeQuality(value as VideoQualityLevel)}>{availableQualities.map(value => <DropdownMenuRadioItem value={value} key={value} className="feed-quality-option"><span className="quality-check">{value === media.quality && <Check size={15}/>}</span><strong>{qualityNames[value]}</strong><span>{value === 'hd' ? 'Hohe Auflösung' : value === 'sd' ? 'Ausgewogen' : 'Weniger Daten'}</span></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
                 {user && <div className="reel-actions">
                   <button className={project ? 'is-selected' : ''} disabled={!data.trackReady || data.busy} title={project ? 'Projektmarkierung entfernen' : 'Als Projekt markieren'} aria-label={project ? 'Projektmarkierung entfernen' : 'Als Projekt markieren'} aria-pressed={project} onClick={() => void data.toggleProject()}><span className="action-icon"><Target/>{project && <Check className="project-check"/>}</span></button>
                   <button title="Kommentare öffnen" aria-label={commentCount === undefined ? 'Kommentare öffnen' : `${commentCount} Kommentare öffnen`} onClick={event => openPanel('comments', event.currentTarget)}><span className="action-icon comment-action"><MessageSquare/><span className="comment-count" aria-hidden="true">{data.comments.isError ? '!' : commentCount === undefined ? '…' : commentCount > 99 ? '99+' : commentCount}</span></span></button>
@@ -114,6 +138,7 @@ export function BoulderVideoFeed({ boulders, active, loading, onExit, onDetail, 
       </section>
       {item && <nav className="feed-navigation" aria-label="Video wechseln"><button className="overlay-button" aria-label="Vorheriges Video" disabled={!index || data.busy} onClick={() => gestures.go(-1)}><ArrowUp/></button><span>{index + 1} / {boulders.length}</span><button className="overlay-button" aria-label="Nächstes Video" disabled={index >= boulders.length - 1 || data.busy} onClick={() => gestures.go(1)}><ArrowDown/></button><small>Wischen oder scrollen</small></nav>}
     </main>
+    <BoulderFeedPreferences returnFocus={panelTrigger.current} open={preferencesOpen} onOpenChange={setPreferencesOpen} action={!user && preferences.doubleTapAction === 'project' ? 'off' : preferences.doubleTapAction} onAction={preferences.setDoubleTapAction} signedIn={Boolean(user)}/>
     <BoulderFeedPanels panel={panel} name={item?.name ?? ''} data={data} onClose={() => setPanel(null)} returnFocus={panelTrigger.current} draft={drafts[item?.id ?? ''] ?? ''} onDraft={value => { if (item) setDrafts(previous => ({ ...previous, [item.id]: value })); }} sortControls={panel === 'sort' ? sortControls(() => setPanel(null)) : null}/>
   </>;
 }
