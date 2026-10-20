@@ -25,7 +25,7 @@ python services/thumbnail-focus/server.py
 In einer zweiten Shell:
 
 ```powershell
-python services/thumbnail-focus/collect.py --env-file <vorhandene-lokale-Produktionskonfiguration>
+python services/thumbnail-focus/collect.py --env-file <aktuelle-Produktionskonfiguration> --expected-backend https://beta-api.kletterwelt-sauerland.de --data-dir .thumbnail-data-live
 $env:THUMBNAIL_ENV_FILE='<vorhandene-lokale-Produktionskonfiguration>'
 npx vite --config vite.thumbnail-review.config.ts
 ```
@@ -36,13 +36,23 @@ geht ohne Anmeldung; Online-Übernahme verlangt eine echte Setter-/Adminsession
 in dieser lokalen App. Vor dem Login alle Prüfungen auf demselben Origin belassen.
 `THUMBNAIL_MODEL_DIR` kann auf bereits verifizierte Gewichte zeigen.
 
+Vor jedem Bestandslauf den Backend-Origin unabhängig aus dem aktuellen Livebuild
+prüfen. Am20.10.2026 ist das `https://beta-api.kletterwelt-sauerland.de`.
+Eine alte lokale `.env.production` mit der früheren Supabase-Cloud-Adresse ist
+kein Produktionsnachweis. `--expected-backend` ist deshalb Pflicht; eine
+abweichende Konfiguration wird vor einem Download oder Katalogschreiben abgewiesen.
+Der obige getrennte Datenordner schützt bereits geprüfte Altbestände. Erst nach
+geprüfter Übernahme des passenden Katalogs in `.thumbnail-data` die lokale
+Oberfläche damit starten; Browser-Entscheidungen nicht löschen oder blind umschlüsseln.
+
 `collect.py` liest den aktuellen Bestand in Seiten zu100, ohne Gesamtlimit.
 Es verarbeitet alle sichtbaren Statuswerte, speichert Originalbytes getrennt und
 setzt unterbrochene Analysen über inhaltlich gebundene Cache-Schlüssel fort.
 Downloadfehler und nicht unterstützte Farben verschwinden nicht aus der Liste.
 Das Skript verwendet ausschließlich GET; es ändert weder DB noch Mediendateien.
-Aus Sicherheitsgründen sind Bilddownloads auf die beiden bestehenden KWS-Medien-
-Hosts begrenzt. Andere Hosts erscheinen als Fehler und müssen explizit geprüft
+Aus Sicherheitsgründen sind Bilddownloads auf die bestehenden KWS-CDN-/Video-
+Hosts sowie den aktuellen App-/API-Origin (migrierte Medien/Storage) begrenzt.
+Andere Hosts erscheinen als Fehler und müssen explizit geprüft
 werden. Die Zahl der Datensätze hängt von den Leserechten der Konfiguration ab.
 
 ## Nutzung
@@ -108,10 +118,11 @@ ersetzen. Fallback/Abschalten funktioniert durch Entfernen des App-Flags.
 Erst Servicezugriff, Rolle, Bilder-CORS, Thumbnail-Medienupload und DB-RLS in der
 Zielumgebung prüfen, dann das Flag aktivieren. Der PR führt **keine** Migration,
 kein Deployment und keine automatische Bestätigung bestehender Fotos aus.
-Die am20.10.2026 gelesene Live-DB besaß `volume_only` noch nicht, obwohl die
-Migration bereits in main steht. Der Katalog liest deshalb kompatible Felder;
-„Nur Volumen“ im neuen Uploadeditor behält das Original. Vor Produktion das
-Schema angleichen und Volumen-Datensätze im Bestand gesondert prüfen.
+Die erste lokale Bestandsprüfung am20.10.2026 verwendete versehentlich die alte
+Cloud-DB; deren Schemazustand war kein Nachweis für das aktuelle Produktionsschema.
+Vor dem Rollout `volume_only` am tatsächlich konfigurierten Ziel prüfen und
+Volumen-Datensätze gesondert behandeln. „Nur Volumen“ im neuen Uploadeditor behält
+das Original. Der Katalog liest kompatible Felder.
 
 ## Quellen und Tests
 

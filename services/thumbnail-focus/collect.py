@@ -16,6 +16,14 @@ def get(url,headers=None):
         raw=r.read(12_000_001)
     if len(raw)>12_000_000:raise ValueError('Image exceeds 12 MB')
     return raw
+def validate_backend(base,expected):
+    base=base.rstrip('/');expected=expected.rstrip('/')
+    parsed=urllib.parse.urlparse(base)
+    if parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path not in ('','/'):
+        raise ValueError('Expected a plain HTTPS backend origin')
+    if base!=expected:
+        raise ValueError('Configuration backend differs from explicitly verified live backend; no inventory was written')
+    return base
 def collect(base,headers):
     rows=[];offset=0
     while True:
@@ -26,13 +34,12 @@ def collect(base,headers):
     if len({r['id'] for r in rows})!=len(rows):raise ValueError('Inventory changed during pagination. Retry.')
     return rows
 def run():
-    parser=argparse.ArgumentParser();parser.add_argument('--env-file',required=True);parser.add_argument('--data-dir',default='.thumbnail-data');parser.add_argument('--references',help='Optional, user-confirmed selection export; used only by review UI');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--env-file',required=True);parser.add_argument('--expected-backend',required=True,help='HTTPS backend origin independently verified against the current live app');parser.add_argument('--data-dir',default='.thumbnail-data');parser.add_argument('--references',help='Optional, user-confirmed selection export; used only by review UI');args=parser.parse_args()
     env={}
     for line in Path(args.env_file).read_text(encoding='utf-8-sig').splitlines():
         if '=' in line and not line.startswith('#'):
             k,v=line.split('=',1);env[k]=v.strip().strip('"').strip("'")
-    base=env['VITE_SUPABASE_URL'].rstrip('/');key=env['VITE_SUPABASE_PUBLISHABLE_KEY']
-    if not base.startswith('https://'):raise ValueError('HTTPS data source required')
+    base=validate_backend(env['VITE_SUPABASE_URL'],args.expected_backend);key=env['VITE_SUPABASE_PUBLISHABLE_KEY']
     headers={'apikey':key,'Authorization':'Bearer '+key}
     data=Path(args.data_dir).resolve();data.mkdir(parents=True,exist_ok=True)
     (data/'photos').mkdir(exist_ok=True);(data/'results').mkdir(exist_ok=True)
@@ -55,7 +62,7 @@ def run():
         photo=data/row['photo'];result=data/row['result']
         try:
             source=urllib.parse.urlparse(row['thumbnail_url'])
-            if source.scheme!='https' or source.hostname not in ['cdn.kletterwelt-sauerland.de','video.kletterwelt-sauerland.de']:raise ValueError('Unapproved image origin; review manually')
+            if source.scheme!='https' or source.hostname not in ['cdn.kletterwelt-sauerland.de','video.kletterwelt-sauerland.de','beta.kletterwelt-sauerland.de','beta-api.kletterwelt-sauerland.de']:raise ValueError('Unapproved image origin; review manually')
             if not photo.exists():
                 raw=get(row['thumbnail_url']);tmp=photo.with_suffix('.tmp');tmp.write_bytes(raw);tmp.replace(photo)
             raw=photo.read_bytes();row['photo_hash']=hashlib.sha256(raw).hexdigest()
