@@ -56,4 +56,9 @@ node node_modules/vite/bin/vite.js build
 Edge/Windows geprüft. Kein physischer iPhone-/Safari-Test und keine Änderung
 an Browserzoom oder Betriebssystem-Anzeigeskalierung. Kleinere CSS-Viewports
 entsprechen dem geringeren verfügbaren Platz bei vergrößerter Browserdarstellung.
-Build mit bestehender Version1.0.251; kein Versionsbump. Kein Release.
+Abschlussprüfung auf origin/main181001d einschließlich des parallel integrierten
+App-Updates (Merge2b22233). Bestehende Version1.0.252; kein eigener Versionsbump
+und kein Release. Alle sechs Platzierungsabläufe und der Produktionsbuild
+wurden auf diesem kombinierten Stand erneut geprüft. Die43 Randfälle, sechs
+Safe-Area-Abläufe und vier Entwurfsabläufe bestanden vor diesem abschließenden
+Main-Abgleich; die Coachmark- und Gastquellen änderten sich dabei nicht.
