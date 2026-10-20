@@ -32,7 +32,7 @@ def thumbnail_build_values(root=Path('/opt/kws/thumbnail-focus'), gateway=Path('
                 assert response.status == 200, 'Thumbnail runtime unavailable'
                 ready = json.load(response)
         assert ready.get('ok') is True and ready.get('local_only') is False and ready.get('environment') == environment, 'Thumbnail runtime identity mismatch'
-        assert ready.get('provider') == 'CPUExecutionProvider' and ready.get('model_revision') == 'e4668c026bd3743c6011cc5453dbe32d4d67cadf', 'Thumbnail model contract changed'
+        assert ready.get('provider') == 'CPUExecutionProvider' and ready.get('model_revision') == 'e4668c026bd3743c6011cc5453dbe32d4d67cadf' and ready.get('version') == 'sam-number-cards-3.2', 'Thumbnail model contract changed'
     values['VITE_THUMBNAIL_FOCUS'] = 'true'
     return values
 

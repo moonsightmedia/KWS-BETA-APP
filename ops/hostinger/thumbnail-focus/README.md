@@ -17,6 +17,10 @@ Release-Verantwortliche nach Prüfung der konkreten Dateien aus.
 - Rootfs und gemeinsamer Modellmount sind read-only. Getrennte GoTrue-/Anon-Key-
   Konfigurationen; keine Service-Role oder gemeinsamen User-JWTs. Die Service-
   Startprüfung verwirft Local-Only im Serverbetrieb und nichtöffentliche Schlüssel.
+- Der Bearer muss zuerst GoTrue bestätigen; danach prüft die bestehende RLS-
+  Eigenrollenabfrage nur diese validierte UUID auf `setter`/`admin` mit `limit=1`.
+  Kein überladener Rollen-RPC und keine Policyänderung. ONNX-Telemetrie wird vor
+  Erzeugung der CPU-Sitzungen explizit deaktiviert.
 - Ein Modellaufruf/Instanz, vier HTTP-Worker/Instanz,30Anfragen/Konto/Minute.
   Je1536MiB RAM,64 PIDs; Produktion maximal1CPU,Review maximal0,5CPU. CPU-only
   ONNX, begrenzte NumPy-/OpenCV-Threads; keine GPU. Diese Grenzen sind nach dem

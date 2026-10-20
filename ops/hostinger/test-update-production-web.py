@@ -227,7 +227,7 @@ class ThumbnailActivationTests(unittest.TestCase):
         self.config.write_text(json.dumps(self.activation))
         self.config.chmod(0o600)
     def health(self, url):
-        return {'ok': True, 'local_only': False, 'environment': 'review' if 'review-api' in url else 'production', 'provider': 'CPUExecutionProvider', 'model_revision': 'e4668c026bd3743c6011cc5453dbe32d4d67cadf'}
+        return {'ok': True, 'local_only': False, 'environment': 'review' if 'review-api' in url else 'production', 'provider': 'CPUExecutionProvider', 'model_revision': 'e4668c026bd3743c6011cc5453dbe32d4d67cadf', 'version': 'sam-number-cards-3.2'}
     def test_absent_or_disabled_stays_off_without_network(self):
         self.assertEqual(release.thumbnail_build_values(self.root, self.gateway)['VITE_THUMBNAIL_FOCUS'], 'false')
         self.activation['enabled'] = False; self.save()
@@ -244,7 +244,7 @@ class ThumbnailActivationTests(unittest.TestCase):
         with self.assertRaises(AssertionError): release.thumbnail_build_values(self.root, self.gateway, self.health)
     def test_wrong_backend_and_local_bypass_block_activation(self):
         self.save()
-        for mismatch in ({'environment': 'other'}, {'local_only': True}, {'provider': 'GPU'}, {'model_revision': 'other'}):
+        for mismatch in ({'environment': 'other'}, {'local_only': True}, {'provider': 'GPU'}, {'model_revision': 'other'}, {'version': 'other'}):
             def bad_health(url): return {**self.health(url), **mismatch}
             with self.subTest(mismatch=mismatch), self.assertRaises(AssertionError):
                 release.thumbnail_build_values(self.root, self.gateway, bad_health)

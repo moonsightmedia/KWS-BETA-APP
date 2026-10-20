@@ -18,6 +18,7 @@ def sessions():
     verify_models(ROOT)
     threads=int(os.getenv('THUMBNAIL_INTRA_THREADS','2'))
     if not 1<=threads<=4:raise ValueError('THUMBNAIL_INTRA_THREADS must be 1..4.')
+    ort.disable_telemetry_events()
     options=ort.SessionOptions();options.intra_op_num_threads=threads;options.inter_op_num_threads=1
     _SESSIONS=tuple(ort.InferenceSession(str(ROOT/name),sess_options=options,providers=['CPUExecutionProvider']) for name in ['l0_encoder.onnx','l0_decoder.onnx'])
     if any(session.get_providers()!=['CPUExecutionProvider'] for session in _SESSIONS):

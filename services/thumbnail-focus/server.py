@@ -117,11 +117,12 @@ def authenticated_user(header):
             return None
         headers = {'Authorization': header, 'apikey': os.environ['THUMBNAIL_PUBLIC_KEY']}
         user = str(uuid.UUID(auth_json(urllib.request.Request(base + '/auth/v1/user', headers=headers))['id']))
-        for role in ('setter', 'admin'):
-            body = json.dumps({'_user_id': user, '_role': role}).encode()
-            request = urllib.request.Request(base + '/rest/v1/rpc/has_role', data=body, headers={**headers, 'Content-Type': 'application/json'})
-            if auth_json(request) is True:
-                return user
+        # Query only this GoTrue-verified identity using its own JWT and the
+        # existing user_roles RLS. The overloaded has_role RPC is ambiguous.
+        request = urllib.request.Request(base + '/rest/v1/user_roles?select=role&user_id=eq.' + user + '&role=in.(setter,admin)&limit=1', headers=headers)
+        roles = auth_json(request)
+        if isinstance(roles, list) and len(roles) == 1 and isinstance(roles[0], dict) and roles[0].get('role') in ('setter', 'admin'):
+            return user
     except Exception:
         return None
     return None

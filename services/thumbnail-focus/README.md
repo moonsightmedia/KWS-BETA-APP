@@ -142,7 +142,12 @@ Egressnetz. Die Modellgewichte dürfen beide Instanzen ausschließlich lesend te
 Sitzungen, Auth-Konfiguration und Bild-Zwischenspeicher bleiben getrennt.
 **`THUMBNAIL_LOCAL_ONLY` darf im Serverbetrieb nicht aktiviert sein.** Stattdessen
 `THUMBNAIL_AUTH_URL` und `THUMBNAIL_PUBLIC_KEY` aus dem Secret-/Konfigurationssystem
-bereitstellen. Der Service prüft Bearer bei GoTrue und Setter/Admin über `has_role`.
+bereitstellen. Der Service prüft den Bearer bei GoTrue und fragt anschließend
+`user_roles` ausschließlich für die dort bestätigte UUID mit derselben JWT über
+die bestehende RLS ab (`select=role`, Filter Setter/Admin, `limit=1`). Nur eine
+explizite Rolle `setter` oder `admin` gibt den Modellaufruf frei; die überladene
+RPC `has_role` wird nicht verwendet. Keine Policy-/Datenbankänderung erforderlich.
+ONNX-Telemetrie wird vor Erzeugung der CPU-Sitzungen explizit deaktiviert.
 Konfiguration mit einer Service-Role/Secret-Key wird zurückgewiesen. Auth-Redirects
 werden nicht mit Bearer verfolgt. Reverse Proxy unter dem gleichen App-Origin und
 den jeweiligen API-Origins einrichten, Bearer weiterreichen, Bodylimit17MB und

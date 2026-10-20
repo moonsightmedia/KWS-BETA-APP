@@ -152,20 +152,24 @@ class HTTPBoundary(unittest.TestCase):
 
 
 class AuthAndConfiguration(unittest.TestCase):
-    def test_gotrue_and_role_rpc_both_must_confirm_current_user(self):
+    def test_gotrue_and_rls_own_roles_both_must_confirm_current_user(self):
         with patch.object(server, 'LOCAL', False), patch.dict(os.environ, ENV):
-            calls = []
-            def response(request):
-                calls.append(request)
-                return {'id': UID} if request.full_url.endswith('/user') else json.loads(request.data)['_role'] == 'admin'
-            with patch.object(server, 'auth_json', side_effect=response):
-                self.assertEqual(server.authenticated_user('Bearer fixture'), UID)
-            self.assertEqual(len(calls), 3)
-            self.assertTrue(all(request.get_header('Authorization') == 'Bearer fixture' and request.get_header('Apikey') == ENV['THUMBNAIL_PUBLIC_KEY'] for request in calls))
-            self.assertEqual(json.loads(calls[-1].data), {'_user_id': UID, '_role': 'admin'})
-            for answers in [[{'id': UID}, False, False], [{'id': 'not-a-uuid'}], [{'role': 'admin'}]]:
-                with patch.object(server, 'auth_json', side_effect=answers):
+            for role in ('setter', 'admin'):
+                with self.subTest(allowed_role=role), patch.object(server, 'auth_json', side_effect=[{'id': UID}, [{'role': role}]]) as auth:
+                    self.assertEqual(server.authenticated_user('Bearer fixture'), UID)
+                    calls = [call.args[0] for call in auth.call_args_list]
+                    self.assertEqual(len(calls), 2)
+                    self.assertEqual(calls[0].full_url, ENV['THUMBNAIL_AUTH_URL'] + '/auth/v1/user')
+                    self.assertEqual(calls[1].full_url, ENV['THUMBNAIL_AUTH_URL'] + '/rest/v1/user_roles?select=role&user_id=eq.' + UID + '&role=in.(setter,admin)&limit=1')
+                    self.assertTrue(all(request.get_method() == 'GET' and request.data is None for request in calls))
+                    self.assertTrue(all(request.get_header('Authorization') == 'Bearer fixture' and request.get_header('Apikey') == ENV['THUMBNAIL_PUBLIC_KEY'] for request in calls))
+            for roles in ([], False, True, None, {}, {'role': 'admin'}, ['setter'], [{}], [{'role': 'user'}], [{'role': 'SETTER'}], [{'role': True}], [{'role': 'admin'}, {'role': 'setter'}]):
+                with self.subTest(rejected_roles=roles), patch.object(server, 'auth_json', side_effect=[{'id': UID}, roles]):
                     self.assertIsNone(server.authenticated_user('Bearer fixture'))
+            for invalid_user in ({'id': 'not-a-uuid'}, {'id': UID + '&role=eq.admin'}, {'role': 'admin'}):
+                with patch.object(server, 'auth_json', return_value=invalid_user) as auth:
+                    self.assertIsNone(server.authenticated_user('Bearer fixture'))
+                    self.assertEqual(auth.call_count, 1)
             with patch.object(server, 'auth_json', side_effect=OSError('unavailable')):
                 self.assertIsNone(server.authenticated_user('Bearer fixture'))
             self.assertIsNone(server.NoRedirect().redirect_request(None, None, None, None, None, None))
@@ -223,7 +227,9 @@ class Models(unittest.TestCase):
 
     def test_cpu_only_sessions_verify_before_loading(self):
         cpu = Mock(get_providers=lambda: ['CPUExecutionProvider'])
-        runtime = types.SimpleNamespace(SessionOptions=types.SimpleNamespace, InferenceSession=Mock(return_value=cpu))
+        lifecycle = Mock()
+        runtime = types.SimpleNamespace(SessionOptions=types.SimpleNamespace, disable_telemetry_events=lifecycle.telemetry_off, InferenceSession=lifecycle.session)
+        runtime.InferenceSession.return_value = cpu
         with patch.dict(sys.modules, {'onnxruntime': runtime, 'numpy': types.ModuleType('numpy'), 'cv2': types.ModuleType('cv2')}):
             spec = importlib.util.spec_from_file_location('isolated_sam_runtime', Path(__file__).with_name('sam_local.py'))
             module = importlib.util.module_from_spec(spec)
@@ -231,12 +237,16 @@ class Models(unittest.TestCase):
             with patch.object(module, 'verify_models') as verify:
                 module.sessions()
                 verify.assert_called_once_with(module.ROOT)
+            self.assertEqual([call[0] for call in lifecycle.mock_calls], ['telemetry_off', 'session', 'session'])
+            runtime.disable_telemetry_events.assert_called_once_with()
             self.assertTrue(all(call.kwargs['providers'] == ['CPUExecutionProvider'] for call in runtime.InferenceSession.call_args_list))
             module._SESSIONS = None
             runtime.InferenceSession.reset_mock()
+            runtime.disable_telemetry_events.reset_mock()
             with patch.object(module, 'verify_models', side_effect=ValueError('bad hash')):
                 self.assertRaises(ValueError, module.sessions)
             runtime.InferenceSession.assert_not_called()
+            runtime.disable_telemetry_events.assert_not_called()
 
 
 if __name__ == '__main__':
