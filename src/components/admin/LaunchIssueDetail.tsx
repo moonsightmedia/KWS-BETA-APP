@@ -45,7 +45,14 @@ export function LaunchIssueDetail({ issue, connection, onClose, onSaved, onClose
     try { await navigator.clipboard.writeText(supportReport); setCopied(true); }
     catch { setCopyFailed(true); }
   };
-  return <DialogContent scrollLayout="contained" className="flex max-h-[88dvh] flex-col gap-0 p-0 md:max-w-2xl" onCloseAutoFocus={event => { event.preventDefault(); onCloseAutoFocus(); }} onEscapeKeyDown={event => { if (saving) event.preventDefault(); }} onInteractOutside={event => { if (saving) event.preventDefault(); }}>
+  return <DialogContent scrollLayout="contained" className="flex max-h-[88dvh] flex-col gap-0 p-0 md:max-w-2xl" onCloseAutoFocus={event => { event.preventDefault(); onCloseAutoFocus(); }} onEscapeKeyDown={event => { if (saving) event.preventDefault(); }} onInteractOutside={event => { if (saving) event.preventDefault(); }}
+    onKeyDown={event => {
+      // Initial focus can precede Radix's document-level layer registration.
+      // Respect nested menus/dialogs and already handled Escape events.
+      if (event.key !== 'Escape' || event.defaultPrevented || saving || !(event.target instanceof Element)
+        || event.target.closest('[role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"]') !== event.currentTarget) return;
+      event.preventDefault(); event.stopPropagation(); onClose();
+    }}>
     <DialogHeader className="shrink-0 border-b border-border/50 p-4 text-left sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1.5">

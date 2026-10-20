@@ -1657,6 +1657,8 @@ Verbindliche Regeln:
 - Bearbeitung ist ein Entwurf mit Speichern/Abbrechen, Versionsprüfung,
   Pending-Sperre und Verwerfenschutz. Dialoge geben Tastaturfokus an den Auslöser
   zurück; technische Informationen sind nachgeordnet und einklappbar.
+  Die Monitoring-Fehleransicht verarbeitet Escape bereits beim initialen Fokus;
+  verschachtelte Menüs, laufendes Speichern und Verwerfenschutz behalten Vorrang.
 - Marken-Grün, dunkelblaue Beschriftung, 4/8/12-px-Radien und mobile randbündige
   Bottom-Sheets mit festen Aktionen bleiben unverändert.
 
