@@ -16,7 +16,7 @@ export function useResetPlan() {
   const pending = schedule.isPending || sectors.isPending;
   const failed = schedule.isError || sectors.isError;
   return {
-    appointments, now, pending, failed,
+    appointments, sectors: sectors.data ?? [], now, pending, failed,
     fetching: schedule.isFetching || sectors.isFetching,
     retry: () => Promise.all([schedule.refetch(), sectors.refetch()]),
   };
