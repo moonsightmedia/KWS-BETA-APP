@@ -86,3 +86,17 @@ test('editor with a read error keeps an available focus target',async({page})=>{
   await expect(page.getByLabel('Name',{exact:true})).toBeDisabled();
   await expect(page.getByRole('button',{name:'Boulder-Editor schließen',exact:true})).toBeFocused();
 });
+
+test('editor focuses the name after its initial attribute request finishes',async({page})=>{
+  await setup(page,'?editor&loading');
+  await expect(page.getByRole('dialog')).toBeFocused();
+  await expect(page.getByLabel('Name',{exact:true})).toBeFocused();
+});
+
+test('finishing the initial request preserves a focus choice made by the user',async({page})=>{
+  await setup(page,'?editor&loading');
+  const extra=page.locator('summary').filter({hasText:'Weitere Angaben'});
+  await extra.press('Enter');
+  await expect(page.getByLabel('Name',{exact:true})).toBeEnabled();
+  await expect(extra).toBeFocused();
+});

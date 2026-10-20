@@ -49,3 +49,21 @@ Belege lokal im verwalteten Worktree unter output/designmotion-four-release/qa,
 type-comparison.json und build.log; Node-/Type-Logs unter output/design-review-five.
 Die Web-production-CI enthält die neue Suite. Veröffentlichung erfolgt erst nach
 grünen Remote-Checks über main und den regulären Hostinger-Proof.
+
+## Nachprüfung des echten Ladefalls
+
+PR #63 wurde als 824f3e8 veröffentlicht; beide HTTPS-Proofs und Web-production-CI
+39405005199 bestätigten dieselbe Revision. Die reine Live-Leseprüfung zeigte
+anschließend, dass die anfängliche Merkmalsabfrage den Namenseingang sperrt:
+Radix fokussierte deshalb den noch bedienbaren Bereich „Weitere Angaben“.
+Die isolierte Erstprüfung hatte nur bereits geladene Merkmale simuliert.
+
+Der Editor hält den Anfangsfokus während dieser Abfrage jetzt auf der Dialogfläche
+und übergibt ihn nach dem Laden an das Namensfeld. Hat der Nutzer den Fokus
+inzwischen selbst versetzt, bleibt dessen Wahl erhalten. Ein Lesefehler behält
+den bisherigen verfügbaren Schließen-Fokus. Laufende Speichervorgänge lösen
+keinen neuen Anfangsfokus aus. Keine Speicher-, Berechtigungs- oder API-Änderung.
+
+Die erweiterte Browser-Suite mit 14 Fällen ist lokal erfolgreich, darunter zwei
+neue Ladefälle. ESLint: 0 Fehler, unveränderte drei Exportwarnungen.
+Die Ergänzung durchläuft denselben normalen PR-/main-/Hostinger-Ablauf.
