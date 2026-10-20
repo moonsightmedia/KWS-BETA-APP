@@ -1,6 +1,8 @@
 # Startgriff-Integration und Bestandsprüfung – 20.10.2026
 
-Ausgangsbasis: `fd18040` (aktuelles origin/main nach Fetch). Der ältere lokale
+Ausgangsbasis: `fd18040` (aktuelles origin/main beim Start). Während der Arbeit
+wurde nach erneutem Fetch der neue Stand `78ff7b7` konfliktfrei integriert und
+Build, Medien-/Authregressionen und Prüfansicht erneut geprüft. Der ältere lokale
 Prototyp auf13dd14c lag24 Commits zurück und bleibt unangetastet. Dieser PR
 übernimmt gezielt die Thumbnail-Funktion; die früheren lokalen Kartenexperimente
 sind kein Bestandteil dieses PRs.
@@ -48,6 +50,8 @@ abgeglichen werden. Die Neu-Uploadvorschau lässt „Nur Volumen“ unverändert
 -8 Publikationsregressionen: explizite Bestätigung, Session/Rolle, Konto/Backend,
   Originalbeleg, CAS-Rennen, veränderte Farbe/Status, Speicherfehler und Wiederaufnahme nach verlorener
   erfolgreicher PATCH-Antwort. Ausschließlich injizierte Testtransporte.
+-49 Node-Regressionen einschließlich Publikation, Uploadqueue, Farben, bestehenden
+  Auth-/Boulder-Publikationsregeln und dem neuen Original-Upload-Guard bestanden.
 -7 Python-Tests: HTTP-Guards, kein Dateiserver, kapazitätsbedingtes429,
   Authentifizierungsfehler, leere Bildfläche, farbunabhängige Tippsegmentierung
   und Pagination über100 Zeilen hinaus.
