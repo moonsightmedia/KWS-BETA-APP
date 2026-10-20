@@ -1,0 +1,68 @@
+# Deploy only an immutable, inspected image ID via THUMBNAIL_IMAGE.
+# Both existing Docker networks must already exist. No published host ports.
+services:
+  production:
+    image: ${THUMBNAIL_IMAGE:?Set the verified immutable image ID}
+    container_name: kws-thumbnail-focus-production
+    user: '10001:10001'
+    env_file: /opt/kws/thumbnail-focus/production.env
+    environment:
+      THUMBNAIL_ENVIRONMENT: production
+      THUMBNAIL_PORT: '5227'
+      THUMBNAIL_BIND: 0.0.0.0
+      THUMBNAIL_CONTAINER_PRIVATE: 'true'
+      THUMBNAIL_LOCAL_ONLY: 'false'
+      THUMBNAIL_MODEL_DIR: /models
+      THUMBNAIL_INTRA_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    read_only: true
+    volumes:
+      - /opt/kws/thumbnail-focus/models:/models:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: '1.0'
+    mem_limit: 1536m
+    pids_limit: 64
+    restart: unless-stopped
+    networks: [production_private]
+    logging:
+      driver: local
+      options: {max-size: 10m, max-file: '3'}
+  review:
+    image: ${THUMBNAIL_IMAGE:?Set the verified immutable image ID}
+    container_name: kws-thumbnail-focus-review
+    user: '10001:10001'
+    env_file: /opt/kws/thumbnail-focus/review.env
+    environment:
+      THUMBNAIL_ENVIRONMENT: review
+      THUMBNAIL_PORT: '5228'
+      THUMBNAIL_BIND: 0.0.0.0
+      THUMBNAIL_CONTAINER_PRIVATE: 'true'
+      THUMBNAIL_LOCAL_ONLY: 'false'
+      THUMBNAIL_MODEL_DIR: /models
+      THUMBNAIL_INTRA_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    read_only: true
+    volumes:
+      - /opt/kws/thumbnail-focus/models:/models:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: '0.5'
+    mem_limit: 1536m
+    pids_limit: 64
+    restart: unless-stopped
+    networks: [review_private]
+    logging:
+      driver: local
+      options: {max-size: 10m, max-file: '3'}
+networks:
+  production_private: {external: true, name: supabase_default}
+  review_private: {external: true, name: kws-store-review-private}

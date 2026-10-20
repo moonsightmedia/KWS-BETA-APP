@@ -124,23 +124,46 @@ werden. Die Zahl der Datensätze hängt von den Leserechten der Konfiguration ab
   Queue; deren Rohfoto verbleibt zunächst im lokalen Entwurf, nicht als separates
   neues serverseitiges Originalfeld.
 
-## Rollout – nicht Teil dieses PRs
+## Geschützter Serverbetrieb
 
 Der Standardbuild bleibt unverändert, solange `VITE_THUMBNAIL_FOCUS` nicht `true`
 ist und `VITE_THUMBNAIL_API_PATH` nicht auf einen erlaubten relativen Pfad zeigt.
 Beispiel: `/thumbnail-focus`. Keine Modelldateien im Browserbundle.
 
 Für den Betrieb den Python-Service mit den verifizierten Gewichten auf dem
-bestehenden Server bereitstellen. Er bindet ausschließlich127.0.0.1:5227.
+bestehenden Server bereitstellen. Standard ist ausschließlich127.0.0.1:5227.
+Für die verifizierte Hostinger-Docker-Topologie gibt es zwei getrennte,
+unprivilegierte Container ohne veröffentlichte Hostports: Produktion ausschließlich
+im bestehenden `supabase_default`, Store-Review ausschließlich im bestehenden
+`kws-store-review-private`. Nur dort erlaubt der explizite Container-Guard
+`THUMBNAIL_BIND=0.0.0.0`; der öffentliche Gateway-Proxy erreicht die privaten
+Containernamen auf5227 beziehungsweise5228. Kein Hostnetz und kein neues
+Egressnetz. Die Modellgewichte dürfen beide Instanzen ausschließlich lesend teilen;
+Sitzungen, Auth-Konfiguration und Bild-Zwischenspeicher bleiben getrennt.
 **`THUMBNAIL_LOCAL_ONLY` darf im Serverbetrieb nicht aktiviert sein.** Stattdessen
 `THUMBNAIL_AUTH_URL` und `THUMBNAIL_PUBLIC_KEY` aus dem Secret-/Konfigurationssystem
 bereitstellen. Der Service prüft Bearer bei GoTrue und Setter/Admin über `has_role`.
-Keine Service-Role nötig. Reverse Proxy unter dem gleichen App-Origin einrichten,
-Bearer weiterreichen, Bodylimit17MB, Timeout mindestens60s, Rate-/Verbindungslimit
-und HTTPS konfigurieren. Es gibt kein CORS und keinen HTTP-Dateiserver. Modell-
-Aufrufe sind auf einen gleichzeitig begrenzt; belegte Kapazität liefert429.
+Konfiguration mit einer Service-Role/Secret-Key wird zurückgewiesen. Auth-Redirects
+werden nicht mit Bearer verfolgt. Reverse Proxy unter dem gleichen App-Origin und
+den jeweiligen API-Origins einrichten, Bearer weiterreichen, Bodylimit17MB und
+Timeout mindestens60s. Native Apps und die Web-Demo nutzen den jeweiligen
+API-Origin; die normale Web-App ihren relativen Pfad. `THUMBNAIL_ALLOWED_ORIGINS`
+nennt ausschließlich den App-Origin sowie `https://localhost`,
+`capacitor://localhost`, `http://localhost`. CORS erlaubt nur POST/OPTIONS und
+Authorization/Content-Type, keine Cookies/Wildcards. Es gibt keinen HTTP-Dateiserver.
+Vier HTTP-Anfragen und ein Modellaufruf sind gleichzeitig möglich; überzählige
+Anfragen erhalten429. Pro verifiziertem Konto sind30 Anfragen je60Sekunden erlaubt;
+der Rate-Zustand ist auf4096Konten begrenzt und verfällt. JSON ist auf17MB,
+dekodierte JPG/PNG/WebP auf12MB/30Megapixel begrenzt. Andere Bildformate werden
+auch serverseitig abgelehnt.
 Der Reverse Proxy darf die Authentifizierung nicht durch einen Local-Only-Dienst
 ersetzen. Fallback/Abschalten funktioniert durch Entfernen des App-Flags.
+
+Verifizierbare Deployment-/Rollbackschritte, Ressourcenlimits, Readiness und der
+über die vorhandene verschlüsselte Sicherung erfasste Wiederherstellungsbeleg
+stehen in `ops/hostinger/thumbnail-focus/README.md`. Noch vor dem ersten CPU-Laden
+werden Größe und SHA256 der beiden fixierten ONNX-Dateien erneut geprüft. Nur
+CPUExecutionProvider wird akzeptiert. Das Gesundheitsziel gibt erst danach200 aus.
 
 Erst Servicezugriff, Rolle, Bilder-CORS, Thumbnail-Medienupload und DB-RLS in der
 Zielumgebung prüfen, dann das Flag aktivieren. Der PR führt **keine** Migration,
@@ -161,5 +184,8 @@ CPUExecutionProvider verwendet; keine Fotos verlassen den konfigurierten Service
 
 `node --test test/thumbnailPublish.test.mjs` prüft Rollen, Bestätigung, Backend- und
 Kontogrenzen, Originalbeleg, CAS-Rennen, Quotenfehler und verlorene Antworten.
+`python -m unittest discover -s services/thumbnail-focus -p test_security.py`
+prüft den HTTP-/Auth-/Origin-/Payload-/Ressourcen-/Modellidentitätsvertrag mit
+ausschließlich Pillow12.3.0; keine Gewichte, OpenCV oder ONNX nötig.
 `python -m unittest discover -s services/thumbnail-focus -p 'test_*.py'` prüft den
 HTTP-Vertrag und lokale Bildsegmentierung. Gewichte müssen dafür verfügbar sein.

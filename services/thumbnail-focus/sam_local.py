@@ -5,6 +5,7 @@ import os
 import cv2
 import numpy as np
 import onnxruntime as ort
+from download_models import verify_models
 ROOT=Path(os.environ.get('THUMBNAIL_MODEL_DIR',str(Path(__file__).resolve().parent/'models')))
 _LOCK=threading.Lock()
 _SESSIONS=None
@@ -14,8 +15,14 @@ def sessions():
  if _SESSIONS is None:
   with _LOCK:
    if _SESSIONS is None:
-    options=ort.SessionOptions();options.intra_op_num_threads=4;options.inter_op_num_threads=1
+    verify_models(ROOT)
+    threads=int(os.getenv('THUMBNAIL_INTRA_THREADS','2'))
+    if not 1<=threads<=4:raise ValueError('THUMBNAIL_INTRA_THREADS must be 1..4.')
+    options=ort.SessionOptions();options.intra_op_num_threads=threads;options.inter_op_num_threads=1
     _SESSIONS=tuple(ort.InferenceSession(str(ROOT/name),sess_options=options,providers=['CPUExecutionProvider']) for name in ['l0_encoder.onnx','l0_decoder.onnx'])
+    if any(session.get_providers()!=['CPUExecutionProvider'] for session in _SESSIONS):
+     _SESSIONS=None
+     raise ValueError('Only CPUExecutionProvider is permitted.')
  return _SESSIONS
 
 class PhotoSegments:

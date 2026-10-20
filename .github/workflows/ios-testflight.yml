@@ -16,6 +16,11 @@ on:
         options:
           - current
           - hostinger
+      thumbnail_focus:
+        description: Enable the verified Hostinger thumbnail service
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ios-testflight
@@ -73,6 +78,7 @@ jobs:
       - name: Build web app and sync Capacitor iOS
         env:
           BUILD_BACKEND: ${{ inputs.backend || 'current' }}
+          BUILD_THUMBNAIL_FOCUS: ${{ inputs.thumbnail_focus && 'true' || 'false' }}
           KWS_HOSTINGER_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.KWS_HOSTINGER_SUPABASE_PUBLISHABLE_KEY }}
           VITE_MONITORING_ENABLED: ${{ vars.KWS_MONITORING_ENABLED == 'true' && 'true' || 'false' }}
           VITE_MONITORING_CHANNEL: testflight
@@ -80,6 +86,13 @@ jobs:
         run: |
           set -eo pipefail
           export VITE_RELEASE_REVISION="$(git rev-parse HEAD)"
+          export VITE_THUMBNAIL_FOCUS="false"
+          export VITE_THUMBNAIL_API_PATH="/thumbnail-focus"
+          if [ "$BUILD_THUMBNAIL_FOCUS" = "true" ]; then
+            test "$BUILD_BACKEND" = "hostinger"
+            node scripts/verify-thumbnail-service.mjs
+            export VITE_THUMBNAIL_FOCUS="true"
+          fi
           if [ "$BUILD_BACKEND" = "hostinger" ]; then
             if [ -z "$KWS_HOSTINGER_SUPABASE_PUBLISHABLE_KEY" ]; then
               echo "::error::Missing Hostinger publishable client key"

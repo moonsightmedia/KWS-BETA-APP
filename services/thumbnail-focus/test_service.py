@@ -12,6 +12,7 @@ class Contract(unittest.TestCase):
  @classmethod
  def setUpClass(cls):
   server.LOCAL=True
+  server.READY=True
   cls.http=ThreadingHTTPServer(('127.0.0.1',0),server.Handler)
   server.PORT=cls.http.server_port
   cls.thread=threading.Thread(target=cls.http.serve_forever,daemon=True);cls.thread.start()
@@ -32,7 +33,7 @@ class Contract(unittest.TestCase):
  def test_production_denies_missing_or_unverifiable_token(self):
   with patch.object(server,'LOCAL',False):
    self.assertEqual(self.call(data={})[0],403)
-   with patch.dict('os.environ',{'THUMBNAIL_AUTH_URL':'https://auth.test','THUMBNAIL_PUBLIC_KEY':'test'}),patch('urllib.request.urlopen',side_effect=OSError('offline')):
+   with patch.dict('os.environ',{'THUMBNAIL_AUTH_URL':'https://auth.test','THUMBNAIL_PUBLIC_KEY':'test'}),patch.object(server.AUTH_HTTP,'open',side_effect=OSError('offline')):
     self.assertFalse(server.authorized('Bearer unverifiable'))
  def test_backpressure(self):
   server.LOCK.acquire()

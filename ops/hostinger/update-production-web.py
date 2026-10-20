@@ -6,6 +6,36 @@ directory, retain old hashed assets for open clients, and roll back failed start
 from pathlib import Path
 import argparse, datetime, hashlib, http.client, io, json, os, re, shutil, socket, subprocess, tarfile, time, urllib.parse, urllib.request
 
+def thumbnail_build_values(root=Path('/opt/kws/thumbnail-focus'), gateway=Path('/opt/kws/public-gateway/Caddyfile'), health=None):
+    values = {'VITE_THUMBNAIL_FOCUS': 'false', 'VITE_THUMBNAIL_API_PATH': '/thumbnail-focus'}
+    config = root / 'ACTIVATION.json'
+    if not config.exists(): return values
+    def private_json(path):
+        assert not root.is_symlink() and not path.is_symlink() and path.is_file() and path.stat().st_size <= 262144, 'Unsafe thumbnail configuration'
+        if os.name != 'nt': assert path.stat().st_uid == os.geteuid() and path.stat().st_mode & 0o077 == 0, 'Thumbnail configuration must be operator-private'
+        document = json.loads(path.read_text())
+        assert isinstance(document, dict), 'Invalid thumbnail configuration'
+        return document
+    activation = private_json(config)
+    assert activation.get('version') == 1 and isinstance(activation.get('enabled'), bool), 'Invalid thumbnail activation'
+    if not activation['enabled']: return values
+    receipt = root / 'VERIFIED.json'
+    proof = private_json(receipt)
+    assert hashlib.sha256(receipt.read_bytes()).hexdigest() == activation.get('verified_sha256'), 'Thumbnail verification changed'
+    assert not gateway.is_symlink() and hashlib.sha256(gateway.read_bytes()).hexdigest() == activation.get('gateway_sha256'), 'Thumbnail gateway changed'
+    assert proof.get('models_verified') is True and proof.get('private_networks_only') is True and proof.get('local_only_false') is True, 'Thumbnail runtime is not verified'
+    for environment, origin in (('production', 'https://beta-api.kletterwelt-sauerland.de'), ('review', 'https://review-api.kletterwelt-sauerland.de')):
+        if health:
+            ready = health(origin + '/thumbnail-focus/api/health')
+        else:
+            with urllib.request.urlopen(origin + '/thumbnail-focus/api/health', timeout=12) as response:
+                assert response.status == 200, 'Thumbnail runtime unavailable'
+                ready = json.load(response)
+        assert ready.get('ok') is True and ready.get('local_only') is False and ready.get('environment') == environment, 'Thumbnail runtime identity mismatch'
+        assert ready.get('provider') == 'CPUExecutionProvider' and ready.get('model_revision') == 'e4668c026bd3743c6011cc5453dbe32d4d67cadf', 'Thumbnail model contract changed'
+    values['VITE_THUMBNAIL_FOCUS'] = 'true'
+    return values
+
 def monitoring_build_values(root=Path('/opt/kws/monitoring'), functions=Path('/opt/kws/supabase/runtime/volumes/functions'), candidate=None):
     values = {'VITE_MONITORING_ENABLED':'false','VITE_MONITORING_CHANNEL':'production','VITE_SENTRY_DSN':''}
     config_path = root / 'config.json'
@@ -259,6 +289,7 @@ def main():
         'VITE_AUTH_SITE_URL':'https://beta.kletterwelt-sauerland.de','VITE_TELEMETRY_ENABLED':'false','VITE_SENTRY_DSN':'',
         'VITE_TRAINING_UI_PREVIEW':'false'}
     values.update(monitoring_build_values(candidate=source))
+    values.update(thumbnail_build_values())
     if values['VITE_MONITORING_ENABLED'] == 'true':
         subprocess.run(['systemctl','is-active','--quiet','kws-monitoring-maintenance.timer'], check=True)
         schema = subprocess.run(['docker','exec','supabase-db','psql','-U','supabase_admin','-d','postgres','-X','-qAt','-v','ON_ERROR_STOP=1','-c',"SELECT to_regprocedure('public.kws_ingest_monitoring_events(jsonb,uuid)') IS NOT NULL AND to_regprocedure('public.kws_monitoring_retain()') IS NOT NULL"], check=True, capture_output=True, text=True, timeout=20)

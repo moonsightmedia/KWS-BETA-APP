@@ -3,8 +3,11 @@ import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { verifyThumbnailServices } from './verify-thumbnail-service.mjs';
 const root=resolve(import.meta.dirname,'..');
 const site='https://beta.kletterwelt-sauerland.de';
+const thumbnailFocus=process.env.KWS_THUMBNAIL_FOCUS==='true';
+if(thumbnailFocus) await verifyThumbnailServices();
 const html=await (await fetch(site,{signal:AbortSignal.timeout(20000)})).text();
 const entry=html.match(/src="([^"]*\/assets\/index-[^"]+\.js)"/)?.[1];
 assert(entry,'Public bundle missing');
@@ -20,6 +23,7 @@ if(process.env.KWS_STORE_REVIEW_ENABLED==='true') {
   assert(reviewRole==='anon' && reviewKey!==key,'Separate public review configuration required; privileged keys are forbidden');
 }
 const env={...process.env,VITE_SUPABASE_URL:'https://beta-api.kletterwelt-sauerland.de',
+  VITE_THUMBNAIL_FOCUS:thumbnailFocus?'true':'false',VITE_THUMBNAIL_API_PATH:'/thumbnail-focus',
   VITE_STORE_REVIEW_ENABLED:process.env.KWS_STORE_REVIEW_ENABLED==='true'?'true':'false',
   VITE_STORE_REVIEW_ANON_KEY:process.env.KWS_STORE_REVIEW_ANON_KEY || '',
   VITE_SUPABASE_PUBLISHABLE_KEY:key,VITE_VIDEO_API_URL:'https://video.kletterwelt-sauerland.de',

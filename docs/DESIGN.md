@@ -2550,3 +2550,16 @@ Live-Prüfung bietet „Auswahl passt · Weiter“: erst nach erfolgreicher daue
 Speicherung öffnet der nächste noch offene Boulder direkt seine Griffauswahl.
 Bereits online übernommene Bilder sind getrennt markiert und werden nicht erneut
 in die offene Prüfung aufgenommen. Automatische Vorschläge sind nie Bestätigungen.
+
+Integrationsprüfung20.10.: Veröffentlichte Varianten und geschützte Originale
+werden von lokalen Entscheidungen unterschieden. Veröffentlichte Bilder,
+Volumen-Boulder und fehlende entscheidende Metadaten sperren Analyse und neue
+Bestätigung; ihre Anzeige erzeugt keine Zustimmung. Bestehende veröffentlichte
+Bilder bleiben erhalten. Ohne aktivierte Griffvorschau funktioniert der normale
+Original-Upload. Native Apps und die getrennte Web-Demo verwenden den jeweils
+eigenen API-Origin für die authentifizierte Vorschau.
+
+Auch ohne automatischen Vorschlag bleibt „Kontur nachzeichnen“ lokal verfügbar.
+Eine angefangene Kontur sperrt die Übernahme bis „Übernehmen“ oder „Abbrechen“.
+„Nur Volumen“ kann keine neue Maske reaktivieren. Rückgängig erreicht auch den
+Originalzustand vor der ersten Auswahl; die Werkzeuge umbrechen auf Mobilgeräten.

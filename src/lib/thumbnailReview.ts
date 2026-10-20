@@ -1,4 +1,5 @@
 import { publishThumbnailDecision } from './thumbnailPublish.mjs';
+import { thumbnailReviewProtection } from './thumbnailPolicy.mjs';
 import { backendConfig } from '@/lib/backendConfig';
 import { authenticatedFetch, createAuthenticatedUploadFetch, getCurrentSession } from '@/lib/authenticatedFetch';
 import { getVideoApiBase } from '@/utils/nativeVideoUpload';
@@ -8,6 +9,8 @@ import { detectorColor, readPhoto, requestHolds, renderThumbnail, type HoldCandi
 export interface ReviewPhoto {
   id: string; name: string; color: string; color_2: string | null; sector_id: string;
   thumbnail_url: string; status: string; cache_key: string; photo?: string; result?: string;
+  volume_only?: boolean;
+  protection?: 'published' | 'volume' | 'unknown-volume' | 'status' | null;
   analysis_state?: string; note?: string; selected_count?: number;
   reference?: { image:{sha256:string;width:number;height:number}; algorithm:string; selected:string[]; automatic:string[]; candidates:HoldCandidate[] };
 }
@@ -19,6 +22,14 @@ export interface ReviewDecision {
 }
 export const localReviewCatalog = import.meta.env.DEV && import.meta.env.VITE_THUMBNAIL_LOCAL_CATALOG === 'true';
 const localData = localReviewCatalog;
+/** Keep all saved decisions intact. Protection is live row metadata, never a
+ * synthesized user approval or a remapping of an older backend's decisions. */
+export function protectReviewCatalog(rows: ReviewPhoto[], receipts: ReviewDecision[] = []): ReviewPhoto[] {
+  return rows.map(row => {
+    const protection = thumbnailReviewProtection(row, backendConfig.supabaseUrl, receipts, !localData) as ReviewPhoto['protection'];
+    return {...row, protection, ...(protection ? {analysis_state: protection === 'published' ? 'published' : 'preserved'} : {})};
+  });
+}
 export const reviewKey = (row: ReviewPhoto) => JSON.stringify([backendConfig.supabaseUrl, row.id, row.thumbnail_url, row.color, row.color_2, row.cache_key]);
 const openDB = () => new Promise<IDBDatabase>((resolve, reject) => {
   const request = indexedDB.open('kws-thumbnail-review-v1', 2);
@@ -55,12 +66,12 @@ export async function reviewCatalog(signal: AbortSignal): Promise<ReviewPhoto[]>
     if (!response.ok) throw new Error('Die lokale Bestandsanalyse wurde noch nicht gestartet.');
     const snapshot = await response.json();
     if (snapshot.source !== backendConfig.supabaseUrl) throw new Error('Bestandsanalyse gehört zu einem anderen Backend.');
-    return snapshot.records;
+    return protectReviewCatalog(snapshot.records);
   }
   const rows: ReviewPhoto[] = [];
   const session = await getCurrentSession(signal);
   for (let offset = 0; ; ) {
-    const query = new URLSearchParams({select:'id,name,color,color_2,sector_id,thumbnail_url,status',thumbnail_url:'not.is.null',order:'id.asc',limit:'100',offset:String(offset)});
+    const query = new URLSearchParams({select:'id,name,color,color_2,sector_id,thumbnail_url,status,volume_only',thumbnail_url:'not.is.null',order:'id.asc',limit:'100',offset:String(offset)});
     const response = await authenticatedFetch(`${backendConfig.supabaseUrl}/rest/v1/boulders?${query}`, {signal,headers:{apikey:backendConfig.publicKey,Authorization:`Bearer ${session?.access_token || backendConfig.publicKey}`}});
     if (!response.ok) throw new Error('Der Boulderbestand konnte nicht geladen werden.');
     const page = await response.json();
@@ -69,7 +80,7 @@ export async function reviewCatalog(signal: AbortSignal): Promise<ReviewPhoto[]>
     offset += page.length;
   }
   if (new Set(rows.map(row => row.id)).size !== rows.length) throw new Error('Bestand hat sich geändert. Bitte neu laden.');
-  return rows;
+  return protectReviewCatalog(rows);
 }
 export async function loadReviewPhoto(row: ReviewPhoto, signal: AbortSignal): Promise<{file: File; result?: HoldResult}> {
   const response = await fetch(localData && row.photo ? `/__thumbnail-data/${row.photo}` : row.thumbnail_url, {signal});
@@ -98,6 +109,7 @@ export async function loadReviewPhoto(row: ReviewPhoto, signal: AbortSignal): Pr
 export async function analyzeReviewCatalog(rows:ReviewPhoto[],signal:AbortSignal,onDone:(row:ReviewPhoto)=>void) {
   for (const row of rows) {
     signal.throwIfAborted();
+    if (row.protection || thumbnailReviewProtection(row, backendConfig.supabaseUrl, [], !localData)) continue;
     try {
       const colors=[row.color,...(row.color_2?[row.color_2]:[])].map(detectorColor);
       if (colors.some(c=>!c)) {onDone({...row,analysis_state:'manual'});continue;}

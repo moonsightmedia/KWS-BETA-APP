@@ -1,19 +1,45 @@
 """Fetch pinned official MIT HAN Lab ONNX weights and verify their SHA-256."""
 import hashlib, os, urllib.request
 from pathlib import Path
-REVISION='e4668c026bd3743c6011cc5453dbe32d4d67cadf'
-FILES={
- 'l0_encoder.onnx':'7a37ebd16e65c31253416e33897e7e6b07699127765d538e99ecbfaa3ad1e727',
- 'l0_decoder.onnx':'053e72c5703736a8a8a92482c9990c4a26dde9dcb7ff26b05843cf0bc433f42f',
-}
+from model_contract import REVISION, MODELS
+FILES={name:identity[1] for name,identity in MODELS.items()}
 def digest(path):
  with path.open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
-if __name__=='__main__':
- root=Path(os.getenv('THUMBNAIL_MODEL_DIR',str(Path(__file__).resolve().parent/'models')));root.mkdir(parents=True,exist_ok=True)
- for name,expected in FILES.items():
+def verify_models(root):
+ root=Path(root)
+ for name,(size,expected) in MODELS.items():
+  target=root/name
+  if target.is_symlink() or not target.is_file() or target.stat().st_size!=size or digest(target)!=expected:
+   raise ValueError('Unverified model: '+name)
+ return True
+
+def download(root):
+ root=Path(root);root.mkdir(parents=True,exist_ok=True)
+ if root.is_symlink():raise ValueError('Model directory must not be a symlink.')
+ for name,(size,expected) in MODELS.items():
   final=root/name
-  if final.exists() and digest(final)==expected:print(name+': verified');continue
+  if final.is_symlink():raise ValueError('Model must not be a symlink.')
+  if final.exists() and final.stat().st_size==size and digest(final)==expected:print(name+': verified');continue
   temporary=final.with_suffix('.download')
-  urllib.request.urlretrieve(f'https://huggingface.co/mit-han-lab/efficientvit-sam/resolve/{REVISION}/onnx/{name}?download=true',temporary)
-  if digest(temporary)!=expected:raise SystemExit('Model checksum mismatch; refusing to install.')
-  temporary.replace(final);print(name+': downloaded and verified')
+  if temporary.exists() or temporary.is_symlink():raise ValueError('Existing download must be reviewed before retrying: '+temporary.name)
+  created=False
+  try:
+   # Exclusive creation avoids following an operator-created symlink. Stream a
+   # fixed maximum, so a changed endpoint cannot fill the server filesystem.
+   with urllib.request.urlopen(f'https://huggingface.co/mit-han-lab/efficientvit-sam/resolve/{REVISION}/onnx/{name}?download=true',timeout=60) as response, temporary.open('xb') as output:
+    created=True
+    remaining=size
+    while remaining:
+     chunk=response.read(min(1024*1024,remaining))
+     if not chunk:raise ValueError('Incomplete model download.')
+     output.write(chunk);remaining-=len(chunk)
+    if response.read(1):raise ValueError('Model exceeds pinned size.')
+   if digest(temporary)!=expected:raise ValueError('Model checksum mismatch; refusing to install.')
+   temporary.replace(final);print(name+': downloaded and verified')
+  except BaseException:
+   # This path belongs exclusively to this invocation, never an old user file.
+   if created and temporary.exists() and not temporary.is_symlink():temporary.unlink()
+   raise
+ verify_models(root)
+if __name__=='__main__':
+ download(os.getenv('THUMBNAIL_MODEL_DIR',str(Path(__file__).resolve().parent/'models')))

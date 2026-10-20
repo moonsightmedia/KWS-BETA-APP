@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Loader2, MoreHorizontal, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { detectorColor, holdPath, loadPhoto, paintThumbnail, readPhoto, renderThumbnail, requestHolds, type HoldResult, type ThumbnailFocus } from '@/lib/thumbnailFocus';
+import { createManualPhotoResult, detectorColor, holdPath, loadPhoto, paintThumbnail, readPhoto, renderThumbnail, requestHolds, type HoldResult, type ThumbnailFocus } from '@/lib/thumbnailFocus';
 import { manualContour, samePhotoSpace } from '@/lib/thumbnailGeometry.mjs';
 
 interface Props {
@@ -20,14 +20,23 @@ export function SetterThumbnailFocus(props: Props) {
   const [pending,setPending]=useState(false),[error,setError]=useState(''),[historyCount,setHistoryCount]=useState(0);
   const [cursorVisible,setCursorVisible]=useState(false),[cursorTick,setCursorTick]=useState(0);
   const [tracing,setTracing]=useState(false),[vertices,setVertices]=useState<[number,number][]>([]);
-  const value=props.value?.inputFile===props.file && props.value.inputKey===props.inputKey ? props.value : undefined;
+  const value=!props.volumeOnly && props.value?.inputFile===props.file && props.value.inputKey===props.inputKey ? props.value : undefined;
   const colors=props.colorNames.map(detectorColor);
   const correctionBlocked=!props.colorNames[0] || props.volumeOnly;
-  const unsupported=!props.colorNames[0] ? 'Wähle zuerst die Grifffarbe.' : props.volumeOnly ? 'Für „Nur Volumen“ bleibt vorerst das Original erhalten.' : colors.some(c=>!c) ? view==='edit'?'Diese Farbe braucht eine manuelle Auswahl. Tippe direkt auf die Startgriffe.':'Diese Farbe braucht eine manuelle Auswahl. Über „Griffe antippen“ kannst du die Startgriffe ergänzen.' : '';
+  const unsupported=props.volumeOnly ? 'Für „Nur Volumen“ bleibt das Original erhalten.' : !props.colorNames[0] ? 'Wähle zuerst die Grifffarbe.' : colors.some(c=>!c) ? view==='edit'?'Diese Farbe braucht eine manuelle Auswahl. Tippe direkt auf die Startgriffe.':'Diese Farbe braucht eine manuelle Auswahl. Über „Griffe antippen“ kannst du die Startgriffe ergänzen.' : '';
   const busy=(next:boolean)=>{setPending(next);latest.current.onBusyChange(next);};
   const cancelTrace=()=>{setTracing(false);setVertices([]);latest.current.onBusyChange(false);};
-  const startTrace=()=>{if(pending||props.disabled||correctionBlocked||!value?.result)return;setError('');setView('edit');setVertices([]);setTracing(true);latest.current.onBusyChange(true);};
-  const remember=()=>{if(value){history.current.push(value);if(history.current.length>30)history.current.shift();setHistoryCount(history.current.length);}};
+  const startTrace=async()=>{
+    if(pending||props.disabled||correctionBlocked)return;
+    const {token}=begin();
+    try {
+      const result=value?.result || await createManualPhotoResult(props.file);
+      if(token!==sequence.current)return;
+      if(!value?.result)latest.current.onChange({inputFile:props.file,inputKey:props.inputKey,result,selected:[],automatic:[],mode:'original',outputFile:props.file});
+      setPending(false);setView('edit');setVertices([]);setTracing(true);
+    }catch(reason){fail(reason,token);}
+  };
+  const remember=()=>{history.current.push(value || {inputFile:props.file,inputKey:props.inputKey,result:null,selected:[],automatic:[],mode:'original',outputFile:props.file});if(history.current.length>30)history.current.shift();setHistoryCount(history.current.length);};
   const commit=async(next:ThumbnailFocus,token:number)=>{
     const outputFile=await renderThumbnail(next);
     if(sequence.current!==token)return;
@@ -82,7 +91,7 @@ export function SetterThumbnailFocus(props: Props) {
   },[value,props.previewUrl,view,cursorVisible,cursorTick,tracing,vertices]);
 
   const changeSelection=async(id:string)=>{
-    if(!value || pending || props.disabled)return;
+    if(!value || pending || props.disabled || correctionBlocked)return;
     remember();const{token}=begin();
     try{await commit({...value,mode:'focus',selected:value.selected.includes(id)?value.selected.filter(x=>x!==id):[...value.selected,id]},token);}catch(reason){fail(reason,token);}
   };
@@ -106,7 +115,7 @@ export function SetterThumbnailFocus(props: Props) {
     }catch(reason){fail(reason,token);}
   };
   const finishTrace=async()=>{
-    if(!value?.result||pending)return;
+    if(!value?.result||pending||props.disabled||correctionBlocked)return;
     let operation:number|undefined;
     try{
       const candidate=manualContour(vertices,value.result.width,value.result.height,`contour-${crypto.randomUUID()}`);
@@ -119,17 +128,17 @@ export function SetterThumbnailFocus(props: Props) {
     latest.current.onChange({inputFile:props.file,inputKey:props.inputKey,result:value?.result||null,selected:value?.selected||[],automatic:value?.automatic||[],mode:'original',outputFile:props.file});setView('preview');
   };
   return <section aria-label="Automatische Griffvorschau" className="space-y-2" data-thumbnail-focus data-image-hash={value?.result?.image_hash} data-input-key={props.inputKey} data-output-mode={value?.mode || 'original'} data-selected-count={value?.selected.length || 0}>
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="min-w-0"><h3 className="text-sm font-medium">Griffvorschau</h3><span className="block text-xs text-muted-foreground" role="status">{pending?'Erkennung läuft …':view==='original'?'Originalvergleich':value?.mode==='focus'?`${value.selected.length} ausgewählt`:'Original'}</span></div>
       <div className="flex shrink-0 items-center">
         <Button type="button" variant="ghost" className="px-2" aria-pressed={view==='edit'} disabled={props.disabled||tracing||Boolean(correctionBlocked)} onClick={()=>setView(view==='edit'?'preview':'edit')}>{view==='edit'?'Vorschau':'Griffe antippen'}</Button>
-        <Button type="button" size="icon" variant="ghost" aria-label="Rückgängig" title="Rückgängig" disabled={!historyCount||pending||props.disabled||tracing} onClick={()=>{const previous=history.current.pop();setHistoryCount(history.current.length);if(previous){sequence.current++;latest.current.onChange(previous);setError('');}}}><Undo2 /></Button>
+        <Button type="button" size="icon" variant="ghost" aria-label="Rückgängig" title="Rückgängig" disabled={!historyCount||pending||props.disabled||tracing||Boolean(correctionBlocked)} onClick={()=>{const previous=history.current.pop();setHistoryCount(history.current.length);if(previous){sequence.current++;controller.current?.abort();latest.current.onChange(previous);setError('');busy(false);}}}><Undo2 /></Button>
         <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" size="icon" variant="ghost" aria-label="Vorschau-Optionen" disabled={props.disabled||tracing}><MoreHorizontal /></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="z-[120]">
             <DropdownMenuItem className="min-h-11" onSelect={()=>setView(view==='original'?'preview':'original')}>{view==='original'?'Vorschau':'Original'}</DropdownMenuItem>
-            <DropdownMenuItem className="min-h-11" disabled={!value?.result||pending} onSelect={()=>{if(!value)return;remember();const{token}=begin();void commit({...value,mode:'focus',selected:[...value.automatic]},token).catch(reason=>fail(reason,token));}}>Automatik zurücksetzen</DropdownMenuItem>
+            <DropdownMenuItem className="min-h-11" disabled={!value?.result||pending||Boolean(correctionBlocked)} onSelect={()=>{if(!value)return;remember();const{token}=begin();void commit({...value,mode:'focus',selected:[...value.automatic]},token).catch(reason=>fail(reason,token));}}>Automatik zurücksetzen</DropdownMenuItem>
             <DropdownMenuItem className="min-h-11" onSelect={original}>Original verwenden</DropdownMenuItem>
-            <DropdownMenuItem className="min-h-11" disabled={!value?.result||pending||Boolean(correctionBlocked)} onSelect={startTrace}>Kontur nachzeichnen</DropdownMenuItem>
+            <DropdownMenuItem className="min-h-11" disabled={pending||Boolean(correctionBlocked)} onSelect={()=>void startTrace()}>Kontur nachzeichnen</DropdownMenuItem>
             <DropdownMenuItem className="min-h-11" disabled={pending||Boolean(unsupported)} onSelect={()=>void analyze()}>Erneut erkennen</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -149,11 +158,11 @@ export function SetterThumbnailFocus(props: Props) {
       {pending && <div className="pointer-events-none absolute inset-x-3 top-3 flex items-center gap-2 rounded-kws-control bg-white p-3 text-xs shadow-soft" role="status"><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />Griffe werden erkannt …</div>}
     </div>
     <p className="text-xs text-muted-foreground">{tracing?`${vertices.length} Konturpunkte · Am sichtbaren Griffrand entlang tippen, auch direkt am Bildrand. Die Fläche schließt beim Übernehmen.`:unsupported || (view==='edit'?'Griff antippen zum An- oder Abwählen. Fehlt die Kontur, kannst du sie nachzeichnen.':value?.result?.note || 'Startgriffe prüfen · Original bleibt erhalten.')}</p>
-    {view==='edit'&&!tracing&&<Button variant="ghost" type="button" disabled={pending||props.disabled||!value?.result||Boolean(correctionBlocked)} onClick={startTrace}>Kontur nachzeichnen</Button>}
+    {view==='edit'&&!tracing&&<Button variant="ghost" type="button" disabled={pending||props.disabled||Boolean(correctionBlocked)} onClick={()=>void startTrace()}>Kontur nachzeichnen</Button>}
     {tracing&&<div className="flex flex-wrap gap-2" aria-label="Kontur zeichnen">
-      <Button type="button" disabled={vertices.length<3||pending} onClick={()=>void finishTrace()}>Kontur übernehmen</Button>
-      <Button type="button" variant="secondary" disabled={!vertices.length||pending} onClick={()=>setVertices(previous=>previous.slice(0,-1))}>Punkt zurück</Button>
-      <Button type="button" variant="ghost" disabled={pending} onClick={cancelTrace}>Zeichnen abbrechen</Button>
+      <Button type="button" disabled={vertices.length<3||pending||props.disabled} onClick={()=>void finishTrace()}>Kontur übernehmen</Button>
+      <Button type="button" variant="secondary" disabled={!vertices.length||pending||props.disabled} onClick={()=>setVertices(previous=>previous.slice(0,-1))}>Punkt zurück</Button>
+      <Button type="button" variant="ghost" disabled={pending||props.disabled} onClick={cancelTrace}>Zeichnen abbrechen</Button>
     </div>}
     {view==='edit'&&!tracing && <div className="flex flex-wrap gap-2" aria-label="Griffkandidaten">{value?.result?.candidates.map((c,i)=><Button key={c.id} type="button" variant={value.selected.includes(c.id)?'default':'secondary'} aria-pressed={value.selected.includes(c.id)} aria-label={`Griff ${i+1}${c.source==='point_correction'?' per Tipp':c.source==='polygon_correction'?' per Kontur':''}`} disabled={pending||props.disabled} onClick={()=>void changeSelection(c.id)}>{value.selected.includes(c.id)?'✓ ':''}{i+1}{c.source==='point_correction'?' · Tipp':c.source==='polygon_correction'?' · Kontur':''}</Button>)}</div>}
     {error && <p role="alert" className="rounded-kws-control bg-destructive/10 p-3 text-xs text-destructive">{error} Du kannst das Original verwenden.</p>}

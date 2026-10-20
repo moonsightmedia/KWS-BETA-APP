@@ -8,14 +8,16 @@ import hashlib
 import cv2
 import numpy as np
 from PIL import Image, ImageOps
+from model_contract import COLORS
 
 VERSION = 'opencv-boundary-2'
-COLORS = ('green', 'yellow', 'white', 'black', 'red', 'blue', 'orange', 'purple')
 cv2.setNumThreads(2)
 Image.MAX_IMAGE_PIXELS = 30_000_000
 
 def decode_image(raw: bytes) -> np.ndarray:
     with Image.open(io.BytesIO(raw)) as image:
+        if image.format not in ('JPEG','PNG','WEBP'):
+            raise ValueError('JPG, PNG oder WebP erwartet.')
         if image.width * image.height > 30_000_000:
             raise ValueError('Foto zu groß: maximal 30 Megapixel.')
         image = ImageOps.exif_transpose(image).convert('RGB')

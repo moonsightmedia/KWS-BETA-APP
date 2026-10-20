@@ -10,10 +10,9 @@ from route_labels import detect_labels
 from route_digits import digit_evidence
 from detector_v2_core import boundary_evidence
 from sam_local import PhotoSegments
-VERSION='sam-number-cards-3.2'
+from model_contract import VERSION, AUTOMATIC_VERSION
 # This revision changes manual correction only. Automatic proposals and their
 # durable review keys remain compatible with 3.1; never invalidate user approvals.
-AUTOMATIC_VERSION='sam-number-cards-3.1'
 _ENCODINGS=OrderedDict()
 
 def photo_model(rgb):
