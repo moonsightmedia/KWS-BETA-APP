@@ -14,14 +14,12 @@ export async function publishThumbnailDecision(decision, {read,save,getSession,b
   const transport = transportFor(session.user.id);
   const headers = {apikey:publicKey, 'Content-Type':'application/json', Prefer:'return=representation'};
   const endpoint = `${backend}/rest/v1/boulders`;
-  let allowed = false;
-  for (const role of ['setter','admin']) {
-    const response = await transport(`${backend}/rest/v1/rpc/has_role`, {method:'POST',headers,
-      body:JSON.stringify({_user_id:session.user.id,_role:role})});
-    if (!response.ok) throw new Error('Setter-Freigabe konnte nicht geprüft werden.');
-    if (await response.json() === true) { allowed = true; break; }
-  }
-  if (!allowed) throw new Error('Für die Online-Übernahme brauchst du eine Setter- oder Adminfreigabe.');
+  // RLS filters the current owner's roles. Avoid the overloaded has_role RPC;
+  // the exact read uses the same account-bound transport as upload and CAS.
+  const roles = await transport(`${backend}/rest/v1/user_roles?${new URLSearchParams({select:'role',user_id:`eq.${session.user.id}`,role:'in.(setter,admin)',limit:'1'})}`, {headers});
+  if (!roles.ok) throw new Error('Setter-Freigabe konnte nicht geprüft werden.');
+  const assigned = await roles.json();
+  if (!Array.isArray(assigned) || !assigned.some(row => ['setter','admin'].includes(row.role))) throw new Error('Für die Online-Übernahme brauchst du eine Setter- oder Adminfreigabe.');
   const current = await transport(`${endpoint}?${new URLSearchParams({id:`eq.${decision.boulderId}`,select:'id,thumbnail_url,color,color_2,status,volume_only'})}`, {headers});
   if (!current.ok) throw new Error('Aktueller Online-Stand konnte nicht geprüft werden.');
   const rows = await current.json();

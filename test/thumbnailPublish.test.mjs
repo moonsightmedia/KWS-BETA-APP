@@ -13,7 +13,11 @@ function fixture(overrides={}) {
     getSession:async()=>({user:{id:'setter'}}),
     transportFor:owner=>async(url,init={})=>{
       assert.equal(owner,'setter');
-      if(url.includes('/rpc/has_role'))return Response.json(role);
+      if(url.includes('/rest/v1/user_roles?')){
+        const query=new URL(url).searchParams;
+        assert.equal(query.get('select'),'role');assert.equal(query.get('user_id'),'eq.setter');assert.equal(query.get('role'),'in.(setter,admin)');assert.equal(query.get('limit'),'1');
+        return Response.json(role?[{role:'setter'}]:[]);
+      }
       if(init.method==='PATCH'){
         writes++;assert.equal(JSON.stringify(Object.keys(JSON.parse(init.body))),JSON.stringify(['thumbnail_url']));
         assert.equal(new URL(url).searchParams.get('thumbnail_url'),'eq.https://media.test/original.jpg');

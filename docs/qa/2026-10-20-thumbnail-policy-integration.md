@@ -31,3 +31,11 @@ Zwei Zustände bei 375, 768, 1280 und 1920 Pixeln wurden gerendert und alle acht
 ## Grenzen und Betrieb
 
 Diese Integration veröffentlicht oder migriert keine Produktionsbilder und verändert keine Nutzerauswahl. Originaldateien und Entscheidungen im Reviewablauf liegen weiterhin gerätebezogen in IndexedDB; die unveränderte ursprüngliche Medien-URL bleibt erhalten. Das ist kein zusätzlich eingerichtetes Serverbackup. Dienstinstallation, authentifizierte Proxyrouten, getrennte Review-Authentifizierung, CORS und explizite Aktivierung müssen vor Benutzung separat geprüft werden. Der Testserver verwendet ausschließlich Port 5248 und wird vom Testlauf beendet.
+
+## Ergänzung: tatsächlicher Veröffentlichungstransport
+
+Eine unabhängige Integrationsprüfung fand, dass der vorher injizierte Uploadtransport die Rollen-RPC und den Boulder-GET ablehnte. Der Publisher verwendet jetzt den eindeutigen RLS-GET auf die eigenen `user_roles` statt der im Livebackend überladenen `has_role`-RPC. Der echte `createUploadFetch` erlaubt dafür ausschließlich zwei weitere GET-Verträge: eigene Rollen mit festem Select/Filter/Limit sowie genau eine Boulder-UUID mit dem festen Select einschließlich Volumen. Weitere oder doppelte Queryparameter, fremde Rollenabfragen, RPCs, Fremdorigins und Rollenmutationen werden vor dem Netzwerk verworfen. Derselbe Kontoinhaber-, Tokenrefresh- und Redirectschutz gilt für Vorprüfung, Medienupload und CAS.
+
+`test/thumbnailPublishTransport.test.mjs` transpiliert die echte Produktionsimplementierung und prüft die vollständige erlaubte Abfolge mit synthetischem Transport, Expiry mit einmaligem Refresh, Kontowechsel nach jedem Teilschritt, Wechsel bei abgewiesenem Token, fehlende Rollen und die engen Negativrouten. Zusammen mit den bestehenden Publisher- und SessionRecovery-Tests sind 41 Fälle erfolgreich. Scoped ESLint und diff-check sind erfolgreich. Es erfolgte dabei keine Verbindung zu produktiven Konten oder Medienendpunkten.
+
+Der abschließende gemeinsame Lauf einschließlich `uploadAuthentication`, Policy und Geometrie besteht 77/77 Fälle. Ein unabhängiger Agent hat die neue Allowlist gelesen und die acht Echttransportfälle erneut erfolgreich ausgeführt.
