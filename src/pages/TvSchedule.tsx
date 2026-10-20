@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { CalendarClock, Clock, MapPinned, RefreshCw } from 'lucide-react';
 
 import { InteractiveMapStage } from '@/components/InteractiveMapStage';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { getHallMapDisplayGeometry, toHallMapDisplayPoint } from '@/lib/hallMapOrientation';
 import fallbackHallMap from '@/assets/boulderkarte-original.png';
 import fallbackRegionData from '@/data/hallMapRegionProposals.json';
 import {
@@ -315,8 +317,8 @@ function TvScheduleMap({
     [mapRegions, sectorById],
   );
 
-  const mapWidth = mapData.width ?? fallbackMap.width;
-  const mapHeight = mapData.height ?? fallbackMap.height;
+  const isMobile = useIsMobile();
+  const {width:mapWidth,height:mapHeight,rotateClockwise} = getHallMapDisplayGeometry(mapData.width ?? fallbackMap.width!, mapData.height ?? fallbackMap.height!, isMobile);
   const mapUnit = Math.max(Math.min(mapWidth, mapHeight) / 100, 1);
 
   if (isLoadingMap || isLoadingRegions) {
@@ -350,17 +352,20 @@ function TvScheduleMap({
       height={mapHeight}
       disablePanZoom
       lockAspectRatio
-      viewportClassName="h-full min-h-[460px] rounded-none border-0 bg-brand-canvas"
+      viewportClassName="min-h-0 rounded-none border-0 bg-brand-canvas md:h-full md:min-h-[460px]"
     >
       <img
         src={mapData.image_url}
         alt={mapData.name}
-        className="block h-full w-full select-none object-contain"
+        className={cn('block select-none object-contain',rotateClockwise ? 'absolute left-1/2 top-1/2 max-w-none' : 'h-full w-full')}
+        style={rotateClockwise ? {width:`${mapHeight / mapWidth * 100}%`,height:`${mapWidth / mapHeight * 100}%`,transform:'translate(-50%, -50%) rotate(90deg)'} : undefined}
         draggable={false}
         onError={() => setImageError(true)}
       />
-      <svg viewBox={`0 0 ${mapWidth} ${mapHeight}`} preserveAspectRatio="xMidYMid meet" className="absolute inset-0 h-full w-full">
-        {renderedRegions.map(({ region, sector }) => {
+      <svg data-map-orientation={mapHeight >= mapWidth ? 'portrait' : 'landscape'} viewBox={`0 0 ${mapWidth} ${mapHeight}`} preserveAspectRatio="xMidYMid meet" className="absolute inset-0 h-full w-full">
+        {renderedRegions.map(({ region: sourceRegion, sector }) => {
+          const anchor = toHallMapDisplayPoint(getCentroid(sourceRegion),rotateClockwise);
+          const region = {...sourceRegion,points_json:sourceRegion.points_json.map(point=>toHallMapDisplayPoint(point,rotateClockwise)),label_x:anchor.x,label_y:anchor.y};
           const sequenceNumber = sectorOrderById.get(sector.id);
           const isActive = sequenceNumber !== undefined;
           const marker = isActive
@@ -471,7 +476,7 @@ const TvSchedule = () => {
   return (
     <main className="min-h-screen overflow-hidden bg-brand-canvas text-brand-ink">
       <div className="grid min-h-screen grid-rows-[auto_minmax(0,1fr)]">
-        <header className="flex items-center justify-between gap-8 border-b border-brand-border bg-white px-[clamp(1.25rem,3vw,3.5rem)] py-[clamp(0.9rem,1.7vh,1.4rem)] shadow-[0_8px_28px_rgba(19,17,43,0.04)]">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-brand-border bg-white px-[clamp(1.25rem,3vw,3.5rem)] py-[clamp(0.9rem,1.7vh,1.4rem)] shadow-[0_8px_28px_rgba(19,17,43,0.04)]">
           <div className="min-w-0">
             <div className="flex items-center gap-3 text-[#69B545]">
               <MapPinned className="h-[clamp(1.1rem,1.6vw,1.8rem)] w-[clamp(1.1rem,1.6vw,1.8rem)]" />
@@ -482,7 +487,7 @@ const TvSchedule = () => {
             </h1>
           </div>
 
-          <div className="shrink-0 text-right">
+          <div className="ml-auto shrink-0 text-right">
             <p className="font-heading text-[clamp(2.4rem,4.1vw,4.9rem)] leading-none text-brand-ink">
               {now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
             </p>

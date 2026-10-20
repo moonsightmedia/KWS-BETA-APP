@@ -61,6 +61,7 @@ jobs:
       - name: Hall map and reset sequence integration tests
         run: |
           npx playwright test --config test/maps-feedback.playwright.config.ts --workers=1
+          npx playwright test --config test/mobile-maps.playwright.config.ts --workers=1
           npx playwright test --config test/reset-plan.playwright.config.ts e2e/reset-plan.spec.ts --workers=1
       - name: App version and profile shortcut integration tests
         run: node test/about-feedback.check.cjs
@@ -82,6 +83,7 @@ jobs:
             test-results/mobile-player-artifacts
             test-results/launch-monitoring-artifacts
             output/maps-feedback-20261020/artifacts
+            output/mobile-maps/artifacts
             output/about-feedback-20261020
           retention-days: 7
           if-no-files-found: ignore
