@@ -259,7 +259,17 @@ export function SetterBoulderEditorDialog({
   const [thumbPreview, setThumbPreview] = useState<string | null>(null);
   const lock = useRef(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const waitingForInitialFocus = useRef(false);
   const busy = working || isSubmitting || isDeleting;
+  useEffect(() => {
+    if (!open) waitingForInitialFocus.current = false;
+    if (!waitingForInitialFocus.current || busy) return;
+    waitingForInitialFocus.current = false;
+    const content = contentRef.current;
+    if (!loadError && content && document.activeElement === content) {
+      content.querySelector<HTMLInputElement>('#setter-boulder-name')?.focus();
+    }
+  }, [open, busy, loadError]);
   useEffect(() => {
     setDirty(false);
     setError("");
@@ -414,9 +424,14 @@ export function SetterBoulderEditorDialog({
           ref={contentRef}
           onOpenAutoFocus={(event) => {
             const nameInput = contentRef.current?.querySelector<HTMLInputElement>('#setter-boulder-name');
+            waitingForInitialFocus.current = false;
             if (nameInput && !nameInput.matches(':disabled')) {
               event.preventDefault();
               nameInput.focus();
+            } else if (busy) {
+              event.preventDefault();
+              waitingForInitialFocus.current = true;
+              contentRef.current?.focus();
             }
           }}
           scrollLayout="contained"
