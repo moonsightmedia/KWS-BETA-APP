@@ -125,3 +125,18 @@ Include the entire video `/data` (especially `originals`, jobs and maintenance
 journals) in encrypted production backup and an independently verified NAS copy.
 The PC's mapped KWS NAS folder was unavailable during preparation; no independent
 NAS copy has been claimed. Server-local archival alone is not an independent backup.
+
+## Laptop rollout follow-up, 20 October 2026
+
+The browser `dynamic-range-limit: standard` hint from PR64 is included alongside
+PR68, without importing PR64's older Hable server transform or its native branch
+ancestry. The server candidate remains the exact verified source at
+`aba3aa97c15364584557a780e3bc8518c8bb76ec`; the candidate source manifest is unchanged.
+
+The existing laptop SSH key is reachable again after the user explicitly approved
+a firewall allowance for its current single address. Production backup
+`20261020T120838Z` was decrypted and restored in isolation: 94 tables, 22,793 rows,
+two sequences and Vault decryption match. The encrypted independent NAS transfer
+is still in progress; do not claim it verified yet. The exact server candidate
+has passed its tests in a separate Docker container; the live service and library
+remain unchanged until the backup and release gates are complete.
