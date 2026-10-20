@@ -226,40 +226,43 @@ test('guests can use videos and details without personal actions', async ({ page
   expect(db.writes).toHaveLength(0);
 });
 
-test('two-finger zoom reveals the whole source, pans and keeps quality switches independent', async ({ page }) => {
+test('a short pinch snaps between original size and fullscreen and preserves media state', async ({ page }) => {
   const db = await backend(page); await enter(page); await chooseDoubleTap(page, 'Als Projekt speichern');
   const reel = page.locator('.kws-feed .reel'), video = frame(page).locator('video');
   const client = await page.context().newCDPSession(page);
   const touch = (type: string, points: Array<{ id: number; x: number; y: number }>) => client.send('Input.dispatchTouchEvent', { type, touchPoints: points });
   await frame(page).locator('.playback button').click();
   await video.evaluate(v => { v.currentTime = .5; });
-  const start = Number(await reel.getAttribute('data-zoom-scale'));
-  expect(start).toBeGreaterThan(1);
+  const fullscreen = Number(await reel.getAttribute('data-zoom-scale'));
+  expect(fullscreen).toBeGreaterThan(1);
   await touch('touchStart', [{ id: 1, x: 90, y: 320 }, { id: 2, x: 280, y: 320 }]);
-  await touch('touchMove', [{ id: 1, x: 140, y: 320 }, { id: 2, x: 230, y: 320 }]);
+  await touch('touchMove', [{ id: 1, x: 97, y: 320 }, { id: 2, x: 273, y: 320 }]);
+  // Only 14px total travel, still above the midpoint: direction must win.
+  expect(Number(await reel.getAttribute('data-zoom-scale'))).toBeGreaterThan((1 + fullscreen) / 2);
   await touch('touchEnd', []);
   await expect(reel).toHaveAttribute('data-zoom-mode', 'fit');
   await expect(reel).toHaveAttribute('data-zoom-scale', '1');
+  await expect.poll(() => video.evaluate(v => new DOMMatrix(getComputedStyle(v).transform).a)).toBeCloseTo(1, 5);
   await expect(video).toHaveJSProperty('paused', true);
-  await touch('touchStart', [{ id: 1, x: 140, y: 320 }, { id: 2, x: 230, y: 320 }]);
-  await touch('touchMove', [{ id: 1, x: 80, y: 320 }, { id: 2, x: 290, y: 320 }]);
-  await touch('touchMove', [{ id: 1, x: 40, y: 250 }, { id: 2, x: 250, y: 250 }]);
-  await touch('touchEnd', [{ id: 2, x: 250, y: 250 }]);
-  await touch('touchMove', [{ id: 2, x: 250, y: 100 }]);
-  await touch('touchEnd', []);
-  await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-a');
-  await expect(video).toHaveJSProperty('playbackRate', 1);
-  const transform = await video.evaluate(v => getComputedStyle(v).transform);
-  const scale = await reel.getAttribute('data-zoom-scale');
-  expect(Number(scale)).toBeGreaterThan(2);
-  expect(await video.evaluate(v => new DOMMatrix(getComputedStyle(v).transform).m41)).toBeLessThan(0);
   await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
   await page.getByRole('menuitemradio', { name: /Low/ }).click();
   await expect(video).toHaveJSProperty('readyState', 4);
-  await expect(reel).toHaveAttribute('data-zoom-scale', scale!);
-  await expect(video).toHaveCSS('transform', transform);
-  await expect(video).toHaveJSProperty('paused', true);
+  await expect(reel).toHaveAttribute('data-zoom-mode', 'fit');
+  await expect(reel).toHaveAttribute('data-zoom-scale', '1');
   expect(await video.evaluate(v => v.currentTime)).toBeCloseTo(.5, 1);
+  await touch('touchStart', [{ id: 1, x: 90, y: 320 }, { id: 2, x: 280, y: 320 }]);
+  await touch('touchMove', [{ id: 1, x: 83, y: 320 }, { id: 2, x: 287, y: 320 }]);
+  // Again a short gesture, below the midpoint, now snapping all the way to fill.
+  expect(Number(await reel.getAttribute('data-zoom-scale'))).toBeLessThan((1 + fullscreen) / 2);
+  await touch('touchEnd', [{ id: 1, x: 83, y: 320 }]);
+  await touch('touchMove', [{ id: 2, x: 287, y: 100 }]);
+  await touch('touchEnd', []);
+  await expect(reel).toHaveAttribute('data-zoom-mode', 'fill');
+  await expect.poll(() => video.evaluate(v => new DOMMatrix(getComputedStyle(v).transform).a)).toBeCloseTo(fullscreen, 5);
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-a');
+  await expect(video).toHaveJSProperty('paused', true);
+  await expect(video).toHaveJSProperty('playbackRate', 1);
   expect(db.writes).toHaveLength(0);
   await touch('touchStart', [{ id: 1, x: 180, y: 450 }]);
   await touch('touchMove', [{ id: 1, x: 180, y: 190 }]);
@@ -267,7 +270,7 @@ test('two-finger zoom reveals the whole source, pans and keeps quality switches 
   await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-b');
   await expect(reel).toHaveAttribute('data-zoom-mode', 'fill');
   await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
-  await page.getByRole('menuitemradio', { name: 'Ganzes Video', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: 'Originalgröße', exact: true }).click();
   await expect(reel).toHaveAttribute('data-zoom-scale', '1');
 });
 
@@ -301,27 +304,51 @@ test('pinch cancellation and a second finger during speed hold never cause an ex
   await expect(page.locator('.zoom-feedback')).toHaveCount(0);
 });
 
-test('image size menu and keyboard provide zoom without a pinch gesture', async ({ page }) => {
+test('menu keyboard and trackpad snap to the same two modes', async ({ page }) => {
   await backend(page); await enter(page);
   const reel = page.locator('.kws-feed .reel');
+  const fullscreen = Number(await reel.getAttribute('data-zoom-scale'));
   await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
-  await page.getByRole('menuitemradio', { name: 'Ganzes Video', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: 'Originalgröße', exact: true }).click();
   await expect(reel).toHaveAttribute('data-zoom-scale', '1');
   await reel.focus(); await page.keyboard.press('+');
-  await expect(reel).toHaveAttribute('data-zoom-scale', '1.2');
+  await expect(reel).toHaveAttribute('data-zoom-mode', 'fill');
+  await expect.poll(async () => Number(await reel.getAttribute('data-zoom-scale'))).toBeCloseTo(fullscreen, 5);
   await page.keyboard.press('-'); await expect(reel).toHaveAttribute('data-zoom-scale', '1');
-  await page.keyboard.press('0'); await expect(reel).toHaveAttribute('data-zoom-mode', 'fill');
-  await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
-  await page.getByRole('menuitemradio', { name: '2× vergrößern', exact: true }).click();
-  await expect(reel).toHaveAttribute('data-zoom-scale', '2');
   await page.mouse.move(180, 320); await page.keyboard.down('Control'); await page.mouse.wheel(0, -200); await page.keyboard.up('Control');
-  await expect.poll(async () => Number(await reel.getAttribute('data-zoom-scale'))).toBeGreaterThan(2);
+  await expect(reel).toHaveAttribute('data-zoom-mode', 'fill');
+  await expect.poll(async () => Number(await reel.getAttribute('data-zoom-scale'))).toBeCloseTo(fullscreen, 5);
   expect(await page.evaluate(() => ({ width: innerWidth, scale: visualViewport?.scale }))).toEqual({ width: 375, scale: 1 });
   await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-a');
   await page.setViewportSize({ width: 812, height: 375 });
   await reel.focus(); await page.keyboard.press('0');
   await expect(reel).toHaveAttribute('data-zoom-mode', 'fill');
   await expect.poll(async () => Number(await reel.getAttribute('data-zoom-scale'))).toBeGreaterThan(2);
+});
+
+test('small movement stays put and reduced motion snaps immediately', async ({ page }) => {
+  const db = await backend(page); await enter(page);
+  const reel = page.locator('.kws-feed .reel'), video = frame(page).locator('video');
+  const fullscreen = await reel.getAttribute('data-zoom-scale');
+  const client = await page.context().newCDPSession(page);
+  const touch = (type: string, points: Array<{ id: number; x: number; y: number }>) => client.send('Input.dispatchTouchEvent', { type, touchPoints: points });
+  await touch('touchStart', [{ id: 1, x: 90, y: 320 }, { id: 2, x: 280, y: 320 }]);
+  await touch('touchMove', [{ id: 1, x: 110, y: 350 }, { id: 2, x: 300, y: 350 }]);
+  await touch('touchEnd', []);
+  await expect(reel).toHaveAttribute('data-zoom-mode', 'fill');
+  await expect(reel).toHaveAttribute('data-zoom-scale', fullscreen!);
+  await touch('touchStart', [{ id: 1, x: 90, y: 320 }, { id: 2, x: 280, y: 320 }]);
+  await touch('touchMove', [{ id: 1, x: 93, y: 320 }, { id: 2, x: 277, y: 320 }]);
+  await touch('touchEnd', []);
+  await expect(reel).toHaveAttribute('data-zoom-mode', 'fill');
+  await expect(reel).toHaveAttribute('data-zoom-scale', fullscreen!);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await touch('touchStart', [{ id: 1, x: 90, y: 320 }, { id: 2, x: 280, y: 320 }]);
+  await touch('touchMove', [{ id: 1, x: 97, y: 320 }, { id: 2, x: 273, y: 320 }]);
+  await touch('touchEnd', []);
+  await expect(reel).toHaveAttribute('data-zoom-scale', '1');
+  await expect(video).toHaveCSS('transition-duration', '0s');
+  expect(db.writes).toHaveLength(0);
 });
 
 test('a second finger on or after rating controls does not submit a rating', async ({ page }) => {
@@ -454,13 +481,13 @@ test('two visual loops on all four required widths', async ({ page }) => {
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
     await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-zoom-menu.png`, animations: 'disabled' });
-    await page.getByRole('menuitemradio', { name: 'Ganzes Video', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: 'Originalgröße', exact: true }).click();
     await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-zoom-fit.png`, animations: 'disabled' });
     await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
-    await page.getByRole('menuitemradio', { name: '2× vergrößern', exact: true }).click();
-    await page.screenshot({ path: `output/video-feed/integration/loop2-${width}-zoom-detail.png`, animations: 'disabled' });
+    await page.getByRole('menuitemradio', { name: 'Vollbild', exact: true }).click();
+    await page.screenshot({ path: `output/video-feed/integration/loop2-${width}-zoom-fill.png`, animations: 'disabled' });
     await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
-    await page.getByRole('menuitemradio', { name: 'Bildschirm füllen', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: 'Vollbild', exact: true }).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     expect((await page.locator('.kws-feed').boundingBox())?.width).toBe(width);
   }

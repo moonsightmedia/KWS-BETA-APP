@@ -1,109 +1,101 @@
 import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type RefObject } from 'react';
 
-type View = { mode: 'fit' | 'fill' | 'custom'; scale: number; x: number; y: number };
+type Mode = 'fit' | 'fill';
+type View = { mode: Mode; scale: number };
 type Point = { x: number; y: number };
-type Metrics = { width: number; height: number; fitWidth: number; fitHeight: number; fill: number };
-const initial: View = { mode: 'fill', scale: 1, x: 0, y: 0 };
+const initial: View = { mode: 'fill', scale: 1 };
 const interactive = 'a,button,input,textarea,[data-gesture],[role="menu"]';
 
-/** Transform the whole source image, so zooming out really reveals its edges. */
+/** A short pinch selects one of two detents; no intermediate zoom survives release. */
 export function useBoulderFeedZoom({ reelRef, mediaId, disabled }: {
   reelRef: RefObject<HTMLElement>; mediaId?: string; disabled: boolean;
 }) {
   const [view, setView] = useState<View>(initial);
   const [pinching, setPinching] = useState(false);
   const [feedback, setFeedback] = useState(false);
+  const [animating, setAnimating] = useState(false);
   const current = useRef(view);
-  const metrics = useRef<Metrics | null>(null);
+  const fill = useRef<number | null>(null);
   const points = useRef(new Map<number, Point>());
-  const pinch = useRef<{ start: View; distance: number; midpoint: Point } | null>(null);
+  const pinch = useRef<{ start: View; distance: number; target: Mode } | null>(null);
   const draining = useRef(false);
   const feedbackTimer = useRef<number | null>(null);
+  const animationTimer = useRef<number | null>(null);
   const isDisabled = useRef(disabled); isDisabled.current = disabled;
   const publish = useCallback((next: View) => { current.current = next; setView(next); }, []);
-  const bound = useCallback((next: View): View => {
-    const m = metrics.current;
-    if (!m) return next;
-    const scale = Math.max(1, Math.min(m.fill * 4, next.scale));
-    const maxX = Math.max(0, (m.fitWidth * scale - m.width) / 2);
-    const maxY = Math.max(0, (m.fitHeight * scale - m.height) / 2);
-    return { ...next, scale, x: Math.max(-maxX, Math.min(maxX, next.x)), y: Math.max(-maxY, Math.min(maxY, next.y)) };
+  const endpoint = useCallback((mode: Mode): View => ({ mode, scale: mode === 'fit' ? 1 : fill.current ?? 1 }), []);
+  const stopAnimation = useCallback(() => {
+    if (animationTimer.current !== null) clearTimeout(animationTimer.current);
+    animationTimer.current = null; setAnimating(false);
   }, []);
+  const snap = useCallback((mode: Mode) => {
+    stopAnimation(); setAnimating(true); publish(endpoint(mode));
+    animationTimer.current = window.setTimeout(() => { setAnimating(false); animationTimer.current = null; }, 160);
+  }, [endpoint, publish, stopAnimation]);
   const clearPoints = useCallback(() => {
     const ids = [...points.current.keys()];
     points.current.clear(); pinch.current = null; draining.current = false; setPinching(false);
     for (const id of ids) if (reelRef.current?.hasPointerCapture(id)) reelRef.current.releasePointerCapture(id);
   }, [reelRef]);
   const cancel = useCallback(() => {
-    if (pinch.current) publish(bound(pinch.current.start));
+    if (pinch.current) publish(endpoint(pinch.current.start.mode));
     if (feedbackTimer.current !== null) clearTimeout(feedbackTimer.current);
-    feedbackTimer.current = null; setFeedback(false);
-    clearPoints();
-  }, [bound, clearPoints, publish]);
+    feedbackTimer.current = null; setFeedback(false); stopAnimation(); clearPoints();
+  }, [clearPoints, endpoint, publish, stopAnimation]);
   const showFeedback = useCallback(() => {
     if (feedbackTimer.current !== null) clearTimeout(feedbackTimer.current);
     setFeedback(true);
-    feedbackTimer.current = window.setTimeout(() => { setFeedback(false); feedbackTimer.current = null; }, 1200);
+    feedbackTimer.current = window.setTimeout(() => { setFeedback(false); feedbackTimer.current = null; }, 900);
   }, []);
   const choose = useCallback((value: string) => {
-    if (!metrics.current) return;
-    cancel();
-    const mode = value === 'fit' || value === 'fill' ? value : 'custom';
-    publish(bound({ mode, scale: mode === 'fit' ? 1 : mode === 'fill' ? metrics.current.fill : Number(value), x: 0, y: 0 }));
-    showFeedback();
-  }, [bound, cancel, publish, showFeedback]);
-  const step = useCallback((multiplier: number) => {
-    if (!metrics.current) return;
-    cancel();
-    const next = bound({ ...current.current, mode: 'custom', scale: current.current.scale * multiplier });
-    publish(next); showFeedback();
-  }, [bound, cancel, publish, showFeedback]);
+    if (fill.current === null || (value !== 'fit' && value !== 'fill')) return;
+    cancel(); snap(value); showFeedback();
+  }, [cancel, showFeedback, snap]);
+  const step = useCallback((direction: number) => choose(direction > 1 ? 'fill' : 'fit'), [choose]);
   useLayoutEffect(() => {
-    cancel(); metrics.current = null; publish(initial); setFeedback(false);
-    if (feedbackTimer.current !== null) clearTimeout(feedbackTimer.current);
+    cancel(); fill.current = null; publish(initial);
     const reel = reelRef.current;
     const video = reel?.querySelector<HTMLVideoElement>('.reel-page[data-active=true] video');
     if (!reel || !video) return;
     const measure = () => {
       if (!video.videoWidth || !video.videoHeight || !reel.clientWidth || !reel.clientHeight) return;
-      // Resizing during a pinch ends that gesture before changing its coordinate system.
       cancel();
-      const width = reel.clientWidth, height = reel.clientHeight;
-      const fit = Math.min(width / video.videoWidth, height / video.videoHeight);
-      const fitWidth = video.videoWidth * fit, fitHeight = video.videoHeight * fit;
-      metrics.current = { width, height, fitWidth, fitHeight, fill: Math.max(width / fitWidth, height / fitHeight) };
-      const previous = current.current;
-      publish(bound({ ...previous, scale: previous.mode === 'fit' ? 1 : previous.mode === 'fill' ? metrics.current.fill : previous.scale }));
+      const widthRatio = reel.clientWidth / video.videoWidth, heightRatio = reel.clientHeight / video.videoHeight;
+      fill.current = Math.max(widthRatio, heightRatio) / Math.min(widthRatio, heightRatio);
+      publish(endpoint(current.current.mode));
     };
     measure();
     const observer = new ResizeObserver(measure); observer.observe(reel);
     video.addEventListener('loadedmetadata', measure);
+    let wheelDelta = 0, lastWheel = 0, wheelChanged = false;
     const wheel = (event: WheelEvent) => {
       if (!event.ctrlKey || isDisabled.current || (event.target as Element).closest(interactive)) return;
-      event.preventDefault(); step(Math.exp(-event.deltaY * .002));
+      event.preventDefault();
+      const now = performance.now();
+      if (now - lastWheel > 180) { wheelDelta = 0; wheelChanged = false; }
+      lastWheel = now; wheelDelta -= event.deltaY;
+      if (!wheelChanged && Math.abs(wheelDelta) >= 12) { step(wheelDelta > 0 ? 2 : .5); wheelChanged = true; }
     };
     reel.addEventListener('wheel', wheel, { passive: false });
     return () => {
-      observer.disconnect(); video.removeEventListener('loadedmetadata', measure); reel.removeEventListener('wheel', wheel);
-      cancel(); if (feedbackTimer.current !== null) clearTimeout(feedbackTimer.current);
+      observer.disconnect(); video.removeEventListener('loadedmetadata', measure); reel.removeEventListener('wheel', wheel); cancel();
     };
-  }, [mediaId, reelRef, bound, cancel, publish, step]);
-  const midpoint = () => {
-    const [a, b] = [...points.current.values()];
-    const box = reelRef.current!.getBoundingClientRect();
-    return { x: (a.x + b.x) / 2 - box.left - box.width / 2, y: (a.y + b.y) / 2 - box.top - box.height / 2 };
-  };
+  }, [mediaId, reelRef, cancel, endpoint, publish, step]);
   const distance = () => { const [a, b] = [...points.current.values()]; return Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)); };
   const down = (event: PointerEvent<HTMLElement>) => {
-    if (event.pointerType !== 'touch' || !metrics.current) return false;
+    if (event.pointerType !== 'touch' || fill.current === null) return false;
     points.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (points.current.size === 2 && !draining.current) {
-      pinch.current = { start: { ...current.current }, distance: distance(), midpoint: midpoint() };
+      const video = reelRef.current?.querySelector<HTMLVideoElement>('.reel-page[data-active=true] video');
+      const scale = video ? new DOMMatrix(getComputedStyle(video).transform).a : current.current.scale;
+      const start = { ...current.current, scale };
+      stopAnimation(); publish(start);
+      pinch.current = { start, distance: distance(), target: start.mode };
       setPinching(true); setFeedback(true);
       if (feedbackTimer.current !== null) clearTimeout(feedbackTimer.current);
     }
     if (points.current.size > 2) {
-      if (pinch.current) publish(bound(pinch.current.start));
+      if (pinch.current) publish(endpoint(pinch.current.start.mode));
       pinch.current = null; draining.current = true; setPinching(false); setFeedback(false);
     }
     if (pinch.current || draining.current) { event.currentTarget.setPointerCapture(event.pointerId); return true; }
@@ -114,24 +106,25 @@ export function useBoulderFeedZoom({ reelRef, mediaId, disabled }: {
     points.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     const gesture = pinch.current;
     if (!gesture) return draining.current;
-    const scale = bound({ ...gesture.start, scale: gesture.start.scale * distance() / gesture.distance }).scale;
-    const mid = midpoint(), ratio = scale / gesture.start.scale;
-    publish(bound({ mode: scale === 1 ? 'fit' : 'custom', scale,
-      x: mid.x - (gesture.midpoint.x - gesture.start.x) * ratio,
-      y: mid.y - (gesture.midpoint.y - gesture.start.y) * ratio }));
+    const span = distance(), delta = span - gesture.distance;
+    const threshold = Math.max(10, gesture.distance * .06);
+    gesture.target = delta >= threshold ? 'fill' : delta <= -threshold ? 'fit' : gesture.start.mode;
+    const scale = Math.max(1, Math.min(fill.current ?? 1, gesture.start.scale * span / gesture.distance));
+    publish({ mode: gesture.target, scale });
     return true;
   };
   const up = (event: PointerEvent<HTMLElement>) => {
     const owned = Boolean(pinch.current) || draining.current;
     points.current.delete(event.pointerId);
-    if (pinch.current) { pinch.current = null; setPinching(false); showFeedback(); }
-    // The last finger of a pinch must never become a swipe, tap or speed hold.
+    if (pinch.current) { const target = pinch.current.target; pinch.current = null; setPinching(false); snap(target); showFeedback(); }
     draining.current = owned && points.current.size > 0;
     return owned;
   };
-  const label = view.mode === 'fit' || Math.abs(view.scale - 1) < .01 ? 'Ganzes Video'
-    : view.mode === 'fill' ? 'Bildschirm füllen' : `Zoom ${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 }).format(view.scale)}×`;
-  const style: CSSProperties | undefined = metrics.current ? { objectFit: 'contain', transform: `translate3d(${view.x}px,${view.y}px,0) scale(${view.scale})` } : undefined;
+  const label = view.mode === 'fit' ? 'Originalgröße' : 'Vollbild';
+  const style: CSSProperties | undefined = fill.current !== null ? {
+    objectFit: 'contain', transform: `scale(${view.scale})`,
+    transition: animating ? 'transform 160ms cubic-bezier(.2,.8,.2,1)' : 'none',
+  } : undefined;
   return { style, scale: view.scale, mode: view.mode, pinching, feedback, label, cancel, choose, step, down, move, up,
     hasPointer: (id: number) => points.current.has(id),
   };
