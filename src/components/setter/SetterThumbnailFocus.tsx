@@ -7,6 +7,7 @@ import { manualContour, samePhotoSpace } from '@/lib/thumbnailGeometry.mjs';
 
 interface Props {
   file: File; previewUrl: string | null; inputKey: string; colorNames: string[]; volumeOnly?: boolean;
+  initialView?: 'preview' | 'edit';
   value?: ThumbnailFocus; disabled: boolean;
   onChange: (value: ThumbnailFocus | undefined) => void;
   onBusyChange: (busy: boolean) => void;
@@ -15,14 +16,14 @@ export function SetterThumbnailFocus(props: Props) {
   const latest=useRef(props);latest.current=props;
   const canvas=useRef<HTMLCanvasElement>(null),sequence=useRef(0),controller=useRef<AbortController>();
   const history=useRef<ThumbnailFocus[]>([]),cursor=useRef<[number,number]>([.5,.5]);
-  const [view,setView]=useState<'preview'|'edit'|'original'>('preview');
+  const [view,setView]=useState<'preview'|'edit'|'original'>(props.initialView || 'preview');
   const [pending,setPending]=useState(false),[error,setError]=useState(''),[historyCount,setHistoryCount]=useState(0);
   const [cursorVisible,setCursorVisible]=useState(false),[cursorTick,setCursorTick]=useState(0);
   const [tracing,setTracing]=useState(false),[vertices,setVertices]=useState<[number,number][]>([]);
   const value=props.value?.inputFile===props.file && props.value.inputKey===props.inputKey ? props.value : undefined;
   const colors=props.colorNames.map(detectorColor);
   const correctionBlocked=!props.colorNames[0] || props.volumeOnly;
-  const unsupported=!props.colorNames[0] ? 'Wähle zuerst die Grifffarbe.' : props.volumeOnly ? 'Für „Nur Volumen“ bleibt vorerst das Original erhalten.' : colors.some(c=>!c) ? 'Diese Farbe braucht eine manuelle Auswahl. Über „Griffe antippen“ kannst du die Startgriffe ergänzen.' : '';
+  const unsupported=!props.colorNames[0] ? 'Wähle zuerst die Grifffarbe.' : props.volumeOnly ? 'Für „Nur Volumen“ bleibt vorerst das Original erhalten.' : colors.some(c=>!c) ? view==='edit'?'Diese Farbe braucht eine manuelle Auswahl. Tippe direkt auf die Startgriffe.':'Diese Farbe braucht eine manuelle Auswahl. Über „Griffe antippen“ kannst du die Startgriffe ergänzen.' : '';
   const busy=(next:boolean)=>{setPending(next);latest.current.onBusyChange(next);};
   const cancelTrace=()=>{setTracing(false);setVertices([]);latest.current.onBusyChange(false);};
   const startTrace=()=>{if(pending||props.disabled||correctionBlocked||!value?.result)return;setError('');setView('edit');setVertices([]);setTracing(true);latest.current.onBusyChange(true);};
@@ -53,14 +54,14 @@ export function SetterThumbnailFocus(props: Props) {
     } catch(reason){fail(reason,token);}
   };
   useEffect(()=>{
-    setView('preview');setError('');setTracing(false);setVertices([]);history.current=[];setHistoryCount(0);cursor.current=[.5,.5];setCursorVisible(false);
+    setView(props.initialView || 'preview');setError('');setTracing(false);setVertices([]);history.current=[];setHistoryCount(0);cursor.current=[.5,.5];setCursorVisible(false);
     if(!value && !unsupported)void analyze();else {busy(false);}
     // Invalidate the latest operation counter, not a captured DOM ref value.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     return()=>{sequence.current++;controller.current?.abort();latest.current.onBusyChange(false);};
     // The identity of the source, route metadata and volume mode alone invalidate a saved mask.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[props.file,props.inputKey]);
+  },[props.file,props.inputKey,props.initialView]);
 
   useEffect(()=>{
     let cancelled=false;

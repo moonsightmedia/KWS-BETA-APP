@@ -60,6 +60,33 @@ werden. Die Zahl der Datensätze hängt von den Leserechten der Konfiguration ab
 - Nach der Farbauswahl zeigt der echte Bouldereditor die kompakte Griffvorschau.
   Antippen wählt Kandidaten an/ab; ein Tipp auf einen fehlenden Griff ergänzt eine
   SAM-Fläche. Rückgängig, Originalvergleich und Original verwenden sind verfügbar.
+- In der Bestandskorrektur öffnet „Korrigieren“ unmittelbar die große Griffauswahl.
+  Der zusätzliche Klick auf „Griffe antippen“ entfällt. Im Uploadeditor bleibt
+  der kompakte Vorschau-Einstieg erhalten. Die lokale Operatoransicht unter
+  `/test/thumbnail-live-review.html` verwendet ausschließlich den separat frisch
+  vorbereiteten `.thumbnail-data/live-review/catalog.json` mit festem aktuellem
+  Produktions-Origin. Sie übernimmt keine alten Backend-Entscheidungen auf neue
+  Bilder. Lokale Entwürfe/Bestätigungen bleiben in derselben IndexedDB, mit
+  getrennten Schlüsseln für Produktionsquelle, Bild-URL, Farbe und Cacheidentität.
+  „Auswahl passt · Weiter“ speichert vor dem Wechsel zum nächsten offenen Foto.
+  Der Export `live-thumbnail-pruefung.json` enthält nur die aktuelle Produktions-
+  quelle; die32 bereits publizierten IDs/URLs werden als Belegmetadaten exportiert,
+  nicht als neue künstliche Bestätigungen. Diese explizite lokale Einstiegsdatei
+  ist kein Produktionsroute und erscheint nicht im regulären Build.
+  Die lokale Vorbereitung kann aus einem frisch verifizierten öffentlichen
+  Katalog (`source`, `verified_at`, `rows`, einschließlich `published`-Belegen)
+  fortgesetzt werden, ohne bestätigte oder bereits publizierte Bilder neu zu
+  analysieren:
+
+  ```powershell
+  python services/thumbnail-focus/prepare_local_review.py --catalog .thumbnail-data/live-catalog.json --expected-backend https://beta-api.kletterwelt-sauerland.de
+  ```
+
+  Das Werkzeug lädt nur öffentliche Fotos und schreibt lokale Ergebnisse. Es
+  überspringt belegte `published`-Zeilen. Unbekannte Farben erhalten ein leeres,
+  direkt korrigierbares Ergebnis. `Schwarz-Gelb` verarbeitet beide Farben. Optional
+  kann `--references <Nutzerexport>` eine bestätigte Auswahl desselben Foto-Hashes
+  als Vorschlag wiederverwenden; daraus entsteht keine Bestätigung für eine neue ID.
 - `/setter/thumbnails` ist im geschützten Setterbereich erreichbar. Der Upload-
   Stapel verlinkt die Ansicht, sobald die Funktion aktiviert ist. Ohne lokalen
   Katalog liest die Ansicht den Livebestand und verarbeitet ihn seriell über den

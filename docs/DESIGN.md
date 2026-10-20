@@ -2368,3 +2368,12 @@ Eine unvollständige Kontur sperrt die endgültige Bestätigung. Es wird nur die
 sichtbare Fläche markiert; alte Entscheidungen und Rückgängig bleiben erhalten.
 Überlappende Flächen zeigen keine inneren Trennlinien. Die Anmeldung erklärt den
 Übernahmezweck und kehrt zu einem fest erlaubten Prüfziel zurück.
+
+Nutzerkorrektur 20.10.2026: Ein Klick auf „Korrigieren“ oder ein noch offenes
+Boulderfoto startet unmittelbar im großen Auswahlmodus. Kein zusätzlicher Klick
+auf „Griffe antippen“. Das gilt auch für Fotos ohne automatischen Vorschlag.
+Die kompakte Vorschau im Uploadeditor bleibt zunächst eine Vorschau. Die lokale
+Live-Prüfung bietet „Auswahl passt · Weiter“: erst nach erfolgreicher dauerhafter
+Speicherung öffnet der nächste noch offene Boulder direkt seine Griffauswahl.
+Bereits online übernommene Bilder sind getrennt markiert und werden nicht erneut
+in die offene Prüfung aufgenommen. Automatische Vorschläge sind nie Bestätigungen.
