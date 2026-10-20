@@ -394,6 +394,7 @@ export default function SetterSchedulePage() {
                   disabled={busy}
                 />
                 {mapOpen && (
+                  <div className="mx-auto max-w-[280px] [@media(hover:hover)_and_(pointer:fine)]:max-w-[340px]" data-setter-sector-map>
                   <HallMapView
                     sectors={sectors}
                     countsBySectorId={Object.fromEntries(
@@ -415,9 +416,10 @@ export default function SetterSchedulePage() {
                     }}
                     compact
                     frameless
-                    lockAspectRatio={false}
-                    viewportClassName="h-[240px]"
+                    orientation="portrait"
+                    viewportClassName="!min-h-0"
                   />
+                  </div>
                 )}
                 {filteredGroups.map((group) => {
                   const ids = group.subareas.flatMap((s) => s.sectorIds);
