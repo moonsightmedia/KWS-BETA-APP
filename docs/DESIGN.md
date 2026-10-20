@@ -1365,6 +1365,7 @@ Laden und Fehler erscheinen dort ausdrücklich und werden nicht als Null gezähl
 - Administratoren sehen auch inaktive Farben und können sie wieder aktivieren;
   öffentliche Boulderfilter bleiben aktiv-only. Die bestehenden RLS-Schreibrechte
   bleiben unverändert.
+
 - Standardfarben werden nur nach Bestätigung ergänzt; vorhandene Namen und
   Farbwerte werden dabei nicht überschrieben. Löschen nennt die betroffene
   Farbe, bietet Abbrechen an und bestätigt erst eine tatsächlich gelöschte Zeile.
@@ -2320,3 +2321,25 @@ Prüfumfang: docs/qa/2026-10-20-designmotion-four.md.
 - Diese Freigabe betrifft die genannten fünf Entwürfe. Die zuvor ausgeschlossene
   neue Mehrfachauswahl bleibt ausgeschlossen. Wochenkarte oben und Beta-Startlogo
   bleiben unverändert.
+
+### Nutzerfreigabe 20.10.2026 – Startgriffvorschau und Bestandsprüfung
+
+- Die kompakte Griffvorschau folgt im bestehenden Bouldereditor unmittelbar auf
+  die Farbauswahl. Sie darf die Farbauswahl nicht voraussetzen und oberhalb davon
+  zum Zurückscrollen zwingen. Mehrere Startgriffe lassen sich einzeln antippen,
+  ergänzen und wieder abwählen. Originalvergleich und Rückgängig bleiben erreichbar.
+- Bestehende Online-Thumbnails werden in einer gemeinsamen Prüfliste mit „Passt“,
+  „Korrigieren“ und „Überspringen“ angeboten. Statusfilter und Suche sind kompakt;
+  mobil erhält die Suche eine volle Zeile. Die Übernahmeleiste verdeckt die mobile
+  Navigation nicht. Der Korrekturdialog nutzt das gemeinsame Sheet-/Dialogsystem
+  und einen eigenen scrollbaren Inhalt.
+- Automatische Vorschläge sind keine Nutzerbestätigung. Entscheidungen und auch
+  unbestätigte Korrekturen überstehen ein Neuladen auf demselben Gerät/Origin.
+  Ohne Startauswahl bleibt das Original; eine leere Maske lässt sich nicht online
+  bestätigen. Fotos ohne Farbautomatik bleiben in der Liste und erlauben Tipps.
+- Online werden ausschließlich ausdrücklich bestätigte Varianten nach einer
+  Mengenbestätigung übernommen. Bereits veränderte Original-URLs werden nicht
+  überschrieben; Originaldateien bleiben erhalten. Rollen-/Kontogrenzen gelten
+  auch bei Wiederaufnahme. Die Veröffentlichung der App ist eine eigene Freigabe.
+
+Prüfumfang: `docs/qa/2026-10-20-thumbnail-focus-review.md`.
