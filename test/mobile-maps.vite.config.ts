@@ -6,6 +6,7 @@ const repo=path.resolve(__dirname,'..');
 // Isolated UI verification: recorded synthetic mutations, no production credentials.
 export default defineConfig({
  ...base,
+ cacheDir: 'node_modules/.vite-mobile-maps',
  plugins:[{name:'local-map-photo',configureServer(server){server.middlewares.use('/qa/rest/v1/hall_maps',(req,res)=>{
   if(req.method!=='GET'){res.statusCode=405;res.end();return;}
   res.setHeader('Content-Type','application/json');res.end(JSON.stringify([{...snapshot.map,image_url:'/src/assets/boulderkarte-original.png'}]));

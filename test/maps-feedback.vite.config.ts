@@ -6,6 +6,7 @@ const repo = path.resolve(__dirname, '..');
 const nextNames = ['Atta-Höhle', 'Felsenmeer', 'Bilstein', 'Durchbruch', 'Wandelwand'];
 export default defineConfig({
   ...base,
+  cacheDir: 'node_modules/.vite-maps-feedback',
   plugins: [...(base.plugins ?? []).filter(plugin => (plugin as { name?: string })?.name !== 'local-reset-plan-data'), {
     name: 'isolated-map-feedback-data', configureServer(server) {
       server.middlewares.use('/qa/rest/v1', (req, res) => {

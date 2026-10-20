@@ -4,7 +4,7 @@ import path from 'node:path';
 const repo = path.resolve(__dirname, '..');
 const hooks = path.join(repo, 'test/fixtures/reset-plan-hooks.ts');
 // Explicit QA-only server. Real public read hooks run against local synthetic REST data.
-export default defineConfig({ root: repo, plugins: [react(), {
+export default defineConfig({ root: repo, cacheDir: 'node_modules/.vite-reset-plan', plugins: [react(), {
   name: 'local-reset-plan-data', configureServer(server) {
     server.middlewares.use('/qa/rest/v1', (req, res) => {
       res.setHeader('Content-Type', 'application/json');

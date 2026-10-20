@@ -66,6 +66,8 @@ jobs:
           npx playwright test --config test/reset-plan.playwright.config.ts e2e/reset-plan.spec.ts --workers=1
       - name: App version and profile shortcut integration tests
         run: node test/about-feedback.check.cjs
+      - name: Desktop and responsive onboarding integration tests
+        run: node test/onboarding-desktop.check.cjs
       - name: Monitoring browser tests
         run: |
           npx playwright test --config test/launchMonitoring.playwright.config.ts
@@ -86,6 +88,7 @@ jobs:
             output/maps-feedback-20261020/artifacts
             output/mobile-maps/artifacts
             output/about-feedback-20261020
+            output/playwright/onboarding-desktop
           retention-days: 7
           if-no-files-found: ignore
 
