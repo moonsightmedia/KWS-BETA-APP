@@ -2,14 +2,22 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
-const out = 'output/about-feedback-20261020';
+const path = require('node:path');
+const repo = path.resolve(__dirname, '..');
+const out = path.join(repo, 'output/about-feedback-20261020');
 const base = 'http://127.0.0.1:5233/test/fixtures/about-feedback.html';
 (async () => {
   await fs.mkdir(out, { recursive: true });
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const { createServer } = await import('vite');
+  const server = await createServer({ configFile: path.join(repo, 'test/about-feedback.vite.config.ts') });
+  let browser;
   let assertions = 0;
   const check = (actual, expected, message) => { assert.deepEqual(actual, expected, message); assertions++; };
   try {
+    await server.listen();
+    // Use Playwright's installed Chromium on every platform, including Linux CI.
+    // No pre-existing desktop browser or manually started Vite process required.
+    browser = await chromium.launch({ headless: true });
     for (const width of [375, 768, 1280, 1920]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
       const errors = [];
@@ -102,5 +110,7 @@ const base = 'http://127.0.0.1:5233/test/fixtures/about-feedback.html';
     await desktop.close();
     console.log(`PASS ${assertions} about/update/role assertions`);
     await fs.writeFile(`${out}/test-proof.json`, JSON.stringify({ assertions, widths: [375, 768, 1280, 1920], native: 'simulated bridge responses only; no hardware acceptance', result: 'passed' }, null, 2));
-  } finally { await browser.close(); }
+  } finally {
+    try { await browser?.close(); } finally { await server.close(); }
+  }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

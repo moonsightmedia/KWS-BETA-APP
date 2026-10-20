@@ -58,3 +58,18 @@ Die zusätzliche manuelle CUA-Prüfansicht zeigte die neue Seite; ihre weitere
 Viewport-Steuerung wurde durch eine pausierte Browserantwort blockiert. Der
 eigene Tab wurde geschlossen. Die zwei gerenderten Regression-Loops sind davon
 unabhängig vollständig durchgeführt.
+
+## CI-Nacharbeit
+
+Der Prüfaufruf startet und beendet seinen eigenen Vite-Server direkt über die
+Vite-API. Er benötigt weder eine laufende Vorschau noch Edge: auf allen
+Plattformen wird das von Playwright installierte Chromium verwendet. Browser und
+Server werden auch bei einem Testfehler im `finally` geschlossen. Der lokale
+Rerun mit `CI=true` bestätigt dieselben **53 Assertions**. Linux-Ausführung über
+den GitHub-Workflow wird separat vom Release-Ablauf bestätigt.
+
+Dieser Wechsel hat eine echte Touch-Abweichung aufgedeckt: Chromium meldet
+Touch-Klicks als PointerEvent mit `detail=0`, während der frühere Edge-Test
+`detail=1` lieferte. Der Avatar unterscheidet deshalb zusätzlich den tatsächlichen
+Pointertyp. Ein Touch-Klick wird nicht mehr als Tastaturaktivierung behandelt;
+normaler Keyboard-Zugang und echter Doppel-Touch sind mit Chromium erneut grün.

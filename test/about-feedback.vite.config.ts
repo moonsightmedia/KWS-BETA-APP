@@ -32,7 +32,7 @@ export default defineConfig({
       });
     },
   }],
-  server: { host: '127.0.0.1', port: 5233, strictPort: true },
+  server: { host: '127.0.0.1', port: 5233, strictPort: true, watch: { ignored: ['**/output/**', '**/test-results/**'] } },
   cacheDir: 'node_modules/.vite-about-feedback',
   resolve: { alias: { '@': path.join(repo, 'src') }, dedupe: ['react', 'react-dom'] },
   define: {

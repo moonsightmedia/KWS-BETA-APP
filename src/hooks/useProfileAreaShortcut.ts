@@ -80,7 +80,10 @@ export function useProfileAreaShortcut(enabled: boolean, openMenu: () => void, c
     onClick: (event: MouseEvent<HTMLButtonElement>) => {
       if (!active) return;
       event.preventDefault();
-      if (event.detail === 0) {
+      // Chromium emits touch clicks as PointerEvent with detail=0; detail alone
+      // cannot distinguish a real tap from keyboard/assistive activation.
+      const pointerType = (event.nativeEvent as globalThis.PointerEvent).pointerType;
+      if (event.detail === 0 && !pointerType) {
         clearTimeout(pendingTap.current);
         lastTap.current = 0;
         openMenu();
