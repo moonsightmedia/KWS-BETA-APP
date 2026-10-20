@@ -46,6 +46,7 @@ jobs:
           python3 ops/hostinger/test-github-web-autodeploy.py
           python3 ops/hostinger/store-review/test_guards.py
           python3 ops/hostinger/landingpage/test-collect-landing.py
+          python3 ops/hostinger/test-supabase-schema-cors.py
       - name: Verify generated legal pages are committed
         run: |
           node ops/hostinger/landingpage/build-legal.mjs
