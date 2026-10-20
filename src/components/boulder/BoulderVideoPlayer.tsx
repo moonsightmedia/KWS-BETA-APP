@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BadgeCheck, Check, ChevronDown, ExternalLink, Loader2, Maximize2, Minimize2, Settings, Video } from 'lucide-react';
+import { BadgeCheck, Check, ChevronDown, ChevronUp, ExternalLink, Loader2, Maximize2, Minimize2, Settings, Video } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useBoulderVideoControls, useMobileVideoControls } from '@/hooks/useBoulderVideoControls';
 import { BoulderVideoControls } from './BoulderVideoControls';
+import { BoulderMobileDetail, type MobileBoulderDetail } from './BoulderMobileDetail';
 import './BoulderVideoControls.css';
 import {
   getNextLowerVideoQuality,
@@ -65,6 +66,7 @@ type BoulderVideoPlayerProps = {
   isVisible?: boolean;
   showOfficialBadge?: boolean;
   className?: string;
+  mobileDetail?: MobileBoulderDetail;
 };
 
 type FullscreenVideoElement = HTMLDivElement & {
@@ -88,6 +90,7 @@ export function BoulderVideoPlayer({
   isVisible = true,
   showOfficialBadge = false,
   className,
+  mobileDetail,
 }: BoulderVideoPlayerProps) {
   // Data transforms may produce equivalent objects; media effects follow URLs, not object identity.
   const hd = incomingVideoUrls?.hd;
@@ -105,6 +108,12 @@ export function BoulderVideoPlayer({
   const mountRef = useRef<HTMLDivElement>(null);
   const [portalHost] = useState(() => { const host = document.createElement('div'); host.style.cssText = 'width:100%;height:100%'; return host; });
   const [qualityOpen, setQualityOpen] = useState(false);
+  const [detailInteraction, setDetailInteraction] = useState(false);
+  const detailInteractionRef = useRef(false);
+  const lockDetailInteraction = useCallback((locked: boolean) => {
+    detailInteractionRef.current = locked;
+    setDetailInteraction(locked);
+  }, []);
   const [currentQuality, setCurrentQuality] = useState<VideoQualityLevel>(() =>
     getPreferredVideoQuality(betaVideoUrls, betaVideoUrl, getOptimalVideoQualityWithDataSaver(detectNetworkSpeed())));
   const [hasError, setHasError] = useState(false);
@@ -158,7 +167,8 @@ export function BoulderVideoPlayer({
   }, []);
 
   const currentVideoUrl = getVideoUrl(betaVideoUrls, betaVideoUrl, currentQuality);
-  const controls = useBoulderVideoControls(videoRef, hasError ? undefined : `${currentVideoUrl}|${sourceRevision}`, mobileControls, isVisible, qualityOpen);
+  const controls = useBoulderVideoControls(videoRef, hasError ? undefined : `${currentVideoUrl}|${sourceRevision}`, mobileControls, isVisible, qualityOpen || detailInteraction);
+  const revealControls = controls.reveal;
 
   // Keep the same portal host/media node while moving fallback fullscreen out of
   // transformed or clipped dialogs. React never changes the media portal target.
@@ -178,16 +188,16 @@ export function BoulderVideoPlayer({
   }, [viewportFullscreen]);
 
   useEffect(() => {
-    if (hasError) setViewportFullscreen(false);
-  }, [hasError]);
+    if (hasError) { setViewportFullscreen(false); revealControls(); }
+  }, [hasError, revealControls]);
 
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !event.defaultPrevented && !qualityOpen && !controls.menuOpen) setViewportFullscreen(false);
+      if (event.key === 'Escape' && !event.defaultPrevented && !qualityOpen && !controls.menuOpen && !detailInteraction) setViewportFullscreen(false);
     };
     window.addEventListener('keydown', escape);
     return () => window.removeEventListener('keydown', escape);
-  }, [qualityOpen, controls.menuOpen]);
+  }, [qualityOpen, controls.menuOpen, detailInteraction]);
 
   const handleQualityFallback = useCallback((reason: 'initial-load' | 'stall' | 'error') => {
     const nextQuality = getNextLowerVideoQuality(currentQuality, betaVideoUrls);
@@ -266,7 +276,7 @@ export function BoulderVideoPlayer({
       setIsBuffering(false);
 
       const shouldPlay = savedPlaybackState?.wasPlaying ?? !hasStartedPlayingRef.current;
-      if (shouldPlay && !document.hidden) {
+      if (shouldPlay && !document.hidden && !detailInteractionRef.current) {
         video.play().catch((error) => {
           console.log('[VideoPlayer] Auto-play blocked or failed:', error);
         });
@@ -471,6 +481,8 @@ export function BoulderVideoPlayer({
     if (!container) return;
     controls.reveal();
     if (viewportFullscreen) { setViewportFullscreen(false); return; }
+    // Keep nested tracking/report dialogs usable above the mobile detail player.
+    if (mobileControls && mobileDetail) { setViewportFullscreen(true); return; }
     const fullscreenDocument = document as FullscreenVideoDocument;
 
     try {
@@ -506,7 +518,10 @@ export function BoulderVideoPlayer({
     const fallbackUrl = getVideoUrl(betaVideoUrls, betaVideoUrl, 'low') || betaVideoUrl;
     return (
       <div className={cn('relative flex h-full w-full items-center justify-center rounded-kws-card bg-brand-ink', className)}>
-        <div className="space-y-4 p-4 text-center">
+        <BoulderMobileDetail detail={mobileDetail} enabled={mobileControls && Boolean(mobileDetail)} fullscreen={false}
+          menuOpen={false} videoRef={videoRef} controls={controls} onInteractionChange={lockDetailInteraction}>
+          {(openDetails, detailsButtonRef) => <div className="flex h-full items-center justify-center">
+        <div className={cn('space-y-4 p-4 text-center', mobileControls && mobileDetail && 'kws-mobile-video-error')}>
           <Video className="mx-auto h-12 w-12 text-white/60" />
           <div>
             <p className="mb-2 text-sm text-white">Video konnte nicht geladen werden</p>
@@ -541,6 +556,9 @@ export function BoulderVideoPlayer({
             )}
           </div>
         </div>
+        {mobileControls && mobileDetail ? <Button ref={detailsButtonRef} variant="secondary" size="icon" className="absolute bottom-3 right-3 z-30" aria-label="Boulder-Details öffnen" onClick={openDetails}><ChevronUp /></Button> : null}
+        </div>}
+        </BoulderMobileDetail>
       </div>
     );
   }
@@ -554,9 +572,10 @@ export function BoulderVideoPlayer({
         className,
         mobileControls && 'kws-video-mobile bg-secondary',
         viewportFullscreen && 'kws-video-viewport',
+        viewportFullscreen && mobileControls && mobileDetail && 'kws-mobile-detail-viewport',
         isFullscreen && 'flex min-h-[100svh] min-h-[100dvh] items-center justify-center rounded-none bg-[#F7F9F7]',
       )}
-      style={isFullscreen ? {
+      style={isFullscreen && !(mobileControls && mobileDetail) ? {
         paddingTop: 'max(var(--app-safe-area-top), 20px)',
         paddingBottom: 'max(var(--app-safe-area-bottom), 16px)',
         paddingLeft: 'env(safe-area-inset-left, 0px)',
@@ -601,6 +620,9 @@ export function BoulderVideoPlayer({
         video::-webkit-media-controls-mute-button { display: none !important; }
       `}</style>
 
+      <BoulderMobileDetail detail={mobileDetail} enabled={mobileControls && Boolean(mobileDetail)} fullscreen={isFullscreen}
+        menuOpen={qualityOpen || controls.menuOpen} videoRef={videoRef} controls={controls} onInteractionChange={lockDetailInteraction}>
+      {(openDetails, detailsButtonRef) => <>
       <video
         ref={videoRef}
         src={isVisible ? currentVideoUrl : undefined}
@@ -622,6 +644,7 @@ export function BoulderVideoPlayer({
 
       {showOfficialBadge ? (
         <div
+          data-video-official
           ref={element => { if (element) element.inert = mobileControls && !controls.visible; }}
           className="kws-video-chrome absolute left-2.5 top-2.5 z-30 flex h-8 items-center gap-1.5 rounded-kws-badge border border-white/70 bg-white/[0.96] px-2.5 text-brand-ink shadow-[0_3px_12px_rgba(19,17,43,0.16)] backdrop-blur-sm"
           style={isFullscreen ? {
@@ -635,6 +658,7 @@ export function BoulderVideoPlayer({
       ) : null}
 
       <div
+        data-video-top-actions
         ref={element => { if (element) element.inert = mobileControls && !controls.visible; }}
         className="kws-video-chrome absolute right-2.5 top-2.5 z-30 flex items-center gap-1.5"
         style={isFullscreen ? {
@@ -713,7 +737,7 @@ export function BoulderVideoPlayer({
           </DropdownMenu>
         ) : null}
 
-        <button
+        {(!mobileControls || !mobileDetail) && <button
           type="button"
           data-video-fullscreen
           onClick={toggleFullscreen}
@@ -722,10 +746,11 @@ export function BoulderVideoPlayer({
           title={isFullscreen ? 'Vollbild beenden' : 'Vollbild'}
         >
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-        </button>
+        </button>}
       </div>
 
-      {mobileControls && <BoulderVideoControls controls={controls} fullscreenContainer={isFullscreen ? containerRef.current : null} />}
+      {mobileControls && <BoulderVideoControls controls={controls} variant="compact" fullscreenContainer={isFullscreen ? containerRef.current : null}
+        onDetails={mobileDetail ? openDetails : undefined} detailsButtonRef={detailsButtonRef} />}
 
       {isBuffering && (
         <div
@@ -742,6 +767,8 @@ export function BoulderVideoPlayer({
           Video wird geladen …
         </div>
       )}
+      </>}
+      </BoulderMobileDetail>
     </div>, portalHost)}
     </div>
   );

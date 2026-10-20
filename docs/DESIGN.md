@@ -1182,28 +1182,34 @@ Bedienelemente auf wechselnden Wandfotos lesbar bleiben:
   Fullscreen-Container. So bleiben sie im Vollbild sichtbar und werden nicht
   durch doppelte seitenlokale Controls überlagert.
 
-### 8.3.1 Produktive Integration des normalen Mobile Players – Nutzerfreigabe 19.10.2026
+### 8.3.1 Übernahme in den normalen Mobile Player – Freigabe 20.10.2026
 
-- Die V2-Bedienung wird in den regulären `BoulderVideoPlayer` übernommen.
-  Sie gilt unter 768px sowie auf Touchgeräten (`pointer: coarse`), auch im
-  Querformat. Breite Mausgeräte behalten ihre bestehende Browsersteuerung.
-  Der separat entwickelte Reels-/Videofeed bleibt ausdrücklich außen vor.
-- Eigene Play/Pause-, Neustart- und 5-Sekunden-Controls, präzise Zeitleiste,
-  Zeitlupe 0,25×/0,5×/0,75×/1× und Loop liegen auf demselben Medienelement.
-  Auf Mobilgeräten wird das vollständige Bild auch eingebettet eingepasst.
-- Ein freier Bild-Tap blendet sämtliche Player-Controls ein/aus, auch bei Pause.
-  Standbild, Zeit und Geometrie bleiben erhalten. Verborgene Controls sind inert.
-  Bei Wiedergabe verschwindet die Bedienung nach etwa 2,5 Sekunden; Spulen,
-  offene Menüs und Tastaturfokus halten sie sichtbar. Enter/Fokus zeigt sie wieder.
-- Netzwerkbasierte Startqualität, manueller Qualitätswechsel mit Position und
-  Pausezustand, automatischer Stall-Fallback, erzwungene Stummschaltung,
-  Monitoring und Retry bleiben die bestehende Wiedergabelogik. Zeitlupe und Loop
-  überstehen Qualitätswechsel. Die Controls starten oder laden keine eigene Quelle.
-- Vollbild erhält dieselbe Medieninstanz. Fehlt die native Fullscreen-API,
-  wird derselbe Medienhost aus begrenzenden Vorfahren in eine Viewportansicht
-  verschoben; Escape, Fokusrückgabe, Safe Areas und Scrollsperre sind vorgesehen.
-- Externe YouTube-/Vimeo-Einbettungen behalten ihren eigenen Freigabe-/Playerweg.
-  Veröffentlichungen folgen dem regulären PR-/CI-Weg.
+Der Nutzer hat V5 einschließlich der Wischgesten zur App-Integration freigegeben.
+Die mobile Detailseite für direkte Videos nutzt das vollständig eingepasste,
+zentrierte Video als gesamte Fläche. Oben und unten laufen weiche Verläufe aus;
+auf letzte Präzisierung reicht der obere Verlauf weiter ins Bild (200px ab
+Bildkante, unten 140px). Safe Areas und die tatsächliche Video-Seitenproportion
+bestimmen die Position der Verläufe. Name, Grad/Farbe, Bereich und Datum stehen
+oben; die globale Navigation ist auf mobilen Boulder-Detailrouten verborgen.
+
+Die 56px-Abspielbar enthält Play/Pause, die breite Zeitleiste mit Zeit und den
+reinen Detailpfeil. Geschwindigkeit und Loop stehen rechts darüber. Im normalen
+Mobile Player entfallen zentrale Play-Fläche und 5-Sekunden-Buttons. Freier
+Bildtap blendet das gesamte Layout inklusive Verläufen auch bei Pause aus.
+Die mobile Detailansicht hat keinen Vollbildbutton, da sie die verfügbare
+Fläche bereits nutzt. Im Desktop- und eingebetteten Player bleibt er erhalten.
+
+Im Detailplayer öffnen Aufwärtsgesten aus dem unteren Bildbereich oder am Pfeil
+das Detailsheet. Am Griff/Kopfbereich nach unten ziehen schließt es. Das Sheet
+folgt der Geste; kurze/abgebrochene Züge kehren zurück. Spulen und andere Controls
+lösen keine Sheetgeste aus. Echte Info-/Track-/Beta-Inhalte bleiben scrollbar;
+Gäste erhalten weiterhin keinen Track-Tab. Pfeil, Schließen, Escape und Fokus-
+Rückkehr bleiben erhalten. Beim Öffnen wird pausiert; Medieninstanz, Zeit,
+Geschwindigkeit und Loop bleiben bei Panel- und Qualitätswechseln erhalten.
+Vollbild bleibt in Desktop- und eingebetteten Playern verfügbar. Desktop, externe
+Videoanbieter und Videofeed werden durch diese Layoutfreigabe nicht umgestaltet.
+
+Prüfung: `docs/qa/2026-10-20-mobile-player-v5-integration.md`.
 
 ### 8.4 Kommentare und Track
 
