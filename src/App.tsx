@@ -2,7 +2,7 @@ import OnboardingPreview from '@/pages/OnboardingPreview';
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { createBrowserRouter, RouterProvider, useLocation, useNavigate, useNavigationType, Navigate } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, useLocation, useNavigate, useNavigationType, Navigate, type RouteObject } from "react-router-dom";
 import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
@@ -179,6 +179,12 @@ const GuestOverviewRoute = () => {
     : <Guest />;
 };
 
+const mainRoutes: RouteObject[] = [
+  { path: '/', element: <RequireAuth><Index /></RequireAuth> },
+  { path: '/boulders', element: <BouldersOverviewRoute /> },
+  { path: '/statistics', element: <RequireAuth><Statistics /></RequireAuth> },
+];
+
 const Root = () => {
   useNotificationRuntime();
   const navigate = useNavigate();
@@ -337,7 +343,7 @@ const Root = () => {
               <EmergencyReset />
               <MonitoringConsentPrompt />
               <TrainingProvider key={user?.id ?? 'guest'} accountId={user?.id ?? 'guest'}>
-                <BoulderRouteContinuity key={user?.id ?? 'guest'} />
+                <BoulderRouteContinuity key={user?.id ?? 'guest'} mainRoutes={mainRoutes} />
               </TrainingProvider>
             </ErrorBoundaryWithAuth>
           </UploadProvider>
@@ -393,14 +399,10 @@ const router = createBrowserRouter([
     path: "/",
     element: <Root />,
     children: [
-      { index: true, element: (
-        <RequireAuth>
-          <Index />
-        </RequireAuth>
-      ) },
+      { index: true, element: mainRoutes[0].element },
       { path: "sectors", element: <Sectors /> },
       { path: "schedule", element: <ResetSchedule /> },
-      { path: "boulders", element: <BouldersOverviewRoute /> },
+      { path: "boulders", element: mainRoutes[1].element },
       { path: "boulders/:id", element: <BoulderDetail /> },
       { path: "onboarding/account", element: <OnboardingPreview /> },
       { path: "onboarding/progress", element: <OnboardingPreview /> },
@@ -437,11 +439,7 @@ const router = createBrowserRouter([
           <Navigate to="/profile" replace />
         </RequireAuth>
       ) },
-      { path: "statistics", element: (
-        <RequireAuth>
-          <Statistics />
-        </RequireAuth>
-      ) },
+      { path: "statistics", element: mainRoutes[2].element },
       { path: 'training/*', element: TRAINING_UI_ENABLED ? <RequireAuth><Training /></RequireAuth> : <NotFound /> },
       { path: 'profile/training', element: TRAINING_UI_ENABLED ? <RequireAuth><TrainingSettings /></RequireAuth> : <NotFound /> },
       { path: "admin", element: <Admin /> },

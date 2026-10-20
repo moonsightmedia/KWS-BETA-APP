@@ -1,3 +1,4 @@
+import { useRouteSwipePreview } from '@/contexts/RouteSwipeContext';
 import { BrandWatermark } from '@/components/brand/BrandWatermark';
 import { BoulderCardCaption } from '@/components/boulder/BoulderCardCaption';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -140,6 +141,7 @@ const Boulders = () => {
   const [viewMode, setViewMode] = useState<BoulderViewMode>(getStoredBoulderView);
   const lastRegularView = useRef<'list' | 'grid'>(viewMode === 'grid' ? 'grid' : 'list');
   const coveredByDetail = useRetainedBoulderOrigin();
+  const swipePreview = useRouteSwipePreview();
   const [collapsedAreaNames, setCollapsedAreaNames] = useState<Set<string>>(getStoredCollapsedAreas);
   const headerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -775,7 +777,7 @@ const Boulders = () => {
   }
 
   return (<>
-    <div className="flex min-h-screen bg-brand-canvas" aria-hidden={viewMode === 'video' || undefined} {...(viewMode === 'video' ? { inert: '' } : {})}>
+    <div className="flex min-h-screen bg-brand-canvas" aria-hidden={(viewMode === 'video' && !swipePreview) || undefined} {...(viewMode === 'video' && !swipePreview ? { inert: '' } : {})}>
       <div ref={swipeRef} className={cn('kws-sidebar-content flex min-w-0 flex-1 flex-col bg-brand-canvas md:mb-0', isExpanded ? 'md:ml-64' : 'md:ml-20')}>
         {pageHeader}
 
@@ -1097,7 +1099,7 @@ const Boulders = () => {
 
       </div>
     </div>
-    {viewMode === 'video' && <BoulderVideoFeed boulders={videoBoulders} active={!coveredByDetail} loading={isLoading} onExit={() => setViewMode(lastRegularView.current)} onDetail={handleBoulderClick} onFilter={() => { setShowFilters(true); setShowSort(false); }} filtersOpen={showFilters} filterCount={activeFilterCount} sortLabel={sortOptions.find(option => option.key === selectedSortOption)?.label ?? 'Neueste zuerst'} sortControls={close => <BoulderSortPanel className="kws-feed-sort" options={sortOptions} selected={selectedSortOption} onSelect={value => { applySortOption(value); close(); }}/>} onReset={() => { clearFilters(); setSearchQuery(''); }}/>}
+    {viewMode === 'video' && !swipePreview && <BoulderVideoFeed boulders={videoBoulders} active={!coveredByDetail} loading={isLoading} onExit={() => setViewMode(lastRegularView.current)} onDetail={handleBoulderClick} onFilter={() => { setShowFilters(true); setShowSort(false); }} filtersOpen={showFilters} filterCount={activeFilterCount} sortLabel={sortOptions.find(option => option.key === selectedSortOption)?.label ?? 'Neueste zuerst'} sortControls={close => <BoulderSortPanel className="kws-feed-sort" options={sortOptions} selected={selectedSortOption} onSelect={value => { applySortOption(value); close(); }}/>} onReset={() => { clearFilters(); setSearchQuery(''); }}/>}
   </>
   );
 };

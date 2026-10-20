@@ -1,8 +1,9 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useLayoutEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { resolveHorizontalSwipeIntent } from '@/lib/routeSwipe';
-import { createRouteSwipeMotion, prepareSwipeArrival } from '@/lib/routeSwipeMotion';
+import { shouldCommitRouteSwipe } from '@/lib/routeSwipeMotion';
+import { RouteSwipeContext, useRouteSwipePreview } from '@/contexts/RouteSwipeContext';
 import { useTrainingPreferences } from '@/features/training/trainingPreferences';
 
 export type SwipeRoute = string | { path: string; match?: (pathname: string) => boolean };
@@ -45,6 +46,8 @@ export const useHorizontalRouteSwipe = ({
   const ref = useCallback((node: HTMLElement | null) => setElement(node), []);
   const location = useLocation();
   const navigate = useNavigate();
+  const pager = useContext(RouteSwipeContext);
+  const preview = useRouteSwipePreview();
   const { trainingEnabled } = useTrainingPreferences();
   const routesRef = useRef(routes);
   const locationRef = useRef(location.pathname);
@@ -55,12 +58,10 @@ export const useHorizontalRouteSwipe = ({
   navigateRef.current = navigate;
 
   useLayoutEffect(() => {
-    if (!element) return;
+    if (!element || preview) return;
 
     const previousTouchAction = element.style.touchAction;
     element.style.touchAction = 'pan-y pinch-zoom';
-    const motion = createRouteSwipeMotion(element);
-    motion.enter(locationRef.current);
 
     let startX = 0;
     let startY = 0;
@@ -70,7 +71,8 @@ export const useHorizontalRouteSwipe = ({
     let horizontalLocked = false;
     let touchTracking = false;
     let suppressClickUntil = 0;
-    let settling = false;
+    let lastSample = { x: 0, time: 0 };
+    let velocity = 0;
 
     const currentRouteIndex = () => routesRef.current.findIndex((route) => (
       typeof route === 'string'
@@ -96,15 +98,18 @@ export const useHorizontalRouteSwipe = ({
     const cancelGesture = () => {
       if (horizontalLocked) {
         suppressClickUntil = Date.now() + 450;
-        motion.reset();
+        pager?.cancel();
       }
       resetGesture();
     };
 
     const moveGesture = (clientX: number, clientY: number, event?: Event) => {
-      if (cancelled || settling) return;
+      if (cancelled) return;
 
       lastX = clientX;
+      const now = performance.now();
+      if (now > lastSample.time) velocity = (clientX - lastSample.x) / (now - lastSample.time);
+      lastSample = { x: clientX, time: now };
       const intent = resolveHorizontalSwipeIntent(
         clientX - startX,
         horizontalLocked ? 0 : clientY - startY,
@@ -123,7 +128,7 @@ export const useHorizontalRouteSwipe = ({
         suppressClickUntil = Date.now() + 450;
         const index = currentRouteIndex();
         const neighbor = routesRef.current[index + (clientX < startX ? 1 : -1)];
-        motion.drag(clientX - startX, index < 0 || !neighbor);
+        pager?.move(element, index < 0 || !neighbor ? null : routePath(neighbor), clientX - startX);
         if (event?.cancelable) event.preventDefault();
       }
     };
@@ -134,43 +139,29 @@ export const useHorizontalRouteSwipe = ({
         return false;
       }
 
-      const intent = resolveHorizontalSwipeIntent(
-        clientX - startX,
-        0,
-        threshold,
-        axisRatio,
-      );
+      const delta = clientX - startX;
       const currentIndex = currentRouteIndex();
 
-      if (currentIndex < 0 || (intent !== 'next' && intent !== 'previous')) {
+      if (currentIndex < 0) {
         cancelGesture();
         return false;
       }
 
-      const nextIndex = currentIndex + (intent === 'next' ? 1 : -1);
+      const nextIndex = currentIndex + (delta < 0 ? 1 : -1);
       const nextRoute = routesRef.current[nextIndex];
       resetGesture();
 
-      if (!nextRoute) {
-        motion.reset();
-        return false;
-      }
-
       suppressClickUntil = Date.now() + 450;
-      settling = true;
-      const direction = intent === 'next' ? -1 : 1;
-      motion.leave(direction, () => {
-        prepareSwipeArrival(routePath(nextRoute), direction);
-        navigateRef.current(routePath(nextRoute));
-        settling = false;
-      });
+      const releaseVelocity = performance.now() - lastSample.time < 100 ? velocity : 0;
+      if (pager) pager.finish(nextRoute ? routePath(nextRoute) : null, delta, releaseVelocity, threshold);
+      else if (nextRoute && shouldCommitRouteSwipe(delta, releaseVelocity, element.clientWidth, threshold)) navigateRef.current(routePath(nextRoute));
       return true;
     };
 
     const onPointerDown = (event: PointerEvent) => {
       // Real touch input is handled below because older Android WebViews can
       // cancel pointer sequences while handing a gesture to native scrolling.
-      if (event.pointerType === 'touch' || settling) return;
+      if (event.pointerType === 'touch') return;
       if (!event.isPrimary || event.button !== 0 || shouldIgnore(event.target)) {
         pointerId = null;
         return;
@@ -178,6 +169,8 @@ export const useHorizontalRouteSwipe = ({
       startX = event.clientX;
       startY = event.clientY;
       lastX = event.clientX;
+      lastSample = { x: event.clientX, time: performance.now() };
+      velocity = 0;
       pointerId = event.pointerId;
       cancelled = false;
       horizontalLocked = false;
@@ -194,7 +187,6 @@ export const useHorizontalRouteSwipe = ({
     };
 
     const onTouchStart = (event: TouchEvent) => {
-      if (settling) return;
       if (event.touches.length !== 1 || shouldIgnore(event.target)) {
         cancelGesture();
         return;
@@ -204,6 +196,8 @@ export const useHorizontalRouteSwipe = ({
       startX = touch.clientX;
       startY = touch.clientY;
       lastX = touch.clientX;
+      lastSample = { x: touch.clientX, time: performance.now() };
+      velocity = 0;
       cancelled = false;
       horizontalLocked = false;
       touchTracking = true;
@@ -245,7 +239,7 @@ export const useHorizontalRouteSwipe = ({
     element.addEventListener('click', onClickCapture, true);
     window.addEventListener('blur', onPointerCancel);
     return () => {
-      motion.destroy();
+      pager?.cancel();
       element.style.touchAction = previousTouchAction;
       element.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('pointermove', onPointerMove);
@@ -258,7 +252,7 @@ export const useHorizontalRouteSwipe = ({
       element.removeEventListener('click', onClickCapture, true);
       window.removeEventListener('blur', onPointerCancel);
     };
-  }, [element, axisRatio, threshold, location.key]);
+  }, [element, axisRatio, threshold, location.key, pager, preview]);
 
   return ref;
 };
