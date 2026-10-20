@@ -20,7 +20,7 @@ interface TouchState {
 }
 
 const TOP_TOLERANCE = 3;
-const MIN_REFRESH_VISIBILITY_MS = 650;
+const MIN_REFRESH_VISIBILITY_MS = 250;
 const DISABLED_ROUTES = ['/auth', '/auth/callback', '/competition'];
 
 const isDocumentAtTop = () => {
@@ -148,6 +148,9 @@ export const PullToRefreshHandler = () => {
         } else {
           toast.success('Aktualisiert', {
             description: 'Alle Inhalte sind aktuell.',
+            id: 'pull-to-refresh-success',
+            duration: 800,
+            closeButton: false,
           });
         }
       } catch (error) {
