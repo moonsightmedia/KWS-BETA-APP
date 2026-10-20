@@ -90,3 +90,10 @@ html[data-kws-review] .kws-feed .reel-header,html[data-kws-review] .kws-feed .re
 /* Fullscreen feed: media fills the stage behind the overlay controls. */
 .kws-feed .reel-media{position:absolute;inset:0;pointer-events:none}
 .kws-feed .video-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,hsl(var(--brand-ink)/.66),transparent 24%,transparent 48%,hsl(var(--brand-ink)/.78) 78%,hsl(var(--brand-ink)/.92))}
+
+/* Two fingers control the video only; dialogs retain normal browser zoom. */
+.kws-feed .reel[data-zoomable=true]{touch-action:none}
+.kws-feed .reel-video{transform-origin:center}
+.kws-feed .zoom-feedback{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 24px);transform:translateX(-50%);z-index:9;pointer-events:none;border-radius:8px;background:hsl(var(--brand-ink)/.9);color:white;padding:9px 14px;font-size:13px;font-weight:600;white-space:nowrap}
+.kws-feed-quality-menu{max-height:min(480px,var(--radix-dropdown-menu-content-available-height,calc(100dvh - 32px)));overflow-y:auto}
+html[data-kws-review] .kws-feed .zoom-feedback{top:24px}

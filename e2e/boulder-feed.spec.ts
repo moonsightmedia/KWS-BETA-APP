@@ -226,6 +226,119 @@ test('guests can use videos and details without personal actions', async ({ page
   expect(db.writes).toHaveLength(0);
 });
 
+test('two-finger zoom reveals the whole source, pans and keeps quality switches independent', async ({ page }) => {
+  const db = await backend(page); await enter(page); await chooseDoubleTap(page, 'Als Projekt speichern');
+  const reel = page.locator('.kws-feed .reel'), video = frame(page).locator('video');
+  const client = await page.context().newCDPSession(page);
+  const touch = (type: string, points: Array<{ id: number; x: number; y: number }>) => client.send('Input.dispatchTouchEvent', { type, touchPoints: points });
+  await frame(page).locator('.playback button').click();
+  await video.evaluate(v => { v.currentTime = .5; });
+  const start = Number(await reel.getAttribute('data-zoom-scale'));
+  expect(start).toBeGreaterThan(1);
+  await touch('touchStart', [{ id: 1, x: 90, y: 320 }, { id: 2, x: 280, y: 320 }]);
+  await touch('touchMove', [{ id: 1, x: 140, y: 320 }, { id: 2, x: 230, y: 320 }]);
+  await touch('touchEnd', []);
+  await expect(reel).toHaveAttribute('data-zoom-mode', 'fit');
+  await expect(reel).toHaveAttribute('data-zoom-scale', '1');
+  await expect(video).toHaveJSProperty('paused', true);
+  await touch('touchStart', [{ id: 1, x: 140, y: 320 }, { id: 2, x: 230, y: 320 }]);
+  await touch('touchMove', [{ id: 1, x: 80, y: 320 }, { id: 2, x: 290, y: 320 }]);
+  await touch('touchMove', [{ id: 1, x: 40, y: 250 }, { id: 2, x: 250, y: 250 }]);
+  await touch('touchEnd', [{ id: 2, x: 250, y: 250 }]);
+  await touch('touchMove', [{ id: 2, x: 250, y: 100 }]);
+  await touch('touchEnd', []);
+  await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-a');
+  await expect(video).toHaveJSProperty('playbackRate', 1);
+  const transform = await video.evaluate(v => getComputedStyle(v).transform);
+  const scale = await reel.getAttribute('data-zoom-scale');
+  expect(Number(scale)).toBeGreaterThan(2);
+  expect(await video.evaluate(v => new DOMMatrix(getComputedStyle(v).transform).m41)).toBeLessThan(0);
+  await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+  await page.getByRole('menuitemradio', { name: /Low/ }).click();
+  await expect(video).toHaveJSProperty('readyState', 4);
+  await expect(reel).toHaveAttribute('data-zoom-scale', scale!);
+  await expect(video).toHaveCSS('transform', transform);
+  await expect(video).toHaveJSProperty('paused', true);
+  expect(await video.evaluate(v => v.currentTime)).toBeCloseTo(.5, 1);
+  expect(db.writes).toHaveLength(0);
+  await touch('touchStart', [{ id: 1, x: 180, y: 450 }]);
+  await touch('touchMove', [{ id: 1, x: 180, y: 190 }]);
+  await touch('touchEnd', []);
+  await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-b');
+  await expect(reel).toHaveAttribute('data-zoom-mode', 'fill');
+  await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+  await page.getByRole('menuitemradio', { name: 'Ganzes Video', exact: true }).click();
+  await expect(reel).toHaveAttribute('data-zoom-scale', '1');
+});
+
+test('pinch cancellation and a second finger during speed hold never cause an extra action', async ({ page }) => {
+  await backend(page); await enter(page);
+  const client = await page.context().newCDPSession(page);
+  const touch = (type: string, points: Array<{ id: number; x: number; y: number }>) => client.send('Input.dispatchTouchEvent', { type, touchPoints: points });
+  const reel = page.locator('.kws-feed .reel');
+  const scale = await reel.getAttribute('data-zoom-scale');
+  await touch('touchStart', [{ id: 1, x: 90, y: 320 }, { id: 2, x: 280, y: 320 }]);
+  await touch('touchMove', [{ id: 1, x: 40, y: 280 }, { id: 2, x: 330, y: 280 }]);
+  await touch('touchCancel', []);
+  await expect(reel).toHaveAttribute('data-zoom-scale', scale!);
+  await expect(page.locator('.zoom-feedback')).toHaveCount(0);
+  await expect(frame(page).locator('video')).toHaveJSProperty('paused', false);
+  await frame(page).locator('.playback button').click();
+  await touch('touchStart', [{ id: 1, x: 90, y: 320 }]);
+  await expect(page.locator('.speed-feedback')).toHaveText('0,5×');
+  await touch('touchStart', [{ id: 1, x: 90, y: 320 }, { id: 2, x: 280, y: 320 }]);
+  await expect(page.locator('.speed-feedback')).toHaveCount(0);
+  await expect(frame(page).locator('video')).toHaveJSProperty('playbackRate', 1);
+  await touch('touchCancel', []);
+  await expect(frame(page).locator('video')).toHaveJSProperty('paused', true);
+  await expect(page.locator('.kws-feed')).toHaveAttribute('data-clean', 'false');
+  await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-a');
+  await touch('touchStart', [{ id: 1, x: 90, y: 320 }, { id: 2, x: 280, y: 320 }]);
+  await touch('touchMove', [{ id: 1, x: 40, y: 300 }, { id: 2, x: 330, y: 300 }]);
+  await touch('touchStart', [{ id: 1, x: 40, y: 300 }, { id: 2, x: 330, y: 300 }, { id: 3, x: 180, y: 400 }]);
+  await touch('touchEnd', []);
+  await expect(reel).toHaveAttribute('data-zoom-scale', scale!);
+  await expect(page.locator('.zoom-feedback')).toHaveCount(0);
+});
+
+test('image size menu and keyboard provide zoom without a pinch gesture', async ({ page }) => {
+  await backend(page); await enter(page);
+  const reel = page.locator('.kws-feed .reel');
+  await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+  await page.getByRole('menuitemradio', { name: 'Ganzes Video', exact: true }).click();
+  await expect(reel).toHaveAttribute('data-zoom-scale', '1');
+  await reel.focus(); await page.keyboard.press('+');
+  await expect(reel).toHaveAttribute('data-zoom-scale', '1.2');
+  await page.keyboard.press('-'); await expect(reel).toHaveAttribute('data-zoom-scale', '1');
+  await page.keyboard.press('0'); await expect(reel).toHaveAttribute('data-zoom-mode', 'fill');
+  await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+  await page.getByRole('menuitemradio', { name: '2× vergrößern', exact: true }).click();
+  await expect(reel).toHaveAttribute('data-zoom-scale', '2');
+  await page.mouse.move(180, 320); await page.keyboard.down('Control'); await page.mouse.wheel(0, -200); await page.keyboard.up('Control');
+  await expect.poll(async () => Number(await reel.getAttribute('data-zoom-scale'))).toBeGreaterThan(2);
+  expect(await page.evaluate(() => ({ width: innerWidth, scale: visualViewport?.scale }))).toEqual({ width: 375, scale: 1 });
+  await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-a');
+  await page.setViewportSize({ width: 812, height: 375 });
+  await reel.focus(); await page.keyboard.press('0');
+  await expect(reel).toHaveAttribute('data-zoom-mode', 'fill');
+  await expect.poll(async () => Number(await reel.getAttribute('data-zoom-scale'))).toBeGreaterThan(2);
+});
+
+test('a second finger on or after rating controls does not submit a rating', async ({ page }) => {
+  const db = await backend(page); await enter(page);
+  const stars = (await frame(page).getByRole('group', { name: 'Deine Sternebewertung' }).boundingBox())!;
+  const client = await page.context().newCDPSession(page);
+  const touch = (type: string, points: Array<{ id: number; x: number; y: number }>) => client.send('Input.dispatchTouchEvent', { type, touchPoints: points });
+  await touch('touchStart', [{ id: 1, x: 90, y: 320 }]);
+  await touch('touchStart', [{ id: 1, x: 90, y: 320 }, { id: 2, x: stars.x + 60, y: stars.y + 20 }]);
+  await touch('touchEnd', []);
+  await touch('touchStart', [{ id: 1, x: stars.x + 60, y: stars.y + 20 }]);
+  await touch('touchStart', [{ id: 1, x: stars.x + 60, y: stars.y + 20 }, { id: 2, x: 280, y: 320 }]);
+  await touch('touchEnd', []);
+  expect(db.writes).toHaveLength(0);
+  await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-a');
+});
+
 test('sort, video-only empty selection, reload and demo notice keep a usable fullscreen view', async ({ page }) => {
   await backend(page); await enter(page);
   await frame(page).getByRole('button', { name: 'Sortierung öffnen' }).click();
@@ -319,11 +432,15 @@ test('two visual loops on all four required widths', async ({ page }) => {
     await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-feed.png`, animations: 'disabled' });
     const geometry = await frame(page).evaluate(node => {
       const video = node.querySelector('video')!;
-      const media = video.getBoundingClientRect(), stage = node.getBoundingClientRect();
-      return { fit: getComputedStyle(video).objectFit, media: { x: media.x, y: media.y, width: media.width, height: media.height }, stage: { x: stage.x, y: stage.y, width: stage.width, height: stage.height } };
+      const media = node.querySelector('.reel-media')!.getBoundingClientRect(), stage = node.getBoundingClientRect();
+      const fit = Math.min(stage.width / video.videoWidth, stage.height / video.videoHeight);
+      const scale = new DOMMatrix(getComputedStyle(video).transform).a;
+      return { fit: getComputedStyle(video).objectFit, paintedWidth: video.videoWidth * fit * scale, paintedHeight: video.videoHeight * fit * scale, media: { x: media.x, y: media.y, width: media.width, height: media.height }, stage: { x: stage.x, y: stage.y, width: stage.width, height: stage.height } };
     });
-    expect(geometry.fit).toBe('cover');
+    expect(geometry.fit).toBe('contain');
     expect(geometry.media).toEqual(geometry.stage);
+    expect(geometry.paintedWidth).toBeGreaterThanOrEqual(geometry.stage.width - .1);
+    expect(geometry.paintedHeight).toBeGreaterThanOrEqual(geometry.stage.height - .1);
     await frame(page).getByRole('button', { name: '2 Kommentare öffnen', exact: true }).click();
     await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-comments.png`, animations: 'disabled' });
     await page.getByRole('button', { name: 'Schließen', exact: true }).click();
@@ -335,6 +452,15 @@ test('two visual loops on all four required widths', async ({ page }) => {
     await page.screenshot({ path: `output/video-feed/integration/loop2-${width}-filters.png`, animations: 'disabled' });
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).toHaveCount(0);
+    await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+    await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-zoom-menu.png`, animations: 'disabled' });
+    await page.getByRole('menuitemradio', { name: 'Ganzes Video', exact: true }).click();
+    await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-zoom-fit.png`, animations: 'disabled' });
+    await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+    await page.getByRole('menuitemradio', { name: '2× vergrößern', exact: true }).click();
+    await page.screenshot({ path: `output/video-feed/integration/loop2-${width}-zoom-detail.png`, animations: 'disabled' });
+    await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+    await page.getByRole('menuitemradio', { name: 'Bildschirm füllen', exact: true }).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     expect((await page.locator('.kws-feed').boundingBox())?.width).toBe(width);
   }

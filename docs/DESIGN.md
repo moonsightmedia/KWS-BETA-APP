@@ -743,10 +743,25 @@ Ansicht, aktive Filter und Sortierung bleiben beim Wechsel nachvollziehbar erhal
   vollständige Zahl und Aktion. Projektstatus erhält zusätzlich ein Häkchen,
   Tracking das jeweilige Ergebnissymbol. Mindestens44px Touchfläche bleiben erhalten.
 - Nutzerpräzisierung 20.10.2026: Das Video füllt die gesamte Feedfläche wie bei
-  Reels (`object-fit: cover`), hinter Kopf, Aktionen und Fuß. Kein verkleinerter
+  Reels, hinter Kopf, Aktionen und Fuß. Kein verkleinerter
   Medienbereich zwischen Bedienelementen und keine reservierten Bildränder.
   Zur Lesbarkeit liegen dezente Verläufe unter den überlagerten Controls.
   Ausblenden und temporäres Tempo ändern die Videogeometrie nicht.
+- Nutzerfreigabe 20.10.2026: Zwei Finger auf der freien Videofläche zoomen wie
+  bei YouTube: zusammen bis zum ganzen Quellbild, auseinander bis in Details.
+  Der Zweifinger-Mittelpunkt bleibt der Bezugspunkt; gemeinsames Verschieben
+  bewegt den Ausschnitt innerhalb der Bildgrenzen. Das Video startet füllend.
+  Ein Finger behält Tippen/Halten/Video-Wechsel; der verbleibende Finger nach
+  einem Pinch löst keine dieser Aktionen aus. Dritter Finger, Gestenabbruch,
+  Hintergrund oder ein fremdes Panel beenden die Geste ohne Folgeschreibaktion.
+  Vergrößerung und Ausschnitt erhalten Pause, Zeit, Projekt und Layoutsichtbarkeit;
+  Qualitätswechsel erhalten den Zoom. Das nächste Video startet wieder füllend.
+  „Bildgröße“ im vorhandenen Wiedergabemenü bietet Ganzes Video, Bildschirm füllen,
+  2× und3×. Alternativen: Plus/Minus,0 für Füllen und Strg/Mausrad bzw. Trackpad.
+  Keine neue große Karte oder dauerhafte zusätzliche Aktionsleiste. Während der
+  Geste und kurz danach erscheint eine kompakte Zoomanzeige. Die App selbst und
+  die Dialoge werden nicht skaliert. Die Bildtransformation verwendet das ganze
+  Quellbild als Grundlage, damit Herauszoomen zuvor verdeckte Ränder zeigt.
 - Ein kurzes Tippen auf die freie Videofläche pausiert bzw. startet die Wiedergabe.
   Doppeltipp ist standardmäßig **aus**. Unter Profil/Einstellungen → Bedienung
   (`/profile/interaction`) steht die Kategorie „Video-Feed“. Eine kompakte Zeile
