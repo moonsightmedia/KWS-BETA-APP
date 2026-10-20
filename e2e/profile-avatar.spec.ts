@@ -49,6 +49,27 @@ test('removed photo never returns from stale metadata, including after save and 
   await page.getByRole('button',{name:'Profil bearbeiten',exact:true}).click();
   await expect(page.getByRole('button',{name:'Bild auswählen',exact:true})).toBeVisible();
 });
+test('individual field resets preserve the other draft and remove only their own errors',async({page})=>{
+  const ctx=await open(page);
+  await page.getByLabel('Name',{exact:true}).fill('');
+  await page.getByLabel('E-Mail',{exact:true}).fill('invalid');
+  await page.getByRole('button',{name:'Speichern',exact:true}).click();
+  await expect(page.getByLabel('Name',{exact:true})).toHaveAttribute('aria-invalid','true');
+  await page.getByRole('button',{name:'Name zurücksetzen',exact:true}).click();
+  await expect(page.getByLabel('Name',{exact:true})).toHaveValue('Alex Berg');
+  await expect(page.getByLabel('Name',{exact:true})).toBeFocused();
+  await expect(page.getByLabel('Name',{exact:true})).toHaveAttribute('aria-invalid','false');
+  await expect(page.getByLabel('E-Mail',{exact:true})).toHaveValue('invalid');
+  await expect(page.getByLabel('E-Mail',{exact:true})).toHaveAttribute('aria-invalid','true');
+  await expect(page.getByText('Ungespeichert',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'E-Mail zurücksetzen',exact:true}).click();
+  await expect(page.getByLabel('E-Mail',{exact:true})).toBeFocused();
+  await expect(page.getByText('Ungespeichert',{exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Zum Profil',exact:true}).click();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  expect(ctx.writes).toEqual([]);
+});
+
 test('removing photo automatically updates menu and profile despite failed auth sync',async({page})=>{
   const ctx=await open(page);await page.getByRole('button',{name:'Bild entfernen',exact:true}).click();
   await expect(page.getByText('Profilbild entfernt',{exact:true})).toBeVisible();

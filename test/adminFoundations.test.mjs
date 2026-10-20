@@ -58,6 +58,15 @@ test('profile payload trims names, clears optional fields and preserves existing
   assert.deepEqual(profileDraftPayload({ firstName: ' ', lastName: '', birthDate: '' }), { first_name: null, last_name: null, full_name: null, birth_date: null });
   assert.throws(() => profileDraftPayload({ ...draft, birthDate: '31.02.2000' }));
 });
+
+test('completed birthday inputs accept digits and separators without bypassing calendar validation', () => {
+  const today = new Date(2026, 8, 13, 12);
+  for (const value of ['29022000', '29/02/2000', '29-02-2000']) {
+    assert.equal(parseBirthDate(value, today), '2000-02-29');
+    assert.equal(profileDraftPayload({ firstName: 'Alex', lastName: '', birthDate: value }).birth_date, '2000-02-29');
+  }
+  for (const value of ['29022001', '31042000', '14092026', '01010000', '290220', '2000-02-29']) assert.equal(parseBirthDate(value, today), undefined, value);
+});
 test('navigation contains every admin page once, with safe fallbacks', () => {
   assert.equal(new Set(ADMIN_TABS.map(tab => tab.value)).size, 8);
   assert.deepEqual(OPERATIONS_TABS.map(tab => tab.value), ['monitoring', 'logs', 'tests']);

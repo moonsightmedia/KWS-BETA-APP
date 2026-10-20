@@ -107,7 +107,7 @@ export const ProfileMenu = ({
         {trigger ?? (
           <button
             type="button"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-kws-control bg-secondary text-muted-foreground transition-colors hover:text-foreground data-[state=open]:bg-primary/10 data-[state=open]:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-11 w-11 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-kws-control bg-secondary text-muted-foreground transition-colors hover:text-foreground data-[state=open]:bg-primary/10 data-[state=open]:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Profil"
           >
             {user ? <AccountAvatar user={user} /> : <User className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />}

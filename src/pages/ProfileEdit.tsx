@@ -365,6 +365,13 @@ const ProfileEdit = () => {
     }
   };
 
+  const resetField = (field: 'name' | 'email') => {
+    if (!initialFields || loadingProfile || saving || avatarSaving) return;
+    setForm(current => ({ ...current, [field]: initialFields[field] }));
+    setFieldErrors(current => ({ ...current, [field]: '' }));
+    document.getElementById(field)?.focus();
+  };
+
   const handlePasswordChange = async () => {
     const email = form.email.trim() || user?.email || '';
 
@@ -457,6 +464,11 @@ const ProfileEdit = () => {
 
         <KwsSurface className="p-4 sm:p-5">
           <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold">Kontodaten</h2>
+              {hasUnsavedChanges && <span role="status" className="text-xs text-muted-foreground">Ungespeichert</span>}
+              <p className="w-full text-xs text-muted-foreground">Name und E-Mail erst mit „Speichern“ übernehmen.</p>
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="name" className="text-xs text-muted-foreground">
                 Name
@@ -467,7 +479,9 @@ const ProfileEdit = () => {
                 onChange={(event) => {setForm((current) => ({ ...current, name: event.target.value }));setFieldErrors(current=>({...current,name:''}));}}
                 disabled={loadingProfile || saving}
                 className="h-11 rounded-kws-control"
-              />{fieldErrors.name ? <p id="name-error" className="text-xs text-destructive">{fieldErrors.name}</p>:null}
+              />
+              {initialFields && form.name !== initialFields.name && <Button type="button" variant="ghost" className="h-auto min-h-11 px-0 text-xs underline underline-offset-4" disabled={loadingProfile || saving || avatarSaving} onClick={() => resetField('name')}>Name zurücksetzen</Button>}
+              {fieldErrors.name ? <p id="name-error" className="text-xs text-destructive">{fieldErrors.name}</p>:null}
             </div>
 
             <div className="space-y-1.5">
@@ -481,7 +495,9 @@ const ProfileEdit = () => {
                 onChange={(event) => {setForm((current) => ({ ...current, email: event.target.value }));setFieldErrors(current=>({...current,email:''}));}}
                 disabled={loadingProfile || saving}
                 className="h-11 rounded-kws-control"
-              />{fieldErrors.email ? <p id="email-error" className="text-xs text-destructive">{fieldErrors.email}</p>:null}
+              />
+              {initialFields && form.email !== initialFields.email && <Button type="button" variant="ghost" className="h-auto min-h-11 px-0 text-xs underline underline-offset-4" disabled={loadingProfile || saving || avatarSaving} onClick={() => resetField('email')}>E-Mail zurücksetzen</Button>}
+              {fieldErrors.email ? <p id="email-error" className="text-xs text-destructive">{fieldErrors.email}</p>:null}
             </div>
           </div>
         </KwsSurface>
