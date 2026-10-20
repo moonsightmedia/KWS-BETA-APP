@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useId, useRef, useState, type ButtonHTMLAttributes, type ReactNode, type Ref } from 'react';
 import { Check, ChevronDown, ChevronRight, ChartNoAxesColumnIncreasing, Layers3, Loader2, Palette, RotateCcw, SlidersHorizontal, X, type LucideIcon } from 'lucide-react';
 import type { ColorRow } from '@/hooks/useColors';
 import { getColorBackgroundStyle } from '@/utils/colorUtils';
@@ -100,7 +100,7 @@ export function BoulderFilterControls({ leadingControls, sectorControls, difficu
       {leadingControls}
       <div className="space-y-5">
         <FilterSection title="Schwierigkeit" icon={ChartNoAxesColumnIncreasing} active={difficulties.length > 0} onReset={onDifficultyReset} summary={difficulties.length ? `Grad ${DIFFICULTY_FILTER_OPTIONS.filter(value => difficulties.includes(value)).join(' · ')} · Mehrfachauswahl` : 'Alle Grade · Mehrfachauswahl'}>
-          <div className="grid grid-cols-5 gap-1.5 rounded-kws-card bg-secondary/60 p-1.5 md:grid-cols-9">
+          <div data-onboarding="filter-grade" className="grid grid-cols-5 gap-1.5 rounded-kws-card bg-secondary/60 p-1.5 md:grid-cols-9">
             {DIFFICULTY_FILTER_OPTIONS.map((difficulty) => (
               <FilterOption key={difficulty} selected={difficulties.includes(difficulty)} indicator="corner" onClick={() => onDifficultyToggle(difficulty)} aria-label={difficulty === '?' ? 'Unbekannter Grad' : `Grad ${difficulty}`} className={cn('relative h-12 justify-center px-2 text-center text-base leading-none tabular-nums', !difficulties.includes(difficulty) && 'bg-transparent hover:bg-white')}>
                 <span>{difficulty}</span>
@@ -109,6 +109,7 @@ export function BoulderFilterControls({ leadingControls, sectorControls, difficu
           </div>
         </FilterSection>
         <FilterSection title="Grifffarbe" icon={Palette} active={selectedColors.length > 0} onReset={onColorReset} summary={selectedColors.length ? selectedColors.join(' · ')+' · Mehrfachauswahl' : 'Alle Farben · Mehrfachauswahl'}>
+          <div data-onboarding="filter-color">
           {colors?.length ? (
             <div id={colorListId} className="grid grid-cols-2 gap-2 md:grid-cols-3">
               {visibleColors?.map((color) => (
@@ -132,6 +133,7 @@ export function BoulderFilterControls({ leadingControls, sectorControls, difficu
               <button type="button" onClick={onRetryColors} className="mt-1 min-h-11 rounded-kws-control px-2 font-semibold text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Farben erneut laden</button>
             </div>
           ) : null}
+          </div>
         </FilterSection>
       </div>
       {sectorControls}
@@ -145,11 +147,11 @@ export function BoulderFilterControls({ leadingControls, sectorControls, difficu
   );
 }
 
-export function BoulderFilterPanel({ open, onOpenChange, children, resultCount, activeCount = 0, onReset }: { open: boolean; onOpenChange: (value: boolean) => void; children: ReactNode; resultCount: number; activeCount?: number; onReset?: () => void }) {
+export function BoulderFilterPanel({ open, onOpenChange, children, resultCount, activeCount = 0, onReset, onShowResults, tourHostRef }: { open: boolean; onOpenChange: (value: boolean) => void; children: ReactNode; resultCount: number; activeCount?: number; onReset?: () => void; onShowResults?: () => void; tourHostRef?: Ref<HTMLDivElement> }) {
   const returnFocus = useRef<HTMLElement | null>(null);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent scrollLayout="contained" style={{ maxWidth: 720 }} className="flex h-[min(820px,90dvh)] flex-col overflow-hidden bg-white p-0"
+      <DialogContent ref={tourHostRef} data-onboarding="filter-dialog" scrollLayout="contained" style={{ maxWidth: 720 }} className="flex h-[min(820px,90dvh)] flex-col overflow-hidden bg-white p-0"
         onOpenAutoFocus={() => { returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }}
         onCloseAutoFocus={event => { event.preventDefault(); returnFocus.current?.focus(); }}>
         <header className="flex shrink-0 items-center justify-between gap-3 px-4 py-4 md:px-6">
@@ -165,7 +167,7 @@ export function BoulderFilterPanel({ open, onOpenChange, children, resultCount, 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-2 md:px-6" data-filter-scroll>{children}</div>
         <footer className="flex shrink-0 items-center gap-2 bg-white px-4 pb-[calc(1rem+var(--app-safe-area-bottom,0px))] pt-3 shadow-[0_-4px_20px_rgba(25,36,54,0.04)] md:px-6">
           {onReset && <Button variant="ghost" className="gap-2 px-2 text-xs" aria-label="Filter zurücksetzen" disabled={!activeCount} onClick={onReset}><RotateCcw className="h-4 w-4" aria-hidden="true" />Reset</Button>}
-          <Button className="min-w-0 flex-1 gap-2" onClick={() => onOpenChange(false)}>{resultCount} Boulder anzeigen<ChevronRight className="h-4 w-4" aria-hidden="true" /></Button>
+          <Button data-onboarding="filter-show" className="min-w-0 flex-1 gap-2" onClick={() => { onShowResults?.(); onOpenChange(false); }}>{resultCount} Boulder anzeigen<ChevronRight className="h-4 w-4" aria-hidden="true" /></Button>
         </footer>
       </DialogContent>
     </Dialog>

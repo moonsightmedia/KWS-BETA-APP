@@ -1,3 +1,5 @@
+import { useOnboarding } from '@/components/onboarding/OnboardingContext';
+import { GuestAccountTeaser } from '@/components/onboarding/GuestAccountTeaser';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { readBoulderOrigin } from '@/lib/boulderNavigation';
@@ -45,6 +47,7 @@ function getThumbnailUrl(boulder: Boulder) {
 }
 
 export default function BoulderDetail() {
+  const { reportDetail } = useOnboarding();
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -60,6 +63,7 @@ export default function BoulderDetail() {
   const mobilePlayer = useMobileVideoControls();
 
   const boulder = useMemo(() => boulders?.find((entry) => entry.id === id), [boulders, id]);
+  useEffect(() => { reportDetail(boulder ?? null); return () => reportDetail(null); }, [boulder, reportDetail]);
   const videoUrl = boulder?.betaVideoUrls?.hd || boulder?.betaVideoUrls?.sd || boulder?.betaVideoUrls?.low || boulder?.betaVideoUrl;
   const isYouTube = videoUrl ? isYouTubeUrl(videoUrl) : false;
   const isVimeo = videoUrl ? isVimeoUrl(videoUrl) : false;
@@ -230,7 +234,7 @@ export default function BoulderDetail() {
     );
   }
 
-  if (mobilePlayer && isDirectVideo) return <main className="kws-mobile-player-page" aria-label="Boulder-Detailansicht">
+  if (mobilePlayer && isDirectVideo) return <main data-onboarding="media" className="kws-mobile-player-page" aria-label="Boulder-Detailansicht">
     <BoulderVideoPlayer key={boulder.id} boulderId={boulder.id} betaVideoUrls={boulder.betaVideoUrls} betaVideoUrl={boulder.betaVideoUrl}
       poster={getThumbnailUrl(boulder)} isVisible showOfficialBadge
       mobileDetail={{ title: boulder.name, onBack: goBack, backLabel,
@@ -277,7 +281,7 @@ export default function BoulderDetail() {
 
       <div className="lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start lg:gap-x-8 xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] xl:gap-x-10">
         <section className="lg:sticky lg:top-[calc(5.75rem+var(--app-safe-area-top))] lg:self-start" aria-label="Boulder-Video">
-          <div className="relative mx-auto flex aspect-[9/16] max-h-[min(60vh,720px)] w-full max-w-md items-center justify-center overflow-hidden rounded-kws-card bg-secondary shadow-[0_3px_14px_rgba(19,17,43,0.08)] lg:mx-0 lg:max-h-[calc(100vh-8rem)] lg:max-w-none">
+          <div data-onboarding="media" className="relative mx-auto flex aspect-[9/16] max-h-[min(60vh,720px)] w-full max-w-md items-center justify-center overflow-hidden rounded-kws-card bg-secondary shadow-[0_3px_14px_rgba(19,17,43,0.08)] lg:mx-0 lg:max-h-[calc(100vh-8rem)] lg:max-w-none">
             {videoUrl ? (
               isYouTube ? (
                 <ExternalBetaVideo key={videoUrl} src={getYouTubeEmbedUrl(videoUrl)} provider="YouTube" />
@@ -336,6 +340,7 @@ export default function BoulderDetail() {
             style={{ minHeight: `${tabContentMinHeight}px` }}
           >
             {renderTabContent()}
+            {!user && <GuestAccountTeaser/>}
           </div>
         </section>
       </div>

@@ -1,0 +1,45 @@
+.onboarding-preview .boulder-identity{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
+.onboarding-preview .boulder-identity h2{font-size:18px;font-weight:600;line-height:1.5}
+.onboarding-preview .boulder-identity p{font-size:12px;color:hsl(var(--muted-foreground));margin-top:3px}
+.onboarding-preview .detail-columns{display:grid;gap:20px;align-items:start}
+.onboarding-preview .detail-media{overflow:hidden}
+.onboarding-preview .media-label{height:44px;padding:0 16px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600}
+.onboarding-preview .media-label svg{width:16px;height:16px;color:hsl(var(--primary-ink))}
+.onboarding-preview .detail-media video,.onboarding-preview .detail-media>img{width:100%;height:min(45dvh,430px);object-fit:contain;background:hsl(var(--secondary));display:block}
+.onboarding-preview .detail-information{display:grid;gap:16px}
+.onboarding-preview .tracking-content,.onboarding-preview .progress-benefits{padding:16px}
+.onboarding-preview .tracking-content h3,.onboarding-preview .progress-benefits h2{font-size:14px;font-weight:600}
+.onboarding-preview .preview-caption{font-size:12px;color:hsl(var(--muted-foreground));line-height:1.7;margin-top:8px}
+.onboarding-preview .account-preview-label{display:flex;gap:10px;align-items:flex-start;padding:12px;background:hsl(var(--secondary));border-radius:8px;margin-bottom:20px}
+.onboarding-preview .account-preview-label>svg{width:18px;height:18px;margin-top:2px;color:hsl(var(--primary-ink))}
+.onboarding-preview .account-preview-label strong{display:block;font-size:12px;font-weight:600}
+.onboarding-preview .account-preview-label span{display:block;font-size:12px;line-height:1.7;margin-top:3px;color:hsl(var(--muted-foreground))}
+.onboarding-preview .private-note{display:flex;align-items:center;gap:6px;font-size:11px;color:hsl(var(--muted-foreground));margin-bottom:16px}
+.onboarding-preview .private-note svg{width:14px;height:14px}
+.onboarding-preview .tracking-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.onboarding-preview .tracking-actions button{height:48px;flex-direction:column;gap:3px;font-size:11px;padding:4px}
+.onboarding-preview .tracking-actions svg{width:18px;height:18px}
+.onboarding-preview .preview-feedback{font-size:11px;color:hsl(var(--muted-foreground));min-height:40px;padding-top:8px;line-height:1.6}
+.onboarding-preview .bookmark-actions{display:flex;gap:8px;margin-top:10px}
+.onboarding-preview .bookmark-actions button{flex:1;font-size:12px}
+.onboarding-preview .progress-preview{max-width:700px}
+.onboarding-preview .progress-benefits{max-width:700px;margin-top:24px}
+.onboarding-preview .progress-benefits>button{width:100%;margin-top:16px}
+.onboarding-preview .benefit-list{padding:0;list-style:none;margin-top:12px}
+.onboarding-preview .benefit-list li{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid hsl(var(--border))}
+.onboarding-preview .benefit-list li:last-child{border:0}
+.onboarding-preview .benefit-list li>svg:first-child{width:20px;height:20px;color:hsl(var(--primary-ink))}
+.onboarding-preview .benefit-list strong{display:block;font-size:13px;font-weight:600}
+.onboarding-preview .benefit-list span{display:block;font-size:12px;color:hsl(var(--muted-foreground));line-height:1.6;margin-top:3px}
+.onboarding-preview .register-content{max-width:460px;margin:16px auto;text-align:left}
+.onboarding-preview .register-content>svg{margin:0 auto 32px}
+.onboarding-preview .register-content h2{font-size:24px;font-weight:600;line-height:1.4}
+.onboarding-preview .register-content>p{font-size:13px;color:hsl(var(--muted-foreground));line-height:1.8;margin-top:12px}
+.onboarding-preview .register-content>button,.onboarding-preview .register-content>a{width:100%;margin-top:16px}
+.onboarding-preview .register-content .handoff-note{font-size:11px}
+.onboarding-preview .account-preview-label{max-width:700px}
+.onboarding-preview button svg,.onboarding-preview a svg{width:18px;height:18px;flex-shrink:0}
+.onboarding-preview .benefit-list li>svg{flex-shrink:0}
+@media(min-width:768px){.onboarding-preview .detail-columns{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px}
+.onboarding-preview .detail-media>img{height:min(65dvh,620px)}
+.onboarding-preview .register-content{margin-top:36px}}

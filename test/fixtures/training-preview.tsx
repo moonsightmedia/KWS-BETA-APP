@@ -17,7 +17,7 @@ import '@/index.css';
 
 export function PreviewMainPage() {
   const swipe = useHorizontalRouteSwipe({ routes: APP_USER_ROUTES });
-  return <DashboardPageLayout><div ref={element => { swipe.current = element; }} className="min-h-[60dvh] space-y-4"><h2 className="font-sans text-base font-semibold">Lokale Hauptseiten-Vorschau</h2><p className="text-sm text-muted-foreground">Die übrigen Appdaten werden in dieser isolierten Vorschau nicht geladen.</p><Button asChild variant="secondary"><Link to="/profile/training">Trainingseinstellungen</Link></Button></div></DashboardPageLayout>;
+  return <DashboardPageLayout><div ref={swipe} className="min-h-[60dvh] space-y-4"><h2 className="font-sans text-base font-semibold">Lokale Hauptseiten-Vorschau</h2><p className="text-sm text-muted-foreground">Die übrigen Appdaten werden in dieser isolierten Vorschau nicht geladen.</p><Button asChild variant="secondary"><Link to="/profile/training">Trainingseinstellungen</Link></Button></div></DashboardPageLayout>;
 }
 
 export function Preview() {

@@ -38,6 +38,7 @@ async function backend(page: Page) {
   return store;
 }
 const frame = (page: Page) => page.locator('.kws-feed .reel-page[data-active=true]');
+
 test('regular guest list does not load feed community code until the third view opens', async ({ page }) => {
   await backend(page);
   const requested: string[] = [];
@@ -49,6 +50,30 @@ test('regular guest list does not load feed community code until the third view 
   await expect(frame(page).locator('video')).toHaveJSProperty('readyState', 4);
   expect(requested.some(url => url.includes('/useBoulderFeedCommunity.'))).toBe(true);
 });
+test('combined guest onboarding waits for a persisted video feed and keeps its filter tour', async ({ page }) => {
+  const store = await backend(page);
+  await page.addInitScript(() => localStorage.setItem('boulder_view_mode', 'video'));
+  await page.goto('/test/fixtures/boulder-feed.html?guest&onboarding#/guest');
+  await expect(frame(page).locator('video')).toHaveJSProperty('readyState', 4);
+  await expect(page.locator('[data-coachmark]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Zur Boulderübersicht', exact: true }).click();
+  const tip = (id: string) => page.locator(`[data-coachmark=${id}]`);
+  await expect(tip('discover')).toBeVisible();
+  await tip('discover').getByRole('button', { name: 'Boulder öffnen', exact: true }).click();
+  await expect(page.locator('[data-boulder-detail-scroll]')).toBeVisible();
+  await tip('beta').getByRole('button', { name: 'Weiter zu den Filtern', exact: true }).click();
+  await tip('filter').getByRole('button', { name: 'Filter öffnen', exact: true }).click();
+  for (const [step, action] of [['filter-grade', 'Weiter zur Farbe'], ['filter-color', 'Weiter zum Bereich'], ['filter-area', 'Auswahl ansehen'], ['filter-show', 'Boulder anzeigen']]) {
+    await tip(step).getByRole('button', { name: action, exact: true }).click();
+  }
+  await expect(tip('filter-results')).toBeVisible();
+  await tip('filter-results').getByRole('button', { name: 'Einführung schließen', exact: true }).click();
+  await page.getByRole('button', { name: 'Videoansicht', exact: true }).click();
+  await expect(frame(page).locator('video')).toHaveJSProperty('readyState', 4);
+  await expect(page.locator('[data-coachmark]')).toHaveCount(0);
+  expect(store.writes).toHaveLength(0);
+});
+
 async function enter(page: Page) {
   await page.goto('/test/fixtures/boulder-feed.html#/boulders');
   await page.getByRole('button', { name: 'Videoansicht', exact: true }).click();

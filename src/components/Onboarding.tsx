@@ -1,240 +1,230 @@
-import { useState, useEffect, createContext, useContext } from 'react';
-import { useLocation } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { X, ChevronRight, MessageSquare, Lightbulb, Heart, LucideIcon } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-
-// Context to allow opening onboarding from anywhere
-interface OnboardingContextType {
-  openOnboarding: () => void;
-  isOpen: boolean;
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { boulderNavigationState } from '@/lib/boulderNavigation';
+import { backendStorageKey } from '@/lib/backendConfig';
+import type { Boulder } from '@/types/boulder';
+import { Coachmark } from './onboarding/Coachmark';
+import { filterResultStep, filterSteps, steps } from './onboarding/steps';
+import { OnboardingContext, type GuestTourSurface } from './onboarding/OnboardingContext';
+// Keep the existing import API for consumers outside this feature.
+// eslint-disable-next-line react-refresh/only-export-components
+export { useOnboarding } from './onboarding/OnboardingContext';
+const seenKey = () => backendStorageKey('kws-onboarding-v1');
+function hasSeen() {
+    try {
+        return Boolean(localStorage.getItem(seenKey()) || localStorage.getItem(backendStorageKey('hasSeenOnboarding')));
+    }
+    catch {
+        return false;
+    }
 }
+function remember() {
+    try {
+        localStorage.setItem(seenKey(), 'seen');
+    }
+    catch { /* The provider also remembers completion for this session. */ }
+}
+function hasBetaVideo(boulder?: Boulder | null) {
+    return Boolean(boulder?.betaVideoUrl || boulder?.betaVideoUrls?.hd || boulder?.betaVideoUrls?.sd || boulder?.betaVideoUrls?.low);
+}
+export function OnboardingProvider({ children }: {
+    children: ReactNode;
+}) {
+    const { user, loading } = useAuth();
+    const location = useLocation();
+    const navigate = useNavigate();
+    const [index, setIndex] = useState<number | null>(null);
+    const [guest, setGuest] = useState<GuestTourSurface | null>(null);
+    const [detail, setDetail] = useState<Boulder | null>(null);
+    const lastVisitedBoulder = useRef<Boulder | null>(null);
+    const [previewBoulder, setPreviewBoulder] = useState<Boulder>();
+    const [filterHost, setFilterHost] = useState<HTMLDivElement | null>(null);
+    const [filterStage, setFilterStage] = useState(0);
+    const [filterResults, setFilterResults] = useState(false);
+    const [initiallySeen] = useState(hasSeen);
+    const finished = useRef(initiallySeen);
+    const started = useRef(false);
+    const returnFocus = useRef<HTMLElement | null>(null);
+    const guestRoute = useRef('/guest');
+    const filtersWereOpen = useRef(false);
+    const filtersConfirmed = useRef(false);
+    const pendingRoute = useRef<string | null>(null);
+    const originScroll = useRef(0);
+    const restoreGuestScroll = useRef(false);
+    const isGuest = location.pathname === '/guest';
+    const isDetail = /^\/boulders\/[^/]+$/.test(location.pathname);
+    const isPreview = location.pathname.startsWith('/onboarding/');
+    const reportGuest = useCallback((surface: GuestTourSurface | null) => setGuest(surface), []);
+    const reportDetail = useCallback((boulder: Boulder | null) => {
+        if (boulder) lastVisitedBoulder.current = boulder;
+        setDetail(boulder);
+    }, []);
+    const reportFilterHost = useCallback((host: HTMLDivElement | null) => setFilterHost(host), []);
+    const confirmFilters = useCallback(() => { filtersConfirmed.current = true; }, []);
+    const close = useCallback(() => {
+        remember();
+        finished.current = true;
+        pendingRoute.current = null;
+        setIndex(null);
+        setFilterResults(false);
+        restoreGuestScroll.current = location.pathname === '/guest' || location.pathname.startsWith('/onboarding/');
+        if (location.pathname.startsWith('/onboarding/'))
+            navigate(guestRoute.current, { replace: true });
+        requestAnimationFrame(() => {
+            const filterTarget = document.querySelector<HTMLElement>('[data-onboarding=filter-dialog] button');
+            const fallback = document.querySelector<HTMLElement>('[data-boulder-detail-scroll] button, [data-onboarding=replay]');
+            const trigger = returnFocus.current;
+            (filterTarget ?? (trigger?.isConnected && trigger.getClientRects().length && !trigger.closest('[inert]') ? trigger : fallback))?.focus({ preventScroll: true });
+        });
+    }, [location.pathname, navigate]);
+    const go = useCallback((next: number) => {
+        pendingRoute.current = next === 0 || next === 2 ? '/guest' : next === 1 ? '/boulders/' : next === 5 ? '/onboarding/progress' : '/onboarding/account';
+        setFilterResults(false);
+        setFilterStage(0);
+        setIndex(next);
+        if (next === 0 || next === 2) {
+            if (isDetail)
+                navigate(-1);
+            else if (!isGuest)
+                navigate(guestRoute.current);
+        }
+        else if (next === 1) {
+            const target = document.querySelector<HTMLButtonElement>('[data-onboarding=discover]');
+            if (target) target.click();
+            else if (lastVisitedBoulder.current) navigate(`/boulders/${lastVisitedBoulder.current.id}`, { state: boulderNavigationState(location) });
+            else { pendingRoute.current = null; setIndex(2); }
+        }
+        else {
+            setPreviewBoulder(current => current ?? detail ?? guest?.boulder ?? lastVisitedBoulder.current ?? undefined);
+            const boulder = detail ?? guest?.boulder ?? previewBoulder ?? lastVisitedBoulder.current;
+            const suffix = boulder ? `?boulder=${encodeURIComponent(boulder.id)}` : '';
+            navigate(`/onboarding/${next === 5 ? 'progress' : 'account'}${suffix}`);
+        }
+    }, [isDetail, isGuest, navigate, detail, guest?.boulder, previewBoulder, location]);
+    const openOnboarding = useCallback(() => {
+        if (user || loading)
+            return;
+        started.current = true;
+        originScroll.current = window.scrollY;
+        returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        setPreviewBoulder(undefined);
+        go(0);
+    }, [user, loading, go]);
+    const showAccountPreview = useCallback(() => {
+        originScroll.current = window.scrollY;
+        setPreviewBoulder(detail ?? guest?.boulder);
+        go(3);
+    }, [detail, guest?.boulder, go]);
+    const showBenefits = useCallback(() => {
+        remember();
+        finished.current = true;
+        setIndex(null);
+        navigate('/onboarding/register');
+    }, [navigate]);
+    useEffect(() => {
+        if (isGuest)
+            guestRoute.current = location.pathname + location.search;
+        if (!loading && !user && isGuest && guest?.ready && guest.boulder && !finished.current && !started.current) {
+            started.current = true;
+            originScroll.current = window.scrollY;
+            setIndex(0);
+        }
+    }, [loading, user, isGuest, guest, location.pathname, location.search]);
+    useEffect(() => {
+        if (index !== null || !isGuest || !restoreGuestScroll.current) return;
+        const frame = requestAnimationFrame(() => {
+            window.scrollTo({ top: originScroll.current, behavior: 'instant' });
+            document.querySelector<HTMLElement>('[data-onboarding=replay]')?.focus({ preventScroll: true });
+            restoreGuestScroll.current = false;
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [index, isGuest]);
 
-const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
-
-export const useOnboarding = () => {
-  const context = useContext(OnboardingContext);
-  if (!context) {
-    // Return a no-op function if provider is not available (shouldn't happen, but prevents crashes)
-    console.warn('[useOnboarding] OnboardingProvider not found, returning no-op function');
-    return {
-      openOnboarding: () => {
-        console.warn('[useOnboarding] OnboardingProvider not available');
-      },
-      isOpen: false,
+    // Navigation and the loaded surface determine the explanation. Auth never auto-opens it.
+    useEffect(() => {
+        if (index === null)
+            return;
+        if (user || (!isGuest && !isDetail && !isPreview)) {
+            close();
+            return;
+        }
+        // Browser history navigation resolves on a later task; do not overwrite its intended step.
+        if (pendingRoute.current && !location.pathname.startsWith(pendingRoute.current))
+            return;
+        pendingRoute.current = null;
+        if (isDetail && detail && (index === 0 || index === 2))
+            setIndex(1);
+        else if (isGuest && index === 1)
+            setIndex(0);
+        else if (isGuest && index >= 3)
+            close();
+        else if (location.pathname === '/onboarding/account' && index === 5)
+            setIndex(4);
+        else if (location.pathname === '/onboarding/progress' && index < 5)
+            setIndex(5);
+    }, [index, user, isGuest, isDetail, isPreview, detail, location.pathname, close]);
+    useEffect(() => {
+        if (index !== 2 || !isGuest) {
+            filtersWereOpen.current = false;
+            return;
+        }
+        if (guest?.filtersOpen) {
+            if (!filtersWereOpen.current) {
+                setFilterStage(0);
+                filtersConfirmed.current = false;
+                setFilterResults(false);
+            }
+            filtersWereOpen.current = true;
+        }
+        else if (filtersWereOpen.current) {
+            filtersWereOpen.current = false;
+            setFilterResults(filtersConfirmed.current);
+        }
+    }, [index, isGuest, guest?.filtersOpen]);
+    const next = () => {
+        if (index === 2) {
+            if (filterResults)
+                go(3);
+            else
+                guest?.openFilters();
+        }
+        else if (index === 5)
+            showBenefits();
+        else if (index !== null)
+            go(index + 1);
     };
-  }
-  return context;
-};
-
-interface OnboardingStep {
-  title: string;
-  content: string;
-  icon?: LucideIcon | null;
-  badge?: string;
-  showFeedbackHint?: boolean;
+    const baseStep = index === null ? null : steps[index];
+    const step = baseStep?.id === 'beta' && !hasBetaVideo(detail) ? {
+        ...baseStep, title: 'So erkennst du den Boulder',
+        text: 'Hier siehst du den Boulder an der Wand. Für diesen gibt es noch kein Beta-Video. Wenn eines dabei ist, kannst du es auch ohne Konto ansehen.',
+    } : baseStep;
+    const surfaceReady = index === 0 ? isGuest && guest?.ready && guest.boulder
+        : index === 1 ? isDetail && detail
+            : index === 2 ? isGuest && guest?.ready
+                : index === 5 ? location.pathname === '/onboarding/progress'
+                    : location.pathname === '/onboarding/account';
+    const inFilter = index === 2 && guest?.filtersOpen;
+    const tourVisible = Boolean(step && surfaceReady);
+    const value = useMemo(() => ({
+        isOpen: tourVisible, openOnboarding, closeOnboarding: close,
+        showAccountPreview, showBenefits, previewBoulder,
+        reportGuest, reportDetail, reportFilterHost, confirmFilters,
+    }), [tourVisible, openOnboarding, close, showAccountPreview, showBenefits, previewBoulder, reportGuest, reportDetail, reportFilterHost, confirmFilters]);
+    return <OnboardingContext.Provider value={value}>
+    {children}
+    {step && surfaceReady && !inFilter && <Coachmark key={filterResults ? filterResultStep.id : step.id} scrollRoot={index === 1 ? document.querySelector<HTMLElement>('[data-boulder-detail-scroll]') ?? undefined : undefined} step={filterResults ? filterResultStep : step} index={index!} total={steps.length} onNext={next} onBack={() => filterResults ? setFilterResults(false) : go(index! - 1)} onClose={close}/>}
+    {step && surfaceReady && inFilter && filterHost && <Coachmark key={filterSteps[filterStage].id} step={filterSteps[filterStage]} index={index!} total={steps.length} progressLabel={`Filter · ${filterStage + 1} von ${filterSteps.length}`} portalParent={filterHost} scrollRoot={filterHost.querySelector<HTMLElement>('[data-filter-scroll]') ?? undefined} onNext={() => {
+                if (filterStage < filterSteps.length - 1)
+                    setFilterStage(stage => stage + 1);
+                else
+                    filterHost.querySelector<HTMLButtonElement>('[data-onboarding=filter-show]')?.click();
+            }} onBack={() => {
+                if (filterStage)
+                    setFilterStage(stage => stage - 1);
+                else
+                    filterHost.querySelector<HTMLButtonElement>('button[aria-label="Filter schließen"]')?.click();
+            }} onClose={close}/>}
+  </OnboardingContext.Provider>;
 }
-
-const ONBOARDING_STEPS: OnboardingStep[] = [
-  {
-    title: 'Willkommen!',
-    content: 'Willkommen in der Kletterwelt Sauerland Beta App! Hier kannst du Boulder entdecken, Statistiken einsehen und vieles mehr.',
-  },
-  {
-    title: 'Boulder durchstöbern',
-    content: 'Entdecke alle Boulder in verschiedenen Sektoren. Filtere nach Schwierigkeit, Farbe oder Sektor.',
-  },
-  {
-    title: 'Statistiken',
-    content: 'Schaue dir Statistiken über die Boulder an und verfolge deine Fortschritte.',
-  },
-  {
-    title: 'Beta entdecken',
-    content: 'Beta steht beim Bouldern für Tipps und Bewegungsfolgen zum Lösen eines Boulders. In den Boulder-Details findest du die verfügbaren Videos der Halle.',
-    icon: Lightbulb,
-    badge: 'Beta',
-  },
-  {
-    title: 'Feedback & Support',
-    content: 'Probleme oder Verbesserungsvorschläge? Nutze den Feedback-Button oben rechts neben deinem Profilbild. Wir freuen uns sehr über deine Unterstützung und helfen gerne weiter!',
-    icon: MessageSquare,
-    showFeedbackHint: true,
-  },
-];
-
-export const OnboardingProvider = ({ children }: { children: React.ReactNode }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const location = useLocation();
-
-  const shouldAutoOpen = location.pathname === '/guest' || location.pathname === '/auth';
-
-  useEffect(() => {
-    try {
-      if (!shouldAutoOpen) {
-        setIsOpen(false);
-        return;
-      }
-
-      const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
-      if (!hasSeenOnboarding) {
-        setCurrentStep(0);
-        setIsOpen(true);
-      }
-    } catch {
-      if (shouldAutoOpen) {
-        setCurrentStep(0);
-        setIsOpen(true);
-      }
-    }
-  }, [shouldAutoOpen]);
-
-  const openOnboarding = () => {
-    setCurrentStep(0);
-    setIsOpen(true);
-  };
-
-  const handleOpenChange = (open: boolean) => {
-    setIsOpen(open);
-    if (!open) {
-      localStorage.setItem('hasSeenOnboarding', 'true');
-    }
-  };
-
-  const handleNext = () => {
-    if (currentStep < ONBOARDING_STEPS.length - 1) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      handleFinish();
-    }
-  };
-
-  const handleFinish = () => {
-    try {
-      localStorage.setItem('hasSeenOnboarding', 'true');
-    } catch {
-      // Ignore storage access issues, just close the dialog.
-    }
-    setIsOpen(false);
-  };
-
-  return (
-    <OnboardingContext.Provider value={{ openOnboarding, isOpen }}>
-      {children}
-      {isOpen && (
-        <OnboardingDialog
-          isOpen={isOpen}
-          currentStep={currentStep}
-          onNext={handleNext}
-          onFinish={handleFinish}
-          onOpenChange={handleOpenChange}
-        />
-      )}
-    </OnboardingContext.Provider>
-  );
-};
-
-interface OnboardingDialogProps {
-  isOpen: boolean;
-  currentStep: number;
-  onNext: () => void;
-  onFinish: () => void;
-  onOpenChange: (open: boolean) => void;
-}
-
-const OnboardingDialog = ({ isOpen, currentStep, onNext, onFinish, onOpenChange }: OnboardingDialogProps) => {
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:max-w-md max-h-[90vh] sm:max-h-[85vh] overflow-y-auto p-0 gap-0 [&>button]:hidden !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 !bottom-auto !right-auto rounded-2xl border border-[#E7F7E9] !data-[state=closed]:zoom-out-95 !data-[state=open]:zoom-in-95 !data-[state=closed]:slide-out-to-bottom-0">
-        <div className="relative p-4 sm:p-6 pb-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-4 right-4 h-8 w-8 z-10"
-            onClick={onFinish}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-
-          <DialogHeader className="mt-8 sm:mt-0">
-            <div className="flex items-center gap-3">
-              {ONBOARDING_STEPS[currentStep].icon && (
-                <div className="flex-shrink-0">
-                  {(() => {
-                    const Icon = ONBOARDING_STEPS[currentStep].icon;
-                    return Icon ? <Icon className="h-6 w-6 text-primary" /> : null;
-                  })()}
-                </div>
-              )}
-              <div className="flex-1 flex items-center gap-2 min-w-0">
-                <DialogTitle className="text-xl sm:text-2xl font-bold truncate">{ONBOARDING_STEPS[currentStep].title}</DialogTitle>
-                {ONBOARDING_STEPS[currentStep].badge && (
-                  <Badge variant="secondary" className="text-xs shrink-0">
-                    {ONBOARDING_STEPS[currentStep].badge}
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <DialogDescription className="text-sm sm:text-base text-muted-foreground leading-relaxed mt-4">
-              {ONBOARDING_STEPS[currentStep].content}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 mt-4">
-            
-            {ONBOARDING_STEPS[currentStep].showFeedbackHint && (
-              <Alert className="mt-4 border-primary/20 bg-primary/5">
-                <MessageSquare className="h-4 w-4 text-primary" />
-                <AlertDescription className="text-xs sm:text-sm">
-                  <strong>Tipp:</strong> Der Feedback-Button ist immer oben rechts neben deinem Profilbild verfügbar.
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            {currentStep === ONBOARDING_STEPS.length - 1 && (
-              <div className="flex items-center gap-2 mt-4 pt-4 border-t">
-                <Heart className="h-4 w-4 text-primary shrink-0" />
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Vielen Dank für deine Unterstützung bei der Entwicklung der App!
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between mt-6 sm:mt-8 gap-3">
-            <div className="flex gap-1 shrink-0">
-              {ONBOARDING_STEPS.map((_, index) => (
-                <div
-                  key={index}
-                  className={`h-2 w-2 rounded-full ${
-                    index === currentStep ? 'bg-primary' : 'bg-muted'
-                  }`}
-                />
-              ))}
-            </div>
-            <Button onClick={onNext} size="lg" className="min-h-[48px] shrink-0">
-              {currentStep < ONBOARDING_STEPS.length - 1 ? (
-                <>
-                  Weiter
-                  <ChevronRight className="ml-2 h-4 w-4" />
-                </>
-              ) : (
-                'Los geht\'s!'
-              )}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-// Backward compatibility: Export Onboarding component that uses the provider
-export const Onboarding = () => {
-  return <OnboardingProvider><></></OnboardingProvider>;
-};
-
+export const Onboarding = () => <OnboardingProvider>{null}</OnboardingProvider>;

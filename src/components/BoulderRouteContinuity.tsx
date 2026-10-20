@@ -1,6 +1,7 @@
-import { createContext, useContext, useLayoutEffect, useRef, type ReactNode } from 'react';
-import { UNSAFE_LocationContext, useLocation, useOutlet } from 'react-router-dom';
+import { createContext, useContext, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
+import { UNSAFE_LocationContext, useLocation, useOutlet, type RouteObject } from 'react-router-dom';
 import { readBoulderOrigin } from '@/lib/boulderNavigation';
+import { MainRoutePager } from '@/components/MainRoutePager';
 
 const ReturnContext = createContext(false);
 export const useRetainedBoulderOrigin = () => useContext(ReturnContext);
@@ -8,10 +9,12 @@ export const useRetainedBoulderOrigin = () => useContext(ReturnContext);
 /** Retain only the immediate source while its detail is open; release on other navigation.
  * Freeze its router location too, so URL filters and headers cannot change underneath it.
  */
-export function BoulderRouteContinuity() {
+export function BoulderRouteContinuity({ mainRoutes }: { mainRoutes?: RouteObject[] }) {
   const location = useLocation();
   const locationContext = useContext(UNSAFE_LocationContext);
-  const outlet = useOutlet();
+  const routerOutlet = useOutlet();
+  const outlet = useMemo(() => mainRoutes?.some(route => route.path === location.pathname)
+    ? <MainRoutePager routes={mainRoutes} /> : routerOutlet, [mainRoutes, location.pathname, routerOutlet]);
   const source = useRef<{ element: ReactNode; context: typeof locationContext } | null>(null);
   const previousDetail = useRef(false);
   const sourceFocus = useRef<HTMLElement | null>(null);

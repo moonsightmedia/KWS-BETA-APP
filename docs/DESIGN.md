@@ -195,6 +195,13 @@ keine vorgerundete Fläche oder Schatten in den adaptiven Ebenen. Änderungen
 werden aus public/brand/beta-icon.svg mit scripts/generate-android-icons.cjs
 reproduzierbar exportiert. Das alte KWS-Homescreen-Icon wird nicht weiterverwendet.
 
+Nutzerbestätigung19.10.2026: Dasselbe grüne Beta-Appsymbol gilt auch für iOS,
+TestFlight und beide Store-Einträge. Originales weißes Zeichen auf #36B531,
+ohne Schrift oder Kletterwelt-Weltkugel. Die iOS-1024px- und Play-512px-Dateien
+exportiert `scripts/generate-store-icons.cjs` aus derselben Vektorkontur und
+demselben Ausschnitt wie Android. Beide Exporte sind quadratisch, deckend und
+ohne vorweggenommene Systemmaske; Apple bzw. Android setzen die äußere Form.
+
 Die lokale Designvorschau verwendet separate Beispieldaten. Der freigegebene
 Web-Release bindet nur die regulären App-Komponenten und die bestehende
 Produktionskonfiguration ein; Vorschau-Fixtures werden nicht veröffentlicht.
@@ -384,11 +391,23 @@ anderes Design ersetzt.
 - Bei normalem Wechsel auf eine andere Route beginnt die neue Seite oben.
 - Browser-Zurücknavigation darf ihre natürliche Historienposition behalten.
 - Mobile Hauptseiten unterstützen horizontales Route-Swipen:
-  - Wisch nach rechts: nächster Eintrag der Reihenfolge,
-  - Wisch nach links: vorheriger Eintrag,
-  - Mindestdistanz etwa `56px`,
-  - vertikale Gesten, Links, Buttons, Inputs, Karten und horizontale Scroller
-    werden nicht abgefangen.
+  - Wisch von rechts nach links: nächster Eintrag rechts in der Reihenfolge,
+  - Wisch von links nach rechts: vorheriger Eintrag links,
+  - klare horizontale Gesten bewegen den Inhalt 1:1 mit dem Finger; die echte
+    Nachbarseite wird bereits während des Ziehens sichtbar, ohne 48px-Begrenzung,
+  - Loslassen setzt beide Seiten von ihrer sichtbaren Position gemeinsam fort
+    (140–260ms je nach Restweg); kein getrennter Austritt/Eintritt oder erneuter
+    Aufbau der Zielseite beim Einrasten,
+  - etwa ein Viertel der Inhaltsbreite (mindestens 56px) oder ein kurzer, schneller
+    Wisch entscheidet den Wechsel; kleine langsame Züge gleiten zurück,
+  - die Enden der Reihenfolge zeigen gedämpften Widerstand; kein Umlauf,
+  - Header und Hauptnavigation bleiben währenddessen an ihrer Position,
+  - vertikale Gesten, Pinch-Zoom, Formfelder, Dialoge, Hallenkarte und horizontale
+    Scroller bleiben frei; normale Karten/Links dürfen eine Wischfläche sein,
+    ein erkannter horizontaler Zug löst keinen anschließenden Kartenklick aus,
+  - Reduced Motion entfernt Zug- und Wechselbewegung, auch beim Livewechsel.
+  Nutzerkorrekturen 19./20.10.2026: intuitive Richtung und kontinuierlicher
+  Seitenwechsel statt begrenztem Zug mit anschließendem Seitenaufbau.
 - Karte und andere komplexe Gestenflächen erhalten `data-swipe-ignore`.
 
 ## 5. Gemeinsame Komponenten
@@ -835,6 +854,10 @@ Ansicht, aktive Filter und Sortierung bleiben beim Wechsel nachvollziehbar erhal
   Pull-to-Refresh treten für den Feed zurück. Safe Areas bleiben berücksichtigt.
 
 Integrations- und Prüfbelege: `docs/qa/2026-10-19-boulder-video-feed.md`.
+
+Die Gast-Einführung erklärt die normale Liste bzw. das Raster. Bei einer bereits
+gespeicherten Videoansicht wartet ihr automatischer Start bis zur Rückkehr in
+diese Übersicht. Keine Hinweise an der verdeckten Seite hinter dem Feed.
 
 ### 6.5 Gridkarte
 
@@ -2285,6 +2308,76 @@ Prüfumfang und Belege: docs/design/designmotion-2026-10-19.md.
 
 Prüfumfang: docs/qa/2026-10-19-setter-quick-actions.md.
 
+
+### Onboarding – freigegebene App-Integration 19.10.2026
+
+- Der erste Gastbesuch führt mit kurzen verankerten Hinweisen durch die echte
+  Oberfläche, nach der bestehenden Trainings-Tour-Methode: sichtbares Ziel,
+  dezenter Hintergrund, grüne Kontur und zugehöriger Pfeil. Keine vorgeschaltete
+  Folge allgemeiner Erklärungskarten. Das erklärte Element bleibt bedienbar.
+- Präzisierung nach Sichtprüfung: Die Aufhellung folgt der tatsächlichen
+  Rundung des Zielelements einschließlich des umlaufenden Abstands. Ausschnitt,
+  grüne Kontur und klickfreie Öffnung haben dieselbe Geometrie; keine hellen
+  rechteckigen Eckflächen außerhalb der Rundung. Präzisierung20.10.: Der SVG-
+  Ausschnitt verwendet denselben Pixelmaßstab wie die Kontur, auch bei klassischen
+  Desktop-Scrollleisten. Ziele werden explizit identifiziert; ein zusätzlicher
+  Toolbarbutton darf nicht anstelle der ersten Boulderkarte markiert werden.
+  Bei Dialogen wird erst nach deren Eintrittsskalierung gemessen.
+  Abgeschnittene Zielkanten
+  bleiben gerade. Die Kontozeile heißt auf Nutzerwunsch „Das Kommentieren“ und
+  behält ausdrücklich den Stern. Bestätigte Nutzerwahl im Iconvergleich:
+  Gespeicherte Boulder B (`Bookmark`), Tracking A (`Play`), Statistik A
+  (zentraler `StatisticsIcon`). Diese Auswahl gilt für die Konto-Vorteilszeilen.
+  Produktive Detail- und Ergebnisaktionen behalten ihre eigenen Funktionsicons.
+  Die Kontozeilen heißen „Gespeicherte Boulder“, „Tracking“, „Statistik“ und
+  „Das Kommentieren“.
+  Boulder-/Konto-/Statistiknavigation verwenden die gemeinsamen `appIcons`.
+  Die Kontovorteile erhalten keine zusätzlichen Erledigt-Häkchen.
+- Gastfunktionen zuerst: Boulder öffnen, vorhandene Beta ansehen und die echten
+  Mehrfachfilter ausprobieren. Nutzerkorrektur 19.10.2026: Die Einführung bleibt
+  im geöffneten Filter erhalten und erklärt Grad, Farbe, Hallenbereich und den
+  Ergebnisbutton direkt an den bedienbaren Elementen. Nach „Boulder anzeigen“
+  folgt ein Hinweis an der gefilterten Liste, bevor die Kontofunktionen beginnen.
+  Keine Unterbrechung durch eine unbegleitete Standard-Filteransicht. In kurzen
+  Viewports bleiben Erklärung und scrollbar erreichbare Auswahl getrennt sichtbar.
+- Texte nennen konkrete Handlungen in kurzen, natürlichen Sätzen. Keine
+  Werbeslogans, künstlichen Motivationszeilen oder wiederholten Nutzenformeln.
+- Kontovorteile werden direkt im jeweiligen Kontext beworben: Merken/Projekte,
+  Versuche/Tops/Flashes und persönlicher Fortschritt, ergänzt um Bewertungen und
+  Kommentare. Gastvideos sind kein exklusiver Kontovorteil. Unveröffentlichtes
+  Training und geplante Funktionen gehören nicht in dieses Verfügbarkeitsversprechen.
+- Eine Gastvorschau persönlicher Funktionen ist dauerhaft als Kontovorschau mit
+  Beispieldaten gekennzeichnet; sie erzeugt keine echten Einträge. Konto erstellen
+  und als Gast fortfahren sind ausdrücklich erreichbar. Überspringen, X, Escape,
+  Zurück und erneuter Start bleiben möglich; Hinweise liegen im Viewport und
+  verdecken ihr Ziel nicht. Fokus und Gastfilter bleiben nachvollziehbar erhalten.
+- Freigabe 19.10.2026: Integration in die App. Automatischer Start nur beim
+  ersten geladenen Gastbesuch; direkte Anmeldung/Registrierung und angemeldete
+  Nutzer werden nicht unterbrochen. Der bisherige `hasSeenOnboarding`-Status
+  wird berücksichtigt. Neue Abschlüsse sind versioniert und nach Backend
+  getrennt; gesperrter Browserspeicher verhindert die Nutzung nicht.
+- Die echte Gastliste und das echte Boulder-Detail liefern die Ziele. Ohne
+  vorhandenes Beta-Video erklärt der Hinweis das Foto und benennt das fehlende
+  Video. Lade-/Fehler-/Leerzustände erzeugen keine Erklärung ohne sichtbares Ziel.
+- Persönliche Funktionen werden unter `/onboarding/account` und
+  `/onboarding/progress` ausprobiert. Markierungen und Tracking bleiben lokaler
+  Zustand; die Woche verwendet ausdrücklich Beispieldaten. Die Kontovorteile
+  führen über `/onboarding/register` zum vorhandenen Formular `/app/register`.
+  Das kleine Info-Symbol neben dem Ansichtswechsel startet die Führung erneut.
+- Der Filter meldet Öffnen, tatsächliche Ergebnisbestätigung und seinen
+  Dialoghost explizit an die Tour. Stabile `data-onboarding`-Ziele ersetzen
+  CSS-Layout-/Textsuche. X oder Zurück schließt den Filter ohne Ergebnisbestätigung;
+  Escape bzw. das X der Einführung beendet nur die Tour.
+- Verankerte Hinweise berücksichtigen die eigene Scrollebene des Boulder-Details
+  und den tatsächlich verfügbaren Scrollbereich im Filter. Auch Browser-Zurück
+  darf den vorgesehenen nächsten Schritt nicht durch einen Zwischenzustand ersetzen.
+
+Prüfbeleg: `docs/qa/2026-10-19-onboarding-integration.md`.
+
+- Begleitende Systemabfragen dürfen die erklärten Ziele nicht überdecken. Die
+  freiwillige Statistikabfrage wartet während der Tour und ihrer Kontovorschau;
+  ihre bestehende Auswahl wird dadurch weder erteilt noch zurückgesetzt.
+
 ### Nutzerfreigabe 20.10.2026 – vier weitere DesignMotion-Ergänzungen
 
 - Der Upload-Stapel nennt fehlende Pflichtangaben direkt am Boulder. Ein
@@ -2336,3 +2429,19 @@ Prüfumfang: docs/qa/2026-10-20-designmotion-four.md.
 - Diese Freigabe betrifft die genannten fünf Entwürfe. Die zuvor ausgeschlossene
   neue Mehrfachauswahl bleibt ausgeschlossen. Wochenkarte oben und Beta-Startlogo
   bleiben unverändert.
+
+### Onboarding – Safe Areas und dezenter Einstieg 20.10.2026
+
+- Die Führung reserviert die tatsächlich gemeldeten Safe Areas oben, unten,
+  links und rechts. Ihre Hinweise bleiben zusätzlich mit Abstand im sichtbaren
+  Visual Viewport; Statusleiste, Dynamic Island und Home-Indikator werden nicht
+  durch Bedienelemente überlagert. Dialoggrenzen werden mit diesem Bereich
+  geschnitten, bereits vorhandene Dialogabstände nicht nochmals addiert.
+- „Einführung ansehen“ ist ein benanntes Info-Icon direkt links neben dem
+  Ansichtswechsel. Das Icon bleibt klein (16px), sein Touch-Ziel mindestens 44px.
+  Die zusätzliche breite Gastkopfzeile mit Einführung und Kontowerbung entfällt.
+  Kontovorteile bleiben Teil der geführten Einführung und der Detailansicht.
+- Ein Tourstart aus der Videoansicht zeigt wieder die letzte Kartenansicht,
+  damit der erste erklärte Boulder sichtbar und bedienbar ist.
+
+Prüfbeleg: `docs/qa/2026-10-20-onboarding-safe-area.md`.
