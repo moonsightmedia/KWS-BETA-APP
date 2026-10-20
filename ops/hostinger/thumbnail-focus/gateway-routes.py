@@ -10,9 +10,11 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import time
 import urllib.request
+import urllib.error
 
 TARGET = Path('/opt/kws/public-gateway/Caddyfile')
 COMPOSE = Path('/opt/kws/public-gateway/docker-compose.yml')
@@ -136,9 +138,49 @@ def verify_live():
 
 
 def verify_normal():
-    for url in ('https://beta.kletterwelt-sauerland.de/version.json', 'https://beta-api.kletterwelt-sauerland.de/auth/v1/health', 'https://review-api.kletterwelt-sauerland.de/auth/v1/health'):
-        with urllib.request.urlopen(url, timeout=10) as response:
-            if response.status != 200: raise ValueError('Existing gateway route failed')
+    with HEALTH_HTTP.open('https://beta.kletterwelt-sauerland.de/version.json', timeout=10) as response:
+        if response.status != 200: raise ValueError('Existing web version route failed')
+    for environment, host in (('production', 'beta-api.kletterwelt-sauerland.de'), ('review', 'review-api.kletterwelt-sauerland.de')):
+        url = 'https://' + host + '/auth/v1/health'
+        # These existing GoTrue gateways intentionally require their public key.
+        # A missing key must retain the pre-existing401 boundary; each configured
+        # context must then accept its own existing anon key, never a user JWT.
+        try:
+            with HEALTH_HTTP.open(url, timeout=10) as response:
+                unauthenticated_status = response.status
+        except urllib.error.HTTPError as error:
+            unauthenticated_status = error.code
+            error.close()
+        if unauthenticated_status != 401: raise ValueError('Existing API-key boundary changed: ' + environment)
+        request = urllib.request.Request(url, headers={'apikey': load_public_key(environment)})
+        with HEALTH_HTTP.open(request, timeout=10) as response:
+            if response.status != 200: raise ValueError('Existing GoTrue health failed: ' + environment)
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs): return None
+
+
+HEALTH_HTTP = urllib.request.build_opener(NoRedirect)
+
+
+def load_public_key(environment):
+    if environment not in ('production', 'review'): raise ValueError('Unexpected auth context')
+    path = Path('/opt/kws/thumbnail-focus') / (environment + '.env')
+    info = path.stat()
+    if path.is_symlink() or not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or stat.S_IMODE(info.st_mode) != 0o600:
+        raise ValueError('Expected root600 environment file: ' + environment)
+    values = {}
+    for line in path.read_text().splitlines():
+        if line.strip() and not line.lstrip().startswith('#') and '=' in line:
+            key, value = line.split('=', 1)
+            values[key.strip()] = value.strip()
+    key = values.get('THUMBNAIL_PUBLIC_KEY') or values.get('ANON_KEY')
+    if not key or '\r' in key or '\n' in key or key.startswith('sb_secret_'):
+        raise ValueError('Existing public key unavailable: ' + environment)
+    if values.get('THUMBNAIL_PUBLIC_KEY') and values.get('ANON_KEY') and values['THUMBNAIL_PUBLIC_KEY'] != values['ANON_KEY']:
+        raise ValueError('Ambiguous public key configuration: ' + environment)
+    return key
 
 
 def write_in_place(target, raw):

@@ -4,7 +4,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 
 def load(name, filename):
@@ -54,6 +54,40 @@ networks:
 
 
 class GatewayTests(unittest.TestCase):
+    def test_normal_routes_preserve_key_boundary_and_use_each_existing_public_key(self):
+        requests = []
+        def response(item, timeout):
+            requests.append(item)
+            if isinstance(item, str) and item.endswith('/auth/v1/health'):
+                raise gateway.urllib.error.HTTPError(item, 401, 'API key required', {}, None)
+            result = Mock(status=200)
+            result.__enter__ = Mock(return_value=result)
+            result.__exit__ = Mock(return_value=False)
+            return result
+        with patch.object(gateway, 'load_public_key', side_effect=lambda environment: 'synthetic-' + environment), patch.object(gateway.HEALTH_HTTP, 'open', side_effect=response):
+            gateway.verify_normal()
+        self.assertEqual(len(requests), 5)
+        self.assertEqual(requests[0], 'https://beta.kletterwelt-sauerland.de/version.json')
+        self.assertEqual(requests[2].full_url, 'https://beta-api.kletterwelt-sauerland.de/auth/v1/health')
+        self.assertEqual(requests[2].get_header('Apikey'), 'synthetic-production')
+        self.assertEqual(requests[4].full_url, 'https://review-api.kletterwelt-sauerland.de/auth/v1/health')
+        self.assertEqual(requests[4].get_header('Apikey'), 'synthetic-review')
+        self.assertNotIn('Authorization', requests[2].headers)
+        self.assertIsNone(gateway.NoRedirect().redirect_request(None, None, None, None, None, None))
+
+    def test_normal_route_probe_does_not_accept_open_or_failing_auth_gateway(self):
+        response = Mock(status=200)
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        with patch.object(gateway.HEALTH_HTTP, 'open', return_value=response):
+            self.assertRaises(ValueError, gateway.verify_normal)
+        def unavailable(item, timeout):
+            if not isinstance(item, str): raise gateway.urllib.error.HTTPError(item.full_url, 403, 'Rejected key', {}, None)
+            if item.endswith('/auth/v1/health'): raise gateway.urllib.error.HTTPError(item, 401, 'API key required', {}, None)
+            return response
+        with patch.object(gateway, 'load_public_key', return_value='synthetic-key'), patch.object(gateway.HEALTH_HTTP, 'open', side_effect=unavailable):
+            self.assertRaises(gateway.urllib.error.HTTPError, gateway.verify_normal)
+
     def test_compose_only_replaces_exact_network_list_with_private_aliases(self):
         changed = gateway.transform_compose(COMPOSE)
         self.assertIn(b'aliases: [beta-api.kletterwelt-sauerland.de]', changed)
