@@ -104,7 +104,11 @@ export function Coachmark({ step, index, total, onNext, onBack, onClose, portalP
             let y = clamp(r.top - 5, Math.max(visibleTop, scrollBounds?.top ?? visibleTop), t + h - 8);
             const width = Math.max(0, Math.min(r.right + 5, l + w - 8) - x);
             let height = Math.max(0, Math.min(r.bottom + 5, scrollBounds?.bottom ?? t + h - 8, t + h - 8) - y);
-            const docked = Boolean(scrollBounds && r.height + p.height + 40 > (portalParent ? scrollBounds.height : h - (visibleTop - t)));
+            const fitsRight = x + width + p.width + 32 <= l + w;
+            const fitsLeft = x - p.width - 16 >= l + 16;
+            // A tall target can still be explained beside it on desktop. Docking
+            // first would unnecessarily cover its upper half with the explanation.
+            const docked = Boolean(!fitsRight && !fitsLeft && scrollBounds && r.height + p.height + 40 > (portalParent ? scrollBounds.height : h - (visibleTop - t)));
             let side: Geometry['side'] = 'bottom';
             if (docked && scrollBounds) {
                 const start = Math.max(t + p.height + 28, scrollBounds.top);
@@ -128,8 +132,10 @@ export function Coachmark({ step, index, total, onNext, onBack, onClose, portalP
                 height = Math.max(0, (portalParent ? scrollBounds.bottom - 4 : Math.min(r.bottom + 5, scrollBounds.bottom)) - y);
                 side = 'top';
             }
-            else if (x + width + p.width + 28 < l + w)
+            else if (fitsRight)
                 side = 'right';
+            else if (fitsLeft)
+                side = 'left';
             else if (y - p.height - 16 >= t + 12)
                 side = 'top';
             else if (y + height + p.height + 16 > t + h - 12 && height + p.height + 40 < h) {
@@ -149,9 +155,10 @@ export function Coachmark({ step, index, total, onNext, onBack, onClose, portalP
                     }
                 }
             }
-            const left = clamp(side === 'right' ? x + width + 16 : x + width / 2 - p.width / 2, l + 16, l + w - p.width - 16);
-            const top = docked ? t + 12 : clamp(side === 'right' ? y : side === 'top' ? y - p.height - 16 : y + height + 16, t + 12, t + h - p.height - 12);
-            const arrow = side === 'right' ? clamp(y + height / 2 - top, 24, p.height - 24) : clamp(x + width / 2 - left, 24, p.width - 24);
+            const beside = side === 'right' || side === 'left';
+            const left = clamp(side === 'right' ? x + width + 16 : side === 'left' ? x - p.width - 16 : x + width / 2 - p.width / 2, l + 16, l + w - p.width - 16);
+            const top = docked ? t + 12 : clamp(beside ? y + (height - p.height) / 2 : side === 'top' ? y - p.height - 16 : y + height + 16, t + 12, t + h - p.height - 12);
+            const arrow = beside ? clamp(y + height / 2 - top, 24, p.height - 24) : clamp(x + width / 2 - left, 24, p.width - 24);
             const style = getComputedStyle(target);
             const clippedTop = y > r.top - 4.5, clippedBottom = y + height < r.bottom + 4.5;
             const clippedLeft = x > r.left - 4.5, clippedRight = x + width < r.right + 4.5;
@@ -212,9 +219,9 @@ export function Coachmark({ step, index, total, onNext, onBack, onClose, portalP
       {/* Explicit pixel dimensions avoid scaling the cutout around desktop scrollbar gutters. */}
       <svg className="tour-shade" aria-hidden="true" viewBox={`0 0 ${g.canvasWidth} ${g.canvasHeight}`} preserveAspectRatio="none" style={{ width: g.canvasWidth, height: g.canvasHeight }}><path d={shadePath(g)} fillRule="evenodd"/></svg>
       <div className="tour-highlight" aria-hidden="true" style={{ left: g.x, top: g.y, width: g.width, height: g.height, borderRadius: g.radii.map(radius => `${radius}px`).join(' ') }}/>
-      <span className="tour-arrow" aria-hidden="true" style={g.side === 'right' ? { left: g.left - 6, top: g.top + g.arrow - 6 } : { left: g.left + g.arrow - 6, top: g.side === 'top' ? g.top + (panel.current?.offsetHeight ?? 0) - 6 : g.top - 6 }}/>
+      <span className="tour-arrow" aria-hidden="true" style={g.side === 'right' || g.side === 'left' ? { left: g.side === 'right' ? g.left - 6 : g.left + (panel.current?.offsetWidth ?? 0) - 6, top: g.top + g.arrow - 6 } : { left: g.left + g.arrow - 6, top: g.side === 'top' ? g.top + (panel.current?.offsetHeight ?? 0) - 6 : g.top - 6 }}/>
     </>}
-    <Dialog.Content ref={panel} className="tour-panel" data-coachmark={step.id} data-swipe-ignore aria-describedby="tour-description" onOpenAutoFocus={event => event.preventDefault()} onCloseAutoFocus={event => event.preventDefault()} onInteractOutside={event => event.preventDefault()} style={{ left: g?.left ?? 16, top: g?.top ?? 16, visibility: g ? 'visible' : 'hidden' }}>
+    <Dialog.Content ref={panel} className="tour-panel" data-coachmark={step.id} data-tour-side={g?.side} data-swipe-ignore aria-describedby="tour-description" onOpenAutoFocus={event => event.preventDefault()} onCloseAutoFocus={event => event.preventDefault()} onInteractOutside={event => event.preventDefault()} style={{ left: g?.left ?? 16, top: g?.top ?? 16, visibility: g ? 'visible' : 'hidden' }}>
       <div className="tour-top"><span>{progressLabel ?? `${step.account ? 'Mit Konto' : 'Einführung'} · ${index + 1} von ${total}`}</span><Button variant="ghost" size="icon" aria-label="Einführung schließen" onClick={onClose}><X aria-hidden="true"/></Button></div>
       <Dialog.Title ref={heading} tabIndex={-1} className="tour-title">{step.title}</Dialog.Title>
       <Dialog.Description id="tour-description" className="tour-description">{step.text}</Dialog.Description>
