@@ -5,3 +5,5 @@ The existing Android82 / TestFlight99 integration is retained and updated with t
 The merge preserves the lazy feed entry and the combined guest onboarding regression while adding the current feed zoom/preferences/transition tests and the new detail-player CI suite. Android versionCode83 is prepared. Both native packages still require build/signature/artifact checks and availability verification before claiming delivery.
 
 Server candidate source is aba3aa97c15364584557a780e3bc8518c8bb76ec with unchanged server manifest. Archive rollout, a canary, bulk migration and final inventory must be verified before publishing clients. Current physical iPhone/HDR acceptance remains unverified.
+
+Integration regression: the V5 mobile player now exposes the existing onboarding media target. The coachmark stops retrying a scroll when a viewport-sized target has reached its scroll boundary. The existing full guest/feed/filter-tour browser regression reproduced the failure and passes after the fix (4.3s). No onboarding steps or account permissions were removed.

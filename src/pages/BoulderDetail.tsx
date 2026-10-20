@@ -234,7 +234,7 @@ export default function BoulderDetail() {
     );
   }
 
-  if (mobilePlayer && isDirectVideo) return <main className="kws-mobile-player-page" aria-label="Boulder-Detailansicht">
+  if (mobilePlayer && isDirectVideo) return <main data-onboarding="media" className="kws-mobile-player-page" aria-label="Boulder-Detailansicht">
     <BoulderVideoPlayer key={boulder.id} boulderId={boulder.id} betaVideoUrls={boulder.betaVideoUrls} betaVideoUrl={boulder.betaVideoUrl}
       poster={getThumbnailUrl(boulder)} isVisible showOfficialBadge
       mobileDetail={{ title: boulder.name, onBack: goBack, backLabel,

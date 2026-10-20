@@ -94,9 +94,13 @@ export function Coachmark({ step, index, total, onNext, onBack, onClose, portalP
                     return;
                 }
                 if (!portalParent && r.bottom > t + h - 8) {
+                    const before = scrollRoot!.scrollTop;
                     scrollRoot!.scrollBy({ top: r.bottom - (t + h - 8), behavior: 'instant' });
-                    schedule();
-                    return;
+                    // A viewport-sized mobile player cannot scroll beyond its boundary.
+                    if (Math.abs(scrollRoot!.scrollTop - before) > 0.5) {
+                        schedule();
+                        return;
+                    }
                 }
                 // A shallow viewport keeps the explanation above a scrollable choice area.
                 y = start;
