@@ -32,6 +32,7 @@ test('project removal and undo patch only the marker and preserve tracking',asyn
   await expect(page.getByText('Wieder in deinen Projekten.',{exact:true})).toBeVisible();
   expect(data.writes.map(w=>[w.method,w.body])).toEqual([['PATCH',{is_project:false}],['PATCH',{is_project:true}]]);
   expect(data.writes[1].query).toContain('user_id=eq.designmotion-user');
+  expect(data.writes[1].query).toContain('id=eq.tick-undo');
   expect(data.writes[1].query).toContain('is_project=eq.false');
   expect(data.tick).toMatchObject({note:'Private Notiz',attempt_count:7,status:'top',is_favorite:true});
 });

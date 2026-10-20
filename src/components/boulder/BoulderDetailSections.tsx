@@ -1001,7 +1001,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
 
     try {
       if (action === 'project' && previousMarkers.isProject && !nextMarkers.isProject && currentTick) {
-        await upsertTick.mutateAsync({ projectOnly: true, isProject: false });
+        await upsertTick.mutateAsync({ projectOnly: true, tickId: currentTick.id, isProject: false });
         await communityQuery.refetch();
         if (projectUndo.current.generation !== actionGeneration) return;
         const generation = projectUndo.current.generation;
@@ -1016,7 +1016,7 @@ export function BoulderTrackTab({ boulder }: { boulder: Boulder }) {
               const activeGeneration = projectUndo.current.generation;
               void (async () => {
                 try {
-                  await upsertTick.mutateAsync({ projectOnly: true, isProject: true });
+                  await upsertTick.mutateAsync({ projectOnly: true, tickId: currentTick.id, isProject: true });
                   await communityQuery.refetch();
                   if (projectUndo.current.generation === activeGeneration) {
                     setIsProject(true);
