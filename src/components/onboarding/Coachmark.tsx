@@ -70,6 +70,13 @@ export function Coachmark({ step, index, total, onNext, onBack, onClose, portalP
                 else if (!portalParent)
                     target.scrollIntoView({ block: 'center', behavior: 'instant' });
             }
+            // A dialog's entrance scale is temporary. Measure its final coordinate
+            // system before drawing a spotlight inside the transformed portal.
+            if (portalParent?.getAnimations().some(animation => animation.playState === 'running')) {
+                setGeometry(null);
+                schedule();
+                return;
+            }
             const view = window.visualViewport;
             const host = portalParent?.getBoundingClientRect();
             // Fixed portals share the viewport with iOS status bars and the home indicator.
@@ -159,7 +166,7 @@ export function Coachmark({ step, index, total, onNext, onBack, onClose, portalP
         if (safeArea.current)
             observer.observe(safeArea.current);
         const mutation = new MutationObserver(schedule);
-        mutation.observe(portalParent ?? document.getElementById('root')!, { childList: true, subtree: true });
+        mutation.observe(portalParent ?? document.getElementById('root')!, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-onboarding', 'data-draft-tour', 'hidden', 'inert'] });
         window.addEventListener('resize', schedule);
         window.addEventListener('scroll', schedule, true);
         window.visualViewport?.addEventListener('resize', schedule);
@@ -201,7 +208,8 @@ export function Coachmark({ step, index, total, onNext, onBack, onClose, portalP
     <span ref={safeArea} className="tour-safe-area" aria-hidden="true"/>
     {g && <>
       {/* One rounded cutout shares its exact contour with the highlight and hit area. */}
-      <svg className="tour-shade" aria-hidden="true" viewBox={`0 0 ${g.canvasWidth} ${g.canvasHeight}`} preserveAspectRatio="none"><path d={shadePath(g)} fillRule="evenodd"/></svg>
+      {/* Explicit pixel dimensions avoid scaling the cutout around desktop scrollbar gutters. */}
+      <svg className="tour-shade" aria-hidden="true" viewBox={`0 0 ${g.canvasWidth} ${g.canvasHeight}`} preserveAspectRatio="none" style={{ width: g.canvasWidth, height: g.canvasHeight }}><path d={shadePath(g)} fillRule="evenodd"/></svg>
       <div className="tour-highlight" aria-hidden="true" style={{ left: g.x, top: g.y, width: g.width, height: g.height, borderRadius: g.radii.map(radius => `${radius}px`).join(' ') }}/>
       <span className="tour-arrow" aria-hidden="true" style={g.side === 'right' ? { left: g.left - 6, top: g.top + g.arrow - 6 } : { left: g.left + g.arrow - 6, top: g.side === 'top' ? g.top + (panel.current?.offsetHeight ?? 0) - 6 : g.top - 6 }}/>
     </>}

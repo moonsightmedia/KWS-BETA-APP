@@ -2201,7 +2201,12 @@ Prüfumfang: docs/qa/2026-10-19-setter-quick-actions.md.
 - Präzisierung nach Sichtprüfung: Die Aufhellung folgt der tatsächlichen
   Rundung des Zielelements einschließlich des umlaufenden Abstands. Ausschnitt,
   grüne Kontur und klickfreie Öffnung haben dieselbe Geometrie; keine hellen
-  rechteckigen Eckflächen außerhalb der Rundung. Abgeschnittene Zielkanten
+  rechteckigen Eckflächen außerhalb der Rundung. Präzisierung20.10.: Der SVG-
+  Ausschnitt verwendet denselben Pixelmaßstab wie die Kontur, auch bei klassischen
+  Desktop-Scrollleisten. Ziele werden explizit identifiziert; ein zusätzlicher
+  Toolbarbutton darf nicht anstelle der ersten Boulderkarte markiert werden.
+  Bei Dialogen wird erst nach deren Eintrittsskalierung gemessen.
+  Abgeschnittene Zielkanten
   bleiben gerade. Die Kontozeile heißt auf Nutzerwunsch „Das Kommentieren“ und
   behält ausdrücklich den Stern. Bestätigte Nutzerwahl im Iconvergleich:
   Gespeicherte Boulder B (`Bookmark`), Tracking A (`Play`), Statistik A

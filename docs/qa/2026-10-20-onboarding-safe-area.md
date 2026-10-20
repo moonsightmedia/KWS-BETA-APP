@@ -50,3 +50,29 @@ node test/onboarding-empty.check.cjs
 node node_modules/eslint/bin/eslint.js src/components/onboarding/Coachmark.tsx src/pages/Guest.tsx
 node node_modules/vite/bin/vite.js build
 ```
+
+
+## Nachkorrektur – Desktop-Highlight
+
+Nutzerbild: erster Hinweis markiert den Listenswitch; Aufhellung liegt links
+versetzt zur grünen Kontur. Reproduziert bei1365px: SVG-Breite1355px gegenüber
+ViewBox1365px (klassische10px-Scrollleiste), X-Maßstab0,992674. Dadurch driftet
+der Ausschnitt mit zunehmender X-Position. Der echte App-Flow verwendet bereits
+explizite Ziele, der lokale Entwurf suchte dagegen den ersten Button in main.
+
+Korrektur: SVG erhält explizite Pixelbreite/-höhe passend zur ViewBox. Der
+Entwurf markiert die erste Fotokarte mit eigenem Anker. Coachmark beobachtet
+auch die Sichtbarkeits-/Ankerattribute und misst Dialoge nach ihrer endlichen
+Eintrittsanimation, damit temporäres Zoom nicht ein zweites Mal eingerechnet wird.
+
+Verifiziert in Edge: vier vollständige Entwurfs- und vier echte App-Durchläufe
+bei375/768/1280/1920px. In jedem Schritt wird der tatsächliche SVG-Ausschnitt über
+getScreenCTM() auf Bildschirmkoordinaten projiziert und mit allen vier Kanten der
+Kontur verglichen (Toleranz0,6CSSpx). Der erste Entwurfsanker muss die Fotokarte
+sein. Alle Prüfungen bestanden; zusätzlich beide visuellen Loops mit Liste,
+Detail, offenem Filter und Kontovorschau. Lokale Belege: output/playwright/
+onboarding-draft-geometry und output/playwright/onboarding. Medien werden in
+isolierten Browserprüfungen nicht extern geladen.
+
+Reproduktion zusätzlich: node test/onboarding-draft-geometry.check.cjs (erfordert
+den bereits dokumentierten Entwurfsserver auf5216 im ursprünglichen Arbeitsordner).
