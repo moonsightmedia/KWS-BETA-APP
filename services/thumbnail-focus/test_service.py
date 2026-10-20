@@ -5,6 +5,8 @@ from PIL import Image, ImageDraw
 import server
 import collect
 from detector_start_v3 import analyze
+from detector_start_v3 import shape_ok
+import numpy as np
 
 class Contract(unittest.TestCase):
  @classmethod
@@ -49,5 +51,13 @@ class Contract(unittest.TestCase):
   result=analyze(out.getvalue(),'red');self.assertEqual(result['selected'],[])
   draw=ImageDraw.Draw(photo);draw.ellipse((50,70,130,150),fill='#ec5099',outline='black',width=3);out=io.BytesIO();photo.save(out,format='JPEG')
   result=analyze(out.getvalue(),'manual',[.5,.45]);self.assertEqual(len(result['selected']),1);self.assertEqual(result['candidates'][0]['source'],'point_correction')
+ def test_manual_large_cropped_hold_does_not_relax_automatic_wall_filter(self):
+  mask=np.zeros((480,360),np.uint8);mask[:300,:]=255
+  self.assertFalse(shape_ok(mask,.8));self.assertTrue(shape_ok(mask,.8,manual=True))
+  self.assertFalse(shape_ok(np.ones_like(mask)*255,.8,manual=True))
+ def test_manual_revision_keeps_existing_automatic_review_keys(self):
+  row={'id':'fixture','color':'red','thumbnail_url':'https://example.test/photo.jpg'};original=collect.cache_key(row)
+  with patch.object(collect,'VERSION','different-manual-revision'):self.assertEqual(collect.cache_key(row),original)
+  self.assertNotEqual(collect.cache_key({**row,'color':'blue'}),original)
 
 if __name__=='__main__':unittest.main()

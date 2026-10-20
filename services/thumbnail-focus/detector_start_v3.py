@@ -10,7 +10,10 @@ from route_labels import detect_labels
 from route_digits import digit_evidence
 from detector_v2_core import boundary_evidence
 from sam_local import PhotoSegments
-VERSION='sam-number-cards-3.1'
+VERSION='sam-number-cards-3.2'
+# This revision changes manual correction only. Automatic proposals and their
+# durable review keys remain compatible with 3.1; never invalidate user approvals.
+AUTOMATIC_VERSION='sam-number-cards-3.1'
 _ENCODINGS=OrderedDict()
 
 def photo_model(rgb):
@@ -53,13 +56,13 @@ def cleaned(mask,point):
  if not label:return np.zeros_like(mask)
  return (labels==label).astype(np.uint8)*255
 
-def shape_ok(mask,score):
+def shape_ok(mask,score,manual=False):
  area=np.count_nonzero(mask)
- if score<.52 or not 65<=area<=.27*mask.size:return False
+ if score<.52 or not 65<=area<=(.92 if manual else .27)*mask.size:return False
  _,(x,y,w,h),_,solid=properties(mask)
  if min(w,h)<6 or max(w,h)/min(w,h)>7:return False
  borders=int(x<2)+int(y<2)+int(x+w>=mask.shape[1]-1)+int(y+h>=mask.shape[0]-1)
- return borders<2 and solid>.25
+ return (manual or borders<2) and solid>.25
 
 def unique_masks(rows,threshold=.65):
  unique=[]
@@ -94,7 +97,11 @@ def analyze(raw,color,point=None):
  if point is not None:
   seeds=[(point[0]*(w-1),point[1]*(h-1))]
   masks=model.masks(seeds);mask,quality=masks[0]
-  if not shape_ok(mask,quality):raise ValueError('An dieser Stelle keine sichere Grifffläche. Bitte auf den Griffkörper tippen.')
+  if not shape_ok(mask,quality,manual=True):raise ValueError('An dieser Stelle keine sichere Grifffläche. Bitte auf den Griffkörper tippen oder die Kontur nachzeichnen.')
+  # A manual tap may deliberately select a cropped, large hold. Still reject
+  # obvious wall masks when their surface does not match the chosen route color.
+  if np.count_nonzero(mask)>.27*mask.size and color!='manual' and affinity(rgb,color,mask)<.45:
+   raise ValueError('Die Fläche sieht überwiegend nach Wand aus. Bitte genauer auf den Griff tippen oder die Kontur nachzeichnen.')
   candidate=outline(mask,'manual',quality,[]);candidate['source']='point_correction'
   candidates=[candidate];selected=['manual'];labels=[];note='Fläche per Tipp geschätzt. Kontur bitte prüfen.'
  else:

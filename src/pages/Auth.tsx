@@ -28,6 +28,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { accountBirthDateError } from '@/lib/accountEligibility';
 import { AUTH_LOGIN_PATH, AUTH_REGISTER_PATH, isAuthPage } from '@/lib/authRoutes';
 import { isReviewAvailable, isReviewEnvironment, switchBackendEnvironment } from '@/lib/backendConfig';
+import { thumbnailReviewReturn } from '@/lib/thumbnailReviewAuth.mjs';
 
 type AuthMode = 'login' | 'signup';
 type PendingAction = 'login' | 'signup' | 'reset' | null;
@@ -64,6 +65,7 @@ const getDaysInMonth = (month: number, year: number): number =>
 const Auth = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const reviewReturn=thumbnailReviewReturn(location.search,import.meta.env.DEV&&import.meta.env.VITE_THUMBNAIL_LOCAL_CATALOG==='true');
   const authMode: AuthMode = location.pathname === AUTH_REGISTER_PATH ? 'signup' : 'login';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -97,6 +99,7 @@ const Auth = () => {
     console.log('[Auth] mounted');
 
     if (user) {
+      if(reviewReturn){navigate(reviewReturn,{replace:true});return;}
       try {
         const preserveRoute = sessionStorage.getItem('preserveRoute');
         if (preserveRoute && !isAuthPage(preserveRoute.split(/[?#]/)[0]) && preserveRoute !== window.location.pathname) {
@@ -122,7 +125,7 @@ const Auth = () => {
     } catch (error) {
       console.warn('[Auth] Error clearing preserved route:', error);
     }
-  }, [user, navigate]);
+  }, [user, navigate, reviewReturn]);
 
   const validDays = useMemo(() => {
     if (!birthMonth || !birthYear) return 31;
@@ -136,7 +139,7 @@ const Auth = () => {
   const changeMode = (nextMode: AuthMode) => {
     setShowResetPassword(false);
     setShowResendConfirmation(false);
-    navigate(nextMode === 'signup' ? AUTH_REGISTER_PATH : AUTH_LOGIN_PATH, { replace: true });
+    navigate((nextMode === 'signup' ? AUTH_REGISTER_PATH : AUTH_LOGIN_PATH)+(reviewReturn?'?from=thumbnail-review':''), { replace: true });
   };
 
   const handleSignIn = async (event: React.FormEvent) => {
@@ -237,7 +240,9 @@ const Auth = () => {
 
   const isLogin = authMode === 'login';
   const headline = isLogin ? 'Willkommen zurück' : 'Konto erstellen';
-  const intro = isLogin
+  const intro = reviewReturn
+    ? 'Deine Prüfauswahl bleibt auf diesem Gerät gespeichert. Melde dich mit deinem Setter-Konto an; danach kehrst du zu den Vorschaubildern zurück.'
+    : isLogin
     ? 'Melde dich an und finde deine Boulder, Betas und Fortschritte.'
     : 'Ein Konto verbindet deine Boulder, Sessions und persönlichen Statistiken.';
 
@@ -258,6 +263,7 @@ const Auth = () => {
               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground sm:text-[0.95rem] lg:mx-0">
                 {intro}
               </p>
+              {reviewReturn==='/thumbnail-review-local'&&<Button variant="ghost" type="button" className="mt-2" onClick={()=>navigate(reviewReturn)}><ArrowLeft className="mr-2 h-4 w-4"/>Zur Prüfliste zurück</Button>}
             </div>
 
             <div className="mt-8 hidden max-w-md border-l-2 border-primary pl-4 lg:block">

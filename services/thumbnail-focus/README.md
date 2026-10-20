@@ -58,6 +58,13 @@ werden. Die Zahl der Datensätze hängt von den Leserechten der Konfiguration ab
   Bestätigung als Entwurf gespeichert. „Überspringen“/„Original behalten“ lassen
   das Onlinebild unverändert. Pink/Mint haben vorerst keine Farbautomatik; die
   farbunabhängige Tippsegmentierung funktioniert auch dort.
+- Große oder am Bildrand abgeschnittene Griffe sind bei bewussten Tipps zulässig.
+  Bei Teilflächen/verbundenen Nachbargriffen „Kontur nachzeichnen“ wählen:
+  sichtbare Randpunkte antippen, Kontur übernehmen. „Punkt zurück“, Abbrechen und
+  Rückgängig bleiben erreichbar. Außerhalb des Fotos liegende Teile werden nicht
+  rekonstruiert. Alte Masken desselben Fotos bleiben über manuelle Dienstrevisionen
+  korrigierbar; automatische Cache-/Prüfschlüssel ändern sich dadurch nicht.
+  Der Anmeldelink führt nach erfolgreichem Login zur Prüfung zurück.
 - „Online übernehmen“ verlangt eine gesonderte Mengenbestätigung. Es werden
   ausschließlich bestätigte Varianten übertragen. Leere Auswahl ist gesperrt.
   Eine laufende Sitzung ist kontogebunden und Rollen werden vor Upload live geprüft.

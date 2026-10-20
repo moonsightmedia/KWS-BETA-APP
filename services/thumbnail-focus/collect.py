@@ -4,11 +4,13 @@ Credentials from --env-file stay in memory. No cloud write methods exist here.
 import argparse, hashlib, json, os, sys, time, urllib.parse, urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from detector_start_v3 import analyze, VERSION
+from detector_start_v3 import analyze, VERSION, AUTOMATIC_VERSION
 
 COLORS={'grün':'green','gelb':'yellow','rot':'red','blau':'blue','orange':'orange','lila':'purple','weiß':'white','schwarz':'black'}
 def atomic(path,data):
     tmp=path.with_suffix('.tmp');tmp.write_text(json.dumps(data,ensure_ascii=False),encoding='utf-8');tmp.replace(path)
+def cache_key(row):
+    return hashlib.sha256(json.dumps([row,AUTOMATIC_VERSION],sort_keys=True).encode()).hexdigest()
 def get(url,headers=None):
     with urllib.request.urlopen(urllib.request.Request(url,headers=headers or {}),timeout=40) as r:
         raw=r.read(12_000_001)
@@ -44,8 +46,8 @@ def run():
         references={r['image']['sha256']:r for r in exported['references'].values()}
     rows=collect(base,headers);snapshot={'schema':1,'read_at':datetime.now(timezone.utc).isoformat(),'source':base,'version':VERSION,'records':[]}
     for row in rows:
-        # Stable key includes route metadata, source URL and detector version.
-        cache=hashlib.sha256(json.dumps([row,VERSION],sort_keys=True).encode()).hexdigest()
+        # A manual-only revision must not invalidate automatic caches/reviews.
+        cache=cache_key(row)
         snapshot['records'].append({**row,'cache_key':cache,'analysis_state':'pending','photo':f'photos/{cache}.jpg','result':f'results/{cache}.json',**({'reference':previous[cache]} if cache in previous else {})})
     atomic(data/'inventory.json',snapshot)
     print(f'Live inventory: {len(rows)} thumbnails; all statuses included.',flush=True)

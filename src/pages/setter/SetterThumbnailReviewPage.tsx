@@ -48,7 +48,7 @@ function ReviewCard({row,saved,disabled,onEdit,onDecision}: {
     if(host.current)observer.observe(host.current);
     return()=>{controller.abort();observer.disconnect();if(url)URL.revokeObjectURL(url);};
     // State updates to the catalogue retain the same cached image unless its job changes.
-  },[row.cache_key,row.analysis_state,saved]);
+  },[row,saved]);
   const status=saved?.state==='published'?'Online übernommen':saved?.state==='accepted'?'Bestätigt':saved?.state==='skipped'?'Übersprungen':row.analysis_state==='pending'?'Analyse läuft …':row.analysis_state==='manual'?'Manuell auswählen':row.reference?'Deine frühere Auswahl':value?.selected.length?`${value.selected.length} ${value.selected.length===1?'Griffvorschlag':'Griffvorschläge'}`:'Startgriffe prüfen';
   return <article ref={host} className="min-w-0 overflow-hidden rounded-kws-card bg-white shadow-soft" aria-label={row.name}>
     <button type="button" className="relative block aspect-[3/4] w-full overflow-hidden bg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" onClick={()=>onEdit(row)} disabled={disabled||saved?.state==='published'} aria-label={`${row.name} korrigieren`}>
@@ -159,7 +159,7 @@ export default function SetterThumbnailReviewPage() {
     </section>
     <footer className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-10 flex flex-wrap items-center justify-between gap-2 rounded-kws-control bg-white p-3 shadow-soft md:bottom-2">
       <p role="status" className="text-xs text-muted-foreground">{progress||`${accepted.length} bestätigt · Vorschläge werden erst nach Freigabe übertragen.`}</p>
-      {session&&(isSetter||isAdmin)?<Button disabled={busy||!accepted.length} onClick={()=>setConfirm(true)}>{busy?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:null}{accepted.length} online übernehmen</Button>:<Button asChild variant="secondary"><Link to="/auth" onClick={()=>sessionStorage.setItem('preserveRoute',location.pathname)}>Zum Übernehmen anmelden</Link></Button>}
+      {session&&(isSetter||isAdmin)?<Button disabled={busy||!accepted.length} onClick={()=>setConfirm(true)}>{busy?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:null}{accepted.length} online übernehmen</Button>:session?<p className="text-xs text-muted-foreground">Für die Online-Übernahme ist eine Setterfreigabe erforderlich.</p>:<Button asChild variant="secondary"><Link to="/app/login?from=thumbnail-review">Als Setter anmelden und übernehmen</Link></Button>}
     </footer>
     <p className="text-xs text-muted-foreground">Passt bestätigt die angezeigten Startgriffe. Unter Korrigieren kannst du mehrere Griffe antippen. Ohne sichere Auswahl bleibt das Original. Online-Übernahme ändert nur bestätigte Vorschaubilder und erhält deren Originaldateien.</p>
     <Dialog open={Boolean(edit)||editLoading||Boolean(editError)} onOpenChange={open=>{if(!open)closeEdit();}}>

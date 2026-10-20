@@ -12,7 +12,8 @@ export interface HoldCandidate {
   holes?: [number, number][][];
   box: [number, number, number, number];
   area: number;
-  source: 'automatic' | 'point_correction';
+  source: 'automatic' | 'point_correction' | 'polygon_correction';
+  modelVersion?: string;
 }
 export interface HoldResult {
   version: string;
@@ -112,9 +113,10 @@ export function paintThumbnail(canvas: HTMLCanvasElement, image: HTMLImageElemen
   if (focused) {
     const selected = result.candidates.filter(c => value.selected.includes(c.id));
     const paths = selected.map(candidate => holdPath(candidate));
-    const union = new Path2D();paths.forEach(path=>union.addPath(path));
-    ctx.save();ctx.clip(union);ctx.drawImage(image,0,0,canvas.width,canvas.height);ctx.restore();
     ctx.lineJoin='round';for(const path of selected.map(candidate => holdPath(candidate, false))) {ctx.strokeStyle='#19243680';ctx.lineWidth=4.5*canvas.width/360;ctx.stroke(path);ctx.strokeStyle='#fff';ctx.lineWidth=2.3*canvas.width/360;ctx.stroke(path);}
+    // Fill every region after all outlines: overlap is a true union even when
+    // hand and model polygons have opposite winding, without internal seams.
+    for(const path of paths){ctx.save();ctx.clip(path,'evenodd');ctx.drawImage(image,0,0,canvas.width,canvas.height);ctx.restore();}
   }
   if (view === 'edit' && result) result.candidates.forEach((c,i) => {
     const selected=value.selected.includes(c.id),path=holdPath(c);

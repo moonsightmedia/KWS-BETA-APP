@@ -2359,3 +2359,12 @@ Prüfumfang: docs/qa/2026-10-20-designmotion-four.md.
   auch bei Wiederaufnahme. Die Veröffentlichung der App ist eine eigene Freigabe.
 
 Prüfumfang: `docs/qa/2026-10-20-thumbnail-focus-review.md`.
+
+Ergänzung für große/angeschnittene Griffe: Bewusste Tippkorrekturen dürfen mehrere
+Bildränder berühren und große Teile des Fotos einnehmen. Der automatische
+Wandfilter bleibt getrennt und konservativ. Die größere Korrekturansicht bietet
+„Kontur nachzeichnen“ mit Randpunkten, Punkt zurück, Übernehmen und Abbrechen.
+Eine unvollständige Kontur sperrt die endgültige Bestätigung. Es wird nur die
+sichtbare Fläche markiert; alte Entscheidungen und Rückgängig bleiben erhalten.
+Überlappende Flächen zeigen keine inneren Trennlinien. Die Anmeldung erklärt den
+Übernahmezweck und kehrt zu einem fest erlaubten Prüfziel zurück.
