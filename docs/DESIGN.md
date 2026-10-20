@@ -2190,3 +2190,27 @@ Prüfumfang und Belege: docs/design/designmotion-2026-10-19.md.
   Upload-Ergänzungen und lokale Entwurfswiederherstellung sind weiter Vorschläge.
 
 Prüfumfang: docs/qa/2026-10-19-setter-quick-actions.md.
+
+### Nutzerfreigabe 20.10.2026 – vier weitere DesignMotion-Ergänzungen
+
+- Der Upload-Stapel nennt fehlende Pflichtangaben direkt am Boulder. Ein
+  erreichbarer Texthinweis erklärt die Uploadsperre und verweist auf den Stift;
+  der deaktivierte Button verweist mit `aria-describedby` darauf.
+- Der bestehende Bouldereditor startet mit Fokus im Namen. Ein ungültiger Name
+  erhält beim Speicherversuch den Fokus. Dialogbegrenzung, Verwerfenschutz und
+  sichtbare Fokusringe bleiben erhalten.
+- Speichern zeigt „Wird gespeichert …“ und einen kurzen Übertragungshinweis,
+  sperrt weitere Aktionen und bestätigt Erfolg erst nach allen vorhandenen
+  Schreib-/Uploadschritten. Fehler erhalten die Eingaben und den Wiederholungsweg.
+- Entfernen einer Projektmarkierung im Detail-Tracking bietet nach bestätigter
+  Speicherung zehn Sekunden „Rückgängig“. Entfernen und Wiederherstellen ändern
+  ausschließlich `is_project` mit Kontobindung und Prüfung des aktuellen Werts;
+  Notiz, Versuche, Erfolge, Favorit und Sessions werden nicht zurückgespielt.
+  Weitere Trackingaktionen, Kontowechsel und Schließen des Tracks verwerfen
+  das Angebot. Ein Konflikt/Fehler gilt nicht als erfolgreiche Wiederherstellung.
+  Endgültiges Löschen erhält keine Rückgängig-Aktion.
+- Der neue Entwurf zur Mehrfachauswahl ist ausdrücklich nicht freigegeben.
+  Die vorhandene Auswahloberfläche bleibt erhalten. Wochenkarte oben und
+  Beta-Startlader bleiben unverändert.
+
+Prüfumfang: docs/qa/2026-10-20-designmotion-four.md.
