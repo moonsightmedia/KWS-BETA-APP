@@ -5,12 +5,13 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { promises as fs, createReadStream } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { requireSupabaseUser, canAccessOwner, canManageBoulderMedia } from './auth.js';
+import { requireSupabaseUser, canAccessOwner, canManageBoulderMedia, isAdmin } from './auth.js';
 import { loadConfig } from './config.js';
 import { JobQueue, QUALITIES } from './transcode.js';
 import { SupabasePublisher } from './supabase-publisher.js';
 import { assertNoSymlinkAncestors, inside, managedBytes, readManagedJson } from './path-safety.js';
 import { mergeFiles } from './file-merge.js';
+import { originalFile } from './original-archive.js';
 
 const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif']);
 const SESSION_ID = /^[A-Za-z0-9_-]{8,128}$/;
@@ -73,7 +74,7 @@ export async function createApp({ config = loadConfig(), authMiddleware = requir
 
   const app = express(); app.disable('x-powered-by'); app.use(express.json({ limit: '1mb' }));
   app.use((req, res, next) => {
-    res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Upload-Auth, X-File-Name, X-File-Size, X-File-Type, X-Chunk-Number, X-Total-Chunks, X-Upload-Session-Id, X-Sector-Id, X-Boulder-Id', 'Access-Control-Max-Age': '86400' });
+    res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Upload-Auth, X-File-Name, X-File-Size, X-File-Type, X-Chunk-Number, X-Total-Chunks, X-Upload-Session-Id, X-Sector-Id, X-Boulder-Id, X-Video-Source', 'Access-Control-Max-Age': '86400' });
     if (req.method === 'OPTIONS') return res.sendStatus(200); next();
   });
 
@@ -90,6 +91,9 @@ export async function createApp({ config = loadConfig(), authMiddleware = requir
         if (boulderId && !BOULDER_ID.test(boulderId)) return res.status(400).json({ error: 'Invalid boulder id' });
         if (boulderId && !publisher.enabled) return res.status(503).json({ error: 'Async boulder publishing is temporarily unavailable' });
         const dir = await sessionDir(sessionId); let manifest = await loadManifest(sessionId); const immutable = { total_chunks: totalChunks, declared_size: declaredSize, file_name: fileName.slice(0, 255), file_type: fileType, sector };
+        const provenance = String(req.headers['x-video-source'] || '');
+        if (provenance && provenance !== 'selected-video-lossless') return res.status(400).json({ error: 'Invalid video source' });
+        if (provenance) immutable.video_source = provenance;
         if (boulderId) immutable.boulder_id = boulderId;
         if (manifest && !canAccessOwner(req, manifest.owner_id)) return res.status(403).json({ error: 'Session belongs to another user' });
         if (manifest && JSON.stringify(manifest.immutable) !== JSON.stringify(immutable)) return res.status(409).json({ error: 'Upload manifest mismatch' });
@@ -118,7 +122,7 @@ export async function createApp({ config = loadConfig(), authMiddleware = requir
           await writeJsonAtomic(inside(outputDir, `.${targetName}.owner.json`), { owner_id: req.userId }); const url = publicUrl(sector, targetName); manifest.response = { status: 'completed', job_id: null, url, urls: { original: url } }; for (let index = 0; index < totalChunks; index++) await fs.unlink(inside(dir, `part_${index}`)); await writeJsonAtomic(inside(dir, 'manifest.json'), manifest); return res.json(manifest.response);
         }
         const urls = Object.fromEntries(QUALITIES.map((quality) => [quality.suffix, publicUrl(sector, `${baseName}_${quality.suffix}.mp4`)]));
-        const job = queue.reserve({ session_id: sessionId, session_dir: dir, owner_id: req.userId, sector, base_name: baseName, original_ext: ext, total_chunks: totalChunks, declared_size: declaredSize, urls, boulder_id: boulderId || null });
+        const job = queue.reserve({ session_id: sessionId, session_dir: dir, owner_id: req.userId, sector, base_name: baseName, original_ext: ext, total_chunks: totalChunks, declared_size: declaredSize, urls, source_provenance: provenance || 'legacy-upload-master', boulder_id: boulderId || null });
         try { await diskLock.run('disk', async () => { const reservedBytes = declaredSize * 4; await ensureDiskCapacity(reservedBytes); diskReservations.set(job.job_id, reservedBytes); }); await queue.commit(job); }
         catch (error) { if (!await queue.get(job.job_id)) { queue.cancel(job); diskReservations.delete(job.job_id); } throw error; }
         manifest.job_id = job.job_id; manifest.response = boulderId ? { status: 'queued', job_id: job.job_id, session_id: sessionId, url: null, urls: null } : { status: 'queued', job_id: job.job_id, url: urls.hd, urls }; await writeJsonAtomic(inside(dir, 'manifest.json'), manifest); return res.json(manifest.response);
@@ -134,6 +138,19 @@ export async function createApp({ config = loadConfig(), authMiddleware = requir
     res.set('Cache-Control', 'no-store'); await sessionLocks.run(sessionId, async () => { const manifest = await loadManifest(sessionId); if (!manifest) return res.status(404).json({ error: 'Session not found' }); if (!canAccessOwner(req, manifest.owner_id)) return res.status(403).json({ error: 'Session belongs to another user' }); const job = manifest.job_id ? await queue.get(manifest.job_id) : null; const base = manifest.response ? (manifest.boulder_id ? { ...manifest.response, url: null, urls: null } : { ...manifest.response }) : {}; res.json({ session_id: sessionId, uploaded_chunks: await listChunks(await sessionDir(sessionId)), ...base, ...(job ? { status: job.status, job_id: job.job_id, ...statusUrls(job), error: job.status === 'failed' ? job.error : undefined } : {}) }); });
   });
   app.get('/jobs/:jobId', authMiddleware, async (req, res) => { res.set('Cache-Control', 'no-store'); const job = await queue.get(req.params.jobId); if (!job) return res.status(404).json({ error: 'Job not found' }); if (!canAccessOwner(req, job.owner_id)) return res.status(403).json({ error: 'Job belongs to another user' }); res.json({ job_id: job.job_id, status: job.status, ...statusUrls(job), error: job.status === 'failed' ? job.error : undefined }); });
+
+  // Originals never share the public /videos namespace or list endpoint.
+  app.get('/originals/:jobId', authMiddleware, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Administrator required' });
+    const job = await queue.get(req.params.jobId);
+    if (!job || job.status === 'deleted' || !job.original_archive) return res.sendStatus(404);
+    try {
+      const file = await originalFile({ root: queue.originalsDir, job, ffprobe: queue.ffprobe });
+      res.set('X-Content-Type-Options', 'nosniff');
+      return res.download(file, `original-${job.job_id}${path.extname(file)}`);
+    } catch { return res.status(409).json({ error: 'Original integrity verification failed' }); }
+  });
 
   function resolveVideoPath(url) {
     try { const pathname = decodeURIComponent(new URL(String(url), config.publicBaseUrl).pathname); if (!pathname.startsWith('/videos/')) return null; const parts = pathname.slice(8).split('/'); if (parts.length !== 2 || !SAFE_SEGMENT.test(parts[0]) || !/^[A-Za-z0-9_.-]+$/.test(parts[1]) || parts[1].startsWith('.')) return null; return inside(finalDir, ...parts); } catch { return null; }
@@ -152,7 +169,8 @@ export async function createApp({ config = loadConfig(), authMiddleware = requir
         if (job.status !== 'completed') return res.status(409).json({ error: 'Video is still processing' });
         for (const quality of QUALITIES) { const file = inside(dir, `${match[1]}_${quality.suffix}.mp4`); if ((await fs.lstat(file).catch(() => null))?.isFile()) { await fs.unlink(file); deleted.push(path.basename(file)); } }
         await fs.unlink(marker); await fs.unlink(inside(dir, `.${match[1]}.claim.json`)).catch(() => {});
-        job.status = 'deleted'; job.deleted_at = new Date().toISOString(); await queue.save(job);
+        const originalDir = inside(queue.originalsDir, job.job_id); await assertNoSymlinkAncestors(queue.originalsDir, originalDir); await fs.rm(originalDir, { recursive: true, force: true });
+        job.original_archive = null; job.status = 'deleted'; job.deleted_at = new Date().toISOString(); await queue.save(job);
         return res.json({ status: 'deleted', files: deleted, legacy: false });
       });
       legacy = true;
@@ -174,7 +192,7 @@ export async function createApp({ config = loadConfig(), authMiddleware = requir
     if (match) { const dir = path.dirname(file); let marker; try { marker = await readManagedJson(finalDir, inside(dir, `.${match[1]}.ready.json`)); } catch { return res.sendStatus(404); } if (marker) immutable = (await Promise.all(QUALITIES.map((quality) => fs.lstat(inside(dir, `${match[1]}_${quality.suffix}.mp4`)).then((s) => s.isFile() && !s.isSymbolicLink()).catch(() => false)))).every(Boolean); else if (await queue.findByFamily(parts[0], match[1])) { res.set('Cache-Control', 'no-store'); return res.sendStatus(404); } if (marker && !immutable) { res.set('Cache-Control', 'no-store'); return res.sendStatus(404); } }
     res.set('Cache-Control', immutable ? 'public, max-age=31536000, immutable' : 'no-store'); res.set('Access-Control-Allow-Origin', '*'); res.sendFile(file);
   });
-  app.get('/health', async (_req, res) => { const stats = await fs.statfs(config.dataDir); const queueDepth = queue.depth(); const queueCapacity = queue.capacity(); res.json({ ok: true, queue: queueDepth, queue_capacity: queueCapacity, queue_details: { depth: queueDepth, capacity: queueCapacity }, uploads: { multipart_active: multipartActive, multipart_capacity: config.maxMultipartConcurrency, sessions_per_user_capacity: config.maxActiveSessionsPerUser }, storage: { managed_bytes: await managedBytes(config.dataDir), quota_bytes: config.maxDataBytes, available_bytes: Number(stats.bavail) * Number(stats.bsize), required_headroom_bytes: config.minFreeBytes, max_upload_bytes: config.maxUploadBytes } }); });
+  app.get('/health', async (_req, res) => { const stats = await fs.statfs(config.dataDir); const queueDepth = queue.depth(); const queueCapacity = queue.capacity(); res.json({ ok: true, capabilities: { private_silent_originals: true, sdr_playback: true, source_provenance: 1 }, queue: queueDepth, queue_capacity: queueCapacity, queue_details: { depth: queueDepth, capacity: queueCapacity }, uploads: { multipart_active: multipartActive, multipart_capacity: config.maxMultipartConcurrency, sessions_per_user_capacity: config.maxActiveSessionsPerUser }, storage: { managed_bytes: await managedBytes(config.dataDir), quota_bytes: config.maxDataBytes, available_bytes: Number(stats.bavail) * Number(stats.bsize), required_headroom_bytes: config.minFreeBytes, max_upload_bytes: config.maxUploadBytes } }); });
   app.use((error, _req, res, next) => {
     if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'Chunk exceeds maximum size' });
     next(error);

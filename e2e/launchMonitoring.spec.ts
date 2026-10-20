@@ -379,6 +379,27 @@ test('issue inbox design loops show clear source semantics at all widths and sup
   }
 });
 
+test('issue detail accepts Escape as soon as its close action receives initial focus', async ({ page }) => {
+  await open(page, 'workspace');
+  await chooseView(page, 'Fehler');
+  await page.evaluate(() => {
+    const escapeOnFocus = (event: FocusEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || target.getAttribute('aria-label') !== 'Fehleransicht schließen') return;
+      document.removeEventListener('focusin', escapeOnFocus);
+      document.documentElement.dataset.initialFocusEscapeSent = 'true';
+      target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    };
+    document.addEventListener('focusin', escapeOnFocus);
+  });
+  const trigger = page.getByRole('list', { name: 'Fehlerliste' }).getByRole('button').first();
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('html')).toHaveAttribute('data-initial-focus-escape-sent', 'true');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
 test('issue source failures and load limits do not masquerade as a complete healthy inbox', async ({ page }) => {
   await open(page, 'issues-error');
   await chooseView(page, 'Fehler');

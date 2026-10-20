@@ -212,7 +212,8 @@ export type PreparedChunkedVideo =
 
 /**
  * Prepare video for chunked upload.
- * Native: compress on device, return filesystem path (never load whole file into JS).
+ * Native: retain the selected video bitstream and return its silent filesystem path.
+ * Lossy compression belongs on the server, after the private original is archived.
  * All platforms remove audio before any video chunk is sent.
  */
 export async function prepareVideoFileForChunkedUpload(
@@ -241,67 +242,21 @@ export async function prepareVideoFileForChunkedUpload(
   }
 
   const source: NativeVideoUploadFile = input;
-  let prepared: NativeVideoPrepareResult | null = null;
-  const sourcePath = source.cached ? source.path : null;
-
-  const withSourceCleanup = (cleanup: () => Promise<void>) => async () => {
-    await cleanup().catch(() => undefined);
-    if (sourcePath) {
-      await deleteNativeVideoFile(sourcePath).catch(() => undefined);
-    }
+  const silent = await stripNativeAudio(source.path, abortSignal);
+  const cleanup = async () => {
+    if (!silent.skipped) await deleteNativeVideoFile(silent.path).catch(() => undefined);
+    if (source.cached && source.path !== silent.path) await deleteNativeVideoFile(source.path).catch(() => undefined);
+    else if (source.cached && silent.skipped) await deleteNativeVideoFile(source.path).catch(() => undefined);
   };
-
-  try {
-    prepared = await prepareNativeVideoPathForUpload(
-      {
-        path: source.path,
-        fileName: source.name,
-        fileSize: source.size,
-        mimeType: source.mimeType,
-        duration: source.duration,
-        width: source.width,
-        height: source.height,
-      },
-      (p) => onProgress?.(Math.min(40, Math.floor(p * 0.4))),
-      abortSignal,
-    );
-
-    const silent = await stripNativeAudio(prepared.filePath, abortSignal);
-    const encodedPath = prepared.filePath;
-    const encodedCleanup = prepared.cleanup;
-    if (!silent.skipped && silent.path !== encodedPath) await encodedCleanup().catch(() => undefined);
-    return {
-      kind: 'native-path',
-      path: silent.path,
-      fileName: prepared.fileName,
-      fileSize: silent.fileSize,
-      mimeType: prepared.mimeType,
-      compressed: prepared.compressed,
-      cleanup: withSourceCleanup(silent.skipped ? encodedCleanup : () => deleteNativeVideoFile(silent.path)),
-    };
-  } catch (error) {
-    if (abortSignal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
-      if (prepared) await prepared.cleanup().catch(() => undefined);
-      if (sourcePath) await deleteNativeVideoFile(sourcePath).catch(() => undefined);
-      throw createAbortError();
-    }
-    console.warn('[nativeVideoUpload] Compress failed; preparing video-only original instead:', error);
-    if (prepared) {
-      await prepared.cleanup().catch(() => undefined);
-    }
-
-    // Lossless fallback, never fail-open to an audio-bearing original.
-    const silent = await stripNativeAudio(source.path, abortSignal);
-    return {
-      kind: 'native-path',
-      path: silent.path,
-      fileName: silent.skipped ? source.name : toMp4FileName(source.name),
-      fileSize: silent.fileSize,
-      mimeType: silent.skipped ? source.mimeType || 'video/quicktime' : 'video/mp4',
-      compressed: false,
-      cleanup: withSourceCleanup(silent.skipped ? noopCleanup : () => deleteNativeVideoFile(silent.path)),
-    };
-  }
+  return {
+    kind: 'native-path',
+    path: silent.path,
+    fileName: silent.skipped ? source.name : toMp4FileName(source.name),
+    fileSize: silent.fileSize,
+    mimeType: silent.skipped ? source.mimeType || 'video/quicktime' : 'video/mp4',
+    compressed: false,
+    cleanup,
+  };
 }
 
 async function stripNativeAudio(inputPath: string, signal?: AbortSignal) {

@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Keep uploaded videos within the same brightness range as the app UI.
+   Unsupported browsers ignore this; new uploads are also tone-mapped to SDR. */
+video {
+  dynamic-range-limit: standard;
+}
+
 @keyframes beta-placeholder-attempt {
   0%, 10% { transform: translate(-8px, 15px); }
   25% { transform: translate(2px, 1px); }
