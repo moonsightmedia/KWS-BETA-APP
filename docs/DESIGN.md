@@ -1176,6 +1176,19 @@ Bedienelemente auf wechselnden Wandfotos lesbar bleiben:
 - Externe YouTube-/Vimeo-Einbettungen behalten ihren eigenen Freigabe-/Playerweg.
   Veröffentlichungen folgen dem regulären PR-/CI-Weg.
 
+### 8.3.2 Gleichmäßige Videohelligkeit – Nutzerkorrektur 20.10.2026
+
+- Eigene Videos verwenden denselben normalen Helligkeitsbereich wie die
+  Oberfläche. Unterstützte Webplayer begrenzen HDR mit `dynamic-range-limit:
+  standard`, auch eingebettet, im Feed und im appinternen Vollbild.
+- Neue HDR-Uploads werden serverseitig mit echtem Tone Mapping nach SDR
+  umgerechnet; Auflösung und Qualitätswahl HD/SD/Low bleiben erhalten.
+  Ein bloßes Entfernen der HDR-Tags oder ein CSS-Helligkeitsfilter ersetzt das nicht.
+- Bereits veröffentlichte Dateien werden nicht unter ihren unveränderlichen URLs
+  überschrieben. Externe eingebettete Player behalten ihre eigene Darstellung.
+- Die tatsächliche Helligkeit wird auf einem echten iPhone geprüft; ein normaler
+  Screenshot allein bestätigt die HDR-Darstellung nicht.
+
 ### 8.4 Kommentare und Track
 
 - Kommentarzeilen und Composer zeigen das Profilfoto in derselben 8-px-

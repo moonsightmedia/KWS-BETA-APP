@@ -4,6 +4,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { assertNoSymlinkAncestors, inside, readManagedJson } from './path-safety.js';
 import { mergeFiles } from './file-merge.js';
+import { hdrToSdrFilter, isHdrVideo } from './video-color.js';
+
+const COLOR_FIELDS = 'color_space,color_transfer,color_primaries,color_range';
 
 export const QUALITIES = [
   { suffix: 'hd', box: 1920, crf: 23, maxrate: '4M', bufsize: '8M', audioBitrate: '128k' },
@@ -40,23 +43,25 @@ function run(command, args) {
 }
 
 export async function probeRendition(file, quality, ffprobe = 'ffprobe') {
-  const raw = await run(ffprobe, ['-v', 'error', '-show_entries', 'format=duration:stream=codec_type,codec_name,width,height,r_frame_rate,pix_fmt,bit_rate', '-of', 'json', file]);
+  const raw = await run(ffprobe, ['-v', 'error', '-show_entries', `format=duration:stream=codec_type,codec_name,width,height,r_frame_rate,pix_fmt,bit_rate,${COLOR_FIELDS}:stream_side_data`, '-of', 'json', file]);
   const info = JSON.parse(raw); const video = info.streams?.find((s) => s.codec_type === 'video'); const audio = info.streams?.find((s) => s.codec_type === 'audio');
   const duration = Number(info.format?.duration); const fps = parseRate(video?.r_frame_rate);
   if (video?.codec_name !== 'h264' || video?.pix_fmt !== 'yuv420p' || !video.width || !video.height || Math.max(video.width, video.height) > quality.box || !Number.isFinite(duration) || duration <= 0 || !fps || fps > 30.01) throw new Error(`ffprobe rejected ${quality.suffix} video`);
+  if (isHdrVideo(video)) throw new Error(`ffprobe rejected ${quality.suffix}: HDR output is forbidden`);
   const videoBitrate = Number(video?.bit_rate); const audioBitrate = Number(audio?.bit_rate);
   if (!Number.isFinite(videoBitrate) || videoBitrate <= 0 || videoBitrate > bitrateLimit(quality.maxrate) * 1.15) throw new Error(`ffprobe rejected ${quality.suffix} video bitrate`);
   if (audio) throw new Error(`ffprobe rejected ${quality.suffix}: audio tracks are forbidden`);
   const stat = await fs.stat(file); if (stat.size <= 0) throw new Error('encoder produced an empty file');
-  return { bytes: stat.size, duration, width: video.width, height: video.height, fps, video_bitrate: videoBitrate, audio: audio?.codec_name || null, audio_bitrate: audio ? audioBitrate : null };
+  return { bytes: stat.size, duration, width: video.width, height: video.height, fps, video_bitrate: videoBitrate, audio: audio?.codec_name || null, audio_bitrate: audio ? audioBitrate : null, color_transfer: video.color_transfer || null };
 }
 
 // This checks decoded container metadata, never a filename. It is deliberately
 // stricter than the rendition check because stream-copying keeps source codecs.
 export async function probeHdPassthroughSource(file, ffprobe = 'ffprobe') {
-  const raw = await run(ffprobe, ['-v', 'error', '-show_entries', 'format=format_name,duration,bit_rate:stream=codec_type,codec_name,profile,width,height,r_frame_rate,pix_fmt,bit_rate', '-of', 'json', file]);
+  const raw = await run(ffprobe, ['-v', 'error', '-show_entries', `format=format_name,duration,bit_rate:stream=codec_type,codec_name,profile,width,height,r_frame_rate,pix_fmt,bit_rate,${COLOR_FIELDS}:stream_side_data`, '-of', 'json', file]);
   const info = JSON.parse(raw); const videos = (info.streams || []).filter((stream) => stream.codec_type === 'video'); const audios = (info.streams || []).filter((stream) => stream.codec_type === 'audio');
   const video = videos[0]; const duration = Number(info.format?.duration); const fps = parseRate(video?.r_frame_rate); const videoBitrate = Number(video?.bit_rate); const audio = audios[0]; const audioBitrate = Number(audio?.bit_rate);
+  if (isHdrVideo(video)) return null;
   const formats = String(info.format?.format_name || '').split(','); const containerOK = formats.some((format) => MP4_FORMATS.has(format));
   const stat = await fs.stat(file);
   if (!containerOK || videos.length !== 1 || audios.length > 1 || video?.codec_name !== 'h264' || !H264_PROFILES.has(video?.profile) || video?.pix_fmt !== 'yuv420p' || !Number.isInteger(video?.width) || !Number.isInteger(video?.height) || Math.max(video.width, video.height) > 1920 || !Number.isFinite(duration) || duration <= 0 || !fps || fps > 30.01 || !Number.isFinite(videoBitrate) || videoBitrate <= 0 || videoBitrate > HD_PASSTHROUGH_VIDEO_MAX || stat.size <= 0) return null;
@@ -200,6 +205,10 @@ export class JobQueue {
       await fs.rm(stage, { recursive: true, force: true }).catch(() => {}); return;
     }
     const input = await this.materializeOriginal(job, stage); const outputs = {};
+    const colorInfo = JSON.parse(await run(this.ffprobe, ['-v', 'error', '-select_streams', 'v:0', '-show_entries', `stream=codec_type,${COLOR_FIELDS}:stream_side_data`, '-of', 'json', input]));
+    if (!colorInfo.streams?.length) throw new Error('input has no video stream');
+    const hdrFilter = hdrToSdrFilter(colorInfo.streams[0]);
+    job.hdr_to_sdr = Boolean(hdrFilter);
     const hd = QUALITIES[0]; const hdTmp = inside(stage, `${hd.suffix}.tmp.mp4`); const hdStaged = inside(stage, `${hd.suffix}.mp4`);
     // A remux retains the eligible streams but enforces the output MP4's
     // faststart and metadata policy. It remains staged until every rendition
@@ -217,7 +226,10 @@ export class JobQueue {
       const staged = inside(stage, `${quality.suffix}.mp4`); const tmp = inside(stage, `${quality.suffix}.tmp.mp4`);
       await fs.unlink(tmp).catch(() => {});
       const scale = `scale=w='min(iw,${quality.box})':h='min(ih,${quality.box})':force_original_aspect_ratio=decrease:force_divisible_by=2`;
-      await run(this.ffmpeg, ['-y', '-i', input, '-map', '0:v:0', '-an', '-map_metadata', '-1', '-map_chapters', '-1', '-vf', scale, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-fpsmax', '30', '-preset', 'veryfast', '-crf', String(quality.crf), '-maxrate', quality.maxrate, '-bufsize', quality.bufsize, '-movflags', '+faststart', '-f', 'mp4', tmp]);
+      // Bound the floating-point tone-map working set to this rendition's size.
+      const filter = hdrFilter ? `${scale},${hdrFilter}` : scale;
+      const colorTags = hdrFilter ? ['-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709', '-color_range', 'tv'] : [];
+      await run(this.ffmpeg, ['-y', '-i', input, '-map', '0:v:0', '-an', '-map_metadata', '-1', '-map_chapters', '-1', '-vf', filter, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', ...colorTags, '-fpsmax', '30', '-preset', 'veryfast', '-crf', String(quality.crf), '-maxrate', quality.maxrate, '-bufsize', quality.bufsize, '-movflags', '+faststart', '-f', 'mp4', tmp]);
       outputs[quality.suffix] = await probeRendition(tmp, quality, this.ffprobe); await fs.rename(tmp, staged);
     }
     await fs.unlink(marker).catch(() => {});

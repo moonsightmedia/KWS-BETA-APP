@@ -5,6 +5,7 @@ import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { JobQueue, QUALITIES, probeHdPassthroughSource, probeRendition } from '../src/transcode.js';
+import { isHdrVideo } from '../src/video-color.js';
 
 function command(bin, args) { return new Promise((resolve, reject) => { const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] }); let stderr = ''; child.stderr.on('data', (d) => { stderr += d; }); child.on('error', reject); child.on('close', (code) => code === 0 ? resolve() : reject(new Error(`${bin} failed: ${stderr.slice(-1000)}`))); }); }
 function capture(bin, args) { return new Promise((resolve, reject) => { const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] }); let stdout = '', stderr = ''; child.stdout.on('data', (d) => { stdout += d; }); child.stderr.on('data', (d) => { stderr += d; }); child.on('error', reject); child.on('close', (code) => code === 0 ? resolve(stdout) : reject(new Error(`${bin} failed: ${stderr.slice(-1000)}`))); }); }
@@ -14,6 +15,46 @@ async function fixture(root, name, audio, rate = 60) {
   if (audio) args.push('-f', 'lavfi', '-i', 'sine=frequency=1000:duration=0.6', '-shortest');
   args.push('-metadata', 'title=must-not-survive', '-c:v', 'libx264', '-pix_fmt', 'yuv420p'); if (audio) args.push('-c:a', 'aac'); args.push(file); await command('ffmpeg', args); return file;
 }
+
+async function hdrFixture(root, transfer, pixelFormat = 'yuv420p10le') {
+  const file = path.join(root, `${transfer}-${pixelFormat}.mp4`);
+  await command('ffmpeg', ['-y', '-f', 'lavfi', '-i', "nullsrc=size=320x240:rate=15:duration=0.6,geq=lum='16+180*X/W':cb=128:cr=128", '-vf', `setparams=color_primaries=bt2020:color_trc=${transfer}:colorspace=bt2020nc:range=limited`, '-c:v', 'libx264', '-pix_fmt', pixelFormat, '-color_primaries', 'bt2020', '-color_trc', transfer, '-colorspace', 'bt2020nc', '-color_range', 'tv', file]);
+  return file;
+}
+async function averageLuma(file) {
+  const stats = await capture('ffmpeg', ['-v', 'error', '-i', file, '-vf', 'format=yuv420p,signalstats,metadata=print:file=-', '-frames:v', '1', '-f', 'null', '-']);
+  return Number(stats.match(/lavfi.signalstats.YAVG=([\d.]+)/)?.[1]);
+}
+
+for (const transfer of ['smpte2084', 'arib-std-b67']) test(`${transfer} HDR is tone-mapped to validated SDR in every quality`, { timeout: 60_000 }, async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'kws-hdr-'));
+  try {
+    const finalDir = path.join(root, 'final'); await fs.mkdir(finalDir);
+    const queue = new JobQueue({ jobsDir: path.join(root, 'jobs'), stagingDir: path.join(root, 'staging'), finalDir, maxQueue: 1 }); await queue.initialize();
+    const input = await hdrFixture(root, transfer);
+    const submitted = await enqueueFixture(queue, root, input, 'hdr');
+    const job = await waitForJob(queue, submitted.job_id); assert.equal(job.status, 'completed', job.error);
+    assert.equal(job.hdr_to_sdr, true); assert.equal(job.hd_passthrough, false);
+    const originalLuma = await averageLuma(input);
+    for (const quality of QUALITIES) {
+      const output = path.join(finalDir, 'sector', `hdr_${quality.suffix}.mp4`);
+      const info = await probeRendition(output, quality); assert.equal(info.color_transfer, 'bt709'); assert.equal(info.audio, null);
+      const stream = JSON.parse(await capture('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_streams', '-of', 'json', output])).streams[0];
+      assert.equal(stream.color_primaries, 'bt709'); assert.equal(stream.color_space, 'bt709'); assert.equal(isHdrVideo(stream), false);
+      assert.equal(info.width, 320); assert.equal(info.height, 240);
+      assert.ok(Math.abs(await averageLuma(output) - originalLuma) > 5, 'HDR pixels must be tone-mapped, not just relabeled');
+    }
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+
+test('8-bit H.264 with HDR tags cannot bypass conversion or pass output validation', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'kws-hdr-copy-'));
+  try {
+    const input = await hdrFixture(root, 'smpte2084', 'yuv420p');
+    assert.equal(await probeHdPassthroughSource(input), null);
+    await assert.rejects(probeRendition(input, QUALITIES[0]), /HDR output is forbidden/);
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
 
 test('eligible MP4 H.264 source is remuxed as staged HD while SD and Low encode', { timeout: 60_000 }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'kws-hd-copy-'));

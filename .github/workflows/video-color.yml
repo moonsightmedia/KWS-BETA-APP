@@ -1,0 +1,33 @@
+name: Video color regression
+
+on:
+  push:
+    branches: [codex/consistent-video-brightness]
+  pull_request:
+    paths:
+      - 'hostinger-video-server/**'
+      - 'test/videoColor.test.mjs'
+      - '.github/workflows/video-color.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
+      - name: Color policy regression
+        run: node --test test/videoColor.test.mjs
+      - name: Build the actual Alpine transcoder image
+        run: docker build -t kws-video-color-test hostinger-video-server
+      - name: Run server and real HDR conversion tests inside the image
+        run: >-
+          docker run --rm
+          -v "$GITHUB_WORKSPACE/hostinger-video-server/test:/app/test:ro"
+          kws-video-color-test node --test
