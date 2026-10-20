@@ -760,7 +760,9 @@ Ansicht, aktive Filter und Sortierung bleiben beim Wechsel nachvollziehbar erhal
   einem Pinch löst keine dieser Aktionen aus. Dritter Finger, Gestenabbruch,
   Hintergrund oder ein fremdes Panel beenden die Geste ohne Folgeschreibaktion.
   Der Wechsel erhält Pause, Zeit, Projekt und Layoutsichtbarkeit;
-  Qualitätswechsel erhalten die Stufe. Das nächste Video startet wieder füllend.
+  Qualitäts- und Videowechsel erhalten die gewählte Stufe für den offenen Feed.
+  Benachbarte Videos werden bereits in dieser Bildgröße vorbereitet; ihr Bild bleibt
+  auf die jeweilige Seite begrenzt. Kein kurzer Wechsel zwischen Cover und Contain.
   „Bildgröße“ im vorhandenen Wiedergabemenü bietet nur Originalgröße und Vollbild.
   Alternativen: Plus für Vollbild, Minus für Originalgröße,0 für Vollbild und
   eine Strg/Mausrad-/Trackpad-Geste je Wechsel.
@@ -800,6 +802,10 @@ Ansicht, aktive Filter und Sortierung bleiben beim Wechsel nachvollziehbar erhal
   stabil vorbereitet; beim Loslassen rastet die Ansicht über etwa 240 ms ein.
   Kurze/abgebrochene Gesten kehren zum aktuellen Video zurück. Nur das aktive
   Video spielt; Reduced Motion wechselt ohne die Schiebebewegung.
+  Korrektur20.10.2026: Zurück, Filter, Sortierung, Auge und Wiedergabe-/Bildgrößenmenü
+  bilden einen festen Kopf. Bouldername, Bewertung, Kommentare und Tracking bewegen
+  sich mit ihrem Video. Globale Orientierung bleibt ruhig, persönliche Aktionen
+  bleiben dem jeweiligen Boulder zugeordnet.
 - Der isolierte Screenentwurf unter `docs/design/boulder-video-feed/` verwendet
   klar bezeichnete Beispieldaten und nimmt keine produktiven Schreibaktionen vor.
   Er bleibt die historische Abstimmungsansicht; die App verwendet reale Boulder,
@@ -810,6 +816,14 @@ Ansicht, aktive Filter und Sortierung bleiben beim Wechsel nachvollziehbar erhal
   Kommentar- oder Trackingaktionen. Query- und Kontogrenzen bleiben erhalten.
 - Höchstens drei direkte Videoelemente werden vorbereitet; nur das aktive darf
   spielen. Panels, Detailbesuch und Hintergrundwechsel pausieren den Feed.
+  Das nächste Video lädt seine Bilddaten vor und zeigt schon im Übergang einen
+  dekodierten Frame. Kurze Pufferereignisse blenden keinen Ladetext ein; erst nach
+  300ms Wartezeit erscheint er, dann mindestens450ms. Nach einem Engpass wartet die
+  Wiedergabe auf etwa1,5Sekunden zusammenhängenden Puffer (bei2× entsprechend mehr,
+  bei kurzem Rest bis zum Videoende), statt in winzigen Stücken weiterzuspielen.
+  Wiederholte Pufferereignisse verlängern die Fehler-/Fallback-Frist nicht.
+  Drei echte Wiedergabe-Engpässe innerhalb15Sekunden wechseln zur nächsten
+  vorhandenen kleineren Qualität; Seek-/Vorladereignisse zählen dafür nicht.
   Qualitätswechsel erhalten Position und Pause; Lade-/Abspielfehler verwenden
   vorhandene kleinere Qualitätsstufen und danach einen expliziten Wiederholungsweg.
   Die bestehenden Monitoring-Ereignisse bleiben zustimmungsabhängig.

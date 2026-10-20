@@ -117,7 +117,7 @@ export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, ind
   }, [disabled, index, count, clean, doubleTapAction, cancelTap, stopHold, cancelZoom]);
   useEffect(() => {
     if (clean) { hadClean.current = true; reelRef.current?.querySelector<HTMLButtonElement>('.restore-chrome')?.focus({ preventScroll: true }); }
-    else if (hadClean.current) { hadClean.current = false; reelRef.current?.querySelector<HTMLButtonElement>('[data-active="true"] [aria-label="Bedienelemente ausblenden"]')?.focus({ preventScroll: true }); }
+    else if (hadClean.current) { hadClean.current = false; reelRef.current?.querySelector<HTMLButtonElement>('[aria-label="Bedienelemente ausblenden"]')?.focus({ preventScroll: true }); }
   }, [clean, reelRef]);
   useEffect(() => {
     const background = () => { setSuspended(true); cancelTap(); gesture.current = null; stopHold(true); cancelZoom(); videoRef.current?.pause(); };
