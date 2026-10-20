@@ -35,9 +35,9 @@ const assert = require('node:assert/strict');
         const p = await open('', () => { Storage.prototype.getItem = () => { throw new Error('blocked'); }; Storage.prototype.setItem = () => { throw new Error('blocked'); }; });
         await tip(p, 'discover').getByRole('button', { name: 'Überspringen' }).click();
         await absent(p);
-        await p.getByRole('button', { name: 'Was geht mit Konto?', exact: true }).click();
-        await p.getByRole('button', { name: 'Als Gast weiter', exact: true }).evaluate(element => element.scrollIntoView({block:'center'}));
-    await p.getByRole('button', { name: 'Als Gast weiter', exact: true }).click();
+        await p.getByRole('button', { name: 'Filter', exact: true }).click();
+        await p.getByRole('button', { name: 'Grad 2', exact: true }).click();
+        await p.getByRole('button', { name: 'Filter schließen', exact: true }).click();
         await absent(p);
         await p.close();
     }

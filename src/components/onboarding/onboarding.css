@@ -1,4 +1,5 @@
 .tour-highlight{position:fixed;z-index:121;pointer-events:none;border:2px solid hsl(var(--primary));border-radius:8px}
+.tour-safe-area{position:fixed;inset:0;visibility:hidden;pointer-events:none;padding-top:max(var(--app-safe-area-top,0px),env(safe-area-inset-top,0px));padding-bottom:max(var(--app-safe-area-bottom,0px),env(safe-area-inset-bottom,0px));padding-left:max(var(--app-safe-area-left,0px),env(safe-area-inset-left,0px));padding-right:max(var(--app-safe-area-right,0px),env(safe-area-inset-right,0px))}
 .tour-panel{position:fixed;z-index:125;width:min(336px,calc(100vw - 32px));max-height:calc(100dvh - 24px);overflow-y:auto;background:hsl(var(--card));color:hsl(var(--foreground));padding:12px 16px 16px;border-radius:12px;box-shadow:0 5px 18px hsl(var(--brand-ink)/.16);outline:none;isolation:isolate}
 .tour-arrow{position:absolute;width:12px;height:12px;transform:rotate(45deg);background:hsl(var(--card));z-index:-1}
 .tour-top{display:flex;justify-content:space-between;gap:6px;align-items:center;min-height:36px}

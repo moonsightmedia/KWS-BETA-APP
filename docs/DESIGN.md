@@ -2241,7 +2241,7 @@ Prüfumfang: docs/qa/2026-10-19-setter-quick-actions.md.
   `/onboarding/progress` ausprobiert. Markierungen und Tracking bleiben lokaler
   Zustand; die Woche verwendet ausdrücklich Beispieldaten. Die Kontovorteile
   führen über `/onboarding/register` zum vorhandenen Formular `/app/register`.
-  „Einführung ansehen“ im Gastkopf startet die Führung erneut.
+  Das kleine Info-Symbol neben dem Ansichtswechsel startet die Führung erneut.
 - Der Filter meldet Öffnen, tatsächliche Ergebnisbestätigung und seinen
   Dialoghost explizit an die Tour. Stabile `data-onboarding`-Ziele ersetzen
   CSS-Layout-/Textsuche. X oder Zurück schließt den Filter ohne Ergebnisbestätigung;
@@ -2255,3 +2255,20 @@ Prüfbeleg: `docs/qa/2026-10-19-onboarding-integration.md`.
 - Begleitende Systemabfragen dürfen die erklärten Ziele nicht überdecken. Die
   freiwillige Statistikabfrage wartet während der Tour und ihrer Kontovorschau;
   ihre bestehende Auswahl wird dadurch weder erteilt noch zurückgesetzt.
+
+
+### Onboarding – Safe Areas und dezenter Einstieg 20.10.2026
+
+- Die Führung reserviert die tatsächlich gemeldeten Safe Areas oben, unten,
+  links und rechts. Ihre Hinweise bleiben zusätzlich mit Abstand im sichtbaren
+  Visual Viewport; Statusleiste, Dynamic Island und Home-Indikator werden nicht
+  durch Bedienelemente überlagert. Dialoggrenzen werden mit diesem Bereich
+  geschnitten, bereits vorhandene Dialogabstände nicht nochmals addiert.
+- „Einführung ansehen“ ist ein benanntes Info-Icon direkt links neben dem
+  Ansichtswechsel. Das Icon bleibt klein (16px), sein Touch-Ziel mindestens 44px.
+  Die zusätzliche breite Gastkopfzeile mit Einführung und Kontowerbung entfällt.
+  Kontovorteile bleiben Teil der geführten Einführung und der Detailansicht.
+- Ein Tourstart aus der Videoansicht zeigt wieder die letzte Kartenansicht,
+  damit der erste erklärte Boulder sichtbar und bedienbar ist.
+
+Prüfbeleg: `docs/qa/2026-10-20-onboarding-safe-area.md`.

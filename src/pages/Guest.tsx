@@ -39,12 +39,13 @@ const SORT_OPTIONS = [
   { key: 'difficulty-desc', label: 'Schwer → leicht', sortBy: 'difficulty', sortOrder: 'desc' },
 ] as const;
 const Guest = () => {
-  const { openOnboarding, showBenefits, reportGuest, reportFilterHost, confirmFilters } = useOnboarding();
+  const { isOpen: onboardingOpen, openOnboarding, reportGuest, reportFilterHost, confirmFilters } = useOnboarding();
   const isCompetitionEnabled = import.meta.env.VITE_ENABLE_COMPETITION === 'true';
   const navigate = useNavigate();
   const location = useLocation();
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'video'>(() => { try { const stored = localStorage.getItem('boulder_view_mode'); return stored === 'grid' || stored === 'video' ? stored : 'list'; } catch { return 'list'; } });
   const previousView = useRef<'list' | 'grid'>(viewMode === 'grid' ? 'grid' : 'list');
+  useEffect(() => { if (onboardingOpen && viewMode === 'video') setViewMode(previousView.current); }, [onboardingOpen, viewMode]);
   const coveredByDetail = useRetainedBoulderOrigin();
   useEffect(() => { try { localStorage.setItem('boulder_view_mode', viewMode); } catch { /* Session selection still works. */ } }, [viewMode]);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -341,11 +342,6 @@ const Guest = () => {
               </nav>
             </div>
 
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3">
-              <Button variant="ghost" className="px-0 text-xs" data-onboarding="replay" onClick={openOnboarding} disabled={isLoading || showDataError || !tourBoulder}><Info aria-hidden="true" className="h-4 w-4"/>Einführung ansehen</Button>
-              <Button variant="ghost" className="px-0 text-xs text-primary-ink" onClick={showBenefits}>Was geht mit Konto?<ChevronRight aria-hidden="true" className="h-4 w-4"/></Button>
-            </div>
-
             {showSearch && (
               <div className="relative mt-3 animate-in slide-in-from-top-2 duration-200">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-ink/45" />
@@ -413,7 +409,18 @@ const Guest = () => {
 
         <main className="relative isolate mx-auto w-full max-w-4xl flex-1 p-4 md:p-8">
           <BrandWatermark />
-          <div className="mb-4 flex justify-end"><div role="group" aria-label="Ansicht wechseln" className="flex gap-1 rounded-kws-control bg-secondary p-1">{([{ value: 'list', label: 'Listenansicht', icon: List }, { value: 'grid', label: 'Gridansicht', icon: Grid3X3 }, { value: 'video', label: 'Videoansicht', icon: Video }] as const).map(option => <button key={option.value} type="button" aria-label={option.label} aria-pressed={viewMode === option.value} onClick={() => { if (option.value !== 'video') previousView.current = option.value; setShowSort(false); setShowSearch(false); setViewMode(option.value); }} className={cn('flex h-11 w-11 items-center justify-center rounded-kws-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', viewMode === option.value ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground')}><option.icon className="h-4 w-4"/></button>)}</div></div>
+          <div className="mb-4 flex items-center justify-end gap-2">
+            <Button variant="ghost" size="icon" data-onboarding="replay" aria-label="Einführung ansehen" title="Einführung ansehen" onClick={openOnboarding} disabled={isLoading || showDataError || !tourBoulder}>
+              <Info className="h-4 w-4" aria-hidden="true" />
+            </Button>
+            <div role="group" aria-label="Ansicht wechseln" className="flex gap-1 rounded-kws-control bg-secondary p-1">
+              {([{ value: 'list', label: 'Listenansicht', icon: List }, { value: 'grid', label: 'Gridansicht', icon: Grid3X3 }, { value: 'video', label: 'Videoansicht', icon: Video }] as const).map(option => (
+                <button key={option.value} type="button" aria-label={option.label} aria-pressed={viewMode === option.value} onClick={() => { if (option.value !== 'video') previousView.current = option.value; setShowSort(false); setShowSearch(false); setViewMode(option.value); }} className={cn('flex h-11 w-11 items-center justify-center rounded-kws-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', viewMode === option.value ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground')}>
+                  <option.icon className="h-4 w-4" />
+                </button>
+              ))}
+            </div>
+          </div>
           {/* Nikolaus Wettkampf Navigation Card - Temporarily hidden */}
           {isCompetitionEnabled && (
             <Card className="mb-6 rounded-kws-card border border-[#E7F7E9] bg-white shadow-sm transition-shadow hover:shadow-md">
