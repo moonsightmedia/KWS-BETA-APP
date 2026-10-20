@@ -357,7 +357,9 @@ const Boulders = () => {
 
   const allGroupsExpanded = groupedBoulders.length > 0
     && groupedBoulders.every((group) => !collapsedAreaNames.has(group.areaName));
-  const videoBoulders = useMemo(() => groupedBoulders.flatMap(group => group.boulders).filter(hasBoulderVideo), [groupedBoulders]);
+  // The feed is one continuous sequence. Area grouping is presentation only in
+  // list/grid and must not override the user's global grade/date/name order.
+  const videoBoulders = useMemo(() => filteredAndSortedBoulders.filter(hasBoulderVideo), [filteredAndSortedBoulders]);
 
   useLayoutEffect(() => {
     if (notificationVisit === null) { expandedNotificationVisit.current = null; return; }
@@ -804,6 +806,7 @@ const Boulders = () => {
                 sectors={sectors ?? []}
                 countsBySectorId={hallMapCounts}
                 boulderSectorReferences={hallMapBoulders}
+                boulders={boulders ?? []}
                 selected={sectorFilters}
                 query={searchQuery}
                 onQueryChange={setSearchQuery}

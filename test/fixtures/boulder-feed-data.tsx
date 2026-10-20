@@ -7,6 +7,12 @@ export const boulders: Boulder[] = [
   { id: 'feed-c', name: 'Ohne Beta', difficulty: 4, color: 'Rot', sector: 'Bug B', sectorId: 'bug', status: 'haengt', createdAt: new Date('2026-10-17T10:00:00'), thumbnailUrl: poster },
   { id: 'feed-d', name: 'Archiv Beta', difficulty: 3, color: 'Gelb', sector: 'Grotte A', sectorId: 'grotte', status: 'abgeschraubt', createdAt: new Date('2026-10-16T10:00:00'), thumbnailUrl: poster, betaVideoUrl: source },
 ];
+if (new URLSearchParams(location.search).has('sortcases')) boulders.push(
+  { ...boulders[0], id: 'sort-c', name: 'Grad Eins Grotte', difficulty: 1, createdAt: new Date('2026-10-17T10:00:00') },
+  { ...boulders[1], id: 'sort-d', name: 'Grad Zwei Bug', difficulty: 2, createdAt: new Date('2026-10-20T10:00:00') },
+  { ...boulders[1], id: 'sort-e', name: 'Grad Eins Bug', difficulty: 1, createdAt: new Date('2026-10-16T10:00:00') },
+  { ...boulders[0], id: 'sort-f', name: 'Grad Zwei Grotte', difficulty: 2, createdAt: new Date('2026-10-21T10:00:00') },
+);
 const user = new URLSearchParams(location.search).has('guest') ? null : { id: 'feed-user', email: 'qa@example.invalid', user_metadata: { full_name: 'QA' } };
 if (new URLSearchParams(location.search).has('external')) boulders.unshift({ ...boulders[0], id: 'feed-external', name: 'Externe Beta', createdAt: new Date('2026-10-20T10:00:00'), betaVideoUrls: undefined, betaVideoUrl: 'https://www.youtube.com/watch?v=fixture0000' });
 export const useAuth = () => ({ user, session: user ? { access_token: 'fixture-only' } : null, loading: false });

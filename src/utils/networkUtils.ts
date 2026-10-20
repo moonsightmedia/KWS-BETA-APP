@@ -37,17 +37,14 @@ export function detectNetworkSpeed(): NetworkSpeed {
     const effectiveType = connection.effectiveType;
     const downlink = connection.downlink;
     
-    // Map effectiveType to network speed
-    // More aggressive mapping for low-tier mobile devices
+    // Browser estimates are hints, not a reason to reduce normal connections.
+    // Prefer HD unless the browser actually reports a constrained connection.
     if (effectiveType) {
       switch (effectiveType.toLowerCase()) {
         case '4g':
-          // Only use fast if downlink is actually high enough
-          if (downlink !== undefined && downlink >= 10) {
-            return 'fast';
-          }
-          // Otherwise treat as medium even if it's "4g"
-          return 'medium';
+          if (downlink !== undefined && downlink < 1.5) return 'slow';
+          if (downlink !== undefined && downlink < 4) return 'medium';
+          return 'fast';
         case '3g':
           // 3G can be slow, check downlink
           if (downlink !== undefined && downlink < 2) {
@@ -63,25 +60,22 @@ export function detectNetworkSpeed(): NetworkSpeed {
       }
     }
     
-    // Use downlink speed as fallback (Mbps)
-    // Very aggressive thresholds for better experience on slow connections
-    // Low-tier mobile typically has < 1 Mbps, so we need to be very conservative
-    if (downlink !== undefined) {
-      if (downlink >= 10) {
+    // Use measured downlink only when usable. Missing/invalid estimates do not
+    // mean a slow connection (Safari and many WebViews omit this API entirely).
+    if (downlink !== undefined && Number.isFinite(downlink) && downlink > 0) {
+      if (downlink >= 4) {
         return 'fast';
-      } else if (downlink >= 3) {
+      } else if (downlink >= 1.5) {
         return 'medium';
       } else {
-        // Anything below 3 Mbps is considered slow (including low-tier mobile)
         return 'slow';
       }
     }
   }
   
-  // Fallback: assume slow speed if we can't detect
-  // This is safer - will use Low quality by default, which works better on slow connections
-  // Especially important for low-tier mobile devices
-  return 'slow';
+  // Start at HD on unreported networks. Actual load/stall handling in both
+  // players can step down without losing the playback position.
+  return 'fast';
 }
 
 /**

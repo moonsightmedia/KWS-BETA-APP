@@ -3,63 +3,45 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { removeCrossorigin } from "./vite-plugin-remove-crossorigin";
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync } from 'fs';
 
 // Custom plugin to inject version info
 const versionPlugin = () => {
-  const packageJson = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'));
-  const appVersion = packageJson.version || '0.0.0';
+  let appVersion = '0.0.0';
   const buildTimestamp = new Date().toISOString();
+  let releaseRevision = '';
   
   return {
     name: 'version-plugin',
     config(config, { mode }) {
       // Always read fresh version from package.json (important for dev mode and Android Studio)
       const currentPackageJson = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'));
-      const currentVersion = currentPackageJson.version || '0.0.0';
-      const currentTimestamp = new Date().toISOString();
+      appVersion = currentPackageJson.version || '0.0.0';
+      releaseRevision = process.env.VITE_RELEASE_REVISION || '';
       
-      console.log(`[version-plugin] Using version: ${currentVersion} (mode: ${mode})`);
+      console.log(`[version-plugin] Using version: ${appVersion} (mode: ${mode})`);
       
       return {
         define: {
-          'import.meta.env.VITE_APP_VERSION': JSON.stringify(currentVersion),
-          'import.meta.env.VITE_BUILD_TIMESTAMP': JSON.stringify(currentTimestamp),
+          'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
+          'import.meta.env.VITE_BUILD_TIMESTAMP': JSON.stringify(buildTimestamp),
         },
       };
     },
     // Generate version.json file for update checking
-    closeBundle() {
-      // Read fresh version from package.json
-      const currentPackageJson = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'));
-      const currentVersion = currentPackageJson.version || '0.0.0';
-      const currentTimestamp = new Date().toISOString();
-      
+    generateBundle() {
+      // The manifest and compiled app must describe the very same build. A new
+      // timestamp here makes an unchanged app report an update forever.
       const versionInfo = {
-        version: currentVersion,
-        buildTimestamp: currentTimestamp,
-        buildDate: new Date(currentTimestamp).toLocaleDateString('de-DE'),
+        version: appVersion,
+        buildTimestamp,
+        buildDate: new Date(buildTimestamp).toLocaleDateString('de-DE'),
+        revision: releaseRevision,
       };
       
-      // Write to dist folder
-      const distPath = path.resolve(__dirname, 'dist');
-      if (existsSync(distPath)) {
-        writeFileSync(
-          path.join(distPath, 'version.json'),
-          JSON.stringify(versionInfo, null, 2)
-        );
-        console.log('[version-plugin] Generated version.json:', versionInfo);
-      }
-
-      // Also write to android assets for Capacitor
-      const androidAssetsPath = path.resolve(__dirname, 'android/app/src/main/assets/public');
-      if (existsSync(androidAssetsPath)) {
-        writeFileSync(
-          path.join(androidAssetsPath, 'version.json'),
-          JSON.stringify(versionInfo, null, 2)
-        );
-        console.log('[version-plugin] Generated version.json for Android:', versionInfo);
-      }
+      // Emit into the selected output directory. Capacitor copies this same
+      // manifest during sync; a web/QA build must not modify native assets.
+      this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify(versionInfo, null, 2) });
     },
   };
 };

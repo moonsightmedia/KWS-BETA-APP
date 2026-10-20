@@ -29,6 +29,7 @@ import { ContentSafetyActions } from '@/components/ContentSafetyActions';
 import { ExternalBetaVideo } from '@/components/boulder/ExternalBetaVideo';
 import { setMonitoringLoadedBoulder, trackMonitoring } from '@/utils/monitoring';
 import { useMobileVideoControls } from '@/hooks/useBoulderVideoControls';
+import { useBoulderDetailBackSwipe } from '@/hooks/useBoulderDetailBackSwipe';
 
 const tabs = ['Info', 'Track', 'Beta'] as const;
 type DetailTab = (typeof tabs)[number];
@@ -195,6 +196,7 @@ export default function BoulderDetail() {
     if (hasRetainedOrigin) navigate(-1);
     else navigate(backDestination, { replace: true });
   };
+  useBoulderDetailBackSwipe(goBack, !isLoading && !authLoading && Boolean(boulder) && !(mobilePlayer && isDirectVideo));
 
   if (isLoading || authLoading) {
     return (

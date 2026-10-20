@@ -1,7 +1,7 @@
 .kws-mobile-player-page{position:relative;height:100dvh;width:100%;overflow:hidden;background:hsl(var(--brand-canvas))}
 .kws-mobile-detail,.kws-mobile-detail-background{position:relative;width:100%;height:100%}
 .kws-mobile-detail{isolation:isolate;overflow:clip;background:hsl(var(--brand-canvas))}
-.kws-mobile-detail-background{touch-action:pan-x}
+.kws-mobile-detail-background{touch-action:none}
 .kws-mobile-detail .kws-mobile-detail-background>video{object-fit:contain;object-position:center;background:hsl(var(--brand-canvas))}
 .kws-detail-fade{position:absolute;left:0;right:0;z-index:1;pointer-events:none}
 .kws-detail-fade-top{top:0;height:calc(var(--detail-image-gap) + 200px);background:linear-gradient(180deg,hsl(var(--brand-canvas)) 0px,hsl(var(--brand-canvas)) var(--detail-image-gap),hsl(var(--brand-canvas)/.9) calc(var(--detail-image-gap) + 35px),hsl(var(--brand-canvas)/.55) calc(var(--detail-image-gap) + 95px),hsl(var(--brand-canvas)/.16) calc(var(--detail-image-gap) + 160px),hsl(var(--brand-canvas)/0) 100%)}
@@ -22,7 +22,9 @@
 .kws-detail-backdrop[data-dragging=true],.kws-detail-backdrop[data-dragging=true] .kws-detail-sheet{transition:none}
 .kws-detail-grip{flex-shrink:0;margin:0 -16px;padding:1px 16px 0;touch-action:none;user-select:none;cursor:grab}
 .kws-detail-backdrop[data-dragging=true] .kws-detail-grip{cursor:grabbing}
-.kws-detail-handle{height:3px;width:28px;border-radius:2px;margin:10px auto 6px;background:hsl(var(--brand-border))}
+.kws-detail-dismiss{display:flex;align-items:center;justify-content:center;width:100%;height:44px;border:0;background:transparent;touch-action:none;border-radius:8px}
+.kws-detail-dismiss:focus-visible{outline:2px solid hsl(var(--brand-ink));outline-offset:-3px}
+.kws-detail-handle{display:block;height:3px;width:28px;border-radius:2px;background:hsl(var(--brand-border))}
 .kws-detail-grip>header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 0 16px}
 .kws-detail-grip p{font-size:10px;color:hsl(var(--brand-muted));margin:0 0 3px}.kws-detail-grip h2{font:600 18px/1.4 Poppins,sans-serif;margin:0}
 .kws-detail-body{min-height:0;overflow:auto;overscroll-behavior:contain;touch-action:pan-y}

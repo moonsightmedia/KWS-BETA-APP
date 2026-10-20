@@ -18,6 +18,7 @@ import { AccountAvatar } from '@/components/AccountAvatar';
 import { kwsPopoverClassName } from '@/components/ui/kws-surface';
 import { useHoverMenu } from '@/hooks/useHoverMenu';
 import { TRAINING_UI_ENABLED } from '@/features/training/flags';
+import { useProfileAreaShortcut } from '@/hooks/useProfileAreaShortcut';
 
 const STORAGE_KEY_ADMIN = backendStorageKey('nav_isAdmin');
 const STORAGE_KEY_SETTER = backendStorageKey('nav_isSetter');
@@ -72,6 +73,10 @@ export const ProfileMenu = ({
   const storedIsSetter = getStoredRole(STORAGE_KEY_SETTER, user?.id);
   const effectiveIsAdmin = isAdmin || storedIsAdmin;
   const effectiveIsSetter = effectiveIsAdmin || isSetter || storedIsSetter;
+  const shortcut = useProfileAreaShortcut(effectiveIsSetter,
+    () => { menu.pin(); menu.onOpenChange(true); },
+    () => menu.onOpenChange(false),
+  );
   const isSetterArea = location.pathname.startsWith('/setter');
   const isAdminArea = location.pathname.startsWith('/admin');
   const isUserArea = !isSetterArea && !isAdminArea;
@@ -103,7 +108,15 @@ export const ProfileMenu = ({
 
   return (
     <DropdownMenu modal={false} open={menu.open} onOpenChange={menu.onOpenChange}>
-      <DropdownMenuTrigger asChild {...menu.triggerProps}>
+      <DropdownMenuTrigger asChild {...menu.triggerProps}
+        onPointerDown={(event) => { menu.triggerProps.onPointerDown(event); shortcut.onPointerDown(event); }}
+        onClick={(event) => { menu.triggerProps.onClick(event); shortcut.onClick(event); }}
+        onPointerCancel={() => { menu.triggerProps.onPointerCancel(); shortcut.onPointerCancel(); }}
+        title={shortcut.checking ? 'Berechtigungen werden geprüft …' : shortcut.active ? 'Profil · Doppeltippen zum Bereichswechsel' : undefined}
+        aria-description={shortcut.active ? 'Doppeltippen wechselt zwischen deinen freigegebenen Bereichen. Einmal tippen öffnet das Profilmenü.' : undefined}
+        aria-busy={shortcut.checking || undefined}
+        style={{ touchAction: 'manipulation' }}
+      >
         {trigger ?? (
           <button
             type="button"

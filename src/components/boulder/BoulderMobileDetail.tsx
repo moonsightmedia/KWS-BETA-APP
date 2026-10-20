@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode, type RefObject } from 'react';
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { useBoulderVideoControls } from '@/hooks/useBoulderVideoControls';
 import './BoulderMobileDetail.css';
@@ -12,7 +12,7 @@ export type MobileBoulderDetail = {
   backLabel: string;
 };
 type Drag = { offset: number; height: number };
-type Gesture = { id: number; mode: 'open' | 'close'; x: number; y: number; started: number; height: number; active: boolean };
+type Gesture = { id: number; mode: 'open' | 'close' | 'back'; x: number; y: number; started: number; height: number; active: boolean };
 type Props = {
   detail?: MobileBoulderDetail;
   enabled: boolean;
@@ -79,25 +79,27 @@ export function BoulderMobileDetail({ detail, enabled, fullscreen, menuOpen, vid
   const start = (event: PointerEvent<HTMLElement>, mode: Gesture['mode']) => {
     if (!enabled || menuOpen || !event.isPrimary || event.button !== 0 || gesture.current) return;
     const interactive = (event.target as HTMLElement).closest('button,input,textarea,select,a,[role="slider"]');
-    if (interactive && !(mode === 'open' && interactive === button.current)) return;
-    if (mode === 'open') {
-      const bounds = event.currentTarget.getBoundingClientRect();
-      if (open || event.clientY < bounds.bottom - Math.min(240, bounds.height * .35)) return;
-    }
+    if (interactive && interactive !== (mode === 'open' ? button.current : closeButton.current)) return;
+    if (mode === 'open' && open) return;
     gesture.current = { id: event.pointerId, mode, x: event.clientX, y: event.clientY, started: event.timeStamp, height: sheet.current?.getBoundingClientRect().height || 400, active: false };
   };
   const move = (event: PointerEvent<HTMLDivElement>) => {
     const g = gesture.current;
     if (!g || event.pointerId !== g.id) return;
     const dx = event.clientX - g.x, dy = event.clientY - g.y;
-    const distance = g.mode === 'open' ? -dy : dy;
+    if (!g.active && g.mode === 'open' && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+      if (dx < 0) { gesture.current = null; return; }
+      g.mode = 'back';
+    }
+    const distance = g.mode === 'back' ? dx : g.mode === 'open' ? -dy : dy;
     if (!g.active) {
-      if ((Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) || distance < -10) { gesture.current = null; return; }
-      if (distance < 8 || distance < Math.abs(dx) * 1.2) return;
+      if ((g.mode === 'close' && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) || distance < -10) { gesture.current = null; return; }
+      if (distance < 8 || distance < (g.mode === 'back' ? Math.abs(dy) : Math.abs(dx)) * 1.2) return;
       g.active = true;
       event.currentTarget.setPointerCapture(g.id);
     }
     event.preventDefault();
+    if (g.mode === 'back') return;
     setDrag({ height: g.height, offset: Math.max(0, Math.min(g.height, g.mode === 'open' ? g.height - distance : distance)) });
   };
   const finish = (event: PointerEvent<HTMLDivElement>, cancelled = false) => {
@@ -106,10 +108,12 @@ export function BoulderMobileDetail({ detail, enabled, fullscreen, menuOpen, vid
     gesture.current = null;
     if (!g.active) return;
     suppressClickUntil.current = performance.now() + 350;
-    const distance = Math.max(0, g.mode === 'open' ? g.y - event.clientY : event.clientY - g.y);
+    const distance = Math.max(0, g.mode === 'back' ? event.clientX - g.x : g.mode === 'open' ? g.y - event.clientY : event.clientY - g.y);
     const speed = distance / Math.max(1, event.timeStamp - g.started);
-    if (!cancelled && (distance >= Math.min(88, g.height * .25) || (distance > 24 && speed > .45))) {
+    const threshold = g.mode === 'back' ? Math.max(64, Math.min(112, (root.current?.clientWidth ?? 375) * .25)) : Math.min(88, g.height * .25);
+    if (!cancelled && (distance >= threshold || (distance > (g.mode === 'back' ? 45 : 24) && speed > .45))) {
       if (g.mode === 'open') openDetails();
+      else if (g.mode === 'back') detail?.onBack();
       else setOpen(false);
     }
     setDrag(null);
@@ -119,8 +123,18 @@ export function BoulderMobileDetail({ detail, enabled, fullscreen, menuOpen, vid
 
   return <div ref={root} className={enabled ? 'kws-mobile-detail' : 'relative h-full w-full'} data-details-open={open} data-expanded={fullscreen}
     style={enabled ? { '--detail-image-gap': `${gap}px` } as CSSProperties : undefined}
-    onPointerMove={move} onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)} onLostPointerCapture={event => finish(event, true)}
-    onClickCapture={event => { if (performance.now() < suppressClickUntil.current && (event.target === root.current || event.target === videoRef.current)) { event.preventDefault(); event.stopPropagation(); } }}>
+    onPointerDownCapture={event => {
+      if (event.isPrimary) suppressClickUntil.current = 0;
+      else { gesture.current = null; setDrag(null); }
+    }}
+    onPointerMove={move} onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)}
+    onLostPointerCapture={event => {
+      // Touch begins with implicit capture on the video/handle. Transferring
+      // capture to this gesture owner emits a bubbling lost event from that
+      // child; it is not a cancelled swipe.
+      if (event.target === event.currentTarget && !event.currentTarget.hasPointerCapture(event.pointerId)) finish(event, true);
+    }}
+    onClickCapture={event => { if (performance.now() < suppressClickUntil.current) { event.preventDefault(); event.stopPropagation(); } }}>
     <div ref={background} className="kws-mobile-detail-background" onPointerDownCapture={event => start(event, 'open')}>
       {children(openDetails, button)}
       {enabled && detail ? <>
@@ -148,8 +162,9 @@ export function BoulderMobileDetail({ detail, enabled, fullscreen, menuOpen, vid
           if (event.shiftKey && event.target === first) { event.preventDefault(); last?.focus(); }
           else if (!event.shiftKey && event.target === last) { event.preventDefault(); first?.focus(); }
         }}>
-        <div className="kws-detail-grip" onPointerDownCapture={event => start(event, 'close')}><div className="kws-detail-handle" />
-          <header><div><p>Boulder-Details</p><h2 id={titleId}>{detail.title}</h2></div><Button ref={closeButton} variant="secondary" size="icon" aria-label="Boulder-Details schließen" onClick={() => setOpen(false)}><X /></Button></header>
+        <div className="kws-detail-grip" onPointerDownCapture={event => start(event, 'close')}>
+          <button ref={closeButton} type="button" className="kws-detail-dismiss" aria-label="Boulder-Details schließen" title="Nach unten ziehen oder tippen zum Schließen" onClick={() => setOpen(false)}><span className="kws-detail-handle" /></button>
+          <header><div><p>Boulder-Details</p><h2 id={titleId}>{detail.title}</h2></div></header>
         </div>
         <div className="kws-detail-body" onClickCapture={event => {
           if ((event.target as HTMLElement).closest('[data-mobile-detail-tabs] button')) event.currentTarget.scrollTop = 0;

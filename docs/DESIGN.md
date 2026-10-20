@@ -2449,3 +2449,39 @@ Prüfumfang: docs/qa/2026-10-20-designmotion-four.md.
   damit der erste erklärte Boulder sichtbar und bedienbar ist.
 
 Prüfbeleg: `docs/qa/2026-10-20-onboarding-safe-area.md`.
+
+### Nutzerfeedback 20.10.2026 – Feed, Karten, App-Info und Gesten
+
+- Der Videofeed sortiert global nach dem gewählten Datum, Grad oder Namen,
+  unabhängig von den Bereichsgruppen der Kartenansicht. Ein ausdrücklicher
+  Sortierwechsel beginnt beim ersten Ergebnis der neuen Reihenfolge.
+- Eine klare Rechtswischgeste führt im Detail zum tatsächlichen Einstieg und im
+  Feed zur bisherigen Übersicht zurück. Pinch, vertikale Feednavigation und
+  Bedienelemente behalten ihre eigenen Gesten. Das Detailsheet öffnet durch
+  Hochziehen und schließt durch Abwärtszug am Kopf/Griff oder Außenklick.
+  Das zusätzliche X entfällt; der Griff bleibt eine benannte Tastaturaktion.
+  Escape und Fokusrückkehr bleiben erhalten.
+- Videos starten auf normalen und unbekannten Netzen mit HD. Nur konkret
+  langsame Netze und Datensparmodus starten kleiner; bestehende Last- und
+  Puffer-Fallbacks erhalten Wiedergabezeit und Pausenzustand.
+- Eine erfolgreiche Pull-to-Refresh-Aktion zeigt ihre Bestätigung kurz für
+  0,8 Sekunden. Fehler bleiben länger lesbar; nur Erfolg wird kurz angezeigt.
+- Der Schraubplan zeigt nächste Termine je logischem Teilbereich nummeriert
+  auf der echten Hallenkarte und in einer passenden datierten Liste.
+  Gleiche Uhrzeiten bedeuten gleichzeitig; weitere Termine bleiben im Kalender.
+- NEU auf der Boulderkarte markiert alle Sektoren mit aktuellen Bouldern des
+  jüngsten Berliner Kalendertags innerhalb von sieben Tagen, einschließlich
+  Zweitsektor. Geplante Abschraubtermine sind kein Nachweis neuer Boulder.
+  Fehlende, ungültige oder zukünftige Zeitstempel erzeugen kein Badge.
+- Über die App unterscheidet installierte native Version/Build und enthaltene
+  Beta-Oberfläche. Native Updates führen zum bisherigen Store/TestFlight-Kanal;
+  nur bestätigte andere Web-Builds bieten Neuladen. Dieselbe Buildidentität
+  meldet kein Update, Fehler bleiben sichtbar. Beide bestehenden Partnerlogos
+  führen zu ihren Websites.
+- Profilavatare unterstützen Doppeltipp und Doppelklick Home → Setter →
+  Administration → Home ausschließlich nach aktueller eigener Serverrollenprüfung.
+  Einzeltipp, Hover, Tastatur und Menü bleiben erhalten. Der Schnellwechsel
+  schreibt und erweitert keine Rollenrechte.
+
+Prüfbelege: `docs/qa/2026-10-20-map-schedule-feedback.md`,
+`docs/qa/2026-10-20-about-profile-feedback.md` und gemeinsame Releaseprüfung.

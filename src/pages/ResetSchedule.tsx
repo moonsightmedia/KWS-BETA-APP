@@ -7,6 +7,7 @@ import { KwsSurface } from '@/components/ui/kws-surface';
 import { KwsSegmentedControl } from '@/components/ui/kws-segmented-control';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ResetSequenceMap } from '@/components/ResetSequenceMap';
 import { useResetPlan } from '@/hooks/useResetPlan';
 import { useAuth } from '@/hooks/useAuth';
 import { calendarDate, defaultResetPlanView, formatHallDate, hallDayKey, localCalendarDayKey, readResetPlanView, relativeResetDay, RESET_PLAN_VIEW_KEY, type ResetAppointment } from '@/lib/resetSchedule';
@@ -47,11 +48,6 @@ export default function ResetSchedule() {
   const changeView = (next: 'agenda' | 'calendar') => setPreferences(current => ({ ...current, view: next }));
   const setSelectedDay = (date: Date) => setPreferences(current => ({ ...current, selectedDay: localCalendarDayKey(date), hasSelection: true }));
   const setMonth = (date: Date) => setPreferences(current => ({ ...current, month: `${localCalendarDayKey(date).slice(0, 7)}-01`, hasSelection: true }));
-  const groups = useMemo(() => {
-    const byDay = new Map<string, ResetAppointment[]>();
-    plan.appointments.forEach(item => byDay.set(item.day, [...(byDay.get(item.day) ?? []), item]));
-    return [...byDay.entries()];
-  }, [plan.appointments]);
   const calendarAppointments = useMemo(() => plan.appointments.map(item => ({
     ids: [item.id], sectorName: item.sectors.map(sector => sector.name).join(' · '), date: calendarDate(item.day),
   })), [plan.appointments]);
@@ -83,14 +79,7 @@ export default function ResetSchedule() {
           {dayAppointments.length ? <KwsSurface className="divide-y divide-border/60 p-3 sm:p-4">{dayAppointments.map(item => <Appointment key={item.id} appointment={item} />)}</KwsSurface>
             : <p className="py-3 text-sm text-muted-foreground">Keine kommenden Termine an diesem Tag.</p>}
         </SetterScheduleCalendar>
-          : groups.length ? <div className="space-y-5">{groups.map(([day, appointments], index) => <section key={day}>
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <div><h2 className="text-base font-semibold">{relativeResetDay(day, plan.now) ?? formatHallDate(appointments[0].when, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</h2>
-                {relativeResetDay(day, plan.now) && <p className="mt-1 text-xs text-muted-foreground">{formatHallDate(appointments[0].when, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>}</div>
-              {index === 0 && <span className="rounded-kws-badge bg-primary/10 px-2 py-1 text-xs font-semibold text-primary-ink">Als Nächstes</span>}
-            </div>
-            <KwsSurface className="divide-y divide-border/60 p-4">{appointments.map(item => <Appointment key={item.id} appointment={item} />)}</KwsSurface>
-          </section>)}</div>
+          : plan.appointments.length ? <ResetSequenceMap appointments={plan.appointments} sectors={plan.sectors} />
             : <KwsSurface className="p-5"><CalendarDays className="mb-3 h-6 w-6 text-primary-ink" aria-hidden="true" /><h2 className="text-base font-semibold">Noch keine Umschraubung geplant</h2><p className="mt-2 text-sm text-muted-foreground">Neue Termine erscheinen hier, sobald das Setter-Team sie einträgt.</p></KwsSurface>}
     </div>
   </DashboardPageLayout>;
