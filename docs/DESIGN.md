@@ -1182,6 +1182,35 @@ Bedienelemente auf wechselnden Wandfotos lesbar bleiben:
   Fullscreen-Container. So bleiben sie im Vollbild sichtbar und werden nicht
   durch doppelte seitenlokale Controls überlagert.
 
+### 8.3.1 Übernahme in den normalen Mobile Player – Freigabe 20.10.2026
+
+Der Nutzer hat V5 einschließlich der Wischgesten zur App-Integration freigegeben.
+Die mobile Detailseite für direkte Videos nutzt das vollständig eingepasste,
+zentrierte Video als gesamte Fläche. Oben und unten laufen weiche Verläufe aus;
+auf letzte Präzisierung reicht der obere Verlauf weiter ins Bild (200px ab
+Bildkante, unten 140px). Safe Areas und die tatsächliche Video-Seitenproportion
+bestimmen die Position der Verläufe. Name, Grad/Farbe, Bereich und Datum stehen
+oben; die globale Navigation ist auf mobilen Boulder-Detailrouten verborgen.
+
+Die 56px-Abspielbar enthält Play/Pause, die breite Zeitleiste mit Zeit und den
+reinen Detailpfeil. Geschwindigkeit und Loop stehen rechts darüber. Im normalen
+Mobile Player entfallen zentrale Play-Fläche und 5-Sekunden-Buttons. Freier
+Bildtap blendet das gesamte Layout inklusive Verläufen auch bei Pause aus.
+Die mobile Detailansicht hat keinen Vollbildbutton, da sie die verfügbare
+Fläche bereits nutzt. Im Desktop- und eingebetteten Player bleibt er erhalten.
+
+Im Detailplayer öffnen Aufwärtsgesten aus dem unteren Bildbereich oder am Pfeil
+das Detailsheet. Am Griff/Kopfbereich nach unten ziehen schließt es. Das Sheet
+folgt der Geste; kurze/abgebrochene Züge kehren zurück. Spulen und andere Controls
+lösen keine Sheetgeste aus. Echte Info-/Track-/Beta-Inhalte bleiben scrollbar;
+Gäste erhalten weiterhin keinen Track-Tab. Pfeil, Schließen, Escape und Fokus-
+Rückkehr bleiben erhalten. Beim Öffnen wird pausiert; Medieninstanz, Zeit,
+Geschwindigkeit und Loop bleiben bei Panel- und Qualitätswechseln erhalten.
+Vollbild bleibt in Desktop- und eingebetteten Playern verfügbar. Desktop, externe
+Videoanbieter und Videofeed werden durch diese Layoutfreigabe nicht umgestaltet.
+
+Prüfung: `docs/qa/2026-10-20-mobile-player-v5-integration.md`.
+
 ### 8.4 Kommentare und Track
 
 - Kommentarzeilen und Composer zeigen das Profilfoto in derselben 8-px-
