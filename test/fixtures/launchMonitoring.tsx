@@ -45,6 +45,14 @@ window.fetch = async (input, init) => {
   if (mode === 'loading') await new Promise(resolve => setTimeout(resolve, 60_000));
   if (mode === 'error' || window.launchMonitoringQA.readMode === 'fail') return new Response('', { status: 503 });
   if (mode === 'unconfigured') return new Response('', { status: 404 });
+  if (requestUrl.pathname.endsWith('/kws_admin_availability')) {
+    if (mode === 'availability-error') return new Response('', { status: 503 });
+    if (mode === 'availability-unconfigured') return Response.json({ schema_version: 1, server_time: new Date().toISOString(), state: 'unconfigured', snapshot: null });
+    const observed = new Date(Date.now() - (mode === 'availability-stale' ? 600000 : 10000)).toISOString();
+    return Response.json({ schema_version: 1, server_time: new Date().toISOString(), state: mode === 'availability-stale' ? 'stale' : 'ready', snapshot: { schema_version: 1, generated_at: observed,
+      services: ['app', 'api', 'video'].map(id => ({ id, state: mode === 'availability-outage' && id === 'api' ? 'outage' : 'operational', checked_at: observed, latency_ms: 40, alert_mode: 'live' })),
+      incidents: [{ service: 'api', state: mode === 'availability-outage' ? 'open' : 'resolved', started_at: new Date(Date.now() - 3600000).toISOString(), ended_at: mode === 'availability-outage' ? null : new Date(Date.now() - 1800000).toISOString(), cause: 'timeout' }] } });
+  }
   if (requestUrl.pathname.endsWith('/kws_monitoring_live')) {
     if (window.launchMonitoringQA.liveError) return new Response('', { status: 503 });
     return Response.json({ schema_version: 1, generated_at: new Date().toISOString(), expires_at: new Date(Date.now() + 45000).toISOString(), ...window.launchMonitoringQA.live });
