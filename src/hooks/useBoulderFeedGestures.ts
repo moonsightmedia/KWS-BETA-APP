@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent, type RefObject } from 'react';
+import type { FeedDoubleTapAction } from './useBoulderFeedPreferences';
+import type { useBoulderFeedZoom } from './useBoulderFeedZoom';
 
 /** One gesture owner for taps, holds and vertical navigation. Media URLs/data live elsewhere. */
-export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, index, count, onIndex, onExit, disabled }: {
+export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, index, count, onIndex, onExit, disabled, doubleTapAction, onProject, zoom }: {
   videoRef: RefObject<HTMLVideoElement>; reelRef: RefObject<HTMLElement>; paused: boolean;
   onPause: (paused: boolean) => void; index: number; count: number;
   onIndex: (index: number) => void; onExit: () => void; disabled: boolean;
+  doubleTapAction: FeedDoubleTapAction; onProject: () => void;
+  zoom: ReturnType<typeof useBoulderFeedZoom>;
 }) {
+  const cancelZoom = zoom.cancel;
   const [clean, setClean] = useState(false);
   const [holdRate, setHoldRate] = useState<0.5 | 2 | null>(null);
   const [dragY, setDragY] = useState(0);
@@ -48,17 +53,19 @@ export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, ind
     settleTimer.current = window.setTimeout(finish, 240);
   };
   const go = (direction: number) => {
-    if (disabled || held.current || settlingRef.current) return;
+    if (disabled || held.current || zoom.pinching || settlingRef.current) return;
     const next = Math.max(0, Math.min(count - 1, index + direction));
     if (next !== index) settle(next);
   };
   const cancelPointer = () => {
-    cancelTap(); stopHold();
     const moved = gesture.current?.moved; gesture.current = null;
+    cancelTap(); stopHold(); cancelZoom();
     if (moved) settle(index);
   };
   const onPointerDown = (event: PointerEvent<HTMLElement>) => {
-    if (!event.isPrimary || event.button !== 0 || disabled || settlingRef.current || (event.target as Element).closest('a,button,input,textarea,[data-gesture],[role="menu"]')) { cancelTap(); stopHold(); gesture.current = null; return; }
+    if (event.button !== 0 || disabled || settlingRef.current || (event.target as Element).closest('a,button,input,textarea,[data-gesture],[role="menu"]')) { cancelPointer(); return; }
+    if (zoom.down(event)) { cancelTap(); stopHold(); gesture.current = null; setDragY(0); return; }
+    if (!event.isPrimary) { cancelTap(); stopHold(); gesture.current = null; return; }
     if (tap.current) clearTimeout(tap.current.timer);
     clearHold();
     gesture.current = { x: event.clientX, y: event.clientY, time: performance.now(), pointer: event.pointerId, moved: false, held: false };
@@ -69,6 +76,7 @@ export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, ind
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const onPointerMove = (event: PointerEvent<HTMLElement>) => {
+    if (zoom.move(event)) return;
     const current = gesture.current;
     if (!current || current.pointer !== event.pointerId || current.held) return;
     const dy = event.clientY - current.y, dx = event.clientX - current.x;
@@ -81,15 +89,17 @@ export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, ind
   };
   const onPointerUp = (event: PointerEvent<HTMLElement>) => {
     clearHold();
+    if (zoom.up(event)) { cancelTap(); stopHold(); gesture.current = null; return; }
     const current = gesture.current; gesture.current = null;
     if (!current || current.pointer !== event.pointerId) return;
     if (current.held) { stopHold(); return; }
     const dy = event.clientY - current.y, dx = event.clientX - current.x;
     if (!current.moved && Math.abs(dy) < 8 && Math.abs(dx) < 8) {
+      if (doubleTapAction === 'off') { cancelTap(); onPause(!paused); return; }
       const previous = tap.current, now = performance.now();
       const double = previous && now - previous.time <= 280 && previous.type === event.pointerType && Math.hypot(event.clientX - previous.x, event.clientY - previous.y) <= 32;
       cancelTap();
-      if (double) { setClean(value => !value); return; }
+      if (double) { if (doubleTapAction === 'layout') setClean(value => !value); else onProject(); return; }
       if (previous) onPause(!paused);
       tap.current = { x: event.clientX, y: event.clientY, time: now, type: event.pointerType, timer: window.setTimeout(() => { tap.current = null; onPause(previous ? paused : !paused); }, 280) };
       return;
@@ -100,17 +110,17 @@ export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, ind
     settle(Math.max(0, Math.min(count - 1, index + direction)));
   };
   useEffect(() => {
-    cancelTap(); gesture.current = null; stopHold(true);
+    cancelTap(); gesture.current = null; stopHold(true); cancelZoom();
     if (settleTimer.current !== null) clearTimeout(settleTimer.current);
     settlingRef.current = false; setSettling(false); setDragY(0);
-    return () => { cancelTap(); gesture.current = null; stopHold(true); if (settleTimer.current !== null) clearTimeout(settleTimer.current); };
-  }, [disabled, index, count, clean, cancelTap, stopHold]);
+    return () => { cancelTap(); gesture.current = null; stopHold(true); cancelZoom(); if (settleTimer.current !== null) clearTimeout(settleTimer.current); };
+  }, [disabled, index, count, clean, doubleTapAction, cancelTap, stopHold, cancelZoom]);
   useEffect(() => {
     if (clean) { hadClean.current = true; reelRef.current?.querySelector<HTMLButtonElement>('.restore-chrome')?.focus({ preventScroll: true }); }
-    else if (hadClean.current) { hadClean.current = false; reelRef.current?.querySelector<HTMLButtonElement>('[data-active="true"] [aria-label="Bedienelemente ausblenden"]')?.focus({ preventScroll: true }); }
+    else if (hadClean.current) { hadClean.current = false; reelRef.current?.querySelector<HTMLButtonElement>('[aria-label="Bedienelemente ausblenden"]')?.focus({ preventScroll: true }); }
   }, [clean, reelRef]);
   useEffect(() => {
-    const background = () => { setSuspended(true); cancelTap(); gesture.current = null; stopHold(true); videoRef.current?.pause(); };
+    const background = () => { setSuspended(true); cancelTap(); gesture.current = null; stopHold(true); cancelZoom(); videoRef.current?.pause(); };
     const focus = () => { if (!document.hidden) setSuspended(false); };
     const visibility = () => document.hidden ? background() : focus();
     const key = (event: KeyboardEvent) => {
@@ -119,6 +129,9 @@ export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, ind
       cancelTap();
       if (event.key === 'Escape' && clean) { event.preventDefault(); setClean(false); return; }
       if ((event.target as Element).closest('a,button,input,textarea,[role="dialog"],[role="menu"]')) return;
+      if (event.key === '+' || event.key === '=') { event.preventDefault(); stopHold(); zoom.step(1.2); return; }
+      if (event.key === '-') { event.preventDefault(); stopHold(); zoom.step(1 / 1.2); return; }
+      if (event.key === '0') { event.preventDefault(); zoom.choose('fill'); return; }
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); startHold(event.key === 'ArrowLeft' ? .5 : 2, event.key); }
       if (event.key === 'ArrowDown' || event.key === 'PageDown') { event.preventDefault(); go(1); }
       if (event.key === 'ArrowUp' || event.key === 'PageUp') { event.preventDefault(); go(-1); }
@@ -131,10 +144,10 @@ export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, ind
   });
   return { clean, setClean, holdRate, hidden: clean || holdRate !== null, dragY, settling, suspended, go,
     handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: cancelPointer,
-      onLostPointerCapture: () => { if (gesture.current) cancelPointer(); },
+      onLostPointerCapture: (event: PointerEvent<HTMLElement>) => { if (gesture.current || zoom.hasPointer(event.pointerId)) cancelPointer(); },
       onContextMenu: (event: React.MouseEvent) => { if (!(event.target as Element).closest('a,button,input,textarea')) event.preventDefault(); },
       onDragStart: (event: React.DragEvent) => event.preventDefault(),
-      onWheel: (event: React.WheelEvent) => { if ((event.target as Element).closest('a,button,input,[data-gesture]')) return; const now = performance.now(), gap = now - lastWheel.current; lastWheel.current = now; if (gap > 160 && Math.abs(event.deltaY) > 20) go(event.deltaY > 0 ? 1 : -1); },
+      onWheel: (event: React.WheelEvent) => { if ((event.target as Element).closest('a,button,input,[data-gesture]')) return; if (event.ctrlKey) { cancelTap(); stopHold(); gesture.current = null; return; } const now = performance.now(), gap = now - lastWheel.current; lastWheel.current = now; if (gap > 160 && Math.abs(event.deltaY) > 20) go(event.deltaY > 0 ? 1 : -1); },
     },
   };
 }

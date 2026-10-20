@@ -42,15 +42,17 @@ interface UploadOptions {
   sectorId?: string;
   /** Enables the asynchronous Boulder contract on the Hostinger video server. */
   boulderId?: string;
+  sourceProvenance?: 'selected-video-lossless';
   /** Owner-bound transport resolves fresh credentials before every request. */
   fetch: typeof fetch;
   onProgress?: (progress: number) => void;
   abortSignal?: AbortSignal;
 }
 
-function uploadHeaders(boulderId?: string): Record<string, string> {
+function uploadHeaders(boulderId?: string, sourceProvenance?: 'selected-video-lossless'): Record<string, string> {
   return {
     ...(boulderId ? { 'X-Boulder-Id': boulderId } : {}),
+    ...(sourceProvenance ? { 'X-Video-Source': sourceProvenance } : {}),
   };
 }
 
@@ -334,7 +336,7 @@ async function uploadChunkBlob(
   await waitForNetwork(abortSignal);
 
   const headers: Record<string, string> = {
-    ...uploadHeaders(options.boulderId),
+    ...uploadHeaders(options.boulderId, options.sourceProvenance),
     'X-Upload-Session-Id': sessionId,
     'X-Chunk-Number': chunkIndex.toString(),
     'X-Total-Chunks': totalChunks.toString(),
@@ -418,7 +420,7 @@ async function waitForProcessedUpload(
     try {
       response = await options.fetch(statusUrl, {
         signal: abortSignal,
-        headers: uploadHeaders(options.boulderId),
+        headers: uploadHeaders(options.boulderId, options.sourceProvenance),
       });
     } catch (error) {
       if (abortSignal?.aborted) throw createAbortError();
@@ -481,6 +483,17 @@ export async function resumableUpload(
     throw new Error('Ungültige Dateigröße für Upload.');
   }
 
+  if (options.sourceProvenance) {
+    const response = await options.fetch(`${apiUrl}/health`, { signal: abortSignal, cache: 'no-store' });
+    const health = response.ok ? await response.json() : null;
+    if (!health?.capabilities?.private_silent_originals || !health?.capabilities?.sdr_playback) {
+      throw new Error('Die Videosicherung ist derzeit nicht verfügbar. Bitte später erneut hochladen.');
+    }
+    if (meta.fileSize > Number(health.storage?.max_upload_bytes || 0)) {
+      throw new Error('Das Video ist zu groß. Bitte eine kürzere Aufnahme auswählen.');
+    }
+  }
+
   // iOS emits a slightly larger byte buffer than requested. Its actual chunk
   // size must drive both the read request and X-Total-Chunks, otherwise exact
   // 5 MiB boundaries can exceed the server limit or drop a final chunk.
@@ -508,7 +521,7 @@ export async function resumableUpload(
     try {
       const statusRes = await options.fetch(statusUrl, {
         signal: abortSignal,
-        headers: uploadHeaders(options.boulderId),
+        headers: uploadHeaders(options.boulderId, options.sourceProvenance),
       });
       if (statusRes.ok) {
         statusData = await statusRes.json();

@@ -24,9 +24,12 @@ const silent = { path: '/cache/silent.mp4', fileSize: 9_000_000, audioTrackCount
 function reset(p) { platform = p; deleted = []; encode = async () => { throw new Error('encoder unavailable'); }; compress = async () => { throw new Error('compressor unavailable'); }; strip = async () => silent; }
 
 for (const p of ['ios', 'android']) {
-  test(`${p}: failed compression remuxes the original without uploading its audio`, async () => {
+  test(`${p}: uploads the full-resolution selected video without invoking lossy encoders`, async () => {
     reset(p);
+    encode = compress = async () => { assert.fail('Lossy encoding would destroy the archival source'); };
+    strip = async options => { assert.equal(options.inputPath, input.path); return silent; };
     const result = await prepareVideoFileForChunkedUpload(input);
+    assert.equal(result.compressed, false);
     assert.equal(result.path, '/cache/silent.mp4'); assert.equal(result.fileSize, 9_000_000);
     assert.equal(result.fileName, 'source.mp4'); assert.equal(result.mimeType, 'video/mp4');
     await result.cleanup(); assert.deepEqual(deleted, ['/cache/silent.mp4']);
@@ -43,16 +46,22 @@ test('iOS skips only a verified silent source', async () => {
   const result = await prepareVideoFileForChunkedUpload(input);
   assert.equal(result.path, '/cache/silent.mp4'); assert.equal(remuxes, 1);
 });
-test('Android compressed output is stripped before it can be returned', async () => {
-  reset('android'); compress = async () => ({ outputPath: '/cache/encoded.mp4', compressedSize: 5_000_000 });
-  strip = async o => { assert.equal(o.inputPath, '/cache/encoded.mp4'); return silent; };
+test('Android archives the selected source even when a compressor would be available', async () => {
+  reset('android'); compress = async () => { assert.fail('Do not compress the source'); };
+  strip = async o => { assert.equal(o.inputPath, input.path); return silent; };
   const result = await prepareVideoFileForChunkedUpload(input);
-  assert.equal(result.path, silent.path); assert.deepEqual(deleted, ['/cache/encoded.mp4']);
+  assert.equal(result.path, silent.path); assert.deepEqual(deleted, []);
 });
 test('aborting after silent preparation cleans temporary files but never gallery media', async () => {
   reset('android'); const controller = new AbortController();
   compress = async () => ({ outputPath: '/cache/encoded.mp4', compressedSize: 5_000_000 });
   strip = async () => { controller.abort(); return silent; };
   await assert.rejects(prepareVideoFileForChunkedUpload(input, undefined, controller.signal), e => e.name === 'AbortError');
-  assert.deepEqual(deleted.sort(), ['/cache/encoded.mp4', '/cache/silent.mp4']);
+  assert.deepEqual(deleted.sort(), ['/cache/silent.mp4']);
+});
+
+test('a cached already-silent original is cleaned only after the upload finishes', async () => {
+  reset('ios'); strip = async () => ({ ...silent, path: '/cache/picked.mov', skipped: true });
+  const result = await prepareVideoFileForChunkedUpload({ ...input, cached: true, path: '/cache/picked.mov' });
+  assert.deepEqual(deleted, []); await result.cleanup(); assert.deepEqual(deleted, ['/cache/picked.mov']);
 });

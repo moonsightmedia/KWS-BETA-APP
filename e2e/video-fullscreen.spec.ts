@@ -90,7 +90,8 @@ test('quality change preserves paused position, slow motion and loop', async ({ 
   await slider.focus();
   await slider.press('End');
   await slider.press('ArrowLeft');
-  await page.getByRole('button', { name: '5 Sekunden zurück' }).click();
+  await slider.press('Home');
+  await slider.press('ArrowRight');
   const time = await video.evaluate(element => element.currentTime);
   await page.getByRole('button', { name: 'Geschwindigkeit: 1×' }).click();
   await page.getByRole('menuitemradio', { name: /0,5×/ }).click();

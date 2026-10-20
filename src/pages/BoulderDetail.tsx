@@ -28,6 +28,7 @@ import { KwsSegmentedControl } from '@/components/ui/kws-segmented-control';
 import { ContentSafetyActions } from '@/components/ContentSafetyActions';
 import { ExternalBetaVideo } from '@/components/boulder/ExternalBetaVideo';
 import { setMonitoringLoadedBoulder, trackMonitoring } from '@/utils/monitoring';
+import { useMobileVideoControls } from '@/hooks/useBoulderVideoControls';
 
 const tabs = ['Info', 'Track', 'Beta'] as const;
 type DetailTab = (typeof tabs)[number];
@@ -59,6 +60,7 @@ export default function BoulderDetail() {
   const tabBarRef = useRef<HTMLDivElement>(null);
   const tabContentRef = useRef<HTMLDivElement>(null);
   const recordedView = useRef<string | null>(null);
+  const mobilePlayer = useMobileVideoControls();
 
   const boulder = useMemo(() => boulders?.find((entry) => entry.id === id), [boulders, id]);
   useEffect(() => { reportDetail(boulder ?? null); return () => reportDetail(null); }, [boulder, reportDetail]);
@@ -66,7 +68,7 @@ export default function BoulderDetail() {
   const isYouTube = videoUrl ? isYouTubeUrl(videoUrl) : false;
   const isVimeo = videoUrl ? isVimeoUrl(videoUrl) : false;
   const isDirectVideo = Boolean(videoUrl && !isYouTube && !isVimeo);
-  const availableTabs = useMemo(() => (user ? tabs : (['Info', 'Beta'] as const)), [user]);
+  const availableTabs = useMemo<readonly DetailTab[]>(() => (user ? tabs : ['Info', 'Beta']), [user]);
 
   useEffect(() => {
     const clearLoadedBoulder = boulder?.id ? setMonitoringLoadedBoulder(boulder.id) : undefined;
@@ -167,10 +169,10 @@ export default function BoulderDetail() {
       resizeObserver.disconnect();
       window.removeEventListener('resize', updateTabContentMinHeight);
     };
-  }, [activeTab, getScrollContainer, id]);
+  }, [activeTab, getScrollContainer, id, mobilePlayer]);
 
   useEffect(() => {
-    if (!availableTabs.includes(activeTab as (typeof availableTabs)[number])) {
+    if (!availableTabs.includes(activeTab)) {
       setActiveTab('Info');
     }
   }, [activeTab, availableTabs]);
@@ -179,10 +181,10 @@ export default function BoulderDetail() {
     scrollPageTo(0, 'auto');
   }, [id, scrollPageTo]);
 
-  const renderTabContent = () => {
+  const renderTabContent = (onPlayOfficial?: () => void) => {
     if (!boulder) return null;
     if (activeTab === 'Track') return <BoulderTrackTab boulder={boulder} />;
-    if (activeTab === 'Beta') return <BoulderBetaTab boulder={boulder} />;
+    if (activeTab === 'Beta') return <BoulderBetaTab boulder={boulder} onPlayOfficial={onPlayOfficial} />;
     return <BoulderInfoTab boulder={boulder} />;
   };
 
@@ -232,6 +234,19 @@ export default function BoulderDetail() {
     );
   }
 
+  if (mobilePlayer && isDirectVideo) return <main className="kws-mobile-player-page" aria-label="Boulder-Detailansicht">
+    <BoulderVideoPlayer key={boulder.id} boulderId={boulder.id} betaVideoUrls={boulder.betaVideoUrls} betaVideoUrl={boulder.betaVideoUrl}
+      poster={getThumbnailUrl(boulder)} isVisible showOfficialBadge
+      mobileDetail={{ title: boulder.name, onBack: goBack, backLabel,
+        metadata: <><BoulderTypeBadge volumeOnly={boulder.volumeOnly} /><div className="kws-detail-metadata">
+          <DifficultyBadge color={boulder.color} color2={boulder.color2} difficulty={boulder.difficulty} colors={colors} variant="detail" />
+          <span>{boulder.sector2 ? `${boulder.sector} → ${boulder.sector2}` : boulder.sector}</span><span aria-hidden="true">·</span><span>{format(boulder.createdAt, 'dd. MMM yyyy', { locale: de })}</span>
+        </div></>,
+        content: returnToVideo => <><div data-mobile-detail-tabs><KwsSegmentedControl<DetailTab> value={activeTab} options={availableTabs.map(tab => ({ value: tab, label: tab }))} ariaLabel="Boulder-Inhalt" onValueChange={setActiveTab} /></div>
+          {renderTabContent(returnToVideo)}<ContentSafetyActions kind="boulder" targetId={boulder.id} /></>,
+      }} />
+  </main>;
+
   return (
     <DashboardPageLayout
       headerBackTo={backDestination}
@@ -251,7 +266,6 @@ export default function BoulderDetail() {
           <DifficultyBadge
             color={boulder.color}
             color2={boulder.color2}
-            colorHex={boulder.colorHex}
             difficulty={boulder.difficulty}
             colors={colors}
             variant="detail"

@@ -1,16 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
-import { ArrowDown, ArrowLeft, ArrowUp, BadgeCheck, Check, ChevronDown, ChevronRight, Eye, EyeOff, Loader2, MessageSquare, Pause, Play, Plus, Settings, SlidersHorizontal, Star, Target, Video, Zap } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, BadgeCheck, Check, ChevronDown, ChevronRight, Eye, EyeOff, Loader2, MessageSquare, Pause, Play, Plus, SlidersHorizontal, Star, Target, Video, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { DifficultyBadge } from './DifficultyBadge';
 import { BoulderTypeBadge } from './BoulderTypeBadge';
 import { BoulderFeedPanels, type FeedPanel } from './BoulderFeedPanels';
+import { useBoulderFeedPreferences } from '@/hooks/useBoulderFeedPreferences';
 import { useAuth } from '@/hooks/useAuth';
 import { useColors } from '@/hooks/useColors';
 import { useBoulderFeedCommunity } from '@/hooks/useBoulderFeedCommunity';
 import { useBoulderFeedGestures } from '@/hooks/useBoulderFeedGestures';
 import { useBoulderFeedPlayback } from '@/hooks/useBoulderFeedPlayback';
+import { useBoulderFeedZoom } from '@/hooks/useBoulderFeedZoom';
 import { feedResultNames, isExternalBoulderVideo } from '@/lib/boulderFeed';
 import { getAvailableVideoQualities, type VideoQualityLevel } from '@/utils/videoUtils';
 import type { Boulder } from '@/types/boulder';
@@ -28,6 +30,7 @@ export function BoulderVideoFeed({ boulders, active, loading, onExit, onDetail, 
   const [paused, setPaused] = useState(false);
   const [panel, setPanel] = useState<FeedPanel>(null);
   const [qualityOpen, setQualityOpen] = useState(false);
+  const preferences = useBoulderFeedPreferences();
   const [previewRating, setPreviewRating] = useState<number | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -40,9 +43,13 @@ export function BoulderVideoFeed({ boulders, active, loading, onExit, onDetail, 
   const item = boulders[index];
   const data = useBoulderFeedCommunity(item?.id);
   const external = item ? isExternalBoulderVideo(item) : false;
+  const interactionsDisabled = !active || Boolean(panel) || filtersOpen || qualityOpen || data.busy || loading === true;
+  const zoom = useBoulderFeedZoom({ reelRef, mediaId: item?.id, disabled: interactionsDisabled || external });
   const gestures = useBoulderFeedGestures({ videoRef, reelRef, paused, onPause: setPaused, index, count: boulders.length,
     onIndex: next => { setCurrentId(boulders[next]?.id ?? null); setPaused(false); setPreviewRating(null); }, onExit,
-    disabled: !active || Boolean(panel) || filtersOpen || qualityOpen || data.busy || loading === true,
+    doubleTapAction: !user && preferences.doubleTapAction === 'project' ? 'off' : preferences.doubleTapAction,
+    onProject: () => { if (user) void data.toggleProject(true); },
+    disabled: interactionsDisabled, zoom,
   });
   const media = useBoulderFeedPlayback({ videoRef, boulder: item, enabled: active && !external && !panel && !filtersOpen && !qualityOpen,
     paused, holdRate: gestures.holdRate, suspended: gestures.suspended,
@@ -62,7 +69,7 @@ export function BoulderVideoFeed({ boulders, active, loading, onExit, onDetail, 
   };
   const starAt = (x: number) => { const box = starsRef.current!.getBoundingClientRect(); return Math.max(1, Math.min(5, Math.ceil((x - box.left) / (box.width / 5)))); };
   const beginRating = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || !user || !data.ready || data.busy) return;
+    if (!event.isPrimary || event.button !== 0 || !user || !data.ready || data.busy) return;
     const value = starAt(event.clientX); event.currentTarget.setPointerCapture(event.pointerId);
     starGesture.current = { pointer: event.pointerId, value }; setPreviewRating(value);
   };
@@ -76,7 +83,7 @@ export function BoulderVideoFeed({ boulders, active, loading, onExit, onDetail, 
   return <>
     <main className="kws-feed" data-clean={gestures.hidden} data-holding={gestures.holdRate !== null} data-active-feed={active} data-swipe-ignore data-pull-to-refresh="ignore" aria-label="Boulder-Videofeed">
       <div className="desktop-caption"><Video size={19}/><strong>Videos</strong></div>
-      <section ref={reelRef} className="reel" tabIndex={0} aria-label={item?.name ?? 'Boulder-Videos'} {...gestures.handlers}>
+      <section ref={reelRef} className="reel" data-zoomable={Boolean(item) && !external} data-zoom-scale={zoom.scale} data-zoom-mode={zoom.mode} tabIndex={0} aria-label={item?.name ?? 'Boulder-Videos'} onPointerDownCapture={event => { if (!event.isPrimary) { starGesture.current = null; setPreviewRating(null); } }} {...gestures.handlers}>
         <div className={`reel-track ${gestures.settling ? 'is-settling' : ''}`} style={{ transform: `translate3d(0,${gestures.dragY}px,0)` }}>
           {frames.map((boulder, frameIndex) => {
             const position = Math.max(0, index - 1) + frameIndex;
@@ -86,12 +93,10 @@ export function BoulderVideoFeed({ boulders, active, loading, onExit, onDetail, 
             const project = current && Boolean(data.current?.is_project);
             const TrackIcon = current && data.today?.result === 'flash' ? Zap : current && data.today?.result === 'top' ? BadgeCheck : Plus;
             return <article className="reel-page" key={boulder.id} data-boulder-id={boulder.id} data-active={current} aria-hidden={!current} {...(!current ? { inert: '' } : {})} style={{ transform: `translate3d(0,${(position - index) * 100}%,0)` }}>
-              {remote ? <img className="reel-video" src={boulder.thumbnailUrl} alt=""/> : <video ref={media.register(boulder.id)} className="reel-video" data-active={current} src={media.sourceFor(boulder)} poster={boulder.thumbnailUrl} muted loop playsInline preload={current ? 'auto' : 'metadata'} {...media.events(boulder.id)}/>}
+              <div className="reel-media">{remote ? <img className="reel-video" src={boulder.thumbnailUrl} alt=""/> : <video ref={media.register(boulder.id)} className="reel-video" style={current ? zoom.style : zoom.neighborStyle} data-active={current} src={media.sourceFor(boulder)} poster={boulder.thumbnailUrl} muted loop playsInline preload={position >= index ? 'auto' : 'metadata'} {...media.events(boulder.id)}/>}</div>
               <div className="reel-chrome" aria-hidden={gestures.hidden} {...(gestures.hidden ? { inert: '' } : {})}>
                 <div className="video-shade"/>
-                <header className="reel-header"><button className="overlay-button" aria-label="Zur Boulderübersicht" onClick={onExit}><ArrowLeft/></button><div><strong>Videos</strong><button className="sort-trigger" aria-label="Sortierung öffnen" onClick={event => openPanel('sort', event.currentTarget)}>{sortLabel}<ChevronDown size={12}/></button></div><button className="overlay-button" aria-label="Bedienelemente ausblenden" onClick={() => gestures.setClean(true)}><EyeOff/></button><button className="overlay-button filter-trigger" aria-label="Boulder filtern" onClick={onFilter}><SlidersHorizontal/>{filterCount > 0 && <span>{filterCount}</span>}</button></header>
                 <div className="official"><BadgeCheck size={14}/>Offizielle Beta</div>
-                {current && !remote && <DropdownMenu open={qualityOpen} onOpenChange={setQualityOpen}><DropdownMenuTrigger asChild><button className="quality-trigger" disabled={availableQualities.length < 2} aria-label={`Videoqualität: ${qualityNames[media.quality]}`}><Settings size={16}/>{qualityNames[media.quality]}<ChevronDown size={13}/></button></DropdownMenuTrigger><DropdownMenuContent align="end" sideOffset={8} collisionPadding={12} className="kws-feed-quality-menu"><DropdownMenuLabel>Videoqualität</DropdownMenuLabel><DropdownMenuSeparator/><DropdownMenuRadioGroup value={media.quality} onValueChange={value => media.changeQuality(value as VideoQualityLevel)}>{availableQualities.map(value => <DropdownMenuRadioItem value={value} key={value} className="feed-quality-option"><span className="quality-check">{value === media.quality && <Check size={15}/>}</span><strong>{qualityNames[value]}</strong><span>{value === 'hd' ? 'Hohe Auflösung' : value === 'sd' ? 'Ausgewogen' : 'Weniger Daten'}</span></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
                 {user && <div className="reel-actions">
                   <button className={project ? 'is-selected' : ''} disabled={!data.trackReady || data.busy} title={project ? 'Projektmarkierung entfernen' : 'Als Projekt markieren'} aria-label={project ? 'Projektmarkierung entfernen' : 'Als Projekt markieren'} aria-pressed={project} onClick={() => void data.toggleProject()}><span className="action-icon"><Target/>{project && <Check className="project-check"/>}</span></button>
                   <button title="Kommentare öffnen" aria-label={commentCount === undefined ? 'Kommentare öffnen' : `${commentCount} Kommentare öffnen`} onClick={event => openPanel('comments', event.currentTarget)}><span className="action-icon comment-action"><MessageSquare/><span className="comment-count" aria-hidden="true">{data.comments.isError ? '!' : commentCount === undefined ? '…' : commentCount > 99 ? '99+' : commentCount}</span></span></button>
@@ -108,9 +113,14 @@ export function BoulderVideoFeed({ boulders, active, loading, onExit, onDetail, 
             </article>;
           })}
         </div>
+        {item && <div className="feed-global-chrome" aria-hidden={gestures.hidden} {...(gestures.hidden ? { inert: '' } : {})}>
+          <header className="reel-header"><button className="overlay-button" aria-label="Zur Boulderübersicht" onClick={onExit}><ArrowLeft/></button><div><strong>Videos</strong><button className="sort-trigger" aria-label="Sortierung öffnen" onClick={event => openPanel('sort', event.currentTarget)}>{sortLabel}<ChevronDown size={12}/></button></div><button className="overlay-button" aria-label="Bedienelemente ausblenden" onClick={() => gestures.setClean(true)}><EyeOff/></button><button className="overlay-button filter-trigger" aria-label="Boulder filtern" onClick={onFilter}><SlidersHorizontal/>{filterCount > 0 && <span>{filterCount}</span>}</button></header>
+          {!external && <DropdownMenu open={qualityOpen} onOpenChange={setQualityOpen}><DropdownMenuTrigger asChild><button className="quality-trigger" aria-label={`Videoqualität: ${qualityNames[media.quality]}`}><Video size={16}/>{qualityNames[media.quality]}<ChevronDown size={13}/></button></DropdownMenuTrigger><DropdownMenuContent align="end" sideOffset={8} collisionPadding={12} className="kws-feed-quality-menu"><DropdownMenuLabel>Videoqualität</DropdownMenuLabel><DropdownMenuSeparator/><DropdownMenuRadioGroup value={media.quality} onValueChange={value => media.changeQuality(value as VideoQualityLevel)}>{availableQualities.map(value => <DropdownMenuRadioItem value={value} key={value} className="feed-quality-option"><span className="quality-check">{value === media.quality && <Check size={15}/>}</span><strong>{qualityNames[value]}</strong><span>{value === 'hd' ? 'Hohe Auflösung' : value === 'sd' ? 'Ausgewogen' : 'Weniger Daten'}</span></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup><DropdownMenuSeparator/><DropdownMenuLabel>Bildgröße</DropdownMenuLabel><DropdownMenuRadioGroup value={zoom.mode} onValueChange={zoom.choose}>{([{ value: 'fit', label: 'Originalgröße' }, { value: 'fill', label: 'Vollbild' }]).map(option => <DropdownMenuRadioItem value={option.value} key={option.value} className="feed-quality-option"><span className="quality-check">{zoom.mode === option.value && <Check size={15}/>}</span><strong>{option.label}</strong></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
+        </div>}
         {!item && <div className="empty-state"><Video size={34}/><h1>{loading ? 'Videos werden geladen …' : 'Keine passenden Videos'}</h1><p>{loading ? 'Deine Boulder werden geladen.' : 'Für diese Auswahl gibt es gerade keinen Boulder mit Video.'}</p><Button variant="secondary" onClick={onFilter}>Filter öffnen</Button><Button onClick={onReset}>Suche und Filter zurücksetzen</Button><Button variant="secondary" onClick={onExit}>Zur Boulderübersicht</Button></div>}
         {gestures.clean && gestures.holdRate === null && <button className="overlay-button restore-chrome" aria-label="Bedienelemente einblenden" onClick={() => gestures.setClean(false)}><Eye/></button>}
         {gestures.holdRate !== null && <div className="speed-feedback" role="status" aria-label={`Wiedergabegeschwindigkeit ${gestures.holdRate === .5 ? 'halb so schnell' : 'doppelt so schnell'}`}>{gestures.holdRate === .5 ? '0,5×' : '2×'}</div>}
+        {zoom.feedback && gestures.holdRate === null && <div className="zoom-feedback" role="status" aria-live={zoom.pinching ? 'off' : 'polite'}>{zoom.label}</div>}
       </section>
       {item && <nav className="feed-navigation" aria-label="Video wechseln"><button className="overlay-button" aria-label="Vorheriges Video" disabled={!index || data.busy} onClick={() => gestures.go(-1)}><ArrowUp/></button><span>{index + 1} / {boulders.length}</span><button className="overlay-button" aria-label="Nächstes Video" disabled={index >= boulders.length - 1 || data.busy} onClick={() => gestures.go(1)}><ArrowDown/></button><small>Wischen oder scrollen</small></nav>}
     </main>

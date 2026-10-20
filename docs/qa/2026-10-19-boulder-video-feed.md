@@ -104,3 +104,10 @@ Schreibtest mit einem echten Produktionskonto. Globale Sheet- und Onboarding-
 unverändert als historische Abstimmung erhalten.
 
 Für den GitHub-Upload wurde der Remote erneut frisch gefetcht. Der Featurebranch `codex/boulder-video-feed` basiert auf `origin/main` (`daf0cbf`), 17 Commits nach dem ursprünglichen lokalen Ausgangsstand. Die Feed-Änderungen wurden isoliert und ohne Konflikte übernommen; neue Filterpersistenz und mobile Verbesserungen bleiben enthalten. Fremde laufende Player-/Onboarding-Änderungen verbleiben im ursprünglichen Arbeitsbaum. Der Web-CI-Prüflauf führt zusätzlich die zehn Feed-Integrationstests aus. Der Upload erfolgt als Pull Request, ohne Merge oder Deployment.
+
+
+## Web release follow-up, 19 October 2026
+
+The list/grid routes now load the feed and its community hooks only when Videoansicht opens. This preserves the isolated existing browser fixtures and avoids loading media/community modules for regular overviews. A regression checks the module request boundary. The visual loop waits for the persisted view to finish loading before leaving the feed.
+
+This web release contains the third-view feature and these integration fixes; native version changes and the separate onboarding draft are not part of this branch. The GitHub Web production workflow is the release gate and the Hostinger updater publishes its exact verified main revision. Production playback and navigation are checked after deployment without changing customer data.

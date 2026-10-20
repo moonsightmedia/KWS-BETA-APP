@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { makeProfileDraft, parseBirthDate, profileDraftPayload, type EditableProfile, type ProfileDraft, type ProfilePayload } from '@/lib/userProfileForm';
+import { makeProfileDraft, normalizeBirthDateInput, parseBirthDate, profileDraftPayload, type EditableProfile, type ProfileDraft, type ProfilePayload } from '@/lib/userProfileForm';
 
 type Props = {
   profile: EditableProfile;
@@ -77,8 +77,8 @@ export function UserProfileEditor({ profile, onSave, onClose, onRestoreFocus }: 
               </div>
               <div className="mt-4 space-y-2">
                 <Label htmlFor={id + '-birth'}>Geburtsdatum <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                <Input ref={birthdayInput} id={id + '-birth'} value={draft.birthDate} onChange={e => setField('birthDate', e.target.value)} placeholder="TT.MM.JJJJ" autoComplete="off" inputMode="text" maxLength={10} aria-invalid={birthdayInvalid} aria-describedby={id + '-birth-help'} />
-                <p id={id + '-birth-help'} className={birthdayInvalid ? 'text-xs text-destructive' : 'text-xs text-muted-foreground'}>{birthdayInvalid ? 'Bitte ein gültiges Datum eingeben, das nicht in der Zukunft liegt.' : 'TT.MM.JJJJ · Zum Entfernen leeren.'}</p>
+                <Input ref={birthdayInput} id={id + '-birth'} value={draft.birthDate} onChange={e => setField('birthDate', e.target.value)} onBlur={e => { const formatted = normalizeBirthDateInput(e.target.value); if (formatted !== draft.birthDate) setField('birthDate', formatted); }} placeholder="TT.MM.JJJJ" autoComplete="off" inputMode="numeric" maxLength={10} aria-invalid={birthdayInvalid} aria-describedby={id + '-birth-help'} />
+                <p id={id + '-birth-help'} className={birthdayInvalid ? 'text-xs text-destructive' : 'text-xs text-muted-foreground'}>{birthdayInvalid ? 'Bitte ein gültiges Datum eingeben, das nicht in der Zukunft liegt.' : '8 Ziffern oder TT.MM.JJJJ · Formatierung beim Verlassen. Zum Entfernen leeren.'}</p>
               </div>
             </fieldset>
             {serverError && <p role="alert" className="mt-4 rounded-kws-control bg-destructive/10 p-3 text-sm text-destructive">{serverError}</p>}

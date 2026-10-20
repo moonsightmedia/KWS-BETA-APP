@@ -13,7 +13,7 @@ async function open(page: Page, start = '/', network = 'fast') {
   page.on('pageerror',error=>console.error('Fixture page:',error.message));
   await page.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.abort());
   for (const hook of ['useAuth','useColors','useSectors','useBoulders','useBoulderCommunity','useSectorSchedule','useHallMaps','useHasRole','useIsAdmin']) {
-    await page.route(`**/src/hooks/${hook}.ts*`, route => route.fulfill({contentType:'application/javascript',body:"export * from '/test/fixtures/continuity-hooks.ts';"}));
+    await page.route(`**/src/hooks/${hook}.ts*`, route => route.fulfill({contentType:'application/javascript',body:hook === 'useBoulderCommunity' ? "export * from '/test/fixtures/rating-hooks.ts'; export const useUpdateBoulderMarkers=()=>({mutateAsync:async()=>{},isPending:false});" : "export * from '/test/fixtures/continuity-hooks.ts';"}));
   }
   await page.route('**/src/contexts/UploadContext.tsx*',route=>route.fulfill({contentType:'application/javascript',body:"export { useUpload } from '/test/fixtures/setter-hooks.ts';"}));
   await page.route('**/src/components/NotificationCenter.tsx*',route=>route.fulfill({contentType:'application/javascript',body:'export const NotificationCenter = () => null;'}));
@@ -46,13 +46,16 @@ for (const width of [375,768,1280,1920]) {
     const originScroll = Number(await page.getByTestId('origin-scroll').textContent());
     await expect(page.locator('video')).toHaveJSProperty('readyState',4);
     await expect(page.getByRole('button',{name:'Videoqualität: HD'})).toBeVisible();
+    await expect(page.locator('[data-video-fullscreen]')).toHaveCount(width < 768 ? 0 : 1);
     expect(media.every(url=>url.endsWith('?hd'))).toBe(true);
     const starts=await page.evaluate(()=>(window as any).videoStarts);
     expect(starts).toBe(1);
     await page.screenshot({path:`${output}/detail-${width}.png`});
+    if(width<768) await page.getByRole('button',{name:'Boulder-Details öffnen',exact:true}).click();
     await page.getByRole('button',{name:'Track',exact:true}).click();
     await expect(page.getByText('Tracking',{exact:true})).toBeVisible();
     expect(await page.evaluate(()=>(window as any).videoStarts)).toBe(starts);
+    if(width<768) await page.getByRole('button',{name:'Boulder-Details schließen',exact:true}).click();
     await page.getByRole('button',{name:'Zurück zur Startseite'}).click();
     await expect(page.getByTestId('route')).toHaveText('/');
     await expect.poll(()=>page.evaluate(top=>({same:document.querySelector('button[aria-label*="Kleine Kante"] img')===(window as any).retainedImg,delta:Math.abs(scrollY-top)}),originScroll)).toEqual({same:true,delta:0});
@@ -243,8 +246,12 @@ test(`scrolled overview keeps its painted geometry throughout detail and return 
   expect(await page.evaluate(()=>scrollY)).toBe(top);
   await expect(page.locator('[aria-hidden="true"].isolate')).toHaveJSProperty('inert',true);
   await expect(page.locator('html')).toHaveCSS('overflow','hidden');
-  if(width<768) await expect(page.getByRole('navigation',{name:'Hauptnavigation'})).toHaveAttribute('data-compact','false');
+  if(width<768) {
+    await expect(page.getByRole('navigation',{name:'Hauptnavigation'})).toHaveCount(0);
+    await page.getByRole('button',{name:'Boulder-Details öffnen',exact:true}).click();
+  }
   await page.getByRole('button',{name:'Track',exact:true}).click();
+  if(width<768) await page.getByRole('button',{name:'Boulder-Details schließen',exact:true}).click();
   expect(await page.evaluate(()=>scrollY)).toBe(top);
   const samples=await page.evaluateHandle(()=>{
     const values:Array<{top:number;height:number}>=[];

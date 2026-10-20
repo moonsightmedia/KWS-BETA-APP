@@ -757,15 +757,52 @@ Ansicht, aktive Filter und Sortierung bleiben beim Wechsel nachvollziehbar erhal
   der Kommentarblase (ab100 als99+); der zugängliche Name nennt weiterhin die
   vollständige Zahl und Aktion. Projektstatus erhält zusätzlich ein Häkchen,
   Tracking das jeweilige Ergebnissymbol. Mindestens44px Touchfläche bleiben erhalten.
-- Nutzerpräzisierung: Ein kurzes Tippen auf die freie Videofläche pausiert bzw.
-  startet die Wiedergabe. Doppeltippen blendet das gesamte Layout aus und wieder
-  ein, ohne den Wiedergabezustand zu verändern oder eine Projektmarkierung zu setzen.
-  Der Einzeltipp wartet dafür kurz auf einen möglichen zweiten Tipp (280ms im
-  Entwurf). Wischen, Gestenabbruch und das Öffnen anderer Ansichten verwerfen
-  einen ausstehenden Tipp. Eine eigene Augen-Aktion blendet die gesamten
-  Bedienelemente einschließlich Bildverläufen aus; ein kleiner, dauerhaft
-  erreichbarer Schalter blendet sie wieder ein. Pause und Wischen funktionieren
-  auch ohne die Bedienelemente. Escape stellt zunächst die normale Ansicht her.
+- Nutzerpräzisierung 20.10.2026: Das Video füllt die gesamte Feedfläche wie bei
+  Reels, hinter Kopf, Aktionen und Fuß. Kein verkleinerter
+  Medienbereich zwischen Bedienelementen und keine reservierten Bildränder.
+  Zur Lesbarkeit liegen dezente Verläufe unter den überlagerten Controls.
+  Ausblenden und temporäres Tempo ändern die Videogeometrie nicht.
+- Nutzerpräzisierung 20.10.2026: Eine kurze Zwei-Finger-Geste wechselt direkt
+  zwischen genau zwei festen Stufen: „Originalgröße“ (ganzes Video) und „Vollbild“
+  (bildschirmfüllend). Zusammenziehen wählt Originalgröße, Auseinanderziehen
+  Vollbild. Während der Geste folgt das Bild begrenzt den Fingern; Loslassen rastet
+  über160ms in die gewählte Stufe ein. Schon6% bzw. mindestens10px geänderter
+  Fingerabstand genügen; keine vollständige Skalierbewegung nötig. Kleines Zittern
+  und gemeinsames Verschieben schalten nicht um. Reduced Motion rastet sofort ein.
+  Kein dauerhaft stufenloser Detailzoom und kein verschobener Ausschnitt.
+  Das Video startet füllend.
+  Ein Finger behält Tippen/Halten/Video-Wechsel; der verbleibende Finger nach
+  einem Pinch löst keine dieser Aktionen aus. Dritter Finger, Gestenabbruch,
+  Hintergrund oder ein fremdes Panel beenden die Geste ohne Folgeschreibaktion.
+  Der Wechsel erhält Pause, Zeit, Projekt und Layoutsichtbarkeit;
+  Qualitäts- und Videowechsel erhalten die gewählte Stufe für den offenen Feed.
+  Benachbarte Videos werden bereits in dieser Bildgröße vorbereitet; ihr Bild bleibt
+  auf die jeweilige Seite begrenzt. Kein kurzer Wechsel zwischen Cover und Contain.
+  „Bildgröße“ im vorhandenen Wiedergabemenü bietet nur Originalgröße und Vollbild.
+  Alternativen: Plus für Vollbild, Minus für Originalgröße,0 für Vollbild und
+  eine Strg/Mausrad-/Trackpad-Geste je Wechsel.
+  Keine neue große Karte oder dauerhafte zusätzliche Aktionsleiste. Während der
+  Geste und kurz danach erscheint eine kompakte Zoomanzeige. Die App selbst und
+  die Dialoge werden nicht skaliert. Die Bildtransformation verwendet das ganze
+  Quellbild als Grundlage, damit Herauszoomen zuvor verdeckte Ränder zeigt.
+- Ein kurzes Tippen auf die freie Videofläche pausiert bzw. startet die Wiedergabe.
+  Doppeltipp ist standardmäßig **aus**. Unter Profil/Einstellungen → Bedienung
+  (`/profile/interaction`) steht die Kategorie „Video-Feed“. Eine kompakte Zeile
+  „Doppeltipp auf das Video“ bietet ein gemeinsames Select mit „Aus“, „Als Projekt
+  speichern“ und „Layout ausblenden“. Keine große Auswahlkarte, kein Sheet und
+  kein zusätzlicher Einstellungsbutton im Feed. Die Auswahl gilt lokal pro Gerät.
+  Alte Nutzer erhalten keine automatisch aktivierte Aktion. Projektspeichern setzt
+  ausschließlich die Markierung, entfernt sie bei erneutem Doppeltipp nie und
+  erhält Begehung, Versuche, Favorit und Notiz. Für Gäste ist diese Option gesperrt;
+  ein gespeicherter Projektmodus bleibt ohne Anmeldung wirkungslos.
+  Layout-Doppeltipp blendet die gesamte Bedienung aus oder wieder ein, ohne
+  Pause/Projekt zu ändern. Nur bei aktivierter Doppeltipp-Aktion wartet der
+  Einzeltipp bis280ms auf einen zweiten Tipp. Ohne Zusatzaktion reagiert er sofort.
+  Wischen, Abbruch, Einstellungswechsel und fremde Ansichten verwerfen wartende
+  Tipps. Der Augenschalter funktioniert unabhängig davon; Pause und Wischen bleiben
+  auch ohne Bedienung möglich. Escape stellt zunächst die normale Ansicht her.
+  Einstellungen übernehmen die Auswahl unmittelbar. Qualitätswahl bleibt direkt
+  im Feed; die Bedienungseinstellungen sind Teil der regulären Einstellungen.
 - Gedrückthalten auf der freien linken Videohälfte spielt vorübergehend mit0,5×,
   rechts mit2× (350ms Halteschwelle im Entwurf). Währenddessen ist ausschließlich
   die kompakte Geschwindigkeitsanzeige sichtbar; auch der Augenschalter entfällt.
@@ -780,6 +817,10 @@ Ansicht, aktive Filter und Sortierung bleiben beim Wechsel nachvollziehbar erhal
   stabil vorbereitet; beim Loslassen rastet die Ansicht über etwa 240 ms ein.
   Kurze/abgebrochene Gesten kehren zum aktuellen Video zurück. Nur das aktive
   Video spielt; Reduced Motion wechselt ohne die Schiebebewegung.
+  Korrektur20.10.2026: Zurück, Filter, Sortierung, Auge und Wiedergabe-/Bildgrößenmenü
+  bilden einen festen Kopf. Bouldername, Bewertung, Kommentare und Tracking bewegen
+  sich mit ihrem Video. Globale Orientierung bleibt ruhig, persönliche Aktionen
+  bleiben dem jeweiligen Boulder zugeordnet.
 - Der isolierte Screenentwurf unter `docs/design/boulder-video-feed/` verwendet
   klar bezeichnete Beispieldaten und nimmt keine produktiven Schreibaktionen vor.
   Er bleibt die historische Abstimmungsansicht; die App verwendet reale Boulder,
@@ -790,6 +831,14 @@ Ansicht, aktive Filter und Sortierung bleiben beim Wechsel nachvollziehbar erhal
   Kommentar- oder Trackingaktionen. Query- und Kontogrenzen bleiben erhalten.
 - Höchstens drei direkte Videoelemente werden vorbereitet; nur das aktive darf
   spielen. Panels, Detailbesuch und Hintergrundwechsel pausieren den Feed.
+  Das nächste Video lädt seine Bilddaten vor und zeigt schon im Übergang einen
+  dekodierten Frame. Kurze Pufferereignisse blenden keinen Ladetext ein; erst nach
+  300ms Wartezeit erscheint er, dann mindestens450ms. Nach einem Engpass wartet die
+  Wiedergabe auf etwa1,5Sekunden zusammenhängenden Puffer (bei2× entsprechend mehr,
+  bei kurzem Rest bis zum Videoende), statt in winzigen Stücken weiterzuspielen.
+  Wiederholte Pufferereignisse verlängern die Fehler-/Fallback-Frist nicht.
+  Drei echte Wiedergabe-Engpässe innerhalb15Sekunden wechseln zur nächsten
+  vorhandenen kleineren Qualität; Seek-/Vorladereignisse zählen dafür nicht.
   Qualitätswechsel erhalten Position und Pause; Lade-/Abspielfehler verwenden
   vorhandene kleinere Qualitätsstufen und danach einen expliziten Wiederholungsweg.
   Die bestehenden Monitoring-Ereignisse bleiben zustimmungsabhängig.
@@ -1152,29 +1201,48 @@ Bedienelemente auf wechselnden Wandfotos lesbar bleiben:
   Fullscreen-Container. So bleiben sie im Vollbild sichtbar und werden nicht
   durch doppelte seitenlokale Controls überlagert.
 
-### 8.3.1 Produktive Integration des normalen Mobile Players – Nutzerfreigabe 19.10.2026
+### 8.3.1 Übernahme in den normalen Mobile Player – Freigabe 20.10.2026
 
-- Die V2-Bedienung wird in den regulären `BoulderVideoPlayer` übernommen.
-  Sie gilt unter 768px sowie auf Touchgeräten (`pointer: coarse`), auch im
-  Querformat. Breite Mausgeräte behalten ihre bestehende Browsersteuerung.
-  Der Reels-/Videofeed ist eine eigenständige dritte Boulderansicht (Abschnitt6.4),
-  getrennt von diesen normalen Player-Controls.
-- Eigene Play/Pause-, Neustart- und 5-Sekunden-Controls, präzise Zeitleiste,
-  Zeitlupe 0,25×/0,5×/0,75×/1× und Loop liegen auf demselben Medienelement.
-  Auf Mobilgeräten wird das vollständige Bild auch eingebettet eingepasst.
-- Ein freier Bild-Tap blendet sämtliche Player-Controls ein/aus, auch bei Pause.
-  Standbild, Zeit und Geometrie bleiben erhalten. Verborgene Controls sind inert.
-  Bei Wiedergabe verschwindet die Bedienung nach etwa 2,5 Sekunden; Spulen,
-  offene Menüs und Tastaturfokus halten sie sichtbar. Enter/Fokus zeigt sie wieder.
-- Netzwerkbasierte Startqualität, manueller Qualitätswechsel mit Position und
-  Pausezustand, automatischer Stall-Fallback, erzwungene Stummschaltung,
-  Monitoring und Retry bleiben die bestehende Wiedergabelogik. Zeitlupe und Loop
-  überstehen Qualitätswechsel. Die Controls starten oder laden keine eigene Quelle.
-- Vollbild erhält dieselbe Medieninstanz. Fehlt die native Fullscreen-API,
-  wird derselbe Medienhost aus begrenzenden Vorfahren in eine Viewportansicht
-  verschoben; Escape, Fokusrückgabe, Safe Areas und Scrollsperre sind vorgesehen.
-- Externe YouTube-/Vimeo-Einbettungen behalten ihren eigenen Freigabe-/Playerweg.
-  Veröffentlichungen folgen dem regulären PR-/CI-Weg.
+Der Nutzer hat V5 einschließlich der Wischgesten zur App-Integration freigegeben.
+Die mobile Detailseite für direkte Videos nutzt das vollständig eingepasste,
+zentrierte Video als gesamte Fläche. Oben und unten laufen weiche Verläufe aus;
+auf letzte Präzisierung reicht der obere Verlauf weiter ins Bild (200px ab
+Bildkante, unten 140px). Safe Areas und die tatsächliche Video-Seitenproportion
+bestimmen die Position der Verläufe. Name, Grad/Farbe, Bereich und Datum stehen
+oben; die globale Navigation ist auf mobilen Boulder-Detailrouten verborgen.
+
+Die 56px-Abspielbar enthält Play/Pause, die breite Zeitleiste mit Zeit und den
+reinen Detailpfeil. Geschwindigkeit und Loop stehen rechts darüber. Im normalen
+Mobile Player entfallen zentrale Play-Fläche und 5-Sekunden-Buttons. Freier
+Bildtap blendet das gesamte Layout inklusive Verläufen auch bei Pause aus.
+Die mobile Detailansicht hat keinen Vollbildbutton, da sie die verfügbare
+Fläche bereits nutzt. Im Desktop- und eingebetteten Player bleibt er erhalten.
+
+Im Detailplayer öffnen Aufwärtsgesten aus dem unteren Bildbereich oder am Pfeil
+das Detailsheet. Am Griff/Kopfbereich nach unten ziehen schließt es. Das Sheet
+folgt der Geste; kurze/abgebrochene Züge kehren zurück. Spulen und andere Controls
+lösen keine Sheetgeste aus. Echte Info-/Track-/Beta-Inhalte bleiben scrollbar;
+Gäste erhalten weiterhin keinen Track-Tab. Pfeil, Schließen, Escape und Fokus-
+Rückkehr bleiben erhalten. Beim Öffnen wird pausiert; Medieninstanz, Zeit,
+Geschwindigkeit und Loop bleiben bei Panel- und Qualitätswechseln erhalten.
+Vollbild bleibt in Desktop- und eingebetteten Playern verfügbar. Desktop, externe
+Videoanbieter und Videofeed werden durch diese Layoutfreigabe nicht umgestaltet.
+
+Prüfung: `docs/qa/2026-10-20-mobile-player-v5-integration.md`.
+
+### 8.3.2 Gleichmäßige Videohelligkeit – Nutzerkorrektur 20.10.2026
+
+- Eigene Videos verwenden denselben normalen Helligkeitsbereich wie die Oberfläche.
+  Unterstützte Webplayer verwenden `dynamic-range-limit: standard`, auch im Feed,
+  eingebettet und im appinternen Vollbild. Externe Player behalten ihren eigenen Weg.
+- HDR wird serverseitig tatsächlich nach SDR BT.709 umgerechnet. Die verbesserte
+  Mobius-Fassung aus PR68 ersetzt die ältere Hable-Fassung aus PR64. Ein CSS-Filter
+  oder bloßes Entfernen der HDR-Metadaten ersetzt keine Farbumrechnung.
+- Die stumme ausgewählte Videoquelle bleibt privat in ihrer vorhandenen Qualität
+  archiviert. Wiedergabequalitäten HD/SD/Low entstehen daraus. Historische Dateien
+  erhalten neue URLs; bestehende URLs bleiben für einen Rückfall erhalten.
+- Ein Screenshot bestätigt keine HDR-Helligkeit auf echter Displayhardware.
+  Nicht durchgeführte iPhone-/HDR-Geräteabnahmen bleiben ausdrücklich unbestätigt.
 
 ### 8.4 Kommentare und Track
 
@@ -2298,3 +2366,55 @@ Prüfbeleg: `docs/qa/2026-10-19-onboarding-integration.md`.
 - Begleitende Systemabfragen dürfen die erklärten Ziele nicht überdecken. Die
   freiwillige Statistikabfrage wartet während der Tour und ihrer Kontovorschau;
   ihre bestehende Auswahl wird dadurch weder erteilt noch zurückgesetzt.
+
+### Nutzerfreigabe 20.10.2026 – vier weitere DesignMotion-Ergänzungen
+
+- Der Upload-Stapel nennt fehlende Pflichtangaben direkt am Boulder. Ein
+  erreichbarer Texthinweis erklärt die Uploadsperre und verweist auf den Stift;
+  der deaktivierte Button verweist mit `aria-describedby` darauf.
+- Der bestehende Bouldereditor startet mit Fokus im Namen. Ein ungültiger Name
+  erhält beim Speicherversuch den Fokus. Dialogbegrenzung, Verwerfenschutz und
+  sichtbare Fokusringe bleiben erhalten.
+- Speichern zeigt „Wird gespeichert …“ und einen kurzen Übertragungshinweis,
+  sperrt weitere Aktionen und bestätigt Erfolg erst nach allen vorhandenen
+  Schreib-/Uploadschritten. Fehler erhalten die Eingaben und den Wiederholungsweg.
+- Entfernen einer Projektmarkierung im Detail-Tracking bietet nach bestätigter
+  Speicherung zehn Sekunden „Rückgängig“. Entfernen und Wiederherstellen ändern
+  ausschließlich `is_project` mit Kontobindung und Prüfung des aktuellen Werts;
+  Notiz, Versuche, Erfolge, Favorit und Sessions werden nicht zurückgespielt.
+  Weitere Trackingaktionen, Kontowechsel und Schließen des Tracks verwerfen
+  das Angebot. Ein Konflikt/Fehler gilt nicht als erfolgreiche Wiederherstellung.
+  Endgültiges Löschen erhält keine Rückgängig-Aktion.
+- Der neue Entwurf zur Mehrfachauswahl ist ausdrücklich nicht freigegeben.
+  Die vorhandene Auswahloberfläche bleibt erhalten. Wochenkarte oben und
+  Beta-Startlader bleiben unverändert.
+
+Prüfumfang: docs/qa/2026-10-20-designmotion-four.md.
+
+### Nutzerfreigabe 20.10.2026 – fünf weitere DesignMotion-Entwürfe
+
+- Der mobile Profilzugang erhält 44×44px Trefferfläche. Avatar und Menü bleiben
+  unverändert; ab 768px gelten die bisherigen Maße. Hover, Tippen und Tastatur
+  behalten ihre vorhandenen Bedienwege.
+- Profil bearbeiten fasst Name/E-Mail als „Kontodaten“ mit kurzem Speicherhinweis
+  zusammen. Änderungen zeigen „Ungespeichert“. Jedes geänderte Feld lässt sich
+  einzeln auf seinen geladenen Ausgangswert zurücksetzen; das andere Feld und
+  das separat gespeicherte Profilbild bleiben erhalten. Reset löscht nur den
+  betreffenden Feldfehler und fokussiert dessen Eingang. Während laufender
+  Speicherung sind diese Aktionen gesperrt. Explizites Speichern und der
+  vorhandene Verwerfenschutz bleiben erhalten.
+- Die Registrierung erklärt die bestehende Mindestlänge von sechs Zeichen am
+  Passwortfeld und bestätigt nur „Mindestlänge erreicht“, keine Passwortstärke
+  oder geschätzte Knackzeit. Einfügen, Passwortmanager und Anzeigeoption bleiben.
+- Das optionale Geburtsdatum im Benutzereditor akzeptiert acht Ziffern und
+  Schräg-/Bindestrich als Trenner. Erst beim Verlassen wird TT.MM.JJJJ angezeigt.
+  Direktes Absenden per Enter verwendet dieselbe Normalisierung. Echte
+  Kalendertage, Zukunftsgrenze, Leeren und date-only-Speicherung bleiben geprüft;
+  Formatierung allein schreibt keine Daten.
+- Die normale Boulder-Suche nennt im Leerzustand den Suchtext. „Nur Suche leeren“
+  erhält Filter; „Suche und Filter zurücksetzen“ verwendet den bestehenden
+  Filterreset und leert die Suche. Beide führen zum Suchfeld. Mitteilungsansichten
+  behalten ihren eigenen Rückweg. Keine Suchhistorie oder Popularitätsdaten.
+- Diese Freigabe betrifft die genannten fünf Entwürfe. Die zuvor ausgeschlossene
+  neue Mehrfachauswahl bleibt ausgeschlossen. Wochenkarte oben und Beta-Startlogo
+  bleiben unverändert.

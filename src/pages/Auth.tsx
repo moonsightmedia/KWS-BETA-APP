@@ -398,11 +398,12 @@ const Auth = () => {
                   <Label htmlFor="signup-password" className="text-sm font-semibold text-brand-ink">Passwort</Label>
                   <div className="relative">
                     <LockKeyhole className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                    <Input id="signup-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" placeholder="Mindestens 6 Zeichen" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} className={`${fieldClassName} pl-10 pr-[52px] md:pr-10`} />
+                    <Input id="signup-password" aria-describedby="signup-password-help" type={showPassword ? 'text' : 'password'} autoComplete="new-password" placeholder="Mindestens 6 Zeichen" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} className={`${fieldClassName} pl-10 pr-[52px] md:pr-10`} />
                     <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-0.5 md:right-1.5 top-1/2 flex h-11 w-11 md:h-9 md:w-9 -translate-y-1/2 items-center justify-center rounded-kws-control text-muted-foreground transition-colors hover:bg-secondary hover:text-brand-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={showPassword ? 'Passwort ausblenden' : 'Passwort anzeigen'}>
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                  <p id="signup-password-help" role="status" className="text-xs text-muted-foreground">{password.length >= 6 ? '✓ Mindestlänge erreicht' : 'Mindestens 6 Zeichen'} · Eine längere, eigene Passphrase ist empfehlenswert.</p>
                 </div>
 
                 <Button type="submit" size="lg" disabled={pendingAction !== null} className="h-12 w-full font-semibold">

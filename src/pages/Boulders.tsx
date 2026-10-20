@@ -481,6 +481,16 @@ const Boulders = () => {
     setShowSearch(false);
   };
 
+  const resetSearch = (resetFilters = false) => {
+    if (resetFilters) clearFilters();
+    setSearchQuery('');
+    setShowSearch(true);
+    setShowFilters(false);
+    setShowSort(false);
+    setShowMap(false);
+    requestAnimationFrame(() => searchInputRef.current?.focus());
+  };
+
   const handleBoulderClick = (boulderId: string) => {
     navigate(`/boulders/${boulderId}`, { state: boulderNavigationState(location) });
   };
@@ -1088,7 +1098,12 @@ const Boulders = () => {
 
           {!isLoading && filteredAndSortedBoulders.length === 0 && (
             <div className="space-y-3 py-12 text-center text-sm text-muted-foreground">
-              <p>{notificationId !== null ? 'Keine passenden Boulder mehr an der Wand. Sie wurden möglicherweise inzwischen abgeschraubt.' : 'Keine Boulder gefunden.'}</p>
+              <p>{notificationId !== null ? 'Keine passenden Boulder mehr an der Wand. Sie wurden möglicherweise inzwischen abgeschraubt.' : searchQuery.trim() ? `Keine Treffer für „${searchQuery.trim()}“.` : 'Keine Boulder gefunden.'}</p>
+              {notificationId === null && <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
+                <p className="text-xs">Versuche einen kürzeren Bouldernamen oder den Hallenbereich.</p>
+                {searchQuery.trim() && <Button variant="secondary" onClick={() => resetSearch()}>Nur Suche leeren</Button>}
+                <Button variant="ghost" onClick={() => resetSearch(true)}>Suche und Filter zurücksetzen</Button>
+              </div>}
               {notificationId !== null && <Button variant="secondary" onClick={clearNotification}>Alle Boulder anzeigen</Button>}
             </div>
           )}

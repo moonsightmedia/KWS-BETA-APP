@@ -1,0 +1,26 @@
+name: Video processing verification
+
+on:
+  pull_request:
+    paths: ['hostinger-video-server/**', 'ops/hostinger/media/**', '.github/workflows/video-processing.yml']
+  push:
+    branches: [main]
+    paths: ['hostinger-video-server/**', 'ops/hostinger/media/**', '.github/workflows/video-processing.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build production video image and verify required FFmpeg filters
+        run: docker build -t kws-video-candidate hostinger-video-server
+      - name: Verify deployment guards
+        run: python3 ops/hostinger/media/test_release.py
+      - name: Test real FFmpeg, archival privacy, recovery and migration concurrency
+        run: docker run --rm --network none -v "$PWD/hostinger-video-server/test:/app/test:ro" --entrypoint node kws-video-candidate --test

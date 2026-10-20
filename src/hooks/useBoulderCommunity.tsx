@@ -345,9 +345,22 @@ export function useUpsertBoulderTick(boulderId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (payload: { status: BoulderTickStatus; attemptCount?: number | null; note?: string; isFavorite?: boolean; isProject?: boolean }) => {
+    mutationFn: async (payload: { projectOnly: true; tickId: string; isProject: boolean } | { status: BoulderTickStatus; attemptCount?: number | null; note?: string; isFavorite?: boolean; isProject?: boolean }) => {
       if (!user || !session?.access_token) {
         throw new Error('Bitte melde dich an.');
+      }
+
+      if ('projectOnly' in payload) {
+        // Compare the marker on the server; never replay an old tracking snapshot.
+        const query = new URLSearchParams({ id: `eq.${payload.tickId}`, boulder_id: `eq.${boulderId}`, user_id: `eq.${user.id}`, is_project: `eq.${!payload.isProject}` });
+        const rows = await supabaseRestRequest<BoulderTick[]>(`/rest/v1/boulder_ticks?${query}`, {
+          accessToken: session.access_token, method: 'PATCH',
+          body: { is_project: payload.isProject }, prefer: 'return=representation',
+        });
+        if (rows.length !== 1 || rows[0].is_project !== payload.isProject) {
+          throw new Error('Die Projektmarkierung wurde inzwischen geändert. Bitte aktualisieren.');
+        }
+        return;
       }
 
       await supabaseRestRequest(
