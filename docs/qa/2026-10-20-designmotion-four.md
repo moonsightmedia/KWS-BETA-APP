@@ -17,7 +17,7 @@ implementieren, prüfen, pushen und veröffentlichen. Ausgangspunkt origin/main
   und prüfen den umgekehrten aktuellen Wert sowie genau eine bestätigte Zeile.
   Kein Wiederherstellen alter Notizen, Versuche, Erfolge, Favoriten oder Sessions.
   Eine weitere Trackingaktion, Kontowechsel oder Unmount verwirft das Angebot;
-  ein Fehler oder Konflikt bestätigt keine Wiederherstellung. Marker-only-Zeilen
+  ein Fehler oder Konflikt bestätigt keine Wiederherstellung. Bei einem Ladefehler behält der Dialog seinen verfügbaren Standardfokus.\n  Marker-only-Zeilen
   bleiben ohne erfundene Aktivität, entsprechend dem bestehenden separaten
   Marker-Schreibweg der persönlichen Sammlungen.
 - Keine neue Auswahl-UI und kein Undo von endgültigem Löschen. Keine Migration,
@@ -28,11 +28,11 @@ implementieren, prüfen, pushen und veröffentlichen. Ausgangspunkt origin/main
 
 - 338 Node-Tests erfolgreich.
 - 28 Browserfälle (erste neun neue Fälle + 19 bestehende Setterfälle) erfolgreich;
-  erweiterte neue Suite mit elf Fällen ebenfalls erfolgreich. 30 unterschiedliche
-  Fälle insgesamt, nicht als einzelner 30er-Lauf ausgegeben.
+  erweiterte neue Suite mit zwölf Fällen ebenfalls erfolgreich. 31 unterschiedliche
+  Fälle insgesamt, nicht als einzelner 31er-Lauf ausgegeben.
 - Neue Suite prüft mit echtem Mutationshook und isolierter REST-Antwort: PATCH
   nur is_project, Kontofilter und Vergleichswert; Erhalt aller Trackingdaten;
-  fehlgeschlagene Entfernung, Konflikt beim Undo, Konto-/Ansichtswechsel,
+  fehlgeschlagene Entfernung, Konflikt beim Undo, Konto-/Ansichtswechsel, konkrete Tracking-ID,
   Folgeaktion und Zeitablauf; Editorfokus, Fehlererhalt, Pending und Speichersperre.
 - Gerenderte echte Produktkomponenten mit isolierten Fixtures: 16 Layoutfälle
   an 375/768/1280/1920 ohne Dokumentüberlauf/defekte sichtbare Bilder.
@@ -40,7 +40,7 @@ implementieren, prüfen, pushen und veröffentlichen. Ausgangspunkt origin/main
   Projektentfernung und Wiederherstellung manuell bedient.
 - Hostinger-Vitebuild erfolgreich ohne Versionsbump. ESLint der fünf geänderten
   Produktdateien: 0 Fehler, 3 Fast-Refresh-Exportwarnungen (vorher 2).
-- TypeScript gegen separat archivierten origin/main: 69 vorher / 69 nachher,
+- TypeScript gegen separat archivierten origin/main: 69 vorher / 69 nachher vor Einbezug der parallelen Feed-Erweiterung,
   keine neue Diagnose; globaler Typecheck bleibt wegen bestehender Befunde rot.
 - Browserprüfungen verwenden ausschließlich erfundene Daten und blockieren
   externe Zugriffe. Keine manuellen produktiven Datenänderungen/Uploads/Mails.

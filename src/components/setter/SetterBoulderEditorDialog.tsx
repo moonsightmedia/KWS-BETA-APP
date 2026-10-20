@@ -413,8 +413,11 @@ export function SetterBoulderEditorDialog({
         <DialogContent
           ref={contentRef}
           onOpenAutoFocus={(event) => {
-            event.preventDefault();
-            contentRef.current?.querySelector<HTMLInputElement>('#setter-boulder-name')?.focus();
+            const nameInput = contentRef.current?.querySelector<HTMLInputElement>('#setter-boulder-name');
+            if (nameInput && !nameInput.matches(':disabled')) {
+              event.preventDefault();
+              nameInput.focus();
+            }
           }}
           scrollLayout="contained"
           className="flex h-[min(90dvh,850px)] flex-col overflow-hidden p-0 md:!max-w-2xl"

@@ -81,3 +81,8 @@ test('editor failure retains input and permits retry',async({page})=>{
   await expect(page.getByRole('button',{name:'Erneut speichern',exact:true})).toBeEnabled();
   await expect(page.getByLabel('Name',{exact:true})).toHaveValue('Bleibt erhalten');await expect(page.getByLabel('Speicheranzahl')).toHaveText('0');
 });
+test('editor with a read error keeps an available focus target',async({page})=>{
+  await setup(page,'?editor&loadError');
+  await expect(page.getByLabel('Name',{exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Boulder-Editor schließen',exact:true})).toBeFocused();
+});
