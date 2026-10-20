@@ -74,7 +74,7 @@ test('third view shares filters and retains the real detail origin, video and fo
   await expect(page.locator('[data-app-navigation]')).toBeHidden();
   await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-a');
   await expect(frame(page).locator('.playback>span')).toHaveText('1 / 2');
-  await frame(page).getByRole('button', { name: 'Boulder filtern' }).click();
+  await page.getByRole('button', { name: 'Boulder filtern' }).click();
   await page.locator('section[aria-label="Schwierigkeit"]').getByRole('button', { name: 'Grad 5', exact: true }).click();
   await page.getByRole('button', { name: '1 Boulder anzeigen', exact: true }).click();
   await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-b');
@@ -90,7 +90,7 @@ test('third view shares filters and retains the real detail origin, video and fo
   await expect(media).toHaveJSProperty('paused', true);
   expect(await media.evaluate(node => node.currentTime)).toBeCloseTo(.5, 1);
   await expect(frame(page).locator('.boulder-title')).toBeFocused();
-  await frame(page).getByRole('button', { name: 'Zur Boulderübersicht' }).click();
+  await page.getByRole('button', { name: 'Zur Boulderübersicht' }).click();
   await expect(page.locator('.kws-feed')).toHaveCount(0);
   await expect(page.locator('[data-app-navigation]')).toBeVisible();
   await expect(page.getByRole('group', { name: 'Ansicht wechseln' })).toBeVisible();
@@ -151,7 +151,7 @@ test('tap, double tap, hold, swipe and quality remain independent', async ({ pag
   await expect(frame(page).locator('video')).toHaveJSProperty('paused', false);
   await up(); await expect(frame(page).locator('video')).toHaveJSProperty('paused', true);
   await frame(page).locator('video').evaluate(node => { node.currentTime = .5; });
-  await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+  await page.getByRole('button', { name: /Videoqualität/ }).click();
   await page.getByRole('menuitemradio', { name: /Low/ }).click();
   await expect(frame(page).locator('video')).toHaveAttribute('src', /q=low/);
   await expect(frame(page).locator('video')).toHaveJSProperty('paused', true);
@@ -180,7 +180,7 @@ test('double tap is opt-in and selected through the regular settings page', asyn
   await expect(frame(page).locator('video')).toHaveJSProperty('paused', false);
   await page.getByRole('button', { name: 'Bedienelemente einblenden' }).click();
   await chooseDoubleTap(page, 'Aus');
-  await frame(page).getByRole('button', { name: 'Bedienelemente ausblenden' }).click();
+  await page.getByRole('button', { name: 'Bedienelemente ausblenden' }).click();
   await expect(page.locator('.kws-feed')).toHaveAttribute('data-clean', 'true');
   await page.getByRole('button', { name: 'Bedienelemente einblenden' }).click();
   await tap(); await tap(); await expect(page.locator('.kws-feed')).toHaveAttribute('data-clean', 'false');
@@ -244,7 +244,7 @@ test('a short pinch snaps between original size and fullscreen and preserves med
   await expect(reel).toHaveAttribute('data-zoom-scale', '1');
   await expect.poll(() => video.evaluate(v => new DOMMatrix(getComputedStyle(v).transform).a)).toBeCloseTo(1, 5);
   await expect(video).toHaveJSProperty('paused', true);
-  await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+  await page.getByRole('button', { name: /Videoqualität/ }).click();
   await page.getByRole('menuitemradio', { name: /Low/ }).click();
   await expect(video).toHaveJSProperty('readyState', 4);
   await expect(reel).toHaveAttribute('data-zoom-mode', 'fit');
@@ -269,7 +269,7 @@ test('a short pinch snaps between original size and fullscreen and preserves med
   await touch('touchEnd', []);
   await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-b');
   await expect(reel).toHaveAttribute('data-zoom-mode', 'fill');
-  await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+  await page.getByRole('button', { name: /Videoqualität/ }).click();
   await page.getByRole('menuitemradio', { name: 'Originalgröße', exact: true }).click();
   await expect(reel).toHaveAttribute('data-zoom-scale', '1');
 });
@@ -308,7 +308,7 @@ test('menu keyboard and trackpad snap to the same two modes', async ({ page }) =
   await backend(page); await enter(page);
   const reel = page.locator('.kws-feed .reel');
   const fullscreen = Number(await reel.getAttribute('data-zoom-scale'));
-  await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+  await page.getByRole('button', { name: /Videoqualität/ }).click();
   await page.getByRole('menuitemradio', { name: 'Originalgröße', exact: true }).click();
   await expect(reel).toHaveAttribute('data-zoom-scale', '1');
   await reel.focus(); await page.keyboard.press('+');
@@ -368,11 +368,11 @@ test('a second finger on or after rating controls does not submit a rating', asy
 
 test('sort, video-only empty selection, reload and demo notice keep a usable fullscreen view', async ({ page }) => {
   await backend(page); await enter(page);
-  await frame(page).getByRole('button', { name: 'Sortierung öffnen' }).click();
+  await page.getByRole('button', { name: 'Sortierung öffnen' }).click();
   await page.getByRole('button', { name: 'Name Z-A', exact: true }).click();
   await expect(page.locator('.kws-feed-sheet')).toHaveCount(0);
   await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-b');
-  await frame(page).getByRole('button', { name: 'Boulder filtern' }).click();
+  await page.getByRole('button', { name: 'Boulder filtern' }).click();
   await page.getByRole('button', { name: 'Grad 4', exact: true }).click();
   await page.getByRole('button', { name: '0 Boulder anzeigen', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Keine passenden Videos' })).toBeVisible();
@@ -403,16 +403,16 @@ test('tracking can discard edits explicitly and flash locks the attempt count to
 
 test('failed media falls back to an available quality and offers a working retry', async ({ page }) => {
   await backend(page); await enter(page);
-  await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+  await page.getByRole('button', { name: /Videoqualität/ }).click();
   await page.getByRole('menuitemradio', { name: /Low/ }).click();
   await expect(frame(page).locator('video')).toHaveJSProperty('readyState', 4);
   await page.route('**/vertical-player.mp4?q=hd', route => route.abort());
-  await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+  await page.getByRole('button', { name: /Videoqualität/ }).click();
   await page.getByRole('menuitemradio', { name: /HD/ }).click();
-  await expect(frame(page).getByRole('button', { name: /Videoqualität: SD/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Videoqualität: SD/ })).toBeVisible();
   await expect(frame(page).locator('video')).toHaveJSProperty('readyState', 4);
   await page.route('**/vertical-player.mp4?q=low', route => route.abort());
-  await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+  await page.getByRole('button', { name: /Videoqualität/ }).click();
   await page.getByRole('menuitemradio', { name: /Low/ }).click();
   await expect(page.getByText('Video gerade nicht verfügbar', { exact: true })).toBeVisible();
   await page.unroute('**/vertical-player.mp4?q=low');
@@ -428,7 +428,7 @@ test('external beta has an honest detail fallback rather than unsupported native
   await page.getByRole('button', { name: 'Videoansicht', exact: true }).click();
   await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-external');
   await expect(frame(page).locator('video')).toHaveCount(0);
-  await expect(frame(page).getByRole('button', { name: /Videoqualität/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Videoqualität/ })).toHaveCount(0);
   await frame(page).getByRole('button', { name: 'Beta in der Detailansicht ansehen' }).click();
   await expect(page.locator('[data-boulder-detail-scroll]')).toBeVisible();
   await expect(page.locator('[data-boulder-detail-scroll] iframe')).toHaveCount(0);
@@ -436,9 +436,143 @@ test('external beta has an honest detail fallback rather than unsupported native
   await expect(page.locator('[data-boulder-detail-scroll] iframe')).toHaveCount(1);
 });
 
+test('swiping preserves image size and moves boulder actions inside a stationary header', async ({ page }) => {
+  await backend(page); await enter(page);
+  const reel = page.locator('.kws-feed .reel');
+  const incoming = page.locator('.reel-page[data-boulder-id=feed-b] video');
+  await expect(incoming).toHaveAttribute('preload', 'auto');
+  await expect.poll(() => incoming.evaluate(v => v.readyState)).toBeGreaterThanOrEqual(2);
+  await expect(incoming).toHaveJSProperty('paused', true);
+  await page.getByRole('button', { name: /Videoqualität/ }).click();
+  await page.getByRole('menuitemradio', { name: 'Originalgröße', exact: true }).click();
+  await expect(frame(page).locator('video')).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
+  await expect(incoming).toHaveCSS('object-fit', 'contain');
+  const header = page.locator('.feed-global-chrome .reel-header');
+  const headerNode = await header.elementHandle();
+  const headerBefore = await header.boundingBox(), footerBefore = (await frame(page).locator('.reel-footer').boundingBox())!;
+  const client = await page.context().newCDPSession(page);
+  await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 180, y: 450 }] });
+  await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 180, y: 350 }] });
+  expect(await header.boundingBox()).toEqual(headerBefore);
+  expect((await frame(page).locator('.reel-footer').boundingBox())!.y).toBeCloseTo(footerBefore.y - 100);
+  await expect(frame(page).locator('.reel-media')).toHaveCSS('overflow', 'hidden');
+  await page.screenshot({ path: 'output/video-feed/integration/transition-fit-mid-swipe.png', animations: 'disabled' });
+  await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 180, y: 160 }] });
+  await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-b');
+  await expect(reel).toHaveAttribute('data-zoom-mode', 'fit');
+  await expect(reel).toHaveAttribute('data-zoom-scale', '1');
+  await expect(frame(page).locator('video')).toHaveJSProperty('paused', false);
+  expect(await header.boundingBox()).toEqual(headerBefore);
+  expect(await headerNode!.evaluate(node => node.isConnected)).toBe(true);
+  await page.getByRole('button', { name: /Videoqualität/ }).click();
+  await page.getByRole('menuitemradio', { name: 'Vollbild', exact: true }).click();
+  await expect(page.locator('.reel-page[data-boulder-id=feed-a] video')).toHaveCSS('object-fit', 'cover');
+  await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 180, y: 350 }] });
+  await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 180, y: 650 }] });
+  await page.screenshot({ path: 'output/video-feed/integration/transition-fill-mid-swipe.png', animations: 'disabled' });
+  await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-a');
+  await expect(reel).toHaveAttribute('data-zoom-mode', 'fill');
+  await expect(frame(page).locator('video')).toHaveJSProperty('paused', false);
+  await expect(page.locator('.reel-page[data-active=false] video')).toHaveJSProperty('paused', true);
+});
+
+test('brief stalls stay quiet and repeated insufficient buffer waits for playable headroom', async ({ page }) => {
+  await backend(page); await enter(page);
+  const video = frame(page).locator('video');
+  await expect(video).toHaveJSProperty('paused', false);
+  await video.evaluate(node => {
+    node.dataset.bufferHeadroom = '0.02';
+    Object.defineProperty(node, 'buffered', { configurable: true, get: () => ({ length: 1, start: () => 0, end: () => node.currentTime + Number(node.dataset.bufferHeadroom) }) });
+    node.dispatchEvent(new Event('waiting'));
+  });
+  await expect(video).toHaveJSProperty('paused', true);
+  await video.evaluate(node => { node.dataset.bufferHeadroom = '2'; node.dispatchEvent(new Event('progress')); });
+  await expect(video).toHaveJSProperty('paused', false);
+  await expect(page.getByText('Video wird geladen …', { exact: true })).toHaveCount(0);
+  await video.evaluate(node => { node.currentTime = 0; node.dataset.bufferHeadroom = '0.02'; node.dispatchEvent(new Event('waiting')); });
+  await expect(page.getByText('Video wird geladen …', { exact: true })).toBeVisible();
+  // Partial progress must not restart playback or reset the fallback deadline.
+  for (const headroom of [.1, .3, .7]) {
+    await video.evaluate((node, value) => { node.dataset.bufferHeadroom = String(value); node.dispatchEvent(new Event('progress')); node.dispatchEvent(new Event('waiting')); }, headroom);
+    await expect(video).toHaveJSProperty('paused', true);
+    await expect(page.getByText('Video wird geladen …', { exact: true })).toBeVisible();
+  }
+  await video.evaluate(node => { node.dataset.bufferHeadroom = '2'; node.dispatchEvent(new Event('progress')); });
+  await expect(video).toHaveJSProperty('paused', false);
+  await expect(page.getByText('Video wird geladen …', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Video pausieren', exact: true }).click();
+  await video.evaluate(node => { node.dataset.bufferHeadroom = '0'; node.dispatchEvent(new Event('waiting')); });
+  await expect(page.getByText('Video wird geladen …', { exact: true })).toHaveCount(0);
+  await expect(video).toHaveJSProperty('paused', true);
+});
+
+test('repeated underruns lower quality instead of replaying tiny fragments indefinitely', async ({ page }) => {
+  await backend(page); await enter(page);
+  const video = frame(page).locator('video');
+  await page.getByRole('button', { name: /Videoqualität/ }).click();
+  await page.getByRole('menuitemradio', { name: /HD/ }).click();
+  await expect(video).toHaveJSProperty('paused', false);
+  await expect.poll(() => video.evaluate(node => node.currentTime)).toBeGreaterThan(.2);
+  await video.evaluate(node => {
+    Object.defineProperty(node, 'buffered', { configurable: true, get: () => ({ length: 1, start: () => 0, end: () => node.currentTime + Number(node.dataset.bufferHeadroom ?? '2') }) });
+  });
+  for (let count = 0; count < 3; count++) {
+    await video.evaluate(node => { node.dataset.bufferHeadroom = '.02'; node.dispatchEvent(new Event('waiting')); });
+    if (count < 2) {
+      await expect(video).toHaveJSProperty('paused', true);
+      await video.evaluate(node => { node.dataset.bufferHeadroom = '2'; node.dispatchEvent(new Event('progress')); });
+      await expect(video).toHaveJSProperty('paused', false);
+    }
+  }
+  await expect(video).toHaveAttribute('src', /q=sd/);
+  await video.evaluate(node => { delete (node as unknown as Record<string, unknown>).buffered; node.dispatchEvent(new Event('progress')); });
+  await expect(video).toHaveJSProperty('paused', false);
+});
+
+test('a quality change on a slow connection buffers once before steady playback', async ({ page }) => {
+  await backend(page); await enter(page);
+  const video = frame(page).locator('video');
+  const client = await page.context().newCDPSession(page);
+  await client.send('Network.enable');
+  await client.send('Network.setCacheDisabled', { cacheDisabled: true });
+  await client.send('Network.emulateNetworkConditions', { offline: false, latency: 150, downloadThroughput: 8192, uploadThroughput: 8192 });
+  await video.evaluate(node => {
+    node.dataset.playingCount = '0'; node.dataset.loadingCount = '0';
+    node.addEventListener('playing', () => { node.dataset.playingCount = String(Number(node.dataset.playingCount) + 1); });
+    let visible = false;
+    const observer = new MutationObserver(() => {
+      const next = document.querySelector('.media-status [role=status]') !== null;
+      if (next && !visible) node.dataset.loadingCount = String(Number(node.dataset.loadingCount) + 1);
+      visible = next;
+    });
+    observer.observe(document.querySelector('.kws-feed')!, { childList: true, subtree: true });
+  });
+  await page.getByRole('button', { name: /Videoqualität/ }).click();
+  await page.getByRole('menuitemradio', { name: /HD/ }).click();
+  await expect(video).toHaveAttribute('src', /q=hd/);
+  await expect(video).toHaveJSProperty('paused', false, { timeout: 12000 });
+  await expect.poll(() => video.evaluate(node => node.currentTime), { timeout: 12000 }).toBeGreaterThan(.3);
+  expect(Number(await video.getAttribute('data-playing-count'))).toBeLessThanOrEqual(2);
+  expect(Number(await video.getAttribute('data-loading-count'))).toBeLessThanOrEqual(1);
+});
+
 test('two visual loops on all four required widths', async ({ page }) => {
   await backend(page); await mkdir('output/video-feed/integration', { recursive: true });
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  const touchClient = await page.context().newCDPSession(page);
+  const inspectTransition = async (path: string) => {
+    const reel = page.locator('.kws-feed .reel'), header = page.locator('.feed-global-chrome .reel-header');
+    const box = (await reel.boundingBox())!, before = await header.boundingBox();
+    const x = box.x + box.width * .4, y = box.y + box.height * .55;
+    await touchClient.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    await touchClient.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - 100 }] });
+    expect(await header.boundingBox()).toEqual(before);
+    await page.screenshot({ path, animations: 'disabled' });
+    await touchClient.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+    await expect(page.locator('.reel-track.is-settling')).toHaveCount(0);
+  };
   const showRegularView = async () => {
     const exit = page.getByRole('button', { name: 'Zur Boulderübersicht', exact: true });
     const grid = page.getByRole('button', { name: 'Gridansicht', exact: true });
@@ -475,18 +609,20 @@ test('two visual loops on all four required widths', async ({ page }) => {
     await page.getByRole('button', { name: 'Notiz hinzufügen', exact: true }).click();
     await page.screenshot({ path: `output/video-feed/integration/loop2-${width}-track.png`, animations: 'disabled' });
     await page.getByRole('button', { name: 'Schließen', exact: true }).click();
-    await frame(page).getByRole('button', { name: 'Boulder filtern' }).click();
+    await page.getByRole('button', { name: 'Boulder filtern' }).click();
     await page.screenshot({ path: `output/video-feed/integration/loop2-${width}-filters.png`, animations: 'disabled' });
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+    await page.getByRole('button', { name: /Videoqualität/ }).click();
     await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-zoom-menu.png`, animations: 'disabled' });
     await page.getByRole('menuitemradio', { name: 'Originalgröße', exact: true }).click();
     await page.screenshot({ path: `output/video-feed/integration/loop1-${width}-zoom-fit.png`, animations: 'disabled' });
-    await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+    await inspectTransition(`output/video-feed/integration/loop1-${width}-transition.png`);
+    await page.getByRole('button', { name: /Videoqualität/ }).click();
     await page.getByRole('menuitemradio', { name: 'Vollbild', exact: true }).click();
     await page.screenshot({ path: `output/video-feed/integration/loop2-${width}-zoom-fill.png`, animations: 'disabled' });
-    await frame(page).getByRole('button', { name: /Videoqualität/ }).click();
+    await inspectTransition(`output/video-feed/integration/loop2-${width}-transition.png`);
+    await page.getByRole('button', { name: /Videoqualität/ }).click();
     await page.getByRole('menuitemradio', { name: 'Vollbild', exact: true }).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     expect((await page.locator('.kws-feed').boundingBox())?.width).toBe(width);

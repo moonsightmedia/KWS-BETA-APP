@@ -53,7 +53,7 @@ export function useBoulderFeedZoom({ reelRef, mediaId, disabled }: {
   }, [cancel, showFeedback, snap]);
   const step = useCallback((direction: number) => choose(direction > 1 ? 'fill' : 'fit'), [choose]);
   useLayoutEffect(() => {
-    cancel(); fill.current = null; publish(initial);
+    cancel(); fill.current = null; publish({ mode: current.current.mode, scale: 1 });
     const reel = reelRef.current;
     const video = reel?.querySelector<HTMLVideoElement>('.reel-page[data-active=true] video');
     if (!reel || !video) return;
@@ -124,8 +124,9 @@ export function useBoulderFeedZoom({ reelRef, mediaId, disabled }: {
   const style: CSSProperties | undefined = fill.current !== null ? {
     objectFit: 'contain', transform: `scale(${view.scale})`,
     transition: animating ? 'transform 160ms cubic-bezier(.2,.8,.2,1)' : 'none',
-  } : undefined;
-  return { style, scale: view.scale, mode: view.mode, pinching, feedback, label, cancel, choose, step, down, move, up,
+  } : { objectFit: view.mode === 'fit' ? 'contain' : 'cover' };
+  return { style, neighborStyle: { objectFit: view.mode === 'fit' ? 'contain' : 'cover' } as CSSProperties,
+    scale: view.scale, mode: view.mode, pinching, feedback, label, cancel, choose, step, down, move, up,
     hasPointer: (id: number) => points.current.has(id),
   };
 }

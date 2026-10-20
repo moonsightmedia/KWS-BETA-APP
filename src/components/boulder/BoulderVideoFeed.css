@@ -88,8 +88,14 @@ html[data-kws-review] .kws-feed{top:var(--kws-review-notice-height,0px);height:c
 html[data-kws-review] .kws-feed .reel-header,html[data-kws-review] .kws-feed .restore-chrome{top:16px}html[data-kws-review] .kws-feed :is(.official,.quality-trigger){top:82px}html[data-kws-review] .kws-feed .speed-feedback{top:24px}
 
 /* Fullscreen feed: media fills the stage behind the overlay controls. */
-.kws-feed .reel-media{position:absolute;inset:0;pointer-events:none}
-.kws-feed .video-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,hsl(var(--brand-ink)/.66),transparent 24%,transparent 48%,hsl(var(--brand-ink)/.78) 78%,hsl(var(--brand-ink)/.92))}
+.kws-feed .reel-media{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.kws-feed .reel-page{overflow:hidden}
+.kws-feed .feed-global-chrome{position:absolute;inset:0;z-index:5;pointer-events:none}
+.kws-feed .feed-global-chrome .reel-header{pointer-events:auto}
+.kws-feed .feed-global-chrome>.quality-trigger{pointer-events:auto}
+.kws-feed .feed-global-chrome::before{content:"";position:absolute;inset:0 0 auto;height:150px;background:linear-gradient(180deg,hsl(var(--brand-ink)/.66),transparent);pointer-events:none}
+.kws-feed[data-clean=true] .feed-global-chrome{opacity:0;visibility:hidden}
+.kws-feed .video-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,transparent 48%,hsl(var(--brand-ink)/.78) 78%,hsl(var(--brand-ink)/.92))}
 
 /* Two fingers control the video only; dialogs retain normal browser zoom. */
 .kws-feed .reel[data-zoomable=true]{touch-action:none}
