@@ -88,7 +88,10 @@ for (const width of [375, 768, 1280, 1920]) {
     await visitHomeAndReturn(page);
     await expect(cards(page)).toHaveCount(0);
     await snapshot(page, `loop2-empty-${width}`);
+    await page.getByRole('button', { name: 'Sortierung', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Name A-Z', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Nur Suche leeren', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Name A-Z', exact: true })).toBeHidden();
     await expect(page.getByRole('textbox', { name: 'Boulder oder Bereich suchen', exact: true })).toBeFocused();
     await chooseFilters(page);
     await page.getByRole('button', { name: 'Boulder suchen', exact: true }).click();

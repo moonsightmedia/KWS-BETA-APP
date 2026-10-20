@@ -481,6 +481,16 @@ const Boulders = () => {
     setShowSearch(false);
   };
 
+  const resetSearch = (resetFilters = false) => {
+    if (resetFilters) clearFilters();
+    setSearchQuery('');
+    setShowSearch(true);
+    setShowFilters(false);
+    setShowSort(false);
+    setShowMap(false);
+    requestAnimationFrame(() => searchInputRef.current?.focus());
+  };
+
   const handleBoulderClick = (boulderId: string) => {
     navigate(`/boulders/${boulderId}`, { state: boulderNavigationState(location) });
   };
@@ -1091,8 +1101,8 @@ const Boulders = () => {
               <p>{notificationId !== null ? 'Keine passenden Boulder mehr an der Wand. Sie wurden möglicherweise inzwischen abgeschraubt.' : searchQuery.trim() ? `Keine Treffer für „${searchQuery.trim()}“.` : 'Keine Boulder gefunden.'}</p>
               {notificationId === null && <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
                 <p className="text-xs">Versuche einen kürzeren Bouldernamen oder den Hallenbereich.</p>
-                {searchQuery.trim() && <Button variant="secondary" onClick={() => { setSearchQuery(''); setShowSearch(true); requestAnimationFrame(() => searchInputRef.current?.focus()); }}>Nur Suche leeren</Button>}
-                <Button variant="ghost" onClick={() => { clearFilters(); setSearchQuery(''); setShowSearch(true); requestAnimationFrame(() => searchInputRef.current?.focus()); }}>Suche und Filter zurücksetzen</Button>
+                {searchQuery.trim() && <Button variant="secondary" onClick={() => resetSearch()}>Nur Suche leeren</Button>}
+                <Button variant="ghost" onClick={() => resetSearch(true)}>Suche und Filter zurücksetzen</Button>
               </div>}
               {notificationId !== null && <Button variant="secondary" onClick={clearNotification}>Alle Boulder anzeigen</Button>}
             </div>

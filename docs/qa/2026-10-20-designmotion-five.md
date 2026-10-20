@@ -16,6 +16,7 @@ nach Prüfung veröffentlichen. Grundlage: `4335418`, keine neue Mehrfachauswahl
   weiterhin geprüft. Optionales Leeren und datumstreue Speicherung bleiben.
 - Such-Leerzustand mit Suchtext sowie Suchreset bzw. vollständigem Filterreset.
   Ein zuvor geschlossenes Suchfeld wird für die Fokusrückgabe wieder geöffnet.
+  Dabei schließen andere Headerpanels, entsprechend der bestehenden Exklusivregel.
   Mitteilungsansichten behalten ihren eigenen Rückweg.
 
 ## Verifikation
