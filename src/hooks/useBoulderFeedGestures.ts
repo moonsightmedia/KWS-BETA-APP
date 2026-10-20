@@ -16,7 +16,7 @@ export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, ind
   const [dragY, setDragY] = useState(0);
   const [settling, setSettling] = useState(false);
   const [suspended, setSuspended] = useState(document.hidden);
-  const gesture = useRef<{ x: number; y: number; time: number; pointer: number; moved: boolean; held: boolean } | null>(null);
+  const gesture = useRef<{ x: number; y: number; time: number; pointer: number; moved: boolean; held: boolean; axis: 'pending' | 'horizontal' | 'vertical' } | null>(null);
   const tap = useRef<{ x: number; y: number; time: number; type: string; timer: number } | null>(null);
   const holdTimer = useRef<number | null>(null);
   const held = useRef<{ video: HTMLVideoElement; rate: number; paused: boolean; owner: number | string } | null>(null);
@@ -58,7 +58,7 @@ export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, ind
     if (next !== index) settle(next);
   };
   const cancelPointer = () => {
-    const moved = gesture.current?.moved; gesture.current = null;
+    const moved = gesture.current?.moved && gesture.current.axis === 'vertical'; gesture.current = null;
     cancelTap(); stopHold(); cancelZoom();
     if (moved) settle(index);
   };
@@ -68,7 +68,7 @@ export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, ind
     if (!event.isPrimary) { cancelTap(); stopHold(); gesture.current = null; return; }
     if (tap.current) clearTimeout(tap.current.timer);
     clearHold();
-    gesture.current = { x: event.clientX, y: event.clientY, time: performance.now(), pointer: event.pointerId, moved: false, held: false };
+    gesture.current = { x: event.clientX, y: event.clientY, time: performance.now(), pointer: event.pointerId, moved: false, held: false, axis: 'pending' };
     const box = event.currentTarget.getBoundingClientRect();
     const rate = event.clientX < box.left + box.width / 2 ? 0.5 : 2;
     const pointer = event.pointerId;
@@ -81,8 +81,14 @@ export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, ind
     if (!current || current.pointer !== event.pointerId || current.held) return;
     const dy = event.clientY - current.y, dx = event.clientX - current.x;
     if (Math.hypot(dx, dy) >= 8) { cancelTap(); clearHold(); }
-    if (Math.abs(dy) < 8 || Math.abs(dy) < Math.abs(dx) * 1.3) return;
+    if (current.axis === 'pending') {
+      if (Math.abs(dx) >= 10 && Math.abs(dx) > Math.abs(dy) * 1.3) current.axis = 'horizontal';
+      else if (Math.abs(dy) >= 10 && Math.abs(dy) > Math.abs(dx) * 1.3) current.axis = 'vertical';
+      else return;
+    }
     current.moved = true;
+    // Lock direction once: horizontal return must never also advance a video.
+    if (current.axis === 'horizontal') return;
     const edge = (dy > 0 && index === 0) || (dy < 0 && index === count - 1);
     const height = reelRef.current?.clientHeight ?? innerHeight;
     setDragY(Math.max(-height, Math.min(height, edge ? dy * .2 : dy)));
@@ -94,6 +100,13 @@ export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, ind
     if (!current || current.pointer !== event.pointerId) return;
     if (current.held) { stopHold(); return; }
     const dy = event.clientY - current.y, dx = event.clientX - current.x;
+    if (current.axis === 'horizontal') {
+      cancelTap();
+      const threshold = Math.max(64, Math.min(112, (reelRef.current?.clientWidth ?? 375) * .25));
+      const speed = dx / Math.max(1, performance.now() - current.time);
+      if (dx >= threshold || (dx > 45 && speed > .6)) onExit();
+      return;
+    }
     if (!current.moved && Math.abs(dy) < 8 && Math.abs(dx) < 8) {
       if (doubleTapAction === 'off') { cancelTap(); onPause(!paused); return; }
       const previous = tap.current, now = performance.now();
@@ -144,7 +157,7 @@ export function useBoulderFeedGestures({ videoRef, reelRef, paused, onPause, ind
   });
   return { clean, setClean, holdRate, hidden: clean || holdRate !== null, dragY, settling, suspended, go,
     handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: cancelPointer,
-      onLostPointerCapture: (event: PointerEvent<HTMLElement>) => { if (gesture.current || zoom.hasPointer(event.pointerId)) cancelPointer(); },
+      onLostPointerCapture: (event: PointerEvent<HTMLElement>) => { if (event.target === event.currentTarget && !event.currentTarget.hasPointerCapture(event.pointerId) && (gesture.current || zoom.hasPointer(event.pointerId))) cancelPointer(); },
       onContextMenu: (event: React.MouseEvent) => { if (!(event.target as Element).closest('a,button,input,textarea')) event.preventDefault(); },
       onDragStart: (event: React.DragEvent) => event.preventDefault(),
       onWheel: (event: React.WheelEvent) => { if ((event.target as Element).closest('a,button,input,[data-gesture]')) return; if (event.ctrlKey) { cancelTap(); stopHold(); gesture.current = null; return; } const now = performance.now(), gap = now - lastWheel.current; lastWheel.current = now; if (gap > 160 && Math.abs(event.deltaY) > 20) go(event.deltaY > 0 ? 1 : -1); },

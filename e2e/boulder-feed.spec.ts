@@ -39,6 +39,44 @@ async function backend(page: Page) {
 }
 const frame = (page: Page) => page.locator('.kws-feed .reel-page[data-active=true]');
 
+for (const guest of [false, true]) test(`feed sort is global across sectors (${guest ? 'guest' : 'signed in'})`, async ({ page }) => {
+  await backend(page);
+  await page.goto(`/test/fixtures/boulder-feed.html?sortcases${guest ? '&guest' : ''}#/${guest ? 'guest' : 'boulders'}`);
+  await page.getByRole('button', { name: 'Videoansicht', exact: true }).click();
+  for (const [label, ids] of [
+    ['Grad aufsteigend', ['sort-c', 'sort-e', 'sort-d', 'sort-f', 'feed-b', 'feed-a']],
+    ['Älteste zuerst', ['sort-e', 'sort-c', 'feed-b', 'feed-a', 'sort-d', 'sort-f']],
+    ['Neueste zuerst', ['sort-f', 'sort-d', 'feed-a', 'feed-b', 'sort-c', 'sort-e']],
+  ] as const) {
+    await page.getByRole('button', { name: 'Sortierung öffnen' }).click();
+    await page.getByRole('button', { name: guest && label === 'Grad aufsteigend' ? 'Leicht → schwer' : label, exact: true }).click();
+    for (let i = 0; i < ids.length; i++) {
+      await expect(frame(page)).toHaveAttribute('data-boulder-id', ids[i]);
+      if (i < ids.length - 1) { await page.locator('.kws-feed .reel').focus(); await page.keyboard.press('ArrowDown'); }
+    }
+  }
+});
+
+test('horizontal touch exits feed without advancing a video; vertical touch stays feed navigation', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  const db = await backend(page); await enter(page);
+  const client = await page.context().newCDPSession(page);
+  const swipe = async (x: number, y: number, dx: number, dy: number, cancel = false) => {
+    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ id: 1, x, y }] });
+    for (let i = 1; i <= 10; i++) await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ id: 1, x: x + dx * i / 10, y: y + dy * i / 10 }] });
+    await client.send('Input.dispatchTouchEvent', { type: cancel ? 'touchCancel' : 'touchEnd', touchPoints: [] });
+  };
+  await swipe(90, 320, 160, 8, true);
+  await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-a');
+  await swipe(150, 450, 2, -240);
+  await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-b');
+  await swipe(80, 320, 170, 12);
+  await expect(page.locator('.kws-feed')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Videoansicht', exact: true })).toBeVisible();
+  expect(db.writes).toHaveLength(0);
+  await client.detach();
+});
+
 test('regular guest list does not load feed community code until the third view opens', async ({ page }) => {
   await backend(page);
   const requested: string[] = [];
