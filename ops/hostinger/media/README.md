@@ -1,9 +1,13 @@
 # Silent originals and SDR playback
 
-This release has three separate steps: video service, library migration, then
-web/native clients. A main merge deploys only web/landing. **Do not merge the client
-change before the video service advertises its archival capabilities.** The new
-client refuses original uploads on an older server instead of losing the source.
+This release coordinates the video service, library migration and web/native
+clients. A main merge deploys only web/landing. **Do not merge the client change
+before the video service advertises its archival capabilities.** Verify the exact
+service source, a real original upload and one production canary before releasing
+clients. The remaining journaled migration can then continue alongside clients:
+unique URLs and conditional database updates preserve concurrent uploads. This
+also protects new source uploads while historical encoding finishes. Do not call
+the library migration complete until its final inventory and archive checks pass.
 
 ## Contract
 
@@ -67,11 +71,8 @@ SSH/firewall access for this operation.
    Perform a real admin upload, inspect its video-only private source and three
    SDR renditions, then test actual iPhone/Samsung playback. Keep proof private.
 
-The Hostinger panel is reachable in the correct KWS Chrome profile, but its web
-console requires a separate Linux login. That login is not available on this PC.
-The panel's Docker editor reports it cannot process the existing YAML/variables;
-it has not been used to replace the running configuration. SSH also timed out.
-This is an execution blocker, not a completed server deployment.
+The laptop follow-up below records the successful guarded release. The panel's
+Docker editor was not used to rewrite the existing Compose configuration.
 
 ## Library migration
 
@@ -101,6 +102,13 @@ parallel upload. Unknown outcomes reconcile against the journal, without replayi
 an unsafe write. Operator jobs do not enter the asynchronous upload publisher.
 Old files remain intact for rollback; no cached URL is overwritten or deleted.
 
+On this VPS the normal service uses `http://kws-api-internal:80`. After confirming
+that its complete media catalog matches the public production endpoint, pass
+`-e SUPABASE_URL=https://beta-api.kletterwelt-sauerland.de` to `docker exec` for
+the operator CLI only. Keep the running service's internal address unchanged.
+Physical iPhone/HDR appearance acceptance remains unverified; successful browser
+playback and full media validation are not hardware acceptance.
+
 Rollback is also conditional and leaves later uploads untouched:
 
 ```sh
@@ -123,8 +131,10 @@ Android build/signing setup as requested; do not install SDKs or signing keys he
 
 Include the entire video `/data` (especially `originals`, jobs and maintenance
 journals) in encrypted production backup and an independently verified NAS copy.
-The PC's mapped KWS NAS folder was unavailable during preparation; no independent
-NAS copy has been claimed. Server-local archival alone is not an independent backup.
+The PC's mapped NAS was unavailable during initial preparation; the laptop's
+independent pre-migration copy is now verified as recorded below. Server-local
+archival alone is not an independent backup. After migration, back up the updated
+database, new originals/renditions and journal, and verify the independent copy.
 
 ## Laptop rollout follow-up, 20 October 2026
 
@@ -136,7 +146,29 @@ ancestry. The server candidate remains the exact verified source at
 The existing laptop SSH key is reachable again after the user explicitly approved
 a firewall allowance for its current single address. Production backup
 `20261020T120838Z` was decrypted and restored in isolation: 94 tables, 22,793 rows,
-two sequences and Vault decryption match. The encrypted independent NAS transfer
-is still in progress; do not claim it verified yet. The exact server candidate
-has passed its tests in a separate Docker container; the live service and library
-remain unchanged until the backup and release gates are complete.
+two sequences and Vault decryption match. The 3,410,158,632-byte encrypted archive
+and all three metadata/restore-proof files are independently verified on the NAS
+with matching sizes and SHA-256 digests (20 October, 13:02 UTC).
+
+The exact candidate passed all 34 tests in a separate Alpine container and again
+in the guarded production release. Both production and isolated Store Review now
+advertise archival/SDR capabilities with exact running source hashes verified.
+Review retains its previous Compose configuration and database dump. A real HTTP
+upload using existing demo roles preserved a synthetic silent 2160x3840 HLG source
+byte-for-byte; HD/SD/Low are silent BT.709 and fully decoded. Anonymous, customer
+and setter original downloads are denied; administrator downloads are no-store.
+Only these synthetic review jobs were subsequently deleted.
+
+Production canary `03a06939-cbe7-48e0-94f6-23620ba301e1` committed successfully.
+Its private best-available HD archive, three SDR qualities, database fields and
+actual app playback (1080x1920, readyState4, progressing time) are verified.
+Full run `798a952d-1208-462e-ad84-4daba25ce7e5` is active as
+`kws-sdr-library-20261020.service`; it is not yet complete. A temporary runtime
+CPU allowance of three cores must return to the normal two after migration.
+Memory remains 2 GiB and Compose is unchanged. Keep the old files/image/config.
+
+Android83 is available in the existing internal track from native source
+`6b575eb407d29414f8fb8422717e7618f0537630`, after full CI, actual AAB source,
+signature, secret-exclusion, icon and 16-KB ELF checks. iOS processing is separate.
+Client delivery after these service/canary gates does not imply that all historical
+videos or their post-migration independent backup are already finished.
