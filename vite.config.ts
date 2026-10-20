@@ -66,9 +66,9 @@ const versionPlugin = () => {
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // Absolute base for web deep links (/tv/schedule, /boulders/:id).
-  // Relative base only for Capacitor file:// builds (npm run build:native).
-  base: mode === 'capacitor' ? './' : '/',
+  // Web and Capacitor both serve assets from their origin root. A relative base
+  // breaks full reloads on nested routes, including the demo login switch.
+  base: '/',
   server: {
     host: "::",
     port: 8080,

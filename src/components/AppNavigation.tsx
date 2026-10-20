@@ -11,5 +11,5 @@ export const AppNavigation = () => {
   if (loading || (user && isAuthPage(pathname))) return null;
   if (['/auth/callback', '/reset-password', '/competition', '/privacy', '/imprint', '/community-rules'].includes(pathname)) return null;
 
-  return <Sidebar />;
+  return <div data-app-navigation><Sidebar /></div>;
 };
