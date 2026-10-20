@@ -596,6 +596,7 @@ export function SetterBoulderEditorDialog({
                   }))}
                 />
                 {mapOpen && (
+                  <div className="mx-auto max-w-[280px] [@media(hover:hover)_and_(pointer:fine)]:max-w-[340px]" data-setter-sector-map>
                   <HallMapView
                     sectors={sectors.map((s) => ({
                       ...s,
@@ -609,9 +610,10 @@ export function SetterBoulderEditorDialog({
                     onClearSector={() => selectSector("")}
                     compact
                     frameless
-                    viewportClassName="h-[240px]"
-                    lockAspectRatio={false}
+                    viewportClassName="!min-h-0"
+                    orientation="portrait"
                   />
+                  </div>
                 )}
                 {missing(!draft.sectorId, "Bitte einen Sektor wählen.")}
               </section>

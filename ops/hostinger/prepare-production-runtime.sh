@@ -54,7 +54,7 @@ http://:80 {
   header @cors {
     Access-Control-Allow-Origin {http.request.header.Origin}
     Access-Control-Allow-Methods "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS"
-    Access-Control-Allow-Headers "authorization, apikey, content-type, x-client-info, prefer, range, x-upsert, x-supabase-api-version"
+    Access-Control-Allow-Headers "authorization, apikey, content-type, x-client-info, prefer, range, x-upsert, x-supabase-api-version, accept-profile, content-profile"
     Access-Control-Expose-Headers "content-range, range, x-total-count"
     Vary Origin
     defer

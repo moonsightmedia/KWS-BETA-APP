@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner';
 
 import { resolveHallMapSource } from '@/lib/hallMapSource';
+import { getHallMapDisplayGeometry } from '@/lib/hallMapOrientation';
 import { insertPolygonPoint } from '@/lib/hallMapGeometry';
 import { getAdminSectorLabel, getSectorAreaPalette, getSectorAreas, groupAdminSectors, groupAdminSubareas, resolveSectorArea } from '@/lib/sectorAreas';
 import { HallMapSettingsDialog } from './HallMapSettingsDialog';
@@ -309,7 +310,7 @@ export const HallMapManagement = () => {
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
   const [hoveredProposalId, setHoveredProposalId] = useState<string | null>(null);
   const discardActionRef = useRef<(() => void) | null>(null);
-  const svgRef = useRef<SVGSVGElement | null>(null);
+  const svgRef = useRef<SVGGElement | null>(null);
   const suppressMapClick = useRef(false);
 
   useEffect(() => {
@@ -403,6 +404,7 @@ export const HallMapManagement = () => {
   // Keep editing the saved coordinate system until an image replacement is saved.
   // The pending replacement is previewed separately in Kartendaten.
   const { src: displayedMapImageSrc, width: mapWidth, height: mapHeight, supportsProposals } = resolveHallMapSource(managedHallMap);
+  const { width: displayWidth, height: displayHeight, rotateClockwise } = getHallMapDisplayGeometry(mapWidth, mapHeight, viewportWidth < 768);
   useEffect(() => setImageError(false), [displayedMapImageSrc]);
 
   const normalizedDraftPoints = useMemo(() => normalizePoints(draftPoints), [draftPoints]);
@@ -1125,26 +1127,29 @@ export const HallMapManagement = () => {
                     </div>
                   ) : (
                     <InteractiveMapStage
-                      width={mapWidth}
-                      height={mapHeight}
+                      width={displayWidth}
+                      height={displayHeight}
                       disablePanZoom={editorMode !== 'idle'}
                       allowPageScroll
-                      lockAspectRatio={false}
-                      viewportClassName="h-[300px] rounded-none border-0 bg-white shadow-none sm:h-[480px] lg:h-[520px]"
+                      directManipulation
+                      controlsPlacement="right"
+                      lockAspectRatio={rotateClockwise}
+                      viewportClassName="min-h-0 rounded-none border-0 bg-white shadow-none sm:h-[480px] lg:h-[520px]"
                     >
                       <img
                         key={imageRetryKey}
                         src={displayedMapImageSrc}
                         alt="Gespeicherte Zeichenvorlage"
                         aria-hidden={!showMapImage}
-                        className={cn('pointer-events-none block h-full w-full select-none object-contain', !showMapImage && 'opacity-0')}
+                        className={cn('pointer-events-none block select-none object-contain', rotateClockwise ? 'absolute left-1/2 top-1/2 max-w-none' : 'h-full w-full', !showMapImage && 'opacity-0')}
+                        style={rotateClockwise ? {width:`${displayHeight / displayWidth * 100}%`,height:`${displayWidth / displayHeight * 100}%`,transform:'translate(-50%, -50%) rotate(90deg)'} : undefined}
                         draggable={false}
                         onError={() => setImageError(true)}
                       />
                       <svg
-                        ref={svgRef}
                         data-testid="hall-map-editor"
-                        viewBox={`0 0 ${mapWidth} ${mapHeight}`}
+                        data-map-orientation={displayHeight >= displayWidth ? 'portrait' : 'landscape'}
+                        viewBox={`0 0 ${displayWidth} ${displayHeight}`}
                         preserveAspectRatio="xMidYMid meet"
                         className="absolute inset-0 h-full w-full"
                         onPointerDownCapture={() => { suppressMapClick.current = false; }}
@@ -1161,6 +1166,7 @@ export const HallMapManagement = () => {
                         }}
                         onClick={handleMapOverlayClick}
                       >
+                        <g ref={svgRef} transform={rotateClockwise ? `translate(${mapHeight}, 0) rotate(90)` : undefined}>
                           {regions.map((region) => {
                             const sector = sectors.find((entry) => entry.id === region.sector_id);
                             if (!sector) return null;
@@ -1175,7 +1181,7 @@ export const HallMapManagement = () => {
                             const resolved = resolveSectorArea(sector);
                             const palette = getSectorAreaPalette(resolved.area?.slug);
                             const labelScale = isMobile
-                              ? mapWidth / Math.max(viewportWidth - 32, 280) * 0.6
+                              ? displayWidth / Math.max(viewportWidth - 32, 280) * 0.6
                               : Math.min(mapWidth, mapHeight) / 930;
                             const markerHalfWidth = resolved.subareaCode ? Math.max(20, resolved.subareaCode.length * 8 + 6) : 58;
                             const labelHalfWidth = markerHalfWidth * labelScale;
@@ -1211,7 +1217,7 @@ export const HallMapManagement = () => {
 
                                 <g
                                   className={cn('pointer-events-none', showMapImage && !isSelectedRegion && 'opacity-0')}
-                                  transform={`translate(${labelX}, ${labelY}) scale(${labelScale})`}
+                                  transform={`translate(${labelX}, ${labelY}) rotate(${rotateClockwise ? -90 : 0}) scale(${labelScale})`}
                                 >
                                   <rect
                                     x={-markerHalfWidth}
@@ -1371,6 +1377,7 @@ export const HallMapManagement = () => {
                               ) : null}
                             </g>
                           ) : null}
+                        </g>
                       </svg>
                     </InteractiveMapStage>
                   )}

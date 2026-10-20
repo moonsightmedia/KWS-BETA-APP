@@ -38,6 +38,7 @@ interface HallMapViewProps {
   showCounts?: boolean;
   disablePanZoom?: boolean;
   lockAspectRatio?: boolean;
+  orientation?: 'responsive' | 'portrait';
   viewportClassName?: string;
   /** Keep the stage and selection actions inside a viewport-sized panel. */
   fitContainer?: boolean;
@@ -294,6 +295,7 @@ export function HallMapView({
   showCounts = true,
   disablePanZoom = false,
   lockAspectRatio = true,
+  orientation = 'responsive',
   viewportClassName,
   fitContainer = false,
   sectorAnnotations,
@@ -426,9 +428,9 @@ export function HallMapView({
   const selectedGroups = logicalMapGroups.filter(group => selectedLogicalGroupKeys.has(group.key));
 
   const { src: backgroundImageSrc, width: sourceWidth, height: sourceHeight } = resolveHallMapSource(activeMap);
-  // Fixed-height editor previews stay horizontal; full mobile maps use portrait.
+  // Orientation is independent of viewport sizing, including embedded setter maps.
   const { width: mapWidth, height: mapHeight, rotateClockwise } = getHallMapDisplayGeometry(
-    sourceWidth, sourceHeight, isMobile && lockAspectRatio,
+    sourceWidth, sourceHeight, orientation === 'portrait' || isMobile,
   );
   const mapUnit = Math.max(Math.min(mapWidth, mapHeight) / 100, 1);
   const mapPadding = (frameless ? HALL_MAP_3D_PADDING_UNITS : 4) * mapUnit;
@@ -594,6 +596,9 @@ export function HallMapView({
             compact={compact}
             lockAspectRatio={fitContainer ? false : lockAspectRatio}
             disablePanZoom={disablePanZoom}
+            allowPageScroll
+            controlsPlacement="right"
+            directManipulation
             onViewportChange={handleMapViewportChange}
             panPadding={frameless ? 180 : 0}
           >
@@ -617,7 +622,7 @@ export function HallMapView({
               rotateClockwise={rotateClockwise} onReady={setWalls3DReady}
             />}
             <svg
-              data-map-orientation={rotateClockwise ? 'portrait' : 'landscape'}
+              data-map-orientation={mapHeight >= mapWidth ? 'portrait' : 'landscape'}
               data-map-width={mapWidth}
               data-map-height={mapHeight}
               data-map-appearance="white-walls"

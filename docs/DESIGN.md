@@ -1016,7 +1016,8 @@ Bisherige farbige Darstellung (historisch, weiterhin Referenz für Zeicheneditor
   Punkte, Bild und Tag-Anker teilen dieselbe Anzeigetransformation; die Tags
   bleiben aufrecht und werden im gedrehten Koordinatenraum neu positioniert.
   Auswahl und Sektor-IDs bleiben bei Größenwechsel erhalten. Bereits hochkantige
-  Karten und ausdrücklich höhenbegrenzte Editor-Vorschauen werden nicht gedreht.
+  Karten werden nicht erneut gedreht. Auch eingebettete und höhenbegrenzte
+  Editor-Vorschauen verwenden mobil dieselbe Hochformat-Orientierung.
   Gespeicherte Kartendaten bleiben unverändert (Nutzerentscheidung 07.10.2026).
 - Kartenwahl und Standard-Boulderfilter teilen denselben Zustand.
 - Zählungen berücksichtigen nur aktive/hängende Boulder und zählen einen
@@ -2323,6 +2324,10 @@ Prüfumfang: docs/qa/2026-10-19-setter-quick-actions.md.
   Desktop-Scrollleisten. Ziele werden explizit identifiziert; ein zusätzlicher
   Toolbarbutton darf nicht anstelle der ersten Boulderkarte markiert werden.
   Bei Dialogen wird erst nach deren Eintrittsskalierung gemessen.
+  Präzisierung Desktop20.10.: Hinweise nutzen zuerst freien Platz rechts oder
+  links des sichtbaren Ziels. Auch bei geringer Fensterhöhe wird ein hohes
+  Medium nicht unnötig unter einen angedockten Hinweis geschoben. Seitliche
+  Hinweise bleiben16px vom Ziel entfernt und zeigen zur sichtbaren Zielmitte.
   Abgeschnittene Zielkanten
   bleiben gerade. Die Kontozeile heißt auf Nutzerwunsch „Das Kommentieren“ und
   behält ausdrücklich den Stern. Bestätigte Nutzerwahl im Iconvergleich:
@@ -2481,3 +2486,26 @@ Prüfbeleg: `docs/qa/2026-10-20-onboarding-safe-area.md`.
 
 Prüfbelege: `docs/qa/2026-10-20-map-schedule-feedback.md`,
 `docs/qa/2026-10-20-about-profile-feedback.md` und gemeinsame Releaseprüfung.
+
+
+### Nutzerfreigabe 20.10.2026 – mobile Karten und direkte Bedienung
+
+- Alle mobilen Hallenkarten unter768px stehen im Hochformat: Gast-/Boulderkarte,
+  öffentliche Schraubreihenfolge, Setter-Status, Boulder anlegen/bearbeiten,
+  Termin-Sektorauswahl, Kartenverwaltung und TV-Seite beim mobilen Aufruf.
+  Die Orientierung hängt nicht von einer festgelegten Vorschauhöhe ab.
+- Die Sektorkarte im Boulder- und Termin-Dialog bleibt auch auf Desktop kompakt
+  hochkant. Dieselbe bestehende 3D-/SVG-Darstellung und dieselben Sektoren nutzen.
+- Desktop: Mausrad/Trackpad zoomt um die Zeigerposition. Ziehen auf freiem Boden
+  verschiebt die Karte; Wandklicks und Tastatur wählen weiterhin Sektoren. Kein
+  Handsymbol oder vorgeschalteter Verschiebemodus. Zoom/Reset rechts außerhalb
+  der Karte; sie verdecken keine Wände.
+- Touch: ein Finger scrollt den Inhalt, zwei Finger zoomen und verschieben die
+  Karte zusammen. Touchgeräte erhalten keine Zoomtoolbar. Bewegungs-/Abbruchgesten
+  dürfen keine Sektorauswahl oder Routen-Swipes auslösen.
+- Im technischen Zeicheneditor sperrt aktives Zeichnen/Bearbeiten weiterhin das
+  Karten-Pan/Zoom. Die Anzeige-Rotation wird über die tatsächliche SVG-Matrix
+  zurückgerechnet; gespeicherte Punkte, Labels, Sektor-IDs und Kartendimensionen
+  bleiben im ursprünglichen Koordinatenraum.
+
+Prüfumfang: docs/qa/2026-10-20-mobile-portrait-maps.md.

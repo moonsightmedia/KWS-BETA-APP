@@ -46,6 +46,7 @@ jobs:
           python3 ops/hostinger/test-github-web-autodeploy.py
           python3 ops/hostinger/store-review/test_guards.py
           python3 ops/hostinger/landingpage/test-collect-landing.py
+          python3 ops/hostinger/test-supabase-schema-cors.py
       - name: Verify generated legal pages are committed
         run: |
           node ops/hostinger/landingpage/build-legal.mjs
@@ -61,9 +62,12 @@ jobs:
       - name: Hall map and reset sequence integration tests
         run: |
           npx playwright test --config test/maps-feedback.playwright.config.ts --workers=1
+          npx playwright test --config test/mobile-maps.playwright.config.ts --workers=1
           npx playwright test --config test/reset-plan.playwright.config.ts e2e/reset-plan.spec.ts --workers=1
       - name: App version and profile shortcut integration tests
         run: node test/about-feedback.check.cjs
+      - name: Desktop and responsive onboarding integration tests
+        run: node test/onboarding-desktop.check.cjs
       - name: Monitoring browser tests
         run: |
           npx playwright test --config test/launchMonitoring.playwright.config.ts
@@ -82,7 +86,9 @@ jobs:
             test-results/mobile-player-artifacts
             test-results/launch-monitoring-artifacts
             output/maps-feedback-20261020/artifacts
+            output/mobile-maps/artifacts
             output/about-feedback-20261020
+            output/playwright/onboarding-desktop
           retention-days: 7
           if-no-files-found: ignore
 
