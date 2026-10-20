@@ -19,10 +19,18 @@ export function makeProfileDraft(profile: EditableProfile): ProfileDraft {
   };
 }
 
+/** Format completed input only; calendar validity is checked separately. */
+export function normalizeBirthDateInput(value: string): string {
+  const clean = value.trim();
+  if (/^\d{8}$/.test(clean)) return `${clean.slice(0, 2)}.${clean.slice(2, 4)}.${clean.slice(4)}`;
+  const separated = /^(\d{2})[/-](\d{2})[/-](\d{4})$/.exec(clean);
+  return separated ? separated.slice(1).join('.') : value;
+}
+
 /** A date-only value: never convert through UTC, which can shift birthdays. */
 export function parseBirthDate(value: string, today = new Date()): string | null | undefined {
   if (!value.trim()) return null;
-  const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(value.trim());
+  const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(normalizeBirthDateInput(value).trim());
   if (!match) return undefined;
   const [, dayText, monthText, yearText] = match;
   const day = Number(dayText), month = Number(monthText), year = Number(yearText);

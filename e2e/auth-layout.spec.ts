@@ -46,6 +46,15 @@ for (const width of [375, 768, 1111, 1280, 1920]) {
     await page.getByRole('group', { name: 'Zwischen Anmeldung und Registrierung wechseln' }).getByRole('button', { name: 'Registrieren' }).click();
     await expect(page.getByRole('heading', { name: 'Konto erstellen' })).toBeVisible();
     await expect(page.getByLabel('Vorname', { exact: true })).toBeVisible();
+    const signupPassword = page.locator('#signup-password');
+    await expect(signupPassword).toHaveAttribute('aria-describedby', 'signup-password-help');
+    await expect(signupPassword).toHaveAttribute('autocomplete', 'new-password');
+    await expect(page.locator('#signup-password-help')).toContainText('Mindestens 6 Zeichen');
+    await signupPassword.fill('local-passphrase');
+    await expect(page.locator('#signup-password-help')).toContainText('Mindestlänge erreicht');
+    await page.getByRole('button', { name: 'Passwort anzeigen' }).click();
+    await expect(signupPassword).toHaveAttribute('type', 'text');
+    await page.getByRole('button', { name: 'Passwort ausblenden' }).click();
     expect(await page.locator('body').evaluate(el => el.scrollWidth)).toBeLessThanOrEqual(width);
     await page.screenshot({ path: `test-results/auth-spacing-20260914/loop2-register-${width}.png`, animations: 'disabled' });
     await page.getByRole('group', { name: 'Zwischen Anmeldung und Registrierung wechseln' }).getByRole('button', { name: 'Anmelden', exact: true }).click();

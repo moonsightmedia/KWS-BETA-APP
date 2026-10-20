@@ -2263,3 +2263,31 @@ Prüfumfang: docs/qa/2026-10-19-setter-quick-actions.md.
   Beta-Startlader bleiben unverändert.
 
 Prüfumfang: docs/qa/2026-10-20-designmotion-four.md.
+
+### Nutzerfreigabe 20.10.2026 – fünf weitere DesignMotion-Entwürfe
+
+- Der mobile Profilzugang erhält 44×44px Trefferfläche. Avatar und Menü bleiben
+  unverändert; ab 768px gelten die bisherigen Maße. Hover, Tippen und Tastatur
+  behalten ihre vorhandenen Bedienwege.
+- Profil bearbeiten fasst Name/E-Mail als „Kontodaten“ mit kurzem Speicherhinweis
+  zusammen. Änderungen zeigen „Ungespeichert“. Jedes geänderte Feld lässt sich
+  einzeln auf seinen geladenen Ausgangswert zurücksetzen; das andere Feld und
+  das separat gespeicherte Profilbild bleiben erhalten. Reset löscht nur den
+  betreffenden Feldfehler und fokussiert dessen Eingang. Während laufender
+  Speicherung sind diese Aktionen gesperrt. Explizites Speichern und der
+  vorhandene Verwerfenschutz bleiben erhalten.
+- Die Registrierung erklärt die bestehende Mindestlänge von sechs Zeichen am
+  Passwortfeld und bestätigt nur „Mindestlänge erreicht“, keine Passwortstärke
+  oder geschätzte Knackzeit. Einfügen, Passwortmanager und Anzeigeoption bleiben.
+- Das optionale Geburtsdatum im Benutzereditor akzeptiert acht Ziffern und
+  Schräg-/Bindestrich als Trenner. Erst beim Verlassen wird TT.MM.JJJJ angezeigt.
+  Direktes Absenden per Enter verwendet dieselbe Normalisierung. Echte
+  Kalendertage, Zukunftsgrenze, Leeren und date-only-Speicherung bleiben geprüft;
+  Formatierung allein schreibt keine Daten.
+- Die normale Boulder-Suche nennt im Leerzustand den Suchtext. „Nur Suche leeren“
+  erhält Filter; „Suche und Filter zurücksetzen“ verwendet den bestehenden
+  Filterreset und leert die Suche. Beide führen zum Suchfeld. Mitteilungsansichten
+  behalten ihren eigenen Rückweg. Keine Suchhistorie oder Popularitätsdaten.
+- Diese Freigabe betrifft die genannten fünf Entwürfe. Die zuvor ausgeschlossene
+  neue Mehrfachauswahl bleibt ausgeschlossen. Wochenkarte oben und Beta-Startlogo
+  bleiben unverändert.

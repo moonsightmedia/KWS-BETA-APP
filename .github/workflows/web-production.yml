@@ -53,7 +53,7 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Browser regression tests
-        run: npx playwright test e2e/header-stability.spec.ts e2e/auth-layout.spec.ts e2e/guest-loading.spec.ts e2e/guest-navigation.spec.ts e2e/training-release-gate.spec.ts e2e/usability.spec.ts e2e/profile-avatar.spec.ts e2e/account-deletion-placement.spec.ts e2e/moderation-placement.spec.ts e2e/home-progress.spec.ts e2e/boulder-continuity.spec.ts e2e/boulder-filter-persistence.spec.ts e2e/notification-boulders.spec.ts e2e/setter-quick-actions.spec.ts e2e/designmotion-four.spec.ts --workers=1
+        run: npx playwright test e2e/header-stability.spec.ts e2e/auth-layout.spec.ts e2e/guest-loading.spec.ts e2e/guest-navigation.spec.ts e2e/training-release-gate.spec.ts e2e/usability.spec.ts e2e/profile-avatar.spec.ts e2e/account-deletion-placement.spec.ts e2e/moderation-placement.spec.ts e2e/home-progress.spec.ts e2e/boulder-continuity.spec.ts e2e/boulder-filter-persistence.spec.ts e2e/notification-boulders.spec.ts e2e/setter-quick-actions.spec.ts e2e/designmotion-four.spec.ts e2e/designmotion-five.spec.ts --workers=1
       - name: Boulder video feed integration tests
         run: npx playwright test --config playwright.boulder-feed.config.ts
       - name: Monitoring browser tests
