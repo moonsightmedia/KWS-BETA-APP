@@ -10,7 +10,27 @@ export interface ExistingThumbnailSource {
   url: string;
   sha256?: string;
   // Image pixels come from the original; only geometry is stored in the DB.
-  selection?: Omit<HoldResult, 'image'> & { automatic: string[] };
+  selection?: Omit<HoldResult, 'image' | 'base_image'> & { automatic: string[]; mode?: 'focus' | 'original' };
+}
+
+async function loadPublishedPhoto(url: string, signal?: AbortSignal) {
+  const parsed = new URL(url);
+  const allowed = backendConfig.environment === 'review' ? ['review-api.kletterwelt-sauerland.de','review-video.kletterwelt-sauerland.de'] : ['beta-api.kletterwelt-sauerland.de','beta.kletterwelt-sauerland.de','video.kletterwelt-sauerland.de','cdn.kletterwelt-sauerland.de'];
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password || !allowed.includes(parsed.hostname)) throw new Error('Das gespeicherte Vorschaubild ist nicht verfügbar.');
+  const response = await fetch(url, {signal, credentials:'omit', redirect:'error'});
+  if (!response.ok || Number(response.headers.get('content-length')) > 12_000_000) throw new Error('Das gespeicherte Vorschaubild konnte nicht geladen werden.');
+  const blob = await response.blob();
+  const file = new File([blob],'Boulder-Vorschaubild.png',{type:blob.type});
+  const image = `data:${file.type};base64,${await readPhoto(file,signal)}`;
+  return { file, image };
+}
+
+/** Legacy edits retain the actual published pixels as their immutable base.
+ * No guessed masks, no start-grip regeneration and no writes on opening. */
+export async function restorePublishedThumbnail(file: File, currentUrl: string, inputKey: string, signal: AbortSignal): Promise<ThumbnailFocus> {
+  const [result, published] = await Promise.all([createManualPhotoResult(file,signal), loadPublishedPhoto(currentUrl, signal)]);
+  signal.throwIfAborted();
+  return { inputFile:file,inputKey,result:{...result,base_thumbnail_url:currentUrl,base_image:published.image},selected:[],automatic:[],mode:'focus',confirmed:true,outputFile:published.file };
 }
 export async function loadExistingThumbnail(boulderId: string, currentUrl: string, color: string, color2: string | null, signal: AbortSignal) {
   const session = await getCurrentSession(signal);
@@ -41,22 +61,24 @@ export async function loadExistingThumbnail(boulderId: string, currentUrl: strin
   if (!photo.ok || Number(photo.headers.get('content-length')) > 12_000_000) throw new Error('Das Originalfoto ist nicht verfügbar. Bitte erneut versuchen oder ein Foto wählen.');
   const blob = await photo.blob();
   const file = new File([blob], 'Boulder-Original.' + (blob.type === 'image/png' ? 'png' : 'jpg'), { type: blob.type });
-  await readPhoto(file);
+  await readPhoto(file,signal);
   const hash = await photoHash(file);
   if (source.sha256 && source.sha256 !== hash) throw new Error('Das Originalfoto hat sich geändert. Bitte ein Foto wählen.');
   signal.throwIfAborted();
   return { file, source: { ...source, sha256: hash } };
 }
-export async function restoreThumbnailFocus(file: File, source: ExistingThumbnailSource, inputKey: string): Promise<ThumbnailFocus | undefined> {
+export async function restoreThumbnailFocus(file: File, source: ExistingThumbnailSource, inputKey: string, signal?: AbortSignal): Promise<ThumbnailFocus | undefined> {
+  signal?.throwIfAborted();
   const saved = source.selection;
   if (!saved || saved.image_hash !== source.sha256) return undefined;
   if (!Array.isArray(saved.candidates) || saved.candidates.length > 200 || !Array.isArray(saved.selected) || !Array.isArray(saved.automatic)
     || !saved.candidates.every(c => typeof c.id === 'string' && Array.isArray(c.polygon) && c.polygon.length >= 3 && c.polygon.length <= 10000
       && c.polygon.every(p => p.length === 2 && p.every(Number.isFinite)) && Array.isArray(c.box) && c.box.length === 4 && c.box.every(Number.isFinite))
     || ![...saved.selected, ...saved.automatic].every(id => saved.candidates.some(c => c.id === id))) return undefined;
-  const photo = await createManualPhotoResult(file);
+  const photo = await createManualPhotoResult(file,signal);
   if (photo.width !== saved.width || photo.height !== saved.height) return undefined;
-  const focus: ThumbnailFocus = { inputFile: file, inputKey, outputFile: file, result: { ...saved, image: photo.image }, selected: saved.selected, automatic: saved.automatic, mode: 'focus', confirmed: false };
+  const base = saved.base_thumbnail_url ? await loadPublishedPhoto(saved.base_thumbnail_url,signal) : undefined;
+  const focus: ThumbnailFocus = { inputFile: file, inputKey, outputFile: file, result: { ...saved, image: photo.image, ...(base ? {base_image:base.image} : {}) }, selected: saved.selected, automatic: saved.automatic, mode: saved.mode || 'focus', confirmed: true };
   return { ...focus, outputFile: await renderThumbnail(focus) };
 }
 export async function photoHash(file: Blob) {
@@ -88,10 +110,10 @@ export async function saveBoulderThumbnail(draft: {
   const transport = createAuthenticatedUploadFetch(session.user.id);
   const original = draft.thumbFile, output = thumbnailUploadFile(draft)!;
   const originalHash = await photoHash(original), outputHash = await photoHash(output);
-  const selection = output !== original && draft.thumbnailFocus?.result ? (() => {
-    const { image: _pixels, ...geometry } = draft.thumbnailFocus.result;
-    void _pixels;
-    return { ...geometry, selected: draft.thumbnailFocus.selected, automatic: draft.thumbnailFocus.automatic };
+  const selection = !draft.volumeOnly && draft.thumbnailFocus?.result ? (() => {
+    const { image: _pixels, base_image: _basePixels, ...geometry } = draft.thumbnailFocus.result;
+    void _pixels; void _basePixels;
+    return { ...geometry, selected: draft.thumbnailFocus.selected, automatic: draft.thumbnailFocus.automatic, mode:draft.thumbnailFocus.mode };
   })() : null;
   let entries = receipts.get(original);
   if (!entries) { entries = new Map(); receipts.set(original, entries); }

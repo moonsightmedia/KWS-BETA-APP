@@ -57,3 +57,8 @@ test('manual photo sizing matches the bounded upright service photo space',()=>{
   assert.deepEqual(thumbnailPhotoDimensions(360,480),[360,480]);
   assert.throws(()=>thumbnailPhotoDimensions(47,100));assert.throws(()=>thumbnailPhotoDimensions(6000,6000));assert.throws(()=>thumbnailPhotoDimensions(48,2000));
 });
+
+test('a corrected immutable legacy image remains an output even with zero newly selected regions',()=>{
+ const raw=new Blob(['original']),output=new Blob(['legacy-minus-one-hold']);const draft={thumbFile:raw,colorId:'green',thumbnailFocus:{inputFile:raw,inputKey:'green||false',mode:'focus',confirmed:true,selected:[],outputFile:output,result:{base_thumbnail_url:'https://beta-api.kletterwelt-sauerland.de/storage/v1/object/public/beta-videos/immutable.png'}}};
+ assert.equal(focusedThumbnailFile(draft,true),output);assert.equal(focusedThumbnailFile(draft,false),raw);assert.equal(focusedThumbnailFile({...draft,colorId:'blue'},true),raw);assert.equal(focusedThumbnailFile({...draft,volumeOnly:true},true),raw);
+});
