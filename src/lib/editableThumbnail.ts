@@ -17,7 +17,10 @@ async function loadPublishedPhoto(url: string, signal?: AbortSignal) {
   const parsed = new URL(url);
   const allowed = backendConfig.environment === 'review' ? ['review-api.kletterwelt-sauerland.de','review-video.kletterwelt-sauerland.de'] : ['beta-api.kletterwelt-sauerland.de','beta.kletterwelt-sauerland.de','video.kletterwelt-sauerland.de','cdn.kletterwelt-sauerland.de'];
   if (parsed.protocol !== 'https:' || parsed.username || parsed.password || !allowed.includes(parsed.hostname)) throw new Error('Das gespeicherte Vorschaubild ist nicht verfügbar.');
-  const response = await fetch(url, {signal, credentials:'omit', redirect:'error'});
+  // The same URL was already shown in an <img> without an Origin header.
+  // Its immutable HTTP-cache entry may therefore lack CORS response headers.
+  // Fetch real bytes for editing instead of reusing that no-CORS image entry.
+  const response = await fetch(url, {signal, credentials:'omit', redirect:'error', cache:'no-store'});
   if (!response.ok || Number(response.headers.get('content-length')) > 12_000_000) throw new Error('Das gespeicherte Vorschaubild konnte nicht geladen werden.');
   const blob = await response.blob();
   const file = new File([blob],'Boulder-Vorschaubild.png',{type:blob.type});
@@ -57,7 +60,7 @@ export async function loadExistingThumbnail(boulderId: string, currentUrl: strin
   if (url.protocol !== 'https:' || url.username || url.password || !hosts.includes(url.hostname)) {
     throw new Error('Bitte ein Originalfoto von deinem Gerät wählen.');
   }
-  const photo = await fetch(source.url, { signal, credentials: 'omit', redirect: 'error' });
+  const photo = await fetch(source.url, { signal, credentials: 'omit', redirect: 'error', cache: 'no-store' });
   if (!photo.ok || Number(photo.headers.get('content-length')) > 12_000_000) throw new Error('Das Originalfoto ist nicht verfügbar. Bitte erneut versuchen oder ein Foto wählen.');
   const blob = await photo.blob();
   const file = new File([blob], 'Boulder-Original.' + (blob.type === 'image/png' ? 'png' : 'jpg'), { type: blob.type });
