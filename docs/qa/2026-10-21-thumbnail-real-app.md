@@ -32,3 +32,13 @@ Offen: lokale Sichtabstimmung durch den Nutzer. Keine Veröffentlichung behaupte
 ## Freigabe zur Veröffentlichung
 
 Nutzer hat anschließend ausdrücklich den Live-Release des neuen Griffeditors beauftragt. Vorprüfung unverändert erfolgreich; Ausgabeversion1.0.259. Veröffentlichung über regulären PR-/CI-/Hostinger-Ablauf sowie bestehenden internen TestFlight-Kanal. Keine neue Datenmigration oder Änderung des Modell-/API-Dienstes nötig. Produktive Datenkorrekturen werden nicht als Nebenwirkung des Releases ausgeführt. Exakte Release- und Paketnachweise werden nach Abschluss im Geräte-Handoff dokumentiert.
+
+## Nachprüfung des produktiven HTTP-Caches
+
+Web259 und TestFlight112 wurden nach vollständig erfolgreicher Prüfung regulär ausgeliefert. In der tatsächlichen Live-Abnahme lädt Kühner Wurm seine drei gespeicherten Regionen direkt; Antippen3→2, Undo→3, Originalvergleich und Vergrößern erfolgreich, anschließend Entwurf verworfen. Ein zweiter Boulder aus dem historischen Bestand zeigte dagegen reproduzierbar `Failed to fetch`.
+
+Netzwerkdiagnose: Der öffentliche PNG-Cacheeintrag stammt von einem normalen `<img>`-Abruf ohne Origin. Diese Antwort hat `max-age=31536000, immutable`, aber weder CORS-Freigabe noch Vary. Der spätere Fetch für die Bearbeitung verwendet diesen bestehenden Cacheeintrag und scheitert mit `MissingAllowOriginHeader`. Ein tatsächlicher Netzabruf mit Origin liefert200 und korrekte CORS-/Vary-Header. Einmalig im DevTools-Protokoll deaktivierter Cache bestätigt die Ursache: derselbe Editor lädt sofort die gespeicherte Version ohne neue Analyse. Cacheeinstellung und Netzwerkdiagnose anschließend wieder zurückgesetzt; keine Bilder gespeichert.
+
+Folgekorrektur260: sowohl veröffentlichte Pixelgrundlage als auch Farboriginal mit `cache: no-store` laden. Dies umgeht bereits vorhandene und weiterhin gültige alte No-CORS-Cacheeinträge, erhält URL-/Hashprüfung, Abbruch und `credentials: omit`. Keine Browsercache-Löschung beim Nutzer, keine Änderung an Rollen, TLS oder Server-CORS. Erneute Abnahme mit normal aktivem Browsercache nach Veröffentlichung erforderlich. Browser-/Funktionsprüfungen und regulärer PR-/Main-Release bleiben verpflichtend.
+
+Lokale Nachprüfung260: alle20 Bestandseditorfälle in Chromium/WebKit erneut bestanden, Produktionsbuild erfolgreich, Scoped ESLint für editableThumbnail ohne Fehler oder Warnungen. Ein dauerhafter Browsercache-Regressionstest wird nicht durch einen Fetch-Options-Stringtest ersetzt; die relevante Cachebedingung wurde im echten Browser reproduziert. Die abschließende Live-Abnahme muss mit normal aktivem Cache erfolgen.
