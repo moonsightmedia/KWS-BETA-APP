@@ -12,7 +12,7 @@ import { SessionRecoveryDialog } from '@/components/SessionRecoveryDialog';
 import { Capacitor } from '@capacitor/core';
 import { emailRedirectUrl } from '@/lib/emailAuth';
 import { accountBirthDateError } from '@/lib/accountEligibility';
-import { trackAuthenticationFailure, trackMonitoring } from '@/utils/monitoring';
+import { reportSessionLoss, trackAuthenticationFailure, trackMonitoring } from '@/utils/monitoring';
 
 const emailRedirect = (path: string) => emailRedirectUrl(path, Capacitor.isNativePlatform(), window.location.origin, backendConfig.authSiteUrl);
 
@@ -46,6 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!next && lastSession.current && !intentionalSignOut.current) {
       // Keep the mounted workspace only as a locked draft, never as authority.
       // Supabase has removed the real session; protected requests fail closed.
+      reportSessionLoss();
       setReauthRequired(true);
       return;
     }
@@ -63,7 +64,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const requireSession = () => {
-      if (lastSession.current && !intentionalSignOut.current) setReauthRequired(true);
+      if (lastSession.current && !intentionalSignOut.current) { reportSessionLoss(); setReauthRequired(true); }
     };
     window.addEventListener(SESSION_REQUIRED_EVENT, requireSession);
     return () => window.removeEventListener(SESSION_REQUIRED_EVENT, requireSession);
@@ -804,7 +805,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // This ensures the session is properly invalidated on the server
     let signOutSuccess = false;
     try {
-      const signOutPromise = supabase.auth.signOut();
+      const signOutPromise = supabase.auth.signOut({ scope: 'local' });
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error('Sign out timeout')), 1500); // 1.5s timeout for fast UX
       });
@@ -877,7 +878,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     // If signOut didn't complete in time, try again in background (non-blocking)
     if (!signOutSuccess) {
-      supabase.auth.signOut().catch((error) => {
+      supabase.auth.signOut({ scope: 'local' }).catch((error) => {
         console.warn('[Auth] Background sign out retry failed (non-critical):', error);
       });
     }
@@ -917,6 +918,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const expected = lastSession.current;
     if (!expected?.user.email) throw new Error('Kein Konto verfügbar');
     const { data, error } = await supabase.auth.signInWithPassword({ email: expected.user.email, password });
+    if (error) trackAuthenticationFailure('login_failed', error);
     if (error || !data.session || data.session.user.id !== expected.user.id) throw new Error('Anmeldung fehlgeschlagen');
     acceptSession(data.session);
     // No redirect, reload, mutation retry or cache clear for the same account.

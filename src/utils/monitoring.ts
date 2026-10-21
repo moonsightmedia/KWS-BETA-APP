@@ -5,6 +5,7 @@ import { LivePresenceClient } from '@/lib/livePresenceClient';
 import { MONITORING_CONSENT_KEY, MonitoringClient, monitoringScreen, type MonitoringConsent, type MonitoringEventName, type MonitoringProps } from '@/lib/monitoringClient';
 import { APP_VERSION } from '@/utils/version';
 import { captureSentryException } from '@/utils/sentry';
+import { createMonitoringTransport } from '@/lib/monitoringTransport';
 
 let client: MonitoringClient | null = null;
 let currentUser: { id: string; token: string } | null = null;
@@ -20,6 +21,8 @@ let loadedBoulder: string | null = null;
 let loadedBoulderOwner: symbol | null = null;
 const reported = new WeakMap<object, { id: string; at: number }>();
 const operationFailures = new Map<string, number>();
+let sessionLossReported = false;
+let rejectedPresenceToken: string | null = null;
 
 export function isMonitoringEnabled(): boolean { return !isReviewEnvironment && import.meta.env.VITE_MONITORING_ENABLED === 'true'; }
 
@@ -37,21 +40,7 @@ function getClient(): MonitoringClient | null {
       platform: platform === 'ios' || platform === 'android' ? platform : 'web', version: APP_VERSION,
       release: `kws-beta-app@${APP_VERSION}${import.meta.env.VITE_RELEASE_REVISION ? '+' + import.meta.env.VITE_RELEASE_REVISION.slice(0, 12) : ''}`,
       channel: import.meta.env.VITE_MONITORING_CHANNEL || (import.meta.env.DEV ? 'development' : platform === 'ios' ? 'testflight' : platform === 'android' ? 'apk' : 'production'),
-      transport: async (events, owner) => {
-        const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 8000);
-        try {
-          const key = backendConfig.publicKey;
-          const token = owner && currentUser?.id === owner ? currentUser.token : key;
-          if (!key || !backendConfig.supabaseUrl || (owner && currentUser?.id !== owner)) throw new Error('Monitoring session unavailable');
-          const response = await fetch(`${backendConfig.supabaseUrl}/functions/v1/monitoring-events`, {
-            method: 'POST', signal: controller.signal, headers: { apikey: key, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ events }),
-          });
-          if (!response.ok) throw new Error('Monitoring was not acknowledged');
-          return await response.json();
-        } finally { window.clearTimeout(timeout); }
-      },
+      transport: createMonitoringTransport({ url: backendConfig.supabaseUrl, publicKey: backendConfig.publicKey, identity: () => currentUser }),
     });
   } catch { return null; }
   return client;
@@ -76,9 +65,18 @@ export function setUsageConsent(consent: MonitoringConsent): void {
 }
 
 export function setMonitoringUser(user: { id: string; token: string } | null): void {
+  if (user?.token !== currentUser?.token || user?.id !== currentUser?.id) { sessionLossReported = false; rejectedPresenceToken = null; }
   currentUser = user;
   getClient()?.setOwner(user?.id ?? null);
   updatePresence();
+}
+
+export function reportSessionLoss(): void {
+  if (sessionLossReported) return;
+  sessionLossReported = true;
+  const failure = new Error('Die Sitzung ist abgelaufen. Erneute Anmeldung erforderlich.');
+  failure.name = 'AuthenticationSessionLost';
+  reportMonitoringError(failure, 'authentication');
 }
 
 export function trackMonitoring(name: MonitoringEventName, props: MonitoringProps = {}, boulderId: string | null = null): string | null {
@@ -130,7 +128,7 @@ export function trackAuthenticationFailure(kind: 'login_failed' | 'signup_failed
   const status = typeof details.status === 'number' ? details.status : 0;
   const code = typeof details.code === 'string' && /^[a-z_]{1,60}$/i.test(details.code) ? details.code : error instanceof TypeError ? 'network_unavailable' : 'validation_or_unknown';
   trackMonitoring(kind, { error_code: code, status_code: status });
-  if (status >= 500 || code === 'network_unavailable') {
+  if (status >= 500 || code === 'network_unavailable' || ['session_not_found', 'refresh_token_not_found', 'refresh_token_already_used', 'bad_jwt', 'unexpected_failure'].includes(code)) {
     const failure = new Error('Anmeldedienst nicht verfügbar: ' + code);
     failure.name = 'AuthenticationServiceError';
     reportMonitoringError(failure, 'authentication');
@@ -141,6 +139,7 @@ export function reportMonitoringOperationError(operation: 'query' | 'mutation', 
   if (!isMonitoringEnabled()) return;
   const detail = error && typeof error === 'object' ? error as { name?: unknown; message?: unknown; status?: unknown } : {};
   const message = typeof detail.message === 'string' ? detail.message : '';
+  if (detail.name === 'SessionRequiredError') { reportSessionLoss(); return; }
   if (detail.name === 'AbortError' || /aborterror|signal is aborted|cancelled/i.test(message)) return;
   const matchedStatus = message.match(/(?:HTTP|REST fetch failed:)\s*(\d{3})/i);
   const status = typeof detail.status === 'number' ? detail.status : matchedStatus ? Number(matchedStatus[1]) : 0;
@@ -176,11 +175,13 @@ export function startMonitoring(): void {
       const key = backendConfig.publicKey;
       if (!key || !backendConfig.supabaseUrl) return;
       const token = owner && currentUser?.id === owner ? currentUser.token : key;
+      if ((owner && currentUser?.id !== owner) || token === rejectedPresenceToken) return;
       const response = await fetch(`${backendConfig.supabaseUrl}/functions/v1/monitoring-events`, {
         method: 'POST', keepalive: true, signal: AbortSignal.timeout(8000),
         headers: { apikey: key, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ presence: message }),
       });
+      if (response.status === 401) { rejectedPresenceToken = token; return; }
       if (!response.ok) throw new Error('Presence unavailable');
     },
   });

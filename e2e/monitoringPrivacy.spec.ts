@@ -13,6 +13,26 @@ async function collector(page: Page) {
   return events;
 }
 
+test('a broken session reports once without its invalid token or usage consent', async ({ page }) => {
+  const events = await collector(page);
+  const headers: string[] = [];
+  page.on('request', request => { if (request.url().includes('/qa/functions/v1/monitoring-events')) headers.push(request.headers().authorization); });
+  await page.goto('/test/fixtures/monitoringPrivacy.html');
+  const acknowledged = await page.evaluate(async () => {
+    const api = await import('/src/utils/monitoring.ts');
+    api.setMonitoringUser({ id: '00000000-0000-4000-8000-000000000001', token: 'fixture-invalid-session' });
+    api.reportSessionLoss(); api.reportSessionLoss();
+    await api.flushMonitoring();
+    const report = api.reportMonitoringError(new Error('Test without authentication'), 'qa');
+    return report ? api.confirmMonitoringReport(report) : false;
+  });
+  expect(acknowledged).toBe(true);
+  expect(events.filter(event => event.props.code === 'AuthenticationSessionLost')).toHaveLength(1);
+  expect(events.every(event => event.name === 'app_error')).toBe(true);
+  expect(headers.every(header => header === 'Bearer fixture-public')).toBe(true);
+  expect(JSON.stringify(events)).not.toContain('fixture-invalid-session');
+});
+
 test('no usage before consent, sanitized errors remain available and choice survives reload', async ({ page }) => {
   const events = await collector(page);
   await page.goto('/test/fixtures/monitoringPrivacy.html');
