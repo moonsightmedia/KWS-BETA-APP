@@ -42,9 +42,11 @@ test('web uses its same-origin proxy while native targets the actual configured 
 });
 test('stale or disabled upload drafts and volume routes always use the raw original file',()=>{
   const raw=new Blob(['original']),output=new Blob(['processed']);
-  const draft={thumbFile:raw,colorId:'green',volumeOnly:false,thumbnailFocus:{inputFile:raw,inputKey:'green||false',outputFile:output,mode:'focus',selected:['hold'],result:{}}};
+  const draft={thumbFile:raw,colorId:'green',volumeOnly:false,thumbnailFocus:{inputFile:raw,inputKey:'green||false',outputFile:output,mode:'focus',confirmed:true,selected:['hold'],result:{}}};
   assert.equal(focusedThumbnailFile(draft,true),output);
   assert.equal(focusedThumbnailFile(draft,false),raw);
+  assert.equal(focusedThumbnailFile({...draft,thumbnailFocus:{...draft.thumbnailFocus,confirmed:false}},true),raw);
+  assert.equal(focusedThumbnailFile({...draft,thumbnailFocus:{...draft.thumbnailFocus,confirmed:undefined}},true),raw);
   assert.equal(focusedThumbnailFile({...draft,volumeOnly:true,thumbnailFocus:{...draft.thumbnailFocus,inputKey:'green||true'}},true),raw);
   assert.equal(focusedThumbnailFile({...draft,colorId:'blue'},true),raw);
   assert.equal(focusedThumbnailFile({...draft,thumbnailFocus:{...draft.thumbnailFocus,mode:'original'}},true),raw);

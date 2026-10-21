@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SetterBoulderEditorDialog, createEmptySetterBoulderDraft } from '@/components/setter/SetterBoulderEditorDialog';
 import { SetterThumbnailFocus } from '@/components/setter/SetterThumbnailFocus';
-import { thumbnailInputKey, thumbnailUploadFile, type ThumbnailFocus } from '@/lib/thumbnailFocus';
+import { needsThumbnailConfirmation, thumbnailInputKey, thumbnailUploadFile, type ThumbnailFocus } from '@/lib/thumbnailFocus';
 import { fixtureSectors } from './admin-hallmap-hooks';
 import { Button } from '@/components/ui/button';
 import '@/index.css';
@@ -28,11 +28,11 @@ function Fixture(){
  const onFocus=(thumbnailFocus:ThumbnailFocus|undefined)=>patch({thumbnailFocus});
  return <><p className="px-4 py-2 text-xs" data-fixture-notice>Isolierte Setter-Prüfung · gezeichnete Beispieldaten</p>
   {focusOnly ? <main className="mx-auto max-w-xl space-y-4 p-4">
-   <div className="flex flex-wrap gap-2"><Button onClick={()=>patch({volumeOnly:!draft.volumeOnly})}>Volumen wechseln</Button><Button onClick={()=>patch({colorId:draft.colorId==='green'?'pink':'green'})}>Farbe wechseln</Button><Button disabled={pending} onClick={submit}>Test speichern</Button></div>
+   <div className="flex flex-wrap gap-2"><Button onClick={()=>patch({volumeOnly:!draft.volumeOnly})}>Volumen wechseln</Button><Button onClick={()=>patch({colorId:draft.colorId==='green'?'pink':'green'})}>Farbe wechseln</Button><Button disabled={pending||needsThumbnailConfirmation(draft)} onClick={submit}>Test speichern</Button></div>
    {draft.thumbFile&&<SetterThumbnailFocus file={draft.thumbFile} previewUrl={source} inputKey={thumbnailInputKey(draft)} colorNames={[colors.find(c=>c.id===draft.colorId)?.name||'']} volumeOnly={draft.volumeOnly} value={draft.thumbnailFocus} disabled={false} onChange={onFocus} onBusyChange={setPending}/>}
   </main> : <SetterBoulderEditorDialog open={open} onOpenChange={setOpen} title="Boulder hinzufügen" submitLabel="Zum Stapel hinzufügen" draft={draft} onDraftChange={setDraft} colors={colors} sectors={fixtureSectors} attributeCatalog={[]} onSubmit={submit}/>}
   <output data-fixture-result className="block p-4">{saved}</output>
-  <output hidden data-fixture-state>{JSON.stringify({mode:draft.thumbnailFocus?.mode,selected:draft.thumbnailFocus?.selected.length||0,volumeOnly:draft.volumeOnly,pending,original:thumbnailUploadFile(draft)===draft.thumbFile})}</output>
+  <output hidden data-fixture-state>{JSON.stringify({mode:draft.thumbnailFocus?.mode,selected:draft.thumbnailFocus?.selected.length||0,confirmed:draft.thumbnailFocus?.confirmed===true,volumeOnly:draft.volumeOnly,pending,original:thumbnailUploadFile(draft)===draft.thumbFile})}</output>
  </>;
 }
 createRoot(document.getElementById('root')!).render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><Fixture/></QueryClientProvider>);

@@ -2563,3 +2563,9 @@ Auch ohne automatischen Vorschlag bleibt „Kontur nachzeichnen“ lokal verfüg
 Eine angefangene Kontur sperrt die Übernahme bis „Übernehmen“ oder „Abbrechen“.
 „Nur Volumen“ kann keine neue Maske reaktivieren. Rückgängig erreicht auch den
 Originalzustand vor der ersten Auswahl; die Werkzeuge umbrechen auf Mobilgeräten.
+
+### Nutzerkorrektur 21.10.2026 – Bestätigung direkt im Bouldereditor
+
+- Neue Boulder bestätigen ihre Griffvorschau direkt im Dialog „Boulder hinzufügen“, unmittelbar bei der Griffvorschau. „Vorschau bestätigen“ übernimmt die aktuelle Auswahl; „Original behalten“ wählt ausdrücklich die unveränderte Datei. Kein Wechsel zur Bestandsprüfung und kein zusätzliches Freigabe-Popup für das Erstellen.
+- Eine bearbeitete Vorschau muss vor „Zum Stapel hinzufügen“, „Übernehmen“ oder „Speichern“ bestätigt sein. Auch die gemeinsame Dateiauswahl verwendet unbestätigte Masken nicht. Neue Fotos, Farb-/Volumenwechsel und Änderungen an Griffen/Konturen einschließlich Undo verwerfen die zugehörige Bestätigung. Unveränderte andere Formularfelder verwerfen sie nicht.
+- Volumen-Boulder, deaktivierte Funktion und Bilder ohne verwendbaren Vorschlag behalten den bisherigen Originalablauf. Die getrennte Bestandsprüfung bleibt ausschließlich für nachträgliche Bearbeitung vorhandener Bilder; ihre explizite Online-Freigabe ersetzt keine Bestätigung beim Erstellen.

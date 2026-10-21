@@ -1,7 +1,7 @@
 import { getCurrentSession } from '@/lib/authenticatedFetch';
 import { backendConfig } from '@/lib/backendConfig';
 import { Capacitor } from '@capacitor/core';
-import { focusedThumbnailFile, resolveThumbnailServiceBase, thumbnailPhotoDimensions } from './thumbnailPolicy.mjs';
+import { focusedThumbnailFile, resolveThumbnailServiceBase, thumbnailConfirmationRequired, thumbnailPhotoDimensions } from './thumbnailPolicy.mjs';
 /** Off by default. Production web uses the same-origin proxy; installed apps
  * and the isolated demo use their own configured API's authenticated proxy. */
 export const thumbnailServiceBase = () => {
@@ -39,6 +39,7 @@ export interface ThumbnailFocus {
   selected: string[];
   automatic: string[];
   mode: 'focus' | 'original';
+  confirmed?: boolean;
   outputFile: File;
 }
 type FocusDraft = {
@@ -55,6 +56,7 @@ export const thumbnailInputKey = (d: Pick<FocusDraft, 'colorId' | 'colorId2' | '
 export function thumbnailUploadFile(draft: FocusDraft) {
   return focusedThumbnailFile(draft, isThumbnailFocusEnabled()) as File | null;
 }
+export const needsThumbnailConfirmation = (draft: FocusDraft) => thumbnailConfirmationRequired(draft, isThumbnailFocusEnabled());
 const colorMap: Record<string, string> = {grün:'green',gruen:'green',green:'green',gelb:'yellow',yellow:'yellow',weiß:'white',weiss:'white',white:'white',schwarz:'black',black:'black',rot:'red',red:'red',blau:'blue',blue:'blue',orange:'orange',lila:'purple',violett:'purple',purple:'purple'};
 export const detectorColor = (name: string) => colorMap[name.trim().toLocaleLowerCase('de')] || null;
 

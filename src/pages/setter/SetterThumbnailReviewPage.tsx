@@ -187,7 +187,7 @@ export default function SetterThumbnailReviewPage() {
         {editError&&<p role="alert">{editError}</p>}
         {edit&&<>
           {error&&<p role="alert" className="text-sm text-destructive">{error}</p>}
-          {isThumbnailFocusEnabled()?<SetterThumbnailFocus initialView="edit" file={edit.file} previewUrl={edit.url} inputKey={edit.row.cache_key} colorNames={[edit.row.color,...(edit.row.color_2?[edit.row.color_2]:[])]} volumeOnly={edit.row.volume_only} value={edit.value} disabled={busy} onBusyChange={setEditBusy} onChange={changeDraft} />:<p>Die Grifferkennung ist noch nicht eingerichtet.</p>}
+          {isThumbnailFocusEnabled()?<SetterThumbnailFocus initialView="edit" requireConfirmation={false} file={edit.file} previewUrl={edit.url} inputKey={edit.row.cache_key} colorNames={[edit.row.color,...(edit.row.color_2?[edit.row.color_2]:[])]} volumeOnly={edit.row.volume_only} value={edit.value} disabled={busy} onBusyChange={setEditBusy} onChange={changeDraft} />:<p>Die Grifferkennung ist noch nicht eingerichtet.</p>}
           <div className="flex flex-wrap gap-2">
             <Button className="flex-1" disabled={busy||editBusy||!edit.value?.selected.length||edit.value.mode!=='focus'} onClick={()=>void decide(edit.row,'accepted',edit.value)}>Auswahl passt</Button>
             <Button variant="secondary" disabled={busy||editBusy} onClick={()=>void decide(edit.row,'skipped')}>Original behalten</Button>

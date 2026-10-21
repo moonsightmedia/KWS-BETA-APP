@@ -1,7 +1,7 @@
 import {test,expect,type Page} from '@playwright/test';
 const url='/test/fixtures/thumbnail-setter.html?state=hierarchy';
 const output='output/thumbnail-setter';
-async function open(page:Page,focus=false,fail=false){
+async function open(page:Page,focus=false,fail=false,confirm=true){
  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
  await page.route('**/qa-thumbnail/api/analyze',async route=>{
   if(fail){await route.fulfill({status:503,json:{error:'Isolierter Dienstfehler'}});return;}
@@ -16,12 +16,13 @@ async function open(page:Page,focus=false,fail=false){
  await page.goto(url+(focus?'&focus':''));await page.evaluate(()=>document.fonts.ready);
  await expect(page.locator('[data-thumbnail-focus]')).toBeVisible();
  if(!fail)await expect(page.locator('[data-thumbnail-focus]')).toHaveAttribute('data-selected-count','2');
+ if(!fail&&confirm)await page.getByRole('button',{name:'Vorschau bestätigen',exact:true}).click();
 }
 async function state(page:Page){return JSON.parse(await page.locator('[data-fixture-state]').textContent()||'{}');}
 async function point(page:Page,x:number,y:number){const canvas=page.locator('[data-thumbnail-focus] canvas');const rect=(await canvas.boundingBox())!;await canvas.click({position:{x:rect.width*x,y:rect.height*y}});}
 
 for(const width of [375,768,1280,1920])test(`integrated thumbnail editor and portrait map at ${width}`,async({page})=>{
- const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.setViewportSize({width,height:1000});await open(page);
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.setViewportSize({width,height:1000});await open(page,false,false,false);
  const focus=page.locator('[data-thumbnail-focus]');
  expect(await page.getByRole('heading',{name:'Farbe',exact:true}).evaluate(e=>Boolean(e.compareDocumentPosition(document.querySelector('[data-thumbnail-focus]')!)&Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
  await focus.scrollIntoViewIfNeeded();await page.waitForTimeout(300);
@@ -56,7 +57,8 @@ test('unsupported color permits local contour and incomplete contour blocks savi
  await point(page,.05,.10);await point(page,.90,.10);await expect(page.getByRole('button',{name:'Kontur übernehmen'})).toBeDisabled();
  await point(page,.90,.50);await page.getByRole('button',{name:'Punkt zurück'}).click();await expect(page.getByRole('button',{name:'Kontur übernehmen'})).toBeDisabled();
  await point(page,.90,.50);await page.getByRole('button',{name:'Kontur übernehmen'}).click();
- await expect(page.locator('[data-thumbnail-focus]')).toHaveAttribute('data-selected-count','1');expect((await state(page)).original).toBe(false);
+ await expect(page.locator('[data-thumbnail-focus]')).toHaveAttribute('data-selected-count','1');expect((await state(page)).original).toBe(true);
+ await page.getByRole('button',{name:'Vorschau bestätigen',exact:true}).click();expect((await state(page)).original).toBe(false);
  await page.getByRole('button',{name:'Rückgängig',exact:true}).click();expect((await state(page)).original).toBe(true);
 });
 
@@ -86,4 +88,39 @@ test('real editor blocks an unfinished contour and comparison does not choose or
  await page.getByRole('button',{name:'Zeichnen abbrechen'}).click();
  await expect(page.getByRole('button',{name:'Zum Stapel hinzufügen',exact:true})).toBeEnabled();
  await page.getByRole('button',{name:'Zum Stapel hinzufügen',exact:true}).click();await expect(page.locator('[data-fixture-result]')).toHaveText('Fokus gespeichert: 2');
+});
+
+test('creation dialog requires inline confirmation and invalidates it after a correction',async({page})=>{
+ await open(page,false,false,false);
+ const submit=page.getByRole('button',{name:'Zum Stapel hinzufügen',exact:true});
+ await expect(submit).toBeDisabled();expect((await state(page)).original).toBe(true);
+ await page.getByRole('button',{name:'Vorschau bestätigen',exact:true}).click();
+ await expect(submit).toBeEnabled();expect((await state(page)).original).toBe(false);
+ await expect(page.getByRole('button',{name:'Vorschau bestätigt',exact:true})).toBeDisabled();
+ await page.getByRole('button',{name:'Griffe antippen',exact:true}).click();await point(page,.22,.21);
+ await expect(submit).toBeDisabled();expect((await state(page)).original).toBe(true);
+ await page.getByRole('button',{name:'Vorschau bestätigen',exact:true}).click();await submit.click();
+ await expect(page.locator('[data-fixture-result]')).toHaveText('Fokus gespeichert: 1');
+ await expect(page.getByRole('alertdialog')).toHaveCount(0);
+});
+
+test('creation dialog can explicitly keep the original without a separate review page',async({page})=>{
+ await open(page,false,false,false);const submit=page.getByRole('button',{name:'Zum Stapel hinzufügen',exact:true});
+ await expect(submit).toBeDisabled();await page.getByRole('button',{name:'Original behalten',exact:true}).click();
+ await expect(submit).toBeEnabled();await submit.click();
+ await expect(page.locator('[data-fixture-result]')).toHaveText('Original gespeichert');
+ await expect(page.getByRole('alertdialog')).toHaveCount(0);
+});
+
+test('undo and returning to an earlier route color do not reuse an old confirmation',async({page})=>{
+ await open(page,true);const submit=page.getByRole('button',{name:'Test speichern',exact:true});
+ await page.getByRole('button',{name:'Farbe wechseln',exact:true}).click();
+ await page.getByRole('button',{name:'Farbe wechseln',exact:true}).click();
+ await expect(submit).toBeDisabled();expect((await state(page)).original).toBe(true);
+ await page.getByRole('button',{name:'Vorschau bestätigen',exact:true}).click();
+ await page.getByRole('button',{name:'Griffe antippen',exact:true}).click();await point(page,.22,.21);
+ await page.getByRole('button',{name:'Rückgängig',exact:true}).click();
+ await expect(submit).toBeDisabled();expect((await state(page)).original).toBe(true);
+ await page.getByRole('button',{name:'Vorschau bestätigen',exact:true}).click();await submit.click();
+ await expect(page.locator('[data-fixture-result]')).toHaveText('Fokus gespeichert: 2');
 });

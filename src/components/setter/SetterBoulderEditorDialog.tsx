@@ -1,5 +1,5 @@
 import { SetterThumbnailFocus } from '@/components/setter/SetterThumbnailFocus';
-import { isThumbnailFocusEnabled, thumbnailInputKey, thumbnailUploadFile, type ThumbnailFocus } from '@/lib/thumbnailFocus';
+import { isThumbnailFocusEnabled, needsThumbnailConfirmation, thumbnailInputKey, thumbnailUploadFile, type ThumbnailFocus } from '@/lib/thumbnailFocus';
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Check,
@@ -266,6 +266,7 @@ export function SetterBoulderEditorDialog({
   const waitingForInitialFocus = useRef(false);
   const busy = working || isSubmitting || isDeleting;
   const thumbnail = draft ? thumbnailUploadFile(draft) : null;
+  const thumbnailUnconfirmed = draft ? needsThumbnailConfirmation(draft) : false;
   useEffect(() => {
     if (!open) waitingForInitialFocus.current = false;
     if (!waitingForInitialFocus.current || busy) return;
@@ -331,7 +332,7 @@ export function SetterBoulderEditorDialog({
     }
   };
   const save = async () => {
-    if (busy || focusBusy || loadError || lock.current) return;
+    if (busy || focusBusy || thumbnailUnconfirmed || loadError || lock.current) return;
     setShowErrors(true);
     setError("");
     if (!canSubmitSetterBoulderDraft(draft, dual?.id)) {
@@ -822,7 +823,7 @@ export function SetterBoulderEditorDialog({
             </Button>
             <Button
               className="min-w-0 flex-1"
-              disabled={busy || focusBusy || !!loadError}
+              disabled={busy || focusBusy || thumbnailUnconfirmed || !!loadError}
               onClick={() => void save()}
             >
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -41,9 +41,17 @@ export function resolveThumbnailServiceBase({ enabled, path, native, review = fa
 export function focusedThumbnailFile(draft, enabled) {
   const focus = draft.thumbnailFocus;
   const key = `${draft.colorId}|${draft.colorId2 || ''}|${draft.volumeOnly === true}`;
-  return enabled && !draft.volumeOnly && focus?.mode === 'focus' && focus.result && focus.selected?.length
+  return enabled && !draft.volumeOnly && focus?.mode === 'focus' && focus.confirmed === true && focus.result && focus.selected?.length
     && focus.outputFile instanceof Blob && focus.inputFile === draft.thumbFile && focus.inputKey === key
     ? focus.outputFile : draft.thumbFile;
+}
+
+/** Confirmation belongs to this exact photo/route selection, not the dialog. */
+export function thumbnailConfirmationRequired(draft, enabled) {
+  const focus = draft.thumbnailFocus;
+  const key = `${draft.colorId}|${draft.colorId2 || ''}|${draft.volumeOnly === true}`;
+  return Boolean(enabled && !draft.volumeOnly && focus?.mode === 'focus' && focus.result && focus.selected?.length
+    && focus.inputFile === draft.thumbFile && focus.inputKey === key && focus.confirmed !== true);
 }
 
 /** Pillow's thumbnail sizing minimizes aspect error at the integer edge. */
