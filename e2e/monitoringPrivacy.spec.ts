@@ -33,6 +33,24 @@ test('a broken session reports once without its invalid token or usage consent',
   expect(JSON.stringify(events)).not.toContain('fixture-invalid-session');
 });
 
+test('SDK network and invalid-session login failures reach diagnostics without passwords', async ({ page }) => {
+  const events = await collector(page);
+  await page.goto('/test/fixtures/monitoringPrivacy.html');
+  await page.evaluate(async () => {
+    const api = await import('/src/utils/monitoring.ts');
+    api.trackAuthenticationFailure('login_failed', { status: 400, code: 'invalid_credentials', message: 'password=must-not-appear' });
+    api.trackAuthenticationFailure('login_failed', { status: 0, name: 'AuthRetryableFetchError', message: 'private-request-body' });
+    await api.flushMonitoring();
+    api.trackAuthenticationFailure('login_failed', { status: 403, code: 'session_not_found' });
+    await api.flushMonitoring();
+  });
+  expect(events).toHaveLength(2);
+  expect(events.every(event => event.name === 'app_error' && event.props.code === 'AuthenticationServiceError')).toBe(true);
+  expect(JSON.stringify(events)).toContain('network_unavailable');
+  expect(JSON.stringify(events)).toContain('session_not_found');
+  expect(JSON.stringify(events)).not.toMatch(/invalid_credentials|must-not-appear|private-request-body/);
+});
+
 test('no usage before consent, sanitized errors remain available and choice survives reload', async ({ page }) => {
   const events = await collector(page);
   await page.goto('/test/fixtures/monitoringPrivacy.html');

@@ -124,9 +124,9 @@ export function reportMonitoringError(error: unknown, component = 'app', severit
 export function flushMonitoring(): Promise<boolean> { return getClient()?.flush(true) ?? Promise.resolve(false); }
 
 export function trackAuthenticationFailure(kind: 'login_failed' | 'signup_failed', error: unknown): void {
-  const details = error && typeof error === 'object' ? error as { status?: unknown; code?: unknown } : {};
+  const details = error && typeof error === 'object' ? error as { status?: unknown; code?: unknown; name?: unknown } : {};
   const status = typeof details.status === 'number' ? details.status : 0;
-  const code = typeof details.code === 'string' && /^[a-z_]{1,60}$/i.test(details.code) ? details.code : error instanceof TypeError ? 'network_unavailable' : 'validation_or_unknown';
+  const code = typeof details.code === 'string' && /^[a-z_]{1,60}$/i.test(details.code) ? details.code : error instanceof TypeError || details.name === 'AuthRetryableFetchError' ? 'network_unavailable' : 'validation_or_unknown';
   trackMonitoring(kind, { error_code: code, status_code: status });
   if (status >= 500 || code === 'network_unavailable' || ['session_not_found', 'refresh_token_not_found', 'refresh_token_already_used', 'bad_jwt', 'unexpected_failure'].includes(code)) {
     const failure = new Error('Anmeldedienst nicht verfügbar: ' + code);
