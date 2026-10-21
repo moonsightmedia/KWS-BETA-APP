@@ -51,6 +51,26 @@ test('SDK network and invalid-session login failures reach diagnostics without p
   expect(JSON.stringify(events)).not.toMatch(/invalid_credentials|must-not-appear|private-request-body/);
 });
 
+test('a rejected presence session creates one acknowledged diagnostic and stops polling that credential', async ({ page }) => {
+  const events = await collector(page); let rejectedPresence = 0;
+  await page.route('**/qa/functions/v1/monitoring-events', async route => {
+    if (route.request().headers().authorization === 'Bearer invalid-presence-session') {
+      if (route.request().postDataJSON().presence) rejectedPresence++;
+      await route.fulfill({ status: 401, json: { error: 'INVALID_SESSION' } });
+    } else await route.fallback();
+  });
+  await page.goto('/test/fixtures/monitoringPrivacy.html');
+  await page.evaluate(async () => {
+    const api = await import('/src/utils/monitoring.ts');
+    api.setMonitoringUser({ id: '00000000-0000-4000-8000-000000000001', token: 'invalid-presence-session' });
+    api.setUsageConsent('granted');
+  });
+  await expect.poll(() => events.filter(event => event.props.code === 'AuthenticationSessionLost').length, { timeout: 20000 }).toBe(1);
+  await page.evaluate(() => { window.dispatchEvent(new Event('pageshow')); window.dispatchEvent(new Event('pageshow')); });
+  expect(rejectedPresence).toBe(1);
+  expect(events.filter(event => event.props.code === 'AuthenticationSessionLost')).toHaveLength(1);
+});
+
 test('no usage before consent, sanitized errors remain available and choice survives reload', async ({ page }) => {
   const events = await collector(page);
   await page.goto('/test/fixtures/monitoringPrivacy.html');

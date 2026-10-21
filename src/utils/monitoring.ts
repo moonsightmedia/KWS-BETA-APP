@@ -181,7 +181,11 @@ export function startMonitoring(): void {
         headers: { apikey: key, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ presence: message }),
       });
-      if (response.status === 401) { rejectedPresenceToken = token; return; }
+      if (response.status === 401) {
+        rejectedPresenceToken = token;
+        if (owner && currentUser?.token === token) reportSessionLoss();
+        return;
+      }
       if (!response.ok) throw new Error('Presence unavailable');
     },
   });
