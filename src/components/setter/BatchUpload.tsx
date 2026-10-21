@@ -1,4 +1,5 @@
 import { isThumbnailFocusEnabled, thumbnailUploadFile } from '@/lib/thumbnailFocus';
+import { saveBoulderThumbnail } from '@/lib/editableThumbnail';
 import { backendConfig } from '@/lib/backendConfig';
 import { authenticatedFetch } from '@/lib/authenticatedFetch';
 import { useEffect, useMemo, useState } from "react";
@@ -289,13 +290,14 @@ export function BatchUpload() {
           ...current,
           [boulder.id]: "Vorschaubild wird übertragen …",
         }));
-        const thumbSessionId = await startUpload(
-          created.id,
-          thumbnailUploadFile(boulder)!,
-          "thumbnail",
-          boulder.sectorId,
-        );
-        await waitForUploadSessions([thumbSessionId]);
+        if (thumbnailUploadFile(boulder) !== boulder.thumbFile) {
+          await saveBoulderThumbnail({ ...boulder, id: created.id, existingThumbnailUrl: null }, colorName, colorName2);
+        } else {
+          // An unchanged photo is already its own editing source. Retain the
+          // normal upload queue for the original-only / disabled-feature flow.
+          const thumbSessionId = await startUpload(created.id, boulder.thumbFile!, 'thumbnail', boulder.sectorId);
+          await waitForUploadSessions([thumbSessionId]);
+        }
         if (boulder.videoFile) {
           setPhases((current) => ({
             ...current,

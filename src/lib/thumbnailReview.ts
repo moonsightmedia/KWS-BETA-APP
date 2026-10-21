@@ -5,11 +5,13 @@ import { authenticatedFetch, createAuthenticatedUploadFetch, getCurrentSession }
 import { getVideoApiBase } from '@/utils/nativeVideoUpload';
 import { resumableUpload } from '@/utils/resumableUpload';
 import { detectorColor, readPhoto, requestHolds, renderThumbnail, type HoldCandidate, type HoldResult, type ThumbnailFocus } from './thumbnailFocus';
+import { commitThumbnailSource, photoHash } from './editableThumbnail';
 
 export interface ReviewPhoto {
   id: string; name: string; color: string; color_2: string | null; sector_id: string;
   thumbnail_url: string; status: string; cache_key: string; photo?: string; result?: string;
   volume_only?: boolean;
+  editor_original_url?: string;
   protection?: 'published' | 'volume' | 'unknown-volume' | 'status' | null;
   analysis_state?: string; note?: string; selected_count?: number;
   reference?: { image:{sha256:string;width:number;height:number}; algorithm:string; selected:string[]; automatic:string[]; candidates:HoldCandidate[] };
@@ -26,7 +28,8 @@ const localData = localReviewCatalog;
  * synthesized user approval or a remapping of an older backend's decisions. */
 export function protectReviewCatalog(rows: ReviewPhoto[], receipts: ReviewDecision[] = []): ReviewPhoto[] {
   return rows.map(row => {
-    const protection = thumbnailReviewProtection(row, backendConfig.supabaseUrl, receipts, !localData) as ReviewPhoto['protection'];
+    const protection = row.editor_original_url && row.editor_original_url !== row.thumbnail_url ? 'published'
+      : thumbnailReviewProtection(row, backendConfig.supabaseUrl, receipts, !localData) as ReviewPhoto['protection'];
     return {...row, protection, ...(protection ? {analysis_state: protection === 'published' ? 'published' : 'preserved'} : {})};
   });
 }
@@ -80,6 +83,22 @@ export async function reviewCatalog(signal: AbortSignal): Promise<ReviewPhoto[]>
     offset += page.length;
   }
   if (new Set(rows.map(row => row.id)).size !== rows.length) throw new Error('Bestand hat sich geändert. Bitte neu laden.');
+  // Variants created in the Boulder editor also stay out of the bulk review.
+  // This is server metadata, independent of URL naming or this device's IDB.
+  const sources = new Map<string, {thumbnail_url: string; original_url: string}>();
+  for (let offset = 0; ; ) {
+    const query = new URLSearchParams({select:'boulder_id,thumbnail_url,original_url',order:'boulder_id.asc',limit:'100',offset:String(offset)});
+    const response = await authenticatedFetch(`${backendConfig.supabaseUrl}/rest/v1/boulder_thumbnail_sources?${query}`, {signal,headers:{apikey:backendConfig.publicKey,Authorization:`Bearer ${session?.access_token || backendConfig.publicKey}`}});
+    if (!response.ok) throw new Error('Bereits bearbeitete Vorschaubilder konnten nicht geprüft werden. Bitte erneut laden.');
+    const page = await response.json();
+    for (const source of page) sources.set(source.boulder_id, source);
+    if (page.length < 100) break;
+    offset += page.length;
+  }
+  for (const row of rows) {
+    const source = sources.get(row.id);
+    if (source?.thumbnail_url === row.thumbnail_url) row.editor_original_url = source.original_url;
+  }
   return protectReviewCatalog(rows);
 }
 export async function loadReviewPhoto(row: ReviewPhoto, signal: AbortSignal): Promise<{file: File; result?: HoldResult}> {
@@ -146,6 +165,16 @@ export async function publishReview(decision: ReviewDecision): Promise<ReviewDec
     read:readReviews,save:saveReview,getSession:getCurrentSession,
     backend:backendConfig.supabaseUrl,publicKey:backendConfig.publicKey,
     transportFor:createAuthenticatedUploadFetch,uuid:()=>crypto.randomUUID(),
+    recordSource: async (pending: ReviewDecision, transport: typeof fetch) => {
+      const focus = pending.focus;
+      if (!focus?.result || !pending.publishedUrl) throw new Error('Der Originalbeleg fehlt. Bitte die Prüfung erneut öffnen.');
+      const hash = await photoHash(focus.inputFile);
+      if (hash !== focus.result.image_hash) throw new Error('Das Originalfoto passt nicht zur Auswahl.');
+      const {image: pixels, ...geometry} = focus.result; void pixels;
+      await commitThumbnailSource({p_boulder_id:pending.boulderId,p_expected_url:pending.publishedUrl,p_thumbnail_url:pending.publishedUrl,
+          p_original_url:pending.sourceUrl,p_original_sha256:hash,p_selection:{...geometry,selected:focus.selected,automatic:focus.automatic},
+          p_color:pending.color,p_color_2:pending.color2,p_volume_only:false}, transport);
+    },
     upload:async (focus:ThumbnailFocus,uploadId:string,transport:typeof fetch)=>{
       const file=await renderThumbnail(focus);
       const named=new File([file],`thumbnail-focus-${uploadId}.png`,{type:'image/png'});

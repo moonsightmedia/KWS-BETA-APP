@@ -14,6 +14,19 @@ const jwt=(id,version)=>`fixture.${Buffer.from(JSON.stringify({sub:id,version}))
 const session=(version=1,id=owner)=>({user:{id},access_token:jwt(id,version),expires_at:Date.now()/1000+3600});
 const expired=()=>Response.json({message:'JWT expired'},{status:401});
 
+test('editable-thumbnail read and RPC stay on the configured backend and bound account; extra filters are rejected', async () => {
+  let current=session(); const calls=[];
+  const recovery=createSessionRecovery({url:backend,publicKey:'fixture',uploadUrls:[media],auth:{getSession:async()=>({data:{session:current},error:null})},fetch:async(url,init)=>{calls.push({url,init});return Response.json(true);}});
+  const transport=recovery.createUploadFetch(owner);
+  const query=new URLSearchParams({boulder_id:`eq.${boulder}`,thumbnail_url:`eq.https://video.kletterwelt-sauerland.de/videos/original.png`,select:'original_url,original_sha256,selection,color,color_2'});
+  const source=`${backend}/rest/v1/boulder_thumbnail_sources?${query}`;
+  await transport(source); await transport(backend+'/rest/v1/rpc/save_boulder_thumbnail',{method:'POST',body:'{}'});
+  assert.equal(calls.length,2); assert.equal(new Headers(calls[1].init.headers).get('Authorization'),`Bearer ${current.access_token}`);
+  for(const url of [source+'&limit=1',source+'&boulder_id=eq.other',source.replace(backend,'https://foreign.example.invalid'),source.replace(`eq.${boulder}`,'not-a-uuid'),`${backend}/rest/v1/boulder_thumbnail_sources?select=*`]) await assert.rejects(transport(url),/nicht freigegeben/);
+  current=session(1,'other-account'); await assert.rejects(transport(backend+'/rest/v1/rpc/save_boulder_thumbnail',{method:'POST',body:'{}'}));
+  assert.equal(calls.length,2);
+});
+
 function setup({expireRole=false,switchAt='',role='setter'}={}){
  const state={current:session(),calls:[],refreshes:0,uploads:0,patches:0,stored:null,online:media+'/original.jpg',expired:false};
  const recovery=createSessionRecovery({url:backend,publicKey:'public-fixture',uploadUrls:[media],

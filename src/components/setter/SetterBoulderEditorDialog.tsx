@@ -1,5 +1,6 @@
 import { SetterThumbnailFocus } from '@/components/setter/SetterThumbnailFocus';
 import { isThumbnailFocusEnabled, needsThumbnailConfirmation, thumbnailInputKey, thumbnailUploadFile, type ThumbnailFocus } from '@/lib/thumbnailFocus';
+import { loadExistingThumbnail, restoreThumbnailFocus, type ExistingThumbnailSource } from '@/lib/editableThumbnail';
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Check,
@@ -53,6 +54,7 @@ export interface SetterBoulderDraft {
   createdBoulderId?: string;
   thumbFile: File | null;
   thumbnailFocus?: ThumbnailFocus;
+  thumbnailSource?: ExistingThumbnailSource;
   existingThumbnailUrl?: string | null;
   existingVideoUrl?: string | null;
   existingVideoStatus?: string;
@@ -261,6 +263,13 @@ export function SetterBoulderEditorDialog({
   const [mapOpen, setMapOpen] = useState(false);
   const [extraOpen, setExtraOpen] = useState(false);
   const [thumbPreview, setThumbPreview] = useState<string | null>(null);
+  const [loadingThumbnail, setLoadingThumbnail] = useState(false);
+  const [thumbnailError, setThumbnailError] = useState('');
+  const [editingThumbnail, setEditingThumbnail] = useState(false);
+  const thumbnailLoad = useRef<AbortController | null>(null);
+  const latest = useRef({ draft, open, onDraftChange });
+  latest.current = { draft, open, onDraftChange };
+  const thumbnailEditorRef = useRef<HTMLDivElement>(null);
   const lock = useRef(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const waitingForInitialFocus = useRef(false);
@@ -285,7 +294,18 @@ export function SetterBoulderEditorDialog({
     setSectorSearch("");
     setMapOpen(false);
     setExtraOpen(false);
+    thumbnailLoad.current?.abort();
+    thumbnailLoad.current = null;
+    setLoadingThumbnail(false);
+    setThumbnailError('');
+    setEditingThumbnail(false);
+    return () => thumbnailLoad.current?.abort();
   }, [open, draft?.id]);
+  useEffect(() => {
+    if (!editingThumbnail || !draft?.thumbFile) return;
+    thumbnailEditorRef.current?.scrollIntoView({ block: 'start', behavior: 'instant' });
+    thumbnailEditorRef.current?.querySelector<HTMLCanvasElement>('canvas')?.focus({ preventScroll: true });
+  }, [editingThumbnail, draft?.thumbFile]);
   useEffect(() => {
     const url = thumbnail
       ? URL.createObjectURL(thumbnail)
@@ -307,8 +327,36 @@ export function SetterBoulderEditorDialog({
   };
   const close = () => {
     if (busy || lock.current) return;
+    thumbnailLoad.current?.abort();
     if (dirty) setDiscard(true);
     else onOpenChange(false);
+  };
+  const editThumbnail = async () => {
+    if (busy || loadError || loadingThumbnail || draft.thumbFile || !draft.existingThumbnailUrl) return;
+    const controller = new AbortController();
+    thumbnailLoad.current?.abort(); thumbnailLoad.current = controller;
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    setLoadingThumbnail(true); setThumbnailError('');
+    try {
+      const color = colors.find(c => c.id === draft.colorId)?.name || '';
+      const color2 = dualSelected ? colors.find(c => c.id === draft.colorId2)?.name || null : null;
+      const { file, source } = await loadExistingThumbnail(draft.id, draft.existingThumbnailUrl, color, color2, controller.signal);
+      const focus = draft.volumeOnly ? undefined : await restoreThumbnailFocus(file, source, thumbnailInputKey(draft));
+      controller.signal.throwIfAborted();
+      const current = latest.current;
+      if (!current.open || !current.draft || current.draft.id !== draft.id || current.draft.thumbFile || current.draft.existingThumbnailUrl !== draft.existingThumbnailUrl) return;
+      // Retain fields edited while the photo was loading; stale color geometry
+      // is rejected by the existing input-key contract in SetterThumbnailFocus.
+      current.onDraftChange({ ...current.draft, thumbFile: file, thumbnailSource: source, thumbnailFocus: focus });
+      setEditingThumbnail(true);
+    } catch (reason) {
+      if (thumbnailLoad.current === controller && latest.current.open && latest.current.draft?.id === draft.id) {
+        setThumbnailError(reason instanceof Error && reason.name !== 'AbortError' ? reason.message : 'Das Foto konnte nicht rechtzeitig geladen werden. Bitte erneut versuchen.');
+      }
+    } finally {
+      clearTimeout(timeout);
+      if (thumbnailLoad.current === controller) setLoadingThumbnail(false);
+    }
   };
   const pickNative = async () => {
     if (lock.current) return;
@@ -332,7 +380,7 @@ export function SetterBoulderEditorDialog({
     }
   };
   const save = async () => {
-    if (busy || focusBusy || thumbnailUnconfirmed || loadError || lock.current) return;
+    if (busy || loadingThumbnail || focusBusy || thumbnailUnconfirmed || (editingThumbnail && !draft.volumeOnly && !draft.thumbnailFocus?.confirmed) || loadError || lock.current) return;
     setShowErrors(true);
     setError("");
     if (!canSubmitSetterBoulderDraft(draft, dual?.id)) {
@@ -534,6 +582,7 @@ export function SetterBoulderEditorDialog({
                     }
                     disabled={busy}
                   />
+                  <div className="min-w-0 space-y-2">
                   <EditorMediaDrop
                     label="Vorschaubild"
                     accept="image/*"
@@ -541,9 +590,20 @@ export function SetterBoulderEditorDialog({
                     previewUrl={thumbPreview}
                     fileName={draft.thumbFile?.name}
                     existing={!!draft.existingThumbnailUrl}
-                    onChange={(file) => update({ thumbFile: file, thumbnailFocus: undefined })}
+                    onChange={(file) => {
+                      thumbnailLoad.current?.abort(); thumbnailLoad.current = null; setLoadingThumbnail(false); setEditingThumbnail(false); setThumbnailError('');
+                      update({ thumbFile: file, thumbnailFocus: undefined, thumbnailSource: undefined });
+                    }}
                     disabled={busy}
                   />
+                  {isThumbnailFocusEnabled() && draft.existingThumbnailUrl && !draft.thumbFile && (
+                    <Button type="button" variant="secondary" className="w-full min-h-11 whitespace-normal" disabled={busy || !!loadError || loadingThumbnail} onClick={() => void editThumbnail()}>
+                      {loadingThumbnail ? <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" /> : <ImageIcon className="mr-2 h-4 w-4 shrink-0" />}
+                      {loadingThumbnail ? 'Originalfoto wird geladen …' : 'Vorschaubild bearbeiten'}
+                    </Button>
+                  )}
+                  {thumbnailError && <p role="alert" className="text-sm text-destructive">{thumbnailError}</p>}
+                  </div>
                 </div>
                 {!draft.videoFile && !draft.existingVideoUrl && (
                   <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-kws-control bg-secondary px-3 py-2">
@@ -665,6 +725,13 @@ export function SetterBoulderEditorDialog({
                 )}
               </section>
               {isThumbnailFocusEnabled() && draft.thumbFile && (
+                <div ref={thumbnailEditorRef} className="space-y-2" id="setter-thumbnail-editor">
+                {editingThumbnail && <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">Originalfoto · Änderungen werden mit dem Boulder gespeichert.</p>
+                  <Button type="button" variant="ghost" disabled={busy || focusBusy} onClick={() => {
+                    update({ thumbFile: null, thumbnailFocus: undefined, thumbnailSource: undefined }); setEditingThumbnail(false);
+                  }}>Bildänderung verwerfen</Button>
+                </div>}
                 <SetterThumbnailFocus
                   file={draft.thumbFile}
                   previewUrl={thumbPreview}
@@ -674,11 +741,13 @@ export function SetterBoulderEditorDialog({
                     ...(dualSelected && draft.colorId2 ? [colors.find(c => c.id === draft.colorId2)?.name || ''] : []),
                   ]}
                   volumeOnly={draft.volumeOnly}
+                  initialView={editingThumbnail ? 'edit' : 'preview'}
                   value={draft.thumbnailFocus}
                   disabled={busy}
                   onChange={(thumbnailFocus) => update({ thumbnailFocus })}
                   onBusyChange={setFocusBusy}
                 />
+                </div>
               )}
               <section className="space-y-2">
                 <h3 className="text-sm font-medium">Schwierigkeit</h3>
@@ -823,7 +892,7 @@ export function SetterBoulderEditorDialog({
             </Button>
             <Button
               className="min-w-0 flex-1"
-              disabled={busy || focusBusy || thumbnailUnconfirmed || !!loadError}
+              disabled={busy || loadingThumbnail || focusBusy || thumbnailUnconfirmed || (editingThumbnail && !draft.volumeOnly && !draft.thumbnailFocus?.confirmed) || !!loadError}
               onClick={() => void save()}
             >
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

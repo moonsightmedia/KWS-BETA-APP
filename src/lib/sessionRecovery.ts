@@ -175,13 +175,17 @@ export function createSessionRecovery<S extends RecoverySession>(options: {
     const isReviewRead = method === 'GET' && !init?.body && !target.username && !target.password && !target.hash && (
       (target.pathname === '/rest/v1/user_roles' && exactQuery({select: 'role', user_id: `eq.${ownerId}`, role: 'in.(setter,admin)', limit: '1'})) ||
       (target.pathname === '/rest/v1/boulders' && /^eq\.[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(boulderId)
-        && exactQuery({id: boulderId, select: 'id,thumbnail_url,color,color_2,status,volume_only'}))
+        && exactQuery({id: boulderId, select: 'id,thumbnail_url,color,color_2,status,volume_only'})) ||
+      (target.pathname === '/rest/v1/boulder_thumbnail_sources'
+        && /^eq\.[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(target.searchParams.get('boulder_id') ?? '')
+        && Boolean(target.searchParams.get('thumbnail_url')?.startsWith('eq.https://'))
+        && exactQuery({boulder_id: target.searchParams.get('boulder_id')!, thumbnail_url: target.searchParams.get('thumbnail_url')!, select: 'original_url,original_sha256,selection,color,color_2'}))
     );
     const isRestUpload = target.origin === restOrigin && (
       isReviewRead ||
       (target.pathname === '/rest/v1/upload_logs' && ['GET', 'POST', 'PATCH'].includes(method)) ||
       (target.pathname === '/rest/v1/boulders' && method === 'PATCH' && /^eq\..+/.test(target.searchParams.get('id') ?? '')) ||
-      (['/rest/v1/rpc/begin_boulder_video_upload', '/rest/v1/rpc/fail_boulder_video_upload'].includes(target.pathname) && method === 'POST')
+      (['/rest/v1/rpc/begin_boulder_video_upload', '/rest/v1/rpc/fail_boulder_video_upload', '/rest/v1/rpc/save_boulder_thumbnail'].includes(target.pathname) && method === 'POST')
     );
     const isMediaUpload = (options.uploadUrls ?? []).some(base => {
       const url = new URL(base);

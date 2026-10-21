@@ -1,7 +1,7 @@
 import { isPublishedThumbnailVariant } from './thumbnailPolicy.mjs';
 
 /** Compare-and-swap publication. All effects are injected for regression tests. */
-export async function publishThumbnailDecision(decision, {read,save,getSession,backend,publicKey,transportFor,upload,uuid}) {
+export async function publishThumbnailDecision(decision, {read,save,getSession,backend,publicKey,transportFor,upload,uuid,recordSource}) {
 
   // Recover a media upload or successful PATCH whose response was lost.
   const durable = (await read()).find(d => d.key === decision.key);
@@ -25,6 +25,7 @@ export async function publishThumbnailDecision(decision, {read,save,getSession,b
   const rows = await current.json();
   if (rows.length !== 1) throw new Error('Boulder nicht mehr verfügbar.');
   if (decision.publishedUrl && rows[0].thumbnail_url === decision.publishedUrl) {
+    await recordSource?.(decision, transport);
     const recovered = {...decision,state:'published'}; await save(recovered); return recovered;
   }
   if (rows[0].volume_only !== false) throw new Error('Für „Nur Volumen“ oder einen unbekannten Volumentyp bleibt das Original erhalten. Bitte Bestand neu laden.');
@@ -49,6 +50,7 @@ export async function publishThumbnailDecision(decision, {read,save,getSession,b
   if (!response.ok) throw new Error('Online-Übernahme fehlgeschlagen. Die lokale Bestätigung bleibt erhalten.');
   const changed = await response.json();
   if (changed.length !== 1 || changed[0].thumbnail_url !== pending.publishedUrl) throw new Error('Online-Konflikt: Es wurde kein Bild ersetzt. Bitte Bestand neu laden.');
+  await recordSource?.(pending, transport);
   const published = {...pending,state:'published'}; await save(published); return published;
 
 }

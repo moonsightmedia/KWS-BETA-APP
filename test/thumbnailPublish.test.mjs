@@ -57,6 +57,12 @@ test('a lost successful PATCH response is recovered without another upload or PA
   const f=fixture();f.lose=true;await assert.rejects(publishThumbnailDecision(f.decision,f.deps),/response lost/);
   const done=await publishThumbnailDecision(f.decision,f.deps);assert.equal(done.state,'published');assert.equal(f.uploads,1);assert.equal(f.writes,1);
 });
+test('editor source persistence failure is retryable after CAS without uploading or publishing again',async()=>{
+  const f=fixture(); let saved=0;
+  f.deps.recordSource=async pending=>{saved++;assert.equal(pending.sourceUrl,'https://media.test/original.jpg');assert.equal(pending.publishedUrl,'https://media.test/new.png');if(saved===1)throw Error('source response lost');};
+  await assert.rejects(publishThumbnailDecision(f.decision,f.deps),/source response lost/);
+  const done=await publishThumbnailDecision(f.decision,f.deps);assert.equal(done.state,'published');assert.equal(saved,2);assert.equal(f.uploads,1);assert.equal(f.writes,1);
+});
 test('a race after upload cannot overwrite an online change',async()=>{
   const f=fixture();f.conflict=true;await assert.rejects(publishThumbnailDecision(f.decision,f.deps),/Konflikt/);assert.equal(f.stored.state,'accepted');assert.equal(f.stored.publishedUrl,'https://media.test/new.png');
 });
