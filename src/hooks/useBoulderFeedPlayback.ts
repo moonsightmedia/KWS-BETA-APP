@@ -23,7 +23,7 @@ export function useBoulderFeedPlayback({ videoRef, boulder, enabled, paused, hol
   const timers = useRef(new Map<string, number>());
   const waiting = useRef(new Set<string>());
   const underruns = useRef(new Map<string, number[]>());
-  const pendingPlays = useRef(new WeakMap<HTMLVideoElement, symbol>());
+  const pendingPlays = useRef(new WeakMap<HTMLVideoElement, { source: string | null; token: symbol }>());
   const bufferHint = useRef<{ show?: number; hide?: number; since: number; waiting: boolean }>({ since: 0, waiting: false });
   const attempts = useRef(new Map<string, { id: string; time: number; started: boolean; failed: boolean; complete: boolean }>());
   const current = useRef({ boulder, enabled, paused, holdRate, suspended, qualities });
@@ -111,19 +111,19 @@ export function useBoulderFeedPlayback({ videoRef, boulder, enabled, paused, hol
     if (!node || !canPlay(id)) { node?.pause(); return; }
     request(id);
     const started = attempts.current.get(id)?.started ?? false;
-    if (started ? !hasBuffer(node) : node.readyState < 3) { waitForBuffer(id); return; }
+    if (started && !hasBuffer(node)) { waitForBuffer(id); return; }
     if (!node.paused) return;
     // Keep the watchdog until `playing`, including an unresolved play promise.
     waitForBuffer(id, false);
-    if (pendingPlays.current.has(node)) return;
     const requestedSource = node.getAttribute('src');
-    const pending = Symbol(); pendingPlays.current.set(node, pending);
+    if (pendingPlays.current.get(node)?.source === requestedSource) return;
+    const pending = Symbol(); pendingPlays.current.set(node, { source: requestedSource, token: pending });
     void node.play().catch(failure => {
-      if (pendingPlays.current.get(node) !== pending || !canPlay(id) || node.getAttribute('src') !== requestedSource || failure?.name === 'AbortError') return;
+      if (pendingPlays.current.get(node)?.token !== pending || !canPlay(id) || node.getAttribute('src') !== requestedSource || failure?.name === 'AbortError') return;
       if (failure?.name === 'NotAllowedError') {
         clearTimer(id); waiting.current.delete(id); setBlocked(true); stopBuffering(true);
       } else fallback(id, 'play_rejected');
-    }).finally(() => { if (pendingPlays.current.get(node) === pending) pendingPlays.current.delete(node); });
+    }).finally(() => { if (pendingPlays.current.get(node)?.token === pending) pendingPlays.current.delete(node); });
   };
   const register = (id: string) => {
     let callback = callbacks.current.get(id);
@@ -166,7 +166,7 @@ export function useBoulderFeedPlayback({ videoRef, boulder, enabled, paused, hol
       },
       onCanPlay: () => play(id),
       onProgress: () => { if (waiting.current.has(id)) play(id); },
-      onLoadStart: (event: React.SyntheticEvent<HTMLVideoElement>) => { pendingPlays.current.delete(event.currentTarget); if (canPlay(id)) { request(id); waitForBuffer(id); } },
+      onLoadStart: () => { if (canPlay(id)) { request(id); waitForBuffer(id); } },
       onWaiting: (event: React.SyntheticEvent<HTMLVideoElement>) => {
         if (!canPlay(id)) return;
         const node = event.currentTarget;

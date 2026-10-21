@@ -569,6 +569,16 @@ test('initial playback starts with limited preload across feed changes and detai
   expect(errors).toEqual([]);
 });
 
+test('initial play is requested even when paused preload exposes only current data', async ({ page }) => {
+  await backend(page);
+  await page.addInitScript(() => Object.defineProperty(HTMLMediaElement.prototype, 'readyState', { configurable: true, get: () => 2 }));
+  await page.goto('/test/fixtures/boulder-feed.html#/boulders');
+  await page.getByRole('button', { name: 'Videoansicht', exact: true }).click();
+  const video = frame(page).locator('video');
+  await expect(video).toHaveJSProperty('paused', false);
+  await expect.poll(() => video.evaluate(node => node.currentTime)).toBeGreaterThan(.1);
+});
+
 test('an unresolved initial play reaches the error state and explicit retry recovers', async ({ page }) => {
   await backend(page); await enter(page);
   const next = page.locator('.reel-page[data-boulder-id=feed-b] video');
