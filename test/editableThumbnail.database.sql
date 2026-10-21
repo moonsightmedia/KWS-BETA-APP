@@ -22,11 +22,11 @@ BEGIN
   BEGIN
     PERFORM public.save_boulder_thumbnail(test_id,origin,other,origin,digest,NULL,'Grün',null,false);
     RAISE EXCEPTION 'Stale image was overwritten';
-  EXCEPTION WHEN serialization_failure THEN NULL; END;
+  EXCEPTION WHEN SQLSTATE 'PT409' THEN NULL; END;
   BEGIN
     PERFORM public.save_boulder_thumbnail(test_id,variant,other,origin,digest,NULL,'Rot',null,false);
     RAISE EXCEPTION 'Stale color was accepted';
-  EXCEPTION WHEN serialization_failure THEN NULL; END;
+  EXCEPTION WHEN SQLSTATE 'PT409' THEN NULL; END;
   BEGIN
     PERFORM public.save_boulder_thumbnail(test_id,variant,'https://evil.invalid/image.png',origin,digest,NULL,'Grün',null,false);
     RAISE EXCEPTION 'Foreign URL was accepted';

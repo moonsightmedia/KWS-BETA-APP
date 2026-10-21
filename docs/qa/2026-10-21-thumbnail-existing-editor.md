@@ -22,10 +22,10 @@ im Editor bearbeitete Varianten geräteübergreifend vor erneuter Analyse.
 
 - 395 Nodeprüfungen erfolgreich, darunter Archiv-vor-Variante, verlorene
   Speicherantwort, exakte Upload-Ziele und Kontowechsel.
-- Chromium und WebKit: Laden, direkte Auswahl, korrigieren/bestätigen/speichern,
+- 16 Chromium-/WebKit-Fälle: Laden, direkte Auswahl, korrigieren/bestätigen/speichern,
   erneutes Öffnen mit derselben Auswahl, Verwerfen ohne Verlust anderer Felder,
   fehlendes Original, Speicherkonflikt/Wiederholung und Abbruch während Laden.
-  Zusätzlicher Original-behalten-Fall und Abschlussdurchlauf gehören zum Release.
+  Original behalten ohne erneuten Upload ebenfalls in beiden Browsern bestätigt.
 - Zwei tatsächlich gerenderte QA-Loops bei375/768/1280/1920: Einstieg, große
   Griffauswahl, feste Aktionen, bestätigte Auswahl. Screenshots unter
   `output/thumbnail-existing/`, keine Überläufe oder Laufzeitfehler beobachtet.
@@ -63,3 +63,17 @@ Web1.0.258 und interne iPhone-Version werden über den regulären PR-/CI-Ablauf
 veröffentlicht. CI-/Live-/TestFlight-Ergebnisse werden erst nach deren tatsächlichem
 Erfolg im Projektstatus und der gerätebezogenen Übergabe festgehalten.
 Kein Austausch einer öffentlichen Store-Einreichung gehört zu diesem Auftrag.
+
+Der echte HTTP-Test mit normalen Demo-Passwortsitzungen bestätigt Schreiben,
+RLS-Lesen und Wiederaufnahme. Ein veraltetes Bild löste mit SQLSTATE40001 am
+API-Gateway jedoch einen Timeout aus. Die Folgemigration
+`20261021164000_thumbnail_conflict_response.sql` liefert dafür ausdrücklich
+PT409/HTTP409. 40xxx werden laut [PostgREST-Fehlervertrag](https://docs.postgrest.org/en/v13/references/errors.html)
+als Serverfehler übersetzt; PTxyz erlaubt den fachlich passenden HTTP-Status.
+Die Ursache des Gateway-Timeouts wird damit nicht als Datenbank-Deadlock behauptet.
+SQL-Rechte/CAS nach der Folgemigration erneut im Reviewsystem bestanden; alle
+produktiven Boulder bleiben auch bei dieser Funktionsänderung unverändert.
+Der abschließende echte HTTPS-Test mit normalen Demo-Passwortsitzungen besteht
+alle12 Prüfungen: Speichern, Rechte, Quellenlesen, Antwortenverlust, Konflikt in
+5ms sowie vollständige Entfernung der synthetischen Zeile samt Quellen-Cascade.
+Keine produktiven Testboulder und keine Änderungen an Demo-Bestandseinträgen.
