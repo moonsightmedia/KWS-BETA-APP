@@ -18,7 +18,7 @@ jobs:
   verify:
     name: Verify web release
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       VITE_SUPABASE_URL: https://api.fixture.invalid
       VITE_SUPABASE_PUBLISHABLE_KEY: fixture-key-not-a-secret
@@ -47,6 +47,13 @@ jobs:
           python3 ops/hostinger/store-review/test_guards.py
           python3 ops/hostinger/landingpage/test-collect-landing.py
           python3 ops/hostinger/test-supabase-schema-cors.py
+          python3 ops/hostinger/test-upgrade-web-operator.py
+      - name: Thumbnail service security contract tests
+        run: |
+          python3 -m venv "$RUNNER_TEMP/thumbnail-contract"
+          "$RUNNER_TEMP/thumbnail-contract/bin/pip" install --disable-pip-version-check --no-deps Pillow==12.3.0
+          "$RUNNER_TEMP/thumbnail-contract/bin/python" -m unittest discover -s services/thumbnail-focus -p test_security.py -v
+          "$RUNNER_TEMP/thumbnail-contract/bin/python" -m unittest discover -s ops/hostinger/thumbnail-focus -p test_operations.py -v
       - name: Verify generated legal pages are committed
         run: |
           node ops/hostinger/landingpage/build-legal.mjs
@@ -54,7 +61,7 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Browser regression tests
-        run: npx playwright test e2e/header-stability.spec.ts e2e/route-swipe.spec.ts e2e/auth-layout.spec.ts e2e/guest-loading.spec.ts e2e/guest-navigation.spec.ts e2e/training-release-gate.spec.ts e2e/usability.spec.ts e2e/profile-avatar.spec.ts e2e/account-deletion-placement.spec.ts e2e/moderation-placement.spec.ts e2e/home-progress.spec.ts e2e/boulder-continuity.spec.ts e2e/video-fullscreen.spec.ts e2e/boulder-filter-persistence.spec.ts e2e/notification-boulders.spec.ts e2e/setter-quick-actions.spec.ts e2e/designmotion-four.spec.ts e2e/designmotion-five.spec.ts e2e/pull-refresh-feedback.spec.ts --workers=1
+        run: npx playwright test e2e/header-stability.spec.ts e2e/route-swipe.spec.ts e2e/auth-layout.spec.ts e2e/thumbnail-review-auth.spec.ts e2e/guest-loading.spec.ts e2e/guest-navigation.spec.ts e2e/training-release-gate.spec.ts e2e/usability.spec.ts e2e/profile-avatar.spec.ts e2e/account-deletion-placement.spec.ts e2e/moderation-placement.spec.ts e2e/home-progress.spec.ts e2e/boulder-continuity.spec.ts e2e/video-fullscreen.spec.ts e2e/boulder-filter-persistence.spec.ts e2e/notification-boulders.spec.ts e2e/setter-quick-actions.spec.ts e2e/designmotion-four.spec.ts e2e/designmotion-five.spec.ts e2e/pull-refresh-feedback.spec.ts --workers=1
       - name: Mobile player detail integration tests
         run: npx playwright test --config test/mobile-player.playwright.config.ts
       - name: Boulder video feed integration tests
@@ -68,6 +75,11 @@ jobs:
         run: node test/about-feedback.check.cjs
       - name: Desktop and responsive onboarding integration tests
         run: node test/onboarding-desktop.check.cjs
+      - name: Setter thumbnail integration tests
+        run: |
+          npx playwright test --config test/thumbnail-setter.playwright.config.ts --workers=1
+          npx playwright test --config test/thumbnail-setter-disabled.playwright.config.ts --workers=1
+          npx playwright test --config test/thumbnail-policy.playwright.config.ts --workers=1
       - name: Monitoring browser tests
         run: |
           npx playwright test --config test/launchMonitoring.playwright.config.ts
@@ -89,6 +101,9 @@ jobs:
             output/mobile-maps/artifacts
             output/about-feedback-20261020
             output/playwright/onboarding-desktop
+            output/thumbnail-setter/artifacts
+            output/thumbnail-setter-disabled/artifacts
+            output/thumbnail-policy/artifacts
           retention-days: 7
           if-no-files-found: ignore
 

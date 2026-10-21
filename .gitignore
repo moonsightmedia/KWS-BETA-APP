@@ -73,3 +73,11 @@ vite*.err
 *.p12
 *.jks
 *.keystore
+
+# Local thumbnail review data and model weights
+.thumbnail-data/
+services/thumbnail-focus/models/
+services/thumbnail-focus/.venv/
+services/thumbnail-focus/__pycache__/
+/test-results/auth-spacing-20260914/
+/test-results/playwright-artifacts/

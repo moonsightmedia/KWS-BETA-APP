@@ -1,7 +1,7 @@
 import importlib.util
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import tempfile
 import unittest
 
@@ -48,13 +48,15 @@ class UnifiedReleaseTests(unittest.TestCase):
         self.assertEqual((self.stage / 'docker-compose.yml.previous').read_bytes(), b'old compose')
 
     def test_only_reviewed_landing_mount_changes_and_migration_is_idempotent(self):
-        before = 'other: unchanged\n   - ' + str(self.root / 'landing-releases/1234567890abcdef/public/landing') + ':/landing:ro\n'
-        after = release.unified_compose(self.root, before)
-        self.assertEqual(after, 'other: unchanged\n   - ' + str(self.root / 'source/dist/landing') + ':/landing:ro\n')
-        self.assertEqual(release.unified_compose(self.root, after), after)
+        # Compose runs on Linux; exercise its path contract on every test host.
+        linux_root = PurePosixPath('/opt/kws/web-production')
+        before = 'other: unchanged\n   - ' + str(linux_root / 'landing-releases/1234567890abcdef/public/landing') + ':/landing:ro\n'
+        after = release.unified_compose(linux_root, before)
+        self.assertEqual(after, 'other: unchanged\n   - ' + str(linux_root / 'source/dist/landing') + ':/landing:ro\n')
+        self.assertEqual(release.unified_compose(linux_root, after), after)
         with self.assertRaisesRegex(AssertionError, 'Landing mount differs'):
-            release.unified_compose(self.root, ' - /foreign:/landing:ro\n')
-        with self.assertRaises(AssertionError): release.unified_compose(self.root, before + before)
+            release.unified_compose(linux_root, ' - /foreign:/landing:ro\n')
+        with self.assertRaises(AssertionError): release.unified_compose(linux_root, before + before)
 
     def manifest(self):
         source = self.candidate; directory = source / 'dist/landing'
@@ -208,6 +210,48 @@ class PreserveDownloadsTests(unittest.TestCase):
         self.assertTrue(second.is_dir())
         self.assertEqual((first / 'build.log').read_text(), 'first attempt failed')
 
+
+class ThumbnailActivationTests(unittest.TestCase):
+    def setUp(self):
+        self.workspace = tempfile.TemporaryDirectory()
+        self.addCleanup(self.workspace.cleanup)
+        self.root = Path(self.workspace.name)
+        self.gateway = self.root / 'Gateway.Caddyfile'
+        self.gateway.write_bytes(b'reviewed private routes')
+        self.proof = self.root / 'VERIFIED.json'
+        self.proof.write_text(json.dumps({'models_verified': True, 'private_networks_only': True, 'local_only_false': True}))
+        self.proof.chmod(0o600)
+        self.config = self.root / 'ACTIVATION.json'
+        self.activation = {'version': 1, 'enabled': True, 'verified_sha256': hashlib.sha256(self.proof.read_bytes()).hexdigest(), 'gateway_sha256': hashlib.sha256(self.gateway.read_bytes()).hexdigest()}
+    def save(self):
+        self.config.write_text(json.dumps(self.activation))
+        self.config.chmod(0o600)
+    def health(self, url):
+        return {'ok': True, 'local_only': False, 'environment': 'review' if 'review-api' in url else 'production', 'provider': 'CPUExecutionProvider', 'model_revision': 'e4668c026bd3743c6011cc5453dbe32d4d67cadf', 'version': 'sam-number-cards-3.2'}
+    def test_absent_or_disabled_stays_off_without_network(self):
+        self.assertEqual(release.thumbnail_build_values(self.root, self.gateway)['VITE_THUMBNAIL_FOCUS'], 'false')
+        self.activation['enabled'] = False; self.save()
+        self.assertEqual(release.thumbnail_build_values(self.root, self.gateway)['VITE_THUMBNAIL_FOCUS'], 'false')
+    def test_verified_private_production_and_review_enable_feature(self):
+        self.save()
+        values = release.thumbnail_build_values(self.root, self.gateway, self.health)
+        self.assertEqual(values, {'VITE_THUMBNAIL_FOCUS': 'true', 'VITE_THUMBNAIL_API_PATH': '/thumbnail-focus'})
+    def test_changed_receipt_or_gateway_blocks_activation(self):
+        self.save(); original = self.proof.read_bytes()
+        self.proof.write_bytes(original + b' ')
+        with self.assertRaises(AssertionError): release.thumbnail_build_values(self.root, self.gateway, self.health)
+        self.proof.write_bytes(original); self.gateway.write_bytes(b'changed routes')
+        with self.assertRaises(AssertionError): release.thumbnail_build_values(self.root, self.gateway, self.health)
+    def test_wrong_backend_and_local_bypass_block_activation(self):
+        self.save()
+        for mismatch in ({'environment': 'other'}, {'local_only': True}, {'provider': 'GPU'}, {'model_revision': 'other'}, {'version': 'other'}):
+            def bad_health(url): return {**self.health(url), **mismatch}
+            with self.subTest(mismatch=mismatch), self.assertRaises(AssertionError):
+                release.thumbnail_build_values(self.root, self.gateway, bad_health)
+    def test_unverified_runtime_blocks_even_healthy_endpoints(self):
+        self.proof.write_text(json.dumps({'models_verified': False, 'private_networks_only': True, 'local_only_false': True}))
+        self.activation['verified_sha256'] = hashlib.sha256(self.proof.read_bytes()).hexdigest(); self.save()
+        with self.assertRaises(AssertionError): release.thumbnail_build_values(self.root, self.gateway, self.health)
 
 if __name__ == '__main__':
     unittest.main()

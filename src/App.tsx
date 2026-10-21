@@ -1,4 +1,6 @@
 import OnboardingPreview from '@/pages/OnboardingPreview';
+
+import SetterThumbnailReviewPage from './pages/setter/SetterThumbnailReviewPage';
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
@@ -445,12 +447,14 @@ const router = createBrowserRouter([
       { path: 'training/*', element: TRAINING_UI_ENABLED ? <RequireAuth><Training /></RequireAuth> : <NotFound /> },
       { path: 'profile/training', element: TRAINING_UI_ENABLED ? <RequireAuth><TrainingSettings /></RequireAuth> : <NotFound /> },
       { path: "admin", element: <Admin /> },
+      ...(import.meta.env.DEV && import.meta.env.VITE_THUMBNAIL_LOCAL_CATALOG === 'true' ? [{path: "thumbnail-review-local",element: <SetterThumbnailReviewPage />}]:[]),
       {
         path: "setter",
         element: <SetterAreaLayout />,
         children: [
           { index: true, element: <Setter /> },
           { path: "create", element: <SetterCreatePage /> },
+          { path: "thumbnails", element: <SetterThumbnailReviewPage /> },
           { path: "edit", element: <SetterEditPage /> },
           { path: "status", element: <SetterStatusPage /> },
           { path: "schedule", element: <SetterSchedulePage /> },

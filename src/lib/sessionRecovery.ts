@@ -151,7 +151,8 @@ export function createSessionRecovery<S extends RecoverySession>(options: {
     return retried;
   };
   /**
-   * Upload-only transport. Binds the owner, not a token, for the lifetime of a
+   * Upload transport plus two exact review preflight reads. Binds the owner,
+   * not a token, for the lifetime of a
    * job. Only a definite authentication rejection gets ONE replay; network
    * errors, generic 401s, permission denials and server errors are not replayed.
    * Other application mutations keep authenticatedFetch's no-replay policy.
@@ -165,7 +166,19 @@ export function createSessionRecovery<S extends RecoverySession>(options: {
     const target = new URL(String(input), options.url);
     const method = (init?.method ?? 'GET').toUpperCase();
     const restOrigin = new URL(options.url).origin;
+    // Thumbnail publication reads must use this same owner-bound transport.
+    // No general REST/RPC read allowance: reject extras and duplicate filters.
+    const exactQuery = (expected: Record<string, string>) =>
+      Array.from(target.searchParams).length === Object.keys(expected).length
+      && Object.entries(expected).every(([key, value]) => target.searchParams.get(key) === value);
+    const boulderId = target.searchParams.get('id') ?? '';
+    const isReviewRead = method === 'GET' && !init?.body && !target.username && !target.password && !target.hash && (
+      (target.pathname === '/rest/v1/user_roles' && exactQuery({select: 'role', user_id: `eq.${ownerId}`, role: 'in.(setter,admin)', limit: '1'})) ||
+      (target.pathname === '/rest/v1/boulders' && /^eq\.[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(boulderId)
+        && exactQuery({id: boulderId, select: 'id,thumbnail_url,color,color_2,status,volume_only'}))
+    );
     const isRestUpload = target.origin === restOrigin && (
+      isReviewRead ||
       (target.pathname === '/rest/v1/upload_logs' && ['GET', 'POST', 'PATCH'].includes(method)) ||
       (target.pathname === '/rest/v1/boulders' && method === 'PATCH' && /^eq\..+/.test(target.searchParams.get('id') ?? '')) ||
       (['/rest/v1/rpc/begin_boulder_video_upload', '/rest/v1/rpc/fail_boulder_video_upload'].includes(target.pathname) && method === 'POST')

@@ -1,3 +1,4 @@
+import { thumbnailUploadFile } from '@/lib/thumbnailFocus';
 import { backendConfig } from '@/lib/backendConfig';
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -294,7 +295,7 @@ export default function SetterEditPage() {
       if (editorDraft.thumbFile) {
         const thumbSessionId = await startUpload(
           editorDraft.id,
-          editorDraft.thumbFile,
+          thumbnailUploadFile(editorDraft)!,
           "thumbnail",
           editorDraft.sectorId,
         );
