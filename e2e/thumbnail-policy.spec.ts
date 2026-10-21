@@ -18,6 +18,7 @@ async function prepare(page:Page,backend=api){
   if(url.origin===backend&&url.pathname==='/rest/v1/boulders'){
    expect(url.searchParams.get('select')).toContain('volume_only');return route.fulfill({json:rows});
   }
+  if(url.origin===backend&&url.pathname==='/rest/v1/boulder_thumbnail_sources')return route.fulfill({json:[]});
   if(url.origin===api&&url.pathname.endsWith('.png'))return route.fulfill({body:png,contentType:'image/png'});
   if(url.hostname==='127.0.0.1')return route.continue();
   return route.abort();
@@ -39,6 +40,13 @@ test('published variants and volume originals never reenter analysis or publicat
   const opening=indexedDB.open('kws-thumbnail-review-v1');opening.onerror=()=>reject(opening.error);
   opening.onsuccess=()=>{const db=opening.result,request=db.transaction('decisions').objectStore('decisions').count();request.onsuccess=()=>{db.close();resolve(request.result);};request.onerror=()=>reject(request.error);};
  }));expect(saved).toBe(0);
+});
+test('a variant edited on another device is protected by server source metadata without local receipts',async({page})=>{
+ const activity=await prepare(page);
+ await page.route('**/rest/v1/boulder_thumbnail_sources?*',route=>route.fulfill({json:[{boulder_id:'original',thumbnail_url:api+'/photos/original.png',original_url:api+'/photos/farboriginal.png'}]}));
+ await page.goto('/test/fixtures/thumbnail-policy.html');
+ await expect(page.getByText(/0 geprüft · 3 bereits online übernommen · 2 Originale geschützt/)).toBeVisible();
+ expect(activity.models).toBe(0);expect(activity.otherWrites).toBe(0);
 });
 for(const mode of ['native','review'])test(`${mode} analysis uses the configured API origin instead of the app localhost`,async({page})=>{
  const backend=mode==='review'?'https://review-api.kletterwelt-sauerland.de':api;

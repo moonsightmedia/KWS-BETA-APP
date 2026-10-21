@@ -1,3 +1,4 @@
+import { saveBoulderThumbnail } from '@/lib/editableThumbnail';
 import { thumbnailUploadFile } from '@/lib/thumbnailFocus';
 import { backendConfig } from '@/lib/backendConfig';
 import { useQueryClient } from "@tanstack/react-query";
@@ -275,13 +276,8 @@ export default function SetterEditPage() {
         note: editorDraft.note.trim() || null,
       };
 
-      // Keep existing media URLs while a new file uploads (upload job sets the new URL).
-      if (!editorDraft.videoFile) {
-        updates.beta_video_url = editorDraft.existingVideoUrl ?? null;
-      }
-      if (!editorDraft.thumbFile) {
-        updates.thumbnail_url = editorDraft.existingThumbnailUrl ?? null;
-      }
+      // Unchanged media needs no write. Replaying stale URLs would undo a
+      // concurrent edit or our own successful thumbnail transaction on retry.
 
       await updateBoulder.mutateAsync(updates);
 
@@ -293,13 +289,12 @@ export default function SetterEditPage() {
       const uploadSessionIds: string[] = [];
 
       if (editorDraft.thumbFile) {
-        const thumbSessionId = await startUpload(
-          editorDraft.id,
-          thumbnailUploadFile(editorDraft)!,
-          "thumbnail",
-          editorDraft.sectorId,
-        );
-        uploadSessionIds.push(thumbSessionId);
+        if (editorDraft.thumbnailSource || thumbnailUploadFile(editorDraft) !== editorDraft.thumbFile) {
+          await saveBoulderThumbnail(editorDraft, colorName, colorName2);
+        } else {
+          const thumbSessionId = await startUpload(editorDraft.id, editorDraft.thumbFile, 'thumbnail', editorDraft.sectorId);
+          uploadSessionIds.push(thumbSessionId);
+        }
       }
 
       if (editorDraft.videoFile) {
