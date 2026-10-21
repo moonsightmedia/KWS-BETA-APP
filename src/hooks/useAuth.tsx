@@ -12,7 +12,7 @@ import { SessionRecoveryDialog } from '@/components/SessionRecoveryDialog';
 import { Capacitor } from '@capacitor/core';
 import { emailRedirectUrl } from '@/lib/emailAuth';
 import { accountBirthDateError } from '@/lib/accountEligibility';
-import { reportSessionLoss, trackAuthenticationFailure, trackMonitoring } from '@/utils/monitoring';
+import { reportMonitoringError, reportSessionLoss, trackAuthenticationFailure, trackMonitoring } from '@/utils/monitoring';
 
 const emailRedirect = (path: string) => emailRedirectUrl(path, Capacitor.isNativePlatform(), window.location.origin, backendConfig.authSiteUrl);
 
@@ -223,43 +223,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Log loading start
     console.log('[Auth] Loading started (reload check)');
     
-    // Set a timeout to ensure loading doesn't hang forever
-    // Only trigger if there's really no session - if user/session exists, give more time
+    // An unfinished SDK check is unknown, never proof of a guest session.
+    // Root provides the retry screen if initialization remains unavailable.
     const timeoutId = setTimeout(() => {
-      if (mounted) {
-        const duration = Date.now() - loadingStartTime;
-        // Only trigger timeout if there's no user or session
-        // If user/session exists, auth is still initializing and we should wait
-        if (!user && !session) {
-          console.warn(`[Auth] ⚠️ Timeout triggered (5s) - no session found, setting loading to false (duration: ${duration}ms)`);
-          setLoading(false);
-        } else {
-          // User/session exists but still loading - give more time (will be cleared by auth state change)
-          console.log(`[Auth] Timeout reached but user/session exists - waiting for auth state change (duration: ${duration}ms)`);
-        }
+      if (mounted && !sessionLoaded) {
+        const error = new Error('Die gespeicherte Sitzung konnte nicht rechtzeitig geprüft werden.');
+        error.name = 'AuthenticationInitializationTimeout';
+        reportMonitoringError(error, 'authentication');
       }
-    }, 5000); // 5 second timeout
-    
-    // Additional safety timeout: If still loading after 10 seconds, force reset
-    const safetyTimeoutId = setTimeout(() => {
-      if (mounted && loading && !sessionLoaded) {
-        console.error('[Auth] CRITICAL: Auth still loading after 10s - forcing reset');
-        setLoading(false);
-        // Do not clear a session that arrived while initialization was pending.
-        // Clear potentially corrupted session storage
-        try {
-          sessionStorage.removeItem('preserveRoute');
-          sessionStorage.removeItem('isRefreshing');
-        } catch (e) {
-          // Ignore storage errors
-        }
-      } else if (mounted && sessionLoaded) {
-        // Session already loaded, just ensure loading is false
-        console.log('[Auth] Safety timeout reached but session already loaded, ensuring loading=false');
-        setLoading(false);
-        clearTimeout(safetyTimeoutId);
-      }
-    }, 10000); // 10 second safety timeout
+    }, 5000);
 
     let subscription: { unsubscribe: () => void } | null = null;
     
@@ -288,7 +260,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               acceptSession(session);
               setLoading(false);
               clearTimeout(timeoutId);
-              clearTimeout(safetyTimeoutId);
               console.log(`[Auth] ✅ State updated: loading=false, user=${!!session?.user}, session=${!!session}`);
               
               // CRITICAL: After reload, check if roles are missing and refresh them
@@ -462,7 +433,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           acceptSession(session);
           setLoading(false);
           clearTimeout(timeoutId);
-          clearTimeout(safetyTimeoutId);
           console.log(`[Auth] ✅ State updated: loading=false, user=${!!session?.user}, session=${!!session}`);
         } else {
           // Session already loaded via onAuthStateChange, just update state
@@ -506,7 +476,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.warn('[Auth] Storage error in getSession (ignored):', error.message);
           setLoading(false);
           clearTimeout(timeoutId);
-          clearTimeout(safetyTimeoutId);
           return;
         }
         
@@ -515,21 +484,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.warn('[Auth] getSession timeout - continuing without session');
           setLoading(false);
           clearTimeout(timeoutId);
-          clearTimeout(safetyTimeoutId);
           return;
         }
         
         console.error('[Auth] Exception loading initial session:', error);
         setLoading(false);
         clearTimeout(timeoutId);
-        clearTimeout(safetyTimeoutId);
       }
     })();
 
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
-      clearTimeout(safetyTimeoutId);
       if (subscription) {
         try {
           subscription.unsubscribe();
@@ -657,12 +623,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (data.session?.user) {
+        acceptSession(data.session);
         await checkAndStoreRoles(data.session.user.id, data.session.access_token ?? '');
+      } else {
+        const missingSession = new Error('Der Anmeldedienst hat keine Sitzung zurückgegeben.');
+        missingSession.name = 'AuthenticationSessionMissing';
+        reportMonitoringError(missingSession, 'authentication');
+        throw missingSession;
       }
 
       toast.success('Erfolgreich angemeldet!');
       trackMonitoring('login_succeeded');
-      window.location.assign('/');
+      // Auth navigates after this transition settles. Keep the SDK and its
+      // newly accepted session alive instead of reloading the entire webview.
+      setAuthTransition(null);
     } catch (error) {
       trackAuthenticationFailure('login_failed', error);
       setAuthTransition(null);
