@@ -17,7 +17,7 @@ function Fixture() {
   state.thumbnailDraft = draft;
   const close = (next: boolean) => { setOpen(next); if (!next) setDraft(d => ({ ...d, thumbFile: null, thumbnailFocus: undefined, thumbnailSource: undefined })); };
   const submit = async () => {
-    const nextUrl = await saveBoulderThumbnail(draft, colors.find(c => c.id === draft.colorId)!.name, null);
+    const nextUrl = draft.thumbnailEdited === false ? undefined : await saveBoulderThumbnail(draft, colors.find(c => c.id === draft.colorId)!.name, null);
     setDraft(d => ({ ...d, existingThumbnailUrl: nextUrl || d.existingThumbnailUrl, thumbFile: null, thumbnailFocus: undefined, thumbnailSource: undefined }));
     setSaved('Boulder gespeichert'); setOpen(false);
   };

@@ -288,7 +288,7 @@ export default function SetterEditPage() {
 
       const uploadSessionIds: string[] = [];
 
-      if (editorDraft.thumbFile) {
+      if (editorDraft.thumbFile && editorDraft.thumbnailEdited !== false) {
         if (editorDraft.thumbnailSource || thumbnailUploadFile(editorDraft) !== editorDraft.thumbFile) {
           await saveBoulderThumbnail(editorDraft, colorName, colorName2);
         } else {
@@ -609,7 +609,8 @@ export default function SetterEditPage() {
             : undefined
         }
         onRetryLoad={() => void selectedAttributeQuery.refetch()}
-        isSubmitting={saving || selectedAttributeQuery.isLoading}
+        isSubmitting={saving}
+        isLoading={selectedAttributeQuery.isLoading}
         isDeleting={deleteBoulder.isPending}
       />
       <SetterSelectionBar

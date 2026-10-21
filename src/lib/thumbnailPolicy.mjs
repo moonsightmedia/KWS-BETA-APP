@@ -41,7 +41,7 @@ export function resolveThumbnailServiceBase({ enabled, path, native, review = fa
 export function focusedThumbnailFile(draft, enabled) {
   const focus = draft.thumbnailFocus;
   const key = `${draft.colorId}|${draft.colorId2 || ''}|${draft.volumeOnly === true}`;
-  return enabled && !draft.volumeOnly && focus?.mode === 'focus' && focus.confirmed === true && focus.result && focus.selected?.length
+  return enabled && !draft.volumeOnly && focus?.mode === 'focus' && focus.confirmed === true && focus.result && (focus.selected?.length || focus.result.base_thumbnail_url)
     && focus.outputFile instanceof Blob && focus.inputFile === draft.thumbFile && focus.inputKey === key
     ? focus.outputFile : draft.thumbFile;
 }

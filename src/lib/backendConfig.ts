@@ -2,6 +2,8 @@ import { BACKEND_ENVIRONMENT_KEY, environmentStorageKey, resolveBackendConfig, t
 
 let requested: string | null = null;
 try { requested = localStorage.getItem(BACKEND_ENVIRONMENT_KEY); } catch { /* Production is the default. */ }
+const localReviewOnly = import.meta.env.DEV && import.meta.env.VITE_LOCAL_REVIEW_ONLY === 'true';
+if (localReviewOnly) requested = 'review';
 export const backendConfig = resolveBackendConfig(import.meta.env, requested);
 export const isReviewEnvironment = backendConfig.environment === 'review';
 export const isReviewAvailable = import.meta.env.VITE_STORE_REVIEW_ENABLED === 'true'
@@ -11,6 +13,7 @@ export const backendStorageKey = (key: string) => environmentStorageKey(key, bac
 
 /** Called only after checking the session and active uploads; reload discards in-memory query data. */
 export function switchBackendEnvironment(environment: BackendEnvironment) {
+  if (localReviewOnly && environment !== 'review') throw new Error('Diese lokale App verwendet ausschließlich die getrennte Demoumgebung.');
   if (environment === 'review' && !isReviewAvailable) throw new Error('Die Demoumgebung ist nicht verfügbar.');
   localStorage.setItem(BACKEND_ENVIRONMENT_KEY, environment);
   sessionStorage.removeItem('preserveRoute');

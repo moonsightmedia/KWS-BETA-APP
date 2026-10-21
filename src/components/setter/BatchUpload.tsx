@@ -290,7 +290,7 @@ export function BatchUpload() {
           ...current,
           [boulder.id]: "Vorschaubild wird übertragen …",
         }));
-        if (thumbnailUploadFile(boulder) !== boulder.thumbFile) {
+        if (isThumbnailFocusEnabled() && boulder.thumbnailFocus?.result) {
           await saveBoulderThumbnail({ ...boulder, id: created.id, existingThumbnailUrl: null }, colorName, colorName2);
         } else {
           // An unchanged photo is already its own editing source. Retain the
