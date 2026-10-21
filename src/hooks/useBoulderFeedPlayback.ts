@@ -23,6 +23,7 @@ export function useBoulderFeedPlayback({ videoRef, boulder, enabled, paused, hol
   const timers = useRef(new Map<string, number>());
   const waiting = useRef(new Set<string>());
   const underruns = useRef(new Map<string, number[]>());
+  const pendingPlays = useRef(new WeakMap<HTMLVideoElement, { source: string | null; token: symbol }>());
   const bufferHint = useRef<{ show?: number; hide?: number; since: number; waiting: boolean }>({ since: 0, waiting: false });
   const attempts = useRef(new Map<string, { id: string; time: number; started: boolean; failed: boolean; complete: boolean }>());
   const current = useRef({ boulder, enabled, paused, holdRate, suspended, qualities });
@@ -67,32 +68,37 @@ export function useBoulderFeedPlayback({ videoRef, boulder, enabled, paused, hol
     remember(boulder.id); clearTimer(boulder.id); setError(false); setBlocked(false); startBuffering(boulder.id);
     setQualities(previous => ({ ...previous, [boulder.id]: next }));
   };
-  const fail = (id: string) => {
+  const fail = (id: string, reason = 'load_timeout') => {
     if (current.current.boulder?.id !== id) return;
     setError(true); stopBuffering(true); waiting.current.delete(id); clearTimer(id);
     const attempt = attempts.current.get(id);
     if (attempt?.failed) return;
     if (attempt) attempt.failed = true;
-    trackMonitoring('play_failed', { view_id: attempt?.id, error_code: 'feed_video_unavailable' }, id);
-    reportMonitoringError(new Error('Boulder-Videofeed: Video konnte nicht geladen werden.'), 'video_player');
+    trackMonitoring('play_failed', { view_id: attempt?.id, error_code: reason }, id);
+    const failure = new Error('Boulder-Videofeed: Video konnte nicht geladen werden.');
+    failure.name = 'FeedVideo_' + reason;
+    reportMonitoringError(failure, 'video_feed');
   };
-  const fallback = (id: string) => {
+  const fallback = (id: string, reason = 'load_timeout') => {
     const item = current.current.boulder;
     if (!item || item.id !== id || !current.current.enabled) return;
     const previous = getPreferredVideoQuality(item.betaVideoUrls, item.betaVideoUrl, current.current.qualities[id] ?? preferred);
     const lower = getNextLowerVideoQuality(previous, item.betaVideoUrls);
     if (lower && getVideoUrl(item.betaVideoUrls, item.betaVideoUrl, lower) !== getVideoUrl(item.betaVideoUrls, item.betaVideoUrl, previous)) {
       remember(id); clearTimer(id); waiting.current.delete(id); setQualities(values => ({ ...values, [id]: lower })); startBuffering(id); setError(false);
-    } else fail(id);
+    } else fail(id, reason);
   };
   const request = (id: string) => {
     if (attempts.current.has(id) || !canPlay(id)) return;
     const attempt = { id: crypto.randomUUID(), time: performance.now(), started: false, failed: false, complete: false };
     attempts.current.set(id, attempt); trackMonitoring('play_requested', { view_id: attempt.id }, id);
   };
-  const waitForBuffer = (id: string) => {
+  const waitForBuffer = (id: string, pauseForRecovery = true) => {
     if (!canPlay(id)) return;
-    nodes.current.get(id)?.pause(); waiting.current.add(id); startBuffering(id);
+    // A paused Safari video may only preload a few frames. Request initial
+    // playback before demanding headroom; pause only to recover a real underrun.
+    if (pauseForRecovery && attempts.current.get(id)?.started) nodes.current.get(id)?.pause();
+    waiting.current.add(id); startBuffering(id);
     if (timers.current.has(id)) return;
     const started = attempts.current.get(id)?.started ?? false;
     timers.current.set(id, window.setTimeout(() => {
@@ -104,11 +110,20 @@ export function useBoulderFeedPlayback({ videoRef, boulder, enabled, paused, hol
     const node = nodes.current.get(id);
     if (!node || !canPlay(id)) { node?.pause(); return; }
     request(id);
-    if (!hasBuffer(node)) { waitForBuffer(id); return; }
-    waiting.current.delete(id); clearTimer(id);
+    const started = attempts.current.get(id)?.started ?? false;
+    if (started && !hasBuffer(node)) { waitForBuffer(id); return; }
     if (!node.paused) return;
+    // Keep the watchdog until `playing`, including an unresolved play promise.
+    waitForBuffer(id, false);
     const requestedSource = node.getAttribute('src');
-    void node.play().catch(failure => { if (canPlay(id) && node.getAttribute('src') === requestedSource && failure?.name !== 'AbortError') { setBlocked(true); stopBuffering(true); } });
+    if (pendingPlays.current.get(node)?.source === requestedSource) return;
+    const pending = Symbol(); pendingPlays.current.set(node, { source: requestedSource, token: pending });
+    void node.play().catch(failure => {
+      if (pendingPlays.current.get(node)?.token !== pending || !canPlay(id) || node.getAttribute('src') !== requestedSource || failure?.name === 'AbortError') return;
+      if (failure?.name === 'NotAllowedError') {
+        clearTimer(id); waiting.current.delete(id); setBlocked(true); stopBuffering(true);
+      } else fallback(id, 'play_rejected');
+    }).finally(() => { if (pendingPlays.current.get(node)?.token === pending) pendingPlays.current.delete(node); });
   };
   const register = (id: string) => {
     let callback = callbacks.current.get(id);
@@ -135,7 +150,7 @@ export function useBoulderFeedPlayback({ videoRef, boulder, enabled, paused, hol
   }, [boulder?.id, enabled, paused, holdRate, suspended, source]);
   useEffect(() => () => { clearTimeout(bufferHint.current.show); clearTimeout(bufferHint.current.hide); timers.current.forEach(clearTimeout); nodes.current.forEach(node => { node.pause(); node.removeAttribute('src'); node.load(); }); }, []);
   return { videoRef, register, sourceFor, quality, changeQuality, progress, error, blocked, buffering,
-    retry: () => { if (!boulder) return; remember(boulder.id); clearTimer(boulder.id); attempts.current.delete(boulder.id); setError(false); setBlocked(false); startBuffering(boulder.id); videoRef.current?.load(); play(boulder.id); },
+    retry: () => { if (!boulder) return; remember(boulder.id); clearTimer(boulder.id); attempts.current.delete(boulder.id); if (videoRef.current) pendingPlays.current.delete(videoRef.current); setError(false); setBlocked(false); startBuffering(boulder.id); videoRef.current?.load(); play(boulder.id); },
     play: () => { if (boulder) play(boulder.id); },
     events: (id: string) => ({
       onLoadedMetadata: (event: React.SyntheticEvent<HTMLVideoElement>) => {
@@ -177,7 +192,7 @@ export function useBoulderFeedPlayback({ videoRef, boulder, enabled, paused, hol
         const attempt = attempts.current.get(id);
         if (value > .95 && attempt && !attempt.complete) { attempt.complete = true; trackMonitoring('play_completed', { view_id: attempt.id }, id); }
       },
-      onError: () => { if (nodes.current.get(id)?.isConnected && current.current.enabled && current.current.boulder?.id === id) fallback(id); },
+      onError: () => { if (nodes.current.get(id)?.isConnected && canPlay(id)) fallback(id, 'media_error_' + (nodes.current.get(id)?.error?.code ?? 0)); },
     }),
   };
 }

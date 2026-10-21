@@ -2,6 +2,18 @@
 
 ## Implementierter Stand
 
+### Korrektur von Anmeldung, Feed und Diagnose am 21.10.2026
+
+Normales Abmelden betrifft nur das aktuelle Gerät. Technische Fehlerberichte
+werden unabhängig von der Kontositzung minimiert übermittelt, damit auch ein
+Sitzungsverlust diagnostizierbar bleibt. Die lokale Warteschlange bleibt nach
+Konten getrennt; Nutzungsereignisse behalten ihre angemeldete Identität.
+Diagnosen verändern keine bestehende Sitzungszuordnung. Echte Admin-Fehler
+werden einschließlich vorhandener Historie angezeigt, Admin-Nutzung und
+development/test bleiben aus den Nutzungszahlen ausgeschlossen. Die Migration
+erzeugt keine rückwirkenden Alarme. Details und Prüfgrenzen stehen in
+[der Abnahme](qa/2026-10-21-auth-feed-diagnostics.md).
+
 Der veröffentlichte Adminbereich `Monitoring` enthält Übersicht, Fehler, Nutzung,
 Mitteilungen und Aktivität. Uploadübersicht und Uploaddiagnose bleiben erhalten.
 Web und native Releases haben getrennte Abnahmen; ein erfolgreicher Webrelease

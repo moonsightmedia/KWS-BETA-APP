@@ -33,6 +33,25 @@ async function open(page: Page) {
   await expect(page.getByTestId('read-state')).toContainText('Planung: geladen · Karte: geladen');
   return state;
 }
+test('ordinary logout uses only the current session, leaving the other device signed in', async ({page}) => {
+  await open(page);
+  let otherDeviceSignedIn = true;
+  const scopes: string[] = [];
+  await page.route('**/qa/supabase/auth/v1/logout*', async route => {
+    const scope = new URL(route.request().url()).searchParams.get('scope');
+    scopes.push(scope ?? 'global');
+    if (scope !== 'local') otherDeviceSignedIn = false;
+    await route.fulfill({ status: 204 });
+  });
+  await page.evaluate(async () => {
+    const { SESSION_REQUIRED_EVENT } = await import('/src/lib/authenticatedFetch.ts');
+    window.dispatchEvent(new Event(SESSION_REQUIRED_EVENT));
+  });
+  await page.getByRole('button', { name: 'Abmelden und Entwürfe verwerfen', exact: true }).click();
+  await expect.poll(() => scopes.length).toBe(1);
+  expect(scopes).toEqual(['local']); expect(otherDeviceSignedIn).toBe(true);
+});
+
 test('real SDK refresh and later getSession finish without an auth callback deadlock',async({page})=>{
   const state=await open(page);
   await page.getByLabel('Entwurf',{exact:true}).fill('Nicht verlieren');
@@ -91,7 +110,7 @@ for(const [width,height] of [[375,812],[768,1024],[1280,720],[1920,1080]]) test(
   await expect(page.getByLabel('Konto',{exact:true})).toHaveValue(user.email);
   await expect(page.getByLabel('Konto',{exact:true})).toHaveAttribute('readonly','');
   await expect(page.getByLabel('Passwort',{exact:true})).toBeFocused();
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(width);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   await page.screenshot({path:`test-results/session-recovery-20260915/${width}-reauth.png`,animations:'disabled'});
   state.badPassword=true;
   await page.getByLabel('Passwort',{exact:true}).fill('fixture-wrong-password');

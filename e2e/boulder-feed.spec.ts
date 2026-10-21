@@ -541,6 +541,56 @@ test('swiping preserves image size and moves boulder actions inside a stationary
   await expect(page.locator('.reel-page[data-active=false] video')).toHaveJSProperty('paused', true);
 });
 
+test('initial playback starts with limited preload across feed changes and detail return', async ({ page }) => {
+  const db = await backend(page); db.comments.length = 0;
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.addInitScript(() => {
+    Object.defineProperty(HTMLMediaElement.prototype, 'buffered', { configurable: true, get() {
+      return { length: 1, start: () => 0, end: () => this.currentTime + .2 };
+    } });
+  });
+  await enter(page);
+  const reel = page.locator('.kws-feed .reel');
+  const sequence = ['feed-a', 'feed-b', 'feed-a', 'feed-b', 'feed-a'];
+  for (const [index, id] of sequence.entries()) {
+    await expect(frame(page)).toHaveAttribute('data-boulder-id', id);
+    const video = frame(page).locator('video');
+    await expect(video).toHaveJSProperty('paused', false);
+    await expect.poll(() => video.evaluate(node => node.currentTime)).toBeGreaterThan(.1);
+    expect(await page.locator('.reel-page[data-active=false] video').evaluateAll(nodes => nodes.every(node => (node as HTMLVideoElement).paused))).toBe(true);
+    if (index < sequence.length - 1) { await reel.focus(); await page.keyboard.press(index % 2 === 0 ? 'ArrowDown' : 'ArrowUp'); }
+  }
+  await frame(page).locator('.boulder-title').click();
+  await expect(page.locator('[data-boulder-detail-scroll]')).toBeVisible();
+  await page.goBack();
+  await expect(page.locator('[data-boulder-detail-scroll]')).toHaveCount(0);
+  await expect(frame(page).locator('video')).toHaveJSProperty('paused', false);
+  await expect(page.getByText('Video gerade nicht verfügbar', { exact: true })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('initial play is requested even when paused preload exposes only current data', async ({ page }) => {
+  await backend(page);
+  await page.addInitScript(() => Object.defineProperty(HTMLMediaElement.prototype, 'readyState', { configurable: true, get: () => 2 }));
+  await page.goto('/test/fixtures/boulder-feed.html#/boulders');
+  await page.getByRole('button', { name: 'Videoansicht', exact: true }).click();
+  const video = frame(page).locator('video');
+  await expect(video).toHaveJSProperty('paused', false);
+  await expect.poll(() => video.evaluate(node => node.currentTime)).toBeGreaterThan(.1);
+});
+
+test('an unresolved initial play reaches the error state and explicit retry recovers', async ({ page }) => {
+  await backend(page); await enter(page);
+  const next = page.locator('.reel-page[data-boulder-id=feed-b] video');
+  await next.evaluate(node => { node.play = () => new Promise(() => {}); });
+  await page.locator('.kws-feed .reel').focus(); await page.keyboard.press('ArrowDown');
+  await expect(frame(page)).toHaveAttribute('data-boulder-id', 'feed-b');
+  await expect(page.getByText('Video gerade nicht verfügbar', { exact: true })).toBeVisible({ timeout: 20000 });
+  await next.evaluate(node => { delete (node as unknown as Record<string, unknown>).play; });
+  await page.getByRole('button', { name: /Erneut versuchen/ }).click();
+  await expect(next).toHaveJSProperty('paused', false);
+});
+
 test('brief stalls stay quiet and repeated insufficient buffer waits for playable headroom', async ({ page }) => {
   await backend(page); await enter(page);
   const video = frame(page).locator('video');
