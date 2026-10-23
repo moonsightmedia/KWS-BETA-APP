@@ -4,11 +4,12 @@ import type { SetterDashboardData } from '@/lib/setterDashboard';
 type Summary = ReturnType<typeof summarizeDashboard>;
 export const MIN_REVIEW_VOTES = 5;
 export function dashboardAreas(data?: SetterDashboardData) {
-  return [...new Set([...(data?.knownAreas ?? []), ...data?.boulders.flatMap(b => b.areas) ?? []])].sort((a, b) => a.localeCompare(b, 'de'));
+  return [...new Set([...(data?.knownAreas ?? []),
+    ...[...new Set(data?.boulders.flatMap(b => b.areas) ?? [])].sort((a, b) => a.localeCompare(b, 'de'))])];
 }
 export type ReviewSignal = { kind: 'grade' | 'rating' | 'missing'; label: string; evidence: string };
 
-/** Provisional review rules, visible in the draft. They never modify a boulder. */
+/** Read-only review hints; thresholds are explained in the dashboard's data dialog. */
 export function reviewDashboard(summary: Summary, now: number) {
   const rows = summary.rows.map(row => {
     const created = row.createdAt ? Date.parse(row.createdAt) : NaN;

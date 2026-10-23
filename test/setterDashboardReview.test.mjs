@@ -54,6 +54,6 @@ test('search, unknown grade and feedback view intersect without changing overvie
 });
 test('known empty hall areas remain selectable and do not invent boulders', () => {
   const data = { knownAreas: ['Kurze Platte', 'Bug'], boulders: [boulder('one')], ratings: [], grades: [], comments: [] };
-  assert.deepEqual(dashboardAreas(data), ['Bug', 'Kurze Platte']);
+  assert.deepEqual(dashboardAreas(data), ['Kurze Platte', 'Bug']);
   assert.equal(summarizeDashboard(data, 'Kurze Platte').rows.length, 0);
 });

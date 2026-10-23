@@ -23,7 +23,10 @@ export type SetterDashboardData = {
 export function summarizeDashboard(data: SetterDashboardData, area = 'all') {
   const boulders = [...new Map(data.boulders.map(b => [b.id, b])).values()]
     .filter(b => area === 'all' || b.areas.includes(area));
-  const rows = boulders.map(boulder => ({ ...boulder, ratingCount: 0, ratingSum: 0, commentCount: 0,
+  const rows = boulders.map(boulder => ({ ...boulder,
+    difficulty: typeof boulder.difficulty === 'number' && Number.isInteger(boulder.difficulty)
+      && boulder.difficulty >= 1 && boulder.difficulty <= 8 ? boulder.difficulty : null,
+    ratingCount: 0, ratingSum: 0, commentCount: 0,
     votes: { too_easy: 0, just_right: 0, too_hard: 0 } }));
   const index = new Map(rows.map(row => [row.id, row]));
   const stars = [0, 0, 0, 0, 0];

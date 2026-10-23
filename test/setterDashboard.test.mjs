@@ -32,6 +32,12 @@ test('unrated is null, invalid stars and orphan feedback are excluded', () => {
   const empty = summarizeDashboard({ boulders: [], ratings: [], grades: [], comments: [] });
   assert.equal(empty.average, null); assert.equal(empty.covered, 0);
 });
+
+test('malformed grades remain visible in the unknown bucket', () => {
+  const summary = summarizeDashboard({ boulders: [boulder('invalid', 12, ['Bug']), boulder('fraction', 4.5, ['Bug'])], ratings: [], grades: [], comments: [] });
+  assert.equal(summary.distribution.find(row => row.grade === null).count, 2);
+  assert.equal(summary.distribution.reduce((total, row) => total + row.count, 0), summary.rows.length);
+});
 test('server-capped pages are fully read through an empty page', async () => {
   const calls = []; const pages = [[{ id: 'a' }], [{ id: 'b' }], []];
   const result = await readDashboardRows('/rows?select=id', async path => { calls.push(path); return pages.shift(); });

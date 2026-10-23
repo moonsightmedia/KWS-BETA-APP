@@ -19,11 +19,17 @@ export default defineConfig({
       const collections = { '/boulders': dashboardBoulders, '/sectors': dashboardSectors, '/boulder_ratings': dashboardRatings, '/boulder_grade_feedback': dashboardGrades, '/boulder_comments': dashboardComments };
       const variant = url.searchParams.get('qa_design') === 'v2'
         ? { ...collections, '/boulders': v2Boulders, '/sectors': v2Sectors, '/boulder_ratings': v2Ratings, '/boulder_grade_feedback': v2Grades, '/boulder_comments': v2Comments } : collections;
-      const data = variant[url.pathname as keyof typeof variant] ?? [];
+      const catalog = variant['/sectors'].map(sector => sector.area);
+      // The final fixture includes a real catalog entry without any sector row.
+      const isFinal = !['v1', 'v2', 'v3', 'v4'].includes(url.searchParams.get('qa_design_view') ?? '');
+      const collection = url.pathname === '/sector_areas' ? catalog : (variant[url.pathname as keyof typeof variant] ?? []);
+      const activeFilter = url.searchParams.get('boulder_id')?.match(/^in\.\((.*)\)$/)?.[1].split(',');
+      const data = isFinal && url.pathname === '/sectors' ? collection.filter(row => row.id !== 'sector-empty') : collection;
       const cursor = url.searchParams.get('id')?.replace(/^gt\./, '');
       // Smaller server cap deliberately verifies pagination beyond short pages.
-      const rows = [...data].sort((a, b) => a.id.localeCompare(b.id)).filter(row => !cursor || row.id > cursor).slice(0, 73);
-      const send = () => res.end(JSON.stringify(state === 'empty' ? [] : rows));
+      const rows = [...data].filter(row => !activeFilter || ('boulder_id' in row && activeFilter.includes(row.boulder_id))).sort((a, b) => a.id.localeCompare(b.id)).filter(row => !cursor || row.id > cursor).slice(0, 73);
+      const noFeedback = state === 'no-feedback' && /boulder_(ratings|grade_feedback|comments)$/.test(url.pathname);
+      const send = () => res.end(JSON.stringify(state === 'empty' || noFeedback ? [] : rows));
       if (state === 'loading') setTimeout(send, 4000); else send();
     });
   } }],
