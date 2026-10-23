@@ -488,7 +488,8 @@ export const Sidebar = ({ className }: SidebarProps) => {
           aria-label="Hauptnavigation"
           data-compact={isMobileNavCompact}
           className={cn(
-            "fixed left-1/2 z-[110] w-[calc(100%-2.5rem)] -translate-x-1/2 overflow-hidden rounded-kws-card bg-card/95 shadow-[0_5px_15px_rgba(0,33,85,0.10)] backdrop-blur-xl transition-[max-width,height,box-shadow] duration-300 ease-out motion-reduce:transition-none md:hidden",
+            "fixed left-1/2 z-[110] -translate-x-1/2 overflow-hidden rounded-kws-card bg-card/95 shadow-[0_5px_15px_rgba(0,33,85,0.10)] backdrop-blur-xl transition-[max-width,height,box-shadow] duration-300 ease-out motion-reduce:transition-none md:hidden",
+            mobileNavItems.length > 4 ? "w-[calc(100%-1.5rem)]" : "w-[calc(100%-2.5rem)]",
             isMobileNavCompact ? "h-14" : "h-[68px]"
           )}
           style={{
@@ -498,7 +499,10 @@ export const Sidebar = ({ className }: SidebarProps) => {
               : '440px',
           }}
         >
-          <div className="flex h-full items-stretch px-1.5">
+          <div
+            className={cn("grid h-full items-stretch", mobileNavItems.length > 4 ? "px-1" : "px-1.5")}
+            style={{ gridTemplateColumns: `repeat(${mobileNavItems.length}, minmax(0, 1fr))` }}
+          >
             {mobileNavItems.map((item) => {
               // Check if active based on pathname and query params
               const searchParams = new URLSearchParams(location.search);
@@ -531,7 +535,8 @@ export const Sidebar = ({ className }: SidebarProps) => {
                   aria-label={item.label}
                   aria-current={isActive ? 'page' : false}
                   className={cn(
-                    "group flex min-w-0 flex-1 flex-col items-center justify-center px-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+                    "group flex min-w-0 flex-col items-center justify-center text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+                    mobileNavItems.length > 4 ? "px-0" : "px-1",
                     isMobileNavCompact ? "gap-0" : "gap-0.5"
                   )}
                 >
@@ -549,7 +554,8 @@ export const Sidebar = ({ className }: SidebarProps) => {
                   <span
                     aria-hidden="true"
                     className={cn(
-                      "max-w-[72px] overflow-hidden truncate text-[11px] font-semibold leading-4 transition-[max-height,opacity,transform] duration-200 motion-reduce:transition-none",
+                      "block w-full min-w-0 max-w-full truncate font-semibold leading-4 transition-[max-height,opacity,transform] duration-200 motion-reduce:transition-none",
+                      mobileNavItems.length > 4 ? "text-[10px] min-[375px]:text-[11px]" : "text-[11px]",
                       isActive ? "text-primary-ink" : "text-muted-foreground",
                       isMobileNavCompact
                         ? "max-h-0 translate-y-1 opacity-0"

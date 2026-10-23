@@ -38,3 +38,9 @@ Belege: `browser-results.json`, `dropdown-*.png`, `dialog-*.png`, `detail-fixed-
 ## Grenzen
 
 Browserprüfung mit lokal synthetischen REST-Daten. Kein Test mit echten Konten/Produktionsdaten, kein physischer iOS-/Androidtest. Keine Datenbankmigration, kein Push und keine Veröffentlichung. Notion-Projektseite live gelesen, Inhalt aufgrund Größe gekürzt und ein unbekannter Block; keine daraus abgeleitete Releasefreigabe. Maßgeblich für den neuen Entwurf ist der direkte Nutzerauftrag, Codebasis ist das frisch gefetchte Git-Repository.
+
+## Nachkorrektur – mobile Navigation
+
+Nutzerbild zeigt zusammengeschobene Beschriftungen bei fünf Setterzielen. Die bisherige Maximalbreite von 72px war unabhängig von der tatsächlich kleineren Linkspalte. Korrektur: gleich breite Gridspalten mit `minmax(0,1fr)`, Labelbreite strikt auf die Spalte begrenzt. Fünf Ziele nutzen 12px Seitenabstand und weniger Innenpadding; unter375px 10px statt11px Text. Alle fünf vollständigen Labels passen bei320px; Desktop bleibt unverändert.
+
+Zwei visuelle Schleifen: Layout bei320/350/375/390/768/1280/1920px; anschließend alle fünf aktiven Ziele bei320/375px angeklickt und `aria-current=page` bestätigt. Bei320px 57,6px Platz je Label, längstes Label56,78px; bei375px 68,64px Platz, längstes Label62,45px. Screenshots angesehen, Viewport anschließend zurückgesetzt und Dashboardvorschau offen gelassen. Keine neuen Tests für die reine Layoutkorrektur; ESLint und Releasebuild14,68s erfolgreich. Belege: `output/setter-dashboard/nav-fix-*` und `build-nav-fix.log`.
