@@ -303,6 +303,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
   const isSetterArea = location.pathname === '/setter' || location.pathname.startsWith('/setter/');
   const desktopNavGroups = useMemo(() => isSetterArea && stableIsSetter ? [
     { title: 'Setterbereich', visible: true, items: [
+      { icon: BarChart3, label: 'Dashboard', path: '/setter/dashboard' },
       { icon: Plus, label: 'Erstellen', path: '/setter/create' },
       { icon: Edit3, label: 'Bearbeiten', path: '/setter/edit' },
       { icon: CheckCircle2, label: 'Status', path: '/setter/status' },
@@ -338,6 +339,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
 
     if (isSetterArea && stableIsSetter) {
       return [
+        { icon: BarChart3, label: 'Dashboard', path: '/setter/dashboard' },
         { icon: Plus, label: 'Erstellen', path: '/setter/create' },
         { icon: Edit3, label: 'Bearbeiten', path: '/setter/edit' },
         { icon: CheckCircle2, label: 'Status', path: '/setter/status' },

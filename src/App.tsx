@@ -36,6 +36,7 @@ import Setter from "./pages/Setter";
 import SetterCreatePage from "./pages/setter/SetterCreatePage";
 import SetterEditPage from "./pages/setter/SetterEditPage";
 import SetterSchedulePage from "./pages/setter/SetterSchedulePage";
+import SetterDashboardPage from "./pages/setter/SetterDashboardPage";
 import SetterStatusPage from "./pages/setter/SetterStatusPage";
 import Guest from "./pages/Guest";
 import Competition from "./pages/Competition";
@@ -458,6 +459,7 @@ const router = createBrowserRouter([
           { path: "edit", element: <SetterEditPage /> },
           { path: "status", element: <SetterStatusPage /> },
           { path: "schedule", element: <SetterSchedulePage /> },
+          { path: "dashboard", element: <SetterDashboardPage /> },
         ],
       },
       { path: "guest", element: <GuestOverviewRoute /> },

@@ -10,6 +10,8 @@ import { useHasRole } from '@/hooks/useHasRole';
 
 export const setterLegacyViewToPath = (view: string | null | undefined) => {
   switch (view) {
+    case 'dashboard':
+      return '/setter/dashboard';
     case 'edit':
       return '/setter/edit';
     case 'status':
