@@ -5,6 +5,6 @@ export async function supabaseRestRequest<T>(path: string, options: Parameters<t
   const url = new URL(path, location.origin);
   if (state) url.searchParams.set('qa_state', state);
   // Comparison links use identical examples, so data changes do not bias the UI review.
-  if (['v1', 'v2', 'v3'].includes(new URLSearchParams(location.search).get('design') ?? '')) url.searchParams.set('qa_design', 'v2');
+  if (['v1', 'v2', 'v3', 'v4'].includes(new URLSearchParams(location.search).get('design') ?? '')) url.searchParams.set('qa_design', 'v2');
   return realRequest<T>(`${url.pathname}${url.search}`, options);
 }
