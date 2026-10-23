@@ -2590,3 +2590,39 @@ Veröffentlichungsfreigabe am 21.10.2026: Nutzer hat die vollständige lokale Ap
 - Erstellen wählt alle gelieferten passenden Griffregionen. Antippen und Freihandkontur direkt unter den Farben; Loslassen übernimmt eine gültige Kontur. Ein gemeinsamer Formularabschluss speichert Original, Auswahl und Variante. Die getrennte Sammelprüfung behält ihre ausdrückliche Online-Freigabe.
 - Bearbeiten zeigt das gespeicherte Bild sofort und lädt seine Bearbeitungsdaten automatisch, ohne neue Analyse und ohne Schreibaktion. Bloßes Öffnen und Metadaten-Speichern lädt kein Bild erneut hoch. Historische Bilder ohne Geometrie verwenden die tatsächlichen veröffentlichten Pixel als bleibende Grundlage; nur explizit korrigierte Regionen werden ergänzt oder entfernt. Originalvergleich und Vergrößern ändern keine Auswahl.
 - Kompakte Bildhöhe mit optionaler Vergrößerung im selben Formular, sichtbarer Speicherfuß, keine verschachtelten Dialoge. Grayscale-Rendering explizit über Pixelluminanz für Safari/WebKit, statt des dort unzuverlässigen Canvas-Filters. QA: `docs/qa/2026-10-21-thumbnail-real-app.md`.
+
+### Setter-Dashboard – Nutzerpräzisierung 23.10.2026
+
+- Die Hauptansicht konzentriert sich auf Bestand, Rückmeldungen und konkrete
+  Prüfanlässe. Zusatzzeilen wie „23 seit mindestens 7 Tagen angelegt“ und der
+  allgemeine Hinweis, dass App-Feedback nicht alle Hallenbesucher abbildet,
+  entfallen dort auf ausdrücklichen Nutzerwunsch. Messdefinitionen bleiben
+  bei Bedarf im Infozugang erreichbar.
+- Normale Listenzeilen wiederholen keinen Status „Kein Hinweis“. Nur konkrete
+  Prüfanlässe erhalten eine Hervorhebung; die Stimmenzahl bleibt sichtbar.
+- Für die Hallenbereichsauswahl sind bedienbare Alternativen zum Dropdown
+  gewünscht. Bereichsleiste und nativer Swipe-Kopf sind lokale Vorschläge,
+  noch keine bestätigte allgemeine Navigationsregel. Gesten behalten direkte
+  Buttons und Tastaturalternativen; vertikales Scrollen bleibt frei.
+- Diese Präzisierung ist keine Integrations- oder Veröffentlichungsfreigabe.
+  Historische Entwürfe bleiben als Vergleich erhalten. Aktuelle Vorschläge:
+  `docs/design/setter-dashboard/v4/`.
+
+### Setter-Dashboard – Abschluss für Pull-Request am 23.10.2026
+
+Der anschließende Nutzerauftrag verlangt die vollständige Überarbeitung und einen
+Pull-Request. Der zuletzt gezeigte native Swipe-Kopf ist die Grundlage der
+Integration in `/setter/dashboard`; eine automatische Kombination mit der
+Bereichsleiste wurde nicht beauftragt. Der Auftrag umfasst keinen Merge/Release.
+
+- Bereichsname und Position genügen im Kopf; Bestandszahl nicht wiederholen.
+  Native Scroll-Snap-Gesten behalten Pfeile und Tastatur als direkte Alternativen.
+- Bestand und Feedback zuerst, konkrete Prüfanlässe danach, einzelne Boulder
+  darunter. Keine Altersdiagnosen, generischen Disclaimer oder Leerstatus-Badges.
+  Zählregeln über die Infoaktion, ohne erklärenden Hauptansichts-Fußtext.
+- Leere Bereiche erhalten einen kurzen Leerzustand mit Rückweg zur ganzen Halle,
+  ohne Null-Kennzahlen und unwirksame Such-/Sortiersteuerung. Fehlende Bewertungen
+  und Abruffehler werden nicht als Nullbewertungen dargestellt.
+- Desktopwerte und Tabellenkopf verwenden dieselben Spalten. Kleine Flächen
+  zeigen kompakte Listenzeilen und optional aufklappbare Bewertungsdetails.
+  QA und Grenzen: `docs/qa/2026-10-23-setter-dashboard-final.md`.

@@ -10,6 +10,8 @@ import { useHasRole } from '@/hooks/useHasRole';
 
 export const setterLegacyViewToPath = (view: string | null | undefined) => {
   switch (view) {
+    case 'dashboard':
+      return '/setter/dashboard';
     case 'edit':
       return '/setter/edit';
     case 'status':
@@ -55,5 +57,6 @@ export const SetterAreaLayout = () => {
     return <DashboardPageLayout><div className="space-y-4"><SetterState title="Kein Zugriff auf den Setterbereich" description="Für diese Seiten brauchst du eine Setter- oder Adminfreigabe." /><Button variant="secondary" onClick={() => navigate('/')}>Zurück zur App</Button></div></DashboardPageLayout>;
   }
   const isCreatePage = location.pathname.replace(/\/+$/, '') === '/setter/create';
-  return <DashboardPageLayout rightSlot={isCreatePage ? undefined : <UploadOverview placement="header" />}><Outlet /></DashboardPageLayout>;
+  const isDashboardPage = location.pathname.replace(/\/+$/, '') === '/setter/dashboard';
+  return <DashboardPageLayout rightSlot={isCreatePage || isDashboardPage ? undefined : <UploadOverview placement="header" />}><Outlet /></DashboardPageLayout>;
 };

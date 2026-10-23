@@ -36,6 +36,7 @@ const getPageTitle = (pathname: string, setterTabTitle?: string, adminTabTitle?:
   if (pathname === '/setter/edit') return 'Bearbeiten';
   if (pathname === '/setter/status') return 'Status';
   if (pathname === '/setter/schedule') return 'Planung';
+  if (pathname === '/setter/dashboard') return 'Dashboard';
   if (pathname === '/schedule') return 'Schraubplan';
   if (pathname === '/setter' && setterTabTitle) return setterTabTitle;
   if (pathname === '/admin' && adminTabTitle) return adminTabTitle;
