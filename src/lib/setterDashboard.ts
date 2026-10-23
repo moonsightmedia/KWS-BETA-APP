@@ -7,11 +7,13 @@ export type DashboardBoulder = {
   sector: string;
   areas: string[];
   thumbnailUrl?: string;
+  createdAt?: string;
 };
 export type DashboardRating = { id: string; boulder_id: string; rating: number };
 export type DashboardGradeVote = { id: string; boulder_id: string; feedback: BoulderGradeFeedback };
-export type DashboardComment = { id: string; boulder_id: string };
+export type DashboardComment = { id: string; boulder_id: string; comment?: string; created_at?: string };
 export type SetterDashboardData = {
+  knownAreas?: string[];
   boulders: DashboardBoulder[];
   ratings: DashboardRating[];
   grades: DashboardGradeVote[];
